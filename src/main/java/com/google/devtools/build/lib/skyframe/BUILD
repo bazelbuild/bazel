@@ -2001,7 +2001,6 @@ java_library(
     srcs = ["ProgressSuppressingEventHandler.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/remote/common:lost_inputs_event",
     ],
 )
 
@@ -2360,6 +2359,8 @@ java_library(
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:rewound_action_outputs_available_event",
     ],
 )
 

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 
 /**
  * Suppresses {@link #post} when the provided {@link Postable} represents a progress event (denoted
@@ -32,9 +31,7 @@ final class ProgressSuppressingEventHandler implements ExtendedEventHandler {
 
   @Override
   public void post(Postable obj) {
-    // A LostInputsEvent isn't replayable, but still has to be delivered to ensure that rewound
-    // actions can recover their lost inputs by triggering further rewinding.
-    if (obj.storeForReplay() || obj instanceof LostInputsEvent) {
+    if (!obj.suppressOnRewind()) {
       delegate.post(obj);
     }
   }

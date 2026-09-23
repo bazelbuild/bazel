@@ -97,7 +97,9 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultM
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
+import com.google.devtools.build.lib.remote.common.RewoundActionOutputsAvailableEvent;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
@@ -803,19 +805,29 @@ public class RemoteExecutionService {
     // the build to abort and rewind, so there is no data race here. This allows us to avoid the
     // check until cache eviction happens.
     if (!knownMissingCasDigests.isEmpty()) {
-      var metadata =
-          result.getOrParseActionResultMetadata(
-              combinedCache,
-              digestUtil,
-              action.getRemoteActionExecutionContext(),
-              action.getRemotePathResolver());
+      ActionResultMetadata metadata;
+      try {
+        metadata =
+            result.getOrParseActionResultMetadata(
+                combinedCache,
+                digestUtil,
+                action.getRemoteActionExecutionContext(),
+                action.getRemotePathResolver());
+      } catch (CacheNotFoundException e) {
+        return null; // Handle dangling reference to lost Tree message as AC miss.
+      } catch (BulkTransferException e) {
+        if (!e.allCausedByCacheNotFoundException()) {
+          throw e;
+        }
+        return null;
+      }
 
       // If we already know digests referenced by this AC is missing from remote cache, ignore it so
       // that we can fall back to execution. This could happen when the remote cache is an HTTP
       // cache, or doesn't implement AC integrity check.
       //
       // See https://github.com/bazelbuild/bazel/issues/18696.
-      if (updateKnownMissingCasDigests(knownMissingCasDigests, metadata)) {
+      if (referencesKnownMissingCasDigest(knownMissingCasDigests, metadata)) {
         return null;
       }
     }
@@ -835,6 +847,28 @@ public class RemoteExecutionService {
       return PathFragment.create(outputPath);
     }
     return null;
+  }
+
+  /**
+   * Returns whether any digest referenced by {@code metadata} is in {@code knownMissingCasDigests}.
+   *
+   * <p>Unlike {@link #updateKnownMissingCasDigests}, this does not modify the set.
+   */
+  private static boolean referencesKnownMissingCasDigest(
+      Set<Digest> knownMissingCasDigests, ActionResultMetadata metadata) {
+    for (var file : metadata.files()) {
+      if (knownMissingCasDigests.contains(file.digest())) {
+        return true;
+      }
+    }
+    for (var entry : metadata.directories()) {
+      for (var file : entry.getValue().files()) {
+        if (knownMissingCasDigests.contains(file.digest())) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
@@ -2124,6 +2158,23 @@ public class RemoteExecutionService {
       // If build succeeded, clear knownMissingCasDigests in case there are missing digests from
       // other targets from previous builds which are not relevant anymore.
       knownMissingCasDigests.clear();
+    }
+  }
+
+  /**
+   * Forgets that a rewound action's outputs were missing, now that they have been
+   * regenerated and are available locally and/or remotely.
+   */
+  @Subscribe
+  public void onRewoundActionOutputsAvailable(RewoundActionOutputsAvailableEvent event) {
+    if (knownMissingCasDigests.isEmpty()) {
+        return; // Fast path
+    }
+    for (FileArtifactValue metadata : event.outputFileMetadata().values()) {
+      if (metadata.getDigest() != null) {
+        knownMissingCasDigests.remove(
+            DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize()));
+      }
     }
   }
 

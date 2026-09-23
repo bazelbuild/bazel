@@ -20,4 +20,9 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
  * An event sent when CAS objects were previously determined to exist remotely, but have since been
  * evicted.
  */
-public record LostInputsEvent(ImmutableSet<String> missingDigests) implements Postable {}
+public record LostInputsEvent(ImmutableSet<String> missingDigests) implements Postable {
+  @Override
+  public boolean suppressOnRewind() {
+    return false;
+  }
+}

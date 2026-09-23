@@ -54,6 +54,17 @@ java_library(
 )
 
 java_library(
+    name = "rewound_action_outputs_available_event",
+    srcs = ["RewoundActionOutputsAvailableEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
     name = "common",
     srcs = glob(
         ["*.java"],
@@ -62,6 +73,7 @@ java_library(
             "BulkTransferException.java",
             "CacheNotFoundException.java",
             "LostInputsEvent.java",
+            "RewoundActionOutputsAvailableEvent.java",
         ],
     ),
     visibility = [

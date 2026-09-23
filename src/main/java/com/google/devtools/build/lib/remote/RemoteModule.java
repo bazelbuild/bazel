@@ -1485,6 +1485,12 @@ public final class RemoteModule extends BlazeModule {
     return executorService;
   }
 
+  /** Returns how many digests are currently recorded as missing from the CAS. */
+  @VisibleForTesting
+  int getKnownMissingCasDigestsSize() {
+    return knownMissingCasDigests.size();
+  }
+
   @VisibleForTesting
   RepositoryRemoteHelpersFactory getRepositoryRemoteHelpersFactoryDelegate() {
     return repositoryRemoteHelpersFactoryDelegate;

@@ -338,6 +338,25 @@ public final class IntegrationTestUtils {
       return PathFragment.create(casBlobPath(digest).toString());
     }
 
+    /** Returns whether the blob with the given contents is present in the worker's CAS. */
+    public boolean hasCasBlob(byte[] contents) {
+      return Files.exists(Path.of(getCasBlobPath(contents).getPathString()));
+    }
+
+    /**
+     * Deletes every blob from the worker's CAS, while leaving the AC entries that
+     * reference them intact.
+     */
+    public void evictAllCasBlobs() throws IOException {
+      List<Path> toClear;
+      try (var stream = Files.list(casPath.resolve("cas"))) {
+        toClear = stream.toList();
+      }
+      for (var path : toClear) {
+        deleteTree(path);
+      }
+    }
+
     /**
      * Deletes the blob with the given contents from the worker's CAS, leaving all other state (in
      * particular action cache entries referencing the blob) intact.

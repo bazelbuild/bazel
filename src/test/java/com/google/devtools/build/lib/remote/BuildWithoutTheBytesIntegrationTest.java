@@ -15,15 +15,19 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper.rewoundArtifactOwnerLabels;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
@@ -33,7 +37,9 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
+import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -52,7 +58,45 @@ import org.junit.runner.RunWith;
 /** Integration tests for Build without the Bytes. */
 @RunWith(TestParameterInjector.class)
 public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesIntegrationTestBase {
+
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
+
+  private final RewindingTestsHelper rewindingTestsHelper =
+      new RewindingTestsHelper(this, new ActionEventRecorder());
+
+  /**
+   * Records how many digests {@code knownMissingCasDigests} holds when execution phase completes,
+   * which is before {@code onBuildComplete} may clear it.
+   */
+  private final class AtExecutionPhaseComplete {
+    private volatile int knownMissingCasDigestsSize = -1;
+
+    @Subscribe
+    public void onExecutionPhaseComplete(ExecutionPhaseCompleteEvent event) {
+      knownMissingCasDigestsSize = knownMissingCasDigestsSize();
+    }
+
+    /**
+     * Asserts that no lost digest was left in {@code knownMissingCasDigests}. Compares the
+     * sampled value rather than reading the set after the build, because {@code onBuildComplete}
+     * clears it and a live read would then pass even if individual rewinds had stranded digests.
+     */
+    void assertNoStaleKnownMissingCasDigests() {
+      assertThat(knownMissingCasDigestsSize).isEqualTo(0);
+    }
+  }
+
+  private final AtExecutionPhaseComplete atExecutionPhaseComplete = new AtExecutionPhaseComplete();
+
+  /** Returns how many digests are currently known as missing. */
+  private int knownMissingCasDigestsSize() {
+    for (BlazeModule module : getRuntime().getBlazeModules()) {
+      if (module instanceof RemoteModule remoteModule) {
+        return remoteModule.getKnownMissingCasDigestsSize();
+      }
+    }
+    throw new AssertionError("no RemoteModule in the runtime");
+  }
 
   @TestParameter public boolean useDiskCache;
   private Path diskCacheDir;
@@ -591,9 +635,77 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       // which in turn discovers the other lost input and rewinds //a:foo.
       write("a/baz.in", "baz2");
       setDownloadToplevel();
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys(); // Filled by next build
+      getRuntimeWrapper().registerSubscriber(atExecutionPhaseComplete);
+
       buildTarget("//a:baz");
 
+      // Each action shall be rewound exactly once, not more than once.
+      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:bar", "//a:foo");
+
       assertValidOutputFile("a/baz.out", "foobarbaz2\n");
+      atExecutionPhaseComplete.assertNoStaleKnownMissingCasDigests();
+    }
+  }
+
+  @Test
+  public void actionRewinding_localExecution_dropsLostDigests(
+      @TestParameter boolean uploadLocalResults) throws Exception {
+    // Verify that also locally re-executed actions can be rewound and leave no stale digests
+    // in knownMissingCasDigests, including when the blob was lost remotely and only regenerated
+    // locally, with --remote_upload_local_results=false.
+    var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = unverifiedWorker.start()) {
+      addOptions(
+          "--remote_executor=",
+          "--remote_cache=grpc://localhost:" + unverifiedWorker.getPort());
+      enableActionRewinding();
+      write(
+          "a/BUILD",
+          """
+          genrule(
+              name = "foo",
+              srcs = [],
+              outs = ["foo.out"],
+              cmd = "echo -n foo > $@",
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [
+                  ":foo.out",
+                  "bar.in",
+              ],
+              outs = ["bar.out"],
+              cmd = "cat $(location :foo.out) $(location bar.in) > $@",
+          )
+          """);
+      write("a/bar.in", "one");
+
+      buildTarget("//a:bar");
+
+      // Delete foo.out locally.
+      clean();
+      // Delete foo.out remotely, but keep the AC for foo.
+      unverifiedWorker.evictBlob("foo".getBytes(UTF_8));
+      // Invalidate //a:bar, so its execution finds foo.out lost and rewinds //a:foo.
+      write("a/bar.in", "two");
+      setDownloadToplevel();
+      if (useDiskCache) {
+        // Prevent the disk cache from restoring the deleted blobs.
+        addOptions("--disk_cache=" + UUID.randomUUID());
+      }
+      addOptions("--remote_upload_local_results=" + uploadLocalResults);
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys(); // Filled by next build
+      getRuntimeWrapper().registerSubscriber(atExecutionPhaseComplete);
+
+      buildTarget("//a:bar");
+
+      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:foo");
+      assertValidOutputFile("a/bar.out", "footwo\n");
+      assertThat(unverifiedWorker.hasCasBlob("foo".getBytes(UTF_8))).isEqualTo(uploadLocalResults);
+
+      atExecutionPhaseComplete.assertNoStaleKnownMissingCasDigests();
     }
   }
 
@@ -835,6 +947,78 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+  }
+
+  @Test
+  public void actionRewinding_lostTree(
+      @TestParameter boolean localExecution) throws Exception {
+    // Verify that a lost tree can be rewound, both the Tree message itself and its children.
+    //
+    // When Bazel processes an ActionResult that it accepts, it fetches any referenced Tree
+    // message, so a lost tree digest is detected and handled at that point.
+    //
+    // The tree digest itself never enters knownMissingCasDigests; only its children's do.
+    //
+    // In particular this test covers:
+    //   - CacheNotFoundException when a tree digest is lost.
+    //   - RewoundActionOutputsAvailableEvent populated with tree children.
+    //   - No stale digests left in knownMissingCasDigests.
+    //
+    // Parameterized over local and remote execution because RemoteSpawnRunner and
+    // RemoteSpawnCache handle BulkTransferException from lookupCache differently: only remote
+    // execution failed before this fix. No point in the disk cache parameterization.
+    assumeFalse(useDiskCache);
+    var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = unverifiedWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + unverifiedWorker.getPort());
+      setDownloadToplevel();
+      writeOutputDirRule();
+      write("BUILD");
+      write(
+          "a/BUILD",
+          """
+          load("//:output_dir.bzl", "output_dir")
+
+          output_dir(
+              name = "foo.out",
+              content_map = {"file-inside": "hello world"},
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [
+                  "foo.out",
+                  "bar.in",
+              ],
+              outs = ["bar.out"],
+              cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+          )
+          """);
+      write("a/bar.in", "bar");
+
+      buildTarget("//a:bar");
+
+      // Wipe remote CAS, including the tree message describing foo.out, but keep all AC entries.
+      unverifiedWorker.evictAllCasBlobs();
+
+      // Invalidate only //a:bar, so its execution finds foo.out lost and rewinds //a:foo.out.
+      write("a/bar.in", "updated bar");
+      if (localExecution) {
+        addOptions("--strategy_regexp=.*=local");
+      }
+      enableActionRewinding();
+      getRuntimeWrapper().registerSubscriber(atExecutionPhaseComplete);
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys(); // Filled by next build
+
+      buildTarget("//a:bar");
+
+      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:foo.out");
+      assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
+      // The child file digests shall only remain in knownMissingCasDigests while the
+      // rewind is ongoing. If the implementation would change and send LostInputsEvent
+      // for also the lost Tree message digest, then those should also not be stalled.
+      atExecutionPhaseComplete.assertNoStaleKnownMissingCasDigests();
+    }
   }
 
   @Test
