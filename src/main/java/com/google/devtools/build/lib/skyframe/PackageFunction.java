@@ -1106,7 +1106,7 @@ public abstract class PackageFunction implements SkyFunction {
                 packageId,
                 packageFactory.getRuleClassProvider()::isPackageUnderExperimental,
                 packageFactory.getRuleClassProvider()::isPackageUnderPrototypes,
-                packageFactory.getRuleClassProvider()::mayPackageDependOnPrototypes,
+                packageFactory.getRuleClassProvider()::mayLoadPrototypes,
                 repositoryMapping,
                 starlarkBuiltinsValue.starlarkSemantics);
         if (loadLabels == null) {
