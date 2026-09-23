@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -835,6 +836,64 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+  }
+
+  @Test
+  public void actionRewinding_lostTreeMessage_treatedAsCacheMiss(
+      @TestParameter boolean localExecution) throws Exception {
+    // When an action result references a Tree message that has been evicted from the CAS, a cache
+    // that doesn't verify the integrity of its action results still serves it. While rewinding,
+    // Bazel fetches the Tree to check the action result against the known missing digests. The
+    // missing Tree must then be treated as a cache miss rather than fail the build.
+    //
+    // RemoteSpawnRunner and RemoteSpawnCache handle a BulkTransferException thrown by the cache
+    // lookup differently, so this is parameterized over local and remote execution. The disk cache
+    // is not relevant to this scenario.
+    assumeFalse(useDiskCache);
+    var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = unverifiedWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + unverifiedWorker.getPort());
+      setDownloadToplevel();
+      writeOutputDirRule();
+      write("BUILD");
+      write(
+          "a/BUILD",
+          """
+          load("//:output_dir.bzl", "output_dir")
+
+          output_dir(
+              name = "foo.out",
+              content_map = {"file-inside": "hello world"},
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [
+                  "foo.out",
+                  "bar.in",
+              ],
+              outs = ["bar.out"],
+              cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+          )
+          """);
+      write("a/bar.in", "bar");
+
+      buildTarget("//a:bar");
+
+      // Wipe the CAS, including the Tree message describing foo.out, but keep all AC entries.
+      unverifiedWorker.evictAllCasBlobs();
+
+      // Invalidate only //a:bar, so its execution finds foo.out lost and rewinds //a:foo.out.
+      write("a/bar.in", "updated bar");
+      if (localExecution) {
+        addOptions("--strategy_regexp=.*=local");
+      }
+      enableActionRewinding();
+
+      buildTarget("//a:bar");
+
+      assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
+    }
   }
 
   @Test

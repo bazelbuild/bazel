@@ -339,6 +339,20 @@ public final class IntegrationTestUtils {
     }
 
     /**
+     * Deletes every blob from the worker's CAS, leaving all other state (in particular action
+     * cache entries referencing the blobs) intact.
+     */
+    public void evictAllCasBlobs() throws IOException {
+      List<Path> toClear;
+      try (var stream = Files.list(casPath.resolve("cas"))) {
+        toClear = stream.toList();
+      }
+      for (var path : toClear) {
+        deleteTree(path);
+      }
+    }
+
+    /**
      * Deletes the blob with the given contents from the worker's CAS, leaving all other state (in
      * particular action cache entries referencing the blob) intact.
      */
