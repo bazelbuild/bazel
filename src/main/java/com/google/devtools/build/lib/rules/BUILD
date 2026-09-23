@@ -27,21 +27,6 @@ filegroup(
 )
 
 java_library(
-    name = "legacy_exports",
-    exports = [
-        ":alias",
-        ":extra/action_listener",
-        ":extra/action_listener_rule",
-        ":extra/extra_action_factory",
-        ":extra/extra_action_rule",
-        ":filegroup/filegroup",
-        ":label_build_settings",
-        ":repository/repository_directory_value",
-        ":toolchain_type",
-    ],
-)
-
-java_library(
     name = "alias",
     srcs = [
         "Alias.java",

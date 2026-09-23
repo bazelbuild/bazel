@@ -68,4 +68,4 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("", "javatests/com/google/devtools/grok/kythe"),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
-# LINT.ThenChange(@rules_cc//cc/common/cc_helper_internal.bzl:forked_exports)
+# LINT.ThenChange(@rules_cc//cc/common/visibility.bzl:forked_exports)

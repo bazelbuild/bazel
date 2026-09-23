@@ -72,6 +72,17 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
             .build();
   }
 
+  protected void setAllowNonFlagBuildSettings(boolean allowNonFlagBuildSettings) {
+    starlarkOptionsParser =
+        StarlarkOptionsParser.builder()
+            .buildSettingLoader(
+                new BlazeOptionHandler.SkyframeExecutorTargetLoader(
+                    skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter))
+            .nativeOptionsParser(optionsParser)
+            .allowNonFlagBuildSettings(allowNonFlagBuildSettings)
+            .build();
+  }
+
   protected OptionsParsingResult parseStarlarkOptions(String options) throws Exception {
     return parseStarlarkOptions(options, /* onlyStarlarkParser= */ false);
   }

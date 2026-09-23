@@ -861,7 +861,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     BuildConfigurationValue config =
         create(
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-            "--experimental_override_name_platform_in_output_dir=//platform:alpha=alpha",
+            "--override_platform_cpu_name=//platform:alpha=alpha",
             "--platforms=//platform:alpha");
 
     assertThat(config.getOutputDirectory().getRoot().toString())
@@ -874,7 +874,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     BuildConfigurationValue config =
         create(
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-            "--experimental_override_name_platform_in_output_dir=//platform:beta=beta",
+            "--override_platform_cpu_name=//platform:beta=beta",
             "--platforms=//platform:alpha");
 
     assertThat(config.getOutputDirectory().getRoot().toString())

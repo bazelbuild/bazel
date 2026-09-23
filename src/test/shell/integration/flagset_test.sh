@@ -781,6 +781,39 @@ EOF
   expect_log "Applying flags from the config 'test_config' defined in //test:PROJECT.scl: \[--define=foo=bar, --nostamp, --define=foo='bar baz'\]"
 }
 
+function test_invalid_flag_value_in_project_file_fails_cleanly() {
+  mkdir -p test
+  cat > test/BUILD <<EOF
+genrule(name='test', outs=['test.txt'], cmd='echo "hi" > \$@')
+EOF
+  cat > test/PROJECT.scl <<EOF
+load(
+  "//third_party/bazel/src/main/protobuf/project:project_proto.scl",
+  "buildable_unit_pb2",
+  "project_pb2",
+)
+project = project_pb2.Project.create(
+  enforcement_policy = "warn",
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "test_config",
+          flags = [
+            "--features",
+          ],
+          is_default = True,
+      )
+  ],
+)
+EOF
+
+  bazel build --nobuild //test:test --enforce_project_configs &> "$TEST_log" && \
+    fail "Build with invalid flag in project file should have failed"
+  local exit_code=$?
+  assert_equals 2 "$exit_code"
+  expect_log "Expected value after --features"
+  expect_not_log "Unhandled exception"
+}
+
 function test_magic_label_loads_project_proto(){
   mkdir -p test1
   cat > test1/PROJECT.scl <<EOF

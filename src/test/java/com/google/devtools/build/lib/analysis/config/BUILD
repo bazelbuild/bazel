@@ -89,21 +89,6 @@ java_test(
     ],
 )
 
-java_test(
-    name = "BuildOptionsCacheTest",
-    srcs = ["BuildOptionsCacheTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options_cache",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party/java/guava:collect",
-        "//third_party/java/guava:testing",
-        "//third_party/java/junit",
-        "//third_party/java/truth",
-    ],
-)
-
 java_library(
     name = "BuildOptionsTestLib",
     srcs = ["BuildOptionsTest.java"],

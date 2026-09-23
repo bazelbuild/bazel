@@ -49,9 +49,29 @@ java_test(
     ],
 )
 
+java_test(
+    name = "ExecutionProgressReceiverTest",
+    srcs = ["ExecutionProgressReceiverTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_execution_status_reporter",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:execution_progress_receiver",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
 test_suite(
     name = "BuildtoolTests",
     tests = [
+        ":ExecutionProgressReceiverTest",
         ":JobsConverterTest",
         ":SymlinkForestTest",
     ],
@@ -216,6 +236,7 @@ java_test(
 java_test(
     name = "GenQueryIntegrationTest",
     srcs = ["GenQueryIntegrationTest.java"],
+    shard_count = 4,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -640,6 +661,7 @@ java_test(
 java_test(
     name = "SkymeldBuildIntegrationTest",
     srcs = ["SkymeldBuildIntegrationTest.java"],
+    shard_count = 4,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
@@ -703,6 +725,7 @@ java_test(
     srcs = [
         "ConvenienceSymlinkTest.java",
     ],
+    shard_count = 4,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

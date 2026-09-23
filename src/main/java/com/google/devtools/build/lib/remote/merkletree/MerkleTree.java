@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.util.Collection;
 import java.util.Comparator;
@@ -96,7 +95,7 @@ public sealed interface MerkleTree {
   final class Uploadable implements MerkleTree {
     private static final Comparator<FileArtifactValue> FILE_ARTIFACT_VALUE_COMPARATOR =
         comparing(FileArtifactValue::getDigest, UnsignedBytes.lexicographicalComparator())
-            .thenComparing(FileArtifactValue::getSize);
+            .thenComparingLong(FileArtifactValue::getSize);
     static final Comparator<Object> DIGEST_AND_METADATA_COMPARATOR =
         (o1, o2) ->
             switch (o1) {
@@ -171,7 +170,6 @@ public sealed interface MerkleTree {
     public Optional<ListenableFuture<Void>> upload(
         MerkleTreeUploader uploader,
         RemoteActionExecutionContext context,
-        RemotePathResolver remotePathResolver,
         Digest digest,
         boolean force) {
       return switch (blobs.get(digest)) {
@@ -191,7 +189,11 @@ public sealed interface MerkleTree {
                   : MerkleTreeComputer.PATH_ACTION_INPUT_RESOLVER;
           yield Optional.of(
               uploader.uploadFile(
-                  context, remotePathResolver, digest, pathResolver.toPath(actionInput), force));
+                  context,
+                  digest,
+                  pathResolver.toPath(actionInput),
+                  actionInput.getExecPath(),
+                  force));
         }
         case null -> Optional.empty();
         default -> throw new IllegalStateException("Unexpected blob type: " + blobs.get(digest));

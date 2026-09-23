@@ -150,6 +150,41 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
   }
 
   @Test
+  public void selfEdgeCycleWithSkippedIntermediateKey() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        genrule(
+            name = "a",
+            srcs = [],
+            outs = ["a.o"],
+            cmd = "echo uh > $@",
+        )
+        """);
+    ConfiguredTargetKey ctKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:a"))
+            .setConfiguration(targetConfig)
+            .build();
+    ActionArtifactCycleReporter cycleReporter =
+        new ActionArtifactCycleReporter(getPackageManager());
+    Artifact a1 = getSourceArtifact("foo", ctKey);
+    Artifact a2 = getSourceArtifact("bar", ctKey);
+    NestedSet<Artifact> nestedSet =
+        NestedSetBuilder.<Artifact>stableOrder().add(a1).add(a2).build();
+    ArtifactNestedSetKey nestedSetKey = ArtifactNestedSetKey.create(nestedSet);
+    CycleInfo cycle = CycleInfo.createCycleInfo(ImmutableList.of(Artifact.key(a1), nestedSetKey));
+    reporter.removeHandler(failFastHandler);
+    assertThat(cycleReporter.maybeReportCycle(Artifact.key(a1), cycle, false, reporter)).isTrue();
+    assertContainsEvent(
+        """
+        in genrule rule //foo:a: cycle in dependency graph:
+        .-> file: foo [self-edge]
+        `--'\
+        """);
+  }
+
+  @Test
   public void intermediateSkyKeysOnPathToCycleSkipped() throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -250,5 +285,6 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
     assertContainsEvent("//foo:foo (");
     assertContainsEvent(".-> //foo:bar (");
     assertContainsEvent("[self-edge]");
+    assertContainsEvent("`--'");
   }
 }

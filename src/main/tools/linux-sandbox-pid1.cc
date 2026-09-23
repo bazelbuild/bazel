@@ -438,6 +438,11 @@ static void RemountReadonly(const std::string& target) {
   while ((ent = getmntent(mounts)) != nullptr) {
     if (strcmp(ent->mnt_dir, target.c_str()) == 0) {
       found = true;
+      if (hasmntopt(ent, "ro") != nullptr) {
+        // Target mount is already read-only.
+        endmntent(mounts);
+        return;
+      }
       if (hasmntopt(ent, "nodev") != nullptr) {
         mount_flags |= MS_NODEV;
       }
@@ -480,6 +485,15 @@ static void MakeFilesystemMostlyReadOnly() {
 
   struct mntent* ent;
   while ((ent = getmntent(mounts)) != nullptr) {
+    bool should_be_writable = ShouldBeWritable(ent->mnt_dir);
+    bool is_already_ro = (hasmntopt(ent, "ro") != nullptr);
+
+    // If the mount is already in the desired state, skip redundant remount
+    // syscall.
+    if (should_be_writable != is_already_ro) {
+      continue;
+    }
+
     int mountFlags = MS_BIND | MS_REMOUNT;
 
     // MS_REMOUNT does not allow us to change certain flags. This means, we have
@@ -505,7 +519,7 @@ static void MakeFilesystemMostlyReadOnly() {
       mountFlags |= MS_RELATIME;
     }
 
-    if (!ShouldBeWritable(ent->mnt_dir)) {
+    if (!should_be_writable) {
       mountFlags |= MS_RDONLY;
     }
 

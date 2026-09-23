@@ -16,6 +16,7 @@
 #define BAZEL_SRC_TOOLS_SINGLEJAR_ZLIB_INTERFACE_H_
 
 #include <cinttypes>
+#include <cstdint>
 
 #include "src/tools/singlejar/diag.h"
 #include <zlib.h>

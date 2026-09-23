@@ -90,7 +90,7 @@ java_library(
     srcs = ["GenericRules.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/environment_rule",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:environment_rule",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/rules:filegroup/filegroup",

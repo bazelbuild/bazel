@@ -81,6 +81,7 @@
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "src/main/protobuf/command_server.grpc.pb.h"
+#include "absl/time/time.h"
 
 using blaze_util::GetLastErrorString;
 
@@ -284,7 +285,7 @@ class BlazeServer final {
   ServerProcessInfo process_info_;
   const int connect_timeout_secs_;
   const bool batch_;
-  const bool block_for_lock_;
+  const absl::Duration block_for_lock_timeout_;
   const bool quiet_;
   const bool preemptible_;
   const bool lock_install_base_;
@@ -322,7 +323,7 @@ DurationMillis BlazeServer::AcquireLocks() {
     auto install_base_result = blaze::AcquireLock(
         "install base",
         install_base_parent.GetRelative(install_base_.GetBaseName() + ".lock"),
-        LockMode::kShared, batch_, /* block= */ true);
+        LockMode::kShared, batch_, /* timeout= */ absl::InfiniteDuration());
     install_base_lock_ = install_base_result.first;
     wait_time += install_base_result.second;
   }
@@ -335,7 +336,7 @@ DurationMillis BlazeServer::AcquireLocks() {
   }
   auto output_base_result =
       blaze::AcquireLock("output base", output_base_.GetRelative("lock"),
-                         LockMode::kExclusive, batch_, block_for_lock_);
+                         LockMode::kExclusive, batch_, block_for_lock_timeout_);
   output_base_lock_ = output_base_result.first;
   wait_time += output_base_result.second;
 
@@ -1728,13 +1729,13 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   return 0;
 }
 
-BlazeServer::BlazeServer(const StartupOptions &startup_options,
-                         CommandExtensionAdder *command_extension_adder)
+BlazeServer::BlazeServer(const StartupOptions& startup_options,
+                         CommandExtensionAdder* command_extension_adder)
     : process_info_(startup_options.output_base,
                     startup_options.server_jvm_out),
       connect_timeout_secs_(startup_options.connect_timeout_secs),
       batch_(startup_options.batch),
-      block_for_lock_(startup_options.block_for_lock),
+      block_for_lock_timeout_(startup_options.block_for_lock_timeout),
       quiet_(startup_options.quiet),
       preemptible_(startup_options.preemptible),
       lock_install_base_(startup_options.lock_install_base),
@@ -1973,7 +1974,11 @@ void BlazeServer::KillRunningServer() {
   command_server::RunRequest request;
   command_server::RunResponse response;
   request.set_cookie(request_cookie_);
-  request.set_block_for_lock(block_for_lock_);
+  request.set_block_for_lock(block_for_lock_timeout_ > absl::ZeroDuration());
+  if (block_for_lock_timeout_ != absl::InfiniteDuration()) {
+    request.set_block_for_lock_timeout_ms(
+        absl::ToInt64Milliseconds(block_for_lock_timeout_));
+  }
   request.set_client_description("pid=" + blaze::GetProcessIdAsString() +
                                  " (for shutdown)");
   request.add_arg("shutdown");
@@ -2003,10 +2008,17 @@ void BlazeServer::KillRunningServer() {
     // another command holds the client lock.
     if (response.finished()) {
       if (response.exit_code() == blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK) {
-        assert(!block_for_lock_);
-        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
-            << "Exiting because the lock is held and --noblock_for_lock was "
-               "given.";
+        assert(block_for_lock_timeout_ != absl::InfiniteDuration());
+        if (block_for_lock_timeout_ <= absl::ZeroDuration()) {
+          BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+              << "Exiting because the lock is held and --noblock_for_lock was "
+                 "given.";
+        } else {
+          BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+              << "Exiting because the lock is held and --block_for_lock="
+              << absl::ToInt64Milliseconds(block_for_lock_timeout_)
+              << "ms timeout expired.";
+        }
       }
     }
 
@@ -2060,7 +2072,11 @@ unsigned int BlazeServer::Communicate(
 
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
-  request.set_block_for_lock(block_for_lock_);
+  request.set_block_for_lock(block_for_lock_timeout_ > absl::ZeroDuration());
+  if (block_for_lock_timeout_ != absl::InfiniteDuration()) {
+    request.set_block_for_lock_timeout_ms(
+        absl::ToInt64Milliseconds(block_for_lock_timeout_));
+  }
   request.set_quiet(quiet_);
   request.set_preemptible(preemptible_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());

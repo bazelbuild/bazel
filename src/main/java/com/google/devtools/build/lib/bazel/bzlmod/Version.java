@@ -24,6 +24,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.HashCodes;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -202,7 +203,7 @@ public record Version(
 
   @Override
   public int hashCode() {
-    return Objects.hash("version", getNormalized().hashCode());
+    return HashCodes.hashObjects("version", getNormalized());
   }
 
   /** An exception encountered while trying to {@link Version#parse parse} a version. */

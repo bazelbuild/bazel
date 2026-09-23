@@ -43,10 +43,12 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
@@ -737,6 +739,15 @@ public class TestRunnerAction extends AbstractAction
   }
 
   public void setupEnvVariables(Map<String, String> env) {
+    PathMapper pathMapper =
+        PathMappers.create(
+            this,
+            PathMappers.getOutputPathsMode(getConfiguration()),
+            /* isStarlarkAction= */ false,
+            // Null inputMetadataProvider is safe here because this is only used for environment
+            // variable string path mapping and doesn't affect file contents.
+            /* inputMetadataProvider= */ null);
+
     // Allow --test_env and rules to overwite these values
     coverageEnv.forEach(env::putIfAbsent);
 
@@ -774,33 +785,42 @@ public class TestRunnerAction extends AbstractAction
       env.put("TESTBRIDGE_TEST_RUNNER_FAIL_FAST", "1");
     }
 
-    env.put("TEST_WARNINGS_OUTPUT_FILE", getTestWarningsPath().getPathString());
-    env.put("TEST_UNUSED_RUNFILES_LOG_FILE", getUnusedRunfilesLogPath().getPathString());
+    env.put("TEST_WARNINGS_OUTPUT_FILE", pathMapper.map(getTestWarningsPath()).getPathString());
+    env.put(
+        "TEST_UNUSED_RUNFILES_LOG_FILE",
+        pathMapper.map(getUnusedRunfilesLogPath()).getPathString());
 
-    env.put("TEST_LOGSPLITTER_OUTPUT_FILE", getSplitLogsPath().getPathString());
+    env.put("TEST_LOGSPLITTER_OUTPUT_FILE", pathMapper.map(getSplitLogsPath()).getPathString());
 
     if (testConfiguration.getZipUndeclaredTestOutputs()) {
-      env.put("TEST_UNDECLARED_OUTPUTS_ZIP", getUndeclaredOutputsZipPath().getPathString());
+      env.put(
+          "TEST_UNDECLARED_OUTPUTS_ZIP",
+          pathMapper.map(getUndeclaredOutputsZipPath()).getPathString());
     }
 
-    env.put("TEST_UNDECLARED_OUTPUTS_DIR", undeclaredOutputsDir.getExecPathString());
-    env.put("TEST_UNDECLARED_OUTPUTS_MANIFEST", getUndeclaredOutputsManifestPath().getPathString());
+    env.put(
+        "TEST_UNDECLARED_OUTPUTS_DIR", pathMapper.getMappedExecPathString(undeclaredOutputsDir));
+    env.put(
+        "TEST_UNDECLARED_OUTPUTS_MANIFEST",
+        pathMapper.map(getUndeclaredOutputsManifestPath()).getPathString());
     env.put(
         "TEST_UNDECLARED_OUTPUTS_ANNOTATIONS",
-        getUndeclaredOutputsAnnotationsPath().getPathString());
+        pathMapper.map(getUndeclaredOutputsAnnotationsPath()).getPathString());
     env.put(
         "TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR",
-        getUndeclaredOutputsAnnotationsDir().getPathString());
+        pathMapper.map(getUndeclaredOutputsAnnotationsDir()).getPathString());
 
-    env.put("TEST_PREMATURE_EXIT_FILE", getExitSafeFile().getPathString());
-    env.put("TEST_INFRASTRUCTURE_FAILURE_FILE", getInfrastructureFailureFile().getPathString());
+    env.put("TEST_PREMATURE_EXIT_FILE", pathMapper.map(getExitSafeFile()).getPathString());
+    env.put(
+        "TEST_INFRASTRUCTURE_FAILURE_FILE",
+        pathMapper.map(getInfrastructureFailureFile()).getPathString());
 
     if (isSharded()) {
       env.put("TEST_SHARD_INDEX", Integer.toString(getShardNum()));
       env.put("TEST_TOTAL_SHARDS", Integer.toString(getExecutionSettings().getTotalShards()));
-      env.put("TEST_SHARD_STATUS_FILE", getTestShard().getPathString());
+      env.put("TEST_SHARD_STATUS_FILE", pathMapper.map(getTestShard()).getPathString());
     }
-    env.put("XML_OUTPUT_FILE", testXml.getExecPathString());
+    env.put("XML_OUTPUT_FILE", pathMapper.getMappedExecPathString(testXml));
 
     if (!configuration.runfilesEnabled()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
@@ -812,9 +832,9 @@ public class TestRunnerAction extends AbstractAction
       // TODO(ulfjack): Find a way to avoid setting this variable.
       env.put("RUNTEST_PRESERVE_CWD", "1");
 
-      env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
-      env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
-      env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
+      env.put("COVERAGE_MANIFEST", pathMapper.getMappedExecPathString(getCoverageManifest()));
+      env.put("COVERAGE_DIR", pathMapper.map(getCoverageDirectory()).getPathString());
+      env.put("COVERAGE_OUTPUT_FILE", pathMapper.getMappedExecPathString(getCoverageData()));
       env.put("SPLIT_COVERAGE_POST_PROCESSING", splitCoveragePostProcessing ? "1" : "0");
       env.put("IS_COVERAGE_SPAWN", "0");
     }

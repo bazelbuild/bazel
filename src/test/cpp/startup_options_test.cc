@@ -17,6 +17,7 @@
 #include <stdlib.h>
 
 #include <memory>
+#include <vector>
 
 #include "src/main/cpp/blaze_util_platform.h"
 #ifdef __linux

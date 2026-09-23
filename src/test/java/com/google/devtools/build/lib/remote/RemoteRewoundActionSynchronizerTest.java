@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -25,7 +26,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -45,6 +48,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.testutil.TestThread;
@@ -160,13 +164,13 @@ public final class RemoteRewoundActionSynchronizerTest {
   }
 
   /**
-   * A runfiles tree is guarded by the keys of the actions generating the artifacts it contains,
-   * which are taken from its metadata rather than from all runfiles trees known to the metadata
-   * provider. The action generating the runfiles tree itself isn't excluded, as it doesn't write to
-   * disk.
+   * An action consuming a runfiles tree is guarded by the keys of the actions generating the
+   * artifacts the tree contains, which are taken from its metadata rather than from all runfiles
+   * trees known to the metadata provider. The action generating the runfiles tree itself isn't
+   * excluded, as it doesn't write to disk.
    */
   @Test
-  public void outputProcessing_runfilesTree_locksOnlyItsProducers() throws Exception {
+  public void runfilesTreeConsumer_excludesOnlyProducersOfItsRunfiles() throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -180,6 +184,10 @@ public final class RemoteRewoundActionSynchronizerTest {
     SpecialArtifact runfiles = ActionsTestUtil.createRunfilesArtifact(root, "out/runfiles");
     runfiles.setGeneratingActionKey(ActionLookupData.create(owner, 2));
     Action runfilesAction = newAction(ImmutableList.of(runfiles), ImmutableList.of(file));
+    DerivedArtifact consumerOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
+    consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 3));
+    Action consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(runfiles));
 
     RunfilesTree runfilesTree = mock(RunfilesTree.class);
     when(runfilesTree.getArtifacts()).thenReturn(NestedSetBuilder.create(Order.STABLE_ORDER, file));
@@ -207,9 +215,8 @@ public final class RemoteRewoundActionSynchronizerTest {
     var preparation = new TestThread(() -> rewind(producer));
     var unrelatedPreparation = new TestThread(() -> rewind(unrelatedProducer));
     var runfilesPreparation = new TestThread(() -> rewind(runfilesAction));
-    try (SilentCloseable processing =
-        synchronizer.enterProcessOutputsAndGetLostArtifacts(
-            ImmutableList.of(runfiles), metadataProvider)) {
+    try (SilentCloseable execution =
+        synchronizer.enterActionExecution(consumer, /* wasRewound= */ false, metadataProvider)) {
       preparation.start();
       waitUntilBlocked(preparation);
       unrelatedPreparation.start();
@@ -218,6 +225,110 @@ public final class RemoteRewoundActionSynchronizerTest {
       runfilesPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
     }
     preparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
+  /**
+   * Runfiles trees are hidden top-level outputs and thus only reach {@link
+   * RemoteImportantOutputHandler} through the metadata provider, but the rewinding of the actions
+   * generating their artifacts must still be excluded while the handler processes them.
+   */
+  @Test
+  public void outputProcessing_waitsForRewoundRunfilesProducer() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    DerivedArtifact runfile = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "runfile");
+    runfile.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    Action producer = newAction(ImmutableList.of(runfile), ImmutableList.of());
+    mockActions(owner, ImmutableList.of(producer));
+    InputMetadataProvider metadataProvider =
+        mockTopLevelMetadataProvider(
+            /* runfiles= */ ImmutableList.of(runfile),
+            /* remoteArtifacts= */ ImmutableList.of(runfile));
+    when(actionInputFetcher.prefetchFiles(any(), any(), any(), any(), any(), any()))
+        .thenReturn(immediateVoidFuture());
+    RemoteImportantOutputHandler handler = newImportantOutputHandler(runfile);
+
+    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
+    // exclude every rewound action regardless of which keys guard the processed outputs.
+    rewind(newAction());
+
+    var processing =
+        new TestThread(
+            () ->
+                assertThat(
+                        handler
+                            .processOutputsAndGetLostArtifacts(
+                                /* importantOutputs= */ ImmutableList.of(), metadataProvider)
+                            .isEmpty())
+                    .isTrue());
+    try (SilentCloseable preparation =
+        synchronizer.enterActionPreparation(producer, /* wasRewound= */ true)) {
+      processing.start();
+      waitUntilBlocked(processing);
+    }
+    processing.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
+  @Test
+  public void outputProcessing_excludesOnlyRewindingOfProducersOfOutputsAndRunfiles()
+      throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    DerivedArtifact importantOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(root, "important");
+    importantOutput.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    Action importantOutputProducer =
+        newAction(ImmutableList.of(importantOutput), ImmutableList.of());
+    DerivedArtifact runfile = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "runfile");
+    runfile.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    Action runfileProducer = newAction(ImmutableList.of(runfile), ImmutableList.of());
+    DerivedArtifact unrelated = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "unrelated");
+    unrelated.setGeneratingActionKey(ActionLookupData.create(owner, 2));
+    Action unrelatedProducer = newAction(ImmutableList.of(unrelated), ImmutableList.of());
+    mockActions(
+        owner, ImmutableList.of(importantOutputProducer, runfileProducer, unrelatedProducer));
+    InputMetadataProvider metadataProvider =
+        mockTopLevelMetadataProvider(
+            /* runfiles= */ ImmutableList.of(runfile),
+            /* remoteArtifacts= */ ImmutableList.of(importantOutput, runfile));
+    // The processing holds its locks while the download is pending.
+    SettableFuture<Void> download = SettableFuture.create();
+    when(actionInputFetcher.prefetchFiles(any(), any(), any(), any(), any(), any()))
+        .thenReturn(download);
+    RemoteImportantOutputHandler handler = newImportantOutputHandler(importantOutput, runfile);
+
+    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
+    // exclude every rewound action regardless of which keys guard the processed outputs.
+    rewind(newAction());
+
+    var processing =
+        new TestThread(
+            () ->
+                assertThat(
+                        handler
+                            .processOutputsAndGetLostArtifacts(
+                                ImmutableList.of(importantOutput), metadataProvider)
+                            .isEmpty())
+                    .isTrue());
+    processing.start();
+    waitUntilBlocked(processing);
+
+    var importantOutputPreparation = new TestThread(() -> rewind(importantOutputProducer));
+    importantOutputPreparation.start();
+    waitUntilBlocked(importantOutputPreparation);
+    var runfilePreparation = new TestThread(() -> rewind(runfileProducer));
+    runfilePreparation.start();
+    waitUntilBlocked(runfilePreparation);
+    var unrelatedPreparation = new TestThread(() -> rewind(unrelatedProducer));
+    unrelatedPreparation.start();
+    unrelatedPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+
+    download.set(null);
+    processing.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    importantOutputPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    runfilePreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
   }
 
   /**
@@ -420,6 +531,48 @@ public final class RemoteRewoundActionSynchronizerTest {
     when(graph.getValue(owner)).thenReturn(ownerValue);
     when(graph.getValue(ActionTemplateExpansionValue.key(owner, 0)))
         .thenReturn(new ActionTemplateExpansionValue(ImmutableList.copyOf(expandedActions)));
+  }
+
+  /** Makes the given actions, in order, the actions of the given owner. */
+  private void mockActions(ActionLookupKey owner, ImmutableList<Action> actions)
+      throws InterruptedException {
+    ActionLookupValue ownerValue = mock(ActionLookupValue.class);
+    when(ownerValue.getActions()).thenReturn(ImmutableList.<ActionAnalysisMetadata>copyOf(actions));
+    when(graph.getValue(owner)).thenReturn(ownerValue);
+  }
+
+  /**
+   * Returns a metadata provider that, just like the one {@code CompletionFunction} passes to the
+   * {@link RemoteImportantOutputHandler}, provides a runfiles tree containing the given runfiles
+   * and remote metadata for the given artifacts.
+   */
+  private static InputMetadataProvider mockTopLevelMetadataProvider(
+      ImmutableList<Artifact> runfiles, ImmutableList<Artifact> remoteArtifacts) throws Exception {
+    RunfilesTree runfilesTree = mock(RunfilesTree.class);
+    when(runfilesTree.getArtifacts())
+        .thenReturn(NestedSetBuilder.wrap(Order.STABLE_ORDER, runfiles));
+    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
+    when(metadataProvider.getRunfilesTrees()).thenReturn(ImmutableList.of(runfilesTree));
+    FileArtifactValue remoteMetadata = FileArtifactValue.createForRemoteFile(new byte[32], 1, 1);
+    for (Artifact artifact : remoteArtifacts) {
+      when(metadataProvider.getInputMetadata(artifact)).thenReturn(remoteMetadata);
+    }
+    return metadataProvider;
+  }
+
+  /**
+   * Returns a handler for a build that downloads the given top-level outputs, which are registered
+   * with the output checker just like the outputs and runfiles of top-level targets are after their
+   * analysis.
+   */
+  private RemoteImportantOutputHandler newImportantOutputHandler(Artifact... topLevelOutputs) {
+    var remoteOutputChecker =
+        new RemoteOutputChecker("build", RemoteOutputsMode.TOPLEVEL, ImmutableList.of());
+    for (Artifact output : topLevelOutputs) {
+      remoteOutputChecker.addOutputToDownload(output);
+    }
+    return new RemoteImportantOutputHandler(
+        graph, remoteOutputChecker, actionInputFetcher, synchronizer);
   }
 
   @SuppressWarnings("ThreadPriorityCheck")

@@ -255,12 +255,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // so we have to prefix our name to turn it into a globally unique value.
     Path sandboxPath =
         sandboxBase.getRelative(getName()).getRelative(Integer.toString(context.getId()));
+    sandboxPath.createDirectoryAndParents();
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
     // the normal execroot does.
     String workspaceName = execRoot.getBaseName();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(workspaceName);
-    sandboxExecRoot.createDirectoryAndParents();
 
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(

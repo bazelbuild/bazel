@@ -206,9 +206,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
         }
       }
       return new ReportedArtifacts(
-          artifacts,
-          new CompletionContext(
-              ArtifactPathResolver.IDENTITY, importantInputMap, /* expandFilesets= */ false));
+          artifacts, new CompletionContext(ArtifactPathResolver.IDENTITY, importantInputMap));
     }
 
     @Override
@@ -276,6 +274,62 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
     void transportClosed(BuildEventTransportClosedEvent evt) {
       transportSet.remove(evt.transport());
     }
+  }
+
+  @Test
+  public void testClearRetainedEventState() {
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
+    streamer.buildEvent(startEvent);
+
+    assertThat(streamer.hasRetainedEventState()).isTrue();
+    streamer.clearRetainedEventState();
+    assertThat(streamer.hasRetainedEventState()).isFalse();
+
+    // Verify configurationsPosted is reflected by hasRetainedEventState() and cleared.
+    streamer.buildEvent(
+        new GenericConfigurationEvent(
+            testId("WithConfig"), new GenericBuildEvent(testId("Config"), ImmutableSet.of())));
+    assertThat(streamer.hasRetainedEventState()).isTrue();
+    streamer.clearRetainedEventState();
+    assertThat(streamer.hasRetainedEventState()).isFalse();
+
+    // Verify pendingEvents is reflected by hasRetainedEventState() and cleared.
+    streamer.buildEvent(
+        new GenericOrderEvent(
+            testId("Pending"), ImmutableSet.of(), ImmutableSet.of(testId("UnpostedPrerequisite"))));
+    assertThat(streamer.hasRetainedEventState()).isTrue();
+    assertThat(streamer.isClosed()).isFalse();
+
+    streamer.clearRetainedEventState();
+
+    assertThat(streamer.hasRetainedEventState()).isFalse();
+  }
+
+  @Test
+  public void testCloseClearsRetainedEventState() {
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(
+        new GenericConfigurationEvent(
+            testId("WithConfig"), new GenericBuildEvent(testId("Config"), ImmutableSet.of())));
+    streamer.buildEvent(
+        new GenericOrderEvent(
+            testId("Pending"), ImmutableSet.of(), ImmutableSet.of(testId("UnpostedPrerequisite"))));
+
+    assertThat(streamer.hasRetainedEventState()).isTrue();
+
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+
+    assertThat(streamer.isClosed()).isTrue();
+    assertThat(streamer.hasRetainedEventState()).isFalse();
   }
 
   @Test(timeout = 5000)

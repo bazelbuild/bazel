@@ -188,7 +188,7 @@ public final class CallUtils {
     }
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return name;
     }
   }
@@ -201,7 +201,11 @@ public final class CallUtils {
           Class<?> parentWithStarlarkBuiltin =
               StarlarkAnnotations.getParentWithStarlarkBuiltin(clazz);
           if (parentWithStarlarkBuiltin == null) {
-            // Not annotated as @StarlarkBuiltin - treat as Object.
+            // Not annotated as @StarlarkBuiltin - treat as Object unless special.
+            @Nullable StarlarkType fixedStarlarkType = getFixedStarlarkType(clazz);
+            if (fixedStarlarkType != null) {
+              return fixedStarlarkType;
+            }
             return Types.OBJECT;
           } else if (parentWithStarlarkBuiltin != clazz) {
             // Subclasses of a @StarlarkBuiltin class share the same auto-generated type.
@@ -438,6 +442,12 @@ public final class CallUtils {
   @Nullable
   private static StarlarkType getFixedStarlarkType(Class<?> clazz) {
     @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(clazz);
+    // Special case: Structure.class is unannotated, but represents an arbitrary struct type (and
+    // the same should hold for its unannotated implementations).
+    if (annotation == null && Structure.class.isAssignableFrom(clazz)) {
+      return Types.ANY_STRUCT;
+    }
+
     if (annotation != null && annotation.isStructType()) {
       // Interpret com.google.devtools.build.lib.starlarkbuildapi.core.StructApi as a marker for
       // an arbitrary struct type.

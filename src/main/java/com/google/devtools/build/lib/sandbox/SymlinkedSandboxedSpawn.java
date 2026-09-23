@@ -86,7 +86,11 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
     Optional<SandboxContents> sandboxContents =
         SandboxStash.takeStashedSandbox(
             sandboxPath, mnemonic, getEnvironment(), outputs, targetLabel);
-    sandboxExecRoot.createDirectoryAndParents();
+    // Ensure sandboxExecRoot exists. If a stash was claimed, takeStashedSandbox renamed the
+    // stashed execroot to sandboxExecRoot; otherwise, create it lazily on a stash miss.
+    if (!sandboxExecRoot.exists()) {
+      sandboxExecRoot.createDirectoryAndParents();
+    }
 
     if (sandboxContents != null) {
       // Delete anything unnecessary, and update `inputsToCreate`/`dirsToCreate` if something can

@@ -103,6 +103,11 @@ public class AnalysisFailureEvent implements BuildEvent {
     return failedTarget;
   }
 
+  @Nullable
+  public AspectKey getFailedAspect() {
+    return failedAspect;
+  }
+
   @VisibleForTesting
   @Nullable
   BuildEventId getConfigurationId() {

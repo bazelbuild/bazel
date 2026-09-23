@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
@@ -66,13 +67,7 @@ public abstract class AbstractLabelCycleReporter implements CyclesReporter.Singl
     return false;
   }
 
-  /**
-   * Can be used to report an additional message about the cycle.
-   *
-   * @param eventHandler
-   * @param topLevelKey
-   * @param cycleInfo
-   */
+  /** Can be used to report an additional message about the cycle. */
   protected String getAdditionalMessageAboutCycle(
       ExtendedEventHandler eventHandler, SkyKey topLevelKey, CycleInfo cycleInfo) {
     return "";
@@ -144,28 +139,28 @@ public abstract class AbstractLabelCycleReporter implements CyclesReporter.Singl
       Function<Object, String> printFunction,
       Predicate<SkyKey> shouldSkipIntermediateKey) {
     Preconditions.checkArgument(!cycle.isEmpty());
-    SkyKey cycleValue = null;
-    int valuesPrinted = 0;
-    for (SkyKey value : Iterables.concat(cycle, ImmutableList.of(cycle.get(0)))) {
-      if (cycleValue == null) { // first item
-        cycleValue = value;
-        cycleMessage.append("\n.-> ");
-      } else if (value == cycleValue) { // last item of the cycle
-        if (valuesPrinted == 1) {
-          cycleMessage.append(" [self-edge]");
-          cycleMessage.append("\n`--");
-          break;
-        } else {
-          cycleMessage.append("\n`-- ");
-        }
-      } else if (shouldSkipIntermediateKey.test(value)) {
-        continue;
-      } else {
-        cycleMessage.append("\n|   ");
-      }
-      cycleMessage.append(printFunction.apply(value));
-      valuesPrinted++;
+    SkyKey cycleValue = cycle.get(0);
+    ImmutableList<SkyKey> printableIntermediateKeys =
+        cycle.subList(1, cycle.size()).stream()
+            .filter(Predicate.not(shouldSkipIntermediateKey))
+            .collect(toImmutableList());
+
+    if (printableIntermediateKeys.isEmpty()) {
+      cycleMessage.append("\n.-> ");
+      cycleMessage.append(printFunction.apply(cycleValue));
+      cycleMessage.append(" [self-edge]");
+      cycleMessage.append("\n`--'");
+      return cycleValue;
     }
+
+    cycleMessage.append("\n.-> ");
+    cycleMessage.append(printFunction.apply(cycleValue));
+    for (SkyKey value : printableIntermediateKeys) {
+      cycleMessage.append("\n|   ");
+      cycleMessage.append(printFunction.apply(value));
+    }
+    cycleMessage.append("\n`-- ");
+    cycleMessage.append(printFunction.apply(cycleValue));
 
     return cycleValue;
   }

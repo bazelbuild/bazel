@@ -63,6 +63,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.junit.After;
@@ -425,6 +426,101 @@ public class DynamicSpawnStrategyUnitTest {
     SandboxedSpawnStrategy local = createMockSpawnStrategy("local");
     SandboxedSpawnStrategy remote = createMockSpawnStrategy("remote");
     // Make sure that local execution does not win the race before remote starts.
+    Semaphore remoteStarted = new Semaphore(0);
+    Semaphore localDone = new Semaphore(0);
+    when(remote.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              remoteStarted.release();
+              StopConcurrentSpawns stopConcurrentSpawns = invocation.getArgument(2);
+              stopConcurrentSpawns.stop(0, "", null);
+              return ImmutableList.of(SUCCESSFUL_REMOTE_SPAWN_RESULT);
+            });
+    when(local.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              remoteStarted.acquire();
+              localDone.acquire();
+              StopConcurrentSpawns stopConcurrentSpawns = invocation.getArgument(2);
+              stopConcurrentSpawns.stop(0, "", null);
+              return ImmutableList.of(SUCCESSFUL_LOCAL_SPAWN_RESULT);
+            });
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+    when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
+
+    ImmutableList<SpawnResult> results = dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
+
+    assertThat(results).containsExactly(SUCCESSFUL_REMOTE_SPAWN_RESULT);
+    assertThat(events).hasSize(1);
+    assertThat(events.get(0).getWinnerBranchType()).isEqualTo(DynamicMode.REMOTE);
+    assertThat(events.get(0).getRemoteBranchName()).isEqualTo("remote");
+    assertThat(events.get(0).getLocalBranchName()).isEqualTo("local");
+  }
+
+  @Test
+  public void exec_runAnywhereSpawn_localWins_doesNotCancelRemoteWhenFlagDisabled()
+      throws Exception {
+    Spawn spawn = new SpawnBuilder().withOwnerPrimaryOutput(output1).build();
+    DynamicExecutionOptions options = Options.getDefaults(DynamicExecutionOptions.class);
+    options.setCancelRemoteBranchOnLocalWin(false);
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, mockGetPostProcessingSpawn, options);
+    when(mockGetPostProcessingSpawn.apply(any())).thenReturn(Optional.empty());
+    SandboxedSpawnStrategy local = createMockSpawnStrategy("local");
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy("remote");
+    Semaphore remoteStarted = new Semaphore(0);
+    Semaphore remoteCanFinish = new Semaphore(0);
+    AtomicBoolean remoteWasCancelled = new AtomicBoolean(false);
+    when(remote.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              remoteStarted.release();
+              try {
+                remoteCanFinish.acquire();
+              } catch (InterruptedException e) {
+                remoteWasCancelled.set(true);
+                throw e;
+              }
+              StopConcurrentSpawns stopConcurrentSpawns = invocation.getArgument(2);
+              stopConcurrentSpawns.stop(0, "", null);
+              return ImmutableList.of(SUCCESSFUL_REMOTE_SPAWN_RESULT);
+            });
+    when(local.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              remoteStarted.acquire();
+              StopConcurrentSpawns stopConcurrentSpawns = invocation.getArgument(2);
+              stopConcurrentSpawns.stop(0, "", null);
+              return ImmutableList.of(SUCCESSFUL_LOCAL_SPAWN_RESULT);
+            });
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+    when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
+
+    ImmutableList<SpawnResult> results = dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
+
+    assertThat(results).containsExactly(SUCCESSFUL_LOCAL_SPAWN_RESULT);
+    assertThat(remoteWasCancelled.get()).isFalse();
+
+    // Release remote branch so background execution finishes cleanly.
+    remoteCanFinish.release();
+
+    assertThat(events).hasSize(1);
+    assertThat(events.get(0).getWinnerBranchType()).isEqualTo(DynamicMode.LOCAL);
+    assertThat(events.get(0).getRemoteBranchName()).isEqualTo("remote");
+    assertThat(events.get(0).getLocalBranchName()).isEqualTo("local");
+  }
+
+  @Test
+  public void exec_runAnywhereSpawn_remoteWins_stillCancelsLocalWhenFlagDisabled()
+      throws Exception {
+    Spawn spawn = new SpawnBuilder().withOwnerPrimaryOutput(output1).build();
+    DynamicExecutionOptions options = Options.getDefaults(DynamicExecutionOptions.class);
+    options.setCancelRemoteBranchOnLocalWin(false);
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, mockGetPostProcessingSpawn, options);
+    when(mockGetPostProcessingSpawn.apply(any())).thenReturn(Optional.empty());
+    SandboxedSpawnStrategy local = createMockSpawnStrategy("local");
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy("remote");
     Semaphore remoteStarted = new Semaphore(0);
     Semaphore localDone = new Semaphore(0);
     when(remote.exec(eq(spawn), any(), isNotNull()))

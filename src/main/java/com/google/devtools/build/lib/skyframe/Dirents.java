@@ -25,4 +25,10 @@ public interface Dirents extends Collection<Dirent> {
 
   @Nullable
   Dirent maybeGetDirent(String baseName);
+
+  @Nullable
+  default Dirent.Type maybeGetDirentType(String baseName) {
+    Dirent dirent = maybeGetDirent(baseName);
+    return dirent != null ? dirent.getType() : null;
+  }
 }

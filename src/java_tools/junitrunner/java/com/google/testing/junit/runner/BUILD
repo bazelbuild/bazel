@@ -15,6 +15,7 @@ java_library(
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
         "//third_party/java/junit:not-testonly",
     ],
 )

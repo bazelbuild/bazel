@@ -397,6 +397,66 @@ public class RepMaxCdcChunkerTest {
         });
   }
 
+  @Test
+  public void chunkToDigests_testVectorsSmallHorizon() throws Exception {
+    // horizonSize < minSize: equivalent to MaxCDC with maxSize = minSize + horizonSize.
+    verifyTestVectors(
+        /* minSize= */ 4096,
+        /* horizonSize= */ 1024,
+        new int[][] {
+          {0, 4774},
+          {4774, 4568},
+          {9342, 4134},
+          {13476, 4611},
+          {18087, 4414},
+          {22501, 4582},
+          {27083, 4567},
+          {31650, 4158},
+          {35808, 4854},
+          {40662, 4899},
+          {45561, 4429},
+          {49990, 4101},
+          {54091, 4120},
+          {58211, 4892},
+          {63103, 4695},
+          {67798, 4362},
+          {72160, 5103},
+          {77263, 4983},
+          {82246, 4333},
+          {86579, 4850},
+          {91429, 4382},
+          {95811, 4535},
+          {100346, 4803},
+          {105149, 4317},
+        },
+        new String[] {
+          "6f27c06f61e320cf979265d243ff39f3400a4ec5011e84dfddf3822aa89fc92f",
+          "85a7672b8a9f5fb387759f28fd229537cf6ebab46ac054fe5f220d9a2eca88cf",
+          "479bcb44f8687c5e46f3a7c857828a6f1710e011c82a8fd52fb61790decd4acb",
+          "79bcc5c86680a116d946e6b6ba73884384a45caba2b3662ede9c182c285baefb",
+          "2a1072e384d17eee4d30fa6c9aafbbc7864694857414d67c07e0946810f140bc",
+          "c7b9bd3342fe9e42453c876dce8d7d0757d3d22e045d6044fdb04a4aea06e6d8",
+          "b60b855faf413af24f24a75c91517bc21350a755839fbe7f6751bc2921086a82",
+          "7d3b7d08bcc6334be8adc0bc2c9be9304b7e856577b22ffed2aa863cce3cc78a",
+          "4e4e9a252758ea218d342ab18cdab42a6b26241916498cdc9b099d07142a3ad9",
+          "3ce766d7559185154d70d100c7834a56e0faedcc01d4fb2c8952418709a5328f",
+          "ef6283d2c5286df98298c6f87ab950eb31e90b818115287484b950ed778be92b",
+          "752bab678b43622c7cecbc88238cb40e9adcc8cea5761e8feacc224e663439fd",
+          "458cc33c751f3c52e069cca2baef488a1d3e4e5d4c65857aeb4ab6b81a0ba5b8",
+          "886b822f91cc4e85e08b183bb616287cd6fedd69c0fe988f9df2aa624e0d8e71",
+          "71249e1031dc237ab6393381a30a10ef90d9a93f532c135b11cc0df60a767b5f",
+          "95c42ec307be0ce1efde6de814c668f05a31887fde9501b478faca225cf9b8c7",
+          "8ec9d9fba7236fe034110a41e8794f7924ae660c4b6fbfa6bee150b4c3a8192a",
+          "14f765e058519d6803d55a01269147b36ae4ff3aaaa5bbd861e356e35640dcfd",
+          "ab4fdede485847edace394df3c6d333bd308a5019c664cded75e817572e493b6",
+          "ba397f7f08a2abe4926f6d160e76716be426d75d4522ff9e10675142c4045abc",
+          "9b19e98bc5d9b6f486c7c7281fd61044b8e5333363048b20ce3dcb2ee0172980",
+          "28959408097aff218f4dbd666fcd0b19764ead2f3068a179e971ba0c57b8343a",
+          "d6995d69bfcd0fa3fb9335e36d2dfb63ee5c3d960da993943ad25257c7b3f827",
+          "9b995470d0e159b74536874095c80d45e223a216821abc4b3290fa99402f6134",
+        });
+  }
+
   // Test vectors generated with the Go reference implementation of RepMaxCDC:
   // https://github.com/buildbarn/go-cdc
   // Test image: "Akashita" by Toriyama Sekien (1712-1788), public domain.

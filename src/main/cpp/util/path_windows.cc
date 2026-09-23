@@ -23,6 +23,8 @@
 #include <algorithm>
 #include <memory>
 #include <sstream>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/util/errors.h"

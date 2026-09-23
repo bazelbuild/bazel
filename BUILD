@@ -1,6 +1,7 @@
 # Bazel - Google's Build System
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_java//java:defs.bzl", "java_package_configuration")
 load("@rules_java//toolchains:default_java_toolchain.bzl", "DEFAULT_TOOLCHAIN_CONFIGURATION", "default_java_toolchain")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
@@ -111,6 +112,10 @@ sh_test(
         "MODULE.bazel.lock",
         "//third_party:patches",
         "//third_party:remoteapis/MODULE.bazel",
+    ],
+    env_inherit = [
+        "BUILDKITE_PIPELINE_SLUG",
+        "UPDATE_BAZEL_LOCK_FILE",
     ],
     tags = ["requires-network"],
     visibility = ["//visibility:private"],
@@ -288,10 +293,20 @@ constraint_value(
     visibility = ["//visibility:public"],
 )
 
+constraint_setting(name = "mount_support")
+
+# A machine that permits privileged mount operations.
+constraint_value(
+    name = "mount_capable",
+    constraint_setting = ":mount_support",
+    visibility = ["//visibility:public"],
+)
+
 platform(
     name = "default_host_platform",
     constraint_values = [
         ":highcpu_machine",
+        ":mount_capable",
     ],
     parents = ["@platforms//host"],
 )
@@ -309,6 +324,9 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
 [
     platform(
         name = platform_name + "_platform",
+        constraint_values = [
+            "//:mount_capable",
+        ],
         exec_properties = {
             "dockerNetwork": "standard",
             "dockerPrivileged": "true",
@@ -335,6 +353,33 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
     for platform_name in REMOTE_PLATFORMS
 ]
 
+# Bazel's own Java sources. External modules built as dependencies are
+# deliberately not covered, since we do not control their code.
+package_group(
+    name = "bazel_java_packages",
+    packages = ["//src/..."],
+)
+
+# Error Prone checks that are already enforced when Bazel is built inside
+# Google. Enabling them here surfaces the errors on pull requests instead of
+# after a change has been imported.
+#
+# These are attached to the Java toolchain rather than passed with --javacopt
+# because --javacopt also reaches rules that invoke javac directly, such as the
+# bootstrap Java rules in //tools/build_rules:java_rules_skylark.bzl, and plain
+# javac rejects -Xep: flags outright.
+java_package_configuration(
+    name = "bazel_error_prone_checks",
+    javacopts = [
+        "-Xep:ClassName:ERROR",
+        "-Xep:EqualsIncompatibleType:ERROR",
+        "-Xep:FutureReturnValueIgnored:ERROR",
+        "-Xep:TruthIncompatibleType:ERROR",
+        "-Xep:UnnecessaryBreakInSwitch:ERROR",
+    ],
+    packages = [":bazel_java_packages"],
+)
+
 # LINT.IfChange
 [
     default_java_toolchain(
@@ -342,6 +387,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
         java_runtime = "@rules_java//toolchains:remotejdk_25",
         oneversion_allowlist = ":oneversion_allowlist.csv",
         oneversion_allowlist_for_tests = ":oneversion_allowlist_for_tests.csv",
+        package_configuration = [":bazel_error_prone_checks"],
         source_version = str(language_version),
         target_version = str(language_version),
         turbine_jvm_opts = DEFAULT_TOOLCHAIN_CONFIGURATION["jvm_opts"] + [

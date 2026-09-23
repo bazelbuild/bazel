@@ -62,6 +62,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -216,7 +217,7 @@ public class BzlLoadFunction implements SkyFunction {
    * <p><b>USAGE NOTES:</b>
    *
    * <ul>
-   *   <li>This method is intended to be called from {@link PackageFunction} and {@link
+   *   <li>This method is intended to be called from {@code PackageFunction} and {@link
    *       StarlarkBuiltinsFunction} and probably shouldn't be used anywhere else. If you think you
    *       need inline Starlark computation, consult with the Core subteam and check out
    *       cl/305127325 for an example of correcting a misuse.
@@ -392,7 +393,7 @@ public class BzlLoadFunction implements SkyFunction {
    * An opaque object that holds state for the bzl inlining computation initiated by {@link
    * #computeInline}.
    *
-   * <p>An original caller of {@code computeInline} (e.g., {@link PackageFunction}) should obtain
+   * <p>An original caller of {@code computeInline} (e.g., {@code PackageFunction}) should obtain
    * one of these objects using {@link InliningState#create}. When the same caller makes several
    * calls to {@code computeInline} (e.g., for multiple top-level loads in the same BUILD file), the
    * same object must be passed to each call.
@@ -1518,6 +1519,19 @@ public class BzlLoadFunction implements SkyFunction {
                 packageLoadingListener);
         if (value != null) {
           bzlCompileCache.put(key, value);
+        }
+      } else {
+        // The cache hit may have been populated on behalf of a different BzlLoadValue node with
+        // the same compile key; make sure this node depends on the .bzl file too.
+        var bzlFileKey = key.getBzlFileKey();
+        if (bzlFileKey != null) {
+          try {
+            if (env.getValueOrThrow(bzlFileKey, IOException.class) == null) {
+              return null;
+            }
+          } catch (IOException e) {
+            throw new BzlCompileFunction.FailedIOException(e, Transience.PERSISTENT);
+          }
         }
       }
       return value;

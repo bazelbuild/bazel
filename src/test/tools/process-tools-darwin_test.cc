@@ -18,6 +18,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cstddef>
 #include <memory>
 
 #include "src/main/tools/process-tools.h"

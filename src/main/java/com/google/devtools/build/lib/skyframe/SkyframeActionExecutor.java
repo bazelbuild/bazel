@@ -526,7 +526,10 @@ public final class SkyframeActionExecutor {
 
   /** Determines whether the given action was rewound during the current build. */
   public boolean wasRewound(ActionAnalysisMetadata action) {
-    return rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+    Artifact primaryOutput = action.getPrimaryOutput();
+    // Only GrepIncludesAction (from include scanning) has a null primary output.
+    return primaryOutput != null
+        && rewoundActions.contains(new OwnerlessArtifactWrapper(primaryOutput));
   }
 
   /**
@@ -585,7 +588,16 @@ public final class SkyframeActionExecutor {
     if (state != null) {
       // If an action failed from lost inputs during input discovery then it won't have a state to
       // obsolete.
-      state.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
+      ActionStepOrResult priorState =
+          state.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
+      if (priorState instanceof ActionRunner runner) {
+        try {
+          runner.actionExecutionContext.close();
+        } catch (IOException e) {
+          logger.atWarning().withCause(e).log(
+              "Failed to close ActionExecutionContext for %s", failedAction.prettyPrint());
+        }
+      }
     }
     if (!actionFileSystemType().inMemoryFileSystem()) {
       outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(failedAction.getOutputs());
@@ -687,6 +699,13 @@ public final class SkyframeActionExecutor {
       result = activeAction.getResultOrDependOnFuture(env, actionLookupData, action, callback);
     } catch (ActionExecutionException e) {
       finalException = e;
+    }
+
+    // Do not close the context for lost input exceptions. It will be done by prepareForRewinding
+    // after a rewind plan is in place. This avoids closing the context prematurely in case a
+    // skyframe restart is necessary to prepare the rewind plan.
+    if (finalException instanceof LostInputsActionExecutionException) {
+      throw finalException;
     }
 
     if (result != null || finalException != null) {

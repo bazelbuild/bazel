@@ -24,6 +24,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:rule_context_constraint_semantics",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",

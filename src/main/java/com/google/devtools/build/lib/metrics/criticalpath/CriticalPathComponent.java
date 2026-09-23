@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.metrics.criticalpath;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
@@ -34,10 +36,6 @@ import javax.annotation.Nullable;
  */
 @ThreadCompatible
 public class CriticalPathComponent {
-  /** Empty metrics used to simplify handling of {@link #phaseMaxMetrics}. */
-  private static final SpawnMetrics EMPTY_PLACEHOLDER_METRICS =
-      SpawnMetrics.Builder.forOtherExec().build();
-
   // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
   private long startNanos;
   private long finishNanos = 0;
@@ -50,21 +48,24 @@ public class CriticalPathComponent {
   private final Artifact primaryOutput;
 
   /** Spawn metrics for this action. */
-  private SpawnMetrics phaseMaxMetrics = EMPTY_PLACEHOLDER_METRICS;
+  @Nullable private SpawnMetrics phaseMaxMetrics = null;
 
   private AggregatedSpawnMetrics totalSpawnMetrics = AggregatedSpawnMetrics.EMPTY;
   private int longestRunningTotalDurationInMs = 0;
   private boolean phaseChange;
 
-  /** Name of the runner used for the spawn. */
-  @Nullable private String longestPhaseSpawnRunnerName;
-  /** Details about the runner used for the spawn. */
-  @Nullable private String longestPhaseSpawnRunnerSubtype;
+  private record RunnerDetails(String name, String subtype) {
+    private static final Interner<RunnerDetails> interner = Interners.newWeakInterner();
+
+    static RunnerDetails of(String name, @Nullable String subtype) {
+      return interner.intern(new RunnerDetails(name, subtype != null ? subtype : ""));
+    }
+  }
+
+  @Nullable private RunnerDetails longestPhaseSpawnRunner;
+
   /** Child with the maximum critical path. */
   @Nullable private CriticalPathComponent child;
-
-  /** Indication that there is at least one remote spawn metrics received. */
-  private boolean remote = false;
 
   public CriticalPathComponent(Action action, long startNanos) {
     this.action = Preconditions.checkNotNull(action);
@@ -104,20 +105,19 @@ public class CriticalPathComponent {
       // this component.
       aggregatedElapsedTime = Math.max(aggregatedElapsedTime, this.finishNanos - this.startNanos);
       isRunning = false;
-      if (longestPhaseSpawnRunnerName == null && !finalizeReason.isEmpty()) {
+      if (longestPhaseSpawnRunner == null && !finalizeReason.isEmpty()) {
         // This is probably not the best way to do it in face of getting called multiple times.
-        longestPhaseSpawnRunnerName = finalizeReason;
-        longestPhaseSpawnRunnerSubtype = "";
+        longestPhaseSpawnRunner = RunnerDetails.of(finalizeReason, "");
         longestRunningTotalDurationInMs =
             (int) Duration.ofNanos(this.finishNanos - this.startNanos).toMillis();
       }
     }
 
     // If the phaseMaxMetrics has Duration, then we want to aggregate it to the total.
-    if (!this.phaseMaxMetrics.isEmpty()) {
+    if (this.phaseMaxMetrics != null && !this.phaseMaxMetrics.isEmpty()) {
       this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
-      this.phaseMaxMetrics = EMPTY_PLACEHOLDER_METRICS;
     }
+    this.phaseMaxMetrics = null;
   }
 
   @SuppressWarnings("ReferenceEquality")
@@ -202,25 +202,19 @@ public class CriticalPathComponent {
    */
   void addSpawnResult(
       SpawnMetrics metrics, @Nullable String runnerName, String runnerSubtype, boolean wasRemote) {
-    // Mark this component as having remote components if _any_ spawn result contributing
-    // to it contains meaningful remote metrics. Subsequent non-remote spawns in an action
-    // must not reset this flag.
-    if (wasRemote) {
-      this.remote = true;
-    }
     if (this.phaseChange) {
-      if (!this.phaseMaxMetrics.isEmpty()) {
+      if (this.phaseMaxMetrics != null && !this.phaseMaxMetrics.isEmpty()) {
         this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
       }
       this.phaseMaxMetrics = metrics;
       this.phaseChange = false;
-    } else if (metrics.totalTimeInMs() > phaseMaxMetrics.totalTimeInMs()) {
+    } else if (this.phaseMaxMetrics == null
+        || metrics.totalTimeInMs() > phaseMaxMetrics.totalTimeInMs()) {
       this.phaseMaxMetrics = metrics;
     }
 
     if (runnerName != null && metrics.totalTimeInMs() > this.longestRunningTotalDurationInMs) {
-      this.longestPhaseSpawnRunnerName = runnerName;
-      this.longestPhaseSpawnRunnerSubtype = runnerSubtype;
+      this.longestPhaseSpawnRunner = RunnerDetails.of(runnerName, runnerSubtype);
       this.longestRunningTotalDurationInMs = metrics.totalTimeInMs();
     }
   }
@@ -245,13 +239,13 @@ public class CriticalPathComponent {
    */
   @Nullable
   public String getLongestPhaseSpawnRunnerName() {
-    return longestPhaseSpawnRunnerName;
+    return longestPhaseSpawnRunner != null ? longestPhaseSpawnRunner.name() : null;
   }
 
   /** Like getLongestPhaseSpawnRunnerName(), but returns the runner details. */
   @Nullable
   public String getLongestPhaseSpawnRunnerSubtype() {
-    return longestPhaseSpawnRunnerSubtype;
+    return longestPhaseSpawnRunner != null ? longestPhaseSpawnRunner.subtype() : null;
   }
 
   /**
@@ -342,7 +336,7 @@ public class CriticalPathComponent {
       currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s";
     }
     sb.append(currentTime);
-    if (remote) {
+    if (!getSpawnMetrics().getRemoteMetrics().isEmpty()) {
       sb.append(", ");
       sb.append(getSpawnMetrics().toString(getElapsedTimeNoCheck(), /* summary= */ false));
     }

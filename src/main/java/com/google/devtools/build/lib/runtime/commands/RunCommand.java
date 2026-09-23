@@ -130,9 +130,7 @@ public class RunCommand implements BlazeCommand {
         help =
             "If set, write a shell script to the given file which invokes the target. If this"
                 + " option is set, the target is not run from %{product}. Use '%{product} run"
-                + " --script_path=foo //foo && ./foo' to invoke target '//foo' This differs from"
-                + " '%{product} run //foo' in that the %{product} lock is released and the"
-                + " executable is connected to the terminal's stdin.")
+                + " --script_path=foo //foo && ./foo' to invoke target '//foo'.")
     public abstract PathFragment getScriptPath();
 
     @Option(

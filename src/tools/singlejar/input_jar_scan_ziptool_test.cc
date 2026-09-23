@@ -17,6 +17,8 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
+#include <string>
+
 #include "src/tools/singlejar/input_jar_scan_entries_test.h"
 
 /* Creates jar files using zip.  */

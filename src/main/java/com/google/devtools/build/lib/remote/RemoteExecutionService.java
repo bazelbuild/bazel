@@ -524,7 +524,6 @@ public class RemoteExecutionService {
                 toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                 scrubber,
                 context,
-                remotePathResolver,
                 blobPolicy);
       } catch (CredentialHelperException e) {
         throw createExecExceptionForCredentialHelperException(e);
@@ -1702,12 +1701,12 @@ public class RemoteExecutionService {
       moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
     } catch (InterruptedException | IOException e) {
       // Delete any copied output files.
-      try {
-        for (Path tmpPath : realToTmpPath.values()) {
+      for (Path tmpPath : realToTmpPath.values()) {
+        try {
           tmpPath.delete();
+        } catch (IOException ignored) {
+          // Best effort, will be cleaned up at server restart.
         }
-      } catch (IOException ignored) {
-        // Best effort, will be cleaned up at server restart.
       }
       throw e;
     }
@@ -2012,7 +2011,6 @@ public class RemoteExecutionService {
                     toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                     scrubber,
                     context,
-                    action.getRemotePathResolver(),
                     force
                         ? MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD
                         : MerkleTreeComputer.BlobPolicy.KEEP);
@@ -2024,8 +2022,7 @@ public class RemoteExecutionService {
               .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
           merkleTree,
           additionalInputs,
-          force,
-          action.getRemotePathResolver());
+          force);
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }

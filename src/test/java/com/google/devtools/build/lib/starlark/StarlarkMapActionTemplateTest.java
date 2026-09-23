@@ -645,6 +645,54 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   }
 
   @Test
+  public void cannotConsumeOutputDirectory(
+      @TestParameter({
+            "inputs = [first_dir]",
+            "inputs = depset([first_dir])",
+            "tools = [first_dir]",
+            "tools = depset([first_dir])",
+            "tools = [depset([first_dir])]"
+          })
+          String inputArgument)
+      throws Exception {
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir")
+
+        def map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            first_dir = output_directories["first"]
+            first = template_ctx.declare_file("first", directory = first_dir)
+            template_ctx.run(outputs = [first], executable = tools["tool"])
+            second = template_ctx.declare_file("second", directory = output_directories["second"])
+            template_ctx.run(
+                outputs = [second],
+                executable = tools["tool"],
+                %s,
+            )
+
+        def rule_impl(ctx):
+            first_dir = ctx.actions.declare_directory("first_dir")
+            second_dir = ctx.actions.declare_directory("second_dir")
+            ctx.actions.map_directory(
+                implementation = map_impl,
+                input_directories = {"input": create_seed_dir(ctx, "input", 1, 3)},
+                output_directories = {"first": first_dir, "second": second_dir},
+                tools = {"tool": ctx.attr.cat_tool.files_to_run},
+            )
+            return [DefaultInfo(files = depset([first_dir, second_dir]))]
+        """
+            .formatted(inputArgument));
+
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .containsMatch(
+            "Output directory .*first_dir.* cannot be used as an input to template_ctx.run");
+  }
+
+  @Test
   public void actionConflicts_conflictingOutputsInSameDirectory() throws Exception {
     // Don't check serialization here, since the action conflict only occurs during execution,
     // but serialization checks end up throwing (due to action conflicts) before we get there.

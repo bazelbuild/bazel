@@ -132,7 +132,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -142,13 +141,13 @@ public final class RemoteModule extends BlazeModule {
   private final ListeningScheduledExecutorService retryScheduler =
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
+  private final ThreadPoolExecutor executorService;
   private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
   private final ChunkLocationMap chunkLocationMap = new ChunkLocationMap();
   private boolean useRemoteRepoContentsCache;
 
   @Nullable private PathFragment outputBase;
   @Nullable private AsynchronousMessageOutputStream<LogEntry> rpcLogFile;
-  @Nullable private ExecutorService executorService;
   @Nullable private RemoteActionContextProvider actionContextProvider;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private RemoteOptions remoteOptions;
@@ -186,9 +185,22 @@ public final class RemoteModule extends BlazeModule {
   private final RepositoryRemoteHelpersFactoryDelegate repositoryRemoteHelpersFactoryDelegate =
       new RepositoryRemoteHelpersFactoryDelegate();
 
-  private Downloader remoteDownloader;
+  @Nullable private GrpcRemoteDownloader remoteDownloader;
 
   private CredentialModule credentialModule;
+
+  public RemoteModule() {
+    int defaultJobs = Options.getDefaults(BuildRequestOptions.class).getJobs();
+    executorService =
+        new ThreadPoolExecutor(
+            defaultJobs,
+            defaultJobs,
+            60L,
+            SECONDS,
+            new LinkedBlockingQueue<>(),
+            new ThreadFactoryBuilder().setNameFormat("remote-executor-%d").build());
+    executorService.allowCoreThreadTimeOut(true);
+  }
 
   @Override
   public ImmutableList<Class<? extends OptionsBase>> getStartupOptions() {
@@ -607,21 +619,16 @@ public final class RemoteModule extends BlazeModule {
     BuildRequestOptions buildRequestOptions =
         env.getOptions().getOptions(BuildRequestOptions.class);
 
-    int jobs = 0;
+    // Commands that do not support --jobs retain the previously configured pool size.
     if (buildRequestOptions != null) {
-      jobs = buildRequestOptions.getJobs();
-    }
-
-    ThreadFactory threadFactory =
-        new ThreadFactoryBuilder().setNameFormat("remote-executor-%d").build();
-    if (jobs != 0) {
-      ThreadPoolExecutor tpe =
-          new ThreadPoolExecutor(
-              jobs, jobs, 60L, SECONDS, new LinkedBlockingQueue<>(), threadFactory);
-      tpe.allowCoreThreadTimeOut(true);
-      executorService = tpe;
-    } else {
-      executorService = Executors.newCachedThreadPool(threadFactory);
+      int jobs = buildRequestOptions.getJobs();
+      // Raise the maximum first when growing, and lower the core size first when shrinking, to pass
+      // checks in ThreadPoolExecutor.
+      if (jobs > executorService.getMaximumPoolSize()) {
+        executorService.setMaximumPoolSize(jobs);
+      }
+      executorService.setCorePoolSize(jobs);
+      executorService.setMaximumPoolSize(jobs);
     }
 
     Credentials credentials;
@@ -1130,11 +1137,20 @@ public final class RemoteModule extends BlazeModule {
     // Some cleanup tasks must wait until every other BlazeModule's afterCommand() has run, as
     // otherwise we might interfere with asynchronous remote downloads that are in progress.
     RemoteActionContextProvider actionContextProviderRef = actionContextProvider;
+    GrpcRemoteDownloader remoteDownloaderRef = remoteDownloader;
     TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
     AsynchronousMessageOutputStream<LogEntry> rpcLogFileRef = rpcLogFile;
-    if (actionContextProviderRef != null || tempPathGeneratorRef != null || rpcLogFileRef != null) {
+    if (actionContextProviderRef != null
+        || remoteDownloaderRef != null
+        || tempPathGeneratorRef != null
+        || rpcLogFileRef != null) {
       blockWaitingModule.submit(
-          () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
+          () ->
+              afterCommandTask(
+                  actionContextProviderRef,
+                  remoteDownloaderRef,
+                  tempPathGeneratorRef,
+                  rpcLogFileRef));
     }
 
     lastRemoteOutputChecker = remoteOutputChecker;
@@ -1159,11 +1175,16 @@ public final class RemoteModule extends BlazeModule {
 
   private static void afterCommandTask(
       @Nullable RemoteActionContextProvider actionContextProvider,
+      @Nullable GrpcRemoteDownloader remoteDownloader,
       @Nullable TempPathGenerator tempPathGenerator,
       @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile)
       throws AbruptExitException {
     if (actionContextProvider != null) {
       actionContextProvider.afterCommand();
+    }
+
+    if (remoteDownloader != null) {
+      remoteDownloader.close();
     }
 
     if (tempPathGenerator != null) {
@@ -1457,6 +1478,11 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   RemoteActionContextProvider getActionContextProvider() {
     return actionContextProvider;
+  }
+
+  @VisibleForTesting
+  ThreadPoolExecutor getExecutorService() {
+    return executorService;
   }
 
   @VisibleForTesting

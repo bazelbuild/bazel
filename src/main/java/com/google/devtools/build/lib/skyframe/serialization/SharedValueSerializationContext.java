@@ -35,7 +35,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -323,8 +322,11 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       // There are no deferred bytes so `childBytes` is complete. Starts the upload.
 
       int uncompressedLength = childBytes.length;
-      childBytes = maybeCompressBytes(childBytes);
-      int childBytesCount = childBytes.length; // Do not hold on to the bytes
+      ChunkedValueSerialization.ChunkingResult chunkingResult =
+          ChunkedValueSerialization.maybeCompressAndChunk(
+              childBytes, compressionService, fingerprintValueService, childWriteStatuses::add);
+      childBytes = chunkingResult.serializedBytes();
+      int childBytesCount = chunkingResult.bytesToUpload();
       if (childRecorder != null && childBytesCount != uncompressedLength) {
         childRecorder.setByteScale((double) childBytesCount / uncompressedLength);
       }
@@ -336,6 +338,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
       fingerprint.writeTo(codedOut); // Writes only the fingerprint to the stream.
       WriteStatus writeStatus = fingerprintValueService.put(fingerprint, childBytes);
+
       if (childRecorder != null) {
         childRecorder.registerWriteStatus(writeStatus);
       }
@@ -365,25 +368,6 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
 
     putOperation.setFuture(upload);
     recordFuturePut(upload, codedOut);
-  }
-
-  private byte[] maybeCompressBytes(byte[] childBytes) {
-    if (childBytes.length > COMPRESSION_THRESHOLD_IN_BYTES) {
-      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      outputStream.write((byte) 1);
-      try (OutputStream zstdOutputStream = compressionService.newZstdOutputStream(outputStream)) {
-        zstdOutputStream.write(childBytes);
-        zstdOutputStream.flush();
-        return outputStream.toByteArray();
-      } catch (IOException e) {
-        BugReporter.defaultInstance().sendBugReport(e);
-        // Falls back onto uncompressed data.
-      }
-    }
-    byte[] newChildBytes = new byte[childBytes.length + 1];
-    newChildBytes[0] = (byte) 0;
-    System.arraycopy(childBytes, 0, newChildBytes, 1, childBytes.length);
-    return newChildBytes;
   }
 
   /**
@@ -453,8 +437,11 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     protected PutOperation getValue() {
       // All placeholders are filled-in. Starts the upload.
       int uncompressedLength = childBytes.length;
-      byte[] maybeCompressedBytes = maybeCompressBytes(childBytes);
-      int childBytesCount = maybeCompressedBytes.length; // Do not hold on to the array
+      ChunkedValueSerialization.ChunkingResult chunkingResult =
+          ChunkedValueSerialization.maybeCompressAndChunk(
+              childBytes, compressionService, fingerprintValueService, childWriteStatuses::add);
+      byte[] maybeCompressedBytes = chunkingResult.serializedBytes();
+      int childBytesCount = chunkingResult.bytesToUpload();
       if (childRecorder != null && childBytesCount != uncompressedLength) {
         childRecorder.setByteScale((double) childBytesCount / uncompressedLength);
       }

@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -35,7 +36,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import java.io.ByteArrayInputStream;
@@ -428,17 +428,73 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
         onFailure(MissingSharedValueBytesException.INSTANCE);
         return;
       }
-      SharedValueDeserializationContext innerContext = getFreshContext(childFingerprint);
-      DeferredValue<?> deferred;
-      try {
-        try (InputStream inputStream = maybeDecompressBytes(bytes)) {
-          deferred =
-              codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(inputStream));
+      if (ChunkedValueSerialization.isChunked(bytes)) {
+        ImmutableList<PackedFingerprint> chunkFps;
+        try {
+          chunkFps = ChunkedValueSerialization.parseChunkFingerprints(bytes);
+        } catch (IOException e) {
+          onFailure(e);
+          return;
         }
-      } catch (SerializationException | IOException | RuntimeException | Error e) {
-        onFailure(e);
+        List<ListenableFuture<byte[]>> chunkFutures = new ArrayList<>(chunkFps.size());
+        for (PackedFingerprint fp : chunkFps) {
+          try {
+            chunkFutures.add(fingerprintValueService.get(fp));
+          } catch (IOException e) {
+            onFailure(e);
+            return;
+          }
+        }
+        fingerprintValueService
+            .getExecutor()
+            .addCallback(
+                Futures.allAsList(chunkFutures),
+                new FutureCallback<List<byte[]>>() {
+                  @Override
+                  public void onSuccess(List<byte[]> chunks) {
+                    SharedBytesProcessor.this.onSuccess(chunks);
+                  }
+
+                  @Override
+                  public void onFailure(Throwable t) {
+                    SharedBytesProcessor.this.onFailure(t);
+                  }
+                });
         return;
       }
+
+      deserializeAndComplete(() -> maybeDecompressBytes(bytes));
+    }
+
+    private void onSuccess(List<byte[]> chunks) {
+      for (byte[] chunk : chunks) {
+        if (chunk == null) {
+          onFailure(MissingSharedValueBytesException.INSTANCE);
+          return;
+        }
+      }
+      InputStream seqStream = ChunkedValueSerialization.toSequenceInputStream(chunks);
+      deserializeAndComplete(() -> compressionService.newZstdInputStream(seqStream));
+    }
+
+    @FunctionalInterface
+    private interface InputStreamSupplier {
+      InputStream get() throws IOException;
+    }
+
+    private void deserializeAndComplete(InputStreamSupplier streamSupplier) {
+      try (InputStream inputStream = streamSupplier.get()) {
+        deserializeAndComplete(inputStream);
+      } catch (SerializationException | IOException | RuntimeException | Error e) {
+        onFailure(e);
+      }
+    }
+
+    private void deserializeAndComplete(InputStream inputStream)
+        throws SerializationException, IOException {
+      SharedValueDeserializationContext innerContext = getFreshContext(childFingerprint);
+      DeferredValue<?> deferred =
+          codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(inputStream));
       if (skyframeLookupCollector != null) {
         // The codec above is responsible for calling `getSkyValue` so any SkyKey directly requested
         // by this deserialization will be requested by this point and the notification can be sent.
@@ -609,9 +665,6 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
     private final T parent;
     private final FieldSetter<? super T> setter;
 
-    /** Set true if the Skyframe dependency has an exception. */
-    private boolean isFailed = false;
-
     @VisibleForTesting
     SkyframeLookup(SkyKey key, T parent, FieldSetter<? super T> setter) {
       this.key = key;
@@ -639,19 +692,8 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
       return true;
     }
 
-    boolean isFailed() {
-      return isFailed;
-    }
-
     void abandon(LookupAbandonedException exception) {
       setException(exception);
-    }
-
-    @Override
-    @CanIgnoreReturnValue
-    protected boolean setException(Throwable t) {
-      this.isFailed = true;
-      return super.setException(t);
     }
   }
 

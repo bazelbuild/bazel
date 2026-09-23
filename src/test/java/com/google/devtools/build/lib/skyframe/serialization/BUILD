@@ -417,6 +417,7 @@ java_library(
         ["*.java"],
         exclude = [
             "AspectCodecsTest.java",
+            "ChunkedValueSerializationTest.java",
             "PackageLookupValueCodecTest.java",
             "MutableListCodecTest.java",
             "SingletonCodecTest.java",
@@ -530,6 +531,21 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "ChunkedValueSerializationTest",
+    size = "small",
+    srcs = ["ChunkedValueSerializationTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/truth",

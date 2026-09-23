@@ -69,6 +69,7 @@ cc_test(
     deps = select({
         "//src/conditions:windows": [
             ":test_deps",
+            "//src/main/cpp:blaze_util",
             "//src/main/cpp/util:filesystem",
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",

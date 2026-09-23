@@ -2029,7 +2029,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       ActionAnalysisMetadata generatingAction, ActionLookupKey actionLookupKey)
       throws ActionConflictException,
           InterruptedException,
-          Actions.ArtifactGeneratedByOtherRuleException {
+          Actions.ArtifactGeneratedByOtherRuleException,
+          Actions.SourceArtifactUsedAsOutputException {
     ImmutableList<ActionAnalysisMetadata> actions = ImmutableList.of(generatingAction);
     Actions.assignOwnersAndThrowIfConflict(new ActionKeyContext(), actions, actionLookupKey);
     return new BasicActionLookupValue(actions);
@@ -2280,7 +2281,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       null,
                       new TopLevelArtifactContext(
                           /* runTestsExclusively= */ false,
-                          false,
                           OutputGroupInfo.determineOutputGroups(
                               ImmutableList.of(),
                               OutputGroupInfo.ValidationMode.OUTPUT_GROUP,

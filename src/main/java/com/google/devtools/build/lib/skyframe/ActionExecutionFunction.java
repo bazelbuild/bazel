@@ -426,17 +426,6 @@ public class ActionExecutionFunction implements SkyFunction {
 
     // After the action execution is finalized, unregister the outputs from the consumed set to save
     // memory.
-    // Note: This can theoretically lead to infinite action rewinding if we're unlucky enough.
-    // Consider an action foo whose outputs A and B are needed by 2 separate actions consumerA and
-    // consumerB. If these 2 actions trigger rewinding alternately, at the correct timing, e.g.:
-    // 1. consumerA requests for A. A is registered. foo produces only A since B isn't registered. A
-    // is de-registered. consumerA isn't executed yet.
-    // 2. consumerB requests for B. B is registered. foo is rewound and produces only B since A
-    // isn't registered. B is de-registered. consumerB isn't executed yet.
-    // 3. Before consumerA enters execution, A falls out of the CAS. consumerA sees that A is
-    // missing and triggers rewinding for A. Repeat step (1).
-    // 4. Before consumerB enters execution, B falls out of the CAS. consumerB sees that B is
-    // missing and triggers rewinding for B. Repeat step (2).
     if (consumedArtifactsTrackerSupplier.get() != null) {
       consumedArtifactsTrackerSupplier
           .get()
@@ -457,15 +446,9 @@ public class ActionExecutionFunction implements SkyFunction {
     // Register the action's inputs and scheduling deps as "consumed" in the build.
     // As a general rule, we do it before requesting for the evaluation of these artifacts. This
     // would provide a good estimate of which outputs are consumed.
-    if (consumedArtifactsTracker != null && !state.checkedForConsumedArtifactRegistration) {
-      // Only registering the leaves here, since the Artifacts under non-leaves will be registered
-      // in ArtifactNestedSetFunction. Similarly for the non-singleton Scheduling Dependencies.
-      for (Artifact input : allInputs.getLeaves()) {
-        consumedArtifactsTracker.registerConsumedArtifact(input);
-      }
-      if (schedulingDependencies.isSingleton()) {
-        consumedArtifactsTracker.registerConsumedArtifact(schedulingDependencies.getSingleton());
-      }
+    boolean registerConsumed =
+        consumedArtifactsTracker != null && !state.checkedForConsumedArtifactRegistration;
+    if (registerConsumed) {
       state.checkedForConsumedArtifactRegistration = true;
     }
 
@@ -474,19 +457,24 @@ public class ActionExecutionFunction implements SkyFunction {
     // - This top layer costs 1 extra ArtifactNestedSetKey node.
     // - It's uncommon that 2 actions share the exact same set of inputs
     //   => the top layer offers little in terms of reusability.
-    // More details: b/143205147.
-    for (Artifact leaf : allInputs.getLeaves()) {
-      result.add(Artifact.key(leaf));
-    }
+    ArtifactNestedSetKey.visitDirectDeps(
+        allInputs,
+        leaf -> {
+          if (registerConsumed) {
+            consumedArtifactsTracker.registerConsumedArtifact(leaf);
+          }
+          result.add(Artifact.key(leaf));
+        },
+        result::add);
 
     if (schedulingDependencies.isSingleton()) {
-      result.add(Artifact.key(schedulingDependencies.getSingleton()));
+      Artifact schedulingDep = schedulingDependencies.getSingleton();
+      if (registerConsumed) {
+        consumedArtifactsTracker.registerConsumedArtifact(schedulingDep);
+      }
+      result.add(Artifact.key(schedulingDep));
     } else if (!schedulingDependencies.isEmpty()) {
       result.add(ArtifactNestedSetKey.create(schedulingDependencies));
-    }
-
-    for (NestedSet<Artifact> nonLeaf : allInputs.getNonLeaves()) {
-      result.add(ArtifactNestedSetKey.create(nonLeaf));
     }
 
     return result.build();

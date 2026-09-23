@@ -45,7 +45,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
       CompressionService compressionService,
       BugReporter bugReporter) {
-    return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+    return SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
         .setDirectories(directories)

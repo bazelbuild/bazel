@@ -33,6 +33,7 @@
 #include <mutex>  // NOLINT
 #include <set>
 #include <sstream>
+#include <string>
 #include <thread>       // NOLINT (to silence Google-internal linter)
 #include <type_traits>  // static_assert
 #include <utility>
@@ -54,6 +55,7 @@
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -1135,7 +1137,8 @@ static bool StillExists(HANDLE handle, const string& name) {
 std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
                                                   const blaze_util::Path& path,
                                                   LockMode mode,
-                                                  bool batch_mode, bool block) {
+                                                  bool batch_mode,
+                                                  absl::Duration timeout) {
   const uint64_t start_time = GetMillisecondsMonotonic();
   bool multiple_attempts = false;
 
@@ -1186,22 +1189,36 @@ std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
 
     if (!multiple_attempts) {
       BAZEL_LOG(USER) << "Another command holds the " << name << " lock.";
-      if (block) {
-        BAZEL_LOG(USER) << "Waiting for it to complete...";
-      }
-      fflush(stderr);
     }
 
-    if (!block) {
+    if (timeout <= absl::ZeroDuration()) {
       BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
           << "Exiting because the " << name
           << " lock is held and --noblock_for_lock was given.";
     }
 
-    multiple_attempts = true;
+    DWORD sleep_ms = 500;
+    if (timeout != absl::InfiniteDuration()) {
+      const uint64_t elapsed = GetMillisecondsMonotonic() - start_time;
+      const uint64_t timeout_ms = absl::ToInt64Milliseconds(timeout);
+      if (elapsed >= timeout_ms) {
+        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+            << "Exiting because the " << name
+            << " lock is held and --block_for_lock=" << timeout_ms
+            << "ms timeout expired.";
+      }
+      sleep_ms =
+          static_cast<DWORD>(std::min<uint64_t>(500ULL, timeout_ms - elapsed));
+    }
 
+    if (!multiple_attempts) {
+      BAZEL_LOG(USER) << "Waiting for it to complete...";
+      fflush(stderr);
+    }
+
+    multiple_attempts = true;
     CloseHandle(handle);
-    Sleep(/* dwMilliseconds */ 500);
+    Sleep(/* dwMilliseconds */ sleep_ms);
   }
 }
 

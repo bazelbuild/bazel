@@ -74,6 +74,16 @@ public interface TypeConstructor {
     public static final EmptyTuple EMPTY_TUPLE = new EmptyTuple();
 
     /**
+     * Returns a printable representation of the type term.
+     *
+     * <p>Intended for use in error messages and tooling. The returned string should be, if
+     * possible, valid Starlark type syntax, so as to be composable with other type repr strings in
+     * composite expressions. If it cannot be printed as valid syntax, it should be enclosed in
+     * angle brackets.
+     */
+    String typeRepr();
+
+    /**
      * Returns true if this is a {@link StarlarkType} or an open type term which evaluates to a
      * {@link StarlarkType}.
      */
@@ -101,8 +111,13 @@ public interface TypeConstructor {
       private Ellipsis() {}
 
       @Override
-      public String toString() {
+      public String typeRepr() {
         return "...";
+      }
+
+      @Override
+      public String toString() {
+        return typeRepr();
       }
     }
 
@@ -111,8 +126,13 @@ public interface TypeConstructor {
       private EmptyTuple() {}
 
       @Override
-      public String toString() {
+      public String typeRepr() {
         return "()";
+      }
+
+      @Override
+      public String toString() {
+        return typeRepr();
       }
     }
 
@@ -149,8 +169,13 @@ public interface TypeConstructor {
       }
 
       @Override
+      public String typeRepr() {
+        return String.format("[%s]", terms.stream().map(Term::typeRepr).collect(joining(", ")));
+      }
+
+      @Override
       public String toString() {
-        return String.format("[%s]", terms.stream().map(Term::toString).collect(joining(", ")));
+        return typeRepr();
       }
     }
 
@@ -200,7 +225,7 @@ public interface TypeConstructor {
           }
           NodePrinter.printStringLiteral(buf, entry.getKey());
           buf.append(": ");
-          buf.append(entry.getValue());
+          buf.append(entry.getValue().typeRepr());
           first = false;
         }
         buf.append('}');
@@ -208,8 +233,13 @@ public interface TypeConstructor {
       }
 
       @Override
-      public String toString() {
+      public String typeRepr() {
         return print(new StringBuilder(), map).toString();
+      }
+
+      @Override
+      public String toString() {
+        return typeRepr();
       }
     }
 
@@ -255,8 +285,13 @@ public interface TypeConstructor {
       }
 
       @Override
-      public String toString() {
+      public String typeRepr() {
         return name;
+      }
+
+      @Override
+      public String toString() {
+        return typeRepr();
       }
     }
 
@@ -300,11 +335,16 @@ public interface TypeConstructor {
       }
 
       @Override
-      public String toString() {
+      public String typeRepr() {
         return args.isEmpty()
             ? constructor.toString()
             : String.format(
-                "%s[%s]", constructor, args.stream().map(Term::toString).collect(joining(", ")));
+                "%s[%s]", constructor, args.stream().map(Term::typeRepr).collect(joining(", ")));
+      }
+
+      @Override
+      public String toString() {
+        return typeRepr();
       }
     }
 
@@ -345,9 +385,14 @@ public interface TypeConstructor {
       }
 
       @Override
+      public String typeRepr() {
+        // Keep consistent with Types.UnionType.typeRepr()
+        return String.format("%s | %s", x.typeRepr(), y.typeRepr());
+      }
+
+      @Override
       public String toString() {
-        // Keep consistent with Types.UnionType.toString()
-        return String.format("%s|%s", x, y);
+        return typeRepr();
       }
     }
   }

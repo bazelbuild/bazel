@@ -203,6 +203,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",
         "//third_party:junit4",
@@ -255,6 +256,9 @@ java_test(
         "//src/main/tools:linux-sandbox",
         "//src/test/shell/integration:spend_cpu_time",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
     tags = [
         "no_windows",
         "shell",

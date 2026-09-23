@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.remote.common.MaybePathBacked;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
@@ -123,6 +125,16 @@ public class DiskCacheClient {
       path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
     } catch (FileNotFoundException e) {
       return false;
+    } catch (FileAccessException e) {
+      // On Windows, setting the last modified time via java.io.File#setLastModified opens the file
+      // with FILE_SHARE_READ | FILE_SHARE_WRITE (without FILE_SHARE_DELETE). If another thread or
+      // process is concurrently replacing the file via renameTo (MoveFileExW), CreateFileW fails
+      // with ERROR_SHARING_VIOLATION or ERROR_ACCESS_DENIED, which JavaIoFileSystem wraps in
+      // FileAccessException after already verifying that the file exists. Since the concurrent
+      // operation already sets a recent mtime, we can treat the entry as present and refreshed.
+      if (OS.getCurrent() != OS.WINDOWS) {
+        throw e;
+      }
     }
     return true;
   }

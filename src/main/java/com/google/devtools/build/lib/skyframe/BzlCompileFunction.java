@@ -321,7 +321,7 @@ public class BzlCompileFunction implements SkyFunction {
   static final class FailedIOException extends Exception {
     private final Transience transience;
 
-    private FailedIOException(IOException cause, Transience transience) {
+    FailedIOException(IOException cause, Transience transience) {
       super(cause.getMessage(), cause);
       this.transience = transience;
     }
