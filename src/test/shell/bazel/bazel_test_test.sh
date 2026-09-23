@@ -246,13 +246,8 @@ EOF
   GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
     //foo:print_coverage_env &> $TEST_log || true
   expect_log "cc_code_coverage_script: .*collect_cc_coverage.sh"
+  expect_log "llvm_cov: /from/env"
   expect_log "coverage_gcov_path: /from/env"
-  if ! is_darwin; then
-    # The Xcode toolchain provided by apple_support only honors GCOV, it
-    # doesn't declare an llvm-cov tool path, so LLVM_COV isn't part of the
-    # coverage environment on macOS.
-    expect_log "llvm_cov: /from/env"
-  fi
 
   GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
     --test_env=COVERAGE_GCOV_PATH=from_test_env \

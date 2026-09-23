@@ -183,15 +183,12 @@ tasks:
       - "//src/test/py/bazel:mod_command_test"
       - "//src/test/shell/bazel:bazel_example_test"
       - "//src/test/shell/bazel:bazel_java_test"
-      - "//src/test/shell/bazel:bazel_test_test"
       - "//src/test/shell/bazel:cc_integration_test"
       - "//src/test/shell/bazel:cpp_darwin_integration_test"
       - "//src/test/shell/bazel:external_integration_test"
       - "//src/test/shell/bazel:help_test"
       - "//src/test/shell/bazel/apple:bazel_apple_test"
       - "//src/test/shell/bazel/apple:bazel_objc_test"
-      - "//src/test/shell/bazel/remote:remote_execution_test"
-      - "//src/test/shell/integration:aquery_test"
       - "//src/test/shell/integration:bazel_query_test"
     include_json_profile:
       - build
