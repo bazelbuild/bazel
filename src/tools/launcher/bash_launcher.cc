@@ -44,7 +44,12 @@ ExitCode BashBinaryLauncher::Launch() {
     wstring bash_bin_dir = GetParentDirFromPath(bash_binary);
     wstring path_env;
     GetEnv(L"PATH", &path_env);
-    path_env = bash_bin_dir + L";" + path_env;
+    // We want to make sure the bash-adjacent tools (like coreutils) are in the
+    // path somewhere (since most bash scripts are going to assume that) but we
+    // append it rather than prepending it to avoid conflicts between link.exe
+    // (the rarely-used symlink-creator from coreutils) and link.exe (the visual
+    // studio linker)
+    path_env = path_env + L";" + bash_bin_dir;
     SetEnv(L"PATH", path_env);
   } else {
     // If specified bash binary path doesn't exist, then fall back to
