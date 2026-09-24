@@ -17,48 +17,19 @@
 import argparse
 import datetime
 import os
-import platform
 import subprocess
 import tempfile
 import zipfile
 
-from python.runfiles import Runfiles
 
-_PROGUARD_PATH = "_main/tools/build_defs/proguard/proguard_private"
-
-
-def lookup_binary(r, path):
-  """Lookup the runfiles-adjusted path to a binary.
-
-  Args:
-    r: The Runfiles object to use for the lookup.
-    path: The path of the binary being found.
-
-  Returns:
-    The full path to the binary.
-
-  Raises:
-    RuntimeError: If the path is not present in the runfiles, or if the adjusted
-    path does not
-    exist on the filesystem.
-  """
-
-  if platform.system() == "Windows":
-    path = path + ".exe"
-  binary = r.Rlocation(path)
-  if not binary:
-    raise RuntimeError(f"Runfiles failed to resolve {path}")
-  elif not os.path.exists(binary):
-    raise RuntimeError(
-        f"Runfiles resolved {path} to {binary} but the file does not exist"
-    )
-  return binary
-
-
-def apply_proguard(srcs, deps, proguard_spec, output_jar):
+def apply_proguard(
+    java_executable, proguard_jar, srcs, deps, proguard_spec, output_jar
+):
   """Call proguard on the given source jars with the spec.
 
   Args:
+    java_executable: The execution-platform Java executable.
+    proguard_jar: The ProGuard deploy JAR.
     srcs: The source jars to be modified.
     deps: Dependency jars needed to resolve the source jars.
     proguard_spec: The path to the proguard spec file describing what
@@ -70,12 +41,11 @@ def apply_proguard(srcs, deps, proguard_spec, output_jar):
     stderr.
   """
 
-  # Set up runfiles and call the proguard binary.
-  r = Runfiles.Create()
-  proguard_path = lookup_binary(r, _PROGUARD_PATH)
-
   command = [
-      proguard_path,
+      java_executable,
+      "-Dlog4j.rootLogger=OFF",
+      "-jar",
+      proguard_jar,
       "-injars",
       srcs,
       "-libraryjars",
@@ -85,10 +55,8 @@ def apply_proguard(srcs, deps, proguard_spec, output_jar):
       "@" + proguard_spec,
   ]
 
-  env = os.environ.copy()
-  env.update(r.EnvVars())
   # print("Running proguard: %s" % " ".join(command))
-  p = subprocess.run(command, capture_output=True, env=env, check=False)
+  p = subprocess.run(command, capture_output=True, check=False)
 
   if p.returncode != 0:
     message = f"Proguard failed ({p.returncode})"
@@ -127,6 +95,12 @@ def main() -> None:
       description="Resets timestamps in ZIP files", fromfile_prefix_chars="@"
   )
   parser.add_argument(
+      "--java_executable", required=True, help="Execution-platform Java."
+  )
+  parser.add_argument(
+      "--proguard_jar", required=True, help="ProGuard deploy JAR."
+  )
+  parser.add_argument(
       "--srcs", required=True, help="Input jar files, mandatory."
   )
   parser.add_argument("--deps", default=[], help="Library jar files, optional.")
@@ -146,7 +120,14 @@ def main() -> None:
 
   with tempfile.TemporaryDirectory() as wdir:
     output_jar = os.path.join(wdir, "stripped.jar")
-    apply_proguard(opts.srcs, opts.deps, opts.proguard_spec, output_jar)
+    apply_proguard(
+        opts.java_executable,
+        opts.proguard_jar,
+        opts.srcs,
+        opts.deps,
+        opts.proguard_spec,
+        output_jar,
+    )
     reset_timestamps(output_jar, opts.output, opts.timestamp)
 
 

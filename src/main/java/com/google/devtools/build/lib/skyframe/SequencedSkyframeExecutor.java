@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
@@ -178,6 +179,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
+      CompressionService compressionService,
       BugReporter bugReporter,
       boolean globUnderSingleDep,
       Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions) {
@@ -201,6 +203,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         new PackageProgressReceiver(),
         new AnalysisProgressReceiver(),
         skyKeyStateReceiver,
+        compressionService,
         bugReporter,
         diffAwarenessFactories,
         workspaceInfoFromDiffReceiver,
@@ -826,11 +829,11 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void deleteOldNodes(long versionWindowForDirtyGc) {
+  public void deleteOldNodes(long versionWindowForDirtyGc, boolean keepChangePrunableNodes) {
     // TODO(bazel-team): perhaps we should come up with a separate GC class dedicated to maintaining
     // value garbage. If we ever do so, this logic should be moved there.
     if (trackIncrementalState) {
-      memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);
+      memoizingEvaluator.deleteDirty(versionWindowForDirtyGc, keepChangePrunableNodes);
     }
   }
 
@@ -855,6 +858,39 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  public static final DiffCheckNotificationOptions BAZEL_DIFF_CHECK_NOTIFICATION_OPTIONS =
+      new DiffCheckNotificationOptions() {
+        @Override
+        public boolean allowDiffCheck(
+            EvaluatingVersionDiff versionDiff, EventHandler eventHandler, OptionsProvider options) {
+          return true;
+        }
+
+        @Override
+        public String getStatusMessage() {
+          return "Checking for file changes...";
+        }
+
+        @Override
+        public Duration getStatusUpdateDelay() {
+          return Duration.ofSeconds(1);
+        }
+      };
+
+  public static Builder newBazelSkyframeExecutorBuilder() {
+    return builder()
+        .setIgnoredSubdirectories(IgnoredSubdirectoriesFunction.INSTANCE)
+        .setActionOnIOExceptionReadingBuildFile(
+            BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE)
+        .setActionOnFilesystemErrorCodeLoadingBzlFile(
+            BazelSkyframeExecutorConstants.ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE)
+        .setShouldUseRepoDotBazel(BazelSkyframeExecutorConstants.USE_REPO_DOT_BAZEL)
+        .setCrossRepositoryLabelViolationStrategy(
+            BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY)
+        .setBuildFilesByPriority(BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY)
+        .setDiffCheckNotificationOptions(BAZEL_DIFF_CHECK_NOTIFICATION_OPTIONS);
   }
 
   /**
@@ -885,6 +921,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Supplier<Path> repoContentsCachePathSupplier = () -> null;
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredSubdirectoriesFunction;
+    private CompressionService compressionService;
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
@@ -926,6 +963,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               actionOnFilesystemErrorCodeLoadingBzlFile,
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
+              compressionService,
               bugReporter,
               globUnderSingleDep,
               Optional.ofNullable(diffCheckNotificationOptions));
@@ -960,6 +998,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setIgnoredSubdirectories(SkyFunction ignoredSubdirectoriesFunction) {
       this.ignoredSubdirectoriesFunction = ignoredSubdirectoriesFunction;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setCompressionService(CompressionService compressionService) {
+      this.compressionService = compressionService;
       return this;
     }
 

@@ -110,6 +110,19 @@ public abstract class AnalysisOptions extends OptionsBase {
   public abstract long getVersionWindowForDirtyNodeGc();
 
   @Option(
+      name = "experimental_keep_change_prunable_nodes_during_gc",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If enabled, the dirty node garbage collection triggered by"
+              + " --version_window_for_dirty_node_gc keeps dirty nodes that change pruning would"
+              + " mark clean when they are next requested, at the cost of a scan over all dirty"
+              + " nodes at the end of the build.")
+  public abstract boolean getKeepChangePrunableNodesDuringGc();
+
+  @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
       defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

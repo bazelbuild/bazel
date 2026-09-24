@@ -48,13 +48,11 @@ class RepoContentsCacheTest(test_base.TestBase):
     self.repo_contents_cache = tempfile.mkdtemp(dir=self._tests_root).replace(
         '\\', '/'
     )
-    self.ScratchFile(
-        '.bazelrc',
-        [
-            'build --verbose_failures',
-            'common --repo_contents_cache=%s' % self.repo_contents_cache,
-        ],
-    )
+    self.ScratchFile('.bazelrc', ['build --verbose_failures'])
+    # The test harness disables the repo contents cache in its own bazelrc,
+    # which takes precedence over the workspace .bazelrc.
+    with open(self._test_bazelrc, 'at') as f:
+      f.write('common --repo_contents_cache=%s\n' % self.repo_contents_cache)
 
   def hasCacheEntry(self):
     for l1 in os.listdir(self.repo_contents_cache):

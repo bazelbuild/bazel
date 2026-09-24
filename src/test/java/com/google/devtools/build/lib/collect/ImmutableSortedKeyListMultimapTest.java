@@ -27,7 +27,6 @@ import com.google.common.testing.EqualsTester;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
@@ -168,7 +167,7 @@ public class ImmutableSortedKeyListMultimapTest {
     input.put("foo", 1);
     input.put("bar", 2);
     input.put("foo", 3);
-    Multimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.copyOf(input);
+    ListMultimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.copyOf(input);
     assertThat(input).isEqualTo(multimap);
     assertThat(multimap).isEqualTo(input);
   }
@@ -180,7 +179,7 @@ public class ImmutableSortedKeyListMultimapTest {
     input.put("bar", 2);
     input.put("foo", 3);
     input.put("foo", 1);
-    Multimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.copyOf(input);
+    ListMultimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.copyOf(input);
     assertThat(input).isEqualTo(multimap);
     assertThat(multimap).isEqualTo(input);
   }
@@ -188,14 +187,14 @@ public class ImmutableSortedKeyListMultimapTest {
   @Test
   public void copyOfEmpty() {
     ListMultimap<String, Integer> input = ArrayListMultimap.create();
-    Multimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.copyOf(input);
+    ListMultimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.copyOf(input);
     assertThat(input).isEqualTo(multimap);
     assertThat(multimap).isEqualTo(input);
   }
 
   @Test
   public void copyOfImmutableListMultimap() {
-    Multimap<String, Integer> multimap = createMultimap();
+    ImmutableSortedKeyListMultimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.of();
     assertThat(ImmutableSortedKeyListMultimap.copyOf(multimap)).isSameInstanceAs(multimap);
   }
 
@@ -215,25 +214,23 @@ public class ImmutableSortedKeyListMultimapTest {
 
   @Test
   public void emptyMultimapReads() {
-    Multimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.of();
+    ListMultimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.of();
     assertThat(multimap).doesNotContainKey("foo");
     assertThat(multimap.containsValue(1)).isFalse();
     assertThat(multimap).doesNotContainEntry("foo", 1);
     assertThat(multimap.entries()).isEmpty();
     assertThat(multimap.equals(ArrayListMultimap.create())).isTrue();
-    assertThat(multimap).valuesForKey("foo").isEqualTo(Collections.emptyList());
+    assertThat(multimap).valuesForKey("foo").isEmpty();
     assertThat(multimap.hashCode()).isEqualTo(0);
     assertThat(multimap).isEmpty();
     assertThat(multimap.keys()).isEqualTo(HashMultiset.create());
-    assertThat(multimap).isEmpty();
-    assertThat(multimap).isEmpty();
     assertThat(multimap).isEmpty();
     assertThat(multimap.toString()).isEqualTo("{}");
   }
 
   @Test
   public void emptyMultimapWrites() {
-    Multimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.of();
+    ListMultimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.of();
     UnmodifiableCollectionTests.assertMultimapIsUnmodifiable(
         multimap, "foo", 1);
   }

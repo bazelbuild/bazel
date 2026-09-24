@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
@@ -94,11 +95,15 @@ public class ConstraintValueLookupUtil {
   /** Exception used when a constraint value label is not a valid constraint value. */
   public static final class InvalidConstraintValueException extends ToolchainException {
     InvalidConstraintValueException(Label label) {
-      super(formatError(label));
+      super(
+          String.format(
+              "Target %s was referenced as a constraint_value, "
+                  + "but does not provide ConstraintValueInfo",
+              label));
     }
 
     InvalidConstraintValueException(Label label, ConfiguredValueCreationException e) {
-      super(formatError(label), e);
+      super(formatError(label, e.getMessage()), e);
     }
 
     public InvalidConstraintValueException(Label label, NoSuchThingException e) {
@@ -107,7 +112,7 @@ public class ConstraintValueLookupUtil {
     }
 
     public InvalidConstraintValueException(Label label, ActionConflictException e) {
-      super(formatError(label), e);
+      super(formatError(label, e.getMessage()), e);
     }
 
     @Override
@@ -115,11 +120,9 @@ public class ConstraintValueLookupUtil {
       return Code.INVALID_CONSTRAINT_VALUE;
     }
 
-    private static String formatError(Label label) {
-      return String.format(
-          "Target %s was referenced as a constraint_value, "
-              + "but does not provide ConstraintValueInfo",
-          label);
+    private static String formatError(Label label, String error) {
+      return StringUtil.formatNested(
+          String.format("Target %s was referenced as a constraint_value", label), error);
     }
   }
 }

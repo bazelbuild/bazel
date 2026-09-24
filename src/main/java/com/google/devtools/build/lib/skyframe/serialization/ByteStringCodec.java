@@ -22,6 +22,14 @@ import java.io.IOException;
 /** Codec for {@link ByteString}. */
 public class ByteStringCodec extends LeafObjectCodec<ByteString> {
 
+  // The default constructor is left intact to allow usual codec registration mechanisms to work.
+  private static final ByteStringCodec INSTANCE = new ByteStringCodec();
+
+  /** An instance to use for delegation by other codecs. */
+  public static ByteStringCodec byteStringCodec() {
+    return INSTANCE;
+  }
+
   @Override
   public Class<? extends ByteString> getEncodedClass() {
     return ByteString.class;

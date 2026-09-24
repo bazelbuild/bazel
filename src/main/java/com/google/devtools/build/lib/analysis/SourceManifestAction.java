@@ -52,10 +52,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /**
@@ -72,8 +70,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
-  private static final Comparator<Map.Entry<PathFragment, Artifact>> ENTRY_COMPARATOR =
-      Comparator.comparing(path -> path.getKey().getPathString());
   private static final Escaper ROOT_RELATIVE_PATH_ESCAPER =
       new CharEscaperBuilder()
           .addEscape(' ', "\\s")
@@ -129,6 +125,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   private final Runfiles runfiles;
 
   private final boolean remotableSourceManifestActions;
+  private final boolean preferTargetConfigurationRunfiles;
 
   private NestedSet<Artifact> symlinkArtifacts = null;
 
@@ -164,12 +161,31 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       Runfiles runfiles,
       @Nullable Artifact repoMappingManifest,
       boolean remotableSourceManifestActions) {
+    this(
+        manifestWriter,
+        owner,
+        primaryOutput,
+        runfiles,
+        repoMappingManifest,
+        remotableSourceManifestActions,
+        /* preferTargetConfigurationRunfiles= */ false);
+  }
+
+  public SourceManifestAction(
+      ManifestWriter manifestWriter,
+      ActionOwner owner,
+      Artifact primaryOutput,
+      Runfiles runfiles,
+      @Nullable Artifact repoMappingManifest,
+      boolean remotableSourceManifestActions,
+      boolean preferTargetConfigurationRunfiles) {
     // The real set of inputs is computed in #getInputs().
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
     this.repoMappingManifest = repoMappingManifest;
     this.remotableSourceManifestActions = remotableSourceManifestActions;
+    this.preferTargetConfigurationRunfiles = preferTargetConfigurationRunfiles;
   }
 
   /**
@@ -209,7 +225,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   @VisibleForTesting
   public void writeTo(OutputStream out, @Nullable EventHandler eventHandler) throws IOException {
     writeFile(
-        out, runfiles.getRunfilesInputs(repoMappingManifest), /* inputMetadataProvider= */ null);
+        out,
+        runfiles.getRunfilesInputs(
+            repoMappingManifest,
+            preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null),
+        /* inputMetadataProvider= */ null);
   }
 
   /**
@@ -256,8 +276,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction
           }
         };
 
-    Map<PathFragment, Artifact> runfilesInputs =
-        runfiles.getRunfilesInputs(receiver, repoMappingManifest);
+    SortedMap<PathFragment, Artifact> runfilesInputs =
+        runfiles.getRunfilesInputs(
+            receiver,
+            repoMappingManifest,
+            preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null);
     eventHandler.replayOn(ctx.getEventHandler());
     if (seenNestedRunfilesTree[0]) {
       FailureDetail failureDetail =
@@ -281,19 +304,17 @@ public final class SourceManifestAction extends AbstractFileWriteAction
    * Sort the entries in both the normal and root manifests and write the output file.
    *
    * @param out is the message stream to write errors to.
-   * @param output The actual mapping of the output manifest.
+   * @param output The actual mapping of the output manifest, sorted by path
    * @param inputMetadataProvider The input metadata provider if available.
    * @throws IOException
    */
   private void writeFile(
       OutputStream out,
-      Map<PathFragment, Artifact> output,
+      SortedMap<PathFragment, Artifact> output,
       @Nullable InputMetadataProvider inputMetadataProvider)
       throws IOException {
     Writer manifestFile = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
-    List<Map.Entry<PathFragment, Artifact>> sortedManifest = new ArrayList<>(output.entrySet());
-    sortedManifest.sort(ENTRY_COMPARATOR);
-    for (Map.Entry<PathFragment, Artifact> line : sortedManifest) {
+    for (Map.Entry<PathFragment, Artifact> line : output.entrySet()) {
       Artifact artifact = line.getValue();
       PathFragment symlinkTarget;
       if (artifact == null) {
@@ -336,7 +357,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(remotableSourceManifestActions);
-    runfiles.fingerprint(actionKeyContext, fp, manifestWriter.emitsAbsolutePaths());
+    runfiles.fingerprint(
+        actionKeyContext,
+        fp,
+        manifestWriter.emitsAbsolutePaths(),
+        preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null);
     fp.addBoolean(repoMappingManifest != null);
     if (repoMappingManifest != null) {
       fp.addPath(repoMappingManifest.getExecPath());
@@ -349,7 +374,9 @@ public final class SourceManifestAction extends AbstractFileWriteAction
         "GUID: %s\nremotableSourceManifestActions: %s\nrunfiles: %s\n",
         GUID,
         remotableSourceManifestActions,
-        runfiles.describeFingerprint(manifestWriter.emitsAbsolutePaths()));
+        runfiles.describeFingerprint(
+            manifestWriter.emitsAbsolutePaths(),
+            preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null));
   }
 
   /** Supported manifest writing strategies. */

@@ -30,9 +30,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.BzlLoadThreadOwner;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.AbstractExportedStarlarkSymbolCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.Keep;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -482,15 +485,15 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       EventHandler handler, Label extensionLabel, String exportedName, Location exportedLocation) {
     Preconditions.checkState(!isExported());
     SymbolGenerator.Symbol<?> identifier = (SymbolGenerator.Symbol<?>) keyOrIdentityToken;
-    if (identifier.getOwner() instanceof BzlLoadValue.Key bzlKey) {
+    if (identifier.getOwner() instanceof BzlLoadThreadOwner bzlLoadOwner) {
       // In production code, StarlarkProviders are created only when loading .bzl files so the owner
       // of the Symbol should be a BzlLoadValue.Key.
       checkArgument(
-          extensionLabel.equals(bzlKey.getLabel()),
+          extensionLabel.equals(bzlLoadOwner.key().getLabel()),
           "export extensionLabel=%s, but owner=%s",
           extensionLabel,
-          bzlKey);
-      this.keyOrIdentityToken = new Key(bzlKey, exportedName);
+          bzlLoadOwner.key());
+      this.keyOrIdentityToken = new Key(bzlLoadOwner.key(), exportedName);
     } else {
       // In tests, the symbol may be arbitrary.
       if (!isInTest()) {
@@ -647,6 +650,36 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     @Override
     public String toString() {
       return exportedName;
+    }
+  }
+
+  /**
+   * Codec that serializes a {@link StarlarkProvider} as a .bzl global reference.
+   *
+   * <p>Only supports exported providers.
+   */
+  // TODO(bazel-team): consider adding a DynamicCodec-like fallback for unexported providers.
+  @Keep
+  private static final class StarlarkProviderCodec
+      extends AbstractExportedStarlarkSymbolCodec<StarlarkProvider> {
+    @Override
+    public Class<StarlarkProvider> getEncodedClass() {
+      return StarlarkProvider.class;
+    }
+
+    @Override
+    protected BzlLoadValue.Key getBzlLoadKey(StarlarkProvider obj) {
+      checkArgument(
+          obj.isExported(),
+          "Cannot serialize unexported Starlark provider at location: %s, identity token: %s",
+          obj.location,
+          obj.keyOrIdentityToken);
+      return obj.getKey().getBzlLoadKey();
+    }
+
+    @Override
+    protected String getExportedName(StarlarkProvider obj) {
+      return obj.getKey().getExportedName();
     }
   }
 }

@@ -55,6 +55,7 @@ public final class QueryParser {
   private final List<Lexer.Token> tokens;
   private final Iterator<Lexer.Token> tokenIterator;
   private final Map<String, QueryFunction> functions;
+  private final Map<String, Integer> boundVariables = new HashMap<>();
 
   /** Scan and parse the specified query expression. */
   public static QueryExpression parse(String query, QueryEnvironment<?> env)
@@ -299,7 +300,20 @@ public final class QueryParser {
             }
             switch (type) {
               case EXPRESSION -> args.add(Argument.of(parseExpression()));
-              case WORD -> args.add(Argument.of(consume(TokenKind.WORD)));
+              case WORD -> {
+                String argWord = consume(TokenKind.WORD);
+                if (LetExpression.isValidVarReference(argWord)) {
+                  String varName = LetExpression.getNameFromReference(argWord);
+                  if (boundVariables.getOrDefault(varName, 0) > 0) {
+                    throw new QuerySyntaxException(
+                        String.format(
+                            "variable '$%s' cannot be used as an argument to function '%s'; "
+                                + "variable references are only allowed in expression arguments",
+                            varName, function.getName()));
+                  }
+                }
+                args.add(Argument.of(argWord));
+              }
               case INTEGER -> args.add(Argument.of(consumeIntLiteral()));
             }
 
@@ -321,7 +335,13 @@ public final class QueryParser {
         consume(TokenKind.EQUALS);
         QueryExpression varExpr = parseExpression();
         consume(TokenKind.IN);
-        QueryExpression bodyExpr = parseExpression();
+        boundVariables.merge(name, 1, Integer::sum);
+        QueryExpression bodyExpr;
+        try {
+          bodyExpr = parseExpression();
+        } finally {
+          boundVariables.compute(name, (k, v) -> (v == null || v <= 1) ? null : v - 1);
+        }
         return new LetExpression(name, varExpr, bodyExpr);
       }
       case LPAREN -> {

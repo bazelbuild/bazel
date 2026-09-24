@@ -20,7 +20,6 @@ import static java.util.stream.Collectors.toList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -157,9 +156,6 @@ public final class ActionInputMap implements InputMetadataProvider {
   /** The {@link ActionInput} keys stored in this map. */
   private ActionInput[] keys;
 
-  /** The exec paths of the keys. */
-  private String[] paths;
-
   /**
    * The values stored in this map. Each value is one of {@link FileArtifactValue}, {@link
    * TreeArtifactValue} or {@link RunfilesArtifactValue}.
@@ -182,19 +178,19 @@ public final class ActionInputMap implements InputMetadataProvider {
 
     next = new int[sizeHint];
     keys = new ActionInput[sizeHint];
-    paths = new String[sizeHint];
     values = new Object[sizeHint];
   }
 
-  private int getIndex(String execPathString) {
-    int hashCode = execPathString.hashCode();
+  private int getIndex(PathFragment execPath) {
+    int hashCode = execPath.hashCode();
     int index = hashCode & (table.length - 1);
     if (table[index] == -1) {
       return -1;
     }
     index = table[index];
     while (index != -1) {
-      if (hashCode == paths[index].hashCode() && execPathString.equals(paths[index])) {
+      PathFragment otherExecPath = keys[index].getExecPath();
+      if (hashCode == otherExecPath.hashCode() && execPath.equals(otherExecPath)) {
         return index;
       }
       index = next[index];
@@ -222,7 +218,7 @@ public final class ActionInputMap implements InputMetadataProvider {
 
     if (input instanceof TreeFileArtifact treeFileArtifact) {
       SpecialArtifact parent = treeFileArtifact.getParent();
-      int treeIndex = getIndex(parent.getExecPathString());
+      int treeIndex = getIndex(parent.getExecPath());
       // If the parent is a subtree artifact, and the subtree is not found, fallback to check the
       // top-level tree artifact.
       // This distinction is necessary to handle two scenarios:
@@ -237,7 +233,7 @@ public final class ActionInputMap implements InputMetadataProvider {
       //    rather than the file's parent (subtree).
       // tree artifact or a subdirectory (tree artifact) as its input.
       if (treeIndex == -1 && parent.isSubTreeArtifact()) {
-        treeIndex = getIndex(parent.getParent().getExecPathString());
+        treeIndex = getIndex(parent.getParent().getExecPath());
       }
       if (treeIndex != -1) {
         checkArgument(
@@ -247,7 +243,7 @@ public final class ActionInputMap implements InputMetadataProvider {
         return ((TreeArtifactValue) values[treeIndex]).getChildValues().get(treeFileArtifact);
       }
     }
-    int index = getIndex(input.getExecPathString());
+    int index = getIndex(input.getExecPath());
     if (index != -1) {
       Object value = values[index];
       return value instanceof TreeArtifactValue treeValue
@@ -284,7 +280,7 @@ public final class ActionInputMap implements InputMetadataProvider {
   public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
     checkArgument(isRunfilesTree(input), input);
 
-    int index = getIndex(input.getExecPathString());
+    int index = getIndex(input.getExecPath());
     if (index == -1) {
       return null;
     }
@@ -313,7 +309,7 @@ public final class ActionInputMap implements InputMetadataProvider {
    */
   @Nullable
   public FileArtifactValue getMetadata(PathFragment execPath) {
-    int index = getIndex(execPath.getPathString());
+    int index = getIndex(execPath);
     if (index != -1) {
       Object value = values[index];
       return value instanceof TreeArtifactValue treeValue
@@ -345,7 +341,7 @@ public final class ActionInputMap implements InputMetadataProvider {
 
   @Nullable
   public TreeArtifactValue getTreeMetadata(PathFragment execPath) {
-    int index = getIndex(execPath.getPathString());
+    int index = getIndex(execPath);
     if (index < 0) {
       return null;
     }
@@ -362,7 +358,7 @@ public final class ActionInputMap implements InputMetadataProvider {
   @Nullable
   @Override
   public ActionInput getInput(PathFragment execPath) {
-    int index = getIndex(execPath.getPathString());
+    int index = getIndex(execPath);
     if (index != -1) {
       return keys[index];
     }
@@ -444,8 +440,8 @@ public final class ActionInputMap implements InputMetadataProvider {
     if (size >= keys.length) {
       resize();
     }
-    String path = input.getExecPathString();
-    int hashCode = path.hashCode();
+    PathFragment execPath = input.getExecPath();
+    int hashCode = execPath.hashCode();
     int index = hashCode & (table.length - 1);
     int nextIndex = table[index];
     if (nextIndex == -1) {
@@ -453,7 +449,8 @@ public final class ActionInputMap implements InputMetadataProvider {
     } else {
       do {
         index = nextIndex;
-        if (hashCode == paths[index].hashCode() && Objects.equal(path, paths[index])) {
+        PathFragment otherExecPath = keys[index].getExecPath();
+        if (hashCode == otherExecPath.hashCode() && execPath.equals(otherExecPath)) {
           return index;
         }
         nextIndex = next[index];
@@ -462,7 +459,6 @@ public final class ActionInputMap implements InputMetadataProvider {
     }
     next[size] = -1;
     keys[size] = input;
-    paths[size] = input.getExecPathString();
     values[size] = metadata;
     size++;
     return -1;
@@ -473,7 +469,6 @@ public final class ActionInputMap implements InputMetadataProvider {
     Arrays.fill(table, -1);
     Arrays.fill(next, -1);
     Arrays.fill(keys, null);
-    Arrays.fill(paths, null);
     Arrays.fill(values, null);
     size = 0;
     treeArtifactsRoot = new TrieArtifact();
@@ -483,7 +478,6 @@ public final class ActionInputMap implements InputMetadataProvider {
   private void resize() {
     // Resize the data containers.
     keys = Arrays.copyOf(keys, size * 2);
-    paths = Arrays.copyOf(paths, size * 2);
     values = Arrays.copyOf(values, size * 2);
     next = Arrays.copyOf(next, size * 2);
 
@@ -493,7 +487,7 @@ public final class ActionInputMap implements InputMetadataProvider {
       table = new int[table.length * 2];
       Arrays.fill(table, -1);
       for (int i = 0; i < size; i++) {
-        int index = paths[i].hashCode() & (table.length - 1);
+        int index = keys[i].getExecPath().hashCode() & (table.length - 1);
         next[i] = table[index];
         table[index] = i;
       }
@@ -507,7 +501,6 @@ public final class ActionInputMap implements InputMetadataProvider {
         .add("all-files", sizeForDebugging())
         .add("first-fifty-keys", Arrays.stream(keys).limit(50).collect(toList()))
         .add("first-fifty-values", Arrays.stream(values).limit(50).collect(toList()))
-        .add("first-fifty-paths", Arrays.stream(paths).limit(50).collect(toList()))
         .toString();
   }
 

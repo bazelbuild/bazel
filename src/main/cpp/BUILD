@@ -60,12 +60,18 @@ cc_library(
         ],
     }),
     deps = [
-        "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:md5",
+        "//src/main/cpp/util:numbers",
+        "//src/main/cpp/util:port",
+        "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/base:log_severity",
         "@abseil-cpp//absl/log:globals",
         "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/time",
     ] + select({
         "//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
@@ -85,9 +91,9 @@ cc_library(
     ],
     deps = [
         ":blaze_util",
-        "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
         "//third_party/ijar:zip",
     ],
@@ -135,14 +141,18 @@ cc_binary(
         ":startup_interceptor",
         ":startup_options",
         ":workspace_layout",
-        "//src/main/cpp/util",
         "//src/main/cpp/util:bazel_log_handler",
+        "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:numbers",
+        "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_grpc",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -190,9 +200,10 @@ cc_library(
         ":sem_ver",
         ":startup_options",
         ":workspace_layout",
-        "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/strings",
     ],
 )
@@ -225,9 +236,13 @@ cc_library(
         ":blaze_util",
         ":jvm_module_options",
         ":workspace_layout",
-        "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:filesystem",
+        "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:numbers",
+        "//src/main/cpp/util:strings",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -244,6 +259,8 @@ cc_library(
         ":startup_options",
         ":workspace_layout",
         "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:filesystem",
+        "//src/main/cpp/util:logging",
     ],
 )
 
@@ -257,7 +274,7 @@ cc_library(
     ],
     deps = [
         ":blaze_util",
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:filesystem",
     ],
 )
 
@@ -273,8 +290,9 @@ cc_library(
         ":blaze_util",
         ":sem_ver",
         ":workspace_layout",
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/algorithm:container",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/functional:function_ref",

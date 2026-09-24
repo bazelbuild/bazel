@@ -18,6 +18,7 @@ import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Set;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
@@ -45,4 +46,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   void computeSelectionAndMinimizeMemory(InMemoryGraph graph);
 
   boolean shouldMinimizeMemory();
+
+  @Nullable
+  SettablePlatformConfigurationProvider getPlatformConfigurationProvider();
 }

@@ -19,14 +19,11 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.starlarkbuildapi.PackageSpecificationProviderApi;
-import java.util.Optional;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
@@ -52,12 +49,12 @@ public class PackageSpecificationProvider extends NativeInfo
   }
 
   /**
-   * Creates a {@code PackageSpecificationProvider} by initializing transitive package
-   * specifications from {@code targetContext} and {@code packageGroup}.
+   * Creates a {@code PackageSpecificationProvider} from the given transitive package
+   * specifications.
    */
   public static PackageSpecificationProvider create(
-      TargetContext targetContext, PackageGroup packageGroup) {
-    return new PackageSpecificationProvider(getPackageSpecifications(targetContext, packageGroup));
+      NestedSet<PackageGroupContents> packageSpecifications) {
+    return new PackageSpecificationProvider(packageSpecifications);
   }
 
   @Override
@@ -70,30 +67,11 @@ public class PackageSpecificationProvider extends NativeInfo
     return packageSpecifications;
   }
 
-  private static NestedSet<PackageGroupContents> getPackageSpecifications(
-      TargetContext targetContext, PackageGroup packageGroup) {
-    NestedSetBuilder<PackageGroupContents> builder = NestedSetBuilder.stableOrder();
-    for (Label includeLabel : packageGroup.getIncludes()) {
-      TransitiveInfoCollection include =
-          targetContext.findDirectPrerequisite(
-              includeLabel, Optional.ofNullable(targetContext.getConfiguration()));
-      PackageSpecificationProvider provider = include == null ? null : include.get(PROVIDER);
-      if (provider == null) {
-        targetContext
-            .getAnalysisEnvironment()
-            .getEventHandler()
-            .handle(
-                Event.error(
-                    targetContext.getTarget().getLocation(),
-                    String.format("Label '%s' does not refer to a package group", includeLabel)));
-        continue;
-      }
-
-      builder.addTransitive(provider.getPackageSpecifications());
-    }
-
-    builder.add(packageGroup.getPackageSpecifications());
-    return builder.build();
+  /** Returns true if the given label's package is included in the package specifications. */
+  public static boolean isAvailableFor(
+      NestedSet<PackageGroupContents> packageGroupContents, Label relevantLabel) {
+    return packageGroupContents.toList().stream()
+        .anyMatch(p -> p.containsPackage(relevantLabel.getPackageIdentifier()));
   }
 
   @Override
@@ -108,6 +86,6 @@ public class PackageSpecificationProvider extends NativeInfo
           "expected string or label for 'target' instead of %s", Starlark.type(target));
     }
 
-    return Allowlist.isAvailableFor(packageSpecifications, targetLabel);
+    return isAvailableFor(packageSpecifications, targetLabel);
   }
 }

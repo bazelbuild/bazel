@@ -62,6 +62,7 @@
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -157,7 +158,8 @@ static void handler(int signum) {
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
               SignalHandler::Get().GetServerProcessInfo()->server_pid_,
-              SignalHandler::Get().GetOutputBase());
+              SignalHandler::Get().GetOutputBase(),
+              /*from_signal_handler=*/true);
         }
         _exit(1);
       }
@@ -692,7 +694,8 @@ static void WriteOwnerInformation(int fd) {
 std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
                                                   const blaze_util::Path& path,
                                                   LockMode mode,
-                                                  bool batch_mode, bool block) {
+                                                  bool batch_mode,
+                                                  absl::Duration timeout) {
   const uint64_t start_time = GetMillisecondsMonotonic();
   bool multiple_attempts = false;
   string owner;
@@ -734,26 +737,41 @@ std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
     // Someone else holds the lock. Obtain the identity of the current lock
     // owner and print it out.
     string new_owner = ReadOwnerInformation(fd, name);
-    if (new_owner != owner) {
+    const bool owner_changed = (new_owner != owner);
+    if (owner_changed) {
       owner = new_owner;
       BAZEL_LOG(USER) << "Another command holds the " << name << " lock: \n"
                       << owner;
-      if (block) {
-        BAZEL_LOG(USER) << "Waiting for it to complete...";
-        fflush(stderr);
-      }
     }
 
-    if (!block) {
+    if (timeout <= absl::ZeroDuration()) {
       BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
           << "Exiting because the " << name
           << " lock is held and --noblock_for_lock was given.";
     }
 
-    multiple_attempts = true;
+    int sleep_ms = 500;
+    if (timeout != absl::InfiniteDuration()) {
+      const uint64_t elapsed = GetMillisecondsMonotonic() - start_time;
+      const uint64_t timeout_ms = absl::ToInt64Milliseconds(timeout);
+      if (elapsed >= timeout_ms) {
+        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+            << "Exiting because the " << name
+            << " lock is held and --block_for_lock=" << timeout_ms
+            << "ms timeout expired.";
+      }
+      sleep_ms =
+          static_cast<int>(std::min<uint64_t>(500ULL, timeout_ms - elapsed));
+    }
 
+    if (owner_changed) {
+      BAZEL_LOG(USER) << "Waiting for it to complete...";
+      fflush(stderr);
+    }
+
+    multiple_attempts = true;
     close(fd);
-    TrySleep(500);
+    TrySleep(sleep_ms);
   }
 }
 
@@ -761,19 +779,35 @@ void ReleaseLock(LockHandle lock_handle) {
   close(static_cast<int>(lock_handle));
 }
 
-bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler) {
   // Kill the process and make sure it's dead before proceeding.
   errno = 0;
   if (killpg(pid, SIGKILL) == -1) {
+    if (errno == ESRCH || from_signal_handler) {
+      return false;
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Attempted to kill stale server process (pid=" << pid
         << ") using SIGKILL: " << GetLastErrorString();
   }
+  if (from_signal_handler) {
+    // In signal handler context, avoid non-async-signal-safe calls
+    // (AwaitServerProcessTermination, VerifyServerProcess, heap allocations,
+    // BAZEL_DIE).
+    return true;
+  }
   if (!AwaitServerProcessTermination(pid, output_base,
-                                     kPostKillGracePeriodSeconds)) {
+                                     kPostKillGracePeriodSeconds,
+                                     TerminationReason::kKillSignal)) {
+    string diagnosis = GetProcessTerminationDiagnosis(pid);
+    if (!diagnosis.empty()) {
+      diagnosis = " Diagnosis: " + diagnosis;
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Attempted to kill stale server process (pid=" << pid
-        << ") using SIGKILL, but it did not die in a timely fashion.";
+        << ") using SIGKILL, but it did not die in a timely fashion."
+        << diagnosis;
   }
   return true;
 }
@@ -787,17 +821,22 @@ void TrySleep(unsigned int milliseconds) {
 
 string GetUserName() {
   string user = GetEnv("USER");
-  if (!user.empty()) {
-    return user;
+  if (user.empty()) {
+    errno = 0;
+    passwd* pwent = getpwuid(getuid());  // NOLINT (single-threaded)
+    if (pwent == nullptr || pwent->pw_name == nullptr) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "$USER is not set, and unable to look up name of current user: "
+          << GetLastErrorString();
+    }
+    user = pwent->pw_name;
   }
-  errno = 0;
-  passwd* pwent = getpwuid(getuid());  // NOLINT (single-threaded)
-  if (pwent == nullptr || pwent->pw_name == nullptr) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "$USER is not set, and unable to look up name of current user: "
-        << GetLastErrorString();
-  }
-  return pwent->pw_name;
+  // Replace slashes and backslashes with underscores so that usernames like
+  // "DOMAIN\\user" or "foo/bar" do not cause issues in paths (e.g.
+  // output_user_root). See https://github.com/bazelbuild/bazel/issues/20289
+  std::replace(user.begin(), user.end(), '/', '_');
+  std::replace(user.begin(), user.end(), '\\', '_');
+  return user;
 }
 
 bool IsEmacsTerminal() {
@@ -820,10 +859,12 @@ bool IsStandardTerminal() {
     return true;
   }
   if (term.empty() || term == "dumb" || term == "emacs" ||
-      term == "xterm-mono" || term == "symbolics" || term == "9term" ||
-      isEmacs) {
+      term == "xterm-mono" || term == "symbolics" || term == "9term") {
     return false;
   }
+  // For Emacs terminals (other than eterm-color), allow colors if they're a
+  // TTY. This supports modern Emacs terminal packages like 'eat' that set
+  // INSIDE_EMACS and support color output.
   return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
 }
 

@@ -381,6 +381,12 @@ public final class StarlarkRuleContext
     }
 
     @Override
+    public boolean isAcyclic() {
+      // Artifacts are acyclic
+      return true;
+    }
+
+    @Override
     public ImmutableCollection<String> getFieldNames() {
       // TODO(b/175954936): There's an NPE here when accessing dir(ctx.outputs) after rule
       // analysis has completed. Since we can't throw EvalException here, this may require that we
@@ -806,13 +812,13 @@ public final class StarlarkRuleContext
   @Override
   public ArtifactRoot getBinDirectory() throws EvalException {
     checkMutable("bin_dir");
-    return getConfiguration().getBinDirectory(ruleContext.getRule().getRepository());
+    return getConfiguration().getBinDirectory();
   }
 
   @Override
   public ArtifactRoot getGenfilesDirectory() throws EvalException {
     checkMutable("genfiles_dir");
-    return getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
+    return getConfiguration().getGenfilesDirectory();
   }
 
   @Override

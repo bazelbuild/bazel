@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
+import com.google.devtools.build.lib.exec.SpawnUploadingEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -92,6 +93,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
       SpawnCheckingCacheEvent.create("remote");
+
+  private static final SpawnUploadingEvent SPAWN_UPLOADING_EVENT =
+      SpawnUploadingEvent.create("remote");
 
   private static final SpawnSchedulingEvent SPAWN_SCHEDULING_EVENT =
       SpawnSchedulingEvent.create("remote");
@@ -279,6 +283,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
               Duration networkTimeStart = action.getNetworkTime().getDuration();
               Stopwatch uploadTime = Stopwatch.createStarted();
               try {
+                context.report(SPAWN_UPLOADING_EVENT);
                 // Upon retry, we force upload inputs
                 remoteExecutionService.uploadInputsIfNotPresent(
                     action, forceUploadInput.getAndSet(true));

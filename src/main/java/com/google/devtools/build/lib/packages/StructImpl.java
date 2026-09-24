@@ -42,6 +42,12 @@ import net.starlark.java.eval.Structure;
  */
 public abstract class StructImpl implements Info, Structure, StructApi {
 
+  @Override
+  public boolean isAcyclic() {
+    // All implementations except for StarlarkInfo are acyclic.
+    return true;
+  }
+
   /**
    * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
    * EvalException} if the cast fails.
@@ -112,7 +118,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
       return false;
     }
     for (String field : getFieldNames()) {
-      if (!Objects.equal(this.getValueOrNull(field), other.getValueOrNull(field))) {
+      if (!java.util.Objects.equals(this.getValueOrNull(field), other.getValueOrNull(field))) {
         return false;
       }
     }

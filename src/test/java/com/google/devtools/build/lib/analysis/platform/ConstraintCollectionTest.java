@@ -80,6 +80,27 @@ public class ConstraintCollectionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRepeatedConstraintValue() throws Exception {
+    // Referencing the same constraint value twice, e.g. once directly and once through an alias,
+    // must not fail.
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s1"));
+    ConstraintValueInfo value1 =
+        ConstraintValueInfo.create(setting1, Label.parseCanonicalUnchecked("//foo:value1"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s2"));
+    ConstraintValueInfo value2 =
+        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//foo:value2"));
+
+    ConstraintCollection collection =
+        ConstraintCollection.builder().addConstraints(value1, value2, value1).build();
+    assertThat(collection.constraintSettings()).containsExactly(setting1, setting2);
+    assertThat(collection.get(setting1)).isEqualTo(value1);
+    assertThat(collection.get(setting2)).isEqualTo(value2);
+    assertThat(collection.containsAll(ImmutableList.of(value1, value2))).isTrue();
+  }
+
+  @Test
   public void testDiff() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s1"));

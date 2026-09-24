@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -54,5 +56,100 @@ public class RemoteOutputCheckerTest {
     assertThat(
             remoteOutputChecker.shouldDownloadOutput(PathFragment.create("out/foo/bar-baz"), null))
         .isTrue();
+  }
+  @Test
+  public void shouldTrustMetadata_previousBuildDownloadedAll_trusted() {
+    // Outputs that the current build does not want downloaded must not be distrusted
+    // due to a previous invocation using a broader download policy.
+    Artifact artifact = ActionsTestUtil.createArtifact(execRoot, "foo/bar");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFile(
+            new byte[] {1, 2, 3}, /* size= */ 3, /* locationIndex= */ 1);
+
+    var previousBuildChecker =
+        new RemoteOutputChecker("build", RemoteOutputsMode.ALL, ImmutableList.of());
+    var currentBuildChecker =
+        new RemoteOutputChecker(
+            "build", RemoteOutputsMode.TOPLEVEL, ImmutableList.of(), previousBuildChecker);
+
+    assertThat(currentBuildChecker.shouldTrustMetadata(artifact, metadata)).isTrue();
+  }
+
+  @Test
+  public void shouldTrustMetadata_previousBuildRegexMatch_trusted() {
+    Artifact artifact = ActionsTestUtil.createArtifact(execRoot, "foo/bar");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFile(
+            new byte[] {1, 2, 3}, /* size= */ 3, /* locationIndex= */ 1);
+
+    var previousBuildChecker =
+        new RemoteOutputChecker(
+            "build", RemoteOutputsMode.TOPLEVEL, ImmutableList.of(unused -> true));
+    var currentBuildChecker =
+        new RemoteOutputChecker(
+            "build", RemoteOutputsMode.TOPLEVEL, ImmutableList.of(), previousBuildChecker);
+
+    assertThat(currentBuildChecker.shouldTrustMetadata(artifact, metadata)).isTrue();
+  }
+
+  @Test
+  public void shouldTrustMetadata_toplevelOutputOfPreviousBuild_distrusted() {
+    // A toplevel output downloaded by the previous build must be distrusted if missing locally, so
+    // that the generating action reruns to restore it. Under Skymeld, the current build's toplevel
+    // outputs are not yet registered when this check runs.
+    Artifact artifact = ActionsTestUtil.createArtifact(execRoot, "foo/bar");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFile(
+            new byte[] {1, 2, 3}, /* size= */ 3, /* locationIndex= */ 1);
+
+    var previousBuildChecker =
+        new RemoteOutputChecker("build", RemoteOutputsMode.TOPLEVEL, ImmutableList.of());
+    previousBuildChecker.addOutputToDownload(artifact);
+    var currentBuildChecker =
+        new RemoteOutputChecker(
+            "build", RemoteOutputsMode.TOPLEVEL, ImmutableList.of(), previousBuildChecker);
+
+    assertThat(currentBuildChecker.shouldTrustMetadata(artifact, metadata)).isFalse();
+  }
+
+  @Test
+  public void shouldTrustMetadata_downloadedByCurrentBuild_distrusted() {
+    Artifact artifact = ActionsTestUtil.createArtifact(execRoot, "foo/bar");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFile(
+            new byte[] {1, 2, 3}, /* size= */ 3, /* locationIndex= */ 1);
+
+    var previousBuildChecker =
+        new RemoteOutputChecker("build", RemoteOutputsMode.TOPLEVEL, ImmutableList.of());
+    var currentBuildChecker =
+        new RemoteOutputChecker(
+            "build", RemoteOutputsMode.TOPLEVEL, ImmutableList.of(), previousBuildChecker);
+    currentBuildChecker.addOutputToDownload(artifact);
+
+    assertThat(currentBuildChecker.shouldTrustMetadata(artifact, metadata)).isFalse();
+  }
+
+  @Test
+  public void testShouldTrustCachedMetadata_ignoresLastRemoteOutputChecker() {
+    RemoteOutputChecker lastChecker =
+        new RemoteOutputChecker("build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
+    lastChecker.addOutputToDownload(ActionsTestUtil.createArtifact(execRoot, "foo/bar-baz"));
+
+    RemoteOutputChecker checker =
+        new RemoteOutputChecker(
+            "build", RemoteOutputsMode.MINIMAL, ImmutableList.of(), lastChecker);
+
+    FileArtifactValue remoteMetadata =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            new byte[] {1, 2, 3}, 10, 1, /* expirationTime= */ null, /* inMemoryOutput= */ false);
+
+    assertThat(
+            checker.shouldTrustCachedMetadata(
+                ActionsTestUtil.createArtifact(execRoot, "foo/bar-baz"), remoteMetadata))
+        .isTrue();
+    assertThat(
+            checker.shouldTrustMetadata(
+                ActionsTestUtil.createArtifact(execRoot, "foo/bar-baz"), remoteMetadata))
+        .isFalse();
   }
 }

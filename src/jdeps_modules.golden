@@ -7,4 +7,5 @@ java.sql
 java.xml
 jdk.management
 jdk.net
+jdk.security.auth
 jdk.unsupported

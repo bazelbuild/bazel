@@ -12,7 +12,7 @@ filegroup(
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:srcs",
         "//src/tools/remote/src/test/java/com/google/devtools/build/remote/worker:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src:__pkg__"],
 )
 
 java_binary(

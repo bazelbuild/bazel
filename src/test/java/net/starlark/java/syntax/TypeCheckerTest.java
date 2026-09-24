@@ -230,6 +230,21 @@ public final class TypeCheckerTest {
         x: bool    # ensure toplevel code is type-checked
         """);
 
+    // Never cannot have a value assigned to it.
+    assertInvalid(
+        "cannot assign type 'int' to 'never' of type 'Never'",
+        """
+        never: Never
+        never = 123
+        """);
+    // ... unless the RHS is also Never, which cannot have a value either. (Silly but legal.)
+    assertValid(
+        """
+        never: Never
+        also_never: Never
+        never = also_never
+        """);
+
     // TODO: #28037 - in mypy, this is an error (attempt to use a variable of unknown type, since
     // the assignment is lexically below first use). We should treat it the same.
     assertValid(
@@ -368,7 +383,7 @@ public final class TypeCheckerTest {
         """);
 
     assertInvalid(
-        ":3:3: operator '+' cannot be applied to types 'int|bool' and 'int|bool'",
+        ":3:3: operator '+' cannot be applied to types 'int | bool' and 'int | bool'",
         """
         z: list[int|bool]
         x, y = z
@@ -472,8 +487,8 @@ public final class TypeCheckerTest {
     }
 
     @Override
-    public String toString() {
-      return String.format("Foo[%s]", fieldType);
+    public String typeRepr() {
+      return String.format("Foo[%s]", fieldType.typeRepr());
     }
 
     /** Like FooType, but mutable. */
@@ -483,8 +498,8 @@ public final class TypeCheckerTest {
       }
 
       @Override
-      public String toString() {
-        return String.format("MutableFoo[%s]", fieldType);
+      public String typeRepr() {
+        return String.format("MutableFoo[%s]", fieldType.typeRepr());
       }
 
       @Override
@@ -514,6 +529,8 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("o.f", Types.INT, "o: struct[{'f': int}]");
     assertTypeGivenDecls("o.g", Types.ANY, "o: struct[{'f': int}, ...]");
     assertTypeGivenDecls("o.f + o.g", Types.FLOAT, "o: struct[{'f': int, 'g': float}]");
+
+    assertTypeGivenDecls("never.f", Types.NEVER, "never: Never");
 
     assertInvalid(
         ":2:2: 'n' of type 'int' does not have field 'f'",
@@ -580,6 +597,20 @@ public final class TypeCheckerTest {
         """
         o: MutableFoo[int] | MutableFoo[bool]
         o.f = 123
+        """);
+
+    // Never cannot have a value
+    assertInvalid(
+        ":2:1: cannot assign type 'int' to 'never.f' of type 'Never'",
+        """
+        never: Never
+        never.f = 123
+        """);
+    // ... unless the RHS is also Never, which cannot have a value either. (Silly but legal.)
+    assertValid(
+        """
+        never: Never
+        never.f = never
         """);
   }
 
@@ -649,6 +680,22 @@ public final class TypeCheckerTest {
   }
 
   @Test
+  public void infer_index_never() throws Exception {
+    assertTypeGivenDecls("never[123]", Types.NEVER, "never: Never");
+    assertTypeGivenDecls("never['abc']", Types.NEVER, "never: Never");
+  }
+
+  @Test
+  public void assign_index_never() throws Exception {
+    assertInvalid(
+        ":2:1: cannot assign type 'int' to 'never[123]' of type 'Never'",
+        """
+        never: Never
+        never[123] = 123
+        """);
+  }
+
+  @Test
   public void infer_index_dict() throws Exception {
     // Exact key type match.
     assertTypeGivenDecls("d['abc']", Types.INT, "d: dict[str, int]");
@@ -656,6 +703,8 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("d[s]", Types.INT, "d: dict[object, int]; s: str");
     // Bypass key type constraint using Any.
     assertTypeGivenDecls("d[a]", Types.INT, "d: dict[str, int]; a: Any");
+    // Never is a subtype of any possible key type.
+    assertTypeGivenDecls("d[never]", Types.INT, "d: dict[str, int]; never: Never");
 
     assertInvalid(
         ":2:2: 'd' of type 'dict[str, int]' requires key type 'str', but got 'int'",
@@ -707,6 +756,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("arr[123]", Types.STR, "arr: list[str]");
 
     assertTypeGivenDecls("arr[a]", Types.STR, "arr: list[str]; a: Any");
+    assertTypeGivenDecls("arr[never]", Types.STR, "arr: list[str]; never: Never");
 
     assertInvalid(
         ":2:4: 'arr' of type 'list[str]' must be indexed by an integer, but got 'str'",
@@ -757,6 +807,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("s[123]", Types.STR, "s: str");
 
     assertTypeGivenDecls("s[a]", Types.STR, "s: str; a: Any");
+    assertTypeGivenDecls("s[never]", Types.STR, "s: str; never: Never");
 
     assertInvalid(
         ":2:2: 's' of type 'str' must be indexed by an integer, but got 'str'",
@@ -825,6 +876,7 @@ public final class TypeCheckerTest {
     StarlarkType unionType = Types.union(Types.INT, Types.STR, Types.BOOL);
     assertTypeGivenDecls("t[n]", unionType, "t: tuple[int, str, bool]; n: int");
     assertTypeGivenDecls("t[a]", unionType, "t: tuple[int, str, bool]; a: Any");
+    assertTypeGivenDecls("t[never]", unionType, "t: tuple[int, str, bool]; never: Never");
 
     // Bad index type.
     assertInvalid(
@@ -1022,7 +1074,7 @@ public final class TypeCheckerTest {
     assertInvalid(
         ":2:3: operator '|=' cannot be applied to types 'dict[str, int]' and 'dict[int, float]':"
             + " cannot update 'x' of type 'dict[str, int]' with a result value of type"
-            + " 'dict[str|int, int|float]'",
+            + " 'dict[str | int, int | float]'",
         """
         x: dict[str, int]
         x |= {1: 2.3}
@@ -1044,7 +1096,7 @@ public final class TypeCheckerTest {
         x[1] += "a"
         """);
     assertInvalid(
-        ":2:1: x of type 'tuple[int, ...]|list[Any]' does not support item assignment",
+        ":2:1: x of type 'tuple[int, ...] | list[Any]' does not support item assignment",
         """
         x: tuple[int, ...] | list
         x[0] += 42
@@ -1056,7 +1108,7 @@ public final class TypeCheckerTest {
         x.f *= 2
         """);
     assertInvalid(
-        ":2:1: x of type 'MutableFoo[int]|Foo[int]' does not support field assignment",
+        ":2:1: x of type 'MutableFoo[int] | Foo[int]' does not support field assignment",
         """
         x: MutableFoo[int] | Foo[int]  # potentially immutable
         x.f *= 2
@@ -1072,13 +1124,18 @@ public final class TypeCheckerTest {
         Types.union(Types.sequence(Types.STR), Types.ANY),
         "x: Sequence[str] | Any; y: Any; z: Any; w: Any");
 
+    // Never can be sliced and used as a slice index.
+    assertTypeGivenDecls("never[1:2]", Types.NEVER, "never: Never");
+    assertTypeGivenDecls(
+        "x[never:never:never]", Types.list(Types.INT), "x: list[int]; never: Never");
+
     // Invalid operand type
     assertInvalid(
         "invalid slice operand 'x' of type 'int', expected Sequence or str", "x: int; x[:2:-1]");
 
     // Invalid index types
     assertInvalid("got 'str' for start index, want int", "x: str; [][x:]");
-    assertInvalid("got 'Any|bool' for stop index, want int", "y: Any | bool; [][:y:]");
+    assertInvalid("got 'Any | bool' for stop index, want int", "y: Any | bool; [][:y:]");
     assertInvalid("got 'float' for slice step, want int", "z: float; [][::z]");
 
     // Invalid step
@@ -1158,6 +1215,8 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("not x", Types.BOOL, "x: bool");
     assertTypeGivenDecls("not x", Types.BOOL, "x: Any");
     assertTypeGivenDecls("not x", Types.BOOL, "x: list[int] | str");
+    // ... except for Never
+    assertTypeGivenDecls("not never", Types.NEVER, "never: Never");
 
     // The remaining unary operators preserve the type of their operand.
     assertTypeGivenDecls("-i", Types.INT, "i: int");
@@ -1167,6 +1226,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("-x", Types.INT, "x: int");
     assertTypeGivenDecls("-x", Types.ANY, "x: Any");
     assertTypeGivenDecls("-x", Types.NUMERIC, "x: int | float");
+    assertTypeGivenDecls("-never", Types.NEVER, "never: Never");
 
     assertTypeGivenDecls("+i", Types.INT, "i: int");
     assertTypeGivenDecls("+42", Types.INT);
@@ -1174,24 +1234,49 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("+99.9", Types.FLOAT);
     assertTypeGivenDecls("+x", Types.ANY, "x: Any");
     assertTypeGivenDecls("+x", Types.NUMERIC, "x: int | float");
+    assertTypeGivenDecls("+never", Types.NEVER, "never: Never");
 
     assertTypeGivenDecls("~i", Types.INT, "i: int");
     assertTypeGivenDecls("~1", Types.INT);
     assertTypeGivenDecls("~x", Types.ANY, "x: Any");
+    assertTypeGivenDecls("~never", Types.NEVER, "never: Never");
 
     // Unsupported operations.
     assertInvalid(":2:1: operator '-' cannot be applied to type 'str'", "x: str", "-x");
     assertInvalid(":2:1: operator '+' cannot be applied to type 'str'", "x: str", "+x");
     assertInvalid(":2:1: operator '~' cannot be applied to type 'str'", "x: str", "~x");
-    assertInvalid(":2:1: operator '-' cannot be applied to type 'str|int'", "x: str | int", "-x");
+    assertInvalid(":2:1: operator '-' cannot be applied to type 'str | int'", "x: str | int", "-x");
   }
 
   @Test
   public void infer_and_or() throws Exception {
-    assertTypeGivenDecls("x and y", Types.BOOL, "x: int; y: str");
-    assertTypeGivenDecls("x or y", Types.BOOL, "x: int; y: str");
-    assertTypeGivenDecls("x and y", Types.BOOL, "x: int | float; y: str | bool");
-    assertTypeGivenDecls("x or y", Types.BOOL, "x: list[int]; y: list[str]");
+    assertTypeGivenDecls("x and y", Types.INT, "x: int; y: int");
+    assertTypeGivenDecls("x or y", Types.STR, "x: str; y: str");
+    assertTypeGivenDecls("x and y", Types.union(Types.INT, Types.STR), "x: int; y: str");
+    assertTypeGivenDecls("x or y", Types.union(Types.INT, Types.STR), "x: int; y: str");
+    assertTypeGivenDecls(
+        "x and y",
+        Types.union(Types.INT, Types.FLOAT, Types.BOOL),
+        "x: int | float; y: int | bool");
+    assertTypeGivenDecls(
+        "x or y",
+        Types.union(Types.list(Types.INT), Types.list(Types.STR)),
+        "x: list[int]; y: list[str]");
+  }
+
+  @Test
+  public void infer_and_or_never() throws Exception {
+    // Never and/or non-Never -> Never
+    assertTypeGivenDecls("never and x", Types.NEVER, "never: Never; x: int");
+    assertTypeGivenDecls("never and x", Types.NEVER, "never: Never; x: Any");
+    assertTypeGivenDecls("never or x", Types.NEVER, "never: Never; x: str");
+    assertTypeGivenDecls("never or x", Types.NEVER, "never: Never; x: Any");
+
+    // non-Never and/or Never -> non-Never
+    assertTypeGivenDecls("x and never", Types.INT, "x: int; never: Never");
+    assertTypeGivenDecls("x and never", Types.ANY, "x: Any; never: Never");
+    assertTypeGivenDecls("x or never", Types.STR, "x: str; never: Never");
+    assertTypeGivenDecls("x or never", Types.ANY, "x: Any; never: Never");
   }
 
   @Test
@@ -1204,6 +1289,12 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x != y", Types.BOOL, "x: Any; y: str");
     assertTypeGivenDecls("x == y", Types.BOOL, "x: Any; y: Any");
     assertTypeGivenDecls("x != y", Types.BOOL, "x: Any; y: Any");
+
+    // Never on either side -> Never (takes precedence over Any)
+    assertTypeGivenDecls("never == y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never != y", Types.NEVER, "never: Never; y: str");
+    assertTypeGivenDecls("x == never", Types.NEVER, "x: int; never: Never");
+    assertTypeGivenDecls("x != never", Types.NEVER, "x: Any; never: Never");
   }
 
   @Test
@@ -1216,6 +1307,12 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x < y", Types.BOOL, "x: Any; y: Any");
     assertTypeGivenDecls("x >= y", Types.BOOL, "x: Any; y: int");
     assertTypeGivenDecls("x <= y", Types.BOOL, "x: str; y: Any");
+
+    // Never on either side -> Never (takes precedence over Any)
+    assertTypeGivenDecls("never < y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never >= y", Types.NEVER, "never: Never; y: int");
+    assertTypeGivenDecls("x < never", Types.NEVER, "x: str; never: Never");
+    assertTypeGivenDecls("x >= never", Types.NEVER, "x: Any; never: Never");
 
     // Unions
     assertTypeGivenDecls("x < y", Types.BOOL, "x: int | float; y: float");
@@ -1251,17 +1348,17 @@ public final class TypeCheckerTest {
         "x: Any; y: dict[str, int]; x >= y");
     // because lhs str is incomparable to rhs int (and vice versa)
     assertInvalid(
-        "operator '<' cannot be applied to types 'int|str' and 'int|str'",
+        "operator '<' cannot be applied to types 'int | str' and 'int | str'",
         "x: int | str; y: int | str; x < y");
     // Incomparable compound types
     assertInvalid(
-        "operator '<' cannot be applied to types 'list[int|str]' and 'list[str]'",
+        "operator '<' cannot be applied to types 'list[int | str]' and 'list[str]'",
         "x: list[int|str]; y: list[str]; x < y");
     assertInvalid(
         "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[str, int]'",
         "x: tuple[int, str]; y: tuple[str, int]; x >= y");
     assertInvalid(
-        "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[int|str, ...]'",
+        "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[int | str, ...]'",
         "x: tuple[int, str]; y: tuple[int|str, ...]; x >= y");
     assertInvalid(
         "operator '>=' cannot be applied to types 'list[tuple[str, int]]' and 'list[tuple[bool,"
@@ -1303,6 +1400,7 @@ public final class TypeCheckerTest {
 
     // Any inference
     assertTypeGivenDecls("x + y", Types.ANY, "x: Any; y: Any");
+
     // TODO: #28037 - the following cases can be tightened to int | float
     assertTypeGivenDecls("x + y", Types.ANY, "x: Any; y: int");
     assertTypeGivenDecls("x + y", Types.ANY, "x: int; y: Any");
@@ -1326,10 +1424,17 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x + y", Types.ANY, "x: Any; y: bool");
     assertTypeGivenDecls("x + y", Types.ANY, "x: bool; y: Any");
 
+    // Never on either side -> Never (supports all types on the other side)
+    assertTypeGivenDecls("never + y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never + y", Types.NEVER, "never: Never; y: dict");
+    assertTypeGivenDecls("x + never", Types.NEVER, "x: Any; never: Never");
+    assertTypeGivenDecls("x + never", Types.NEVER, "x: set; never: Never");
+
     // unsupported operations
     assertInvalid("operator '+' cannot be applied to types 'str' and 'int'", "x: str; x + 1");
     assertInvalid(
-        "operator '+' cannot be applied to types 'int|str' and 'str'", "x: int|str; y: str; x + y");
+        "operator '+' cannot be applied to types 'int | str' and 'str'",
+        "x: int|str; y: str; x + y");
   }
 
   @Test
@@ -1363,10 +1468,16 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x | y", Types.ANY, "x: Any; y: int | bool");
     assertTypeGivenDecls("x | y", Types.ANY, "x: int | bool; y: Any");
 
+    // Never on either side -> Never (supports all types on the other side)
+    assertTypeGivenDecls("never | y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never | y", Types.NEVER, "never: Never; y: float");
+    assertTypeGivenDecls("x | never", Types.NEVER, "x: Any; never: Never");
+    assertTypeGivenDecls("x | never", Types.NEVER, "x: bool; never: Never");
+
     // unsupported operations
     assertInvalid("operator '|' cannot be applied to types 'int' and 'float'", "x: int; x | 2.0");
     assertInvalid(
-        "operator '|' cannot be applied to types 'int|set[int]' and 'int|set[int]'",
+        "operator '|' cannot be applied to types 'int | set[int]' and 'int | set[int]'",
         "x: int|set[int]; y: int|set[int]; x | y");
   }
 
@@ -1385,6 +1496,12 @@ public final class TypeCheckerTest {
     // TODO: #28037 - the following cases can be tightened to set[Any]
     assertTypeGivenDecls("x & y", Types.ANY, "x: Any; y: set[int]");
     assertTypeGivenDecls("x & y", Types.ANY, "x: set[str]; y: Any");
+
+    // Never on either side -> Never (supports all types on the other side)
+    assertTypeGivenDecls("never & y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never & y", Types.NEVER, "never: Never; y: float");
+    assertTypeGivenDecls("x & never", Types.NEVER, "x: Any; never: Never");
+    assertTypeGivenDecls("x & never", Types.NEVER, "x: str; never: Never");
 
     // unsupported operations
     assertInvalid("operator '&' cannot be applied to types 'int' and 'float'", "x: int; x & 2.0");
@@ -1410,6 +1527,12 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x ^ y", Types.ANY, "x: Any; y: set[int]");
     assertTypeGivenDecls("x ^ y", Types.ANY, "x: set[str]; y: Any");
 
+    // Never on either side -> Never (supports all types on the other side)
+    assertTypeGivenDecls("never ^ y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never ^ y", Types.NEVER, "never: Never; y: float");
+    assertTypeGivenDecls("x ^ never", Types.NEVER, "x: Any; never: Never");
+    assertTypeGivenDecls("x ^ never", Types.NEVER, "x: str; never: Never");
+
     // unsupported operations
     assertInvalid(
         "operator '^' cannot be applied to types 'int' and 'float'", "x: int; y: float; x ^ y");
@@ -1431,6 +1554,12 @@ public final class TypeCheckerTest {
     // TODO: #28037 - the following should fail
     assertTypeGivenDecls("x << y", Types.ANY, "x: Any; y: bool");
     assertTypeGivenDecls("x >> y", Types.ANY, "x: bool; y: Any");
+
+    // Never on either side -> Never (supports all types on the other side)
+    assertTypeGivenDecls("never >> y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never << y", Types.NEVER, "never: Never; y: float");
+    assertTypeGivenDecls("x >> never", Types.NEVER, "x: Any; never: Never");
+    assertTypeGivenDecls("x << never", Types.NEVER, "x: bool; never: Never");
 
     // unsupported operations
     assertInvalid("operator '<<' cannot be applied to types 'int' and 'float'", "x: int; x << 2.0");
@@ -1457,6 +1586,12 @@ public final class TypeCheckerTest {
     // TODO: #28037 - the following cases can be tightened to set[Any]
     assertTypeGivenDecls("x - y", Types.ANY, "x: Any; y: set[int]");
     assertTypeGivenDecls("x - y", Types.ANY, "x: set[str]; y: Any");
+
+    // Never on either side -> Never (supports all types on the other side)
+    assertTypeGivenDecls("never - y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never - y", Types.NEVER, "never: Never; y: str");
+    assertTypeGivenDecls("x - never", Types.NEVER, "x: Any; never: Never");
+    assertTypeGivenDecls("x - never", Types.NEVER, "x: bool; never: Never");
 
     // unsupported operations
     assertInvalid("operator '-' cannot be applied to types 'str' and 'int'", "x: str; x - 1");
@@ -1534,6 +1669,12 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x * y", Types.ANY, "x: Any; y: bool");
     assertTypeGivenDecls("x * y", Types.ANY, "x: bool; y: Any");
 
+    // Never on either side -> Never (supports all types on the other side)
+    assertTypeGivenDecls("never * y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never * y", Types.NEVER, "never: Never; y: bool");
+    assertTypeGivenDecls("x * never", Types.NEVER, "x: Any; never: Never");
+    assertTypeGivenDecls("x * never", Types.NEVER, "x: dict; never: Never");
+
     // unsupported operations
     assertInvalid("operator '*' cannot be applied to types 'str' and 'float'", "x: str; x * 1.0");
     assertInvalid(
@@ -1565,6 +1706,12 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x // y", Types.ANY, "x: Any; y: float");
     assertTypeGivenDecls("x / y", Types.ANY, "x: float; y: Any");
     assertTypeGivenDecls("x // y", Types.ANY, "x: float; y: Any");
+
+    // Never on either side -> Never (supports all types on the other side)
+    assertTypeGivenDecls("never / y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never // y", Types.NEVER, "never: Never; y: bool");
+    assertTypeGivenDecls("x / never", Types.NEVER, "x: Any; never: Never");
+    assertTypeGivenDecls("x // never", Types.NEVER, "x: dict; never: Never");
 
     // unsupported operations
     assertInvalid(
@@ -1598,6 +1745,12 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x % y", Types.ANY, "x: Any; y: str");
     assertTypeGivenDecls("x % y", Types.STR, "x: str; y: Any");
 
+    // Never on either side -> Never (supports all types on the other side)
+    assertTypeGivenDecls("never % y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never % y", Types.NEVER, "never: Never; y: bool");
+    assertTypeGivenDecls("x % never", Types.NEVER, "x: Any; never: Never");
+    assertTypeGivenDecls("x % never", Types.NEVER, "x: str; never: Never");
+
     // unsupported operations
     assertInvalid(
         "operator '%' cannot be applied to types 'float' and 'str'", "x: float; x % 'hello'");
@@ -1627,6 +1780,12 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x in y", Types.BOOL, "x: Any; y: list[int|float]");
     assertTypeGivenDecls("x not in y", Types.BOOL, "x: Any; y: set[str]");
 
+    // Never on either side -> Never (supports all types on the other side)
+    assertTypeGivenDecls("never in y", Types.NEVER, "never: Never; y: Any");
+    assertTypeGivenDecls("never not in y", Types.NEVER, "never: Never; y: bool");
+    assertTypeGivenDecls("x in never", Types.NEVER, "x: Any; never: Never");
+    assertTypeGivenDecls("x not in never", Types.NEVER, "x: float; never: Never");
+
     // unsupported operations
     assertInvalid("operator 'in' cannot be applied to types 'Any' and 'int'", "x: Any; x in 42");
     assertInvalid(
@@ -1651,6 +1810,12 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x if cond else y", Types.INT, "cond: Any; x: int; y: int");
     assertTypeGivenDecls(
         "x if cond else y", Types.INT, "def cond() -> int: return 42", "x: int; y: int");
+    // ... as long as it's not Never
+    assertTypeGivenDecls("x if never else y", Types.NEVER, "never: Never; x: int; y: Any");
+
+    // No support for using statically truthy/falsy conditions in inference
+    assertTypeGivenDecls("x if 1 else y", Types.NUMERIC, "x: int; y: float");
+    assertTypeGivenDecls("x if 0 else y", Types.NUMERIC, "x: int; y: float");
   }
 
   @Test
@@ -1663,8 +1828,9 @@ public final class TypeCheckerTest {
             return 0
         """);
 
-    // Function type unions and Any handling
+    // Function type unions, Any, and Never handling
     assertTypeGivenDecls("f(42)", Types.ANY, "f: Any");
+    assertTypeGivenDecls("never(42)", Types.NEVER, "never: Never");
     assertTypeGivenDecls(
         "(f if 1 else g)(42)",
         Types.union(Types.INT, Types.STR),
@@ -1682,6 +1848,11 @@ public final class TypeCheckerTest {
             return x
         g: Any
         """);
+
+    // Simple callable types (produced by `Callable` application)
+    assertTypeGivenDecls("f(42)", Types.ANY, "f: Callable");
+    assertTypeGivenDecls("f(42, 2.5)", Types.BOOL, "f: Callable[[int, float], bool]");
+    assertTypeGivenDecls("f(1, 2.5, 3, x=[])", Types.STR, "f: Callable[..., str]");
 
     // Omitted return type is Any
     assertTypeGivenDecls(
@@ -1722,6 +1893,26 @@ public final class TypeCheckerTest {
         f([1, 2, 3], {"a": 1, "b": 2})
         """);
 
+    // We don't special-case Never for call args; in other words, Never-ness of args doesn't
+    // propagate to the inferred return type.
+    assertTypeGivenDecls(
+        "f(never)",
+        Types.INT,
+        """
+        def f(x: int) -> int:
+            return x
+        never: Never
+        """);
+    // This is silly but legal.
+    assertTypeGivenDecls(
+        "f(never)",
+        Types.INT,
+        """
+        def f(x: Never) -> int:
+            return 0
+        never: Never
+        """);
+
     // Cannot call a non-callable
     assertInvalid(
         ":2:1: 'f' is not callable; got type 'int'",
@@ -1730,7 +1921,7 @@ public final class TypeCheckerTest {
         f(42)
         """);
     assertInvalid(
-        "'f if 1 else g' is not callable; got type 'Callable[[int], int]|int'",
+        "'f if 1 else g' is not callable; got type '<def (x: int) -> int> | int'",
         """
         def f(x: int) -> int:
             return x
@@ -1749,12 +1940,24 @@ public final class TypeCheckerTest {
             return 0
         f(123, "hello")
         """);
+    assertInvalid(
+        "in call to 'f()', parameter #2 got value of type 'str', want 'int'",
+        """
+        f: Callable[[Any, int], int]
+        f(123, "hello")
+        """);
     // Too many positionals
     assertInvalid(
-        "'f()' accepts no more than 2 positional arguments but got 3",
+        "'f()' accepts exactly 2 positional arguments but got 3",
         """
         def f(x: int, y: int) -> int:
             return 0
+        f(1, 2, 3)
+        """);
+    assertInvalid(
+        "'f()' accepts exactly 1 positional argument but got 3",
+        """
+        f: Callable[[int], int]
         f(1, 2, 3)
         """);
     // Unexpected arguments
@@ -1765,12 +1968,24 @@ public final class TypeCheckerTest {
             return 0
         f(x = 1, mispelled = 2)
         """);
+    assertInvalid(
+        "'f()' got unexpected keyword argument: named",
+        """
+        f: Callable[[int], int]
+        f(1, named = 2)
+        """);
     // Missing required arguments
     assertInvalid(
         "'f()' missing 1 required argument: y",
         """
         def f(x: int, y: int) -> int:
             return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' accepts exactly 2 positional arguments but got 1",
+        """
+        f: Callable[[int, int], int]
         f(42)
         """);
     assertInvalid(
@@ -1849,7 +2064,7 @@ public final class TypeCheckerTest {
         f(*args)
         """);
     assertInvalid(
-        "argument after * must be a sequence, not 'str|list[str]'",
+        "argument after * must be a sequence, not 'str | list[str]'",
         """
         def f(*args) -> int:
             return 0
@@ -1858,7 +2073,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong element type
     assertInvalid(
-        "in call to 'f()', elements of argument after * must be 'float', not 'str|float'",
+        "in call to 'f()', elements of argument after * must be 'float', not 'str | float'",
         """
         def f(*args: float) -> int:
             return 0
@@ -1867,7 +2082,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong type of residual positional arguments
     assertInvalid(
-        "in call to 'f()', residual positional arguments must be 'str|float', not 'int'",
+        "in call to 'f()', residual positional arguments must be 'str | float', not 'int'",
         """
         def f(x: int, *args: str|float) -> int:
             return 0
@@ -1921,7 +2136,7 @@ public final class TypeCheckerTest {
         f(**kwargs)
         """);
     assertInvalid(
-        "argument after ** must be a dict with string keys, not 'dict[Any, Any]|list[Any]'",
+        "argument after ** must be a dict with string keys, not 'dict[Any, Any] | list[Any]'",
         """
         def f(**kwargs) -> int:
             return 0
@@ -1930,7 +2145,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong element type
     assertInvalid(
-        "in call to 'f()', values of argument after ** must be 'float', not 'str|float'",
+        "in call to 'f()', values of argument after ** must be 'float', not 'str | float'",
         """
         def f(**kwargs: float) -> int:
             return 0
@@ -1939,7 +2154,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong type of residual keyword arguments
     assertInvalid(
-        "in call to 'f()', residual keyword arguments must be 'str|float', not 'int'",
+        "in call to 'f()', residual keyword arguments must be 'str | float', not 'int'",
         """
         def f(x: int, **kwargs: str|float) -> int:
             return 0
@@ -1974,6 +2189,7 @@ public final class TypeCheckerTest {
         d: list[int]
         [a + c for a in b for c in d]
         """);
+
     // If clauses must type-check
     assertInvalid(
         ":3:25: in call to 'cond()', parameter 'x' got value of type 'str', want 'int'",
@@ -2002,8 +2218,9 @@ public final class TypeCheckerTest {
         {x : x + [x] for x in lst}
         """);
 
-    // Any and union handling
+    // Any, Never, and union handling
     assertTypeGivenDecls("[x * 2 for x in lst]", Types.list(Types.ANY), "lst: Any");
+    assertTypeGivenDecls("[x * 2 for x in never]", Types.list(Types.NEVER), "never: Never");
     assertTypeGivenDecls(
         "[x * 2 for x in lst]", Types.list(Types.NUMERIC), "lst: list[int] | Collection[float]");
   }
@@ -2014,6 +2231,8 @@ public final class TypeCheckerTest {
         "{'%s' % x : x for x in lst}", Types.dict(Types.STR, Types.INT), "lst: list[int]");
     assertTypeGivenDecls("{x : x for x in lst}", Types.dict(Types.ANY, Types.ANY), "lst: Any");
     assertTypeGivenDecls(
+        "{'foo' : x for x in never}", Types.dict(Types.STR, Types.NEVER), "never: Never");
+    assertTypeGivenDecls(
         "{'%s' % x : x * 2 for x in lst}",
         Types.dict(Types.STR, Types.NUMERIC), "lst: list[int] | Collection[float]");
   }
@@ -2021,6 +2240,13 @@ public final class TypeCheckerTest {
   @Test
   public void def_argument_defaults() throws Exception {
     assertValid("def f(x: int = 42, y: str= '', z = {}): pass");
+    // The presence of `*` and `*args` offsets the indices of parameters in the def statement and
+    // of types in the CallableType. Ensure we support this case.
+    assertValid("def f(x: int = 42, *, y: str = '', z: list[int] = [1, 2]): pass");
+    assertValid("def f(x: int = 42, *args: float, y: str = '', z: list[int] = [1, 2]): pass");
+    assertValid(
+        "def f(x: int = 42, *args: float, y: str = '', z: list[int] = [1, 2], **kwargs: bool):"
+            + " pass");
     // Allow list/dict literal defaults (same mechanism as rvalue inference for assignments)
     assertValid(
         """
@@ -2031,7 +2257,7 @@ public final class TypeCheckerTest {
     // ... but the default's type does not cause the argument's type to be inferred
     assertTypeAfterTypecheck(
         "f",
-        Types.callable(
+        Types.generalCallable(
             ImmutableList.of("x", "y"),
             ImmutableList.of(Types.ANY, Types.ANY), // not list[int] or dict[str, float]
             0,
@@ -2041,9 +2267,12 @@ public final class TypeCheckerTest {
             null,
             Types.NONE),
         "def f(x = [1, 2, 3], y = {'pi': 3.14}) -> None: pass");
-    String invalid = "def f(x: int = 42.0, y: str = 43, z = []): pass";
+    String invalid = "def f(x: int = 42.0, y: str = 43, *, z: dict = []): pass";
     assertInvalid("f(): parameter 'x' has default value of type 'float', declares 'int'", invalid);
     assertInvalid("f(): parameter 'y' has default value of type 'int', declares 'str'", invalid);
+    assertInvalid(
+        "f(): parameter 'z' has default value of type 'list[Never]', declares 'dict[Any, Any]'",
+        invalid);
   }
 
   @Test
@@ -2058,6 +2287,11 @@ public final class TypeCheckerTest {
         def f() -> int|None:
             if 2 + 2 == 4:
                 return 42
+        """);
+    assertValid(
+        """
+        def f() -> Never:
+            return [][0]
         """);
     assertValid(
         """
@@ -2086,7 +2320,7 @@ public final class TypeCheckerTest {
         """);
 
     assertInvalid(
-        ":2:5: f() declares return type 'int' but may exit without an explicit 'return'",
+        ":2:5: f() declares return type 'int' but may return 'None' implicitly",
         """
         def f() -> int:
             if 2 + 2 == 4:
@@ -2309,7 +2543,7 @@ public final class TypeCheckerTest {
                 pass
         """);
     assertInvalid(
-        ":3:9: cannot assign type 'int|str' to 'x' of type 'int'",
+        ":3:9: cannot assign type 'int | str' to 'x' of type 'int'",
         """
         def _wrapper() -> None:
             x: int
@@ -2387,7 +2621,7 @@ public final class TypeCheckerTest {
   public void load_statement() throws Exception {
     loader = importName -> TestUtils.LoadableModule.of("x", Types.union(Types.INT, Types.STR));
     assertInvalid(
-        ":3:1: cannot assign type 'int|str' to 'y[0]' of type 'int'",
+        ":3:1: cannot assign type 'int | str' to 'y[0]' of type 'int'",
         """
         load("//x:x.bzl", "x")
         y : list[int] = [0]

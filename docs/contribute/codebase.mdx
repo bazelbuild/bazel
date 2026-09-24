@@ -260,7 +260,7 @@ on Windows, where file names are case-insensitive.
 
 Packages are independent of each other: changes to the `BUILD` file of a package
 cannot cause other packages to change. The addition or removal of `BUILD` files
-_can _change other packages, since recursive globs stop at package boundaries
+_can_ change other packages, since recursive globs stop at package boundaries
 and thus the presence of a `BUILD` file stops the recursion.
 
 The evaluation of a `BUILD` file is called "package loading". It's implemented
@@ -305,7 +305,7 @@ Packages are composed of targets, which have the following types:
     Bazel parlance, we call them _artifacts_ (discussed elsewhere). Not all
     files created during the build are targets; it's common for an output of
     Bazel not to have an associated label.
-2.  **Rules:** these describe steps to derive its outputs from its inputs. They
+2.  **Rules:** these describe steps to derive their outputs from their inputs. They
     are generally associated with a programming language (such as `cc_library`,
     `java_library` or `py_library`), but there are some language-agnostic ones
     (such as `genrule` or `filegroup`)
@@ -353,7 +353,7 @@ of that type.
 
 The evaluation framework underlying Bazel is called Skyframe. Its model is that
 everything that needs to be built during a build is organized into a directed
-acyclic graph with edges pointing from any pieces of data to its dependencies,
+acyclic graph with edges pointing from any piece of data to its dependencies,
 that is, other pieces of data that need to be known to construct it.
 
 The nodes in the graph are called `SkyValue`s and their names are called
@@ -398,7 +398,7 @@ around this issue by:
     limit the number of restarts.
 2.  Breaking up a `SkyValue` into separate pieces computed by different
     `SkyFunction`s, so that they can be computed and cached independently. This
-    should be done strategically, since it has the potential to increases memory
+    should be done strategically, since it has the potential to increase memory
     usage.
 3.  Storing state between restarts, either using
     `SkyFunction.Environment.getState()`, or keeping an ad hoc static cache
@@ -414,7 +414,7 @@ around this issue by:
 
 [statemachine_example]: https://developers.google.com/devsite/reference/markdown/links#reference_links
 
-Fundamentally, Bazel need these types of workarounds because hundreds of
+Fundamentally, Bazel needs these types of workarounds because hundreds of
 thousands of in-flight Skyframe nodes is common, and Java's support of
 lightweight threads [does not outperform][virtual_threads] the
 `StateMachine` implementation as of 2023.
@@ -526,9 +526,9 @@ affects test targets (we have plans to "trim" configurations so that this is
 not the case, but it's not ready yet).
 
 When a rule implementation needs part of the configuration, it needs to declare
-it in its definition using `RuleClass.Builder.requiresConfigurationFragments()`
-. This is both to avoid mistakes (such as Python rules using the Java fragment) and
-to facilitate configuration trimming so that such as if Python options change, C++
+it in its definition using `RuleClass.Builder.requiresConfigurationFragments()`.
+This is both to avoid mistakes (such as Python rules using the Java fragment) and
+to facilitate configuration trimming so that if Python options change, C++
 targets don't need to be re-analyzed.
 
 The configuration of a rule is not necessarily the same as that of its "parent"
@@ -559,7 +559,7 @@ Configuration transitions can also be implemented in Starlark (documentation
 
 ### Transitive info providers {#transitive-info-providers}
 
-Transitive info providers are a way (and the _only _way) for configured targets
+Transitive info providers are a way (and the _only_ way) for configured targets
 to learn things about other configured targets that they depend on, and the only
 way to tell things about themselves to other configured targets that depend on
 them. The reason why "transitive" is in their name is that this is usually some
@@ -713,13 +713,13 @@ The concept of _toolchain_ comes from the fact that depending on what platforms
 the build is running on and what platforms are targeted, one may need to use
 different compilers; for example, a particular C++ toolchain may run on a
 specific OS and be able to target some other OSes. Bazel must determine the C++
-compiler that is used based on the set execution and target platform
+compiler that is used based on the set execution and target platforms
 (documentation for toolchains
 [here](/extending/toolchains)).
 
 In order to do this, toolchains are annotated with the set of execution and
 target platform constraints they support. In order to do this, the definition of
-a toolchain are split into two parts:
+a toolchain is split into two parts:
 
 1.  A `toolchain()` rule that describes the set of execution and target
     constraints a toolchain supports and tells what kind (such as C++ or Java) of
@@ -895,7 +895,7 @@ In order to get around this problem, we came up with the concept of a
 `NestedSet`. It's a data structure that is composed of other `NestedSet`
 instances and some members of its own, thereby forming a directed acyclic graph
 of sets. They are immutable and their members can be iterated over. We define
-multiple iteration order (`NestedSet.Order`): preorder, postorder, topological
+multiple iteration orders (`NestedSet.Order`): preorder, postorder, topological
 (a node always comes after its ancestors) and "don't care, but it should be the
 same each time".
 
@@ -1062,7 +1062,7 @@ the set of inputs of an action come in two forms:
 *   An action may discover new inputs before its execution or decide that some
     of its inputs are not actually necessary. The canonical example is C++,
     where it's better to make an educated guess about what header files a C++
-    file uses from its transitive closure so that we don't heed to send every
+    file uses from its transitive closure so that we don't need to send every
     file to remote executors; therefore, we have an option not to register every
     header file as an "input", but scan the source file for transitively
     included headers and only mark those header files as inputs that are
@@ -1147,7 +1147,7 @@ More information about strategies (or action contexts!):
 
 Bazel _can_ run many actions in parallel. The number of local actions that
 _should_ be run in parallel differs from action to action: the more resources an
-action requires, the less instances should be running at the same time to avoid
+action requires, the fewer instances should be running at the same time to avoid
 overloading the local machine.
 
 This is implemented in the class `ResourceManager`: each action has to be
@@ -1289,7 +1289,7 @@ execution so that outputs of different tests are not interspersed.
 
 This is implemented in the aptly-named `StreamedTestOutput` class and works by
 polling changes to the `test.log` file of the test in question and dumping new
-bytes to the terminal where Bazel rules.
+bytes to the terminal where Bazel runs.
 
 Results of the executed tests are available on the event bus by observing
 various events (such as `TestAttempt`, `TestResult` or `TestingCompleteEvent`).
@@ -1387,7 +1387,7 @@ classes, XML, protobuf and so on. These are implemented as subclasses of
 `OutputFormatter`.
 
 A subtle requirement of some query output formats (proto, definitely) is that
-Bazel needs to emit _all _the information that package loading provides so that
+Bazel needs to emit _all_ the information that package loading provides so that
 one can diff the output and determine whether a particular target has changed.
 As a consequence, attribute values need to be serializable, which is why there
 are only so few attribute types without any attributes having complex Starlark
@@ -1523,7 +1523,7 @@ starting `@guava//` and expect that to mean different versions of it.
 
 Therefore, Bazel allows one to re-map external repository labels so that the
 string `@guava//` can refer to one Guava repository (such as `@guava1//`) in the
-repository of one binary and another Guava repository (such as `@guava2//`) the
+repository of one binary and another Guava repository (such as `@guava2//`) in the
 repository of the other.
 
 Alternatively, this can also be used to **join** diamonds. If a repository
@@ -1591,7 +1591,7 @@ to replay information to the UI caused by various kinds of cached processing,
 for example, the warnings emitted by a cached configured target.
 
 Some `EventHandler`s also allow posting events that eventually find their way to
-the event bus (regular `Event`s do _not _appear there). These are
+the event bus (regular `Event`s do _not_ appear there). These are
 implementations of `ExtendedEventHandler` and their main use is to replay cached
 `EventBus` events. These `EventBus` events all implement `Postable`, but not
 everything that is posted to `EventBus` necessarily implements this interface;
@@ -1616,11 +1616,11 @@ Bazel is fast. Bazel is also slow, because builds tend to grow until just the
 edge of what's bearable. For this reason, Bazel includes a profiler which can be
 used to profile builds and Bazel itself. It's implemented in a class that's
 aptly named `Profiler`. It's turned on by default, although it records only
-abridged data so that its overhead is tolerable; The command line
+abridged data so that its overhead is tolerable; the command line
 `--record_full_profiler_data` makes it record everything it can.
 
 It emits a profile in the Chrome profiler format; it's best viewed in Chrome.
-It's data model is that of task stacks: one can start tasks and end tasks and
+Its data model is that of task stacks: one can start tasks and end tasks and
 they are supposed to be neatly nested within each other. Each Java thread gets
 its own task stack. **TODO:** How does this work with actions and
 continuation-passing style?

@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
@@ -71,12 +70,16 @@ public class CriticalPathComputer {
 
   /** Selects and returns the longer of two components (the first may be {@code null}). */
   private static final BinaryOperator<CriticalPathComponent> SELECT_LONGER_COMPONENT =
-      (a, b) ->
-          a == null || a.getAggregatedElapsedTime().compareTo(b.getAggregatedElapsedTime()) < 0
-              ? b
-              : a;
+      (a, b) -> {
+        if (a == null) {
+          return b;
+        }
+        if (b == null) {
+          return a;
+        }
+        return a.getAggregatedElapsedTime().compareTo(b.getAggregatedElapsedTime()) < 0 ? b : a;
+      };
 
-  private final AtomicInteger idGenerator = new AtomicInteger();
   // outputArtifactToComponent is accessed from multiple event handlers.
   private final ConcurrentMap<Artifact, CriticalPathComponent> outputArtifactToComponent =
       new ConcurrentHashMap<>();
@@ -99,7 +102,7 @@ public class CriticalPathComputer {
    *     for computing time differences.
    */
   private CriticalPathComponent createComponent(Action action, long relativeStartNanos) {
-    return new CriticalPathComponent(idGenerator.getAndIncrement(), action, relativeStartNanos);
+    return new CriticalPathComponent(action, relativeStartNanos);
   }
 
   /**
@@ -406,25 +409,22 @@ public class CriticalPathComputer {
   private void addArtifactDependency(
       CriticalPathComponent actionStats, Artifact input, long componentFinishNanos) {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
+    if (depComponent != null && !depComponent.isRunning()) {
+      actionStats.addDepInfo(depComponent, componentFinishNanos);
+    }
     if (input.hasParent()) {
       // If the input is a nested artifact (e.g. a TreeFileArtifact), check its parent chain
-      // (e.g. parent TreeArtifact). If the parent has a component with a longer critical path
-      // (which happens when sibling template expansion actions take longer to finish before the
-      // directory is available), prefer the parent component as the dependency bottleneck.
+      // (e.g. parent TreeArtifact). Sibling template expansion actions may take longer to finish
+      // before the directory is available, so consider non-running parent components as potential
+      // dependency bottlenecks as well.
       Artifact parent = input.getParent();
       while (parent != null) {
         CriticalPathComponent parentComponent = outputArtifactToComponent.get(parent);
-        depComponent = SELECT_LONGER_COMPONENT.apply(depComponent, parentComponent);
+        if (parentComponent != null && !parentComponent.isRunning()) {
+          actionStats.addDepInfo(parentComponent, componentFinishNanos);
+        }
         parent = parent.hasParent() ? parent.getParent() : null;
       }
-    }
-
-    // Typically, the dep component should already be finished since its output was used as an input
-    // for a just-completed action. However, we tolerate it still running for (a) action rewinding
-    // and (b) the rare case that an action depending on a previously-cached shared action sees a
-    // different shared action that is in the midst of being an action cache hit.
-    if (depComponent != null && !depComponent.isRunning()) {
-      actionStats.addDepInfo(depComponent, componentFinishNanos);
     }
   }
 }

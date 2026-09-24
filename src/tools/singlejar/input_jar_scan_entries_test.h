@@ -19,6 +19,7 @@
 #ifndef _WIN32
 #include <unistd.h>
 #endif
+#include <cstdint>
 #include <memory>
 #include <string>
 

@@ -42,14 +42,15 @@ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ChunkingFunctionValue;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -68,6 +69,7 @@ import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -118,9 +120,16 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                     },
                     directExecutor());
           }
-          return Futures.transform(
+          return Futures.transformAsync(
               downloadFromDiskCache,
-              unused -> remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()),
+              _ -> {
+                try {
+                  return immediateFuture(
+                      remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()));
+                } catch (IOException e) {
+                  return immediateFailedFuture(e);
+                }
+              },
               directExecutor());
         }
       };
@@ -130,13 +139,15 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       @Nullable DiskCacheClient diskCacheClient,
       @Nullable String symlinkTemplate,
       DigestUtil digestUtil,
-      boolean chunkingEnabled) {
+      @Nullable ChunkingFunctionValue chunkingFunction,
+      ChunkLocationMap chunkLocationMap) {
     super(
         checkNotNull(remoteCacheClient),
         diskCacheClient,
         symlinkTemplate,
         digestUtil,
-        chunkingEnabled);
+        chunkingFunction,
+        chunkLocationMap);
   }
 
   @VisibleForTesting
@@ -160,11 +171,10 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       RemoteActionExecutionContext context,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
-      boolean force,
-      @Nullable RemotePathResolver remotePathResolver)
+      boolean force)
       throws IOException, InterruptedException {
     Flowable<TransferResult> uploads =
-        createUploadTasks(context, merkleTree, additionalInputs, force, remotePathResolver)
+        createUploadTasks(context, merkleTree, additionalInputs, force)
             .flatMapPublisher(
                 result ->
                     Flowable.using(
@@ -195,20 +205,17 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   @Override
   public void ensureInputsPresent(
-      RemoteActionExecutionContext context,
-      MerkleTree.Uploadable merkleTree,
-      boolean force,
-      RemotePathResolver remotePathResolver)
+      RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force)
       throws IOException, InterruptedException {
-    ensureInputsPresent(context, merkleTree, ImmutableMap.of(), force, remotePathResolver);
+    ensureInputsPresent(context, merkleTree, ImmutableMap.of(), force);
   }
 
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context,
-      RemotePathResolver remotePathResolver,
       Digest digest,
       Path path,
+      PathFragment execPath,
       boolean force) {
     return Futures.transformAsync(
         remotePathChecker.isAvailableLocally(context, path),
@@ -218,14 +225,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             // cache at some point before action execution, but reported to be missing when
             // querying the remote for missing action inputs; possibly because it was evicted in
             // the interim.
-            if (remotePathResolver != null) {
-              throw new CacheNotFoundException(
-                  digest, remotePathResolver.localPathToExecPath(path.asFragment()));
-            } else {
-              // This path should only be taken for RemoteRepositoryRemoteExecutor, which has no
-              // way to handle lost inputs.
-              throw new CacheNotFoundException(digest, path.getPathString());
-            }
+            throw new CacheNotFoundException(digest, execPath);
           }
           return remoteCacheClient.uploadFile(context, digest, path, force);
         },
@@ -291,9 +291,8 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       Digest digest,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
-      @Nullable RemotePathResolver remotePathResolver,
       boolean force) {
-    var upload = merkleTree.upload(this, context, remotePathResolver, digest, force);
+    var upload = merkleTree.upload(this, context, digest, force);
     if (upload.isPresent()) {
       return upload.get();
     }
@@ -321,8 +320,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       RemoteActionExecutionContext context,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
-      boolean force,
-      @Nullable RemotePathResolver remotePathResolver) {
+      boolean force) {
     var allDigests = Iterables.concat(merkleTree.allDigests(), additionalInputs.keySet());
     if (Iterables.isEmpty(allDigests)) {
       return Single.just(ImmutableList.of());
@@ -333,13 +331,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             Flowable.fromIterable(allDigests)
                 .flatMapMaybe(
                     digest ->
-                        maybeCreateUploadTask(
-                            context,
-                            merkleTree,
-                            additionalInputs,
-                            digest,
-                            force,
-                            remotePathResolver))
+                        maybeCreateUploadTask(context, merkleTree, additionalInputs, digest, force))
                 .collect(toImmutableList()),
         SilentCloseable::close);
   }
@@ -349,8 +341,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
       Digest digest,
-      boolean force,
-      @Nullable RemotePathResolver remotePathResolver) {
+      boolean force) {
     return Maybe.create(
         emitter -> {
           AsyncSubject<Void> completion = AsyncSubject.create();
@@ -365,10 +356,23 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                       Single.<Boolean>create(
                           continuation -> {
                             uploadTask.continuation = continuation;
-                            emitter.onSuccess(uploadTask);
+                            if (!emitter.isDisposed()) {
+                              emitter.onSuccess(uploadTask);
+                            } else {
+                              continuation.tryOnError(
+                                  new CancellationException("upload task cancelled"));
+                            }
                           }),
-                      /* onAlreadyRunning= */ () -> emitter.onSuccess(uploadTask),
-                      /* onAlreadyFinished= */ () -> emitter.onSuccess(uploadTask),
+                      /* onAlreadyRunning= */ () -> {
+                        if (!emitter.isDisposed()) {
+                          emitter.onSuccess(uploadTask);
+                        }
+                      },
+                      /* onAlreadyFinished= */ () -> {
+                        if (!emitter.isDisposed()) {
+                          emitter.onSuccess(uploadTask);
+                        }
+                      },
                       force)
                   .flatMapCompletable(
                       shouldUpload -> {
@@ -382,7 +386,6 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                                         uploadTask.digest,
                                         merkleTree,
                                         additionalInputs,
-                                        remotePathResolver,
                                         force),
                                 directExecutor())
                             // On success, the digest is now present remotely: replace the cached
@@ -443,6 +446,14 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                                     }
                                   }
                                   return uploadTasks;
+                                })
+                            .doOnError(
+                                error -> {
+                                  for (UploadTask uploadTask : uploadTasks) {
+                                    if (uploadTask.continuation != null) {
+                                      uploadTask.continuation.tryOnError(error);
+                                    }
+                                  }
                                 }))
                     // Use AsyncSubject so that if downstream is disposed, the
                     // findMissingDigests call is not cancelled (because it may be needed by

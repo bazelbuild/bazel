@@ -14,11 +14,12 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.getDone;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +40,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -58,6 +62,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager.AnalysisDeps;
@@ -175,7 +180,10 @@ public final class RemoteAnalysisCacheFactory {
 
     // Create various objects we need
 
-    ListenableFuture<ObjectCodecs> objectCodecs = createObjectCodecs(env, topLevelOptions);
+    var compressionService =
+        checkNotNull(
+            env.getRuntime().getBlazeService(CompressionService.class),
+            "expected CompressionService to be available");
 
     RemoteAnalysisCachingServicesSupplier servicesSupplier =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
@@ -185,6 +193,13 @@ public final class RemoteAnalysisCacheFactory {
     } catch (SerializedAbruptExitException e) {
       throw AbruptExitException.fromSerialized(e);
     }
+
+    SafeExecutor commandExecutor = servicesSupplier.getCommandExecutor();
+
+    var platformConfigurationProvider = new SettablePlatformConfigurationProvider();
+
+    ListenableFuture<ObjectCodecs> objectCodecs =
+        createObjectCodecs(env, topLevelOptions, commandExecutor, platformConfigurationProvider);
 
     // Set up parameters for the metadata store, if needed
 
@@ -214,6 +229,7 @@ public final class RemoteAnalysisCacheFactory {
             servicesSupplier,
             env.getRemoteAnalysisCachingEventListener(),
             objectCodecs,
+            compressionService,
             frontierNodeVersion,
             activeDirectoriesMatcher,
             options.getSerializedFrontierProfile(),
@@ -222,7 +238,8 @@ public final class RemoteAnalysisCacheFactory {
             env.getBlazeWorkspace().getFingerprinterForAnalysisCaching(),
             env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
             env.getEventBus(),
-            env.getVersionGetter());
+            env.getVersionGetter(),
+            commandExecutor);
 
     ListenableFuture<AnalysisCacheInvalidator> analysisCacheInvalidator =
         createAnalysisCacheInvalidator(
@@ -230,9 +247,11 @@ public final class RemoteAnalysisCacheFactory {
             clientId,
             frontierNodeVersion,
             objectCodecs,
+            compressionService,
             deps.getFingerprintValueServiceFuture(),
             servicesSupplier.getAnalysisCacheClient(),
-            env.getRemoteAnalysisCachingEventListener());
+            env.getRemoteAnalysisCachingEventListener(),
+            commandExecutor);
 
     var manager =
         new RemoteAnalysisCacheManager(
@@ -243,7 +262,8 @@ public final class RemoteAnalysisCacheFactory {
             analysisCacheInvalidator,
             topLevelTargets,
             activeDirectoriesMatcher,
-            options.getSkycacheMinimizeMemory());
+            options.getSkycacheMinimizeMemory(),
+            platformConfigurationProvider);
 
     // Bail out if needed
 
@@ -314,7 +334,8 @@ public final class RemoteAnalysisCacheFactory {
       RuleClassProvider ruleClassProvider,
       SkyframeExecutor skyframeExecutor,
       BlazeDirectories directories,
-      BuildOptions topLevelOptions) {
+      BuildOptions topLevelOptions,
+      SettablePlatformConfigurationProvider platformConfigurationProvider) {
     var roots = ImmutableList.<Root>builder().add(Root.fromPath(directories.getWorkspace()));
     if (directories.isBlaze()) {
       roots.add(Root.fromPath(directories.getBlazeExecRoot()));
@@ -330,14 +351,18 @@ public final class RemoteAnalysisCacheFactory {
             .put(PackagePathCodecDependencies.class, skyframeExecutor::getPackagePathEntries)
             // This is needed to determine TargetData for a ConfiguredTarget during serialization.
             .put(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage)
+            .put(PlatformConfigurationProvider.class, platformConfigurationProvider)
             .put(BuildOptions.class, topLevelOptions);
 
     return new ObjectCodecs(registry, serializationDeps.build());
   }
 
   private static ListenableFuture<ObjectCodecs> createObjectCodecs(
-      CommandEnvironment env, BuildOptions topLevelOptions) {
-    return Futures.submit(
+      CommandEnvironment env,
+      BuildOptions topLevelOptions,
+      SafeExecutor commandExecutor,
+      SettablePlatformConfigurationProvider platformConfigurationProvider) {
+    return SafeFutures.submit(
         () ->
             initAnalysisObjectCodecs(
                 requireNonNull(env.getBlazeWorkspace().getAnalysisObjectCodecRegistrySupplier())
@@ -345,8 +370,9 @@ public final class RemoteAnalysisCacheFactory {
                 env.getRuntime().getRuleClassProvider(),
                 env.getBlazeWorkspace().getSkyframeExecutor(),
                 env.getDirectories(),
-                topLevelOptions),
-        commonPool());
+                topLevelOptions,
+                platformConfigurationProvider),
+        commandExecutor);
   }
 
   private static BuildOptions trimConfigurations(BuildOptions options) {
@@ -365,24 +391,28 @@ public final class RemoteAnalysisCacheFactory {
       ClientId clientId,
       FrontierNodeVersion frontierNodeVersion,
       ListenableFuture<? extends ObjectCodecs> objectCodecs,
+      CompressionService compressionService,
       ListenableFuture<? extends FingerprintValueService> fingerprintValueService,
       ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient,
-      RemoteAnalysisCachingEventListener eventListener) {
+      RemoteAnalysisCachingEventListener eventListener,
+      SafeExecutor commandExecutor) {
     if (analysisCacheClient == null || fingerprintValueService == null) {
       return immediateFuture(null);
     }
-    return Futures.whenAllSucceed(objectCodecs, fingerprintValueService, analysisCacheClient)
-        .call(
-            () ->
-                new AnalysisCacheInvalidator(
-                    analysisCacheClient.get(),
-                    objectCodecs.get(),
-                    fingerprintValueService.get(),
-                    frontierNodeVersion,
-                    clientId,
-                    eventHandler,
-                    eventListener),
-            commonPool());
+    return SafeFutures.call(
+        Futures.whenAllSucceed(objectCodecs, fingerprintValueService, analysisCacheClient),
+        () ->
+            new AnalysisCacheInvalidator(
+                getDone(analysisCacheClient),
+                getDone(objectCodecs),
+                compressionService,
+                getDone(fingerprintValueService),
+                frontierNodeVersion,
+                clientId,
+                eventHandler,
+                eventListener,
+                commandExecutor),
+        commandExecutor);
   }
 
   private static HashCode computeBlazeInstallMD5(

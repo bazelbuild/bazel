@@ -18,6 +18,7 @@
 
 #include <stdint.h>
 
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <optional>
@@ -29,6 +30,7 @@
 #include "src/main/cpp/server_process_info.h"
 #include "src/main/cpp/util/port.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -153,9 +155,9 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid);
 
 bool IsSharedLibrary(const std::string& filename);
 
-// Returns the absolute path to the user's local JDK install, to be used as
-// the default target javabase and as a fall-back host_javabase. This is not
-// the embedded JDK.
+// Returns the absolute path to the user's local Java install (JDK or JRE),
+// to be used as the default target javabase and as a fall-back
+// host_javabase. This is not the embedded JDK.
 std::string GetSystemJavabase();
 
 // Return the path to the JVM binary relative to a javabase, e.g. "bin/java".
@@ -217,7 +219,11 @@ enum class LockMode {
 };
 
 // Acquires a `mode` lock on `path`, creating it if doesn't yet exist.
-// If `block` is true, busy-wait until the lock becomes available.
+// If `timeout` is absl::InfiniteDuration(), busy-wait until the lock becomes
+// available.
+// If `timeout <= absl::ZeroDuration()`, exit immediately if the lock cannot be
+// acquired.
+// Otherwise, wait up to `timeout` duration before exiting.
 // If `batch_mode` is false, release the lock on exec.
 // The `path` is guaranteed to exist when this function returns; if it is
 // deleted concurrently with obtaining the lock, we recreate it and try again.
@@ -229,7 +235,8 @@ enum class LockMode {
 std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
                                                   const blaze_util::Path& path,
                                                   LockMode mode,
-                                                  bool batch_mode, bool block);
+                                                  bool batch_mode,
+                                                  absl::Duration timeout);
 
 // Releases a lock previously obtained from AcquireLock.
 void ReleaseLock(LockHandle lock_handle);
@@ -238,14 +245,25 @@ void ReleaseLock(LockHandle lock_handle);
 bool VerifyServerProcess(int pid, const blaze_util::Path& output_base);
 
 // Parses the content of /proc/[pid]/stat (passed as statline) to extract the
-// start time (field 22). Returns true on success and writes the start time to
-// 'start_time'. Returns false on failure.
-bool ParseProcStat(absl::string_view statline, std::string* start_time);
+// start time (field 22) and optionally the process state (field 3). Returns
+// true on success and writes the start time to 'start_time' and state to
+// 'state'. Returns false on failure.
+bool ParseProcStat(absl::string_view statline, std::string* start_time,
+                   char* state = nullptr);
+
+// Parses the content of /proc/[pid]/stat (passed as statline) to generate a
+// diagnostic message explaining why process `pid` has not terminated.
+std::string ParseProcStatDiagnosis(absl::string_view statline, int pid);
 
 // Kills a server process based on its PID.
 // Returns true if the server process was found and killed.
 // WARNING! This function can be called from a signal handler!
-bool KillServerProcess(int pid, const blaze_util::Path& output_base);
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler = false);
+
+// Returns a diagnostic string explaining why a process has not terminated
+// (e.g. if it is a zombie process 'Z' or in uninterruptible sleep 'D').
+std::string GetProcessTerminationDiagnosis(int pid);
 
 // Wait for approximately the specified number of milliseconds. The actual
 // amount of time waited may be more or less because of interrupts or system

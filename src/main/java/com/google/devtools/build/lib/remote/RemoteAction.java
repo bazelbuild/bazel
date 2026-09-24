@@ -127,7 +127,7 @@ public class RemoteAction {
    * ActionInput}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMap(boolean willAccessRepeatedly) {
-    return remotePathResolver.getInputMapping(spawnExecutionContext, willAccessRepeatedly);
+    return spawnExecutionContext.getInputMapping(willAccessRepeatedly);
   }
 
   /**

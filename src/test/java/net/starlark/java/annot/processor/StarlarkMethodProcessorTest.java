@@ -352,4 +352,15 @@ public final class StarlarkMethodProcessorTest {
         .failsToCompile()
         .withErrorContaining("also has or inherits StarlarkBuiltin");
   }
+
+  @Test
+  public void testStarlarkMethodWithoutBuiltinOrLibrary() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("StarlarkMethodWithoutBuiltinOrLibrary.java"))
+        .processedWith(new StarlarkMethodProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "@StarlarkMethod must appear in a class or interface directly annotated with"
+                + " @StarlarkBuiltin or @StarlarkLibrary.");
+  }
 }

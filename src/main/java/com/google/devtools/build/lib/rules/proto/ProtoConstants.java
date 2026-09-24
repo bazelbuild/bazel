@@ -43,6 +43,10 @@ public final class ProtoConstants {
   /** Default label for proto compiler.*/
   public static final String DEFAULT_PROTOC_LABEL =  "@bazel_tools//tools/proto:protoc";
 
+  /** Default label for proto compiler in third_party. */
+  public static final String DEFAULT_PROTOC_LABEL_THIRD_PARTY =
+      "external/com_google_protobuf+/protoc";
+
   /** Default label for java proto toolchains. */
   static final String DEFAULT_JAVA_PROTO_LABEL = "@bazel_tools//tools/proto:java_toolchain";
 

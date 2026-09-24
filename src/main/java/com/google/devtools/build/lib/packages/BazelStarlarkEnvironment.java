@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
@@ -84,6 +86,12 @@ public final class BazelStarlarkEnvironment {
    */
   private final ImmutableMap<String, Object> uninjectedBuildBzlEnv;
 
+  /**
+   * Like {@link #uninjectedBuildBzlEnv}, but with extra type constructor values which are only to
+   * be used in type-checked code, e.g. {@code File}.
+   */
+  private final ImmutableMap<String, Object> uninjectedBuildBzlEnvWithExtraTypeConstructors;
+
   /** The top-level predeclared symbols for BUILD files, before builtins injection and prelude. */
   private final ImmutableMap<String, Object> uninjectedBuildEnv;
 
@@ -97,6 +105,13 @@ public final class BazelStarlarkEnvironment {
 
   /** The top-level predeclared symbols for a bzl module in the {@code @_builtins} pseudo-repo. */
   private final ImmutableMap<String, Object> builtinsBzlEnv;
+
+  /**
+   * The top-level predeclared symbols for a bzl module in the {@code @_builtins} pseudo-repo, with
+   * extra type constructor values which are only to be used in type-checked code, e.g. {@code
+   * File}.
+   */
+  private final ImmutableMap<String, Object> builtinsBzlEnvWithExtraTypeConstructors;
 
   /** The top-level predeclared symbols for a MODULE.bazel file. */
   private final ImmutableMap<String, Object> moduleBazelEnv;
@@ -144,6 +159,8 @@ public final class BazelStarlarkEnvironment {
 
     this.uninjectedBuildBzlEnv =
         createUninjectedBzlEnv(bzlToplevelsWithoutNative, uninjectedBuildBzlNativeBindings);
+    this.uninjectedBuildBzlEnvWithExtraTypeConstructors =
+        bzlEnvWithExtraTypeConstructors(this.uninjectedBuildBzlEnv, starlarkGlobals);
     this.uninjectedModuleBzlEnv =
         createUninjectedBzlEnv(bzlToplevelsWithoutNative, uninjectedModuleBzlNativeBindings);
     this.builtinsBzlEnv =
@@ -152,6 +169,8 @@ public final class BazelStarlarkEnvironment {
             builtinsInternals,
             uninjectedBuildBzlNativeBindings,
             uninjectedBuildBzlEnv);
+    this.builtinsBzlEnvWithExtraTypeConstructors =
+        bzlEnvWithExtraTypeConstructors(this.builtinsBzlEnv, starlarkGlobals);
     this.uninjectedBuildEnv =
         createUninjectedBuildEnv(starlarkGlobals, ruleFunctions, registeredBuildFileToplevels);
     this.moduleBazelEnv = starlarkGlobals.getModuleToplevels();
@@ -196,6 +215,10 @@ public final class BazelStarlarkEnvironment {
     return uninjectedBuildBzlEnv;
   }
 
+  public ImmutableMap<String, Object> getUninjectedBuildBzlEnvWithExtraTypeConstructors() {
+    return uninjectedBuildBzlEnvWithExtraTypeConstructors;
+  }
+
   /**
    * Returns the original environment for BUILD files, not accounting for builtins injection or
    * application of the prelude. Excludes symbols in {@link Starlark#UNIVERSE}.
@@ -225,6 +248,14 @@ public final class BazelStarlarkEnvironment {
    */
   public ImmutableMap<String, Object> getBuiltinsBzlEnv() {
     return builtinsBzlEnv;
+  }
+
+  /**
+   * Returns the environment for bzl files in the {@code @_builtins} pseudo-repository, with extra
+   * type constructor values which are only to be used in type-checked code, e.g. {@code File}.
+   */
+  public ImmutableMap<String, Object> getBuiltinsBzlEnvWithExtraTypeConstructors() {
+    return builtinsBzlEnvWithExtraTypeConstructors;
   }
 
   /** Returns the environment for MODULE.bazel files. */
@@ -443,6 +474,32 @@ public final class BazelStarlarkEnvironment {
       throws InjectionException {
     return createBzlEnvUsingInjection(
         exportedToplevels, exportedRules, overridesList, uninjectedBuildBzlNativeBindings);
+  }
+
+  /**
+   * Returns a copy of a given .bzl environment with {@link
+   * StarlarkGlobals#getBzlExtraTypeConstructorToplevels extra toplevel type constructor values}
+   * added.
+   */
+  public ImmutableMap<String, Object> bzlEnvWithExtraTypeConstructors(
+      Map<String, Object> envWithoutExtraTypeConstructors) {
+    return bzlEnvWithExtraTypeConstructors(envWithoutExtraTypeConstructors, starlarkGlobals);
+  }
+
+  private static ImmutableMap<String, Object> bzlEnvWithExtraTypeConstructors(
+      Map<String, Object> envWithoutExtraTypeConstructors, StarlarkGlobals starlarkGlobals) {
+    SequencedMap<String, Object> env = new LinkedHashMap<>(envWithoutExtraTypeConstructors);
+
+    for (Map.Entry<String, Object> entry :
+        starlarkGlobals.getBzlExtraTypeConstructorToplevels().entrySet()) {
+      String key = entry.getKey();
+      @Nullable Object prevValue = env.get(key);
+      checkState(
+          prevValue == null, "Cannot override '%s' = '%s' with a type constructor", key, prevValue);
+      env.put(key, entry.getValue());
+    }
+
+    return ImmutableMap.copyOf(env);
   }
 
   /**

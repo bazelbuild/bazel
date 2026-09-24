@@ -18,14 +18,31 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.String.format;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -224,6 +241,110 @@ public class PathMappersTest extends BuildViewTestCase {
             "-source",
             "<pkg/source.txt:pkg/source.txt::pkg>")
         .inOrder();
+  }
+
+  @Test
+  public void starlarkRule_heuristicPathMappingNotAllowedViaExecutionRequirements()
+      throws Exception {
+    useConfiguration("--experimental_output_paths=strip");
+    addStarlarkRule(
+        Dict.<String, String>builder()
+            .put("supports-heuristic-path-mapping", "1")
+            .buildImmutable());
+
+    checkError(
+        "//pkg:my_rule",
+        "execution requirement 'supports-heuristic-path-mapping' cannot be set directly; it can"
+            + " only be enabled via --modify_execution_info");
+  }
+
+  @Test
+  public void starlarkRule_heuristicPathMappingAllowedViaModifyExecutionInfo() throws Exception {
+    useConfiguration(
+        "--experimental_output_paths=strip",
+        "--modify_execution_info=MyRuleAction=+supports-heuristic-path-mapping");
+    addStarlarkRule(Dict.empty());
+
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//pkg:my_rule");
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+  }
+
+  @Test
+  public void customCommandLine_heuristicPathMapping_stripsPrefixedAndFormattedArgs()
+      throws Exception {
+    ActionsTestUtil.MockAction heuristicAction =
+        new ActionsTestUtil.MockAction(
+            ImmutableList.of(), ImmutableSet.of(getBinArtifactWithNoOwner("pkg/out.bin"))) {
+          @Override
+          public ImmutableMap<String, String> getExecutionInfo() {
+            return ImmutableMap.of(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING, "");
+          }
+        };
+    PathMapper pathMapper =
+        PathMappers.create(
+            heuristicAction,
+            OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ false,
+            /* inputMetadataProvider= */ null);
+
+    String outDir = analysisMock.getProductName() + "-out";
+    CustomCommandLine commandLine =
+        CustomCommandLine.builder()
+            .addPrefixed("-I", format("%s/k8-fastbuild/bin/pkg/foo.h", outDir))
+            .addFormatted("-DROOT=%s", format("%s/k8-fastbuild/bin", outDir))
+            .build();
+
+    assertThat(commandLine.arguments(/* inputMetadataProvider= */ null, pathMapper))
+        .containsExactly(
+            format("-I%s/cfg/bin/pkg/foo.h", outDir), format("-DROOT=%s/cfg/bin", outDir))
+        .inOrder();
+  }
+
+  @Test
+  public void addToFingerprint_differentiatesHeuristicPathMapping() throws Exception {
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    NestedSet<Artifact> emptyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
+    Fingerprint fpOff = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpOff);
+
+    Fingerprint fpStructured = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, ""),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpStructured);
+
+    Fingerprint fpHeuristic = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING, ""),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpHeuristic);
+
+    String digestOff = fpOff.hexDigestAndReset();
+    String digestStructured = fpStructured.hexDigestAndReset();
+    String digestHeuristic = fpHeuristic.hexDigestAndReset();
+
+    assertThat(digestOff).isNotEqualTo(digestStructured);
+    assertThat(digestStructured).isNotEqualTo(digestHeuristic);
+    assertThat(digestOff).isNotEqualTo(digestHeuristic);
   }
 
   @Test
@@ -462,5 +583,76 @@ public class PathMappersTest extends BuildViewTestCase {
     assertThat(spawn.getArguments()).doesNotContain(format("%s/cfg/bin/collide/a.out", outDir));
     assertThat(spawn.getArguments().stream().anyMatch(arg -> arg.endsWith("/bin/collide/a.out")))
         .isTrue();
+  }
+
+  @Test
+  public void testRunnerAction_environmentVariablesStripped() throws Exception {
+    useConfiguration(
+        "--experimental_output_paths=strip",
+        "--modify_execution_info=TestRunner=+supports-path-mapping");
+    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            srcs = ["test.sh"],
+        )
+        """);
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
+    TestRunnerAction action =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+
+    Map<String, String> env = new HashMap<>();
+    action.setupEnvVariables(env);
+
+    String outDir = analysisMock.getProductName() + "-out";
+    assertThat(env)
+        .containsEntry("XML_OUTPUT_FILE", format("%s/cfg/testlogs/tests/test/test.xml", outDir));
+    assertThat(env)
+        .containsEntry(
+            "TEST_WARNINGS_OUTPUT_FILE",
+            format("%s/cfg/testlogs/tests/test/test.warnings", outDir));
+    assertThat(env)
+        .containsEntry(
+            "TEST_UNDECLARED_OUTPUTS_DIR",
+            format("%s/cfg/testlogs/tests/test/test.outputs", outDir));
+    assertThat(env)
+        .containsEntry(
+            "TEST_PREMATURE_EXIT_FILE",
+            format("%s/cfg/testlogs/tests/test/test.exited_prematurely", outDir));
+    assertThat(env)
+        .containsEntry(
+            "TEST_UNUSED_RUNFILES_LOG_FILE",
+            format("%s/cfg/testlogs/tests/test/test.unused_runfiles_log", outDir));
+  }
+
+  @Test
+  public void testRunnerAction_disabledWithoutStripMode() throws Exception {
+    useConfiguration("--experimental_output_paths=off");
+    scratch.file("tests2/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests2/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            srcs = ["test.sh"],
+        )
+        """);
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests2:test");
+    TestRunnerAction action =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+
+    Map<String, String> env = new HashMap<>();
+    action.setupEnvVariables(env);
+
+    String outDir = analysisMock.getProductName() + "-out";
+    assertThat(env.get("XML_OUTPUT_FILE")).doesNotContain(format("%s/cfg/", outDir));
   }
 }

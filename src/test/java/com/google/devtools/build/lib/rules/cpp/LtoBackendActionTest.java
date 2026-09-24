@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.ensureM
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static org.junit.Assert.assertThrows;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCh
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
@@ -44,13 +46,22 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.skyframe.serialization.ArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
@@ -277,6 +288,76 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         assertThrows(ActionExecutionException.class, () -> action.discoverInputs(context));
 
     assertThat(e).hasMessageThat().endsWith("(first 10): file1.o, file3.o");
+  }
+
+  @Test
+  public void discoverInputs_cacheNotFoundException_throwsRemoteCacheEvictedCode()
+      throws Exception {
+    FileSystem customFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public synchronized InputStream getInputStream(PathFragment path) throws IOException {
+            if (path.getBaseName().endsWith(".imports")) {
+              throw new CacheNotFoundException(Digest.getDefaultInstance(), path);
+            }
+            return super.getInputStream(path);
+          }
+        };
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(customFs.getPath("/")));
+    Artifact importsArtifact = ActionsTestUtil.createArtifact(root, "bitcode1.imports");
+    Artifact index1Artifact = getSourceArtifact("file2.o");
+    LtoBackendAction action =
+        LtoBackendAction.create(
+            ActionsTestUtil.NULL_ACTION_OWNER,
+            targetConfig,
+            NestedSetBuilder.create(Order.STABLE_ORDER, importsArtifact, index1Artifact),
+            new BitcodeFiles(NestedSetBuilder.create(Order.STABLE_ORDER, index1Artifact)),
+            importsArtifact,
+            ImmutableSet.of(destinationArtifact),
+            CommandLines.builder()
+                .addSingleArgument(scratch.file("/bin/clang").asFragment())
+                .build(),
+            ActionEnvironment.create(ImmutableMap.of()));
+
+    ActionExecutionException e =
+        assertThrows(ActionExecutionException.class, () -> action.discoverInputs(context));
+
+    assertThat(e.getExitCode()).isEqualTo(ExitCode.REMOTE_CACHE_EVICTED);
+  }
+
+  @Test
+  public void discoverInputs_bulkTransferException_throwsRemoteCacheEvictedCode() throws Exception {
+    FileSystem customFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public synchronized InputStream getInputStream(PathFragment path) throws IOException {
+            if (path.getBaseName().endsWith(".imports")) {
+              throw new BulkTransferException(
+                  new CacheNotFoundException(Digest.getDefaultInstance(), path));
+            }
+            return super.getInputStream(path);
+          }
+        };
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(customFs.getPath("/")));
+    Artifact importsArtifact = ActionsTestUtil.createArtifact(root, "bitcode1.imports");
+    Artifact index1Artifact = getSourceArtifact("file2.o");
+    LtoBackendAction action =
+        LtoBackendAction.create(
+            ActionsTestUtil.NULL_ACTION_OWNER,
+            targetConfig,
+            NestedSetBuilder.create(Order.STABLE_ORDER, importsArtifact, index1Artifact),
+            new BitcodeFiles(NestedSetBuilder.create(Order.STABLE_ORDER, index1Artifact)),
+            importsArtifact,
+            ImmutableSet.of(destinationArtifact),
+            CommandLines.builder()
+                .addSingleArgument(scratch.file("/bin/clang").asFragment())
+                .build(),
+            ActionEnvironment.create(ImmutableMap.of()));
+
+    ActionExecutionException e =
+        assertThrows(ActionExecutionException.class, () -> action.discoverInputs(context));
+
+    assertThat(e.getExitCode()).isEqualTo(ExitCode.REMOTE_CACHE_EVICTED);
   }
 
   @Test

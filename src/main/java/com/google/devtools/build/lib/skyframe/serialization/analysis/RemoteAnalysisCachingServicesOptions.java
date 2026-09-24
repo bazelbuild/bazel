@@ -48,6 +48,24 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
     }
   }
 
+  /** A converter for integers that must be at least 0. */
+  public static final class NonNegativeIntegerConverter extends RangeConverter {
+    public NonNegativeIntegerConverter() {
+      super(0, Integer.MAX_VALUE);
+    }
+  }
+
+  @Option(
+      name = "experimental_remote_analysis_cache_max_in_flight_read_requests",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "500000",
+      converter = NonNegativeIntegerConverter.class,
+      help =
+          "Maximum number of concurrent in-flight read requests across Skycache stores before"
+              + " shedding load to local evaluation. 0 to disable.")
+  public abstract int getMaxInFlightReadRequests();
+
   @Option(
       name = "experimental_remote_analysis_cache_max_batch_size",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -58,6 +76,15 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
   public abstract int getMaxBatchSize();
 
   @Option(
+      name = "experimental_remote_analysis_cache_reader_max_batch_size",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "1024",
+      converter = PositiveIntegerConverter.class,
+      help = "Batch size limit for remote analysis caching reader RPCs.")
+  public abstract int getReaderMaxBatchSize();
+
+  @Option(
       name = "experimental_remote_analysis_cache_concurrency",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
@@ -65,6 +92,17 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       converter = PositiveIntegerConverter.class,
       help = "Target concurrency for remote analysis caching RPCs.")
   public abstract int getConcurrency();
+
+  @Option(
+      name = "experimental_remote_analysis_cache_cpu_concurrency",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "0",
+      converter = NonNegativeIntegerConverter.class,
+      help =
+          "Parallelism for CPU-bound remote analysis cache tasks. 0 auto-detects based on available"
+              + " processors.")
+  public abstract int getCpuConcurrency();
 
   @Option(
       name = "experimental_remote_analysis_cache_max_write_concurrency",
@@ -163,4 +201,12 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
 
   @VisibleForTesting
   public abstract void setRemoteAnalysisDebugEntries(String value);
+
+  @Option(
+      name = "experimental_remote_analysis_cache_keep_services_on_for_testing",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Prevents resetCommandState from shutting down executors and stores for testing.")
+  public abstract boolean getKeepServicesOnForTesting();
 }

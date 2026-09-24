@@ -157,6 +157,29 @@ public final class Profiler implements TraceProfilerService {
   }
 
   @Override
+  public void logActionTaskDuration(
+      long startTimeNanos,
+      Duration duration,
+      ProfilerTask type,
+      String description,
+      String mnemonic,
+      String primaryOutput,
+      String targetLabel,
+      String configuration) {
+    if (traceProfilerService != null) {
+      traceProfilerService.logActionTaskDuration(
+          startTimeNanos,
+          duration,
+          type,
+          description,
+          mnemonic,
+          primaryOutput,
+          targetLabel,
+          configuration);
+    }
+  }
+
+  @Override
   public void logEventAtTime(long atTimeNanos, ProfilerTask type, String description) {
     if (traceProfilerService != null) {
       traceProfilerService.logEventAtTime(atTimeNanos, type, description);

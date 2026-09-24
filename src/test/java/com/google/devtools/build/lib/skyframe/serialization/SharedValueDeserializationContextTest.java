@@ -26,6 +26,8 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetDeferredCodec;
@@ -46,6 +48,7 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -84,6 +87,7 @@ public final class SharedValueDeserializationContextTest {
     // should not block each other.
 
     GetRecordingStore store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
@@ -97,7 +101,7 @@ public final class SharedValueDeserializationContextTest {
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If it is asynchronous, writing should complete without throwing any exceptions.
@@ -105,7 +109,8 @@ public final class SharedValueDeserializationContextTest {
     }
 
     ListenableFuture<Object> result =
-        deserializeWithExecutor(codecs, fingerprintValueService, serialized.getObject());
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serialized.getObject());
 
     // There are 4 nested arrays. The top-level one and its 3 child arrays. The child arrays aren't
     // requested until the top-level array is requested. Completes the top-level request.
@@ -126,6 +131,107 @@ public final class SharedValueDeserializationContextTest {
       request.complete();
     }
     verifyDeserializedNotNestedSet(subject, (NotNestedSet) result.get());
+  }
+
+  private static NotNestedSet createDeterministicNotNestedSet() {
+    byte[] bytes = new byte[1000];
+    new Random(42).nextBytes(bytes);
+    return new NotNestedSet(new Object[] {bytes});
+  }
+
+  @Test
+  public void chunkedSharedValue_roundTrips() throws Exception {
+    int testChunkSize = 600;
+    ChunkedValueSerialization.setChunkSizeForTesting(testChunkSize);
+    try {
+      var compressionService = new CompressionServiceImpl();
+      var readCount = new AtomicInteger();
+      var store =
+          new InMemoryFingerprintValueStore() {
+            @Override
+            public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
+              readCount.incrementAndGet();
+              return super.get(fingerprint);
+            }
+          };
+      FingerprintValueService fingerprintValueService =
+          FingerprintValueService.createForTesting(store);
+      ObjectCodecs codecs = createObjectCodecs();
+
+      NotNestedSet subject = createDeterministicNotNestedSet();
+
+      SerializationResult<ByteString> serialized =
+          codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
+      ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
+      if (writeStatus != null) {
+        writeStatus.get();
+      }
+
+      // Verify that there are exactly 3 entries: 1 reference blob + 2 chunks.
+      assertThat(store.fingerprintToContents).hasSize(3);
+
+      ListenableFuture<Object> result =
+          deserializeWithExecutor(
+              codecs, compressionService, fingerprintValueService, serialized.getObject());
+
+      verifyDeserializedNotNestedSet(subject, (NotNestedSet) result.get());
+      // Deserialization reads the 1 reference blob plus exactly 2 chunks.
+      assertThat(readCount.get()).isEqualTo(3);
+    } finally {
+      ChunkedValueSerialization.resetChunkSizeForTesting();
+    }
+  }
+
+  @Test
+  public void chunkedSharedValue_missingChunk_reportedAsMissing() throws Exception {
+    int testChunkSize = 600;
+    ChunkedValueSerialization.setChunkSizeForTesting(testChunkSize);
+    try {
+      var compressionService = new CompressionServiceImpl();
+      var store = new InMemoryFingerprintValueStore(/* useNullForMissingValues= */ true);
+      FingerprintValueService fingerprintValueService =
+          FingerprintValueService.createForTesting(store);
+      ObjectCodecs codecs = createObjectCodecs();
+
+      NotNestedSet subject = createDeterministicNotNestedSet();
+
+      SerializationResult<ByteString> serialized =
+          codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
+      ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
+      if (writeStatus != null) {
+        writeStatus.get();
+      }
+
+      assertThat(store.fingerprintToContents).hasSize(3);
+
+      // Find the chunk fingerprints from the stored reference blob.
+      ByteString refBlob = null;
+      for (ByteString content : store.fingerprintToContents.values()) {
+        if (ChunkedValueSerialization.isChunked(content.toByteArray())) {
+          refBlob = content;
+          break;
+        }
+      }
+      assertThat(refBlob).isNotNull();
+      ImmutableList<PackedFingerprint> chunkFingerprints =
+          ChunkedValueSerialization.parseChunkFingerprints(refBlob.toByteArray());
+      assertThat(chunkFingerprints).hasSize(2);
+
+      // Remove one chunk from the store to simulate a missing chunk.
+      PackedFingerprint missingChunk = chunkFingerprints.get(0);
+      store.fingerprintToContents.remove(ByteString.copyFrom(missingChunk.toBytes()));
+
+      ListenableFuture<Object> result =
+          deserializeWithExecutor(
+              codecs, compressionService, fingerprintValueService, serialized.getObject());
+
+      var thrown =
+          (MissingSharedValueBytesException)
+              assertThrows(ExecutionException.class, result::get).getCause();
+      assertThat(thrown).hasMessageThat().isEqualTo("Missing shared value bytes");
+    } finally {
+      ChunkedValueSerialization.resetChunkSizeForTesting();
+    }
   }
 
   private static class NotNestedSetContainer {
@@ -275,8 +381,55 @@ public final class SharedValueDeserializationContextTest {
   }
 
   @Test
+  public void
+      distinctClassesWithIdenticalSerializedBytes_haveDistinctFingerprintsAndDeserializeCorrectly()
+          throws Exception {
+    var compressionService = new CompressionServiceImpl();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(FingerprintValueCache.SyncMode.LINKED);
+    ObjectCodecs codecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .add(new ContainerACodec())
+                .add(new ContainerBCodec())
+                .build());
+
+    ContainerA first = new ContainerA(new SharedElement(42));
+    ContainerB second = new ContainerB(new OtherSharedElement(42));
+
+    // Both SharedElement(42) and OtherSharedElement(42) serialize to identical bytes (int32 42).
+    SerializationResult<ByteString> serializedFirst =
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, first);
+    if (serializedFirst.getFutureToBlockWritesOn() != null) {
+      serializedFirst.getFutureToBlockWritesOn().get();
+    }
+
+    SerializationResult<ByteString> serializedSecond =
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, second);
+    if (serializedSecond.getFutureToBlockWritesOn() != null) {
+      serializedSecond.getFutureToBlockWritesOn().get();
+    }
+
+    // Because the codecs have different class names, the resulting fingerprints must differ.
+    assertThat(serializedFirst.getObject()).isNotEqualTo(serializedSecond.getObject());
+
+    // Deserializing `second` retrieves from the cache or deserializes without ClassCastException.
+    ListenableFuture<Object> deserializedSecond =
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serializedSecond.getObject());
+    assertThat(((ContainerB) deserializedSecond.get()).element.value).isEqualTo(42);
+
+    ListenableFuture<Object> deserializedFirst =
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serializedFirst.getObject());
+    assertThat(((ContainerA) deserializedFirst.get()).element.value).isEqualTo(42);
+  }
+
+  @Test
   public void missingSharedValueData_producesSpecificError() throws Exception {
     GetRecordingStore store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
@@ -285,7 +438,7 @@ public final class SharedValueDeserializationContextTest {
     var subject = new NotNestedSet(new Object[] {createRandomLeafArray(rng, Random::nextInt)});
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If it is asynchronous, writing should complete without throwing any exceptions.
@@ -293,7 +446,8 @@ public final class SharedValueDeserializationContextTest {
     }
 
     ListenableFuture<Object> result =
-        deserializeWithExecutor(codecs, fingerprintValueService, serialized.getObject());
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serialized.getObject());
 
     // Completes the request for shared value bytes with null bytes, indicating missing data.
     store.takeFirstRequest().completeWithNullBytes();
@@ -307,6 +461,7 @@ public final class SharedValueDeserializationContextTest {
   @Test
   public void getSharedValue_missingBytesFromCache_notifiesLookupCollector() throws Exception {
     GetRecordingStore store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
@@ -315,7 +470,7 @@ public final class SharedValueDeserializationContextTest {
     var subject = new NotNestedSet(new Object[] {createRandomLeafArray(rng, Random::nextInt)});
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If the write is asynchronous, writing should complete without throwing any exceptions.
@@ -328,6 +483,7 @@ public final class SharedValueDeserializationContextTest {
             SharedValueDeserializationContext.deserializeWithSkyframe(
                 codecs.getCodecRegistry(),
                 ImmutableClassToInstanceMap.of(),
+                compressionService,
                 fingerprintValueService,
                 serialized.getObject().newCodedInput());
 
@@ -345,6 +501,7 @@ public final class SharedValueDeserializationContextTest {
   @Test
   public void sharedValueIsDecompressed(@TestParameter boolean compress) throws Exception {
     GetRecordingStore store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
@@ -356,14 +513,15 @@ public final class SharedValueDeserializationContextTest {
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       writeStatus.get();
     }
 
     ListenableFuture<Object> result =
-        deserializeWithExecutor(codecs, fingerprintValueService, serialized.getObject());
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serialized.getObject());
 
     ImmutableList<byte[]> storeValues =
         ImmutableList.copyOf(store.getFingerprintToContents().values());
@@ -374,18 +532,43 @@ public final class SharedValueDeserializationContextTest {
     verifyDeserializedNotNestedSet(subject, (NotNestedSet) result.get());
   }
 
-  private static class InternedValue {
-    private Integer value;
+  /**
+   * A substitute for {@link Integer} but declared <b>not</b> to be a <a
+   * href="https://openjdk.org/jeps/401">value class</a> (as {@link Integer} is becoming).
+   */
+  private static class SharedElement {
+    private final int value;
 
-    private static InternedValue create(int value) {
-      InternedValue result = new InternedValue();
-      result.value = value;
-      return result;
+    private SharedElement(int value) {
+      this.value = value;
     }
 
     @Override
     public int hashCode() {
       return value;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof SharedElement that) {
+        return this.value == that.value;
+      }
+      return false;
+    }
+  }
+
+  private static class InternedValue {
+    private SharedElement value;
+
+    private static InternedValue create(int value) {
+      InternedValue result = new InternedValue();
+      result.value = new SharedElement(value);
+      return result;
+    }
+
+    @Override
+    public int hashCode() {
+      return value.hashCode();
     }
 
     @Override
@@ -409,7 +592,7 @@ public final class SharedValueDeserializationContextTest {
         SerializationContext context, InternedValue obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       context.putSharedValue(
-          obj.value, /* distinguisher= */ null, DeferredIntegerCodec.INSTANCE, codedOut);
+          obj.value, /* distinguisher= */ null, DeferredSharedElementCodec.INSTANCE, codedOut);
     }
 
     @Override
@@ -420,9 +603,9 @@ public final class SharedValueDeserializationContextTest {
       context.getSharedValue(
           codedIn,
           /* distinguisher= */ null,
-          DeferredIntegerCodec.INSTANCE,
+          DeferredSharedElementCodec.INSTANCE,
           value,
-          (parent, v) -> parent.value = (Integer) v);
+          (parent, v) -> parent.value = (SharedElement) v);
       return value;
     }
 
@@ -434,12 +617,12 @@ public final class SharedValueDeserializationContextTest {
     }
   }
 
-  private static class DeferredIntegerCodec extends DeferredObjectCodec<Integer> {
-    private static final DeferredIntegerCodec INSTANCE = new DeferredIntegerCodec();
+  private static class DeferredSharedElementCodec extends DeferredObjectCodec<SharedElement> {
+    private static final DeferredSharedElementCodec INSTANCE = new DeferredSharedElementCodec();
 
     @Override
-    public Class<Integer> getEncodedClass() {
-      return Integer.class;
+    public Class<SharedElement> getEncodedClass() {
+      return SharedElement.class;
     }
 
     @Override
@@ -448,25 +631,144 @@ public final class SharedValueDeserializationContextTest {
     }
 
     @Override
-    public void serialize(SerializationContext context, Integer obj, CodedOutputStream codedOut)
+    public void serialize(
+        SerializationContext context, SharedElement obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      codedOut.writeInt32NoTag(obj);
+      codedOut.writeInt32NoTag(obj.value);
     }
 
     @Override
-    public DeferredValue<Integer> deserializeDeferred(
+    public DeferredValue<SharedElement> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       int value = codedIn.readInt32();
-      return () -> value;
+      return () -> new SharedElement(value);
+    }
+  }
+
+  private static class OtherSharedElement {
+    private final int value;
+
+    private OtherSharedElement(int value) {
+      this.value = value;
+    }
+  }
+
+  private static class DeferredOtherSharedElementCodec
+      extends DeferredObjectCodec<OtherSharedElement> {
+    private static final DeferredOtherSharedElementCodec INSTANCE =
+        new DeferredOtherSharedElementCodec();
+
+    @Override
+    public Class<OtherSharedElement> getEncodedClass() {
+      return OtherSharedElement.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, OtherSharedElement obj, CodedOutputStream codedOut)
+        throws IOException {
+      codedOut.writeInt32NoTag(obj.value);
+    }
+
+    @Override
+    public DeferredValue<OtherSharedElement> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn) throws IOException {
+      int value = codedIn.readInt32();
+      return () -> new OtherSharedElement(value);
+    }
+  }
+
+  private static class ContainerA {
+    private SharedElement element;
+
+    private ContainerA(SharedElement element) {
+      this.element = element;
+    }
+  }
+
+  private static class ContainerACodec extends DeferredObjectCodec<ContainerA> {
+    @Override
+    public Class<ContainerA> getEncodedClass() {
+      return ContainerA.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, ContainerA obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.element, /* distinguisher= */ null, DeferredSharedElementCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<ContainerA> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      ContainerA container = new ContainerA(null);
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          DeferredSharedElementCodec.INSTANCE,
+          container,
+          (parent, v) -> parent.element = (SharedElement) v);
+      return () -> container;
+    }
+  }
+
+  private static class ContainerB {
+    private OtherSharedElement element;
+
+    private ContainerB(OtherSharedElement element) {
+      this.element = element;
+    }
+  }
+
+  private static class ContainerBCodec extends DeferredObjectCodec<ContainerB> {
+    @Override
+    public Class<ContainerB> getEncodedClass() {
+      return ContainerB.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, ContainerB obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.element,
+          /* distinguisher= */ null,
+          DeferredOtherSharedElementCodec.INSTANCE,
+          codedOut);
+    }
+
+    @Override
+    public DeferredValue<ContainerB> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      ContainerB container = new ContainerB(null);
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          DeferredOtherSharedElementCodec.INSTANCE,
+          container,
+          (parent, v) -> parent.element = (OtherSharedElement) v);
+      return () -> container;
     }
   }
 
   private ListenableFuture<Object> deserializeWithExecutor(
-      ObjectCodecs codecs, FingerprintValueService fingerprintValueService, ByteString data) {
+      ObjectCodecs codecs,
+      CompressionService compressionService,
+      FingerprintValueService fingerprintValueService,
+      ByteString data) {
     var task =
         ListenableFutureTask.create(
-            () -> codecs.deserializeMemoizedAndBlocking(fingerprintValueService, data));
+            () ->
+                codecs.deserializeMemoizedAndBlocking(
+                    compressionService, fingerprintValueService, data));
     executor.execute(task);
     return task;
   }

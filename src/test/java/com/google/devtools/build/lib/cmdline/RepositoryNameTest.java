@@ -129,6 +129,35 @@ public class RepositoryNameTest {
     new SerializationTester(
             RepositoryName.create("foo"),
             RepositoryName.create("foo").toNonVisible(RepositoryName.create("owner")))
+        .<RepositoryName>setVerificationFunction(
+            (original, deserialized) -> {
+              assertThat(deserialized).isEqualTo(original);
+              // Instances must stay canonical across separate serialized streams.
+              if (deserialized.isVisible()) {
+                assertThat(deserialized)
+                    .isSameInstanceAs(RepositoryName.createUnvalidated(deserialized.getName()));
+              }
+            })
         .runTests();
+  }
+
+  @Test
+  public void create_returnsInternedInstance() throws Exception {
+    assertThat(RepositoryName.create("foo")).isSameInstanceAs(RepositoryName.create("foo"));
+    assertThat(RepositoryName.create("foo"))
+        .isSameInstanceAs(RepositoryName.createUnvalidated("foo"));
+  }
+
+  @Test
+  public void create_wellKnownName_returnsConstant() throws Exception {
+    assertThat(RepositoryName.create("")).isSameInstanceAs(RepositoryName.MAIN);
+    assertThat(RepositoryName.create("bazel_tools")).isSameInstanceAs(RepositoryName.BAZEL_TOOLS);
+    assertThat(RepositoryName.create("_builtins")).isSameInstanceAs(RepositoryName.BUILTINS);
+
+    assertThat(RepositoryName.createUnvalidated("")).isSameInstanceAs(RepositoryName.MAIN);
+    assertThat(RepositoryName.createUnvalidated("bazel_tools"))
+        .isSameInstanceAs(RepositoryName.BAZEL_TOOLS);
+    assertThat(RepositoryName.createUnvalidated("_builtins"))
+        .isSameInstanceAs(RepositoryName.BUILTINS);
   }
 }

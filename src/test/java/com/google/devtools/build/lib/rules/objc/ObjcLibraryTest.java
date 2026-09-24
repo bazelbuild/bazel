@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
-import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -101,8 +100,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--apple_platform_type=ios",
         "--ios_multi_cpus=x86_64",
-        "--platforms=" + MockObjcSupport.IOS_X86_64,
-        "--experimental_platform_in_output_dir");
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
 
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
     Artifact objcObject =
@@ -892,42 +890,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testIncludesDirs_inExternalRepo_resolvesSiblingLayout() throws Exception {
-    if (!analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.appendFile(
-        "MODULE.bazel",
-        "bazel_dep(name='lib_external')",
-        "local_path_override(module_name = 'lib_external', path = 'lib_external')");
-    scratch.file("lib_external/MODULE.bazel", "module(name='lib_external')");
-    analysisMock.ccSupport().setup(new MockToolsConfig(scratch.resolve("lib_external")));
-    scratch.file(
-        "lib_external/BUILD",
-        """
-        load("@rules_cc//cc:objc_library.bzl", "objc_library")
-        objc_library(
-            name = "lib",
-            srcs = [
-                "a.m",
-                "bar/b.h",
-            ],
-            includes = ["bar"],
-        )
-        """);
-    scratch.file("lib_external/a.m");
-    scratch.file("lib_external/bar/b.h");
-    invalidatePackages();
-
-    setBuildLanguageOptions("--experimental_sibling_repository_layout");
-
-    CommandAction compileAction = compileAction("@@lib_external+//:lib", "a.o");
-    String actionArgs = Joiner.on("").join(removeConfigFragment(compileAction.getArguments()));
-
-    assertThat(actionArgs).contains("-I../lib_external+/bar");
-  }
-
-  @Test
   public void testPropagatesDefinesToDependersTransitively() throws Exception {
     useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
     createLibraryTargetWriter("//lib1:lib1")
@@ -1590,7 +1552,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     null,
                     null,
                     null,
-                    false,
                     PathMapper.NOOP));
     assertThat(expected).hasMessageThat().contains("error while parsing .d file");
   }
@@ -2731,7 +2692,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     args.add(
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_ARM64,
-        "--experimental_platform_in_output_dir",
         "--cpu=ios_arm64");
     useConfiguration(args.build().toArray(new String[0]));
 
@@ -2776,7 +2736,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     args.add(
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_ARM64,
-        "--experimental_platform_in_output_dir",
         "--host_cpu=darwin_arm64",
         "--host_platform=" + MockObjcSupport.DARWIN_ARM64);
     useConfiguration(args.build().toArray(new String[0]));

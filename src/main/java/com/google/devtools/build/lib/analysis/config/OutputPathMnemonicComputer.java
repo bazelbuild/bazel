@@ -169,7 +169,7 @@ public final class OutputPathMnemonicComputer {
    * different between buildOptions and baselineOptions but were also not excluded from the output
    * path by a call to {@link Fragment.OutputDirectoriesContext.markAsExplicitInOutputPathFor}
    */
-  static final String computeMnemonic(
+  public static final String computeMnemonic(
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments)
@@ -243,12 +243,13 @@ public final class OutputPathMnemonicComputer {
     }
 
     ctx.checkedAddToMnemonic(
-        computePlatformName(platformOptions.computeTargetPlatform(), coreOptions),
+        computePlatformName(ctx, platformOptions.computeTargetPlatform(), coreOptions),
         "CPU/Platform descriptor");
     ctx.markAsExplicitInOutputPathFor("platforms");
   }
 
-  private static String computePlatformName(Label platform, CoreOptions options) {
+  private static String computePlatformName(
+      MnemonicContext ctx, Label platform, CoreOptions options) {
     Optional<String> overridePlatformName = options.getPlatformCpuNameOverride(platform);
     if (overridePlatformName.isPresent()) {
       return overridePlatformName.get();
@@ -263,6 +264,7 @@ public final class OutputPathMnemonicComputer {
         return platform.getName();
       }
       // Fall back to using the CPU.
+      ctx.markAsExplicitInOutputPathFor("cpu");
       return options.getCpu();
     }
     // As a last resort use hashCode of the unambiguous form of the label.

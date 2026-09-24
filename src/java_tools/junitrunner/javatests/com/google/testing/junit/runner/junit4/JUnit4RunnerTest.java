@@ -38,6 +38,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Properties;
@@ -122,6 +123,25 @@ public class JUnit4RunnerTest {
     inOrder.verify(mockRunListener).testStarted(testDescription);
     inOrder.verify(mockRunListener).testFinished(testDescription);
     inOrder.verify(mockRunListener).testRunFinished(any(Result.class));
+  }
+
+  @Test
+  public void testMultipleClasses() throws Exception {
+    config = createConfig();
+    mockRunListener = mock(RunListener.class);
+
+    JUnit4Bazel component =
+        JUnit4BazelMock.builder()
+            .suiteClasses(Arrays.asList(SamplePassingTest.class, SampleSecondPassingTest.class))
+            .testModule(new TestModule(new CancellableRequestFactory()))
+            .build();
+    JUnit4Runner runner = component.runner();
+
+    Result result = runner.run();
+
+    assertThat(result.getRunCount()).isEqualTo(2);
+    assertThat(result.getFailureCount()).isEqualTo(0);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
   }
 
   @Test
@@ -415,6 +435,13 @@ public class JUnit4RunnerTest {
     }
   }
 
+  /** Sample second test that passes. */
+  @RunWith(JUnit4.class)
+  public static class SampleSecondPassingTest {
+
+    @Test
+    public void testThatAlwaysPasses() {}
+  }
 
   /** Sample test that fails. */
   @RunWith(JUnit4.class)

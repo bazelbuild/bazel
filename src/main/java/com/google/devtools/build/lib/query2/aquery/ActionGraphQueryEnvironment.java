@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.query2.ConfigFunction;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
@@ -51,6 +53,7 @@ import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
@@ -73,6 +76,7 @@ public class ActionGraphQueryEnvironment
   public static final ImmutableList<QueryFunction> AQUERY_FUNCTIONS = populateAqueryFunctions();
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
   private AqueryOptions aqueryOptions;
+  @Nullable private TopLevelArtifactContext topLevelArtifactContext;
 
   private AqueryActionFilter actionFilters;
   private final KeyExtractor<ConfiguredTargetValue, ActionLookupKey> configuredTargetKeyExtractor;
@@ -89,6 +93,32 @@ public class ActionGraphQueryEnvironment
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings,
       LabelPrinter labelPrinter) {
+    this(
+        keepGoing,
+        eventHandler,
+        extraFunctions,
+        topLevelConfigurations,
+        transitiveConfigurations,
+        mainRepoTargetParser,
+        pkgPath,
+        walkableGraphSupplier,
+        settings,
+        labelPrinter,
+        /* topLevelArtifactContext= */ null);
+  }
+
+  public ActionGraphQueryEnvironment(
+      boolean keepGoing,
+      ExtendedEventHandler eventHandler,
+      Iterable<QueryFunction> extraFunctions,
+      TopLevelConfigurations topLevelConfigurations,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      TargetPattern.Parser mainRepoTargetParser,
+      PathPackageLocator pkgPath,
+      Supplier<WalkableGraph> walkableGraphSupplier,
+      Set<Setting> settings,
+      LabelPrinter labelPrinter,
+      @Nullable TopLevelArtifactContext topLevelArtifactContext) {
     super(
         keepGoing,
         eventHandler,
@@ -104,6 +134,7 @@ public class ActionGraphQueryEnvironment
     this.accessor =
         new ConfiguredTargetValueAccessor(
             walkableGraphSupplier.get(), this::getTarget, this.configuredTargetKeyExtractor);
+    this.topLevelArtifactContext = topLevelArtifactContext;
   }
 
   public ActionGraphQueryEnvironment(
@@ -126,8 +157,35 @@ public class ActionGraphQueryEnvironment
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
+        aqueryOptions,
+        labelPrinter,
+        /* topLevelArtifactContext= */ null);
+  }
+
+  public ActionGraphQueryEnvironment(
+      boolean keepGoing,
+      ExtendedEventHandler eventHandler,
+      Iterable<QueryFunction> extraFunctions,
+      TopLevelConfigurations topLevelConfigurations,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      TargetPattern.Parser mainRepoTargetParser,
+      PathPackageLocator pkgPath,
+      Supplier<WalkableGraph> walkableGraphSupplier,
+      AqueryOptions aqueryOptions,
+      LabelPrinter labelPrinter,
+      @Nullable TopLevelArtifactContext topLevelArtifactContext) {
+    this(
+        keepGoing,
+        eventHandler,
+        extraFunctions,
+        topLevelConfigurations,
+        transitiveConfigurations,
+        mainRepoTargetParser,
+        pkgPath,
+        walkableGraphSupplier,
         aqueryOptions.toSettings(),
-        labelPrinter);
+        labelPrinter,
+        topLevelArtifactContext);
     this.aqueryOptions = aqueryOptions;
   }
 
@@ -136,7 +194,8 @@ public class ActionGraphQueryEnvironment
   }
 
   private static ImmutableList<QueryFunction> populateAqueryFunctions() {
-    return ImmutableList.of(new InputsFunction(), new OutputsFunction(), new MnemonicFunction());
+    return ImmutableList.of(
+        new InputsFunction(), new OutputsFunction(), new MnemonicFunction(), new ConfigFunction());
   }
 
   @Override
@@ -161,28 +220,36 @@ public class ActionGraphQueryEnvironment
             out,
             accessor,
             AqueryOutputHandler.OutputType.BINARY,
-            actionFilters),
+            actionFilters,
+            topLevelConfigurations,
+            topLevelArtifactContext),
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
             accessor,
             AqueryOutputHandler.OutputType.DELIMITED_BINARY,
-            actionFilters),
+            actionFilters,
+            topLevelConfigurations,
+            topLevelArtifactContext),
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
             accessor,
             AqueryOutputHandler.OutputType.TEXT,
-            actionFilters),
+            actionFilters,
+            topLevelConfigurations,
+            topLevelArtifactContext),
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
             accessor,
             AqueryOutputHandler.OutputType.JSON,
-            actionFilters),
+            actionFilters,
+            topLevelConfigurations,
+            topLevelArtifactContext),
         new ActionGraphTextOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
@@ -190,7 +257,9 @@ public class ActionGraphQueryEnvironment
             accessor,
             ActionGraphTextOutputFormatterCallback.OutputType.TEXT,
             actionFilters,
-            getLabelPrinter()),
+            getLabelPrinter(),
+            topLevelConfigurations,
+            topLevelArtifactContext),
         new ActionGraphTextOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
@@ -198,9 +267,17 @@ public class ActionGraphQueryEnvironment
             accessor,
             ActionGraphTextOutputFormatterCallback.OutputType.COMMANDS,
             actionFilters,
-            getLabelPrinter()),
+            getLabelPrinter(),
+            topLevelConfigurations,
+            topLevelArtifactContext),
         new ActionGraphSummaryOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, accessor, actionFilters));
+            eventHandler,
+            aqueryOptions,
+            out,
+            accessor,
+            actionFilters,
+            topLevelConfigurations,
+            topLevelArtifactContext));
   }
 
   @Override
@@ -266,6 +343,23 @@ public class ActionGraphQueryEnvironment
   protected ConfiguredTargetValue getNullConfiguredTarget(Label label) throws InterruptedException {
     return createConfiguredTargetValueFromKey(
         ConfiguredTargetKey.builder().setLabel(label).build());
+  }
+
+  @Override
+  protected String getQueryName() {
+    return "aquery";
+  }
+
+  @Nullable
+  @Override
+  protected ConfiguredTargetValue getConfiguredTarget(
+      Label label, @Nullable BuildConfigurationValue configuration) throws InterruptedException {
+    BuildConfigurationKey configurationKey = configuration == null ? null : configuration.getKey();
+    return createConfiguredTargetValueFromKey(
+        ConfiguredTargetKey.builder()
+            .setLabel(label)
+            .setConfigurationKey(configurationKey)
+            .build());
   }
 
   @Nullable

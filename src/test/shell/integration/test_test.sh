@@ -442,6 +442,52 @@ function test_sigint_with_graceful_termination_sandboxed() {
   do_test_sigint_with_graceful_termination sandboxed
 }
 
+function do_test_timeout_with_graceful_termination() {
+  if is_windows; then
+    return 0
+  fi
+
+  local strategy="${1}"; shift
+
+  add_rules_shell "MODULE.bazel"
+  mkdir -p pkg
+  cat >pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+  name = "timeout_test_with_cleanup",
+  srcs = ["timeout_test_with_cleanup.sh"],
+  timeout = "short",
+)
+EOF
+  cat >pkg/timeout_test_with_cleanup.sh <<'EOF'
+#! /bin/sh
+trap 'echo "Caught SIGTERM in test"; sleep 1; echo "Graceful cleanup finished"; exit 0' TERM
+echo "Test started"
+for i in $(seq 1000); do
+  sleep 1
+done
+EOF
+  chmod +x pkg/timeout_test_with_cleanup.sh
+
+  bazel test --test_output=streamed --spawn_strategy="${strategy}" \
+      --test_timeout=1 --local_termination_grace_seconds=5 \
+      //pkg:timeout_test_with_cleanup &> $TEST_log || true
+
+  expect_log "Test started"
+  expect_log "Caught SIGTERM in test"
+  expect_log "Graceful cleanup finished"
+  expect_log "TIMEOUT"
+}
+
+function test_timeout_with_graceful_termination_local() {
+  do_test_timeout_with_graceful_termination local
+}
+
+function test_timeout_with_graceful_termination_sandboxed() {
+  do_test_timeout_with_graceful_termination sandboxed
+}
+
 function test_env_attribute() {
   add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME

@@ -1745,18 +1745,40 @@ EOF
   expect_not_log "authrepo is being evaluated"
 }
 
-function test_disallow_unverified_http() {
+function test_localhost_http_without_checksum() {
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
   echo 'Hello World' > x/file.txt
   tar cvf x.tar x
   sha256="$(sha256sum x.tar | head -c 64)"
   serve_file x.tar
-  cat > MODULE.bazel <<EOF
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
+
+  # Localhost (127.0.0.1) is exempt from the http+checksum requirement,
+  # so downloading without a checksum should succeed.
+  # We use a custom repository rule instead of http_archive because we need
+  # rctx.download() with allow_fail=True to verify the URL passes filtering.
+  cat > $(setup_module_dot_bazel) <<EOF
+local_http = use_repo_rule("//:local_http.bzl", "local_http")
+local_http(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
+)
+EOF
+  cat > local_http.bzl <<'EOF'
+def _impl(rctx):
+  result = rctx.download(
+    url = rctx.attr.url,
+    output = "x.tar",
+    allow_fail = True,
+  )
+  if not result.success:
+    fail("Download failed: " + str(result))
+  rctx.extract("x.tar")
+  rctx.delete("x.tar")
+
+local_http = repository_rule(
+  implementation = _impl,
+  attrs = {"url": attr.string(mandatory = True)},
 )
 EOF
   cat > BUILD <<'EOF'
@@ -1767,19 +1789,51 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
+  bazel build //:it || fail "Expected success for localhost http without checksum"
+
+  # Non-localhost http without checksum should still be rejected.
+  bazel clean --expunge
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://nonlocalhost.example.com:$nc_port/x.tar",
+  build_file_content = "exports_files([\"file.txt\"])",
+  strip_prefix = "x",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
   expect_log 'plain http.*missing checksum'
 
-  # After adding a good checksum, we expect success
-  ed MODULE.bazel <<EOF
-/url
-a
-sha256 = "$sha256",
-.
-w
-q
+  # http with a checksum should always succeed (even non-localhost).
+  bazel clean --expunge
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256 = "$sha256",
+  build_file_content = "exports_files([\"file.txt\"])",
+  strip_prefix = "x",
+)
 EOF
-  bazel build //:it || fail "Expected success one the checksum is given"
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:it || fail "Expected success when checksum is provided"
 
 }
 
@@ -2942,6 +2996,168 @@ EOF
   touch ${outside_dir}/baz/inner
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I'm running!"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/30883.
+function test_path_readdir_deleted_dir() {
+  create_new_workspace
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  rctx.watch(p)
+  if p.exists:
+    print("I see: " + ",".join(sorted([c.basename for c in p.readdir()])))
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir foo
+  touch foo/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar"
+
+  # deleting the watched directory should trigger a refetch, not an error.
+  rm -r foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+
+  # recreating the watched directory should trigger a refetch again.
+  mkdir foo
+  touch foo/quux
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: quux"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/30883.
+function test_path_readdir_deleted_dir_without_watch() {
+  create_new_workspace
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  if p.exists:
+    print("I see: " + ",".join(sorted([c.basename for c in p.readdir()])))
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir foo
+  touch foo/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar"
+
+  # deleting the directory whose entries are watched should trigger a refetch,
+  # not an error.
+  rm -r foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/30883.
+function test_watch_tree_deleted_dir() {
+  create_new_workspace
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  rctx.watch(p)
+  if p.is_dir:
+    rctx.watch_tree(p)
+    print("I see: a directory")
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir -p foo/sub
+  touch foo/sub/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: a directory"
+
+  # deleting the watched directory tree should trigger a refetch, not an error.
+  rm -r foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+
+  # recreating the watched directory tree should trigger a refetch again.
+  mkdir foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: a directory"
+}
+
+# Documents the current behavior when a directory whose entries are recorded
+# as a repo or module extension input becomes non-readable between builds: the
+# build fails. This is not necessarily the desired behavior.
+function test_path_readdir_unreadable_dir() {
+  if is_windows; then
+    echo "Skipping test on Windows (no POSIX permissions)"
+    return 0
+  fi
+  if [[ "$(id -u)" == 0 ]]; then
+    echo "Skipping test when running as root (permissions are not enforced)"
+    return 0
+  fi
+
+  create_new_workspace
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  rctx.watch(p)
+  if p.exists:
+    print("I see: " + ",".join(sorted([c.basename for c in p.readdir()])))
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir foo
+  touch foo/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar"
+
+  chmod 000 foo
+  local exit_code=0
+  bazel build @r >& $TEST_log || exit_code=$?
+  chmod 755 foo
+  (( exit_code != 0 )) || fail "expected bazel to fail"
+  expect_log "foo (Permission denied)"
+
+  bazel shutdown
+  chmod 000 foo
+  exit_code=0
+  bazel build @r >& $TEST_log || exit_code=$?
+  chmod 755 foo
+  (( exit_code != 0 )) || fail "expected bazel to fail"
+  expect_log "foo (Permission denied)"
+
+  # After the directory becomes readable again, the build succeeds without a
+  # refetch since its contents didn't change.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/21823.

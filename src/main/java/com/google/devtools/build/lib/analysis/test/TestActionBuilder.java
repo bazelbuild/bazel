@@ -29,7 +29,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -37,9 +39,12 @@ import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.platform.PlatformConstants;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams.CoverageParams;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -139,16 +144,58 @@ public final class TestActionBuilder {
     return this;
   }
 
+  private String getTestExecGroupName() {
+    return this.executionRequirements != null
+        ? this.executionRequirements.getExecGroup()
+        : DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
+  }
+
   private ActionOwner getTestActionOwner() {
-    var execGroup =
-        this.executionRequirements != null
-            ? this.executionRequirements.getExecGroup()
-            : DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
-    var owner = ruleContext.getActionOwner(execGroup);
+    var owner = ruleContext.getActionOwner(getTestExecGroupName());
     if (owner != null) {
       return owner;
     }
     return ruleContext.getActionOwner();
+  }
+
+  /**
+   * Returns the reason why the test can't be run in this build, or {@code null} if it can be run.
+   *
+   * <p>The toolchain type of the default test exec group is optional so that test targets can be
+   * built even if no execution platform matches all constraints of the target platform, e.g. when
+   * cross-compiling a test for a platform that isn't available for execution. Since the test can't
+   * be run in that situation, the test action is created, but fails when executed.
+   */
+  @Nullable
+  private String getUnrunnableReason() {
+    var toolchainContexts = ruleContext.getToolchainContexts();
+    if (toolchainContexts == null
+        || !toolchainContexts.hasToolchainContext(getTestExecGroupName())) {
+      return null;
+    }
+    ResolvedToolchainContext toolchainContext =
+        toolchainContexts.getToolchainContext(getTestExecGroupName());
+    ToolchainTypeInfo testToolchainType =
+        toolchainContext
+            .requestedToolchainTypeLabels()
+            .get(PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE);
+    if (testToolchainType == null || toolchainContext.forToolchainType(testToolchainType) != null) {
+      return null;
+    }
+    RepositoryMapping mainRepoMapping =
+        ruleContext.getLabel().getRepository().isMain()
+            ? ruleContext.getRule().getPackageMetadata().repositoryMapping()
+            : null;
+    return String.format(
+        """
+        No matching toolchain found for type %s, which is required to run tests for target \
+        platform %s.%s
+        To debug, rerun with --toolchain_resolution_debug='%s'\
+        """,
+        testToolchainType.typeLabel().getDisplayForm(mainRepoMapping),
+        toolchainContext.targetPlatform().label().getDisplayForm(mainRepoMapping),
+        testToolchainType.noneFoundError() != null ? " " + testToolchainType.noneFoundError() : "",
+        PlatformConfiguration.toolchainResolutionDebugFilter(testToolchainType.typeLabel()));
   }
 
   public static int getShardCount(RuleContext ruleContext) {
@@ -191,6 +238,7 @@ public final class TestActionBuilder {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
     ActionOwner actionOwner = getTestActionOwner();
+    String unrunnableReason = getUnrunnableReason();
     boolean isExecutedOnWindows =
         getOsFromConstraintsOrHost(actionOwner.getExecutionPlatform()) == OS.WINDOWS;
 
@@ -418,7 +466,8 @@ public final class TestActionBuilder {
                     : null,
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
-                lcovMergerFilesToRun);
+                lcovMergerFilesToRun,
+                unrunnableReason);
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

@@ -14,6 +14,7 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
@@ -51,10 +52,21 @@ public final class Types {
    */
   public static final StarlarkType ANY = new AnyType();
 
-  /** The top type of the type hierarchy. */
+  /**
+   * The top type of the type hierarchy.
+   *
+   * <p>Admits all values, but only supports operations that are valid on every type.
+   */
   public static final StarlarkType OBJECT = new ObjectType();
 
-  /** The bottom type of the type hierarchy. */
+  /**
+   * The bottom type of the type hierarchy.
+   *
+   * <p>Admits no values, but supports every operation.
+   *
+   * <p>In practice, an expression whose type is {@code Never} is unreachable, assuming typing is
+   * sound.
+   */
   public static final StarlarkType NEVER = new NeverType();
 
   // Primitive types
@@ -64,6 +76,9 @@ public final class Types {
   public static final StarlarkType INT = new IntType();
   public static final StarlarkType FLOAT = new FloatType();
   public static final StarlarkType STR = new StrType();
+  // The type of a reified type value; for example, the type of the symbol introduced by a type
+  // alias statement.
+  public static final StarlarkType TYPE = new TypeType();
 
   // A frequently-used union `int | float`.
   public static final UnionType NUMERIC = (UnionType) union(INT, FLOAT);
@@ -79,10 +94,13 @@ public final class Types {
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
-      callable(ImmutableList.of(), ImmutableList.of(), 0, 0, ImmutableSet.of(), null, null, ANY);
+      generalCallable(
+          ImmutableList.of(), ImmutableList.of(), 0, 0, ImmutableSet.of(), null, null, ANY);
+  public static final CallableType ANY_CALLABLE = new AnyCallableType();
 
   public static final TypeConstructor ANY_CONSTRUCTOR = wrapType("Any", ANY);
   public static final TypeConstructor OBJECT_CONSTRUCTOR = wrapType("object", OBJECT);
+  public static final TypeConstructor NEVER_CONSTRUCTOR = wrapType("Never", NEVER);
   public static final TypeConstructor NONE_CONSTRUCTOR = wrapType("None", NONE);
   public static final TypeConstructor BOOL_CONSTRUCTOR = wrapType("bool", BOOL);
   public static final TypeConstructor INT_CONSTRUCTOR = wrapType("int", INT);
@@ -99,6 +117,8 @@ public final class Types {
   public static final TypeConstructor MAPPING_CONSTRUCTOR =
       wrapTypeConstructor("Mapping", Types::mapping);
   public static final TypeConstructor STRUCT_CONSTRUCTOR = wrapStructConstructor();
+  public static final TypeConstructor CALLABLE_CONSTRUCTOR = wrapCallableConstructor();
+  public static final TypeConstructor TYPE_CONSTRUCTOR = wrapType("Type", TYPE);
 
   private Types() {} // uninstantiable
 
@@ -111,6 +131,7 @@ public final class Types {
     env //
         .put("Any", ANY_CONSTRUCTOR)
         .put("object", OBJECT_CONSTRUCTOR)
+        .put("Never", NEVER_CONSTRUCTOR)
         .put("None", NONE_CONSTRUCTOR)
         .put("bool", BOOL_CONSTRUCTOR)
         .put("int", INT_CONSTRUCTOR)
@@ -122,7 +143,9 @@ public final class Types {
         .put("tuple", TUPLE_CONSTRUCTOR)
         .put("Collection", COLLECTION_CONSTRUCTOR)
         .put("Sequence", SEQUENCE_CONSTRUCTOR)
-        .put("Mapping", MAPPING_CONSTRUCTOR);
+        .put("Mapping", MAPPING_CONSTRUCTOR)
+        .put("Callable", CALLABLE_CONSTRUCTOR)
+        .put("Type", TYPE_CONSTRUCTOR);
     return env.buildOrThrow();
   }
 
@@ -133,7 +156,7 @@ public final class Types {
     private AnyType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "Any";
     }
 
@@ -160,7 +183,8 @@ public final class Types {
     // `Any <op> T` could be application-dependent even if T is a universal built-in type.
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case IN, NOT_IN ->
             // If we are the LHS, fall through to RHS's inferBinaryOperator; RHS determines whether
@@ -195,7 +219,7 @@ public final class Types {
     private ObjectType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "object";
     }
 
@@ -215,7 +239,7 @@ public final class Types {
     private NeverType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "Never";
     }
 
@@ -242,6 +266,11 @@ public final class Types {
     }
 
     @Override
+    public StarlarkType getField(String name, TypeContext context) {
+      return NEVER;
+    }
+
+    @Override
     public boolean hasSetField() {
       return true;
     }
@@ -252,8 +281,13 @@ public final class Types {
     private NoneType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "None";
+    }
+
+    @Override
+    public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
+      return ImmutableList.of(TYPE);
     }
 
     @Override
@@ -272,7 +306,7 @@ public final class Types {
     private BoolType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "bool";
     }
 
@@ -297,7 +331,7 @@ public final class Types {
     private IntType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "int";
     }
 
@@ -313,7 +347,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS, MINUS, PERCENT, SLASH_SLASH -> NUMERIC.getTypes().contains(that) ? that : null;
         case SLASH -> NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
@@ -338,7 +373,7 @@ public final class Types {
     private FloatType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "float";
     }
 
@@ -354,7 +389,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS, MINUS, PERCENT, SLASH, SLASH_SLASH, STAR ->
             NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
@@ -373,7 +409,7 @@ public final class Types {
     private StrType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "str";
     }
 
@@ -389,7 +425,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS -> that.equals(STR) ? STR : null;
         case PERCENT ->
@@ -416,8 +453,8 @@ public final class Types {
     }
   }
 
-  /** Construct a CallableType representing a Starlark Function */
-  public static CallableType callable(
+  /** Construct a CallableType representing a Starlark function. */
+  public static GeneralCallableType generalCallable(
       ImmutableList<String> parameterNames,
       ImmutableList<StarlarkType> parameterTypes,
       int numPositionalOnlyParameters,
@@ -431,15 +468,59 @@ public final class Types {
         "%s != %s",
         parameterNames.size(),
         parameterTypes.size());
+    Preconditions.checkArgument(
+        numPositionalOnlyParameters <= numPositionalParameters,
+        "numPositionalOnlyParameters (%s) > numPositionalParameters (%s)",
+        numPositionalOnlyParameters,
+        numPositionalParameters);
+    Preconditions.checkArgument(
+        numPositionalParameters <= parameterTypes.size(),
+        "numPositionalParameters (%s) > numParameterTypes (%s)",
+        numPositionalParameters,
+        parameterTypes.size());
     return new AutoValue_Types_GeneralCallableType(
         parameterNames,
         parameterTypes,
         numPositionalOnlyParameters,
         numPositionalParameters,
-        mandatoryParams,
         varargsType,
         kwargsType,
-        returns);
+        returns,
+        mandatoryParams);
+  }
+
+  public static SimpleCallableType simpleCallable(
+      ImmutableList<StarlarkType> parameterTypes,
+      boolean hasVarargsAndKwargs,
+      StarlarkType returns) {
+    if (hasVarargsAndKwargs) {
+      // Until we support PEP-612 forms like `Callable[Concatenate[int, ...], int]`.
+      checkArgument(
+          parameterTypes.isEmpty(), "If hasVarargsAndKwargs is true, parameterTypes must be empty");
+    }
+    return new AutoValue_Types_SimpleCallableType(parameterTypes, returns, hasVarargsAndKwargs);
+  }
+
+  /**
+   * Finds the first {@link CallableType} in the type's hierarchy in DFS order. Returns {@code null}
+   * if none is found.
+   *
+   * <p>Intended for use with {@link net.starlark.java.eval.BuiltinFunction.BuiltinTypeFunction} and
+   * similar callable values whose {@code getStarlarkType} method doesn't directly return a {@link
+   * CallableType}.
+   */
+  @Nullable
+  public static CallableType toCallableType(StarlarkType type, TypeContext context) {
+    if (type instanceof CallableType callable) {
+      return callable;
+    }
+    for (StarlarkType supertype : type.getSupertypes(context)) {
+      CallableType callable = toCallableType(supertype, context);
+      if (callable != null) {
+        return callable;
+      }
+    }
+    return null;
   }
 
   /**
@@ -481,7 +562,9 @@ public final class Types {
 
     public abstract int getNumPositionalParameters();
 
-    public abstract ImmutableSet<String> getMandatoryParameters();
+    public abstract int getNumMandatoryParameters();
+
+    public abstract boolean isMandatory(int i);
 
     @Nullable
     public abstract StarlarkType getVarargsType();
@@ -496,13 +579,103 @@ public final class Types {
     }
 
     @Override
-    public String toString() {
-      // Approximate representation of the type - as much as Callable can do
-      return "Callable[["
-          + getParameterTypes().stream().map(StarlarkType::toString).collect(joining(", "))
-          + "], "
-          + getReturnType()
-          + "]";
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
+      if (t instanceof CallableType that) {
+        if (this.equals(Types.ANY_CALLABLE) || t.equals(Types.ANY_CALLABLE) || this.equals(t)) {
+          return true;
+        }
+
+        // Covariant in the return type
+        if (!StarlarkType.assignableFrom(this.getReturnType(), that.getReturnType(), context)) {
+          return false;
+        }
+
+        // Contravariant in the positional parameter types
+        for (int i = 0; i < getNumPositionalParameters(); i++) {
+          StarlarkType thisParameterType = getParameterTypeByPos(i);
+          @Nullable
+          StarlarkType thatParameterType =
+              i < that.getNumPositionalParameters()
+                  ? that.getParameterTypeByPos(i)
+                  : that.getVarargsType();
+          if (!nullTolerantAssignableFrom(thatParameterType, thisParameterType, context)) {
+            return false;
+          }
+        }
+
+        // Contravariant in the keyword parameter types
+        if (getParameterTypes().size() != getNumPositionalOnlyParameters()) {
+          for (int i = getNumPositionalOnlyParameters(); i < getParameterTypes().size(); i++) {
+            String name = getParameterNames().get(i);
+            StarlarkType thisParameterType = getParameterTypeByPos(i);
+            int thatParameterIndex = that.getKeywordParameterIndex(name);
+            @Nullable
+            StarlarkType thatParameterType =
+                thatParameterIndex >= 0
+                    ? that.getParameterTypeByPos(thatParameterIndex)
+                    : that.getKwargsType();
+            if (!nullTolerantAssignableFrom(thatParameterType, thisParameterType, context)) {
+              return false;
+            }
+          }
+        }
+
+        // Contravariant in varargs and kwargs.
+        if (this.getVarargsType() != null
+            && !nullTolerantAssignableFrom(that.getVarargsType(), this.getVarargsType(), context)) {
+          return false;
+        }
+        if (this.getKwargsType() != null
+            && !nullTolerantAssignableFrom(that.getKwargsType(), this.getKwargsType(), context)) {
+          return false;
+        }
+
+        // `that` cannot have mandatory parameters that `this` is not guaranteed to supply.
+        for (int i = 0; i < that.getParameterTypes().size(); i++) {
+          if (!that.isMandatory(i)) {
+            continue;
+          }
+          if (i < that.getNumPositionalParameters()) {
+            // The mandatory parameter can be satisfied as a positional.
+            if (i < getNumPositionalOnlyParameters() && isMandatory(i)) {
+              // ... and `this` is guaranteed to supply a positional.
+              continue;
+            }
+          }
+          if (i >= that.getNumPositionalOnlyParameters()) {
+            // The mandatory parameter can be satisfied as a keyword.
+            String name = that.getParameterNames().get(i);
+            if (isMandatory(getKeywordParameterIndex(name))) {
+              // ... and `this` is guaranteed to supply a keyword.
+              continue;
+            }
+          }
+          // The mandatory parameter cannot be satisfied.
+          return false;
+        }
+
+        // All checks passed.
+        return true;
+      }
+      return false;
+    }
+
+    private static boolean nullTolerantAssignableFrom(
+        @Nullable StarlarkType x, StarlarkType y, TypeContext context) {
+      if (x != null) {
+        return StarlarkType.assignableFrom(x, y, context);
+      } else {
+        return false;
+      }
+    }
+
+    protected int getKeywordParameterIndex(String name) {
+      for (int i = getNumPositionalOnlyParameters(); i < getParameterTypes().size(); i++) {
+        if (getParameterNames().get(i).equals(name)) {
+          return i;
+        }
+      }
+      return -1;
     }
 
     /** Returns a complete string representation of the type */
@@ -512,12 +685,11 @@ public final class Types {
       // positional parameters
       int i = 0;
       for (; i < getNumPositionalOnlyParameters(); i++) {
-        String name = getParameterNames().get(i);
         StarlarkType type = getParameterTypeByPos(i);
-        if (getMandatoryParameters().contains(name)) {
-          params.add(type.toString());
+        if (isMandatory(i)) {
+          params.add(type.typeRepr());
         } else {
-          params.add("[" + type + "]");
+          params.add("[" + type.typeRepr() + "]");
         }
       }
 
@@ -528,15 +700,15 @@ public final class Types {
       for (; i < getNumPositionalParameters(); i++) {
         String name = getParameterNames().get(i);
         StarlarkType type = getParameterTypeByPos(i);
-        if (getMandatoryParameters().contains(name)) {
-          params.add(name + ": " + type);
+        if (isMandatory(i)) {
+          params.add(name + ": " + type.typeRepr());
         } else {
-          params.add(name + ": [" + type + "]");
+          params.add(name + ": [" + type.typeRepr() + "]");
         }
       }
 
       if (getVarargsType() != null) {
-        params.add("*args: " + getVarargsType());
+        params.add("*args: " + getVarargsType().typeRepr());
       } else if (i < getParameterTypes().size()) { // if there are going to be kwonly params
         params.add("*");
       }
@@ -544,8 +716,8 @@ public final class Types {
       // keyword parameters
       for (; i < getParameterTypes().size(); i++) {
         String name = getParameterNames().get(i);
-        String type = getParameterTypeByPos(i).toString();
-        if (getMandatoryParameters().contains(name)) {
+        String type = getParameterTypeByPos(i).typeRepr();
+        if (isMandatory(i)) {
           params.add(name + ": " + type);
         } else {
           params.add(name + ": [" + type + "]");
@@ -553,18 +725,179 @@ public final class Types {
       }
 
       if (getKwargsType() != null) {
-        params.add("**kwargs: " + getKwargsType());
+        params.add("**kwargs: " + getKwargsType().typeRepr());
       }
 
       ImmutableList<String> paramList = params.build();
-      return "(" + String.join(", ", paramList) + ") -> " + getReturnType();
+      return "(" + String.join(", ", paramList) + ") -> " + getReturnType().typeRepr();
     }
   }
 
   // About 0.1% memory regression may be removed by specializing GeneralCallableType for function
   // without positional-only parameter and by retrieving parameter names from StarlarkFunction
   @AutoValue
-  abstract static class GeneralCallableType extends CallableType {}
+  abstract static class GeneralCallableType extends CallableType {
+    public abstract ImmutableSet<String> getMandatoryParameters();
+
+    @Override
+    public final String typeRepr() {
+      // We cannot represent a general callable type as a `Callable[...]` expression, so follow
+      // mypy's example and format it as the signature string (with angle brackets to make it
+      // composable).
+      return String.format("<def %s>", toSignatureString());
+    }
+
+    @Override
+    public int getNumMandatoryParameters() {
+      return getMandatoryParameters().size();
+    }
+
+    @Override
+    public boolean isMandatory(int i) {
+      if (i < 0 || i >= getParameterNames().size()) {
+        return false;
+      }
+      return getMandatoryParameters().contains(getParameterNames().get(i));
+    }
+  }
+
+  /**
+   * A callable type which is assignable to and from any other callable type; represents a function
+   * with an unspecified signature.
+   */
+  public static final class AnyCallableType extends CallableType {
+    // Singleton.
+    private AnyCallableType() {}
+
+    @Override
+    public String typeRepr() {
+      return "Callable";
+    }
+
+    @Override
+    public ImmutableList<String> getParameterNames() {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public ImmutableList<StarlarkType> getParameterTypes() {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public int getNumPositionalOnlyParameters() {
+      return 0;
+    }
+
+    @Override
+    public int getNumPositionalParameters() {
+      return 0;
+    }
+
+    @Override
+    public int getNumMandatoryParameters() {
+      return 0;
+    }
+
+    @Override
+    public boolean isMandatory(int i) {
+      return false;
+    }
+
+    @Nullable
+    @Override
+    public StarlarkType getVarargsType() {
+      return Types.ANY;
+    }
+
+    @Nullable
+    @Override
+    public StarlarkType getKwargsType() {
+      return Types.ANY;
+    }
+
+    @Override
+    public StarlarkType getReturnType() {
+      return Types.ANY;
+    }
+
+    @Override
+    public int hashCode() {
+      return AnyCallableType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof AnyCallableType;
+    }
+  }
+
+  /**
+   * A callable type all of whose parameters are positional-only and mandatory; or one having no
+   * ordinary parameters, but accepting arbitrary arguments via varargs and kwargs. The type
+   * produced by a non-nullary application of the {@code Callable} type constructor.
+   */
+  @AutoValue
+  abstract static class SimpleCallableType extends CallableType {
+
+    @Override
+    public final String typeRepr() {
+      StringBuilder sb = new StringBuilder("Callable[");
+      if (getParameterTypes().isEmpty() && hasVarargsAndKwargs()) {
+        sb.append("..., ");
+      } else {
+        sb.append("[");
+        sb.append(getParameterTypes().stream().map(StarlarkType::typeRepr).collect(joining(", ")));
+        sb.append("], ");
+      }
+      sb.append(getReturnType().typeRepr()).append("]");
+      return sb.toString();
+    }
+
+    @Override
+    public ImmutableList<String> getParameterNames() {
+      ImmutableList.Builder<String> names =
+          ImmutableList.builderWithExpectedSize(getParameterTypes().size());
+      for (int i = 1; i <= getParameterTypes().size(); i++) {
+        names.add("_" + i);
+      }
+      return names.build();
+    }
+
+    @Override
+    public int getNumPositionalOnlyParameters() {
+      return getParameterTypes().size();
+    }
+
+    @Override
+    public int getNumPositionalParameters() {
+      return getParameterTypes().size();
+    }
+
+    @Override
+    public int getNumMandatoryParameters() {
+      return getParameterTypes().size();
+    }
+
+    @Override
+    public boolean isMandatory(int i) {
+      return true;
+    }
+
+    public abstract boolean hasVarargsAndKwargs();
+
+    @Nullable
+    @Override
+    public StarlarkType getVarargsType() {
+      return hasVarargsAndKwargs() ? Types.ANY : null;
+    }
+
+    @Nullable
+    @Override
+    public StarlarkType getKwargsType() {
+      return hasVarargsAndKwargs() ? Types.ANY : null;
+    }
+  }
 
   /**
    * Constructs a union type.
@@ -632,8 +965,8 @@ public final class Types {
     public abstract ImmutableSet<StarlarkType> getTypes();
 
     @Override
-    public final String toString() {
-      return getTypes().stream().map(StarlarkType::toString).collect(joining("|"));
+    public final String typeRepr() {
+      return getTypes().stream().map(StarlarkType::typeRepr).collect(joining(" | "));
     }
 
     @Override
@@ -689,8 +1022,8 @@ public final class Types {
   public abstract static sealed class BaseListType extends AbstractSequenceType
       permits ListType, ListRvalueType {
     @Override
-    public final String toString() {
-      return "list[" + getElementType() + "]";
+    public final String typeRepr() {
+      return "list[" + getElementType().typeRepr() + "]";
     }
 
     @Override
@@ -700,7 +1033,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS ->
             that instanceof BaseListType thatList
@@ -805,8 +1139,8 @@ public final class Types {
     public abstract StarlarkType getValueType();
 
     @Override
-    public final String toString() {
-      return "dict[" + getKeyType() + ", " + getValueType() + "]";
+    public final String typeRepr() {
+      return "dict[" + getKeyType().typeRepr() + ", " + getValueType().typeRepr() + "]";
     }
 
     @Override
@@ -899,8 +1233,8 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
-      return "set[" + getElementType() + "]";
+    public final String typeRepr() {
+      return "set[" + getElementType().typeRepr() + "]";
     }
 
     @Override
@@ -911,7 +1245,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case AMPERSAND, MINUS ->
             // TODO: #27370 - we may want to tighten the type of a set intersection, but it's
@@ -957,7 +1292,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS -> that instanceof TupleType rhsTuple ? concatenate(rhsTuple) : null;
         // Special case handled by TypeChecker.inferTupleRepetition.
@@ -1005,12 +1341,12 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
+    public final String typeRepr() {
       return String.format(
           "tuple[%s]",
           getElementTypes().isEmpty()
               ? "()"
-              : getElementTypes().stream().map(StarlarkType::toString).collect(joining(", ")));
+              : getElementTypes().stream().map(StarlarkType::typeRepr).collect(joining(", ")));
     }
 
     @Override
@@ -1085,8 +1421,8 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
-      return "tuple[" + getElementType() + ", ...]";
+    public final String typeRepr() {
+      return "tuple[" + getElementType().typeRepr() + ", ...]";
     }
 
     @Override
@@ -1173,7 +1509,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         // `in` and `not in` are always valid for collections on the RHS.
         case IN, NOT_IN -> thisLeft ? null : BOOL;
@@ -1204,8 +1541,8 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
-      return "Collection[" + getElementType() + "]";
+    public final String typeRepr() {
+      return "Collection[" + getElementType().typeRepr() + "]";
     }
 
     @Override
@@ -1255,8 +1592,8 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
-      return "Sequence[" + getElementType() + "]";
+    public final String typeRepr() {
+      return "Sequence[" + getElementType().typeRepr() + "]";
     }
 
     @Override
@@ -1333,7 +1670,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType rhs, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType rhs, boolean thisLeft) {
       return switch (operator) {
         case PIPE ->
             // TODO: #27370 - mypy supports dict | dict, but doesn't support the | operator for
@@ -1381,8 +1719,8 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
-      return "Mapping[" + getKeyType() + ", " + getValueType() + "]";
+    public final String typeRepr() {
+      return "Mapping[" + getKeyType().typeRepr() + ", " + getValueType().typeRepr() + "]";
     }
 
     @Override
@@ -1485,7 +1823,7 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
+    public final String typeRepr() {
       if (this.equals(ANY_STRUCT)) {
         return "struct";
       }
@@ -1512,22 +1850,52 @@ public final class Types {
     }
   }
 
-  static TypeConstructor.AllowingNullary wrapType(String name, StarlarkType type) {
-    return argsTuple -> {
-      if (!argsTuple.isEmpty()) {
-        throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
+  /**
+   * The type of a reified type value. For example, {@code Type} is the type of the symbol
+   * introduced by a type alias statement, and a supertype of builtin type constructor symbols like
+   * {@code list} and {@code dict}.
+   */
+  private static final class TypeType extends StarlarkType {
+    // Singleton.
+    private TypeType() {}
+
+    @Override
+    public String typeRepr() {
+      return "Type";
+    }
+
+    @Override
+    public int hashCode() {
+      return TypeType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof TypeType;
+    }
+  }
+
+  public static TypeConstructor wrapType(String name, StarlarkType type) {
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> argsTuple) throws Failure {
+        if (!argsTuple.isEmpty()) {
+          throw new Failure(String.format("'%s' does not accept arguments", name));
+        }
+        return type;
       }
-      return type;
     };
   }
 
-  public static TypeConstructor.AllowingNullary wrapType(
-      String name, Supplier<StarlarkType> typeSupplier) {
-    return argsTuple -> {
-      if (!argsTuple.isEmpty()) {
-        throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
+  public static TypeConstructor wrapType(String name, Supplier<StarlarkType> typeSupplier) {
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> argsTuple) throws Failure {
+        if (!argsTuple.isEmpty()) {
+          throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
+        }
+        return typeSupplier.get();
       }
-      return typeSupplier.get();
     };
   }
 
@@ -1551,19 +1919,22 @@ public final class Types {
    * factory, or with zero arguments, in which case the factory is invoked with {@link #ANY}. (This
    * allows, for instance, {@code list} to be treated as syntactic sugar for {@code list[Any]}.)
    */
-  public static TypeConstructor.AllowingNullary wrapTypeConstructor(
+  public static TypeConstructor wrapTypeConstructor(
       String name, Function<StarlarkType, StarlarkType> factory) {
     final StarlarkType nullaryType = factory.apply(ANY);
-    return args -> {
-      var types = toStarlarkTypes(name, args);
-      return switch (types.size()) {
-        case 0 -> nullaryType;
-        case 1 -> factory.apply(types.get(0));
-        default -> {
-          throw new TypeConstructor.Failure(
-              String.format("%s[] accepts exactly 1 argument but got %d", name, types.size()));
-        }
-      };
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> args) throws Failure {
+        var types = toStarlarkTypes(name, args);
+        return switch (types.size()) {
+          case 0 -> nullaryType;
+          case 1 -> factory.apply(types.get(0));
+          default -> {
+            throw new TypeConstructor.Failure(
+                String.format("%s[] accepts exactly 1 argument but got %d", name, types.size()));
+          }
+        };
+      }
     };
   }
 
@@ -1575,88 +1946,132 @@ public final class Types {
    * both arguments. (This allows, for instance, {@code dict} to be treated as syntactic sugar for
    * {@code dict[Any, Any]}.)
    */
-  public static TypeConstructor.AllowingNullary wrapTypeConstructor(
+  public static TypeConstructor wrapTypeConstructor(
       String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> factory) {
     final StarlarkType nullaryType = factory.apply(ANY, ANY);
-    return args -> {
-      var types = toStarlarkTypes(name, args);
-      return switch (types.size()) {
-        case 0 -> nullaryType;
-        case 2 -> factory.apply(types.get(0), types.get(1));
-        default ->
-            throw new TypeConstructor.Failure(
-                String.format("%s[] accepts exactly 2 arguments but got %d", name, types.size()));
-      };
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> args) throws Failure {
+        var types = toStarlarkTypes(name, args);
+        return switch (types.size()) {
+          case 0 -> nullaryType;
+          case 2 -> factory.apply(types.get(0), types.get(1));
+          default ->
+              throw new TypeConstructor.Failure(
+                  String.format("%s[] accepts exactly 2 arguments but got %d", name, types.size()));
+        };
+      }
     };
   }
 
-  private static TypeConstructor.AllowingNullary wrapTupleConstructor() {
+  private static TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
-    return args -> {
-      if (args.isEmpty()) {
-        // `tuple` is equivalent to `tuple[Any, ...]`
-        return HOMOGENEOUS_TUPLE_OF_ANY;
-      }
-      for (int i = 0; i < args.size(); i++) {
-        TypeConstructor.Term arg = args.get(i);
-        if (arg.equals(TypeConstructor.Term.ELLIPSIS)) {
-          if (i == 1 && args.size() == 2) {
-            return homogeneousTuple((StarlarkType) args.getFirst());
-          }
-          throw new TypeConstructor.Failure(
-              "in application to tuple, '...' can only appear as the second of exactly 2 arguments,"
-                  + " where the first argument is a type");
-        } else if (arg.equals(TypeConstructor.Term.EMPTY_TUPLE)) {
-          if (args.size() == 1) {
-            return Types.EMPTY_TUPLE;
-          }
-          throw new TypeConstructor.Failure(
-              "in application to tuple, '()' can only appear if it is the only argument");
-        } else if (!(arg instanceof StarlarkType)) {
-          throw new TypeConstructor.Failure(
-              String.format("in application to tuple, got '%s', expected a type", arg));
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> args) throws Failure {
+        if (args.isEmpty()) {
+          // `tuple` is equivalent to `tuple[Any, ...]`
+          return HOMOGENEOUS_TUPLE_OF_ANY;
         }
+        for (int i = 0; i < args.size(); i++) {
+          TypeConstructor.Term arg = args.get(i);
+          if (arg.equals(TypeConstructor.Term.ELLIPSIS)) {
+            if (i == 1 && args.size() == 2) {
+              return homogeneousTuple((StarlarkType) args.getFirst());
+            }
+            throw new TypeConstructor.Failure(
+                "in application to tuple, '...' can only appear as the second of exactly 2"
+                    + " arguments, where the first argument is a type");
+          } else if (arg.equals(TypeConstructor.Term.EMPTY_TUPLE)) {
+            if (args.size() == 1) {
+              return Types.EMPTY_TUPLE;
+            }
+            throw new TypeConstructor.Failure(
+                "in application to tuple, '()' can only appear if it is the only argument");
+          } else if (!(arg instanceof StarlarkType)) {
+            throw new TypeConstructor.Failure(
+                String.format("in application to tuple, got '%s', expected a type", arg));
+          }
+        }
+        @SuppressWarnings("unchecked") // list is immutable and all elements verified above
+        var result = (ImmutableList<StarlarkType>) (ImmutableList<?>) args;
+        return tuple(result);
       }
-      @SuppressWarnings("unchecked") // list is immutable and all elements verified above
-      var result = (ImmutableList<StarlarkType>) (ImmutableList<?>) args;
-      return tuple(result);
     };
   }
 
-  private static final TypeConstructor.AllowingNullary wrapStructConstructor() {
-    return args -> {
-      if (args.isEmpty()) {
-        // `struct` is equivalent to `struct[{}, ...]`
-        return ANY_STRUCT;
-      } else if (args.size() <= 2) {
-        TypeConstructor.Term arg = args.getFirst();
-        ImmutableMap<String, StarlarkType> fields;
-        if (arg instanceof TypeConstructor.Term.TypeDict dict) {
-          try {
-            fields = dict.getTypes();
-          } catch (TypeConstructor.Failure e) {
+  private static final TypeConstructor wrapStructConstructor() {
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> args) throws Failure {
+        if (args.isEmpty()) {
+          // `struct` is equivalent to `struct[{}, ...]`
+          return ANY_STRUCT;
+        } else if (args.size() <= 2) {
+          TypeConstructor.Term arg = args.getFirst();
+          ImmutableMap<String, StarlarkType> fields;
+          if (arg instanceof TypeConstructor.Term.TypeDict dict) {
+            try {
+              fields = dict.getTypes();
+            } catch (TypeConstructor.Failure e) {
+              throw new TypeConstructor.Failure(
+                  String.format("in application to struct, %s", e.getMessage()));
+            }
+          } else {
             throw new TypeConstructor.Failure(
-                String.format("in application to struct, %s", e.getMessage()));
+                String.format("in application to struct, got '%s', expected a dict", arg));
+          }
+          if (args.size() == 1) {
+            return struct(fields);
+          } else {
+            if (!(args.get(1) instanceof TypeConstructor.Term.Ellipsis)) {
+              throw new TypeConstructor.Failure(
+                  String.format(
+                      "in application to struct, got '%s' for optional argument #2, expected '...'",
+                      args.get(1)));
+            }
+            return partialStruct(fields);
           }
         } else {
           throw new TypeConstructor.Failure(
-              String.format("in application to struct, got '%s', expected a dict", arg));
+              String.format("struct[] accepts at most 2 arguments but got %d", args.size()));
         }
-        if (args.size() == 1) {
-          return struct(fields);
+      }
+    };
+  }
+
+  private static final TypeConstructor wrapCallableConstructor() {
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> args) throws Failure {
+        if (args.isEmpty()) {
+          return ANY_CALLABLE;
+        } else if (args.size() != 2) {
+          throw new TypeConstructor.Failure(
+              String.format("Callable[] accepts exactly 2 arguments but got %d", args.size()));
+        }
+        TypeConstructor.Term arg1 = args.get(0);
+        TypeConstructor.Term arg2 = args.get(1);
+        if (!(arg2 instanceof StarlarkType returnType)) {
+          throw new TypeConstructor.Failure(
+              String.format(
+                  "in application to Callable, got '%s' for argument #2, expected a type", arg2));
+        }
+        boolean hasVarargsAndKwargs = false;
+        ImmutableList<StarlarkType> paramTypes;
+        if (arg1 instanceof TypeConstructor.Term.Ellipsis) {
+          hasVarargsAndKwargs = true;
+          paramTypes = ImmutableList.of();
+        } else if (arg1 instanceof TypeConstructor.Term.TypeList typeList) {
+          paramTypes = toStarlarkTypes("Callable", typeList.getTerms());
         } else {
-          if (!(args.get(1) instanceof TypeConstructor.Term.Ellipsis)) {
-            throw new TypeConstructor.Failure(
-                String.format(
-                    "in application to struct, got '%s' for optional argument #2, expected '...'",
-                    args.get(1)));
-          }
-          return partialStruct(fields);
+          throw new TypeConstructor.Failure(
+              String.format(
+                  "in application to Callable, got '%s' for argument #1, expected a list or '...'",
+                  arg1));
         }
-      } else {
-        throw new TypeConstructor.Failure(
-            String.format("struct[] accepts at most 2 arguments but got %d", args.size()));
+        return simpleCallable(paramTypes, hasVarargsAndKwargs, returnType);
       }
     };
   }

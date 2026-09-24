@@ -21,6 +21,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
@@ -40,9 +43,26 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   /** A {@link Fingerprinter} implementation for non-production use. */
   public static final Fingerprinter NONPROD_FINGERPRINTER =
-      input -> PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
+      new Fingerprinter() {
+        @Override
+        public PackedFingerprint fingerprint(byte[] input) {
+          return PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
+        }
 
-  private final Executor executor;
+        @Override
+        public PackedFingerprint fingerprint(byte[] input, String salt) {
+          return PackedFingerprint.fromBytes(
+              murmur3_128()
+                  .newHasher()
+                  .putInt(salt.length())
+                  .putUnencodedChars(salt)
+                  .putBytes(input)
+                  .hash()
+                  .asBytes());
+        }
+      };
+
+  private final SafeExecutor executor;
   private final FingerprintValueStore store;
   private final FingerprintValueCache cache;
 
@@ -87,11 +107,14 @@ public final class FingerprintValueService implements KeyValueWriter {
   private static FingerprintValueService createForTesting(
       FingerprintValueStore store, FingerprintValueCache.SyncMode mode) {
     return new FingerprintValueService(
-        newSingleThreadExecutor(), store, new FingerprintValueCache(mode), NONPROD_FINGERPRINTER);
+        new SafeExecutorOwner(newSingleThreadExecutor()),
+        store,
+        new FingerprintValueCache(mode),
+        NONPROD_FINGERPRINTER);
   }
 
   public FingerprintValueService(
-      Executor executor,
+      SafeExecutor executor,
       FingerprintValueStore store,
       FingerprintValueCache cache,
       Fingerprinter fingerprinter) {
@@ -109,13 +132,15 @@ public final class FingerprintValueService implements KeyValueWriter {
    * fingerprint, and returns the {@link PackedFingerprint}.
    */
   public static PackedFingerprint computeFingerprint(
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       ObjectCodecs codecs,
       SkyKey key,
       FrontierNodeVersion nodeVersion)
       throws InterruptedException, SerializationException {
     AsyncSerializationTask serializeKeyTask =
-        codecs.serializeMemoizedAsync(fingerprintValueService, key, /* profileCollector= */ null);
+        codecs.serializeMemoizedAsync(
+            compressionService, fingerprintValueService, key, /* profileCollector= */ null);
     serializeKeyTask.run();
 
     ListenableFuture<PackedFingerprint> fingerprintFuture =
@@ -207,6 +232,12 @@ public final class FingerprintValueService implements KeyValueWriter {
     return fingerprinter.fingerprint(bytes);
   }
 
+  /** Computes the fingerprint of {@code bytes} with a salt. */
+  @Override
+  public PackedFingerprint fingerprint(byte[] bytes, String salt) {
+    return fingerprinter.fingerprint(bytes, salt);
+  }
+
   /** Convenience overload of {@link #fingerprint(byte[])}. */
   @VisibleForTesting
   PackedFingerprint fingerprint(ByteString bytes) {
@@ -235,7 +266,7 @@ public final class FingerprintValueService implements KeyValueWriter {
    * <p>Technically, this should be plumbed separately but for the time being, {@link
    * FingerprintValueService} is a convenient container for the {@link Executor}.
    */
-  public Executor getExecutor() {
+  public SafeExecutor getExecutor() {
     return executor;
   }
 

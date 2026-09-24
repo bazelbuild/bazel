@@ -1040,6 +1040,20 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                 "A one-word description of the created actions, for example, CppCompile or"
                     + " GoLink."),
         @Param(
+            name = "resource_set",
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "A callback or dictionary that returns/contains the resource set used for local"
+                    + " scheduling of every action created by this template. See"
+                    + " <code>actions.run</code>'s argument of the same name."),
+        @Param(
             name = "implementation",
             allowedTypes = {@ParamType(type = StarlarkFunction.class)},
             named = true,
@@ -1059,6 +1073,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object mnemonicUnchecked,
+      Object resourceSetUnchecked,
       StarlarkFunction implementation,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

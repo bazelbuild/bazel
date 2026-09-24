@@ -35,6 +35,8 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Stores the {@link OptionsParsingResult} from {@link ParsedFlagsFunction}. */
@@ -48,7 +50,8 @@ public class ParsedFlagsValue implements SkyValue {
       ImmutableList<String> rawFlags,
       PackageContext packageContext,
       boolean includeDefaultValues,
-      ImmutableMap<String, Label> flagAliasMappings)
+      ImmutableMap<String, Label> flagAliasMappings,
+      boolean allowNonFlagBuildSettings)
       implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
@@ -64,27 +67,55 @@ public class ParsedFlagsValue implements SkyValue {
 
     /**
      * Returns a new {@link Key} for the given command-line flags, such as {@code
-     * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
      */
     public static Key create(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
         ImmutableMap<String, Label> flagAliasMappings) {
-      return create(rawFlags, packageContext, /* includeDefaultValues= */ false, flagAliasMappings);
+      return create(
+          rawFlags,
+          packageContext,
+          /* includeDefaultValues= */ false,
+          flagAliasMappings,
+          /* allowNonFlagBuildSettings= */ false);
     }
 
     /**
      * Returns a new {@link Key} for the given command-line flags, such as {@code
-     * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
+     */
+    public static Key create(
+        ImmutableList<String> rawFlags,
+        PackageContext packageContext,
+        boolean includeDefaultValues,
+        ImmutableMap<String, Label> flagAliasMappings) {
+      return create(
+          rawFlags,
+          packageContext,
+          includeDefaultValues,
+          flagAliasMappings,
+          /* allowNonFlagBuildSettings= */ false);
+    }
+
+    /**
+     * Returns a new {@link Key} for the given command-line flags, such as {@code
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
      */
     @AutoCodec.Instantiator
     public static Key create(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
         boolean includeDefaultValues,
-        ImmutableMap<String, Label> flagAliasMappings) {
+        ImmutableMap<String, Label> flagAliasMappings,
+        boolean allowNonFlagBuildSettings) {
       return interner.intern(
-          new Key(rawFlags, packageContext, includeDefaultValues, flagAliasMappings));
+          new Key(
+              rawFlags,
+              packageContext,
+              includeDefaultValues,
+              flagAliasMappings,
+              allowNonFlagBuildSettings));
     }
 
     @Override
@@ -202,6 +233,25 @@ public class ParsedFlagsValue implements SkyValue {
     // TODO: https://github.com/bazelbuild/bazel/issues/22453 - This will completely overwrite
     //  accumulating flags, which is almost certainly not what users want. Instead this should
     //  intelligently merge options.
+    if (optionDefinition.getOptionName().equals("override_platform_cpu_name")) {
+      List<?> previousValue = (List<?>) optionDefinition.getValue(fragment);
+      List<?> newValue = (List<?>) optionValue.getValue();
+      Map<Object, Map.Entry<?, ?>> combined = new LinkedHashMap<>();
+      if (previousValue != null) {
+        for (Object item : previousValue) {
+          Map.Entry<?, ?> entry = (Map.Entry<?, ?>) item;
+          combined.put(entry.getKey(), entry);
+        }
+      }
+      if (newValue != null) {
+        for (Object item : newValue) {
+          Map.Entry<?, ?> entry = (Map.Entry<?, ?>) item;
+          combined.put(entry.getKey(), entry);
+        }
+      }
+      optionDefinition.setValue(fragment, ImmutableList.copyOf(combined.values()));
+      return;
+    }
     Object value = optionValue.getValue();
     optionDefinition.setValue(fragment, value);
   }

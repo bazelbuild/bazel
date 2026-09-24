@@ -175,6 +175,81 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExecpathOfMultiFileLabel() throws Exception {
+    scratch.file(
+        "deuce_exec/BUILD",
+        """
+        genrule(
+            name = "deuce",
+            outs = [
+                "out.1",
+                "out.2",
+            ],
+            cmd = ":",
+        )
+        """);
+    checkError(
+        "test_exec",
+        "test1",
+        "label '//deuce_exec:deuce' in $(execpath) expression expands to more than one "
+            + "file, please use $(execpaths //deuce_exec:deuce) instead",
+        "genrule(name = 'test1',",
+        "        tools = ['//deuce_exec:deuce'],",
+        "        outs = ['test1.out'],",
+        "        cmd = '$(execpath //deuce_exec:deuce)')");
+  }
+
+  @Test
+  public void testRootpathOfMultiFileLabel() throws Exception {
+    scratch.file(
+        "deuce_root/BUILD",
+        """
+        genrule(
+            name = "deuce",
+            outs = [
+                "out.1",
+                "out.2",
+            ],
+            cmd = ":",
+        )
+        """);
+    checkError(
+        "test_root",
+        "test1",
+        "label '//deuce_root:deuce' in $(rootpath) expression expands to more than one "
+            + "file, please use $(rootpaths //deuce_root:deuce) instead",
+        "genrule(name = 'test1',",
+        "        tools = ['//deuce_root:deuce'],",
+        "        outs = ['test1.out'],",
+        "        cmd = '$(rootpath //deuce_root:deuce)')");
+  }
+
+  @Test
+  public void testRlocationpathOfMultiFileLabel() throws Exception {
+    scratch.file(
+        "deuce_rloc/BUILD",
+        """
+        genrule(
+            name = "deuce",
+            outs = [
+                "out.1",
+                "out.2",
+            ],
+            cmd = ":",
+        )
+        """);
+    checkError(
+        "test_rloc",
+        "test1",
+        "label '//deuce_rloc:deuce' in $(rlocationpath) expression expands to more than one "
+            + "file, please use $(rlocationpaths //deuce_rloc:deuce) instead",
+        "genrule(name = 'test1',",
+        "        tools = ['//deuce_rloc:deuce'],",
+        "        outs = ['test1.out'],",
+        "        cmd = '$(rlocationpath //deuce_rloc:deuce)')");
+  }
+
+  @Test
   public void testUnknownVariable() throws Exception {
     genrule("$(UNKNOWN)");
     assertExpansionFails("$(UNKNOWN) not defined", "//test");

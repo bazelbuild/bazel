@@ -97,6 +97,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
       var annotation = AutoCodecAnnotation.of(element.getAnnotation(AutoCodec.class), env);
       TypeElement encodedType = (TypeElement) element;
       ResolvedInstantiator instantiator = determineInstantiator(encodedType);
+      if (annotation.internDeserialized() && annotation.deserializedInterface().isEmpty()) {
+        throw new SerializationProcessingException(
+            encodedType, "internDeserialized may only be set if deserializedInterface is set.");
+      }
       if (annotation.deserializedInterface().isPresent()) {
         performChecksForDeserializedInterface(encodedType, instantiator);
       }
@@ -292,6 +296,12 @@ public class AutoCodecProcessor extends AbstractProcessor {
   private static void performChecksForDeserializedInterface(
       TypeElement encodedType, ResolvedInstantiator instantiator)
       throws SerializationProcessingException {
+    if (instantiator.kind() == INTERNER) {
+      throw new SerializationProcessingException(
+          encodedType,
+          "@AutoCodec.Interner cannot be used with deserializedInterface; use"
+              + " @AutoCodec(internDeserialized = true) instead");
+    }
     if (instantiator.kind() != CONSTRUCTOR) {
       throw new SerializationProcessingException(
           encodedType,

@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.protobuf.ByteString;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
@@ -50,7 +51,6 @@ import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.kqueue.KQueueDomainSocketChannel;
 import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.pool.SimpleChannelPool;
@@ -86,6 +86,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -131,7 +132,7 @@ public final class HttpCacheClient extends RemoteCacheClient {
       Pattern.compile("\\s*error\\s*=\\s*\"?invalid_token\"?");
 
   private final EventLoopGroup eventLoop;
-  private final ChannelPool channelPool;
+  private final SimpleChannelPool channelPool;
   private final URI uri;
   private final int timeoutSeconds;
   private final ImmutableList<Entry<String, String>> extraHttpHeaders;
@@ -442,11 +443,14 @@ public final class HttpCacheClient extends RemoteCacheClient {
     channelPool.release(ch);
   }
 
-  private boolean isChannelPipelineEmpty(ChannelPipeline pipeline) {
-    return (pipeline.first() == null)
-        || (useTls
-            && "ssl-handler".equals(pipeline.firstContext().name())
-            && pipeline.first() == pipeline.last());
+  boolean isChannelPipelineEmpty(ChannelPipeline pipeline) {
+    ChannelHandlerContext firstContext = pipeline.firstContext();
+    if (firstContext == null) {
+      return true;
+    }
+    return useTls
+        && firstContext.name().equals("ssl-handler")
+        && Objects.equals(pipeline.first(), pipeline.last());
   }
 
   @Override
@@ -770,20 +774,18 @@ public final class HttpCacheClient extends RemoteCacheClient {
       // Clear interrupted status to prevent failure to close, indicated with #14787
       boolean wasInterrupted = Thread.interrupted();
       try {
-        channelPool.close();
-      } catch (RuntimeException e) {
-        if (e.getCause() instanceof InterruptedException) {
-          Thread.currentThread().interrupt();
-        } else {
-          throw e;
-        }
+        channelPool.closeAsync().await(5, TimeUnit.SECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       } finally {
-        if (wasInterrupted) {
-          Thread.currentThread().interrupt();
+        try {
+          eventLoop.shutdownGracefully(0, 5, TimeUnit.SECONDS);
+        } finally {
+          if (wasInterrupted) {
+            Thread.currentThread().interrupt();
+          }
         }
       }
-
-      eventLoop.shutdownGracefully();
     }
   }
 

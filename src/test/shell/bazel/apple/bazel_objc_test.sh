@@ -25,6 +25,10 @@ if ! is_darwin; then
 fi
 
 function test_xcodelocator_embedded_tool() {
+  # Declare apple_support directly so its Apple C++ toolchain is registered
+  # before the generic rules_cc toolchain inherited through @bazel_tools.
+  add_bazel_dep "apple_support" MODULE.bazel
+
   rm -rf ios
   mkdir -p ios
 

@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/tools/launcher/util/data_parser.h"
+
+#include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
-#include "src/main/cpp/util/strings.h"
-#include "src/tools/launcher/util/data_parser.h"
 #include "gtest/gtest.h"
+#include "src/main/cpp/util/strings.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
 namespace bazel {

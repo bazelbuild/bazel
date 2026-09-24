@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -93,6 +95,45 @@ public final class SandboxOptionsTest {
                 + "Input must be a single path to mount inside the sandbox or "
                 + "a mounting pair in the form of 'source:target'")
         .isEqualTo(e.getMessage());
+  }
+
+  @Test
+  public void testSandboxWritablePath_absolutePathSuccess() throws Exception {
+    SandboxOptions options =
+        Options.parse(SandboxOptions.class, "--sandbox_writable_path=/foo/bar").getOptions();
+    assertThat(options.getSandboxWritablePath()).containsExactly(PathFragment.create("/foo/bar"));
+  }
+
+  @Test
+  public void testSandboxWritablePath_relativePathFails() {
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> Options.parse(SandboxOptions.class, "--sandbox_writable_path=foo/bar"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "While parsing option --sandbox_writable_path=foo/bar: Not an absolute path:"
+                + " 'foo/bar'");
+  }
+
+  @Test
+  public void testSandboxBlockPath_absolutePathSuccess() throws Exception {
+    SandboxOptions options =
+        Options.parse(SandboxOptions.class, "--sandbox_block_path=/foo/bar").getOptions();
+    assertThat(options.getSandboxBlockPath()).containsExactly(PathFragment.create("/foo/bar"));
+  }
+
+  @Test
+  public void testSandboxBlockPath_relativePathFails() {
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> Options.parse(SandboxOptions.class, "--sandbox_block_path=foo/bar"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "While parsing option --sandbox_block_path=foo/bar: Not an absolute path: 'foo/bar'");
   }
 
   private static void assertMountPair(

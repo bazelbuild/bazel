@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException.AlreadyReportedRepositoryAccessException;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache.CandidateRepo;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -394,7 +395,19 @@ public final class RepositoryFetchFunction implements SkyFunction {
       return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
     }
 
-    if (!repoRoot.exists()) {
+    boolean repoRootExists;
+    try {
+      repoRootExists = repoRoot.exists();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "error checking whether repository root %s exists: %s"
+                  .formatted(repoRoot, e.getMessage()),
+              e),
+          Transience.TRANSIENT);
+    }
+
+    if (!repoRootExists) {
       // The repository isn't on the file system, there is nothing we can do.
       throw new RepositoryFunctionException(
           new IOException(
@@ -426,7 +439,20 @@ public final class RepositoryFetchFunction implements SkyFunction {
       throws RepositoryFunctionException, InterruptedException {
     Path vendorPath = RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).get();
     Path vendorRepoPath = vendorPath.getRelative(repositoryName.getName());
-    if (vendorRepoPath.exists()) {
+
+    boolean vendorRepoExists;
+    try {
+      vendorRepoExists = vendorRepoPath.exists();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "error checking whether vendored repo %s exists: %s"
+                  .formatted(vendorRepoPath, e.getMessage()),
+              e),
+          Transience.TRANSIENT);
+    }
+
+    if (vendorRepoExists) {
       Path vendorMarker = vendorPath.getChild(repositoryName.getMarkerFileName());
       if (vendorFile.pinnedRepos().contains(repositoryName)) {
         // pinned repos are used as they are without checking their marker file
@@ -600,6 +626,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
+    RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode =
+        checkNotNull(RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA.get(env));
 
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {
@@ -683,7 +711,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     RepoMetadata.Reproducibility.NO,
                     Dict.cast(dict, String.class, Object.class, "return value"));
             case RepoMetadata rm -> rm;
-            default -> RepoMetadata.NONREPRODUCIBLE;
+            default -> {
+              if (shouldRequireRepoMetadata(requireRepoExtensionMetadataMode, repoDefinition)) {
+                throwDefaultRepoMetadataError(
+                    repoDefinition, requireRepoExtensionMetadataMode, env);
+              }
+              yield RepoMetadata.NONREPRODUCIBLE;
+            }
           };
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(repoDefinition, repoMetadata.attrsForReproducibility());
@@ -715,15 +749,34 @@ public final class RepositoryFetchFunction implements SkyFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
-    if (!outputDirectory.isDirectory()) {
+    boolean isDirectory;
+    try {
+      isDirectory = outputDirectory.isDirectory();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+    if (!isDirectory) {
       throw new RepositoryFunctionException(
           new IOException(repoDefinition.name() + " must create a directory"),
           Transience.TRANSIENT);
     }
 
+    boolean isOutputDirectoryValidRepoRoot;
+    try {
+      isOutputDirectoryValidRepoRoot = RepositoryUtils.isValidRepoRoot(outputDirectory);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+
     // Make sure the fetched repo has a boundary file.
-    if (!RepositoryUtils.isValidRepoRoot(outputDirectory)) {
-      if (outputDirectory.isSymbolicLink()) {
+    if (!isOutputDirectoryValidRepoRoot) {
+      boolean isSymbolicLink;
+      try {
+        isSymbolicLink = outputDirectory.isSymbolicLink();
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+      if (isSymbolicLink) {
         // The created repo is actually just a symlink to somewhere else (think local_repository).
         // In this case, we shouldn't try to create the repo boundary file ourselves, but report an
         // error instead.
@@ -741,6 +794,37 @@ public final class RepositoryFetchFunction implements SkyFunction {
     }
 
     return new FetchResult(recordedInputValues, repoMetadata.reproducible());
+  }
+
+  private static boolean shouldRequireRepoMetadata(
+      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode,
+      RepoDefinition repoDefinition) {
+    return switch (requireRepoExtensionMetadataMode) {
+      case FALSE -> false;
+      case ALL -> true;
+      case ROOT -> repoDefinition.repoRule().id().bzlFileLabel().getRepository().isMain();
+    };
+  }
+
+  private static void throwDefaultRepoMetadataError(
+      RepoDefinition repoDefinition,
+      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode,
+      Environment env)
+      throws RepositoryFunctionException {
+    String definitionInformation =
+        RepositoryResolvedEvent.getRuleDefinitionInformation(repoDefinition);
+    String message =
+        ("repository rule for repo '%s' did not return repo_metadata (implementation at %s), but"
+                + " --incompatible_require_repo_extension_metadata=%s requires it")
+            .formatted(
+                repoDefinition.name(),
+                repoDefinition.repoRule().impl().getLocation(),
+                requireRepoExtensionMetadataMode);
+    env.getListener().handle(Event.error(message));
+    env.getListener().handle(Event.info(definitionInformation));
+    throw new RepositoryFunctionException(
+        new AlreadyReportedRepositoryAccessException(new IOException(message)),
+        Transience.PERSISTENT);
   }
 
   @Nullable
@@ -764,12 +848,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
       String userDefinedPath,
       Environment env)
       throws RepositoryFunctionException, InterruptedException {
-    if (source.isDirectory(Symlinks.NOFOLLOW)) {
-      try {
+    try {
+      if (source.isDirectory(Symlinks.NOFOLLOW)) {
         source.deleteTree();
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
     try {
       FileSystemUtils.ensureSymbolicLink(source, destination);
@@ -825,7 +909,15 @@ public final class RepositoryFetchFunction implements SkyFunction {
     // Check that the directory contains a repo boundary file.
     // Note that we need to do this here since we're not creating a repo boundary file ourselves,
     // but entrusting the entire contents of the repo root to this target directory.
-    if (!RepositoryUtils.isValidRepoRoot(destination)) {
+
+    boolean isDestinationValidRepoRoot;
+    try {
+      isDestinationValidRepoRoot = RepositoryUtils.isValidRepoRoot(destination);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+
+    if (!isDestinationValidRepoRoot) {
       throw new RepositoryFunctionException(
           new IOException("No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + destination),
           Transience.TRANSIENT);

@@ -152,6 +152,23 @@ public interface TraceProfilerService extends BlazeService {
   void logSimpleTaskDuration(
       long startTimeNanos, Duration duration, ProfilerTask type, String description);
 
+  /**
+   * Similar to logSimpleTaskDuration, specific for action-related tasks (such as ACTION or
+   * CRITICAL_PATH_COMPONENT) that have additional information such as primary output path and
+   * target label.
+   */
+  default void logActionTaskDuration(
+      long startTimeNanos,
+      Duration duration,
+      ProfilerTask type,
+      String description,
+      String mnemonic,
+      String primaryOutput,
+      String targetLabel,
+      String configuration) {
+    logSimpleTaskDuration(startTimeNanos, duration, type, description);
+  }
+
   /** Used to log "events" happening at a specific time - tasks with zero duration. */
   void logEventAtTime(long atTimeNanos, ProfilerTask type, String description);
 

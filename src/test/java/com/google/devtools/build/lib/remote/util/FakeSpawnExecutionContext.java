@@ -119,9 +119,8 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public SortedMap<PathFragment, ActionInput> getInputMapping(
-      PathFragment baseDirectory, boolean willAccessRepeatedly) {
-    return new SpawnInputExpander().getInputMapping(spawn, inputMetadataProvider, baseDirectory);
+  public SortedMap<PathFragment, ActionInput> getInputMapping(boolean willAccessRepeatedly) {
+    return new SpawnInputExpander().getInputMapping(spawn, inputMetadataProvider);
   }
 
   @Override

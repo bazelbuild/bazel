@@ -349,7 +349,7 @@ public final class ActionRewindStrategy {
     boolean missingDependencies = false;
     for (DerivedArtifact lostArtifact : lostArtifacts) {
       Map<ActionLookupData, ActionAnalysisMetadata> actionMap =
-          getActionsForLostArtifact(lostArtifact, env);
+          getActionsForLostArtifact(lostArtifact, env, lostInputsAndTransitiveOwners);
       if (actionMap == null) {
         // Some deps of the artifact are not done. If allowSkyframeRestarts() is false, another
         // rewind must be in-flight, and there is no need to rewind the shared deps twice.
@@ -419,8 +419,15 @@ public final class ActionRewindStrategy {
         ArtifactNestedSetKey.addNestedSetPathsToRewindGraph(
             rewindGraph, rootKey, nestedSetKey, lostInputsAndTransitiveOwners, seenNestedSets);
       } else {
-        // This block isn't expected to execute in practice when precise=true. The exception is a
-        // runfiles SymlinkTreeAction on Windows, which takes all artifacts as inputs.
+        // Unreachable when precise == true: The only non-aggregator action that propagates
+        // insensitively and has a non-flat nested set of inputs is a SymlinkTreeAction on Windows,
+        // where it takes all runfiles as inputs. Reaching this branch would require its only
+        // output, the runfiles manifest, to be lost, but the action always runs locally. If this
+        // ever changes and precise/non-precise rewinding can apply to a single rewind graph
+        // simultaneously, both modes would require separate accounting of which nested sets have
+        // been visited.
+        checkState(
+            !precise, "%s unexpectedly triggered a fallback to non-precise rewinding", failedKey);
         ArtifactNestedSetKey.addEntireNestedSetToRewindGraph(rewindGraph, nestedSetKey);
         rewindGraph.putEdge(rootKey, nestedSetKey);
       }
@@ -629,8 +636,14 @@ public final class ActionRewindStrategy {
     for (ActionInput lostInput : lostInputs) {
       lostInputsAndOwners.add(lostInput);
       if (lostInput instanceof Artifact artifact && artifact.hasParent()) {
-        lostInputsAndOwners.add(artifact.getParent());
-        owners.put(artifact, artifact.getParent());
+        Artifact parent = artifact.getParent();
+        lostInputsAndOwners.add(parent);
+        owners.put(artifact, parent);
+        if (parent.isSubTreeArtifact()) {
+          Artifact grandparent = parent.getParent();
+          lostInputsAndOwners.add(grandparent);
+          owners.put(parent, grandparent);
+        }
       }
     }
 
@@ -697,6 +710,18 @@ public final class ActionRewindStrategy {
         Set<Artifact> transitiveOwners = owners.get(directOwner);
         for (Artifact transitiveOwner : transitiveOwners) {
           checkDerived(transitiveOwner);
+
+          // The lost input may be included in a subtree artifact of a tree artifact that is
+          // included by a runfiles tree that the action directly depends on. Note that subtree
+          // artifacts cannot be nested, so one additional level is sufficient.
+          for (Artifact outerOwner : owners.get(transitiveOwner)) {
+            checkDerived(outerOwner);
+
+            if (expandedDeps.contains(Artifact.key(outerOwner))) {
+              lostInputOwningDirectDeps.add((DerivedArtifact) outerOwner);
+              foundLostInputDepOwner = true;
+            }
+          }
 
           if (expandedDeps.contains(Artifact.key(transitiveOwner))) {
             // The lost input is included in an aggregation artifact (e.g. a tree artifact or
@@ -803,7 +828,7 @@ public final class ActionRewindStrategy {
       }
       for (DerivedArtifact artifact : artifactsToCheck) {
         Map<ActionLookupData, ActionAnalysisMetadata> actionMap =
-            getActionsForLostArtifact(artifact, env);
+            getActionsForLostArtifact(artifact, env, lostInputsAndTransitiveOwners);
         if (actionMap == null) {
           missingDependencies = true;
           continue;
@@ -937,7 +962,10 @@ public final class ActionRewindStrategy {
    */
   @Nullable
   private Map<ActionLookupData, ActionAnalysisMetadata> getActionsForLostArtifact(
-      DerivedArtifact lostInput, Environment env) throws InterruptedException {
+      DerivedArtifact lostInput,
+      Environment env,
+      @Nullable Set<ActionInput> lostInputsAndTransitiveOwners)
+      throws InterruptedException {
     ImmutableSet<ActionLookupData> actionExecutionDeps = getActionExecutionDeps(lostInput, env);
     if (actionExecutionDeps == null) {
       return null;
@@ -952,7 +980,16 @@ public final class ActionRewindStrategy {
         missingAction = true;
         continue;
       }
-      actions.put(dep, actionAnalysisMetadata);
+      // Keep all actions unless precise rewinding is active (lostInputsAndTransitiveOwners !=
+      // null) and we're working with an action template expansion. In that case, only keep actions
+      // that output at least one lost input.
+      if (lostInputsAndTransitiveOwners == null
+          || !lostInput.isTreeArtifact()
+          || dep.equals(lostInput.getGeneratingActionKey())
+          || actionAnalysisMetadata.getOutputs().stream()
+              .anyMatch(lostInputsAndTransitiveOwners::contains)) {
+        actions.put(dep, actionAnalysisMetadata);
+      }
     }
     if (missingAction) {
       return null;

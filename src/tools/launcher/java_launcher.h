@@ -15,6 +15,7 @@
 #ifndef BAZEL_SRC_TOOLS_LAUNCHER_JAVA_LAUNCHER_H_
 #define BAZEL_SRC_TOOLS_LAUNCHER_JAVA_LAUNCHER_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -88,10 +89,12 @@ class JavaBinaryLauncher : public BinaryLauncherBase {
   bool singlejar;
   bool print_javabin;
   int classpath_limit;
-  int java_version;
   // Per-invocation random suffix used to uniquify the junction base dir and
   // classpath jar across concurrent launcher processes sharing the same binary.
   const std::wstring rand_id_;
+
+  // Returns the Java version targeted by this launcher.
+  std::optional<int> GetJavaVersion();
 
   // Creates a classpath jar to pass the CLASSPATH value when its length is over
   // the limit.

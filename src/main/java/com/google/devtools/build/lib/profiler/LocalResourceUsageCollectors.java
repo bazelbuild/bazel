@@ -40,6 +40,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.util.HashMap;
 import java.util.function.BiConsumer;
+import javax.annotation.Nullable;
 
 /** An assortment of classes that collects various interesting metrics about the local system. */
 public class LocalResourceUsageCollectors {
@@ -50,14 +51,14 @@ public class LocalResourceUsageCollectors {
 
   private final ResourceEstimator resourceEstimator;
 
-  private final SystemNetworkStatsService systemNetworkStatsService;
+  @Nullable private final SystemNetworkStatsService systemNetworkStatsService;
 
   public LocalResourceUsageCollectors(
       BugReporter bugReporter,
       InMemoryGraph graph,
       WorkerProcessMetricsCollector workerProcessMetricsCollector,
       ResourceEstimator resourceEstimator,
-      SystemNetworkStatsService systemNetworkStatsService) {
+      @Nullable SystemNetworkStatsService systemNetworkStatsService) {
     this.bugReporter = bugReporter;
     this.graph = graph;
     this.workerProcessMetricsCollector = workerProcessMetricsCollector;
@@ -99,7 +100,7 @@ public class LocalResourceUsageCollectors {
     if (collectLoadAverage) {
       Profiler.instance().registerCounterSeriesCollector(new SystemLoadAverageCollector(osBean));
     }
-    if (collectSystemNetworkUsage) {
+    if (collectSystemNetworkUsage && systemNetworkStatsService != null) {
       Profiler.instance()
           .registerCounterSeriesCollector(
               new SystemNetworkUsageCollector(systemNetworkStatsService));

@@ -267,6 +267,28 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void actionTemplateExpansionRewound_notConcurrentWithTreeConsumers() throws Exception {
+    helper.runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_fileUnderSubtreeArtifactLost() throws Exception {
+    helper.runActionTemplateExpansionRewound_fileUnderSubtreeArtifactLost();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_fileUnderSubtreeArtifactInRunfilesLost()
+      throws Exception {
+    helper.runActionTemplateExpansionRewound_fileUnderSubtreeArtifactInRunfilesLost();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_siblingActionsReExecuteConcurrently()
+      throws Exception {
+    helper.runActionTemplateExpansionRewound_siblingActionsReExecuteConcurrently();
+  }
+
+  @Test
   public void generatedRunfilesRewound_allFilesLost() throws Exception {
     helper.runGeneratedRunfilesRewound_allFilesLost_spawnFailed();
   }

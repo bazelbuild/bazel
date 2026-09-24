@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote.downloader;
 
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
+
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
 import build.bazel.remote.asset.v1.FetchGrpc;
@@ -24,8 +26,8 @@ import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
@@ -123,12 +125,16 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     this.remoteDownloaderLocalFallback = remoteDownloaderLocalFallback;
   }
 
+  /**
+   * Releases the reference to the channel held by this downloader.
+   *
+   * <p>The {@link RemoteCacheClient} is owned by the caller and thus not closed here.
+   */
   @Override
   public void close() {
     if (closed.getAndSet(true)) {
       return;
     }
-    cacheClient.close();
     channel.release();
   }
 
@@ -204,7 +210,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           retrier.execute(
               () -> {
                 try (OutputStream out = newOutputStream(destination, checksum)) {
-                  Utils.getFromFuture(
+                  getFromFuture(
                       cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
                 } catch (OutputDigestMismatchException e) {
                   e.setOutputPath(destination.getPathString());
@@ -291,9 +297,13 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           Qualifier.newBuilder().setName(QUALIFIER_CANONICAL_ID).setValue(canonicalId).build());
     }
 
-    for (Map.Entry<String, List<String>> entry :
-        (remoteDownloaderPropagateCredentials ? headers : ImmutableMap.<String, List<String>>of())
-            .entrySet()) {
+    for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      if (!remoteDownloaderPropagateCredentials
+          && (Ascii.equalsIgnoreCase(entry.getKey(), "Authorization")
+              || Ascii.equalsIgnoreCase(entry.getKey(), "Proxy-Authorization")
+              || Ascii.equalsIgnoreCase(entry.getKey(), "Cookie"))) {
+        continue;
+      }
       // https://www.rfc-editor.org/rfc/rfc9110.html#name-field-order permits
       // merging the field-values with a comma.
       requestBuilder.addQualifiers(

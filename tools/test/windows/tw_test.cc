@@ -418,6 +418,7 @@ TEST_F(TestWrapperWindowsTest, TestCreateUndeclaredOutputsAnnotations) {
   EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), nullptr));
   EXPECT_TRUE(CreateDirectoryW((root + L"\\bar.part").c_str(), nullptr));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a.part", "Hello a"));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a.pb", "Proto a"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\b.txt", "Hello b"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\c.part", "Hello c"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\foo\\d.part", "Hello d"));
@@ -763,6 +764,42 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanTriplePageSize) {
   ASSERT_EQ(s->Peek(100, buf), 2);
   ASSERT_EQ(buf[0], 'n');
   ASSERT_EQ(buf[1], 'o');
+}
+
+class AutoUnsetEnv {
+ public:
+  explicit AutoUnsetEnv(const wchar_t* name) : name_(name) {}
+  ~AutoUnsetEnv() { ::SetEnvironmentVariableW(name_, nullptr); }
+
+ private:
+  const wchar_t* name_;
+};
+
+TEST_F(TestWrapperWindowsTest, TestGetEnv) {
+  // Test non-empty variable
+  std::wstring result;
+  ASSERT_TRUE(TestOnly_GetEnv(L"TEST_TMPDIR", &result));
+  ASSERT_FALSE(result.empty());
+
+  // Test unset / non-existent variable
+  ASSERT_TRUE(
+      TestOnly_GetEnv(L"THIS_VARIABLE_SHOULD_NOT_EXIST_12345", &result));
+  ASSERT_TRUE(result.empty());
+
+  // Test empty variable
+  {
+    AutoUnsetEnv auto_unset(L"BAZEL_TEST_EMPTY_ENV");
+    ASSERT_TRUE(::SetEnvironmentVariableW(L"BAZEL_TEST_EMPTY_ENV", L""));
+
+    // Case 1: Normal retrieval of empty variable
+    ASSERT_TRUE(TestOnly_GetEnv(L"BAZEL_TEST_EMPTY_ENV", &result));
+    ASSERT_TRUE(result.empty());
+
+    // Case 2: Retrieval when thread error code is pre-set to non-zero
+    ::SetLastError(ERROR_ACCESS_DENIED);
+    ASSERT_TRUE(TestOnly_GetEnv(L"BAZEL_TEST_EMPTY_ENV", &result));
+    ASSERT_TRUE(result.empty());
+  }
 }
 
 }  // namespace

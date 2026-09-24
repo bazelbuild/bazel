@@ -33,8 +33,6 @@ import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.github.luben.zstd.RecyclingBufferPool;
-import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +43,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.concurrent.QuiescingFutureTask;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask.Color;
@@ -87,6 +89,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -96,7 +99,6 @@ import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -163,10 +165,12 @@ final class FileDependencySerializer {
   }
 
   @VisibleForTesting public static final int COMPRESSION_NUM_BYTES_THRESHOLD = 580;
+
+  private final CompressionService compressionService;
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
   private final KeyValueWriter writer;
-  private final Executor executor;
+  private final SafeExecutor executor;
   private final Counters counters;
   @Nullable private final ProfileCollector profileCollector;
 
@@ -190,12 +194,14 @@ final class FileDependencySerializer {
   FileDependencySerializer(
       LongVersionGetter versionGetter,
       InMemoryGraph graph,
+      CompressionService compressionService,
       KeyValueWriter writer,
-      Executor executor,
+      SafeExecutor executor,
       @Nullable ProfileCollector profileCollector) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
+    this.compressionService = compressionService;
     this.executor = executor;
     this.counters = new Counters();
     this.profileCollector = profileCollector;
@@ -735,7 +741,7 @@ final class FileDependencySerializer {
       }
 
       ListenableFuture<Long> dirMtsvFuture =
-          Futures.submit(
+          SafeFutures.submit(
               (Callable<Long>)
                   () -> {
                     return versionGetter.getDirectoryListingVersion(realPath.asPath());
@@ -789,68 +795,30 @@ final class FileDependencySerializer {
   NodeDataInfoOrFuture populateFutureNodeDataInfo(FutureNodeDataInfo future) {
     counters.nodesWaitingForDeps.incrementAndGet();
 
-    AbstractNestedFileOpNodes node = future.key();
-    var dependencyHandler = new NodeDependencyHandler();
-
-    // Loops through all node dependencies, registering them with the dependencyHandler. The
-    // dependencyHandler triggers recursive registration, keeping track of immediate results and
-    // any futures.
-    for (int i = 0; i < node.analysisDependenciesCount(); i++) {
-      switch (node.getAnalysisDependency(i)) {
-        case FileKey fileKey:
-          dependencyHandler.addFileKey(fileKey);
-          break;
-        case DirectoryListingKey listingKey:
-          dependencyHandler.addListingKey(listingKey);
-          break;
-        case AbstractNestedFileOpNodes nestedKeys:
-          dependencyHandler.addNodeKey(nestedKeys);
-          break;
-        case RemoteFileOpNode remoteNode:
-          dependencyHandler.addRemoteNode(remoteNode);
-          break;
-      }
-    }
-
-    switch (node) {
-      case NestedFileOpNodes plainNodes:
-        break;
-      case NestedFileOpNodesWithSource withSource:
-        dependencyHandler.setSourceFile(withSource.source());
-        break;
-    }
-
-    var allFutures = dependencyHandler.getCombinedFutures();
-    if (allFutures.isEmpty()) {
-      NodeDataInfo result;
-      try {
-        result = dependencyHandler.call();
-      } catch (ExecutionException | IOException e) {
-        // Only thrown when calling Future.get, but none should be present if this is reached.
-        throw new IllegalStateException("unexpected failure", e);
-      }
-      return future.completeWith(result);
-    }
-    return future.completeWith(
-        Futures.whenAllComplete(allFutures).call(dependencyHandler, executor));
+    var task = new NodeDependencyHandler(future.key());
+    task.run();
+    return future.completeWith(task);
   }
 
-  static OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
+  OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
     // The default level and the fastest level (-7) results in 35% and 19% wall time overhead when
     // not using a threshold to compress, the default level provided a 2x better compression. Since
     // we do use a threshold and there is no wall time regression, we favor the better compression
     // ratio.
-    return new ZstdOutputStream(outputStream, RecyclingBufferPool.INSTANCE);
+    return compressionService.newZstdOutputStream(outputStream);
   }
 
   /**
    * Accepts all the dependencies associated with a node, registers their serialization and waits
-   * for processing to complete, signalled through the {@link #call} callback.
+   * for processing to complete.
    *
    * <p>Once processing is complete and all keys are known, uploads the node value. {@link
    * #computeNodeBytes} defines the wire format of nodes.
    */
-  class NodeDependencyHandler implements Callable<NodeDataInfo> {
+  private final class NodeDependencyHandler extends QuiescingFutureTask<NodeDataInfo>
+      implements FutureCallback<Object> {
+    private final AbstractNestedFileOpNodes node;
+
     private final ArrayList<String> fileKeys = new ArrayList<>();
     private final ArrayList<String> listingKeys = new ArrayList<>();
     private final ArrayList<NodeInvalidationDataInfo> nodeDependencies = new ArrayList<>();
@@ -862,21 +830,54 @@ final class FileDependencySerializer {
     private final ArrayList<FutureListingDataInfo> futureListingDataInfo = new ArrayList<>();
     private final ArrayList<FutureNodeDataInfo> futureNodeDataInfo = new ArrayList<>();
 
+    private NodeDependencyHandler(AbstractNestedFileOpNodes node) {
+      super(executor);
+      this.node = node;
+    }
+
     @Override
-    public NodeDataInfo call() throws ExecutionException, IOException {
-      for (FutureFileDataInfo futureInfo : futureFileDataInfo) {
-        addFileInfo(Futures.getDone(futureInfo));
+    protected void arrangeSubtasks() {
+      // Loops through all node dependencies, registering them with this handler. This triggers
+      // recursive registration, keeping track of immediate results and any futures.
+      for (int i = 0; i < node.analysisDependenciesCount(); i++) {
+        switch (node.getAnalysisDependency(i)) {
+          case FileKey fileKey -> addFileKey(fileKey);
+          case DirectoryListingKey listingKey -> addListingKey(listingKey);
+          case AbstractNestedFileOpNodes nestedKeys -> addNodeKey(nestedKeys);
+          case RemoteFileOpNode remoteNode -> addRemoteNode(remoteNode);
+        }
       }
-      for (FutureListingDataInfo futureInfo : futureListingDataInfo) {
-        addListingInfo(Futures.getDone(futureInfo));
+
+      switch (node) {
+        case NestedFileOpNodes plainNodes -> {}
+        case NestedFileOpNodesWithSource withSource -> setSourceFile(withSource.source());
       }
-      for (FutureNodeDataInfo futureInfo : futureNodeDataInfo) {
-        addNodeInfo(Futures.getDone(futureInfo));
+    }
+
+    @Override
+    protected NodeDataInfo getValue() {
+      @Nullable String sourceFileKey;
+      try {
+        for (FutureFileDataInfo futureInfo : futureFileDataInfo) {
+          addFileInfo(Futures.getDone(futureInfo));
+        }
+        for (FutureListingDataInfo futureInfo : futureListingDataInfo) {
+          addListingInfo(Futures.getDone(futureInfo));
+        }
+        for (FutureNodeDataInfo futureInfo : futureNodeDataInfo) {
+          addNodeInfo(Futures.getDone(futureInfo));
+        }
+        sourceFileKey = getSourceFileKey();
+      } catch (ExecutionException e) {
+        // The QuiescingFutureTask setup guarantees that ExecutionException will not be thrown if
+        // getValue is called.
+        throw new AssertionError("unexpected failure", e);
       }
-      @Nullable String sourceFileKey = getSourceFileKey();
 
       if (fileKeys.isEmpty() && listingKeys.isEmpty() && sourceFileKey == null) {
+        // TODO(b/558805781): investigate whether this is always dead code in practice
         if (nodeDependencies.isEmpty()) {
+          counters.nodesWaitingForDeps.decrementAndGet();
           return CONSTANT_NODE; // None of the dependencies are relevant to invalidation.
         }
         // There are multiple ways that result could become unary here, even if `node` always has at
@@ -889,6 +890,7 @@ final class FileDependencySerializer {
           //
           // TODO: b/364831651 - consider additional special casing for unary file or listing
           // dependencies.
+          counters.nodesWaitingForDeps.decrementAndGet();
           return nodeDependencies.get(0);
         }
       }
@@ -952,6 +954,13 @@ final class FileDependencySerializer {
       return new NodeInvalidationDataInfo(key, writeStatusBuilder.build());
     }
 
+    @Override
+    protected void doneWithError(
+        @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+      counters.nodesWaitingForDeps.decrementAndGet();
+      counters.nodesWithProcessingErrors.incrementAndGet();
+    }
+
     private void addRemoteNode(RemoteFileOpNode remoteNode) {
       addNodeInfo(registerDependency(remoteNode));
     }
@@ -963,6 +972,7 @@ final class FileDependencySerializer {
           break;
         case FutureFileDataInfo futureInfo:
           futureFileDataInfo.add(futureInfo);
+          trackFuture(futureInfo);
           break;
       }
     }
@@ -985,6 +995,7 @@ final class FileDependencySerializer {
           break;
         case FutureListingDataInfo futureInfo:
           futureListingDataInfo.add(futureInfo);
+          trackFuture(futureInfo);
           break;
       }
     }
@@ -1007,6 +1018,7 @@ final class FileDependencySerializer {
           break;
         case FutureNodeDataInfo futureInfo:
           futureNodeDataInfo.add(futureInfo);
+          trackFuture(futureInfo);
           break;
       }
     }
@@ -1029,28 +1041,39 @@ final class FileDependencySerializer {
           sourceFile,
           sourceFileOrFuture);
       this.sourceFileOrFuture = registerDependency(sourceFile);
-    }
-
-    private ImmutableList<ListenableFuture<?>> getCombinedFutures() {
-      var combined =
-          ImmutableList.<ListenableFuture<?>>builder()
-              .addAll(futureFileDataInfo)
-              .addAll(futureListingDataInfo)
-              .addAll(futureNodeDataInfo);
       switch (sourceFileOrFuture) {
-        case null -> {}
-        case FileDataInfo unusedSource -> {}
-        case FutureFileDataInfo futureSource -> combined.add(futureSource);
+        case FileDataInfo immediateSource -> {}
+        case FutureFileDataInfo futureSource -> trackFuture(futureSource);
       }
-      return combined.build();
     }
 
-    private byte[] compressBytes(byte[] nodeBytes) throws IOException {
+    private void trackFuture(ListenableFuture<?> future) {
+      increment();
+      Futures.addCallback(future, this, directExecutor());
+    }
+
+    @Override
+    @DoNotCall("Only called via trackFuture")
+    public void onSuccess(Object ignored) {
+      decrement();
+    }
+
+    @Override
+    @DoNotCall("Only called via trackFuture")
+    public void onFailure(Throwable t) {
+      notifyException(t);
+    }
+
+    private byte[] compressBytes(byte[] nodeBytes) {
       ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      MagicBytes.writeMagicBytes(outputStream);
-      try (OutputStream compressedBytesStream =
-          FileDependencySerializer.getCompressedOutputStream(outputStream)) {
-        compressedBytesStream.write(nodeBytes);
+      try {
+        MagicBytes.writeMagicBytes(outputStream);
+        try (OutputStream compressedBytesStream =
+            compressionService.newZstdOutputStream(outputStream)) {
+          compressedBytesStream.write(nodeBytes);
+        }
+      } catch (IOException e) {
+        throw new AssertionError("Unexpected IOException during in-memory compression", e);
       }
       return outputStream.toByteArray();
     }

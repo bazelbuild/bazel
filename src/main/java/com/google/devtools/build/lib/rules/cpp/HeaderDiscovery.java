@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -74,7 +73,6 @@ final class HeaderDiscovery {
       NestedSet<Artifact> allowedDerivedInputs,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
     Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
@@ -111,7 +109,6 @@ final class HeaderDiscovery {
         treeArtifacts,
         execRoot,
         artifactResolver,
-        siblingRepositoryLayout,
         pathMapper);
   }
 
@@ -125,34 +122,9 @@ final class HeaderDiscovery {
       Map<PathFragment, SpecialArtifact> treeArtifacts,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-
-    // This is a very special case: in certain corner cases (notably, protobuf), the WORKSPACE file
-    // contains a local_repository that has the same name and path as the main repository. In this
-    // case, if sibling repository layout is active, files in that local repository have the same
-    // absolute execpath as files in the main repository but not the same *relative* execpath (e.g.
-    // a:b would be ../repo/a/b in the local_repository and a/b in the main repository)
-    //
-    // This would mean that artifacts coming from the local repository would be discovered as ones
-    // in the main repository, thus resulting in "undeclared dependency" errors. The way this flag
-    // hacks around this is by pretending that such artifacts are always in the local_repository if
-    // the action is in it. This of course breaks horribly if there are artifacts from *both*
-    // repositories on the inputs.
-    //
-    // Protobuf uses this to work around the fact that @bazel_tools depends on it (see
-    // https://github.com/bazelbuild/bazel/issues/19973). The fix is either to cut that dependency
-    // or to migrate to bzlmod.
-    boolean ignoreMainRepository =
-        siblingRepositoryLayout
-            && action
-                .getOwner()
-                .getLabel()
-                .getRepository()
-                .getName()
-                .equals(execRoot.getBaseName());
 
     // Check inclusions.
     IncludeProblems absolutePathProblems = new IncludeProblems();
@@ -175,15 +147,8 @@ final class HeaderDiscovery {
             continue;
           }
         }
-        if (execPath.startsWith(execRoot)
-            && (!ignoreMainRepository
-                || artifactResolver.isDerivedArtifact(execPath.relativeTo(execRoot)))) {
+        if (execPath.startsWith(execRoot)) {
           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
-        } else if (siblingRepositoryLayout && execPath.startsWith(execRoot.getParentDirectory())) {
-          // for --experimental_sibling_repository_layout
-          execPathFragment =
-              LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-                  execPath.relativeTo(execRoot.getParentDirectory()));
         } else {
           // Since gcc is given only relative paths on the command line, non-builtin include paths
           // here should never be absolute. If they are, it's probably due to a non-hermetic
@@ -197,8 +162,7 @@ final class HeaderDiscovery {
       Artifact derivedArtifact = regularDerivedArtifacts.get(execPathFragment);
       if (derivedArtifact == null) {
         Optional<PackageIdentifier> pkgId =
-            PackageIdentifier.discoverFromExecPath(
-                execPathFragment, false, siblingRepositoryLayout);
+            PackageIdentifier.discoverFromExecPath(execPathFragment, /* forFiles= */ false);
         if (pkgId.isPresent()) {
           if (possiblyCaseInsensitiveFileSystem) {
             resolvedArtifacts =

@@ -46,6 +46,7 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
 
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist
   private final Optional<Label> networkAllowlistForTests;
+  private final Optional<Label> noExplicitMnemonicAllowlist;
 
   // Used for `configuration_field`.
   private final ImmutableMap<String, Class<?>> fragmentNameToClass;
@@ -57,6 +58,7 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
    * @param transitiveDigest the hash of that file and its transitive load()s
    * @param toolsRepository the name of the tools repository, such as "@bazel_tools"
    * @param networkAllowlistForTests an allowlist for rule classes created by this thread
+   * @param noExplicitMnemonicAllowlist an allowlist for explicit mnemonic enforcement
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class
    * @param mainRepoMapping the repository mapping of the main repository
@@ -66,6 +68,7 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
       byte[] transitiveDigest,
       RepositoryName toolsRepository,
       Optional<Label> networkAllowlistForTests,
+      Optional<Label> noExplicitMnemonicAllowlist,
       ImmutableMap<String, Class<?>> fragmentNameToClass,
       RepositoryMapping mainRepoMapping) {
     super(() -> mainRepoMapping);
@@ -73,6 +76,7 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
     this.transitiveDigest = transitiveDigest;
     this.toolsRepository = toolsRepository;
     this.networkAllowlistForTests = networkAllowlistForTests;
+    this.noExplicitMnemonicAllowlist = noExplicitMnemonicAllowlist;
     this.fragmentNameToClass = fragmentNameToClass;
   }
 
@@ -141,6 +145,17 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
   @Override
   public Optional<Label> getNetworkAllowlistForTests() {
     return networkAllowlistForTests;
+  }
+
+  /**
+   * Returns a label for explicit mnemonic allowlist if one should be added.
+   *
+   * <p>Part of the {@link RuleDefinitionEnvironment} implementation for Starlark rule definitions
+   * in .bzl files.
+   */
+  @Override
+  public Optional<Label> getNoExplicitMnemonicAllowlist() {
+    return noExplicitMnemonicAllowlist;
   }
 
   /** Returns a map from configuration fragment name to configuration fragment class. */

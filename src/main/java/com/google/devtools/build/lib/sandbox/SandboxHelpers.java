@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.FILE;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 import static java.util.Objects.requireNonNull;
 
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -340,17 +340,25 @@ public final class SandboxHelpers {
       TreeDeleter treeDeleter,
       SandboxContents stashContents)
       throws IOException, InterruptedException {
-    Path execroot = workDir.getParentDirectory();
     Preconditions.checkNotNull(stashContents);
-    for (var dirent : stashContents.symlinkMap().entrySet()) {
+    for (var dirent : stashContents.fileMap().entrySet()) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
       Path absPath = root.getChild(dirent.getKey());
-      PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
+      if (!absPath.startsWith(workDir)) {
+        // Nothing outside of workDir can be an input, so leave it alone.
+        continue;
+      }
+      PathFragment pathRelativeToWorkDir = absPath.relativeTo(workDir);
       Optional<PathFragment> targetPath =
           getExpectedSymlinkTargetPath(pathRelativeToWorkDir, inputs);
-      if (targetPath.isPresent() && dirent.getValue().equals(targetPath.get())) {
+      boolean shouldKeep =
+          dirent.getValue() == null
+              ? inputs.getFiles().containsKey(pathRelativeToWorkDir)
+                  && inputs.getFiles().get(pathRelativeToWorkDir) == null
+              : targetPath.isPresent() && dirent.getValue().equals(targetPath.get());
+      if (shouldKeep) {
         Preconditions.checkState(inputsToCreate.remove(pathRelativeToWorkDir));
       } else {
         absPath.delete();
@@ -361,7 +369,11 @@ public final class SandboxHelpers {
         throw new InterruptedException();
       }
       Path absPath = root.getChild(dirent.getKey());
-      PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
+      if (!absPath.startsWith(workDir)) {
+        // Nothing outside of workDir can be an input, so leave it alone.
+        continue;
+      }
+      PathFragment pathRelativeToWorkDir = absPath.relativeTo(workDir);
       if (dirsToCreate.contains(pathRelativeToWorkDir)
           || prefixDirs.contains(pathRelativeToWorkDir)) {
         cleanRecursivelyWithInMemoryContents(
@@ -393,24 +405,16 @@ public final class SandboxHelpers {
       Set<PathFragment> prefixDirs,
       @Nullable TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
-    Path execroot = workDir.getParentDirectory();
     for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
       Path absPath = root.getChild(dirent.getName());
-      PathFragment pathRelativeToWorkDir;
-      if (absPath.startsWith(workDir)) {
-        // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
-        pathRelativeToWorkDir = absPath.relativeTo(workDir);
-      } else {
-        // path is not under workDir, which means it belongs to one of external repositories
-        // symlinked directly under execroot. Get the relative path based on there and prepend it
-        // with the designated prefix, '../', so that it's still a valid relative path to workDir.
-        pathRelativeToWorkDir =
-            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-                absPath.relativeTo(execroot));
+      if (!absPath.startsWith(workDir)) {
+        // Nothing outside of workDir can be an input, so leave it alone.
+        continue;
       }
+      PathFragment pathRelativeToWorkDir = absPath.relativeTo(workDir);
       Optional<PathFragment> targetPath =
           getExpectedSymlinkTargetPath(pathRelativeToWorkDir, inputs);
       if (targetPath.isPresent()) {
@@ -444,19 +448,6 @@ public final class SandboxHelpers {
       } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
         absPath.delete();
       }
-    }
-  }
-
-  private static PathFragment getPathRelativeToWorkDir(Path absPath, Path workDir, Path execroot) {
-    if (absPath.startsWith(workDir)) {
-      // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
-      return absPath.relativeTo(workDir);
-    } else {
-      // path is not under workDir, which means it belongs to one of external repositories
-      // symlinked directly under execroot. Get the relative path based on there and prepend it
-      // with the designated prefix, '../', so that it's still a valid relative path to workDir.
-      return LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-          absPath.relativeTo(execroot));
     }
   }
 
@@ -515,7 +506,7 @@ public final class SandboxHelpers {
     createDirectoryAndParentsInSandboxRoot(
         checkNotNull(
             path.getParentDirectory(),
-            "Path %s is not under/siblings of sandboxExecRoot: %s",
+            "Path %s is not under sandboxExecRoot: %s",
             path,
             sandboxExecRoot),
         knownDirectories,
@@ -545,11 +536,9 @@ public final class SandboxHelpers {
       Iterable<PathFragment> dirsToCreate, Path dir, boolean strict)
       throws IOException, InterruptedException {
     Set<Path> knownDirectories = new HashSet<>();
-    // Add sandboxExecRoot and it's parent -- all paths must fall under the parent of
-    // sandboxExecRoot and we know that sandboxExecRoot exists. This stops the recursion in
-    // createDirectoryAndParentsInSandboxRoot.
+    // Add sandboxExecRoot -- all paths fall under it and we know that it exists. This stops the
+    // recursion in createDirectoryAndParentsInSandboxRoot.
     knownDirectories.add(dir);
-    knownDirectories.add(dir.getParentDirectory());
     knownDirectories.add(getTmpDirPath(dir));
 
     for (PathFragment path : dirsToCreate) {
@@ -558,16 +547,8 @@ public final class SandboxHelpers {
       }
       if (strict) {
         Preconditions.checkArgument(!path.isAbsolute(), path);
-        if (path.containsUplevelReferences() && path.isMultiSegment()) {
-          // Allow a single up-level reference to allow inputs from the siblings of the main
-          // repository in the sandbox execution root, but forbid multiple up-level references.
-          // PathFragment is normalized, so up-level references are guaranteed to be at the
-          // beginning.
-          Preconditions.checkArgument(
-              !PathFragment.containsUplevelReferences(path.getSegment(1)),
-              "%s escapes the sandbox exec root.",
-              path);
-        }
+        Preconditions.checkArgument(
+            !path.containsUplevelReferences(), "%s escapes the sandbox exec root.", path);
       }
 
       createDirectoryAndParentsInSandboxRoot(dir.getRelative(path), knownDirectories, dir);
@@ -780,11 +761,11 @@ public final class SandboxHelpers {
    *
    * <p>The map keys are individual path segments.
    *
-   * @param symlinkMap maps names of known symlinks to their target path
+   * @param fileMap maps names of known symlinks to their target paths and empty files to null
    * @param dirMap maps names of known subdirectories to their contents
    */
   public record SandboxContents(
-      Map<String, PathFragment> symlinkMap, Map<String, SandboxContents> dirMap) {
+      Map<String, PathFragment> fileMap, Map<String, SandboxContents> dirMap) {
     public SandboxContents() {
       this(CompactHashMap.create(), CompactHashMap.create());
     }
@@ -801,15 +782,14 @@ public final class SandboxHelpers {
       Path workDir, SandboxInputs inputs, SandboxOutputs outputs) {
     Map<PathFragment, SandboxContents> contentsMap = CompactHashMap.create();
     for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
-      if (entry.getValue() == null) {
-        continue;
-      }
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = !addParent(contentsMap, parent);
       contentsMap
           .get(parent)
-          .symlinkMap()
-          .put(entry.getKey().getBaseName(), entry.getValue().asFragment());
+          .fileMap()
+          .put(
+              entry.getKey().getBaseName(),
+              entry.getValue() == null ? null : entry.getValue().asFragment());
       addAllParents(contentsMap, parentWasPresent, parent);
     }
     for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
@@ -818,7 +798,7 @@ public final class SandboxHelpers {
       }
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = !addParent(contentsMap, parent);
-      contentsMap.get(parent).symlinkMap().put(entry.getKey().getBaseName(), entry.getValue());
+      contentsMap.get(parent).fileMap().put(entry.getKey().getBaseName(), entry.getValue());
       addAllParents(contentsMap, parentWasPresent, parent);
     }
 
@@ -832,8 +812,6 @@ public final class SandboxHelpers {
       boolean parentWasPresent = !addParent(contentsMap, parent);
       addAllParents(contentsMap, parentWasPresent, parent);
     }
-    // TODO: Handle the sibling repository layout correctly. Currently, the code below assumes that
-    // all paths descend from the main repository.
     SandboxContents root = new SandboxContents();
     root.dirMap().put(workDir.getBaseName(), contentsMap.get(PathFragment.EMPTY_FRAGMENT));
     return root;
@@ -858,8 +836,7 @@ public final class SandboxHelpers {
         }
         Path absPath = root.getChild(dirent.getName());
         if (dirent.getType().equals(SYMLINK)) {
-          if (stashContents.symlinkMap().containsKey(dirent.getName())
-              && absPath.stat().getLastChangeTime() <= timestamp) {
+          if (stashContents.fileMap().get(dirent.getName()) != null) {
             filesAndSymlinksToKeep.add(dirent.getName());
           } else {
             absPath.delete();
@@ -872,12 +849,20 @@ public final class SandboxHelpers {
             absPath.deleteTree();
             stashContents.dirMap().remove(dirent.getName());
           }
+        } else if (dirent.getType().equals(FILE)) {
+          if (stashContents.fileMap().containsKey(dirent.getName())
+              && stashContents.fileMap().get(dirent.getName()) == null
+              && absPath.stat().getLastChangeTime() <= timestamp) {
+            filesAndSymlinksToKeep.add(dirent.getName());
+          } else {
+            absPath.delete();
+          }
         } else {
           absPath.delete();
         }
       }
       stashContents.dirMap().keySet().retainAll(dirsToKeep);
-      stashContents.symlinkMap().keySet().retainAll(filesAndSymlinksToKeep);
+      stashContents.fileMap().keySet().retainAll(filesAndSymlinksToKeep);
     } else {
       for (var entry : stashContents.dirMap().entrySet()) {
         Path absPath = root.getChild(entry.getKey());

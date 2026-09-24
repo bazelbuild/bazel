@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace.ActionCacheGarbageCollectorIdleTask;
@@ -373,7 +374,7 @@ public class BlazeRuntimeTest {
 
     BlazeRuntime runtime = createRuntime(ImmutableList.of(module), ImmutableList.of(service));
 
-    assertThat(runtime.getOptionsSuppliers()).containsExactly(module, service);
+    assertThat(runtime.getOptionsSuppliers()).containsAtLeast(module, service);
   }
 
   private BlazeRuntime createRuntime() throws Exception {
@@ -387,7 +388,8 @@ public class BlazeRuntimeTest {
             .setFileSystem(fs)
             .setProductName("foo product")
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(mock(OptionsParsingResult.class));
+            .setStartupOptionsProvider(mock(OptionsParsingResult.class))
+            .addBlazeService(new CompressionServiceImpl());
     for (var module : modules) {
       builder.addBlazeModule(module);
     }

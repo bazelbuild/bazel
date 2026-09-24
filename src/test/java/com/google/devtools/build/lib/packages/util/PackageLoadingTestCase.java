@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -207,12 +209,13 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   private SkyframeExecutor createSkyframeExecutor() {
     SkyframeExecutor skyframeExecutor =
-        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(packageFactory)
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setSyscallCache(delegatingSyscallCache)
+            .setCompressionService(new CompressionServiceImpl())
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
@@ -250,7 +253,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.setActionEnv(ImmutableMap.of());
   }
 
-  private void setUpSkyframe() {
+  private void setUpSkyframe() throws AbruptExitException, IOException {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,

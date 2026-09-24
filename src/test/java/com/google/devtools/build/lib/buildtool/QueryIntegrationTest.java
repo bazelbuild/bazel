@@ -344,6 +344,55 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         .isNotNull();
   }
 
+  private void writePackageWithBuildBazelFile() throws Exception {
+    write("bar/BUILD.bazel", "");
+    write("bar/bar.bzl", "sym = 0");
+    // BUILD.bazel takes precedence over BUILD, so //foo:BUILD is a plain source file here.
+    write(
+        "foo/BUILD.bazel",
+        """
+        load("//bar:bar.bzl", "sym")
+
+        exports_files(["BUILD"])
+        """);
+    write("foo/BUILD", "# not a BUILD file");
+  }
+
+  @Test
+  public void testProtoOutputRecognizesBuildBazelFile() throws Exception {
+    writePackageWithBuildBazelFile();
+
+    ProtoQueryOutput result = getProtoQueryResult("//foo:BUILD.bazel + //foo:BUILD");
+
+    Build.Target buildFile = getProtoTarget(result, "//foo:BUILD.bazel");
+    assertThat(buildFile.getType()).isEqualTo(Build.Target.Discriminator.SOURCE_FILE);
+    assertThat(buildFile.getSourceFile().getSubincludeList()).containsExactly("//bar:bar.bzl");
+    assertThat(buildFile.getSourceFile().hasPackageContainsErrors()).isTrue();
+    assertThat(buildFile.getSourceFile().getPackageContainsErrors()).isFalse();
+
+    Build.Target plainFile = getProtoTarget(result, "//foo:BUILD");
+    assertThat(plainFile.getType()).isEqualTo(Build.Target.Discriminator.SOURCE_FILE);
+    assertThat(plainFile.getSourceFile().getSubincludeList()).isEmpty();
+    assertThat(plainFile.getSourceFile().hasPackageContainsErrors()).isFalse();
+  }
+
+  @Test
+  public void testXmlOutputRecognizesBuildBazelFile() throws Exception {
+    writePackageWithBuildBazelFile();
+
+    Document result = getXmlQueryResult("//foo:BUILD.bazel + //foo:BUILD");
+
+    Element buildFile = getResultNode(result, "//foo:BUILD.bazel");
+    assertThat(buildFile.getTagName()).isEqualTo("source-file");
+    assertThat(xpathSelect(buildFile, "load[@name='//bar:bar.bzl']")).hasSize(1);
+    assertThat(buildFile.getAttribute("package_contains_errors")).isEqualTo("false");
+
+    Element plainFile = getResultNode(result, "//foo:BUILD");
+    assertThat(plainFile.getTagName()).isEqualTo("source-file");
+    assertThat(xpathSelect(plainFile, "load")).isEmpty();
+    assertThat(plainFile.hasAttribute("package_contains_errors")).isFalse();
+  }
+
   @Test
   public void testNonStrictTests() throws Exception {
     write(
@@ -1208,6 +1257,23 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     QueryResult queryResult = QueryResult.parseFrom(stdout, ExtensionRegistry.getEmptyRegistry());
 
     return new ProtoQueryOutput(result, queryResult);
+  }
+
+  private static Build.Target getProtoTarget(ProtoQueryOutput result, String name) {
+    for (Build.Target target : result.getQueryResult().getTargetList()) {
+      String targetName =
+          switch (target.getType()) {
+            case RULE -> target.getRule().getName();
+            case SOURCE_FILE -> target.getSourceFile().getName();
+            case GENERATED_FILE -> target.getGeneratedFile().getName();
+            case PACKAGE_GROUP -> target.getPackageGroup().getName();
+            case ENVIRONMENT_GROUP -> target.getEnvironmentGroup().getName();
+          };
+      if (targetName.equals(name)) {
+        return target;
+      }
+    }
+    throw new AssertionError("No target named " + name + " in " + result.getQueryResult());
   }
 
   Element getResultNode(Document xml, String ruleName) throws Exception {

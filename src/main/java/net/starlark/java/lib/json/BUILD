@@ -1,14 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(
-    default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
-)
+package(default_applicable_licenses = ["//:license"])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/net/starlark/java/lib:__pkg__"],
 )
 
 # Starlark json module
@@ -20,6 +17,6 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/lib",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )

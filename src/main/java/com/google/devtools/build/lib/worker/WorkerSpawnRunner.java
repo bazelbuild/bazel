@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
@@ -86,7 +87,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * The verbosity level implied by `--worker_verbose`. This value allows for manually setting some
    * only-slightly-verbose levels.
    */
-  private static final int VERBOSE_LEVEL = 10;
+  static final int VERBOSE_LEVEL = 10;
 
   /**
    * The next work request ID to use. This field is static so we don't reuse work request IDs across
@@ -195,9 +196,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
         inputFiles =
             SandboxHelpers.processInputFiles(
-                context.getInputMapping(
-                    PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-                execRoot);
+                context.getInputMapping(/* willAccessRepeatedly= */ true), execRoot);
       }
       SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
@@ -288,6 +287,16 @@ final class WorkerSpawnRunner implements SpawnRunner {
       requestBuilder.setRequestId(requestIdCounter.getAndIncrement());
     }
     return requestBuilder.build();
+  }
+
+  @VisibleForTesting
+  WorkRequest createCancelRequest(int requestId) {
+    WorkRequest.Builder cancelRequestBuilder =
+        WorkRequest.newBuilder().setRequestId(requestId).setCancel(true);
+    if (workerOptions.getWorkerVerbose()) {
+      cancelRequestBuilder.setVerbosity(VERBOSE_LEVEL);
+    }
+    return cancelRequestBuilder.build();
   }
 
   /**
@@ -633,11 +642,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
               Worker w = worker;
               try {
                 if (canCancel) {
-                  WorkRequest cancelRequest =
-                      WorkRequest.newBuilder()
-                          .setRequestId(request.getRequestId())
-                          .setCancel(true)
-                          .build();
+                  WorkRequest cancelRequest = createCancelRequest(request.getRequestId());
                   w.putRequest(cancelRequest);
                 }
                 w.getResponse(request.getRequestId());
@@ -652,17 +657,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
                   w = null;
 
-                } catch (IOException | InterruptedException | UserExecException e2) {
+                } catch (IOException | InterruptedException e2) {
                   // The reaper thread can't do anything useful about this.
                 }
               } finally {
                 if (w != null) {
                   try {
                     resourceHandle.close();
-                  } catch (IOException
-                      | InterruptedException
-                      | IllegalStateException
-                      | UserExecException e) {
+                  } catch (IOException | InterruptedException | IllegalStateException e) {
                     // Error while returning worker to the pool. Could not do anything.
                   }
                 }

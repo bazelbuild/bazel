@@ -3,7 +3,12 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/docgen:__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -14,7 +19,10 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/bazel:__pkg__",
+    ],
 )
 
 java_library(
@@ -31,7 +39,7 @@ java_library(
         ":objc_rules",
         ":toolchain_rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
@@ -56,8 +64,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -66,12 +76,12 @@ java_library(
     srcs = ["ObjcRules.java"],
     deps = [
         ":cc_rules",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -79,8 +89,8 @@ java_library(
     name = "generic_rules",
     srcs = ["GenericRules.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/environment_rule",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:environment_rule",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/rules:filegroup/filegroup",
@@ -90,7 +100,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract",
         "//src/main/java/com/google/devtools/build/lib/rules/test:test_suite_rule",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -113,7 +123,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -121,7 +131,7 @@ java_library(
     name = "bazel_prerequisite_validator",
     srcs = ["BazelPrerequisiteValidator.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:common_prerequisite_validator",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
@@ -131,14 +141,14 @@ java_library(
     name = "cc_rules",
     srcs = ["CcRules.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -147,7 +157,7 @@ java_library(
     srcs = ["BazelRulesModule.java"],
     deps = [
         ":bazel_rule_class_provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -155,7 +165,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -165,12 +175,12 @@ java_library(
     deps = [
         ":cc_rules",
         ":java_rules",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule",
         "//src/main/java/com/google/devtools/build/lib/rules:toolchain_type",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/genrule",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -179,14 +189,14 @@ java_library(
     srcs = ["JavaRules.java"],
     deps = [
         ":cc_rules",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/rules:extra/action_listener_rule",
         "//src/main/java/com/google/devtools/build/lib/rules:extra/extra_action_rule",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 

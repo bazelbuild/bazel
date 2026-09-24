@@ -18,8 +18,6 @@ import static com.google.common.util.concurrent.Uninterruptibles.getUninterrupti
 import static com.google.devtools.build.lib.skyframe.serialization.ErrorMessageHelper.getErrorMessage;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.ACTIVE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.getVersionGetterForTesting;
-import static com.google.devtools.build.lib.util.TestType.isInTest;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -41,6 +39,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -52,7 +51,6 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -138,6 +136,9 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
+    CompressionService compressionService =
+        serializationDependenciesProvider.getCompressionService();
+
     FingerprintValueService fingerprintValueService =
         serializationDependenciesProvider.getFingerprintValueService();
     if (fingerprintValueService == null) {
@@ -155,13 +156,7 @@ public final class FrontierSerializer {
     var profileCollector = profilePath.isEmpty() ? null : new ProfileCollector();
     var serializationStats = new SelectedEntrySerializer.SerializationStats();
 
-    if (versionGetter == null) {
-      if (isInTest()) {
-        versionGetter = getVersionGetterForTesting();
-      } else {
-        throw new NullPointerException("missing versionGetter");
-      }
-    }
+    requireNonNull(versionGetter, "missing versionGetter");
 
     boolean shouldDiscardMemory = !keepStateAfterBuild;
     if (shouldDiscardMemory) {
@@ -201,6 +196,7 @@ public final class FrontierSerializer {
             codecs,
             frontierVersion,
             selectedKeys,
+            compressionService,
             fingerprintValueService,
             fileInvalidationWriter,
             shouldDiscardMemory,
@@ -220,19 +216,12 @@ public final class FrontierSerializer {
         return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
       }
 
-      FingerprintValueStore.Stats stats = fingerprintValueService.getStats();
-
       reporter.handle(
           Event.info(
               String.format(
-                  "Serialized %s/%s analysis/execution nodes into %s/%s key/value bytes and %s"
-                      + " entries (%s batches) in %s",
+                  "Skycache sync write: serialized %s/%s analysis/execution nodes in %s",
                   serializationStats.analysisNodes(),
                   serializationStats.executionNodes(),
-                  stats.keyBytesSent(),
-                  stats.valueBytesSent(),
-                  stats.entriesWritten(),
-                  stats.setBatches(),
                   stopwatch)));
     } catch (ExecutionException e) {
       // The writeStatus future is not known to throw any ExecutionExceptions.

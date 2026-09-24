@@ -39,6 +39,11 @@ import java.util.concurrent.Executor;
  */
 public interface QuiescingExecutor extends Executor {
 
+  /** Executes the given {@link QuiescingTask}. */
+  default void execute(QuiescingTask task) {
+    execute((Runnable) task);
+  }
+
   /**
    * Waits for all tasks to complete. If the {@link QuiescingExecutor} owns its own {@link
    * java.util.concurrent.ExecutorService}, the service will also be shutdown.

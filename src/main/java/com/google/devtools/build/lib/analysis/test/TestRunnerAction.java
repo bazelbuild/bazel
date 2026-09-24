@@ -43,10 +43,12 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
@@ -62,6 +64,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -170,7 +173,11 @@ public class TestRunnerAction extends AbstractAction
   private final boolean splitCoveragePostProcessing;
   private final NestedSet<Artifact> lcovMergerFilesToRun;
 
-
+  /**
+   * If not null, the reason why this test can't be run in the current build, to be reported when
+   * the action is executed. The action is still created so that the test target can be built.
+   */
+  @Nullable private final String unrunnableReason;
 
   private static ImmutableSet<Artifact> nonNullAsSet(Artifact... artifacts) {
     ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
@@ -215,7 +222,8 @@ public class TestRunnerAction extends AbstractAction
       @Nullable PathFragment shExecutable,
       CancelConcurrentTests cancelConcurrentTests,
       boolean splitCoveragePostProcessing,
-      NestedSet<Artifact> lcovMergerFilesToRun) {
+      NestedSet<Artifact> lcovMergerFilesToRun,
+      @Nullable String unrunnableReason) {
     super(
         owner,
         inputs,
@@ -279,7 +287,7 @@ public class TestRunnerAction extends AbstractAction
     this.cancelConcurrentTests = cancelConcurrentTests;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
-
+    this.unrunnableReason = unrunnableReason;
 
     // Mark all possible test outputs for deletion before test execution.
     // TestRunnerAction potentially can create many more non-declared outputs - xml output, coverage
@@ -318,6 +326,16 @@ public class TestRunnerAction extends AbstractAction
 
   public boolean allowLocalTests() {
     return testConfiguration.allowLocalTests();
+  }
+
+  /**
+   * Returns the reason why this test can't be run in the current build, or {@code null} if it can
+   * be run.
+   */
+  @VisibleForTesting
+  @Nullable
+  public String getUnrunnableReason() {
+    return unrunnableReason;
   }
 
   @Override
@@ -517,6 +535,7 @@ public class TestRunnerAction extends AbstractAction
     // The 'requiredClientEnvVariables' are handled by Skyframe and don't need to be added here.
     fp.addString(testProperties.getSize().toString());
     fp.addString(testProperties.getTimeout().toString());
+    fp.addString(getTimeout().toString());
     fp.addStrings(testProperties.getTags());
     fp.addBoolean(testProperties.isRemotable());
     fp.addInt(shardNum);
@@ -526,6 +545,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addBoolean(configuration.isCodeCoverageEnabled());
     fp.addBoolean(testConfiguration.getZipUndeclaredTestOutputs());
     fp.addStringMap(getExecutionInfo());
+    fp.addNullableString(unrunnableReason);
   }
 
   /**
@@ -719,6 +739,15 @@ public class TestRunnerAction extends AbstractAction
   }
 
   public void setupEnvVariables(Map<String, String> env) {
+    PathMapper pathMapper =
+        PathMappers.create(
+            this,
+            PathMappers.getOutputPathsMode(getConfiguration()),
+            /* isStarlarkAction= */ false,
+            // Null inputMetadataProvider is safe here because this is only used for environment
+            // variable string path mapping and doesn't affect file contents.
+            /* inputMetadataProvider= */ null);
+
     // Allow --test_env and rules to overwite these values
     coverageEnv.forEach(env::putIfAbsent);
 
@@ -756,33 +785,42 @@ public class TestRunnerAction extends AbstractAction
       env.put("TESTBRIDGE_TEST_RUNNER_FAIL_FAST", "1");
     }
 
-    env.put("TEST_WARNINGS_OUTPUT_FILE", getTestWarningsPath().getPathString());
-    env.put("TEST_UNUSED_RUNFILES_LOG_FILE", getUnusedRunfilesLogPath().getPathString());
+    env.put("TEST_WARNINGS_OUTPUT_FILE", pathMapper.map(getTestWarningsPath()).getPathString());
+    env.put(
+        "TEST_UNUSED_RUNFILES_LOG_FILE",
+        pathMapper.map(getUnusedRunfilesLogPath()).getPathString());
 
-    env.put("TEST_LOGSPLITTER_OUTPUT_FILE", getSplitLogsPath().getPathString());
+    env.put("TEST_LOGSPLITTER_OUTPUT_FILE", pathMapper.map(getSplitLogsPath()).getPathString());
 
     if (testConfiguration.getZipUndeclaredTestOutputs()) {
-      env.put("TEST_UNDECLARED_OUTPUTS_ZIP", getUndeclaredOutputsZipPath().getPathString());
+      env.put(
+          "TEST_UNDECLARED_OUTPUTS_ZIP",
+          pathMapper.map(getUndeclaredOutputsZipPath()).getPathString());
     }
 
-    env.put("TEST_UNDECLARED_OUTPUTS_DIR", undeclaredOutputsDir.getExecPathString());
-    env.put("TEST_UNDECLARED_OUTPUTS_MANIFEST", getUndeclaredOutputsManifestPath().getPathString());
+    env.put(
+        "TEST_UNDECLARED_OUTPUTS_DIR", pathMapper.getMappedExecPathString(undeclaredOutputsDir));
+    env.put(
+        "TEST_UNDECLARED_OUTPUTS_MANIFEST",
+        pathMapper.map(getUndeclaredOutputsManifestPath()).getPathString());
     env.put(
         "TEST_UNDECLARED_OUTPUTS_ANNOTATIONS",
-        getUndeclaredOutputsAnnotationsPath().getPathString());
+        pathMapper.map(getUndeclaredOutputsAnnotationsPath()).getPathString());
     env.put(
         "TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR",
-        getUndeclaredOutputsAnnotationsDir().getPathString());
+        pathMapper.map(getUndeclaredOutputsAnnotationsDir()).getPathString());
 
-    env.put("TEST_PREMATURE_EXIT_FILE", getExitSafeFile().getPathString());
-    env.put("TEST_INFRASTRUCTURE_FAILURE_FILE", getInfrastructureFailureFile().getPathString());
+    env.put("TEST_PREMATURE_EXIT_FILE", pathMapper.map(getExitSafeFile()).getPathString());
+    env.put(
+        "TEST_INFRASTRUCTURE_FAILURE_FILE",
+        pathMapper.map(getInfrastructureFailureFile()).getPathString());
 
     if (isSharded()) {
       env.put("TEST_SHARD_INDEX", Integer.toString(getShardNum()));
       env.put("TEST_TOTAL_SHARDS", Integer.toString(getExecutionSettings().getTotalShards()));
-      env.put("TEST_SHARD_STATUS_FILE", getTestShard().getPathString());
+      env.put("TEST_SHARD_STATUS_FILE", pathMapper.map(getTestShard()).getPathString());
     }
-    env.put("XML_OUTPUT_FILE", testXml.getExecPathString());
+    env.put("XML_OUTPUT_FILE", pathMapper.getMappedExecPathString(testXml));
 
     if (!configuration.runfilesEnabled()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
@@ -794,9 +832,9 @@ public class TestRunnerAction extends AbstractAction
       // TODO(ulfjack): Find a way to avoid setting this variable.
       env.put("RUNTEST_PRESERVE_CWD", "1");
 
-      env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
-      env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
-      env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
+      env.put("COVERAGE_MANIFEST", pathMapper.getMappedExecPathString(getCoverageManifest()));
+      env.put("COVERAGE_DIR", pathMapper.map(getCoverageDirectory()).getPathString());
+      env.put("COVERAGE_OUTPUT_FILE", pathMapper.getMappedExecPathString(getCoverageData()));
       env.put("SPLIT_COVERAGE_POST_PROCESSING", splitCoveragePostProcessing ? "1" : "0");
       env.put("IS_COVERAGE_SPAWN", "0");
     }
@@ -994,8 +1032,6 @@ public class TestRunnerAction extends AbstractAction
     return workspaceName;
   }
 
-
-
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -1007,6 +1043,15 @@ public class TestRunnerAction extends AbstractAction
   public ActionResult execute(
       ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
       throws ActionExecutionException, InterruptedException {
+    if (unrunnableReason != null) {
+      FailureDetail failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage(unrunnableReason)
+              .setToolchain(Toolchain.newBuilder().setCode(Toolchain.Code.NO_MATCHING_TOOLCHAIN))
+              .build();
+      throw new ActionExecutionException(
+          unrunnableReason, this, /* catastrophe= */ false, DetailedExitCode.of(failureDetail));
+    }
 
     List<SpawnResult> spawnResults = new ArrayList<>();
     List<ProcessedAttemptResult> failedAttempts = new ArrayList<>();

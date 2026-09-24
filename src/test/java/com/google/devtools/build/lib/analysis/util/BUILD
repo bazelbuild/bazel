@@ -3,14 +3,14 @@ load("@rules_java//java:defs.bzl", "java_library")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/analysis:__pkg__"],
 )
 
 # Redirection for util lib to allow exporting both ":util_internal" and the
@@ -28,6 +28,9 @@ java_library(
     name = "util_internal",
     srcs = glob(["*.java"]),
     data = ["//src/main/protobuf/project:project_proto_scl_filegroup"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/analysis/mock:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
@@ -44,7 +47,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:build_view",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/incompatible_target_checker",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:extra_action_artifacts_provider",
@@ -77,11 +79,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:incompatible_target_checker",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:extension_eval_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_function",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_value",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_metadata_requirements",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_fetch_function",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
@@ -90,6 +94,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
@@ -155,11 +160,13 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:SkyframeExecutorTestHelper",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
         "@rules_java//java/runfiles",
     ],
 )

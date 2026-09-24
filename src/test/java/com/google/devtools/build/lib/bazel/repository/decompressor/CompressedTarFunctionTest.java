@@ -351,7 +351,7 @@ public class CompressedTarFunctionTest {
         .isTrue();
 
     Path symlinkTarget = outputDir.getRelative(outputSymbolicFile.readSymbolicLink());
-    assertWithMessage("symbolic_file target should exist: " + symlinkTarget.toString())
+    assertWithMessage("symbolic_file target should exist: %s", symlinkTarget)
         .that(symlinkTarget.exists())
         .isTrue();
 
@@ -369,7 +369,7 @@ public class CompressedTarFunctionTest {
         .isTrue();
 
     Path absSymlinkTarget = outputDir.getRelative(outputAbsSymbolicFile.readSymbolicLink());
-    assertWithMessage("abs_symbolic_file target should exist: " + symlinkTarget.toString())
+    assertWithMessage("abs_symbolic_file target should exist: %s", absSymlinkTarget)
         .that(absSymlinkTarget.exists())
         .isTrue();
 

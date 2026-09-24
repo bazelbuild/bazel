@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.blackbox.framework;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -177,9 +178,7 @@ public class PathUtilsTest {
   @Test
   public void testReplaceWithSymlinkContents() throws IOException {
     // do not run the test for windows
-    if (!OS.isPosixCompatible()) {
-      return;
-    }
+    assumeTrue(OS.getCurrent().isPosixCompatible());
 
     Path directory = Files.createTempDirectory("test");
     try {

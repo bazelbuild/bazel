@@ -104,7 +104,7 @@ public class IndexRegistry implements Registry {
 
   private static final String SOURCE_JSON_FILENAME = "source.json";
   private static final ImmutableList<String> ALLOWED_GIT_SCHEMES =
-      ImmutableList.of("https://", "ssh://", "git://", "file://");
+      ImmutableList.of("https://", "ssh://", "git://", "file://", "git@");
 
   public IndexRegistry(
       URI uri,
@@ -360,13 +360,13 @@ public class IndexRegistry implements Registry {
               "Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, getUrl()));
     }
     SourceJson sourceJson = parseJson(jsonString.get(), jsonUrl, SourceJson.class);
-    switch (sourceJson.type) {
+    return switch (sourceJson.type) {
       case "archive" -> {
         ArchiveSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
         var moduleFileUrl = constructModuleFileUrl(key);
         var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
-        return createArchiveRepoSpec(
+        yield createArchiveRepoSpec(
             typedSourceJson,
             moduleFileUrl,
             moduleFileChecksum,
@@ -376,7 +376,7 @@ public class IndexRegistry implements Registry {
       case "local_path" -> {
         LocalPathSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
-        return createLocalPathRepoSpec(
+        yield createLocalPathRepoSpec(
             typedSourceJson, getBazelRegistryJson(eventHandler, downloadManager), key);
       }
       case "git_repository" -> {
@@ -384,12 +384,12 @@ public class IndexRegistry implements Registry {
             parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
         var moduleFileUrl = constructModuleFileUrl(key);
         var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
-        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum, key);
+        yield createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum, key);
       }
       default ->
           throw new IOException(
               String.format("Invalid source type \"%s\" for module %s", sourceJson.type, key));
-    }
+    };
   }
 
   private String getSourceJsonUrl(ModuleKey key) {
@@ -666,6 +666,11 @@ public class IndexRegistry implements Registry {
           YankedVersionsValue.create(
               Optional.of(ImmutableMap.of(selectedModuleKey.version(), yankedInfo))));
     }
+    if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
+      // metadata.json is mutable and can't be fetched in error mode. If source.json is missing
+      // from the lockfile, its later fetch will report the actionable missing-checksum error.
+      return Optional.of(YankedVersionsValue.NONE_YANKED);
+    }
     if (knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey))) {
       // If the source.json hash is recorded in the lockfile, we know that the module was selected
       // when the lockfile was created. Since it does not appear in the list of selected yanked
@@ -680,9 +685,6 @@ public class IndexRegistry implements Registry {
     }
     // The lockfile does not contain sufficient information to determine the "yanked" status of the
     // module - network access to the registry is required.
-    // Note that this point can't (and must not) be reached with --lockfile_mode=error: The lockfile
-    // records the source.json hashes of all selected modules and the result of selection is fully
-    // determined by the lockfile.
     return Optional.empty();
   }
 

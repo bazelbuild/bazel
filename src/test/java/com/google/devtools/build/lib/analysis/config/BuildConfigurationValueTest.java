@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksu
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -48,11 +48,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     String outputDirPrefix =
         outputBase + "/execroot/" + config.getWorkspaceName() + "/blaze-out/.*piii-fastbuild";
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
-        .matches(outputDirPrefix);
-    assertThat(config.getBinDirectory(RepositoryName.MAIN).getRoot().toString())
-        .matches(outputDirPrefix + "/bin");
-    assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString()).matches(outputDirPrefix);
+    assertThat(config.getBinDirectory().getRoot().toString()).matches(outputDirPrefix + "/bin");
+    assertThat(config.getTestLogsDirectory().getRoot().toString())
         .matches(outputDirPrefix + "/testlogs");
   }
 
@@ -63,7 +61,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     }
 
     BuildConfigurationValue config = create("--platform_suffix=test");
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(
             outputBase
                 + "/execroot/"
@@ -141,9 +139,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=piii",
             "--platforms=" + TestConstants.PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu");
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
@@ -154,13 +150,36 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=piii",
             "--platforms=" + TestConstants.PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu_1",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu_2");
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_1",
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_2");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu_2");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatform_platformFlagsAppendedAndDeduplicated() throws Exception {
+    scratch.overwriteFile(
+        "test_platforms/BUILD",
+        "platform(",
+        "    name = 'custom',",
+        "    flags = [",
+        "       " + " '--override_platform_cpu_name=//test_platforms:custom=platform_override',",
+        "    ],",
+        ")");
+    BuildConfigurationValue config =
+        create(
+            "--platforms=//test_platforms:custom",
+            "--override_platform_cpu_name=//test_platforms:other=foo",
+            "--override_platform_cpu_name=//test_platforms:custom=cli_override");
+
+    // The platform flags should be appended to CLI flags rather than replacing them,
+    // and duplicate entries for the same platform label should be replaced by the latest override.
+    assertThat(config.getOptions().get(CoreOptions.class).getOverridePlatformCpuName())
+        .containsExactly(
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test_platforms:other"), "foo"),
+            Maps.immutableEntry(
+                Label.parseCanonicalUnchecked("//test_platforms:custom"), "platform_override"))
+        .inOrder();
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "platform_override");
   }
 
   @Test
@@ -180,9 +199,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=x86_64",
             "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PIII_PLATFORM_LABEL
-                + "=new_cpu");
+            "--override_platform_cpu_name=" + TestConstants.PIII_PLATFORM_LABEL + "=new_cpu");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
@@ -745,10 +762,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testIncompatibleMergeGenfilesDirectory() throws Exception {
     BuildConfigurationValue target = create("--incompatible_merge_genfiles_directory");
     BuildConfigurationValue exec = createExec("--incompatible_merge_genfiles_directory");
-    assertThat(target.getGenfilesDirectory(RepositoryName.MAIN))
-        .isEqualTo(target.getBinDirectory(RepositoryName.MAIN));
-    assertThat(exec.getGenfilesDirectory(RepositoryName.MAIN))
-        .isEqualTo(exec.getBinDirectory(RepositoryName.MAIN));
+    assertThat(target.getGenfilesDirectory()).isEqualTo(target.getBinDirectory());
+    assertThat(exec.getGenfilesDirectory()).isEqualTo(exec.getBinDirectory());
   }
 
   private ImmutableList<BuildConfigurationValue> getTestConfigurations() throws Exception {
@@ -798,11 +813,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testPlatformInOutputDir_legacy_defaultPlatform() throws Exception {
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--experimental_use_platforms_in_output_dir_legacy_heuristic",
             "--cpu=k8");
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/k8-fastbuild");
   }
 
@@ -811,11 +825,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--experimental_use_platforms_in_output_dir_legacy_heuristic",
             "--platforms=//platform:alpha");
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/alpha-fastbuild");
   }
 
@@ -823,11 +836,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testPlatformInOutputDir_defaultPlatform() throws Exception {
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
             "--cpu=k8");
     // See tests of these flags with platform_mappings for more realistic results.
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
   }
 
@@ -836,11 +848,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
             "--platforms=//platform:alpha");
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
   }
 
@@ -849,12 +860,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-            "--experimental_override_name_platform_in_output_dir=//platform:alpha=alpha",
+            "--override_platform_cpu_name=//platform:alpha=alpha",
             "--platforms=//platform:alpha");
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/alpha-fastbuild");
   }
 
@@ -863,12 +873,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-            "--experimental_override_name_platform_in_output_dir=//platform:beta=beta",
+            "--override_platform_cpu_name=//platform:beta=beta",
             "--platforms=//platform:alpha");
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
   }
 
@@ -878,17 +887,15 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // these configurations are never trimmed nor even used to build targets so not an issue.
     new EqualsTester()
         .addEqualityGroup(
-            createRaw(parseBuildOptions("--test_arg=1a"), "k8", false),
-            createRaw(parseBuildOptions("--test_arg=1a"), "k8", false))
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8"),
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8"))
         // Different BuildOptions means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8", false))
-        // Different --experimental_sibling_repository_layout means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", true))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8"))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8"))
         // Different transitionDirectoryNameFragment means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8"))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm"))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc"))
         .testEquals();
   }
 

@@ -280,7 +280,8 @@ public final class RuleConfiguredTargetBuilder {
     try {
       Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
           analysisEnvironment.getActionKeyContext(), actions, ruleContext.getOwner());
-    } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
+    } catch (Actions.ArtifactGeneratedByOtherRuleException
+        | Actions.SourceArtifactUsedAsOutputException e) {
       ruleContext.ruleError(e.getMessage());
       return null;
     }
@@ -329,7 +330,7 @@ public final class RuleConfiguredTargetBuilder {
    * <p>For Stalark rules the provider is already added in {@link
    * com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil}.
    *
-   * <p>See {@link RequiredFragmentsUtil} for a description of the meaning of this provider's
+   * <p>See {@code RequiredFragmentsUtil} for a description of the meaning of this provider's
    * content. That class contains methods that populate the results of {@link
    * RuleContext#getRequiredConfigFragments}.
    */
@@ -455,6 +456,9 @@ public final class RuleConfiguredTargetBuilder {
     }
     ConstraintSemantics<RuleContext> constraintSemantics =
         ruleContext.getRuleClassProvider().getConstraintSemantics();
+    if (constraintSemantics == null) {
+      return;
+    }
     EnvironmentCollection supportedEnvironments =
         constraintSemantics.getSupportedEnvironments(ruleContext);
     if (supportedEnvironments != null) {

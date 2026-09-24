@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -117,6 +117,10 @@ final class ByteStreamServer extends ByteStreamImplBase {
       responseObserver.onCompleted();
     } catch (CacheNotFoundException e) {
       responseObserver.onError(StatusUtils.notFoundError(digest));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      logger.atWarning().withCause(e).log("Read request interrupted");
+      responseObserver.onError(StatusUtils.interruptedError(digest));
     } catch (Exception e) {
       logger.atWarning().withCause(e).log("Read request failed");
       responseObserver.onError(StatusUtils.internalError(e));
@@ -277,6 +281,11 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
           responseObserver.onNext(WriteResponse.newBuilder().setCommittedSize(offset).build());
           responseObserver.onCompleted();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          logger.atWarning().withCause(e).log("Write request interrupted");
+          responseObserver.onError(StatusUtils.interruptedError(digest));
+          closed = true;
         } catch (Exception e) {
           logger.atWarning().withCause(e).log("Write request failed");
           responseObserver.onError(StatusUtils.internalError(e));

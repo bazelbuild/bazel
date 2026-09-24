@@ -74,6 +74,36 @@ public class PrinterTest {
     assertThat(str(dict)).isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
     assertThat(Starlark.repr(dict, DEFAULT))
         .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
+
+    Mutability mu = Mutability.create();
+    StarlarkList<Object> selfRefList = StarlarkList.newList(mu);
+    selfRefList.append(selfRefList);
+    assertThat(str(selfRefList)).isEqualTo("[[...]]");
+    assertThat(Starlark.repr(selfRefList, DEFAULT)).isEqualTo("[...]");
+
+    Dict<String, Object> selfRefDict = Dict.of(mu);
+    selfRefDict.putEntry("self", selfRefDict);
+    assertThat(str(selfRefDict)).isEqualTo("{\"self\": {\"self\": ...}}");
+    assertThat(Starlark.repr(selfRefDict, DEFAULT)).isEqualTo("{\"self\": ...}");
+
+    StarlarkList<Object> overlyNestedList = makeOverlyNestedList(mu, 10_000); // chosen empirically
+    assertThat(Starlark.reprForErrors(overlyNestedList)).isEqualTo("<overly nested list>");
+
+    // TODO(bazel-team): can we reproducibly detect a nesting depth over some fixed limit?
+    assertThrows(StackOverflowError.class, () -> str(overlyNestedList));
+    assertThrows(StackOverflowError.class, () -> Starlark.repr(overlyNestedList, DEFAULT));
+  }
+
+  private static StarlarkList<Object> makeOverlyNestedList(Mutability mu, int depth)
+      throws EvalException {
+    StarlarkList<Object> overlyNestedList = StarlarkList.newList(mu);
+    StarlarkList<Object> current = overlyNestedList;
+    for (int i = 0; i < depth; i++) {
+      StarlarkList<Object> next = StarlarkList.newList(mu);
+      current.addElement(next);
+      current = next;
+    }
+    return overlyNestedList;
   }
 
   private static String format(String fmt, Object... args) {
@@ -238,5 +268,41 @@ public class PrinterTest {
         printer.append("<str marker>");
       }
     };
+  }
+
+  @Test
+  public void testBudgetedPrinter() throws Exception {
+    // Character limit test
+    Printer charLimited =
+        new Printer(new StringBuilder(), 10, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    charLimited.repr("hello world this is long", DEFAULT);
+    assertThat(charLimited.toString()).isEqualTo("\"hello wor...");
+
+    // Element limit test
+    Printer elementLimited =
+        new Printer(new StringBuilder(), Integer.MAX_VALUE, Integer.MAX_VALUE, 3);
+    elementLimited.repr(StarlarkList.of(null, "a", "b", "c", "d", "e"), DEFAULT);
+    assertThat(elementLimited.toString()).isEqualTo("[\"a\", \"b\", \"c\", ...]");
+
+    // Depth limit test
+    Mutability mu = Mutability.create();
+    StarlarkList<Object> nested = StarlarkList.newList(mu);
+    StarlarkList<Object> current = nested;
+    for (int i = 0; i < 5; i++) {
+      StarlarkList<Object> next = StarlarkList.newList(mu);
+      current.append(next);
+      current = next;
+    }
+    Printer depthLimited =
+        new Printer(new StringBuilder(), Integer.MAX_VALUE, 3, Integer.MAX_VALUE);
+    depthLimited.repr(nested, DEFAULT);
+    assertThat(depthLimited.toString()).isEqualTo("[[[...]]]");
+
+    // Truncated printList short-circuit test
+    Printer truncatedPrinter =
+        new Printer(new StringBuilder(), 5, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    truncatedPrinter.append("123456"); // exceeds maxChars
+    truncatedPrinter.printList(StarlarkList.of(null, "a", "b"), "[", ", ", "]", DEFAULT);
+    assertThat(truncatedPrinter.toString()).isEqualTo("12345...");
   }
 }

@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.platform;
 
 import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.util.function.IntConsumer;
 
 /** Implementation of {@link PlatformNativeDepsService}. */
+@ScOnly
 public class PlatformNativeDepsServiceImpl implements PlatformNativeDepsService {
   static {
     JniLoader.loadJni();

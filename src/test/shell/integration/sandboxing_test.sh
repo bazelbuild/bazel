@@ -164,11 +164,8 @@ EOF
     || fail "${sandbox_base} contains stale dirs"
 
   bazel shutdown
-  [[ -d "${sandbox_base}/sandbox_stash" ]] \
-    || fail "${sandbox_base}/_moved_trash_dir directory not present"
-  bazel build
   [[ ! -d "${sandbox_base}/sandbox_stash" ]] \
-    || fail "${sandbox_base}/_moved_trash_dir directory not present"
+    || fail "${sandbox_base}/sandbox_stash directory should be removed on shutdown"
   [[ $(ls -1 ${sandbox_base} | wc -l | tr -d ' ') == 1 ]] \
     || fail "${sandbox_base} contains stale dirs"
 }
@@ -907,17 +904,20 @@ EOF
   local sandbox_stash="${output_base}/sandbox/sandbox_stash"
   [[ -d "${sandbox_stash}" ]] \
     || fail "${sandbox_stash} not present"
-  [[ -d "${sandbox_stash}/Genrule/3" ]] \
+  local stash_a="$(ls "${sandbox_stash}/Genrule" 2>/dev/null | head -n 1)"
+  [[ -n "$stash_a" && -d "${sandbox_stash}/Genrule/$stash_a" ]] \
     || fail "${sandbox_stash} did not stash anything"
-  [[ -L "${sandbox_stash}/Genrule/3/$execroot_reldir/pkg/a.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/$stash_a/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} did not have a link to a.txt"
 
   bazel build --reuse_sandbox_directories //pkg:b >"${TEST_log}" 2>&1 \
     || fail "Expected build to succeed"
   ls -R "${sandbox_stash}/Genrule/"
-  [[ ! -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/a.txt" ]] \
+  local stash_b="$(ls "${sandbox_stash}/Genrule" 2>/dev/null | head -n 1)"
+  [[ -n "$stash_b" ]] || fail "${sandbox_stash}/Genrule is empty"
+  [[ ! -L "${sandbox_stash}/Genrule/$stash_b/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} should no longer have a link to a.txt"
-  [[ -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/b.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/$stash_b/$execroot_reldir/pkg/b.txt" ]] \
     || fail "${sandbox_stash} should now have a link to b.txt"
 
   bazel clean
@@ -956,27 +956,105 @@ EOF
   local sandbox_stash="${output_base}/sandbox/sandbox_stash"
   [[ -d "${sandbox_stash}" ]] \
     || fail "${sandbox_stash} not present"
-  [[ -d "${sandbox_stash}/Genrule/3" ]] \
+  local stash_a="$(ls "${sandbox_stash}/Genrule" 2>/dev/null | head -n 1)"
+  [[ -n "$stash_a" && -d "${sandbox_stash}/Genrule/$stash_a" ]] \
     || fail "${sandbox_stash} did not stash anything"
-  [[ -L "${sandbox_stash}/Genrule/3/$execroot_reldir/pkg/a.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/$stash_a/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} did not have a link to a.txt"
 
   bazel build //pkg:b >"${TEST_log}" 2>&1 \
     || fail "Expected build to succeed"
   ls -R "${sandbox_stash}/Genrule/"
-  [[ ! -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/a.txt" ]] \
+  local stash_b="$(ls "${sandbox_stash}/Genrule" 2>/dev/null | head -n 1)"
+  [[ -n "$stash_b" ]] || fail "${sandbox_stash}/Genrule is empty"
+  [[ ! -L "${sandbox_stash}/Genrule/$stash_b/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} should no longer have a link to a.txt"
-  [[ -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/b.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/$stash_b/$execroot_reldir/pkg/b.txt" ]] \
     || fail "${sandbox_stash} should now have a link to b.txt"
 
   bazel clean
   [[ ! -d "${sandbox_stash}" ]] \
     || fail "${sandbox_stash} present after clean"
 
-  bazel build //pkg:a >"${TEST_log}" 2>&1 \
+  bazel shutdown
+  [[ ! -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} present after shutdown"
+}
+
+function test_sandbox_reuse_stashes_cleaned_on_shutdown() {
+  mkdir -p pkg
+  cat >pkg/BUILD <<'EOF'
+genrule(
+  name = "a",
+  srcs = [ "a.txt" ],
+  outs = [ "aout.txt" ],
+  cmd = "wc $(location :a.txt) > $@",
+)
+EOF
+  echo A > pkg/a.txt
+  local output_base="$(bazel info output_base)"
+
+  bazel build --reuse_sandbox_directories //pkg:a >"${TEST_log}" 2>&1 \
     || fail "Expected build to succeed"
 
+  local sandbox_stash="${output_base}/sandbox/sandbox_stash"
+  [[ -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} not present during server lifetime"
+
   bazel shutdown
+
+  [[ ! -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} should be cleaned up after bazel shutdown"
+}
+
+function test_sandbox_reuse_stashes_cleaned_on_shutdown_multi_action() {
+  mkdir -p pkg
+  cat >pkg/custom_rule.bzl <<'EOF'
+def _custom_rule_impl(ctx):
+  out_a = ctx.actions.declare_file(ctx.label.name + "_A.txt")
+  ctx.actions.run_shell(
+      inputs = ctx.files.srcs,
+      outputs = [out_a],
+      command = "touch {}".format(out_a.path),
+      progress_message = "Action A: {}".format(out_a.basename),
+  )
+  out_b = ctx.actions.declare_file(ctx.label.name + "_B.txt")
+  ctx.actions.run_shell(
+      inputs = [out_a],
+      outputs = [out_b],
+      command = "touch {}".format(out_b.path),
+      progress_message = "Action B: {}".format(out_b.basename),
+  )
+  return DefaultInfo(files = depset([out_b]))
+
+custom_rule = rule(
+    implementation = _custom_rule_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+    },
+)
+EOF
+  cat >pkg/BUILD <<'EOF'
+load(":custom_rule.bzl", "custom_rule")
+custom_rule(
+    name = "dummy_pipeline",
+    srcs = ["input.txt"],
+)
+EOF
+  touch pkg/input.txt
+  local output_base="$(bazel info output_base)"
+
+  bazel build --reuse_sandbox_directories //pkg:dummy_pipeline >"${TEST_log}" 2>&1 \
+    || fail "Expected build to succeed"
+
+  local sandbox_stash="${output_base}/sandbox/sandbox_stash"
+  [[ -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} not present after build"
+
+  bazel shutdown
+
+  [[ ! -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} should be cleaned up after bazel shutdown"
 }
 
 # This test does not currently work in Blaze. Not due to the inaccessible dirs
@@ -1025,7 +1103,8 @@ EOF
     || fail "Expected first test to succeed"
 
   local sandbox_stash="${output_base}/sandbox/sandbox_stash"
-  [[ -d "${sandbox_stash}/TestRunner/3/$bazel_bin_reldir/pkg/create_readonly_dir_in_pwd.runfiles/_main/readonly_dir" ]] \
+  local stash_test="$(ls "${sandbox_stash}/TestRunner" 2>/dev/null | head -n 1)"
+  [[ -n "$stash_test" && -d "${sandbox_stash}/TestRunner/$stash_test/$bazel_bin_reldir/pkg/create_readonly_dir_in_pwd.runfiles/_main/readonly_dir" ]] \
     || fail "${sandbox_stash} did not stash readonly_dir"
 
   bazel test --reuse_sandbox_directories --nocache_test_results //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
@@ -1153,7 +1232,8 @@ EOF
 
   local output_base="$(bazel info output_base)"
   local WORKSPACE_NAME=$TEST_WORKSPACE
-  local stashed_test_dir="${output_base}/sandbox/sandbox_stash/TestRunner/6/execroot/$WORKSPACE_NAME"
+  local stash_test="$(ls "${output_base}/sandbox/sandbox_stash/TestRunner" 2>/dev/null | head -n 1)"
+  local stashed_test_dir="${output_base}/sandbox/sandbox_stash/TestRunner/$stash_test/execroot/$WORKSPACE_NAME"
   touch $(find "$stashed_test_dir/$out_directory/" -name a.sh.runfiles -type d)"/$WORKSPACE_NAME/pkg/file4.txt"
 
   [[ -d "${stashed_test_dir}/$out_directory" ]] \
@@ -1237,6 +1317,59 @@ function test_bad_state_linux_sandboxing() {
 
   bazel build --local_termination_grace_seconds=-1 \
     || fail "Expected build to succeed"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/31064
+function test_flaky_timeout_retries() {
+  if ! is_linux; then
+    echo "Skipping test: hermetic Linux sandbox is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  local project_folder
+  project_folder="$(pwd | cut -d"/" -f 2)"
+  local mount_flags=()
+  for folder in /*/; do
+    if [ -d "$folder" ] && [ "$folder" != "/$project_folder/" ]; then
+      if [[ -L "$folder" ]]; then
+        local linked_folder
+        linked_folder="$(readlink -f "$folder")"
+        mount_flags+=("--sandbox_add_mount_pair=/$linked_folder:$folder")
+      else
+        mount_flags+=("--sandbox_add_mount_pair=$folder")
+      fi
+    fi
+  done
+
+  add_rules_shell "MODULE.bazel"
+  mkdir -p pkg
+  cat > pkg/timeout_test.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "test starts and intentionally times out before producing test.xml"
+sleep 30
+EOF
+  chmod +x pkg/timeout_test.sh
+  cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = "timeout_test",
+    size = "small",
+    srcs = ["timeout_test.sh"],
+)
+EOF
+
+  bazel test \
+    "${mount_flags[@]}" \
+    --test_strategy=standalone \
+    --spawn_strategy=linux-sandbox \
+    --experimental_use_hermetic_linux_sandbox \
+    --test_timeout=1 \
+    --flaky_test_attempts=3 \
+    //pkg:timeout_test &> "$TEST_log" \
+    && fail "Expected timeout_test to time out"
+  expect_log "TIMEOUT in 3 out of 3"
+  expect_not_log "was modified during execution"
 }
 
 function is_bazel() {

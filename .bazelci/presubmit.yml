@@ -1,5 +1,5 @@
 ---
-check_docs: 1
+check_docs: 0
 tasks:
   rockylinux8:
     shell_commands:
@@ -45,8 +45,13 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
       - "//..."
+    test_flags:
+      - "--config=ci-linux"
+    test_targets:
+      - "//src/test/shell/bazel:bazel_java_toolchain_head_tests"
     include_json_profile:
       - build
+      - test
   fedora39:
     shell_commands:
       - rm -rf $HOME/bazeltest
@@ -143,6 +148,8 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      - "//src:java_tools_zip"
+      - "//src:java_tools_prebuilt_zip"
     include_json_profile:
       - build
   macos_arm64:
@@ -157,6 +164,8 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
+      - "//src:java_tools_zip"
+      - "//src:java_tools_prebuilt_zip"
     test_flags:
       - "--config=ci-macos"
       - "--test_tag_filters=-no_presubmit,-no_macos"
@@ -165,6 +174,7 @@ tasks:
       # Increase the test timeout by 20% to avoid flaky test failures due to timeout
       - "--test_timeout=72,360,1080,4320"
     test_targets:
+      - "//:verify_module_bazel_lock"
       - "//src:embedded_tools_size_test"
       - "//src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests"
       - "//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
@@ -173,12 +183,15 @@ tasks:
       - "//src/test/py/bazel:mod_command_test"
       - "//src/test/shell/bazel:bazel_example_test"
       - "//src/test/shell/bazel:bazel_java_test"
+      - "//src/test/shell/bazel:bazel_test_test"
       - "//src/test/shell/bazel:cc_integration_test"
       - "//src/test/shell/bazel:cpp_darwin_integration_test"
       - "//src/test/shell/bazel:external_integration_test"
       - "//src/test/shell/bazel:help_test"
       - "//src/test/shell/bazel/apple:bazel_apple_test"
       - "//src/test/shell/bazel/apple:bazel_objc_test"
+      - "//src/test/shell/bazel/remote:remote_execution_test"
+      - "//src/test/shell/integration:aquery_test"
       - "//src/test/shell/integration:bazel_query_test"
     include_json_profile:
       - build
@@ -195,6 +208,8 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
       - "//src/main/java/..."
+      - "//src:java_tools_zip"
+      - "//src:java_tools_prebuilt_zip"
     test_flags:
       - "--config=ci-windows"
       # We need to keep --test_tag_filters here for the bazel-diff integration.
@@ -223,6 +238,8 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/4292
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
+      # Too slow for Windows presubmit (24 shards, ~19m wall time on a single VM).
+      - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
     include_json_profile:
       - build
       - test
@@ -297,11 +314,11 @@ tasks:
     include_json_profile:
       - build
       - test
-  docs_ubuntu2004:
-    platform: ubuntu2004
+  docs_ubuntu2404:
+    platform: ubuntu2404
     name: "Docs"
     build_flags:
       - "--config=docs"
     build_targets:
-      - "//scripts/docs:gen_release_docs"
-      - "//src/main/java/com/google/devtools/build/lib:gen_reference_docs"
+      - "//scripts/docs:gen_mdx_release_docs"
+      - "//src/main/java/com/google/devtools/build/lib:gen_mdx_reference_docs"

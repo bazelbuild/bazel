@@ -85,8 +85,12 @@ void portable_start_suspend_monitoring() {
     // that sleeps are being caught here.
     suspend_state.connect_port = IORegisterForSystemPower(
         &suspend_state, &notifyPortRef, SleepCallBack, &notifierObject);
-    BAZEL_CHECK_NE(suspend_state.connect_port, MACH_PORT_NULL);
-    IONotificationPortSetDispatchQueue(notifyPortRef, queue);
+    if (suspend_state.connect_port != MACH_PORT_NULL) {
+      IONotificationPortSetDispatchQueue(notifyPortRef, queue);
+    } else {
+      BAZEL_LOG(ERROR) << "IORegisterForSystemPower failed, sleep monitoring "
+                          "not available";
+    }
 
     // Register to deal with SIGCONT.
     // We register for SIGCONT because we can't catch SIGSTOP.
@@ -96,23 +100,33 @@ void portable_start_suspend_monitoring() {
     // having this functionality gives us some ability to unit test suspension
     // counts.
     sig_t signal_val = signal(SIGCONT, SIG_IGN);
-    BAZEL_CHECK_NE(signal_val, SIG_ERR);
-    dispatch_source_t signal_source =
-        dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGCONT, 0, queue);
-    BAZEL_CHECK_NE(signal_source, nullptr);
-    dispatch_source_set_event_handler(signal_source, ^{
-      BAZEL_LOG(USER) << "suspend anomaly due to SIGCONT";
-      suspend_callback(SuspensionReasonSIGCONT);
-    });
-    dispatch_resume(signal_source);
-    signal_source =
+    if (signal_val != SIG_ERR) {
+      dispatch_source_t signal_source = dispatch_source_create(
+          DISPATCH_SOURCE_TYPE_SIGNAL, SIGCONT, 0, queue);
+      if (signal_source != nullptr) {
+        dispatch_source_set_event_handler(signal_source, ^{
+          BAZEL_LOG(USER) << "suspend anomaly due to SIGCONT";
+          suspend_callback(SuspensionReasonSIGCONT);
+        });
+        dispatch_resume(signal_source);
+      } else {
+        BAZEL_LOG(ERROR) << "dispatch_source_create for SIGCONT failed";
+      }
+    } else {
+      BAZEL_LOG(ERROR) << "signal(SIGCONT, SIG_IGN) failed";
+    }
+
+    dispatch_source_t tstp_source =
         dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTSTP, 0, queue);
-    BAZEL_CHECK_NE(signal_source, nullptr);
-    dispatch_source_set_event_handler(signal_source, ^{
-      BAZEL_LOG(USER) << "suspend anomaly due to SIGTSTP";
-      suspend_callback(SuspensionReasonSIGTSTP);
-    });
-    dispatch_resume(signal_source);
+    if (tstp_source != nullptr) {
+      dispatch_source_set_event_handler(tstp_source, ^{
+        BAZEL_LOG(USER) << "suspend anomaly due to SIGTSTP";
+        suspend_callback(SuspensionReasonSIGTSTP);
+      });
+      dispatch_resume(tstp_source);
+    } else {
+      BAZEL_LOG(ERROR) << "dispatch_source_create for SIGTSTP failed";
+    }
   });
 }
 

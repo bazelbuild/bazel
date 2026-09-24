@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -294,8 +293,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         .isNotNull();
 
     List<String> commandLine = linkAction.getArguments();
-    String prefix =
-        getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
+    String prefix = getTargetConfiguration().getOutputDirectory().getExecPathString();
     assertThat(commandLine)
         .containsAtLeast(
             prefix + "/bin/pkg/bin.lto.merged.o",
@@ -423,8 +421,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     String rootExecPath = getRootExecPath();
 
     List<String> commandLine = linkAction.getArguments();
-    String prefix =
-        getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
+    String prefix = getTargetConfiguration().getOutputDirectory().getExecPathString();
 
     assertThat(commandLine).contains("-Wl,@" + prefix + "/bin/pkg/bin-lto-final.params");
 
@@ -441,9 +438,9 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
             "bin _solib_k8/libpkg_Sliblib.ifso",
             "bin pkg/bin-lto-final.params");
 
-    SolibSymlinkAction solibSymlinkAction =
-        (SolibSymlinkAction) getPredecessorByInputName(linkAction, "_solib_k8/libpkg_Sliblib.ifso");
-    assertThat(solibSymlinkAction.getMnemonic()).isEqualTo("SolibSymlink");
+    Action solibSymlinkAction =
+        getPredecessorByInputName(linkAction, "_solib_k8/libpkg_Sliblib.ifso");
+    assertThat(solibSymlinkAction.getMnemonic()).isAnyOf("SolibSymlink", "Symlink");
 
     SpawnAction libLinkAction =
         (SpawnAction) getPredecessorByInputName(solibSymlinkAction, "bin/pkg/liblib.ifso");
@@ -588,9 +585,9 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    SolibSymlinkAction solibSymlinkAction =
-        (SolibSymlinkAction) getPredecessorByInputName(linkAction, "_solib_k8/libpkg_Sliblib.ifso");
-    assertThat(solibSymlinkAction.getMnemonic()).isEqualTo("SolibSymlink");
+    Action solibSymlinkAction =
+        getPredecessorByInputName(linkAction, "_solib_k8/libpkg_Sliblib.ifso");
+    assertThat(solibSymlinkAction.getMnemonic()).isAnyOf("SolibSymlink", "Symlink");
 
     SpawnAction libLinkAction =
         (SpawnAction) getPredecessorByInputName(solibSymlinkAction, "bin/pkg/liblib.ifso");

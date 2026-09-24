@@ -72,23 +72,21 @@ final class BuildObjectTraverser implements DomainSpecificTraverser {
 
   @Override
   public boolean maybeTraverse(Object o, Traversal traversal) {
-    switch (o) {
+    return switch (o) {
       case Path p -> {
         traversal.objectFound(o, null);
         traversal.edgeFound(p.getPathString(), null);
-        return true;
+        yield true;
       }
 
       case PathFragment pf -> {
         traversal.objectFound(o, null);
         traversal.edgeFound(pf.getPathString(), null);
-        return true;
+        yield true;
       }
 
-      default -> {
-        return false;
-      }
-    }
+      default -> false;
+    };
   }
 
   @Override

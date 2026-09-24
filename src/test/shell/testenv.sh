@@ -308,10 +308,10 @@ build --incompatible_skip_genfiles_symlink=false
 
 build --incompatible_use_toolchain_resolution_for_java_rules
 
-# Support JDK 21, data dependencies that get compiled and used tools need to be
-# run with 21 runtime.
-build --java_runtime_version=21
-build --tool_java_runtime_version=21
+# Support JDK 25, data dependencies that get compiled and used tools need to be
+# run with 25 runtime.
+build --java_runtime_version=25
+build --tool_java_runtime_version=25
 
 ${EXTRA_BAZELRC:-}
 EOF
@@ -340,6 +340,10 @@ EOF
       echo "common --experimental_repository_cache_hardlinks" >> $TEST_TMPDIR/bazelrc
     fi
   fi
+  # The repo contents cache defaults to a directory under the repository cache,
+  # which is shared with other tests and test attempts on CI. Tests that
+  # exercise the repo contents cache opt in explicitly.
+  echo "common --repo_contents_cache=" >> $TEST_TMPDIR/bazelrc
 
   if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
     echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."

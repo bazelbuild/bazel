@@ -74,6 +74,16 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
     config.create(
         "build_bazel_apple_support/MODULE.bazel", "module(name = 'build_bazel_apple_support')");
+    config.create("apple_support_workspace/MODULE.bazel", "module(name = 'apple_support')");
+    config.create(
+        "apple_support_workspace/xcode/BUILD",
+        """
+        alias(
+            name = "version_config",
+            actual = "@local_config_xcode//:host_xcodes",
+            visibility = ["@rules_cc//cc/private/toolchain:__pkg__"],
+        )
+        """);
     config.create(
         "third_party/bazel_rules/rules_shell/MODULE.bazel", "module(name = 'rules_shell')");
 
@@ -88,6 +98,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "proto_bazel_features_workspace",
         "bazel_features_workspace",
         "build_bazel_apple_support",
+        "apple_support_workspace",
         "local_config_xcode_workspace",
         "third_party/bazel_rules/rules_cc",
         "third_party/bazel_rules/rules_shell");
@@ -195,7 +206,7 @@ java_binary(
 
 alias(
     name = "proguard_whitelister",
-    actual = ":proguard_allowlister.par",
+    actual = ":proguard_allowlister",
 )
 
 java_import(
@@ -255,7 +266,7 @@ exports_files([
     "GenClass_deploy.jar",
     "turbine_deploy.jar",
     "TurbineDirect_deploy.jar",
-    "proguard_allowlister.par",
+    "proguard_allowlister",
 ])
 
 toolchain_type(name = "toolchain_type")
@@ -674,6 +685,9 @@ launcher_flag_alias(
         "bazel_features_workspace/features.bzl",
         """
         bazel_features = struct(
+          cc = struct(
+            _get_link_args_has_param_file_name = True,
+          ),
           rules = struct(
             _has_launcher_maker_toolchain = False,
           ),
@@ -825,13 +839,6 @@ launcher_flag_alias(
 
     config.create("embedded_tools/tools/sh/BUILD");
     config.create("embedded_tools/tools/osx/BUILD");
-    config.create(
-        "embedded_tools/tools/osx/xcode_configure.bzl",
-        """
-        # no positional arguments for XCode
-        def xcode_configure(*args, **kwargs):
-            pass
-        """);
     config.create("embedded_tools/bin/sh", "def sh(**kwargs):", "  pass");
   }
 
@@ -851,6 +858,7 @@ launcher_flag_alias(
             .put("proto_bazel_features", "proto_bazel_features_workspace")
             .put("bazel_features", "bazel_features_workspace")
             .put("build_bazel_apple_support", "build_bazel_apple_support")
+            .put("apple_support", "apple_support_workspace")
             .put("local_config_xcode", "local_config_xcode_workspace")
             .put("rules_cc", "third_party/bazel_rules/rules_cc")
             .put("rules_shell", "third_party/bazel_rules/rules_shell")

@@ -190,17 +190,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getExperimentalEnableFirstClassMacros();
 
   @Option(
-      name = "experimental_enable_scl_dialect",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      // TODO(brandjon): point to more extensive user documentation somewhere
-      help = "If set to true, .scl files may be used in load() statements.")
-  public abstract boolean getExperimentalEnableSclDialect();
-
-  public abstract void setExperimentalEnableSclDialect(boolean value);
-
-  @Option(
       name = "experimental_isolated_extension_usages",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -283,25 +272,17 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       help = "If set to true, repository_rule gains some remote execution capabilities.")
   public abstract boolean getExperimentalRepoRemoteExec();
 
+  @Deprecated
   @Option(
       name = "experimental_sibling_repository_layout",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {
-        OptionEffectTag.ACTION_COMMAND_LINES,
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE
-      },
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help =
-          "If set to true, non-main repositories are planted as symlinks to the main repository in"
-              + " the execution root. That is, all repositories are direct children of the"
-              + " $output_base/execution_root directory. This has the side effect of freeing up"
-              + " $output_base/execution_root/__main__/external for the real top-level 'external' "
-              + "directory.")
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      deprecationWarning =
+          "This flag is a no-op. Non-main repositories are always planted under"
+              + " $output_base/execution_root/_main/external.",
+      help = "Deprecated. No-op.")
   public abstract boolean getExperimentalSiblingRepositoryLayout();
 
   @Option(
@@ -447,7 +428,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, ctx.actions.run and ctx.actions.run_shell will require an explicit"
-              + " mnemonic")
+              + " mnemonic.")
   public abstract boolean getIncompatibleRequireMnemonicForRunActions();
 
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
@@ -457,18 +438,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN})
   public abstract boolean getInternalStarlarkFlagTestCanary();
-
-  @Option(
-      name = "incompatible_do_not_split_linking_cmdline",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "When true, Bazel no longer modifies command line flags used for linking, and also "
-              + "doesn't selectively decide which flags go to the param file and which don't.  "
-              + "See https://github.com/bazelbuild/bazel/issues/7670 for details.")
-  public abstract boolean getIncompatibleDoNotSplitLinkingCmdline();
 
   @Option(
       name = "incompatible_unambiguous_label_stringification",
@@ -885,7 +854,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 getExperimentalSinglePackageToolchainBinding())
             .setBool(
                 EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, getExperimentalEnableFirstClassMacros())
-            .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, getExperimentalEnableSclDialect())
             .setBool(
                 EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, getExperimentalIsolatedExtensionUsages())
             .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, getIncompatibleNoImplicitWatchLabel())
@@ -893,8 +861,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_PLATFORMS_API, getExperimentalPlatformsApi())
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, getExperimentalCcSharedLibrary())
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, getExperimentalRepoRemoteExec())
-            .setBool(
-                EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, getExperimentalSiblingRepositoryLayout())
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS,
                 getIncompatibleAlwaysCheckDepsetElements())
@@ -922,9 +888,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS,
                 getIncompatibleRequireMnemonicForRunActions())
             .setBool(StarlarkSemantics.PRINT_TEST_MARKER, getInternalStarlarkFlagTestCanary())
-            .setBool(
-                INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE,
-                getIncompatibleDoNotSplitLinkingCmdline())
             .set(INCOMPATIBLE_ENFORCE_STARLARK_UTF8, getIncompatibleEnforceStarlarkUtf8())
             .setBool(
                 INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
@@ -1085,7 +1048,13 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
       "+experimental_enable_first_class_macros";
+
+  /**
+   * @deprecated Flag has been graveyarded.
+   */
+  @Deprecated
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "+experimental_enable_scl_dialect";
+
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
   public static final String INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL =
@@ -1093,8 +1062,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
-  public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
-      "-experimental_sibling_repository_layout";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
   public static final String INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY =
@@ -1106,8 +1073,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       FlagConstants.INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX;
   public static final String INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX =
       FlagConstants.INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX;
-  public static final String INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE =
-      "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS =
       "-incompatible_java_info_merge_runtime_module_flags";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";

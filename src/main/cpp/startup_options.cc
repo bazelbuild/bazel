@@ -15,9 +15,15 @@
 
 #include <assert.h>
 
+#include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -30,6 +36,7 @@
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -70,7 +77,7 @@ StartupOptions::StartupOptions(const string& product_name,
     : product_name(product_name),
       lock_install_base(lock_install_base),
       ignore_all_rc_files(false),
-      block_for_lock(true),
+      block_for_lock_timeout(absl::InfiniteDuration()),
       host_jvm_debug(false),
       autodetect_server_javabase(true),
       batch(false),
@@ -120,7 +127,11 @@ StartupOptions::StartupOptions(const string& product_name,
   // startup flags.
   RegisterNullaryStartupFlag("batch", &batch);
   RegisterNullaryStartupFlag("batch_cpu_scheduling", &batch_cpu_scheduling);
-  RegisterNullaryStartupFlag("block_for_lock", &block_for_lock);
+  RegisterSpecialNullaryStartupFlag("block_for_lock", [this](bool enabled) {
+    this->block_for_lock_timeout =
+        enabled ? absl::InfiniteDuration() : absl::ZeroDuration();
+  });
+  RegisterUnaryStartupFlag("block_for_lock");
   RegisterNullaryStartupFlag("quiet", &quiet);
   RegisterNullaryStartupFlag("client_debug", &client_debug);
   RegisterNullaryStartupFlag("preemptible", &preemptible);
@@ -175,6 +186,9 @@ string StartupOptions::GetLowercaseProductName() const {
 bool StartupOptions::IsUnary(const string& arg) const {
   std::string::size_type i = arg.find_first_of('=');
   if (i == std::string::npos) {
+    if (arg == "--block_for_lock") {
+      return false;
+    }
     return valid_unary_startup_flags_.find(arg) !=
            valid_unary_startup_flags_.end();
   } else {
@@ -192,6 +206,10 @@ bool StartupOptions::MaybeCheckValidNullary(const string& arg, bool* result,
     return true;
   }
   std::string f = arg.substr(0, i);
+  if (f == "--block_for_lock") {
+    *result = false;
+    return true;
+  }
   if (all_nullary_startup_flags_.find(f) == all_nullary_startup_flags_.end()) {
     *result = false;
     return true;
@@ -201,6 +219,35 @@ bool StartupOptions::MaybeCheckValidNullary(const string& arg, bool* result,
       error, "In argument '%s': option '%s' does not take a value.",
       arg.c_str(), f.c_str());
   return false;
+}
+
+static bool ParseBlockForLock(const string& value,
+                              absl::Duration* block_for_lock_timeout,
+                              string* error) {
+  if (value == "true") {
+    *block_for_lock_timeout = absl::InfiniteDuration();
+    return true;
+  }
+  if (value == "false") {
+    *block_for_lock_timeout = absl::ZeroDuration();
+    return true;
+  }
+  absl::Duration duration;
+  if (value.empty() || isdigit(value.back()) ||
+      !absl::ParseDuration(value, &duration) ||
+      duration < absl::ZeroDuration() ||
+      (duration > absl::ZeroDuration() && duration < absl::Milliseconds(1)) ||
+      duration == absl::InfiniteDuration()) {
+    blaze_util::StringPrintf(
+        error,
+        "Invalid argument to --block_for_lock: '%s'. "
+        "Expected boolean or duration (e.g. 'true', 'false', '30s', '1m').",
+        value.c_str());
+    return false;
+  }
+  *block_for_lock_timeout =
+      absl::Milliseconds(absl::ToInt64Milliseconds(duration));
+  return true;
 }
 
 void StartupOptions::AddExtraOptions(vector<string>* result) const {}
@@ -257,7 +304,14 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
     return blaze_exit_code::SUCCESS;
   }
 
-  if ((value = GetUnaryOption(arg, next_arg, "--output_base")) != nullptr) {
+  if ((value = blaze_util::var_strprefix(arg, "--block_for_lock=")) !=
+      nullptr) {
+    if (!ParseBlockForLock(value, &block_for_lock_timeout, error)) {
+      return blaze_exit_code::BAD_ARGV;
+    }
+    option_sources["block_for_lock"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg, "--output_base")) !=
+             nullptr) {
     output_base = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
     option_sources["output_base"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--install_base")) !=
@@ -314,7 +368,11 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
     // macOS-specific to ensure that rc files mentioning it are valid.
     // There is also apparently "QOS_CLASS_MAINTENANCE", but this doesn't
     // appear to have been exposed in the public headers as of macOS 11.1.
-    if (strcmp(value, "utility") == 0) {
+    if (strcmp(value, "default") == 0) {
+#if defined(__APPLE__)
+      macos_qos_class = QOS_CLASS_UNSPECIFIED;
+#endif
+    } else if (strcmp(value, "utility") == 0) {
 #if defined(__APPLE__)
       macos_qos_class = QOS_CLASS_UTILITY;
 #endif
@@ -481,7 +539,7 @@ StartupOptions::GetServerJavabaseAndType() const {
       if (system_javabase.IsEmpty()) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "Could not find system javabase. Ensure JAVA_HOME is set, or "
-               "javac is on your PATH.";
+               "java is on your PATH.";
       }
       default_server_javabase_ = std::pair<blaze_util::Path, JavabaseType>(
           system_javabase, JavabaseType::SYSTEM);
@@ -647,9 +705,10 @@ static std::string GetSimpleLogHandlerProps(
          "com.google.devtools.build.lib.util.SimpleLogHandler.prefix=" +
          java_log.AsJvmArgument() +
          "\n"
-         "com.google.devtools.build.lib.util.SimpleLogHandler.limit=1024000\n"
-         "com.google.devtools.build.lib.util.SimpleLogHandler.total_limit="
-         "20971520\n"  // 20 MB.
+         "com.google.devtools.build.lib.util."
+         "SimpleLogHandler.rotate_limit_bytes=5242880\n"
+         "com.google.devtools.build.lib.util."
+         "SimpleLogHandler.total_limit_bytes=20971520\n"
          "com.google.devtools.build.lib.util.SimpleLogHandler.formatter=" +
          java_logging_formatter + "\n";
 }

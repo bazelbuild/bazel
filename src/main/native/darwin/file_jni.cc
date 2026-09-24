@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
+#include <cstdint>
 #include <string>
 
 #include "src/main/native/unix_jni.h"

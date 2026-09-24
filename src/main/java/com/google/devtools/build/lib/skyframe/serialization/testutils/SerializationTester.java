@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
@@ -48,6 +50,8 @@ import javax.annotation.Nullable;
 public class SerializationTester {
   public static final int DEFAULT_JUNK_INPUTS = 20;
   public static final int JUNK_LENGTH_UPPER_BOUND = 20;
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -202,7 +206,8 @@ public class SerializationTester {
       return codecs.serializeMemoized(subject);
     }
     SerializationResult<ByteString> result =
-        codecs.serializeMemoizedAndBlocking(getFingerprintValueService(), subject);
+        codecs.serializeMemoizedAndBlocking(
+            COMPRESSION_SERVICE, getFingerprintValueService(), subject);
     ListenableFuture<?> writeFuture = result.getFutureToBlockWritesOn();
     if (writeFuture != null) {
       var unused = waitForSerializationFuture(writeFuture);
@@ -216,7 +221,8 @@ public class SerializationTester {
       return codecs.deserialize(serialized);
     }
     return allowFutureBlocking
-        ? codecs.deserializeMemoizedAndBlocking(getFingerprintValueService(), serialized)
+        ? codecs.deserializeMemoizedAndBlocking(
+            COMPRESSION_SERVICE, getFingerprintValueService(), serialized)
         : codecs.deserializeMemoized(serialized);
   }
 

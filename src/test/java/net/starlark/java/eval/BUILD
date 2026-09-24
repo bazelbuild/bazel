@@ -46,6 +46,7 @@ java_test(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/net/starlark/java/syntax:TestUtils",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",

@@ -151,6 +151,13 @@ public abstract class OutputGroupInfo extends StructImpl
   public static final ImmutableSortedSet<String> DEFAULT_GROUPS =
       ImmutableSortedSet.of(DEFAULT, TEMP_FILES, HIDDEN_TOP_LEVEL);
 
+  /** The set of default and validation output groups that should not be validated as missing. */
+  public static final ImmutableSortedSet<String> IGNORED_OUTPUT_GROUPS =
+      ImmutableSortedSet.<String>naturalOrder()
+          .addAll(DEFAULT_GROUPS)
+          .add(VALIDATION, VALIDATION_TOP_LEVEL, VALIDATION_TRANSITIVE)
+          .build();
+
   private static final NestedSet<Artifact> EMPTY_FILES =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
@@ -346,6 +353,10 @@ public abstract class OutputGroupInfo extends StructImpl
 
   @ForOverride
   abstract boolean containsKey(String name);
+
+  public final boolean containsOutputGroup(String name) {
+    return containsKey(name);
+  }
 
   @Nullable
   @Override

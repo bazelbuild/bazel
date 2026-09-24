@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//visibility:public"],
 )
 
 java_library(
@@ -18,5 +18,5 @@ java_library(
         "GlobalMethodDocs.java",
         "StarlarkConstructor.java",
     ],
-    deps = ["//third_party:guava"],
+    deps = ["//third_party/java/guava:base"],
 )

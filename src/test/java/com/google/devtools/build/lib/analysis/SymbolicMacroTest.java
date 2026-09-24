@@ -124,7 +124,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
       String pkgName, String macroName, String targetName) throws Exception {
     Package pkg = getPackage(pkgName);
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey(targetName);
+    assertThat(pkg.getTargetOrNull(targetName)).isNotNull();
 
     String labelString = String.format("//%s:%s", pkgName, targetName);
     AssertionError error =
@@ -276,7 +276,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey(targetName);
+    assertThat(pkg.getTargetOrNull(targetName)).isNotNull();
     assertThat(getConfiguredTarget(String.format("//pkg:%s", targetName))).isNotNull();
   }
 
@@ -286,7 +286,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getTargetOrNull("abc")).isNotNull();
     assertThat(getConfiguredTarget("//pkg:abc")).isNotNull();
     assertThat(pkg.getMacrosById()).containsKey("abc:1");
   }
@@ -433,7 +433,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets().keySet()).containsAtLeast("abc_inside_macro", "abc_outside_macro");
+    assertThat(pkg.getTargets().stream().map(Target::getName))
+        .containsAtLeast("abc_inside_macro", "abc_outside_macro");
     assertThat(pkg.getMacrosById()).containsKey("abc:1");
   }
 
@@ -487,9 +488,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc");
-    assertThat(pkg.getTargets()).containsKey("implicit_input.cc");
-    assertThat(pkg.getTargets()).containsKey("explicit_input.cc");
+    assertThat(pkg.getTargets().stream().map(Target::getName))
+        .containsAtLeast("abc", "implicit_input.cc", "explicit_input.cc");
   }
 
   @Test
@@ -527,9 +527,9 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     // It'd be an execution time error to attempt to build the declared rule targets, but the
     // package still loads just fine.
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc_target");
-    assertThat(pkg.getTargets()).containsKey("abc_submacro_target");
-    assertThat(pkg.getTargets()).doesNotContainKey("implicit_input.cc");
+    assertThat(pkg.getTargetOrNull("abc_target")).isNotNull();
+    assertThat(pkg.getTargetOrNull("abc_submacro_target")).isNotNull();
+    assertThat(pkg.getTargetOrNull("implicit_input.cc")).isNull();
   }
 
   @Test
@@ -553,7 +553,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc_inner_lib");
+    assertThat(pkg.getTargets().stream().map(Target::getName)).contains("abc_inner_lib");
   }
 
   @Test
@@ -615,7 +615,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getTargets().stream().map(Target::getName)).contains("abc");
     assertThat(pkg.getMacrosById()).containsKey("abc:1");
     assertThat(pkg.getMacrosById()).containsKey("abc:2");
     assertThat(pkg.getMacrosById()).containsKey("abc:3");

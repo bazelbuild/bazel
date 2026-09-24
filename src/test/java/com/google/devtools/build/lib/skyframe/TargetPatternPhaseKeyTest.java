@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.devtools.build.lib.skyframe.TargetPatternPhaseKeyTest.Flag.BUILD_TESTS_ONLY;
 import static com.google.devtools.build.lib.skyframe.TargetPatternPhaseKeyTest.Flag.COMPILE_ONE_DEPENDENCY;
 import static com.google.devtools.build.lib.skyframe.TargetPatternPhaseKeyTest.Flag.DETERMINE_TESTS;
+import static com.google.devtools.build.lib.skyframe.TargetPatternPhaseKeyTest.Flag.KEEP_GOING;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -37,7 +38,8 @@ public final class TargetPatternPhaseKeyTest {
   enum Flag {
     COMPILE_ONE_DEPENDENCY,
     BUILD_TESTS_ONLY,
-    DETERMINE_TESTS
+    DETERMINE_TESTS,
+    KEEP_GOING
   }
 
   @Test
@@ -136,6 +138,15 @@ public final class TargetPatternPhaseKeyTest {
                 true,
                 true,
                 null))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
+                false,
+                true,
+                null,
+                KEEP_GOING))
         .testEquals();
   }
 
@@ -151,6 +162,7 @@ public final class TargetPatternPhaseKeyTest {
     boolean compileOneDependency = set.contains(Flag.COMPILE_ONE_DEPENDENCY);
     boolean buildTestsOnly = set.contains(Flag.BUILD_TESTS_ONLY);
     boolean determineTests = set.contains(Flag.DETERMINE_TESTS);
+    boolean keepGoing = set.contains(Flag.KEEP_GOING);
     return TargetPatternPhaseValue.key(
         targetPatterns,
         offset,
@@ -160,7 +172,8 @@ public final class TargetPatternPhaseKeyTest {
         buildTagFilter,
         includeManualTests,
         expandTestSuites,
-        testFilter);
+        testFilter,
+        keepGoing);
   }
 
   private static TargetPatternPhaseKey of(

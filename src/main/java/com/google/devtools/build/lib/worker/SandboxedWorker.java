@@ -52,7 +52,7 @@ final class SandboxedWorker extends SingleplexWorker {
       boolean fakeUsername,
       boolean debugMode,
       ImmutableSet<PathFragment> tmpfsPath,
-      ImmutableSet<String> writablePaths,
+      ImmutableSet<PathFragment> writablePaths,
       int memoryLimit,
       ImmutableSet<Path> inaccessiblePaths,
       ImmutableMap<String, String> additionalMountPaths) {}
@@ -100,7 +100,7 @@ final class SandboxedWorker extends SingleplexWorker {
     ImmutableSet.Builder<Path> writableDirs = ImmutableSet.<Path>builder().add(sandboxExecRoot);
 
     FileSystem fs = sandboxExecRoot.getFileSystem();
-    for (String writablePath : hardenedSandboxOptions.writablePaths()) {
+    for (PathFragment writablePath : hardenedSandboxOptions.writablePaths()) {
       Path path = fs.getPath(writablePath);
       writableDirs.add(path);
       if (path.isSymbolicLink()) {

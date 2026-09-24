@@ -14,7 +14,6 @@
 package com.google.devtools.build.docgen;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -920,7 +919,7 @@ public class StarlarkDocumentationTest {
     BazelEvaluationTestCase ev = new BazelEvaluationTestCase(bzlLabelString);
     Module moduleForCompilation = ev.newModule();
     Label bzlLabel = Label.parseCanonical(bzlLabelString);
-    ev.setThreadOwner(keyForBuild(bzlLabel));
+    ev.setBzlLoadThreadOwner(bzlLabel);
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
     Program program = Program.compileFile(file, moduleForCompilation);

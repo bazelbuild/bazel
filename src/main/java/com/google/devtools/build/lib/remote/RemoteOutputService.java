@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -68,10 +69,11 @@ public class RemoteOutputService implements OutputService {
     this.remoteOutputChecker = remoteOutputChecker;
   }
 
-  void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
+  void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher, WalkableGraph graph) {
     this.actionInputFetcher = checkNotNull(actionInputFetcher, "actionInputFetcher");
     if (rewindLostInputs) {
-      this.rewoundActionSynchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher);
+      this.rewoundActionSynchronizer =
+          new RemoteRewoundActionSynchronizer(actionInputFetcher, graph);
     }
   }
 
@@ -127,20 +129,20 @@ public class RemoteOutputService implements OutputService {
     // is valid. If the previous OutputService redirected the output path to a remote location, we
     // must undo this.
     Path outputPath = directories.getOutputPath(workspaceName);
-    if (outputPath.isSymbolicLink()) {
-      try {
+    try {
+      if (outputPath.isSymbolicLink()) {
         outputPath.delete();
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        String.format("Couldn't remove output path symlink: %s", e.getMessage()))
-                    .setExecution(
-                        Execution.newBuilder().setCode(Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE))
-                    .build()),
-            e);
       }
+    } catch (IOException e) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      String.format("Couldn't remove output path symlink: %s", e.getMessage()))
+                  .setExecution(
+                      Execution.newBuilder().setCode(Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE))
+                  .build()),
+          e);
     }
     return ModifiedFileSet.EVERYTHING_MODIFIED;
   }

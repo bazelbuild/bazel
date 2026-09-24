@@ -80,12 +80,7 @@ cc_binary(
         "//src:__pkg__",
         "//tools/launcher:__pkg__",
     ],
-    deps = select({
-        "@platforms//os:windows": [
-            "//src/main/cpp/util:filesystem",
-        ],
-        "//conditions:default": [],
-    }),
+    deps = ["//src/main/cpp/util:filesystem"],
 )
 
 launcher_maker_test(name = "launcher_maker_test")

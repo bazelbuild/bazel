@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.TypeContext;
+import net.starlark.java.syntax.Types;
 
 /**
  * A {@link StarlarkValue} wrapping a {@link TypeConstructor}. This is used as the runtime value of
@@ -27,22 +28,17 @@ import net.starlark.java.syntax.TypeContext;
  * example, builtin symbols like {@code list} and {@code dict} are instead instances of {@link
  * BuiltinFunction.BuiltinTypeFunction}.
  */
-public sealed class TypeConstructorValue implements StarlarkValue, TypeConstructor
-    permits TypeConstructorValue.AllowingNullary {
-  public static final StarlarkType TYPE = new Type();
-
+public final class TypeConstructorValue implements StarlarkTypeValue, TypeConstructor {
   private final TypeConstructor typeConstructor;
+  private final StarlarkType nullaryType;
 
   public static TypeConstructorValue of(TypeConstructor constructor) {
-    if (constructor instanceof TypeConstructor.AllowingNullary allowingNullary) {
-      return new AllowingNullary(allowingNullary, allowingNullary.createStarlarkType());
-    } else {
-      return new TypeConstructorValue(constructor);
-    }
+    return new TypeConstructorValue(constructor, constructor.createStarlarkType());
   }
 
-  private TypeConstructorValue(TypeConstructor typeConstructor) {
+  private TypeConstructorValue(TypeConstructor typeConstructor, StarlarkType nullaryType) {
     this.typeConstructor = typeConstructor;
+    this.nullaryType = nullaryType;
   }
 
   @Override
@@ -57,7 +53,7 @@ public sealed class TypeConstructorValue implements StarlarkValue, TypeConstruct
 
   @Override
   public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
-    return TYPE;
+    return Types.TYPE;
   }
 
   @Override
@@ -66,45 +62,9 @@ public sealed class TypeConstructorValue implements StarlarkValue, TypeConstruct
     return typeConstructor.createStarlarkType(argsTuple);
   }
 
-  /**
-   * A {@link TypeConstructorValue} whose {@link TypeConstructor} may be invoked without type
-   * arguments and may be used in {@code isinstance()} checks.
-   */
-  // TODO: b/536902188 - Make private once we no longer have to worry about OpenJDK 21 in the bazel
-  // bootstrap test (https://bugs.openjdk.org/browse/JDK-8284011).
-  static final class AllowingNullary extends TypeConstructorValue implements StarlarkTypeValue {
-    private final StarlarkType nullaryType;
-
-    private AllowingNullary(TypeConstructor constructor, StarlarkType nullaryType) {
-      super(constructor);
-      this.nullaryType = nullaryType;
-    }
-
-    @Override
-    public boolean hasInstance(Object value, StarlarkSemantics semantics, TypeContext typeContext) {
-      return StarlarkType.assignableFrom(
-          nullaryType, Starlark.getStarlarkType(value, semantics), typeContext);
-    }
-  }
-
-  /** The type of {@link StarlarkTypeConstructorValue}-s. */
-  private static final class Type extends StarlarkType {
-    // Singleton.
-    private Type() {}
-
-    @Override
-    public String toString() {
-      return "Type";
-    }
-
-    @Override
-    public int hashCode() {
-      return Type.class.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return obj instanceof Type;
-    }
+  @Override
+  public boolean hasInstance(Object value, StarlarkSemantics semantics, TypeContext typeContext) {
+    return StarlarkType.assignableFrom(
+        nullaryType, Starlark.getStarlarkType(value, semantics), typeContext);
   }
 }

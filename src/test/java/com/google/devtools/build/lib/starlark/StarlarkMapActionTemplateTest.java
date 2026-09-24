@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.Actio
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -462,6 +464,46 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   }
 
   @Test
+  public void resourceSetPropagatedToExpandedActions() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "simple_map_impl")
+
+        def resource_set(_os, _inputs_size):
+            return {"cpu": 3, "memory": 768}
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 3)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = simple_map_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+                resource_set = resource_set,
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+    buildTarget("//test:target");
+    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    for (int index = 0; index < 3; ++index) {
+      TreeFileArtifact output =
+          getTreeFileArtifact(outputTree, "input_dir_f" + (index + 1) + ".out", index);
+      SpawnAction action = (SpawnAction) getGeneratingAction(output);
+      assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 2))
+          .isEqualTo(ResourceSet.create(768, 3, 0));
+    }
+  }
+
+  @Test
   // Only boolean integer and strings are allowed in additional_params.
   public void allowedAdditionalParams(@TestParameter({"1", "True", "\"some string\""}) String value)
       throws Exception {
@@ -600,6 +642,54 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
     assertThat(recordingOutErr.errAsLatin1())
         .containsMatch(
             "Cannot declare file `child` in non-output directory File.*test/target_input_dir");
+  }
+
+  @Test
+  public void cannotConsumeOutputDirectory(
+      @TestParameter({
+            "inputs = [first_dir]",
+            "inputs = depset([first_dir])",
+            "tools = [first_dir]",
+            "tools = depset([first_dir])",
+            "tools = [depset([first_dir])]"
+          })
+          String inputArgument)
+      throws Exception {
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir")
+
+        def map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            first_dir = output_directories["first"]
+            first = template_ctx.declare_file("first", directory = first_dir)
+            template_ctx.run(outputs = [first], executable = tools["tool"])
+            second = template_ctx.declare_file("second", directory = output_directories["second"])
+            template_ctx.run(
+                outputs = [second],
+                executable = tools["tool"],
+                %s,
+            )
+
+        def rule_impl(ctx):
+            first_dir = ctx.actions.declare_directory("first_dir")
+            second_dir = ctx.actions.declare_directory("second_dir")
+            ctx.actions.map_directory(
+                implementation = map_impl,
+                input_directories = {"input": create_seed_dir(ctx, "input", 1, 3)},
+                output_directories = {"first": first_dir, "second": second_dir},
+                tools = {"tool": ctx.attr.cat_tool.files_to_run},
+            )
+            return [DefaultInfo(files = depset([first_dir, second_dir]))]
+        """
+            .formatted(inputArgument));
+
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .containsMatch(
+            "Output directory .*first_dir.* cannot be used as an input to template_ctx.run");
   }
 
   @Test
@@ -1066,9 +1156,10 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
     assertThat(recordingOutErr.errAsLatin1())
         .containsMatch(
             "ERROR: .*/test/BUILD:2:8: Expanding \\[File:\\[.*\\]test/target_input_dir\\] into"
-                + " actions failed: Output directory"
-                + " File:\\[.*\\]test/target_output_dir1"
-                + " cannot be used as an input to template_ctx\\.run\\(\\)");
+                + " actions failed: (.|\\n"
+                + ")*/test/rule_def.bzl\", line 15, column 21, in combined_impl(.|\\n"
+                + ")*Output directory File:\\[.*\\]test/target_output_dir1 cannot be used as an"
+                + " input to template_ctx\\.run\\(\\)");
   }
 
   @Test

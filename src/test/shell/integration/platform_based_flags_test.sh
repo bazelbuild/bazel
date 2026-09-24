@@ -652,4 +652,337 @@ EOF
   expect_log "//${pkg}:show: value = \"alt\""
 }
 
+function write_platform_flags_support_rules() {
+  local -r pkg="$1"
+  mkdir -p "$pkg"
+  mkdir -p "${pkg}_flags"
+
+  touch ${pkg}_flags/BUILD
+  cat > "${pkg}_flags"/flag_defs.bzl <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+simple_flag = rule(
+    implementation = lambda ctx: BuildSettingInfo(value = ctx.build_setting_value),
+    build_setting = config.string(flag = True),
+    attrs = {
+        "scope": attr.string(default = "target"),
+    },
+)
+EOF
+
+  cat > "$pkg/rule_defs.bzl" <<EOF
+def _simple_rule_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".out")
+    ctx.actions.write(out, "content")
+    return [DefaultInfo(files = depset([out]))]
+
+simple_rule = rule(
+    implementation = _simple_rule_impl,
+    attrs = {
+        "tool": attr.label(cfg = "exec"),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load("//${pkg}_flags:flag_defs.bzl", "simple_flag")
+load("//${pkg}:rule_defs.bzl", "simple_rule")
+
+simple_flag(
+    name = "my_flag",
+    build_setting_default = "default_value",
+    # This must be set to ensure thet platform-set value continues to the
+    # exec config.
+    scope = "universal",
+)
+platform(
+    name = "platform_with_flag",
+    flags = [
+        "--//${pkg}:my_flag=platform_set_value",
+    ],
+)
+simple_rule(name = "my_tool")
+simple_rule(
+    name = "my_target",
+    tool = ":my_tool",
+)
+EOF
+}
+
+function test_platform_flags_included_in_baseline_configuration() {
+  local -r pkg="$FUNCNAME"
+  write_platform_flags_support_rules "$pkg"
+
+  bazel cquery "deps(//$pkg:my_target)" --platforms="//$pkg:platform_with_flag" \
+    --output=files &> $TEST_log || fail "bazel failed"
+
+  local cpu_pattern="[a-zA-Z0-9_]\+"
+  expect_log "${PRODUCT_NAME}-out/${cpu_pattern}-fastbuild/bin/${pkg}/my_target.out"
+  expect_log "${PRODUCT_NAME}-out/${cpu_pattern}-opt-exec/bin/${pkg}/my_tool.out"
+  expect_not_log "-ST-"
+}
+
+function test_platform_flags_included_in_baseline_configuration_with_alias_platform() {
+  local -r pkg="$FUNCNAME"
+  write_platform_flags_support_rules "$pkg"
+  cat >> "$pkg/BUILD" <<EOF
+alias(
+  name = "alias_platform",
+  actual = ":platform_with_flag",
+)
+EOF
+
+  bazel cquery "deps(//$pkg:my_target)" --platforms="//$pkg:alias_platform" \
+    --output=files &> $TEST_log || fail "bazel failed"
+
+  local cpu_pattern="[a-zA-Z0-9_]\+"
+  expect_log "${PRODUCT_NAME}-out/${cpu_pattern}-fastbuild/bin/${pkg}/my_target.out"
+  expect_log "${PRODUCT_NAME}-out/${cpu_pattern}-opt-exec/bin/${pkg}/my_tool.out"
+  expect_not_log "-ST-"
+}
+
+function test_platform_flags_included_in_baseline_configuration_bad_target_platform() {
+  local -r pkg="$FUNCNAME"
+  write_platform_flags_support_rules "$pkg"
+
+  bazel build --nobuild //$pkg:my_target --platforms="//$pkg:my_flag" \
+    &> $TEST_log && fail "bazel passed unexepectedly"
+
+  expect_log "Target //${pkg}:my_flag was referenced as a platform, but does not provide PlatformInfo"
+}
+
+function test_platform_flags_included_in_baseline_configuration_bad_target_platform_package() {
+  local -r pkg="$FUNCNAME"
+  write_platform_flags_support_rules "$pkg"
+
+  bazel build --nobuild //$pkg:my_target --platforms="//not_a_platform:foo" \
+    &> $TEST_log && fail "bazel passed unexepectedly"
+
+  expect_log "no such package 'not_a_platform'"
+}
+
+function write_non_flag_setting() {
+  local -r pkg="$1"
+  mkdir -p "${pkg}"
+  cat > "${pkg}/setting.bzl" <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _non_flag_setting_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+non_flag_setting = rule(
+    implementation = _non_flag_setting_impl,
+    build_setting = config.string(flag = False),
+)
+
+def _show_setting_impl(ctx):
+    value = ctx.attr.setting[BuildSettingInfo].value
+    print("%s: value = \\"%s\\"" % (ctx.label, value))
+
+show_setting = rule(
+    implementation = _show_setting_impl,
+    attrs = {
+        "setting": attr.label(providers = [BuildSettingInfo]),
+    },
+)
+EOF
+}
+
+function test_platform_sets_non_flag_setting_with_visibility() {
+  local -r pkg="$FUNCNAME"
+  local -r setting_pkg="${pkg}_setting"
+  write_non_flag_setting "$setting_pkg"
+
+  cat > "${setting_pkg}/BUILD" <<EOF
+load(":setting.bzl", "non_flag_setting")
+
+non_flag_setting(
+    name = "my_setting",
+    build_setting_default = "default_val",
+    visibility = ["//${pkg}:__pkg__"],
+)
+EOF
+
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<EOF
+load("//${setting_pkg}:setting.bzl", "show_setting")
+
+platform(
+    name = "my_platform",
+    flags = [
+        "--//${setting_pkg}:my_setting=platform_val",
+    ],
+)
+
+show_setting(
+    name = "show",
+    setting = "//${setting_pkg}:my_setting",
+)
+EOF
+
+  bazel build --platforms="//$pkg:my_platform" //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//${pkg}:show: value = \"platform_val\""
+}
+
+function test_platform_sets_non_flag_setting_fails_without_visibility() {
+  local -r pkg="$FUNCNAME"
+  local -r setting_pkg="${pkg}_setting"
+  write_non_flag_setting "$setting_pkg"
+
+  cat > "${setting_pkg}/BUILD" <<EOF
+load(":setting.bzl", "non_flag_setting")
+
+non_flag_setting(
+    name = "my_setting",
+    build_setting_default = "default_val",
+    visibility = ["//visibility:private"],
+)
+EOF
+
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<EOF
+load("//${setting_pkg}:setting.bzl", "show_setting")
+
+platform(
+    name = "my_platform",
+    flags = [
+        "--//${setting_pkg}:my_setting=platform_val",
+    ],
+)
+
+show_setting(
+    name = "show",
+    setting = "//${setting_pkg}:my_setting",
+)
+EOF
+
+  bazel build --platforms="//$pkg:my_platform" //$pkg:show &> $TEST_log && fail "bazel unexpectedly passed"
+  expect_log "Build setting '//${setting_pkg}:my_setting' cannot be set by platform in package '${pkg}': target is not visible from this package"
+}
+
+function test_cli_sets_non_flag_setting_fails() {
+  local -r pkg="$FUNCNAME"
+  local -r setting_pkg="${pkg}_setting"
+  write_non_flag_setting "$setting_pkg"
+
+  cat > "${setting_pkg}/BUILD" <<EOF
+load(":setting.bzl", "non_flag_setting")
+
+non_flag_setting(
+    name = "my_setting",
+    build_setting_default = "default_val",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<EOF
+load("//${setting_pkg}:setting.bzl", "show_setting")
+
+show_setting(
+    name = "show",
+    setting = "//${setting_pkg}:my_setting",
+)
+EOF
+
+  bazel build --//${setting_pkg}:my_setting=cli_val //$pkg:show &> $TEST_log && fail "bazel unexpectedly passed"
+  expect_log "Unrecognized option: //${setting_pkg}:my_setting=cli_val"
+}
+
+function test_platform_sets_flag_setting_ignores_private_visibility() {
+  local -r pkg="$FUNCNAME"
+  local -r setting_pkg="${pkg}_setting"
+  mkdir -p "$setting_pkg"
+  cat > "${setting_pkg}/flag.bzl" <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+my_flag = rule(
+    implementation = _flag_impl,
+    build_setting = config.string(flag = True),
+)
+
+def _show_flag_impl(ctx):
+    value = ctx.attr.flag[BuildSettingInfo].value
+    print("%s: value = \\"%s\\"" % (ctx.label, value))
+
+show_flag = rule(
+    implementation = _show_flag_impl,
+    attrs = {
+        "flag": attr.label(providers = [BuildSettingInfo]),
+    },
+)
+EOF
+
+  cat > "${setting_pkg}/BUILD" <<EOF
+load(":flag.bzl", "my_flag", "show_flag")
+
+my_flag(
+    name = "private_flag",
+    build_setting_default = "default_val",
+    visibility = ["//visibility:private"],
+)
+
+show_flag(
+    name = "show",
+    flag = ":private_flag",
+)
+EOF
+
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<EOF
+platform(
+    name = "my_platform",
+    flags = [
+        "--//${setting_pkg}:private_flag=platform_val",
+    ],
+)
+EOF
+
+  bazel build --platforms="//$pkg:my_platform" //${setting_pkg}:show &> $TEST_log || fail "bazel failed"
+  expect_log "//${setting_pkg}:show: value = \"platform_val\""
+}
+
+function test_platform_sets_non_flag_setting_with_package_group() {
+  local -r pkg="$FUNCNAME"
+  local -r setting_pkg="${pkg}_setting"
+  write_non_flag_setting "$setting_pkg"
+
+  cat > "${setting_pkg}/BUILD" <<EOF
+load(":setting.bzl", "non_flag_setting")
+
+package_group(
+    name = "allowed_consumers",
+    packages = ["//${pkg}"],
+)
+
+non_flag_setting(
+    name = "my_setting",
+    build_setting_default = "default_val",
+    visibility = [":allowed_consumers"],
+)
+EOF
+
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<EOF
+load("//${setting_pkg}:setting.bzl", "show_setting")
+
+platform(
+    name = "my_platform",
+    flags = [
+        "--//${setting_pkg}:my_setting=platform_val",
+    ],
+)
+
+show_setting(
+    name = "show",
+    setting = "//${setting_pkg}:my_setting",
+)
+EOF
+
+  bazel build --platforms="//$pkg:my_platform" //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//${pkg}:show: value = \"platform_val\""
+}
+
 run_suite "Tests for platform based flags"

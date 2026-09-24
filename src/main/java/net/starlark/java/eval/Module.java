@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import java.util.Arrays;
@@ -28,11 +27,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.TypeTagger;
+import net.starlark.java.syntax.Types;
 
 /**
  * A {@link Module} represents a Starlark module, a container of global variables populated by
@@ -169,6 +169,11 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
     return clientData;
   }
 
+  /** Returns the Starlark semantics used by the execution of this module. */
+  public StarlarkSemantics getSemantics() {
+    return semantics;
+  }
+
   /** Sets the module's doc string. It may be retrieved using {@link #getDocumentation}. */
   public void setDocumentation(String documentation) {
     this.documentation = documentation;
@@ -217,7 +222,16 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
   @Override
   @Nullable
   public StarlarkType getUniversalSymbolType(String name) {
-    return Starlark.UNIVERSAL_SYMBOL_TYPES.get(name);
+    @Nullable StarlarkType type = Starlark.UNIVERSAL_SYMBOL_TYPES.get(name);
+    if (type == null && Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.containsKey(name)) {
+      type = Types.TYPE;
+    }
+    return type;
+  }
+
+  @Override
+  public TypeContext getTypeContext() {
+    return CallUtils.getBuiltinManager(semantics);
   }
 
   /**
@@ -250,7 +264,7 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
 
   /** Implements the resolver's module interface. */
   @Override
-  public Resolver.Scope resolve(String name) throws Undefined {
+  public Resolver.Scope resolve(String name, boolean resolveTypeSyntax) throws Undefined {
     // global?
     if (globalIndex.containsKey(name)) {
       return Resolver.Scope.GLOBAL;
@@ -270,76 +284,38 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
     if (Starlark.UNIVERSE.containsKey(name)) {
       return Resolver.Scope.UNIVERSAL;
     }
+    if (resolveTypeSyntax && Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.containsKey(name)) {
+      return Resolver.Scope.UNIVERSAL;
+    }
 
     // undefined
     Set<String> candidates = new HashSet<>();
     candidates.addAll(globalIndex.keySet());
     candidates.addAll(predeclared.keySet());
     candidates.addAll(Starlark.UNIVERSE.keySet());
+    if (resolveTypeSyntax) {
+      candidates.addAll(Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.keySet());
+    }
     throw new Undefined(String.format("name '%s' is not defined", name), candidates);
   }
 
   @Override
   @Nullable
   public TypeConstructor getTypeConstructor(String name) throws Undefined {
-    Resolver.Scope scope = resolve(name);
+    Resolver.Scope scope = resolve(name, /* resolveTypeSyntax= */ true);
     Object value;
     switch (scope) {
       case GLOBAL -> value = getGlobal(name);
       case PREDECLARED -> value = getPredeclared(name);
-      case UNIVERSAL -> value = Starlark.UNIVERSE.get(name);
+      case UNIVERSAL -> {
+        value = Starlark.UNIVERSE.get(name);
+        if (value == null) {
+          value = Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.get(name);
+        }
+      }
       default -> throw new AssertionError(String.format("Unexpected scope: %s", scope));
     }
     return value instanceof TypeConstructor constructorValue ? constructorValue : null;
-  }
-
-  private ImmutableMap<String, MethodDescriptor> getMethods(Class<?> clazz) {
-    return CallUtils.getBuiltinManager(semantics).getAnnotatedMethods(clazz);
-  }
-
-  @Override
-  @Nullable
-  public StarlarkType getStrFieldType(String name) {
-    MethodDescriptor desc = getMethods(String.class).get(name);
-    return desc == null ? null : desc.getStarlarkType();
-  }
-
-  @Override
-  @Nullable
-  public StarlarkType getListFieldType(String name) {
-    MethodDescriptor desc = getMethods(StarlarkList.class).get(name);
-    return desc == null ? null : desc.getStarlarkType();
-  }
-
-  @Override
-  @Nullable
-  public StarlarkType getDictFieldType(String name) {
-    MethodDescriptor desc = getMethods(Dict.class).get(name);
-    return desc == null ? null : desc.getStarlarkType();
-  }
-
-  @Override
-  @Nullable
-  public StarlarkType getSetFieldType(String name) {
-    MethodDescriptor desc = getMethods(StarlarkSet.class).get(name);
-    return desc == null ? null : desc.getStarlarkType();
-  }
-
-  @Override
-  @Nullable
-  public StarlarkType getStarlarkBuiltinFieldType(Class<?> clazz, String fieldName) {
-    if (StarlarkAnnotations.getStarlarkBuiltin(clazz) == null) {
-      // Support only @StarlarkBuiltin annotated classes, not @StarlarkLibrary ones.
-      return null;
-    }
-    MethodDescriptor desc = getMethods(clazz).get(fieldName);
-    return desc == null ? null : desc.getStarlarkType();
-  }
-
-  @Override
-  @Nullable
-  public ImmutableList<StarlarkType> getStarlarkBuiltinAutoTypeSupertypes(Class<?> clazz) {
-    return CallUtils.getBuiltinManager(semantics).getStarlarkBuiltinAutoTypeSupertypes(clazz);
   }
 
   /**

@@ -37,10 +37,10 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   boolean isPackageUnderPrototypes(PackageIdentifier packageIdentifier);
 
   /**
-   * Returns true if the given non-experimental, non-prototype package is allowed to depend on (via
-   * target visibility or .bzl load visibility) prototype packages.
+   * Returns true if the given non-experimental, non-prototype package is allowed to bzl load
+   * prototype packages.
    */
-  boolean mayPackageDependOnPrototypes(PackageIdentifier packageIdentifier);
+  boolean mayLoadPrototypes(PackageIdentifier packageIdentifier);
 
   /** The runfiles prefix. */
   String getRunfilesPrefix();

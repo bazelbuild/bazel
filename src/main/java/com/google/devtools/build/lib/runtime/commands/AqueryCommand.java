@@ -72,6 +72,11 @@ public final class AqueryCommand implements BlazeCommand {
           PriorityCategory.COMPUTED_DEFAULT,
           "Option required by aquery",
           ImmutableList.of("--nobuild"));
+      optionsParser.parse(
+          PriorityCategory.SOFTWARE_REQUIREMENT,
+          // https://github.com/bazelbuild/bazel/issues/15460
+          "aquery should not exclude test_suite rules",
+          ImmutableList.of("--noexpand_test_suites"));
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Aquery's known options failed to parse", e);
     }

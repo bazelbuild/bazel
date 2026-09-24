@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -47,6 +46,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -895,7 +895,9 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     // Initialize packageoid.
     pkg.containsErrors |= containsErrors();
     pkg.failureDetail = getFailureDetail();
-    pkg.targets = ImmutableSortedMap.copyOf(recorder.getTargetMap());
+    pkg.targets =
+        ImmutableList.sortedCopyOf(
+            Comparator.comparing(Target::getName), recorder.getTargetMap().values());
 
     packageoidInitializationHook();
 

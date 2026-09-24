@@ -94,7 +94,7 @@ public abstract class BuildEventProtocolOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "If true, expand Filesets in the BEP when presenting output files.")
+      help = "No-op.")
   public abstract boolean getExpandFilesets();
 
   @Option(

@@ -46,10 +46,14 @@ public final class OptionsParser {
   private final Set<String> directJars = new LinkedHashSet<>();
 
   private String strictJavaDeps;
+  private String unusedDeps;
   private String fixDepsTool;
 
   private String outputDepsProtoFile;
   private final Set<String> depsArtifacts = new LinkedHashSet<>();
+  // Separate from directJars / `--direct_dependencies` because an `export`ed transitive dep is
+  // indistinguishable from a direct dep
+  private final Set<String> targetDeclaredDeps = new LinkedHashSet<>();
 
   /** This modes controls how a probablistic Java classpath reduction is used. */
   public enum ReduceClasspathMode {
@@ -138,6 +142,9 @@ public final class OptionsParser {
         case "--strict_java_deps":
           strictJavaDeps = getArgument(argQueue, arg);
           break;
+        case "--experimental_check_unused_deps":
+          unusedDeps = getArgument(argQueue, arg);
+          break;
         case "--experimental_fix_deps_tool":
           fixDepsTool = getArgument(argQueue, arg);
           break;
@@ -146,6 +153,9 @@ public final class OptionsParser {
           break;
         case "--deps_artifacts":
           collectFlagArguments(depsArtifacts, argQueue, "--");
+          break;
+        case "--target_declared_deps":
+          collectFlagArguments(targetDeclaredDeps, argQueue, "--");
           break;
         case "--reduce_classpath":
           reduceClasspathMode = ReduceClasspathMode.JAVABUILDER_REDUCED;
@@ -353,6 +363,11 @@ public final class OptionsParser {
     return strictJavaDeps;
   }
 
+  /** Returns the unused dependency checking mode. */
+  public String getUnusedDeps() {
+    return unusedDeps;
+  }
+
   public String getFixDepsTool() {
     return fixDepsTool;
   }
@@ -363,6 +378,11 @@ public final class OptionsParser {
 
   public Set<String> getDepsArtifacts() {
     return depsArtifacts;
+  }
+
+  /** Returns the target labels of declared direct dependencies. */
+  public Set<String> getTargetDeclaredDeps() {
+    return targetDeclaredDeps;
   }
 
   public ReduceClasspathMode reduceClasspathMode() {

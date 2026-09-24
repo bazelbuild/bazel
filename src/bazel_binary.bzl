@@ -30,7 +30,6 @@ def _bazel_binary_impl(ctx):
         executable = cat_binary,
         arguments = [client.path, package_zip.path, unaligned.path],
         mnemonic = "ConcatClientAndZip",
-        progress_message = "Concatenating client and zip for %{ctx.label.name}",
     )
 
     # Adjust SFX
@@ -40,7 +39,6 @@ def _bazel_binary_impl(ctx):
         executable = adjust_sfx,
         arguments = [unaligned.path, output.path],
         mnemonic = "AdjustSfx",
-        progress_message = "Adjusting SFX for %{ctx.label.name}",
     )
 
     return [DefaultInfo(

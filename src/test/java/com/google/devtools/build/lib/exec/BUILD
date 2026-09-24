@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -13,7 +13,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/exec/local:srcs",
         "//src/test/java/com/google/devtools/build/lib/exec/util:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -30,6 +30,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
@@ -47,12 +48,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_registry",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:per_label_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
@@ -63,10 +66,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_exec_exception",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context_utils",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_reconstructor",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_policy",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
+        "//src/main/java/com/google/devtools/build/lib/exec:stable_sort",
         "//src/main/java/com/google/devtools/build/lib/exec:standalone_test_result",
         "//src/main/java/com/google/devtools/build/lib/exec:standalone_test_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:streamed_test_output",
@@ -102,14 +106,16 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java_util",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
-        "@zstd-jni",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/protobuf/util:time",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+        "//third_party/java/zstd_jni",
     ],
 )
 
@@ -118,6 +124,6 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":ExecTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )

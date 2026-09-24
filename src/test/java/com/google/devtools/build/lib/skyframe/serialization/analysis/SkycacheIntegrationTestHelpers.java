@@ -63,6 +63,12 @@ interface SkycacheIntegrationTestHelpers {
     assertWithMessage("expected to deserialize at least one Skyframe node")
         .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getCacheHits())
         .isNotEmpty();
+    assertWithMessage("expected to record hit latencies for at least one SkyFunction")
+        .that(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getHitLatenciesBySkyFunctionName())
+        .isNotEmpty();
     assertWithMessage("expected to not have any SerializationExceptions")
         .that(
             getCommandEnvironment()

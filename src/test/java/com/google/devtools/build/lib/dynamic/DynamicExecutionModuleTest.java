@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -145,6 +146,7 @@ public class DynamicExecutionModuleTest {
             .setProductName(TestConstants.PRODUCT_NAME)
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(mock(OptionsParsingResult.class))
+            .addBlazeService(new CompressionServiceImpl())
             .build();
     BinTools binTools = BinTools.forUnitTesting(execDir, ImmutableList.of());
     blazeRuntime.initWorkspace(

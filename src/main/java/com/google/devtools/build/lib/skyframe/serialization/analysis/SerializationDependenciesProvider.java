@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
@@ -39,6 +40,9 @@ public interface SerializationDependenciesProvider {
    * <p>Calling this can be an expensive process as the codec registry will be initialized.
    */
   ObjectCodecs getObjectCodecs() throws InterruptedException;
+
+  /** Returns the {@link CompressionService} implementation. */
+  CompressionService getCompressionService();
 
   /** Returns the {@link FingerprintValueService} implementation. */
   @Nullable

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.runtime.TestResultAggregator.AggregationPolicy;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -237,7 +238,60 @@ public final class TestResultAggregatorTest {
         .isEqualTo(BlazeTestStatus.INCOMPLETE);
   }
 
+  @Test
+  public void testVerboseTimeoutWarnings_ignoredForLocallyCachedTests() throws Exception {
+    TestResultAggregator underTest =
+        createAggregatorWithTestRuns(1, /* testVerboseTimeoutWarnings= */ true);
+
+    underTest.testEvent(
+        testResult(
+            TestResultData.newBuilder()
+                .setStatus(BlazeTestStatus.PASSED)
+                .setRemotelyCached(false)
+                .addTestProcessTimes(10),
+            /* locallyCached= */ true));
+
+    assertThat(underTest.aggregateAndReportSummary(false).getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testVerboseTimeoutWarnings_ignoredForRemotelyCachedTests() throws Exception {
+    TestResultAggregator underTest =
+        createAggregatorWithTestRuns(1, /* testVerboseTimeoutWarnings= */ true);
+
+    underTest.testEvent(
+        testResult(
+            TestResultData.newBuilder()
+                .setStatus(BlazeTestStatus.PASSED)
+                .setRemotelyCached(true)
+                .addTestProcessTimes(10),
+            /* locallyCached= */ false));
+
+    assertThat(underTest.aggregateAndReportSummary(false).getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testVerboseTimeoutWarnings_emittedForUncachedTests() throws Exception {
+    TestResultAggregator underTest =
+        createAggregatorWithTestRuns(1, /* testVerboseTimeoutWarnings= */ true);
+
+    underTest.testEvent(
+        testResult(
+            TestResultData.newBuilder()
+                .setStatus(BlazeTestStatus.PASSED)
+                .setRemotelyCached(false)
+                .addTestProcessTimes(10),
+            /* locallyCached= */ false));
+
+    assertThat(underTest.aggregateAndReportSummary(false).getWarnings()).hasSize(1);
+  }
+
   private TestResultAggregator createAggregatorWithTestRuns(int testRuns) {
+    return createAggregatorWithTestRuns(testRuns, /* testVerboseTimeoutWarnings= */ false);
+  }
+
+  private TestResultAggregator createAggregatorWithTestRuns(
+      int testRuns, boolean testVerboseTimeoutWarnings) {
     ArtifactRoot root =
         ArtifactRoot.asDerivedRoot(
             new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/output_base"),
@@ -253,14 +307,13 @@ public final class TestResultAggregatorTest {
 
     ConfiguredTarget mockTarget = mock(ConfiguredTarget.class);
     when(mockTarget.getProvider(TestProvider.class)).thenReturn(new TestProvider(mockParams));
+    when(mockTarget.getLabel()).thenReturn(Label.parseCanonicalUnchecked("//foo:bar"));
 
     return new TestResultAggregator(
         mockTarget,
         mock(BuildConfigurationValue.class),
         new AggregationPolicy(
-            new EventBus(),
-            /* testCheckUpToDate= */ false,
-            /* testVerboseTimeoutWarnings= */ false),
+            new EventBus(), /* testCheckUpToDate= */ false, testVerboseTimeoutWarnings),
         /* skippedThisTest= */ false);
   }
 

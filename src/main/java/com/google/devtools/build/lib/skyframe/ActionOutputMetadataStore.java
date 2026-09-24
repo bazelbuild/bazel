@@ -36,8 +36,9 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -51,8 +52,10 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -66,10 +69,10 @@ import javax.annotation.Nullable;
  * metadata while {@link com.google.devtools.build.lib.actions.ActionCacheChecker} determines
  * whether the action needs to be executed. If the action needs to be executed (i.e. no action cache
  * hit), {@link #prepareForActionExecution} is called. This call switches the handler to a mode
- * where it accepts {@linkplain com.google.devtools.build.lib.actions.cache.OutputMetadataStore
- * injected output data}, or otherwise obtains metadata from the filesystem. Freshly created output
- * files are set read-only and executable <em>before</em> statting them to ensure that the stat's
- * ctime is up to date.
+ * where it accepts {@linkplain com.google.devtools.build.lib.actions.OutputMetadataStore injected
+ * output data}, or otherwise obtains metadata from the filesystem. Freshly created output files are
+ * set read-only and executable <em>before</em> statting them to ensure that the stat's ctime is up
+ * to date.
  *
  * <p>After action execution, {@link #getOutputMetadata} or {@link #getTreeArtifactValue} should be
  * called on each of the action's outputs (except those that were {@linkplain #artifactOmitted
@@ -84,6 +87,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
+      @Nullable BatchStat batchStatter,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver) {
     return new ActionOutputMetadataStore(
@@ -91,6 +95,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
         outputPermissions,
         outputs,
         xattrProvider,
+        batchStatter,
         tsgm,
         artifactPathResolver);
   }
@@ -99,6 +104,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   private final OutputPermissions outputPermissions;
 
   private final XattrProvider xattrProvider;
+  @Nullable private final BatchStat batchStatter;
   private final TimestampGranularityMonitor tsgm;
   private final ArtifactPathResolver artifactPathResolver;
 
@@ -115,12 +121,14 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
+      @Nullable BatchStat batchStatter,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver) {
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
     this.outputPermissions = outputPermissions;
     this.outputs = checkNotNull(outputs);
     this.xattrProvider = xattrProvider;
+    this.batchStatter = batchStatter;
     this.tsgm = checkNotNull(tsgm);
     this.artifactPathResolver = checkNotNull(artifactPathResolver);
   }
@@ -262,6 +270,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     }
 
     TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
+    ConcurrentLinkedQueue<TreeFileArtifact> childrenToBatchStat =
+        batchStatter != null ? new ConcurrentLinkedQueue<>() : null;
 
     TreeArtifactValue.visitTree(
         treeDir,
@@ -277,12 +287,48 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
             return; // The final TreeArtifactValue does not contain child directories.
           }
           TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
+          if (childrenToBatchStat != null) {
+            childrenToBatchStat.add(child);
+            return;
+          }
           FileArtifactValue metadata = constructFileArtifactValueFromFilesystem(child);
           // visitTree() uses multiple threads and putChild() is not thread-safe
           synchronized (tree) {
             tree.putChild(child, metadata);
           }
         });
+
+    if (childrenToBatchStat != null && !childrenToBatchStat.isEmpty()) {
+      ImmutableList<TreeFileArtifact> children = ImmutableList.copyOf(childrenToBatchStat);
+      List<FileStatusWithDigest> stats;
+      try {
+        stats = checkNotNull(batchStatter).batchStat(Artifact.asPathFragments(children));
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log(
+            "Failed to batch stat tree artifact %s, falling back to filesystem stat", parent);
+        stats = null;
+      }
+      checkState(
+          stats == null || stats.size() == children.size(),
+          "BatchStat returned %s statuses for %s tree artifact children",
+          stats == null ? 0 : stats.size(),
+          children.size());
+      for (int index = 0; index < children.size(); index++) {
+        TreeFileArtifact child = children.get(index);
+        FileStatusWithDigest childStat = stats != null ? stats.get(index) : null;
+        FileArtifactValue metadata;
+        if (childStat != null) {
+          try {
+            metadata = constructFileArtifactValue(child, childStat);
+          } catch (IOException e) {
+            metadata = constructFileArtifactValueFromFilesystem(child);
+          }
+        } else {
+          metadata = constructFileArtifactValueFromFilesystem(child);
+        }
+        tree.putChild(child, metadata);
+      }
+    }
 
     if (archivedTreeArtifactsEnabled) {
       ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(parent);
@@ -436,23 +482,28 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
           artifactPathResolver.toPath(artifact).getLastModifiedTime());
     }
 
-    byte[] digest = null;
-    if (type.isFile()) {
-      // We don't have an injected digest and there is no digest in the file value (which attempts a
-      // fast digest). Manually compute the digest instead.
-      Path path = statAndValue.pathNoFollow();
-      if (statAndValue.statNoFollow() != null
-          && statAndValue.statNoFollow().isSymbolicLink()
-          && statAndValue.realPath() != null) {
-        // If the file is a symlink, we compute the digest using the target path so that it's
-        // possible to hit the digest cache - we probably already computed the digest for the
-        // target during previous action execution.
-        path = statAndValue.realPath();
-      }
-
-      digest = DigestUtils.manuallyComputeDigest(path);
+    if (type.isSpecialFile()) {
+      return FileArtifactValue.createFromInjectedDigest(value, /* digest= */ null);
     }
-    return FileArtifactValue.createFromInjectedDigest(value, digest);
+
+    checkState(type.isFile(), type);
+    // We don't have an injected digest and there is no digest in the file value (which attempts a
+    // fast digest). Manually compute the digest instead.
+    var path = statAndValue.pathNoFollow();
+    // The file exists and is not an unresolved symlink, so it must have been stat'ed. Since the
+    // stat was taken without following symlinks, it only describes the file we are about to digest
+    // as long as the path isn't a symlink.
+    var stat = checkNotNull(statAndValue.statNoFollow(), statAndValue);
+    if (stat.isSymbolicLink()) {
+      // If the file is a symlink, we compute the digest using the target path so that it's
+      // possible to hit the digest cache - we probably already computed the digest for the
+      // target during previous action execution.
+      // The case of an unresolved symlink has been handled above, so realPath() is never null.
+      path = checkNotNull(statAndValue.realPath(), statAndValue);
+      stat = null;
+    }
+    return FileArtifactValue.createFromInjectedDigest(
+        value, DigestUtils.manuallyComputeDigest(path, stat));
   }
 
   /**

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
+import com.google.devtools.build.lib.actions.ActionTemplateOutputEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -176,6 +177,7 @@ public final class ArtifactFunction implements SkyFunction {
       var result = createTreeArtifactValueFromActionKey(artifactDependencies, env);
       if (result != null) {
         SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, artifact, result, env);
+        env.getListener().post(new ActionTemplateOutputEvent(artifact, result));
       }
       return result;
     }
@@ -302,8 +304,7 @@ public final class ArtifactFunction implements SkyFunction {
           artifactDependencies);
     }
 
-    TreeArtifactValue tree = treeBuilder.build();
-    return tree;
+    return treeBuilder.build();
   }
 
   @Nullable
@@ -451,18 +452,12 @@ public final class ArtifactFunction implements SkyFunction {
         // No additional useful information from path.
         return String.format("%s '%s'", error, ownerLabel);
       }
-    } else {
-      // Not worth threading sibling repository layout config value all the way here: if either
-      // match, we know the label isn't useful.
-      for (boolean siblingRepositoryLayout : ImmutableList.of(Boolean.FALSE, Boolean.TRUE)) {
-        if (ownerLabel
-            .getRepository()
-            .getExecPath(siblingRepositoryLayout)
-            .getRelative(labelFragment)
-            .equals(artifact.getExecPath())) {
-          return String.format("%s '%s'", error, ownerLabel);
-        }
-      }
+    } else if (ownerLabel
+        .getRepository()
+        .getExecPath()
+        .getRelative(labelFragment)
+        .equals(artifact.getExecPath())) {
+      return String.format("%s '%s'", error, ownerLabel);
     }
 
     // TODO(bazel-team): when is this hit?
@@ -534,20 +529,7 @@ public final class ArtifactFunction implements SkyFunction {
       if (value == null) {
         return null;
       }
-      ImmutableList.Builder<ActionLookupData> expandedActionExecutionKeys =
-          ImmutableList.builderWithExpectedSize(value.getActions().size());
-      for (ActionAnalysisMetadata action : value.getActions()) {
-        // ActionTemplates expand into actions that can generate multiple output trees (as a whole),
-        // but an expanded action can generate outputs under only a single tree. As such, we only
-        // need to evaluate the action if it generates an output under the requested tree artifact.
-        for (Artifact output : action.getOutputs()) {
-          if (output.hasParent() && output.getParent().equals(artifact)) {
-            expandedActionExecutionKeys.add(((DerivedArtifact) output).getGeneratingActionKey());
-            break;
-          }
-        }
-      }
-      return expandedActionExecutionKeys.build();
+      return value.getGeneratingActionKeys(artifact);
     }
 
     @Override

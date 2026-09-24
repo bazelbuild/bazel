@@ -26,6 +26,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver.Binding;
 import net.starlark.java.syntax.Resolver.ComprehensionBinding;
+import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.TypeTagger;
 
 /**
@@ -517,6 +518,10 @@ public final class StarlarkThread {
 
   public StarlarkSemantics getSemantics() {
     return semantics;
+  }
+
+  public TypeContext getTypeContext() {
+    return builtinManager;
   }
 
   /** Reports whether this thread is allowed to make recursive calls. */

@@ -31,6 +31,7 @@ function strip_lines_from_bazel_cc() {
   clean_log=$(\
     sed \
     -e '/^WARNING: ignoring JAVA_TOOL_OPTIONS in environment.$/d' \
+    -e '/^\.\.\. still trying to connect to local B[azel]* server ([1-9][0-9]*) after [1-9][0-9]* seconds \.\.\.\.*$/d' \
     $TEST_log)
 
   echo "$clean_log" > $TEST_log
@@ -558,6 +559,92 @@ function test_noblock_for_lock_with_batch() {
       "Exiting because the output base lock is held and --noblock_for_lock was given"
 }
 
+function test_block_for_lock_timeout_reuse_server() {
+  # Use a FIFO to spoonfeed the Bazel server.
+  mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
+  mkdir -p b && mkfifo b/BUILD || fail "couldn't create fifo b"
+  bazel --client_debug build --nobuild //a:a &> "$TEST_log" &
+  local -r subshell_pid="$!"
+
+  # Wait until Bazel reads a/BUILD. After that, it will block on b/BUILD.
+  echo "filegroup(name='a', srcs=['//b:b'])" > a/BUILD
+
+  # Get the client pid from the log.
+  local -r client_pid="$(cat "$TEST_log" | scrape_client_pid)"
+
+  # Run another command in the same workspace with a 1-second lock timeout.
+  local exit_code=0
+  bazel --client_debug --block_for_lock=1s info &> "$TEST_log-2" || exit_code=$?
+
+  # Unstick the first server *before* checking expectations.
+  echo "filegroup(name='b', visibility=['//visibility:public'])" > b/BUILD
+  wait "$subshell_pid" || fail "Couldn't wait"
+  rm -rf a b
+
+  assert_equals 9 "$exit_code" # LOCK_HELD_NOBLOCK_FOR_LOCK
+
+  cat "$TEST_log-2" >> "$TEST_log"
+  expect_log \
+      "Another command (pid=$client_pid) is running. Exiting because --block_for_lock=1000ms timeout expired."
+}
+
+function test_block_for_lock_released_before_timeout() {
+  # Use a FIFO to spoonfeed the Bazel server.
+  mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
+  mkdir -p b && mkfifo b/BUILD || fail "couldn't create fifo b"
+  bazel --client_debug build --nobuild //a:a &> "$TEST_log" &
+  local -r subshell_pid="$!"
+
+  # Wait until Bazel reads a/BUILD. After that, it will block on b/BUILD.
+  echo "filegroup(name='a', srcs=['//b:b'])" > a/BUILD
+
+  # Run another command in the background with a 10-second timeout.
+  bazel --client_debug --block_for_lock=10s info &> "$TEST_log-2" &
+  local -r second_pid="$!"
+
+  # Sleep briefly to ensure the second command is waiting on the lock.
+  sleep 1
+
+  # Unstick the first server so the second command can acquire the lock.
+  echo "filegroup(name='b', visibility=['//visibility:public'])" > b/BUILD
+  wait "$subshell_pid" || fail "First command failed"
+
+  local exit_code=0
+  wait "$second_pid" || exit_code=$?
+  rm -rf a b
+
+  assert_equals 0 "$exit_code"
+}
+
+function test_block_for_lock_timeout_with_batch() {
+  # Use a FIFO to spoonfeed the Bazel server.
+  mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
+  mkdir -p b && mkfifo b/BUILD || fail "couldn't create fifo b"
+  bazel --client_debug --batch build --nobuild //a:a &>"$TEST_log" &
+  local -r subshell_pid="$!"
+
+  # Wait until Bazel reads a/BUILD. After that, it will block on b/BUILD.
+  echo "filegroup(name='a', srcs=['//b:b'])" > a/BUILD
+
+  local -r client_pid="$(cat "$TEST_log" | scrape_client_pid)"
+
+  local exit_code=0
+  bazel --client_debug --batch --block_for_lock=1s info &>"$TEST_log-2" || exit_code=$?
+
+  # Unstick the first server *before* checking expectations.
+  echo "filegroup(name='b', visibility=['//visibility:public'])" > b/BUILD
+  wait "$subshell_pid" || fail "Couldn't wait"
+  rm -rf a b
+
+  assert_equals 9 "$exit_code" # LOCK_HELD_NOBLOCK_FOR_LOCK
+
+  cat "$TEST_log-2" >> "$TEST_log"
+  expect_log "Another command holds the output base lock"
+  expect_log "pid=$client_pid"
+  expect_log \
+      "Exiting because the output base lock is held and --block_for_lock=1000ms timeout expired."
+}
+
 function test_no_arguments() {
   bazel >&$TEST_log || fail "Expected zero exit"
   expect_log "Usage: b\\(laze\\|azel\\)"
@@ -618,6 +705,12 @@ function test_max_idle_secs() {
   expect_log "Starting local.*server (.*) and connecting to it"
   # Ensure the restart was not triggered by different startup options.
   expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
+
+  # Shut down the server started with --max_idle_secs=1 so that subsequent tests
+  # do not reuse it (--max_idle_secs is a volatile startup option that does not
+  # trigger a server restart) and experience an idle shutdown right as they
+  # connect.
+  bazel shutdown
 }
 
 function test_dashdash_before_command() {
@@ -738,7 +831,7 @@ function test_proxy_settings() {
 }
 
 function test_macos_qos_class() {
-  for class in utility background; do
+  for class in default utility background; do
     bazel --macos_qos_class="${class}" info >"${TEST_log}" 2>&1 \
       || fail "Unknown QoS class ${class}"
     # On macOS it'd be nice to verify that the server is indeed running at the
@@ -748,7 +841,7 @@ function test_macos_qos_class() {
     # real thing would be quite expensive.
   done
 
-  for class in user-interactive user-initiated default ; do
+  for class in user-interactive user-initiated ; do
     bazel --macos_qos_class="${class}" >"${TEST_log}" 2>&1 \
       && fail "Expected failure with invalid QoS class name"
     expect_log "Invalid argument.*qos_class.*${class}"

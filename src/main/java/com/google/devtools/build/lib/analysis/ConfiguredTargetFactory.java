@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -77,6 +76,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.IncrementalArtifactConflictFinder;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -233,7 +233,8 @@ public final class ConfiguredTargetFactory {
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition,
       boolean dependsOnFileKey)
-      throws InterruptedException,
+      throws IOException,
+          InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException {
@@ -326,10 +327,7 @@ public final class ConfiguredTargetFactory {
               transitiveVisibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
-              inputFile.getExecPath(
-                  analysisEnvironment
-                      .getStarlarkSemantics()
-                      .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
+              inputFile.getExecPath(),
               inputFile.getPackageMetadata().sourceRoot(),
               ConfiguredTargetKey.builder()
                   .setLabel(target.getLabel())
@@ -384,7 +382,8 @@ public final class ConfiguredTargetFactory {
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
-      throws InterruptedException,
+      throws IOException,
+          InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException {
@@ -696,7 +695,8 @@ public final class ConfiguredTargetFactory {
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey,
       StarlarkAttributeTransitionProvider starlarkExecTransition)
-      throws InterruptedException,
+      throws IOException,
+          InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           RuleErrorException {

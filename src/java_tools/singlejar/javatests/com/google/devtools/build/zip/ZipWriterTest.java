@@ -55,7 +55,7 @@ public class ZipWriterTest {
     cal.clear();
     cal.set(Calendar.YEAR, rand.nextInt(128) + 1980); // Zip files have 7-bit year resolution.
     cal.set(Calendar.MONTH, rand.nextInt(12));
-    cal.set(Calendar.DAY_OF_MONTH, rand.nextInt(29));
+    cal.set(Calendar.DAY_OF_MONTH, 1 + rand.nextInt(28)); // DAY_OF_MONTH is 1-based
     cal.set(Calendar.HOUR_OF_DAY, rand.nextInt(24));
     cal.set(Calendar.MINUTE, rand.nextInt(60));
     cal.set(Calendar.SECOND, rand.nextInt(30) * 2); // Zip files have 2 second resolution.

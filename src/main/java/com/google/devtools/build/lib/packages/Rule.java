@@ -212,16 +212,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return AbstractAttributeMapper.isConfigurable(this, attributeName);
   }
 
-  /**
-   * Returns the attribute definition whose name is {@code attrName}, or null if not found. (Use
-   * get[X]Attr for the actual value.)
-   *
-   * @deprecated use {@link AbstractAttributeMapper#getAttributeDefinition} instead
-   */
-  @Deprecated
-  public Attribute getAttributeDefinition(String attrName) {
-    return ruleClass.getAttributeProvider().getAttributeByNameMaybe(attrName);
-  }
 
   /**
    * Constructs and returns an immutable list containing all the declared output files of this rule.
@@ -468,23 +458,32 @@ public class Rule extends RuleOrMacroInstance implements Target {
    */
   void populateOutputFiles(EventHandler eventHandler, PackageIdentifier pkgId)
       throws LabelSyntaxException, InterruptedException {
+    populateOutputFiles(eventHandler, pkgId, /* computeImplicitOutputs= */ true);
+  }
+
+  void populateOutputFiles(
+      EventHandler eventHandler, PackageIdentifier pkgId, boolean computeImplicitOutputs)
+      throws LabelSyntaxException, InterruptedException {
     populateOutputFilesInternal(
         eventHandler,
         pkgId,
         ruleClass.getDefaultImplicitOutputsFunction(),
-        /* checkLabels= */ true);
+        /* checkLabels= */ true,
+        computeImplicitOutputs);
   }
 
   void populateOutputFilesUnchecked(
       TargetDefinitionContext targetDefinitionContext,
-      ImplicitOutputsFunction implicitOutputsFunction)
+      ImplicitOutputsFunction implicitOutputsFunction,
+      boolean computeImplicitOutputs)
       throws InterruptedException {
     try {
       populateOutputFilesInternal(
           NullEventHandler.INSTANCE,
           targetDefinitionContext.getPackageIdentifier(),
           implicitOutputsFunction,
-          /* checkLabels= */ false);
+          /* checkLabels= */ false,
+          computeImplicitOutputs);
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -504,7 +503,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
       EventHandler eventHandler,
       PackageIdentifier pkgId,
       ImplicitOutputsFunction implicitOutputsFunction,
-      boolean checkLabels)
+      boolean checkLabels,
+      boolean computeImplicitOutputs)
       throws LabelSyntaxException, InterruptedException {
     Preconditions.checkState(outputFiles == null);
 
@@ -543,26 +543,30 @@ public class Rule extends RuleOrMacroInstance implements Target {
         };
 
     // Populate the implicit outputs.
-    try {
-      RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
-      // TODO(bazel-team): Reconsider the ImplicitOutputsFunction abstraction. It doesn't seem to be
-      // a good fit if it forces us to downcast in situations like this. It also causes
-      // getImplicitOutputs() to declare that it throws EvalException (which then has to be
-      // explicitly disclaimed by the subclass SafeImplicitOutputsFunction).
-      if (implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction) {
-        for (Map.Entry<String, String> e :
-            ((StarlarkImplicitOutputsFunction) implicitOutputsFunction)
-                .calculateOutputs(eventHandler, attributeMap)
-                .entrySet()) {
-          implicitOutputHandler.accept(e.getKey(), e.getValue());
+    if (computeImplicitOutputs) {
+      try {
+        RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
+        // TODO(bazel-team): Reconsider the ImplicitOutputsFunction abstraction. It doesn't seem to
+        // be a good fit if it forces us to downcast in situations like this. It also causes
+        // getImplicitOutputs() to declare that it throws EvalException (which then has to be
+        // explicitly disclaimed by the subclass SafeImplicitOutputsFunction).
+        if (implicitOutputsFunction
+            instanceof StarlarkImplicitOutputsFunction starlarkImplicitOutputsFunction) {
+          for (Map.Entry<String, String> e :
+              starlarkImplicitOutputsFunction
+                  .calculateOutputs(eventHandler, attributeMap)
+                  .entrySet()) {
+            implicitOutputHandler.accept(e.getKey(), e.getValue());
+          }
+        } else {
+          for (String out :
+              implicitOutputsFunction.getImplicitOutputs(eventHandler, attributeMap)) {
+            implicitOutputHandler.accept(/* outputKey= */ "", out);
+          }
         }
-      } else {
-        for (String out : implicitOutputsFunction.getImplicitOutputs(eventHandler, attributeMap)) {
-          implicitOutputHandler.accept(/* outputKey= */ "", out);
-        }
+      } catch (EvalException e) {
+        reportError(String.format("In rule %s: %s", label, e.getMessageWithStack()), eventHandler);
       }
-    } catch (EvalException e) {
-      reportError(String.format("In rule %s: %s", label, e.getMessageWithStack()), eventHandler);
     }
 
     ExplicitOutputHandler explicitOutputHandler =

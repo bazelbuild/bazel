@@ -43,7 +43,7 @@ public final class TypeTable {
   // most bindings are not type constructors.
   private final LinkedHashMap<Integer, TypeConstructor> typeConstructors = new LinkedHashMap<>();
   // Types of functions. Indexed by function's sequence number.
-  private final Types.CallableType[] functionTypes;
+  private final Types.GeneralCallableType[] functionTypes;
   // Whether a function uses type syntax. Indexed by function's sequence number.
   private final boolean[] functionsUsingTypeSyntax;
 
@@ -69,7 +69,7 @@ public final class TypeTable {
   private TypeTable(int numGlobals, int numBindings, int numFunctions) {
     this.globalsDeclaredTypes = new StarlarkType[numGlobals];
     this.bindingTypes = new StarlarkType[numBindings];
-    this.functionTypes = new Types.CallableType[numFunctions];
+    this.functionTypes = new Types.GeneralCallableType[numFunctions];
     this.functionsUsingTypeSyntax = new boolean[numFunctions];
   }
 
@@ -106,7 +106,7 @@ public final class TypeTable {
    * Sets the type of the given function. May be called more than once. Null is treated is untyped /
    * Any.
    */
-  void setType(Resolver.Function function, Types.CallableType type) {
+  void setType(Resolver.Function function, Types.GeneralCallableType type) {
     functionTypes[function.getFunctionId()] = type;
   }
 
@@ -155,7 +155,7 @@ public final class TypeTable {
    * complete, expected to be non-null for non-toplevel functions.
    */
   @Nullable
-  public Types.CallableType getType(Resolver.Function function) {
+  public Types.GeneralCallableType getType(Resolver.Function function) {
     return functionTypes[function.getFunctionId()];
   }
 

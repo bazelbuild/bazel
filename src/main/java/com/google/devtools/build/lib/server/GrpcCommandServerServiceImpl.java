@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.server;
 
+import com.google.devtools.build.lib.skybridge.ScOnly;
+
 /** The {@link GrpcCommandServerService} implementation. */
+@ScOnly
 public final class GrpcCommandServerServiceImpl implements GrpcCommandServerService {
 
   private final GrpcCommandServer grpcCommandServer = new GrpcCommandServerImpl();

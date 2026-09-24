@@ -11,15 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "src/main/cpp/util/logging.h"
+
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
+#include <utility>
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/bazel_log_handler.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"

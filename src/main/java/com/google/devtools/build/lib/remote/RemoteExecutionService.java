@@ -23,11 +23,10 @@ import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.remote.CombinedCache.createFailureDetail;
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionForCredentialHelperException;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
-import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.util.Collections.min;
@@ -82,6 +81,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
+import com.google.devtools.build.lib.concurrent.CancellableTask;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -151,10 +151,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -315,10 +315,7 @@ public class RemoteExecutionService {
           .setValue(internalToUnicode(env.get(var)));
     }
 
-    return command
-        .setWorkingDirectory(
-            internalToUnicode(remotePathResolver.getWorkingDirectory().getPathString()))
-        .build();
+    return command.build();
   }
 
   private boolean useRemoteCache() {
@@ -355,6 +352,13 @@ public class RemoteExecutionService {
     boolean allowDiskCache = useDiskCache() && Spawns.mayBeCached(spawn);
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
+  }
+
+  private static boolean shouldUploadLocalResultsToRemoteCache(
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
+    return remoteOptions.getRemoteUploadLocalResults()
+        && Spawns.mayBeCachedRemotely(executionInfo)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
   }
 
   /** Returns {@code true} if the spawn may be executed remotely. */
@@ -520,7 +524,6 @@ public class RemoteExecutionService {
                 toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                 scrubber,
                 context,
-                remotePathResolver,
                 blobPolicy);
       } catch (CredentialHelperException e) {
         throw createExecExceptionForCredentialHelperException(e);
@@ -872,6 +875,7 @@ public class RemoteExecutionService {
               internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
               remotePathResolver.localPathToExecPath(file.path().asFragment()),
               tmpPath,
+              /* finalPath= */ file.path(),
               file.digest(),
               new CombinedCache.DownloadProgressReporter(
                   progressStatusListener,
@@ -1089,13 +1093,21 @@ public class RemoteExecutionService {
     }
   }
 
+  private static void validatePathComponent(String name) throws IOException {
+    if (name.isEmpty() || name.contains("/") || name.equals(".") || name.equals("..")) {
+      throw new IOException("Malformed path component: " + name);
+    }
+  }
+
   private static DirectoryMetadata parseDirectory(
-      Path parent, Directory dir, Map<Digest, Directory> childDirectoriesMap) {
+      Path parent, Directory dir, Map<Digest, Directory> childDirectoriesMap) throws IOException {
     ImmutableList.Builder<FileMetadata> filesBuilder = ImmutableList.builder();
     for (FileNode file : dir.getFilesList()) {
+      String name = unicodeToInternal(file.getName());
+      validatePathComponent(name);
       filesBuilder.add(
           new FileMetadata(
-              parent.getRelative(unicodeToInternal(file.getName())),
+              parent.getRelative(name),
               file.getDigest(),
               file.getIsExecutable(),
               ByteString.EMPTY));
@@ -1103,14 +1115,18 @@ public class RemoteExecutionService {
 
     ImmutableList.Builder<SymlinkMetadata> symlinksBuilder = ImmutableList.builder();
     for (SymlinkNode symlink : dir.getSymlinksList()) {
+      String name = unicodeToInternal(symlink.getName());
+      validatePathComponent(name);
       symlinksBuilder.add(
           new SymlinkMetadata(
-              parent.getRelative(unicodeToInternal(symlink.getName())),
+              parent.getRelative(name),
               PathFragment.create(unicodeToInternal(symlink.getTarget()))));
     }
 
     for (DirectoryNode directoryNode : dir.getDirectoriesList()) {
-      Path childPath = parent.getRelative(unicodeToInternal(directoryNode.getName()));
+      String name = unicodeToInternal(directoryNode.getName());
+      validatePathComponent(name);
+      Path childPath = parent.getRelative(name);
       Directory childDir =
           Preconditions.checkNotNull(childDirectoriesMap.get(directoryNode.getDigest()));
       DirectoryMetadata childMetadata = parseDirectory(childPath, childDir, childDirectoriesMap);
@@ -1685,12 +1701,12 @@ public class RemoteExecutionService {
       moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
     } catch (InterruptedException | IOException e) {
       // Delete any copied output files.
-      try {
-        for (Path tmpPath : realToTmpPath.values()) {
+      for (Path tmpPath : realToTmpPath.values()) {
+        try {
           tmpPath.delete();
+        } catch (IOException ignored) {
+          // Best effort, will be cleaned up at server restart.
         }
-      } catch (IOException ignored) {
-        // Best effort, will be cleaned up at server restart.
       }
       throw e;
     }
@@ -1797,33 +1813,102 @@ public class RemoteExecutionService {
 
     if (remoteOptions.getRemoteCacheAsync()
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      var uploadDone = new CountDownLatch(1);
-      var future =
-          backgroundTaskExecutor.submit(
-              () -> {
-                try {
-                  doUploadOutputs(action, spawnResult, onUploadComplete);
-                } catch (ExecException e) {
-                  reportUploadError(e);
-                } catch (InterruptedException ignored) {
-                  // ThreadPerTaskExecutor does not care about interrupt status.
-                } finally {
-                  uploadDone.countDown();
-                }
-              });
-
-      if (outputService instanceof RemoteOutputService remoteOutputService
-          && remoteOutputService.getRewoundActionSynchronizer()
-              instanceof RemoteRewoundActionSynchronizer remoteRewoundActionSynchronizer) {
-        remoteRewoundActionSynchronizer.registerOutputUploadTask(
-            action.getRemoteActionExecutionContext().getSpawnOwner(),
-            () -> {
-              future.cancel(true);
-              uploadDone.await();
-            });
-      }
+      new OutputUploadTask(action, spawnResult, onUploadComplete).start();
     } else {
       doUploadOutputs(action, spawnResult, onUploadComplete);
+    }
+  }
+
+  @Nullable
+  private RemoteRewoundActionSynchronizer getRewoundActionSynchronizer() {
+    if (outputService instanceof RemoteOutputService remoteOutputService
+        && remoteOutputService.getRewoundActionSynchronizer()
+            instanceof RemoteRewoundActionSynchronizer rewoundActionSynchronizer) {
+      return rewoundActionSynchronizer;
+    }
+    return null;
+  }
+
+  /**
+   * A cancellable background upload of an action's outputs.
+   *
+   * <p>Registers itself with the {@link RemoteRewoundActionSynchronizer}, if there is one, before
+   * the upload starts and unregisters itself when it is done, so that a rewinding of the action
+   * waits for uploads that are still in flight.
+   *
+   * <p>{@link CancellableTask} ensures that the completion callback runs exactly once and that
+   * cancellation only completes once the upload no longer accesses the action's outputs.
+   */
+  @VisibleForTesting
+  final class OutputUploadTask implements RemoteRewoundActionSynchronizer.Cancellable {
+    private final CancellableTask<InterruptedException> upload;
+    private final ActionExecutionMetadata spawnOwner;
+    @Nullable private final RemoteRewoundActionSynchronizer rewoundActionSynchronizer;
+
+    // Written by start() before the upload is handed to the executor, which establishes a
+    // happens-before edge to the reads in run() on the executor thread.
+    private Runnable unregisterHandle = () -> {};
+
+    OutputUploadTask(RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete) {
+      this.upload =
+          new CancellableTask<>(
+              () -> {
+                try {
+                  doUploadOutputs(action, spawnResult, /* onUploadComplete= */ () -> {});
+                } catch (ExecException e) {
+                  reportUploadError(e);
+                }
+              },
+              onUploadComplete);
+      this.spawnOwner = action.getRemoteActionExecutionContext().getSpawnOwner();
+      this.rewoundActionSynchronizer = getRewoundActionSynchronizer();
+    }
+
+    /** Registers the task for cancellation and starts the upload in the background. */
+    void start() {
+      // Register before starting the upload so that it can't unregister itself before it has been
+      // registered.
+      if (rewoundActionSynchronizer != null) {
+        unregisterHandle = rewoundActionSynchronizer.registerOutputUploadTask(spawnOwner, this);
+      }
+      try {
+        // Executes rather than submits the upload: the body of a task submitted to an
+        // ExecutorService is skipped entirely if its future is cancelled before the body starts,
+        // which is why cancellation goes through the task itself instead of its future.
+        backgroundTaskExecutor.execute(this::run);
+      } catch (RejectedExecutionException e) {
+        // The upload will never run. Cancelling it runs the completion callback if no cancellation
+        // got there first. A concurrent cancellation may still be running the callback, whose
+        // effects are part of the upload's completion contract, so wait for it before propagating
+        // the rejection.
+        try {
+          upload.requestCancellation();
+          upload.awaitCompletionUninterruptibly();
+        } finally {
+          unregisterHandle.run();
+        }
+        throw e;
+      }
+    }
+
+    private void run() {
+      try {
+        var unused = upload.runIfNotCancelled();
+      } catch (InterruptedException ignored) {
+        // ThreadPerTaskExecutor does not care about interrupt status.
+      } finally {
+        unregisterHandle.run();
+      }
+    }
+
+    @Override
+    public void requestCancellation() {
+      upload.requestCancellation();
+    }
+
+    @Override
+    public void awaitCompletion() throws InterruptedException {
+      upload.awaitCompletion();
     }
   }
 
@@ -1926,7 +2011,6 @@ public class RemoteExecutionService {
                     toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                     scrubber,
                     context,
-                    action.getRemotePathResolver(),
                     force
                         ? MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD
                         : MerkleTreeComputer.BlobPolicy.KEEP);
@@ -1938,8 +2022,7 @@ public class RemoteExecutionService {
               .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
           merkleTree,
           additionalInputs,
-          force,
-          action.getRemotePathResolver());
+          force);
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }
@@ -2008,7 +2091,15 @@ public class RemoteExecutionService {
         && (actionResult.getExitCode() != 0 || resp.getStatus().getCode() != Code.OK.value())) {
       for (Map.Entry<String, LogFile> e : resp.getServerLogsMap().entrySet()) {
         if (e.getValue().getHumanReadable()) {
-          serverLogs.lastLogPath = serverLogs.directory.getRelative(e.getKey());
+          Path lastLogPath = serverLogs.directory.getRelative(e.getKey());
+          if (!lastLogPath.startsWith(serverLogs.directory)) {
+            throw new IOException(
+                String.format(
+                    "Path traversal detected in server log key: %s (resolved: %s, expected"
+                        + " descendant of %s)",
+                    e.getKey(), lastLogPath, serverLogs.directory));
+          }
+          serverLogs.lastLogPath = lastLogPath;
           serverLogs.logCount++;
           getFromFuture(
               combinedCache.downloadFile(
@@ -2068,6 +2159,12 @@ public class RemoteExecutionService {
     if (remoteExecutor != null) {
       remoteExecutor.close();
     }
+  }
+
+  /** Shuts down the background task executor so that new task submissions are rejected. */
+  @VisibleForTesting
+  void shutdownBackgroundTaskExecutorForTesting() {
+    backgroundTaskExecutor.shutdown();
   }
 
   /**

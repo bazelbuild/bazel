@@ -7,13 +7,13 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:private"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/shell:__pkg__"],
 )
 
 sh_library(
@@ -74,6 +74,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    shard_count = 6,
 )
 
 sh_test(
@@ -118,6 +119,12 @@ sh_test(
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
+    exec_group_compatible_with = {
+        "test": [
+            "//:highcpu_machine",
+            "//:mount_capable",
+        ],
+    },
     shard_count = 10,
     tags = [
         # MacOS does not have cgroups so it can't support hardened sandbox
@@ -562,6 +569,9 @@ sh_test(
         "//src/main/tools:linux-sandbox",
         "//src/test/shell:sandboxing_test_utils",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
     shard_count = 2,
     tags = [
         "no_macos",
@@ -595,6 +605,14 @@ sh_test(
     tags = [
         "requires-network",  # For Bzlmod
     ],
+)
+
+sh_test(
+    name = "mobile_install_test",
+    size = "small",
+    srcs = ["mobile_install_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
 )
 
 sh_test(
@@ -685,6 +703,16 @@ sh_test(
     ],
     shard_count = 5,
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "build_query_test",
+    size = "medium",
+    srcs = ["build_query_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -796,6 +824,12 @@ sh_test(
         ":test-deps",
         "//src/test/shell:sandboxing_test_utils",
     ],
+    exec_group_compatible_with = {
+        "test": [
+            "//:highcpu_machine",
+            "//:mount_capable",
+        ],
+    },
     shard_count = 4,
     tags = ["no_windows"],
 )

@@ -2,7 +2,6 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
@@ -13,7 +12,10 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/strings:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
 )
 
 java_test(
@@ -25,7 +27,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -36,7 +38,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -47,7 +49,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -58,7 +60,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -72,9 +74,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_traversal_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:mockito",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
     ],
 )
 
@@ -87,12 +89,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
     ],
 )
 
@@ -104,8 +106,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:recursive_pkg_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:guava",
-        "//third_party:junit4",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
     ],
 )
 
@@ -116,7 +118,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -128,8 +130,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_subdirectories_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:junit4",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
     ],
 )
 
@@ -139,7 +141,7 @@ java_test(
     srcs = ["LongCodecTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -149,14 +151,20 @@ java_test(
     srcs = ["StarlarkInfoCodecTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/util:SkyframeExecutorTestUtils",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
     ],
 )
 
@@ -167,9 +175,9 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -181,7 +189,7 @@ java_test(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -192,7 +200,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -202,8 +210,8 @@ java_test(
     srcs = ["NullableListCodecTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:guava",
-        "//third_party:junit4",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
     ],
 )
 
@@ -214,7 +222,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -225,8 +233,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -241,9 +249,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -255,9 +263,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )
 
@@ -271,8 +279,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:junit4",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
     ],
 )
 
@@ -284,8 +292,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:junit4",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
     ],
 )
 
@@ -296,9 +304,9 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -308,6 +316,8 @@ java_test(
     srcs = ["ModuleCodecTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
@@ -319,10 +329,10 @@ java_test(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -335,8 +345,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -352,9 +362,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -363,12 +373,9 @@ java_test(
     size = "small",
     srcs = ["ProviderCodecTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//src/main/java/net/starlark/java/syntax",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -377,14 +384,17 @@ java_test(
     size = "small",
     srcs = ["ProfileCollectorTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
         "//third_party/pprof:profile_java_proto",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -395,11 +405,11 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
         "//third_party/pprof:profile_java_proto",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -410,6 +420,7 @@ java_library(
         ["*.java"],
         exclude = [
             "AspectCodecsTest.java",
+            "ChunkedValueSerializationTest.java",
             "PackageLookupValueCodecTest.java",
             "MutableListCodecTest.java",
             "SingletonCodecTest.java",
@@ -449,6 +460,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -466,6 +480,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:skycache_channel_state_advisor",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
@@ -480,16 +495,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:build_java_proto",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:hash",
+        "//third_party/java/guava:io",
+        "//third_party/java/guava:testing",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
         "//third_party/pprof:profile_java_proto",
-        "@com_google_protobuf//:protobuf_java",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -500,8 +519,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:junit4",
+        "//third_party/java/guava:hash",
+        "//third_party/java/junit",
     ],
 )
 
@@ -515,9 +534,24 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "ChunkedValueSerializationTest",
+    size = "small",
+    srcs = ["ChunkedValueSerializationTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -526,6 +560,6 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":serialization-tests",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )

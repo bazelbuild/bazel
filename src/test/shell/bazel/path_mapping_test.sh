@@ -451,7 +451,7 @@ function test_path_stripping_cc_remote() {
   local -r pkg="${FUNCNAME[0]}"
 
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "1.21.0")
+bazel_dep(name = "apple_support", version = "2.8.4")
 EOF
   add_rules_cc "MODULE.bazel"
 
@@ -1103,8 +1103,8 @@ EOF
   expect_log '2 \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] deduplicated'
 
-  expect_log 'Action pkg/my_rule_file failed:'
-  expect_log 'Action pkg/my_rule_file \[for tool\] failed:'
+  expect_log 'Action pkg/my_rule_file (from target //pkg:my_rule) failed:'
+  expect_log 'Action pkg/my_rule_file \[for tool\] (from target //pkg:my_rule) failed:'
   # Remote cache warning.
   expect_log 'Expected output pkg/my_rule_file was not created locally.'
 
@@ -1184,8 +1184,8 @@ EOF
   # Failing actions are not deduplicated.
   expect_not_log '[0-9] deduplicated'
 
-  expect_log 'Action pkg/my_rule_file failed:'
-  expect_log 'Action pkg/my_rule_file \[for tool\] failed:'
+  expect_log 'Action pkg/my_rule_file (from target //pkg:my_rule) failed:'
+  expect_log 'Action pkg/my_rule_file \[for tool\] (from target //pkg:my_rule) failed:'
 
   # The first execution emits stdout/stderr, the second doesn't.
   # stdout/stderr are emitted as part of the failing action error, not as an
@@ -1404,16 +1404,14 @@ EOF
   bazel build -c fastbuild \
     --experimental_output_paths=strip \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_platform_in_output_dir=yes \
-    --experimental_override_platform_cpu_name=//${pkg}:my.platform.one=my.platform.one \
+    --override_platform_cpu_name=//${pkg}:my.platform.one=my.platform.one \
     --platforms=//${pkg}:my.platform.one \
     "//${pkg}:lib" &> $TEST_log || fail "First build failed"
 
   bazel build -c fastbuild \
     --experimental_output_paths=strip \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_platform_in_output_dir=yes \
-    --experimental_override_platform_cpu_name=//${pkg}:my.platform.two=my.platform.two \
+    --override_platform_cpu_name=//${pkg}:my.platform.two=my.platform.two \
     --platforms=//${pkg}:my.platform.two \
     "//${pkg}:lib" &> $TEST_log || fail "Second build failed"
 
@@ -1519,7 +1517,6 @@ EOF
   bazel build \
     --experimental_output_paths=strip \
     --disk_cache="$cache_dir" \
-    --experimental_platform_in_output_dir \
     --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --//$pkg:setting=b \
     "//$pkg:main" &>"$TEST_log"

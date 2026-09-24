@@ -511,7 +511,7 @@ public class TaskGroup<T, R> implements AutoCloseable {
     private static final Policy<Object> ALL_SUCCESSFUL =
         new Policy<Object>() {
           @Override
-          public boolean onComplete(Subtask<? extends Object> subtask) {
+          public boolean onComplete(Subtask<?> subtask) {
             return subtask.state() == Subtask.State.FAILED;
           }
         };
@@ -525,7 +525,7 @@ public class TaskGroup<T, R> implements AutoCloseable {
     private static final Policy<Object> ANY_SUCCESSFUL =
         new Policy<Object>() {
           @Override
-          public boolean onComplete(Subtask<? extends Object> subtask) {
+          public boolean onComplete(Subtask<?> subtask) {
             return subtask.state() == Subtask.State.SUCCESS;
           }
         };

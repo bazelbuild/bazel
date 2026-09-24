@@ -23,6 +23,7 @@ import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -35,6 +36,7 @@ import net.starlark.java.eval.StarlarkValue;
  * can then be passed up the dependency graph and turned into an actual dependency ("materialized")
  * by rules in the reverse transitive closure.
  */
+@StarlarkBuiltin(name = "DormantDependency", documented = false)
 public record DormantDependency(Label label) implements StarlarkValue {
   public static final String NAME = "dormant_dependency";
   public static final String ALLOWLIST_ATTRIBUTE_NAME = "$allowlist_dormant_dependency";

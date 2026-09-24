@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
@@ -37,7 +37,7 @@ final class SkyframeLookupCollector extends QuiescingFuture<ArrayDeque<SkyframeL
   private PeerFailedException cause;
 
   SkyframeLookupCollector() {
-    super(directExecutor());
+    super(safeDirectExecutor());
   }
 
   /**
@@ -51,7 +51,7 @@ final class SkyframeLookupCollector extends QuiescingFuture<ArrayDeque<SkyframeL
    * described in {@link QuiescingFuture} is followed.
    */
   void notifyFetchesInitialized() {
-    decrement();
+    finishRegistration();
   }
 
   void notifyFetchStarting() {
