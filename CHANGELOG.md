@@ -1,3 +1,177 @@
+## Release 8.8.1 (2026-09-24)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260911.2 (2026-09-18)
+
+```
+Baseline: d4c275b89348663ec7b84e58f75ec8ab46f62101
+
+Cherry picks:
+
+   + 27f9635b3723ff4a2e5b782c768b80b160e8722e:
+     Make the hash codes of providers and configured targets stable.
+```
+
+Incompatible changes:
+
+  - --experimental_sibling_repository_layout is now a no-op.
+
+Important changes:
+
+  - Support `dict(label, string)` aspect attributes in `query
+    --output=proto`.
+  - Transitive rule and toolchain resolution errors are now formatted
+    into a multi-line indented hierarchy.
+    Fixes https://github.com/bazelbuild/bazel/issues/15791
+  - Fix NullPointerException and improve error messages when Starlark
+    implicit output templates reference unset or unknown attributes.
+
+This release contains contributions from many people at Google, as well as Chris McDonald, David Zbarsky, Fabian Meumertzheim, James Judd, Tamir Duberstein, Vladimir Sitnikov.
+
+## Release 10.0.0-pre.20260908.2 (2026-09-15)
+
+```
+Baseline: 6a4878da6a4abeca65ceb60d5bc772123fa53c4a
+
+Cherry picks:
+
+   + 2ce8da8d5c24d7ccf2f6becdc16d7262f2f3c882:
+     Rollback of
+     https://github.com/bazelbuild/bazel/commit/f72ac81d9b589a62012f49
+     b32cf915f4a64c8cfb.
+```
+
+Important changes:
+
+  - Invalidate cached action execution results when remote
+    cache/executor endpoints or `--remote_instance_name` change
+    between invocations.
+  - Fix issue where `bazel test --nobuild` failed with
+    `TEST_WITH_NOANALYZE` instead of succeeding after analysis.
+  - With Build without the Bytes, a requested top-level output that
+    was deleted locally is now reliably redownloaded in the next
+    build that requests it, even if other invocations ran in between.
+  - Avoid redundant remote CAS uploads when using combined disk and
+    remote caching with a cold disk cache.
+  - Fix incremental remote builds failing to create output
+    directories beneath stale dangling symlinks.
+  - credential-helper: treat `null` values in response as unset.
+  - Fixed a rare crash with `NullPointerException` in
+    `ActionInputMap.getIndex` when an action discovers additional
+    inputs while executing.
+  - Add `repository_ctx.patch(directory)`
+  - Disk cache entries deleted by a concurrent garbage collection are
+    now treated as cache misses and don't result in failures.
+  - Fix an issue where Java compilation actions re-execute on every
+    build due to an Action Cache digest mismatch when
+    `--experimental_output_paths=strip` and in-memory `.jdeps` files
+    are enabled.
+  - Credential helper failures now abort HTTP downloads instead of
+    continuing without authentication.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Fabian Meumertzheim, George Gensure, Henner Zeller, James Judd, Jason Bedard, Jonathan Perry, Keith Smiley, Ming Zhao, Morax, Tamir Duberstein, Yannic Bonenberger.
+
+## Release 10.0.0-pre.20260902.1 (2026-09-10)
+
+```
+Baseline: e2e4c35d7400a1f3cdf3e337bb53e4fa0eafd001
+```
+
+Important changes:
+
+  - Starlark `fail()` calls now format error messages with `Error: `
+    instead of `Error in fail: `.
+    Resolves https://github.com/bazelbuild/bazel/issues/21523.
+  - Aquery now supports the `config(expr, word)` function.
+  - Fixed unnecessary remote-cache hits in incremental BwoB builds
+    after a previous invocation used a broader remote output download
+    policy.
+  - Fix an issue on Windows where empty environment variables (e.g.
+    `--action_env=VAR=`) caused test execution failures in the test
+    wrapper.
+  - `--experimental_override_platform_cpu_name` renamed to
+    `--override_platform_cpu_name`
+  - The macOS sandbox now allows actions to bind sockets when network
+    access is blocked, matching the behavior of the Linux sandbox.
+    Note that macOS cannot restrict inbound connections by peer, so
+    an action that listens on a non-loopback address is reachable
+    from other hosts on the network; outbound traffic remains
+    restricted to loopback.
+  - Clean up unused stashed sandbox directories when shutting down
+    the Bazel server.
+  - Downloader rewrites to endpoints that refuse connections no
+    longer repeat the connector's full retry sequence.
+  - Fix `grep: invalid option -- P` errors on macOS when running
+    release and documentation scripts.
+  - Remote execution, remote caching, and auth flags can now be reset
+    to their default unset state on the command line by passing an
+    empty value (e.g., `--remote_cache=`, `--remote_executor=`,
+    `--google_credentials=`).
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Angus Lees, Armando Montanez, Fabian Meumertzheim, Fabian Meumertzheim, Henner Zeller, jjj-n, Jonathan Perry, justinswe, Keith Smiley, Kip Hamiltons, Salma Samy, Samuel Bronson, Tyler Breisacher, zozo123.
+
+## Release 10.0.0-pre.20260826.1 (2026-09-08)
+
+```
+Baseline: 609cb51089a86f7e40552a1f79c16992376f06db
+
+Cherry picks:
+
+   + bd75cfcf5c906fb6b88515c993edcd34bfadeecb:
+     Update protobuf to 36.0.bcr.1
+     (https://github.com/bazelbuild/bazel/pull/30886)
+```
+
+Incompatible changes:
+
+  - `--rewind_lost_inputs` is now enabled by default. Builds with
+    BwoB automatically recover from remote cache eviction by
+    rewinding actions that generated lost inputs.
+
+New features:
+
+  - With the new
+    `--experimental_keep_change_prunable_nodes_during_gc` flag,
+    Skyframe will keep computed nodes that aren't requested by the
+    current evaluation but whose dependencies would be verified clean
+    after change pruning.
+
+Important changes:
+
+  - `--server_javabase` and nojdk builds of Bazel can now use JREs in
+    addition to JDKs.
+  - Test targets can now be built for a target platform that no
+    execution platform is compatible with, e.g. to cross-compile
+    them. Running such a test fails with an error at execution time
+    instead of failing analysis.
+  - Disk cache action results are now always trusted with
+    `--rewind_lost_inputs`, even if Build without the Bytes makes it
+    so that the outputs are not available locally.
+  - Cycles between `MODULE.bazel` files connected via `include()` are
+    now reported as an error instead of hanging the build.
+  - Fixed a crash while evaluating `MODULE.bazel` files when Skyframe
+    dropped its temporary state in response to memory pressure.
+  - Fixed a build failure with `--execution_log_compact_file` when a
+    C++ action template has no inputs.
+  - Files uploaded to the disk cache are now copied with a
+    copy-on-write clone where the filesystem supports it, so a cache
+    entry can share its blocks with the output it was uploaded from.
+  - Module extensions are now correctly rerun when the root module
+    changes the `dev_dependency` value of a `use_extension` call,
+    which is visible to extensions as
+    `module_ctx.root_module_has_non_dev_dependency`.
+  - None
+    RELNOTES: None
+  - The C++ include scanner now properly resolves headers that are
+    generated at build time and included as part of the toolchain.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Armando Montanez, Benjamin Peterson, Chi Wang, David Ostrovsky, David Zbarsky, Fabian Meumertzheim, Fabian Meumertzheim, Fabian Meumertzheim, Fabian Meumertzheim, Garrett Holmstrom, Han-Wen Nienhuys, Herdiyan Adam Putra, Hoyt Summers Pittman, JonathanPerry651, Jordan Mele, Ladd Van Tol, Rahul Butani, Rajkaran Yadav, Tamir Duberstein, Tyler French, wade-arista.
+
 ## Release 8.8.0 (2026-08-31)
 
 ```
