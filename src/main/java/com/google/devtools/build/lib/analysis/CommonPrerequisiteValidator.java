@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper.attributeOrNull;
 
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
+import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidationContext;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -46,16 +47,16 @@ import javax.annotation.Nullable;
 public abstract class CommonPrerequisiteValidator implements PrerequisiteValidator {
   @Override
   public void validate(
-      RuleContext.Builder contextBuilder,
+      PrerequisiteValidationContext context,
       ConfiguredTargetAndData prerequisite,
       Attribute attribute) {
-    validateDirectPrerequisiteLocation(contextBuilder, prerequisite);
-    checkForMisplacedPackageGroups(contextBuilder, prerequisite, attribute);
-    validateDirectPrerequisiteVisibility(contextBuilder, prerequisite, attribute);
-    validateDirectPrerequisiteForTestOnly(contextBuilder, prerequisite);
+    validateDirectPrerequisiteLocation(context, prerequisite);
+    checkForMisplacedPackageGroups(context, prerequisite, attribute);
+    validateDirectPrerequisiteVisibility(context, prerequisite, attribute);
+    validateDirectPrerequisiteForTestOnly(context, prerequisite);
     validateDirectPrerequisiteForDeprecation(
-        contextBuilder, contextBuilder.getRule(), prerequisite, contextBuilder.forAspect());
-    validateTransitiveVisibility(contextBuilder, prerequisite, attribute);
+        context, context.getRule(), prerequisite, context.forAspect());
+    validateTransitiveVisibility(context, prerequisite, attribute);
   }
 
   /**
@@ -67,11 +68,11 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   protected abstract boolean isSameLogicalPackage(
       PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage);
 
-  protected abstract boolean checkVisibilityForExperimental(RuleContext.Builder context);
+  protected abstract boolean checkVisibilityForExperimental(PrerequisiteValidationContext context);
 
-  protected abstract boolean checkVisibilityForPrototypes(RuleContext.Builder context);
+  protected abstract boolean checkVisibilityForPrototypes(PrerequisiteValidationContext context);
 
-  protected abstract boolean allowExperimentalDeps(RuleContext.Builder context);
+  protected abstract boolean allowExperimentalDeps(PrerequisiteValidationContext context);
 
   /**
    * Encapsulates the state of the visibility check for a single dependency edge.
@@ -147,7 +148,9 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   }
 
   private void validateDirectPrerequisiteVisibility(
-      RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Attribute attribute) {
+      PrerequisiteValidationContext context,
+      ConfiguredTargetAndData prerequisite,
+      Attribute attribute) {
     String attrName = attribute.getName();
     Rule rule = context.getRule();
 
@@ -360,7 +363,9 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
    * it is not allowed.
    */
   private void checkForMisplacedPackageGroups(
-      RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Attribute attribute) {
+      PrerequisiteValidationContext context,
+      ConfiguredTargetAndData prerequisite,
+      Attribute attribute) {
     String attrName = attribute.getName();
     Rule rule = context.getRule();
 
@@ -650,11 +655,11 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   }
 
   private void validateTransitiveVisibility(
-      RuleContext.Builder contextBuilder,
+      PrerequisiteValidationContext context,
       ConfiguredTargetAndData prerequisite,
       Attribute attribute) {
-    if (contextBuilder.getConfiguration() == null
-        || !contextBuilder.getConfiguration().enforceTransitiveVisibility()) {
+    if (context.getConfiguration() == null
+        || !context.getConfiguration().enforceTransitiveVisibility()) {
       return;
     }
 
@@ -668,21 +673,21 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         tvProvider.getTransitiveVisibility()) {
       if (!Allowlist.isAvailableFor(
           requirement.getAllowedPackages().getPackageSpecifications(),
-          contextBuilder.getRule().getLabel())) {
-        contextBuilder.attributeError(
+          context.getRule().getLabel())) {
+        context.attributeError(
             attribute.getName(),
             String.format(
                 "Transitive visibility error: %2$s is not transitively visible from %1$s. %2$s"
                     + " inherits a transitive_visibility declaration from its package or one of"
                     + " its dependencies that does not allow %1$s",
-                contextBuilder.getRule().getLabel(), prerequisite.getTargetLabel()));
+                context.getRule().getLabel(), prerequisite.getTargetLabel()));
         return;
       }
     }
   }
 
   private void validateDirectPrerequisiteLocation(
-      RuleContext.Builder context, ConfiguredTargetAndData prerequisite) {
+      PrerequisiteValidationContext context, ConfiguredTargetAndData prerequisite) {
     Rule rule = context.getRule();
     Label prerequisiteLabel = prerequisite.getTargetLabel();
 
@@ -756,7 +761,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
   /** Check that the dependency is not test-only, or the current rule is test-only. */
   private void validateDirectPrerequisiteForTestOnly(
-      RuleContext.Builder context, ConfiguredTargetAndData prerequisite) {
+      PrerequisiteValidationContext context, ConfiguredTargetAndData prerequisite) {
     Rule rule = context.getRule();
 
     if (rule.getRuleClassObject().getAdvertisedProviders().canHaveAnyProvider()) {

@@ -129,7 +129,7 @@ public class ConfiguredTargetAndData {
    * <p>For remotely cached targets, the given {@link ConfiguredTargetValue} is assumed to have a
    * projection of {@link TargetData} already, so the {@link PackageValue} lookup is not needed.
    */
-  static ConfiguredTargetAndData fromExistingConfiguredTargetInSkyframe(
+  public static ConfiguredTargetAndData fromExistingConfiguredTargetInSkyframe(
       ConfiguredTargetValue ctv, SkyFunction.Environment env) throws InterruptedException {
     ConfiguredTarget ct = ctv.getConfiguredTarget();
     PackageIdentifier packageKey = ct.getLabel().getPackageIdentifier();

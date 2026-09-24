@@ -18,7 +18,6 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -34,7 +33,9 @@ import javax.annotation.Nullable;
  *     toolchain_type() target.
  * @param execConstraints The constraints describing the execution environment.
  * @param targetConstraints The constraints describing the target environment.
- * @param targetSettings The setting, that target build configuration needs to satisfy.
+ * @param targetSettings The labels of the {@code config_setting}s that the target configuration
+ *     needs to satisfy. These are evaluated in each target configuration during toolchain
+ *     resolution.
  * @param targetLabel The label of the {@code toolchain} target itself.
  * @param resolvedToolchainLabel The label of the toolchain to resolve for use in toolchain-aware
  *     rules.
@@ -44,7 +45,7 @@ public record DeclaredToolchainInfo(
     ToolchainTypeInfo toolchainType,
     ConstraintCollection execConstraints,
     ConstraintCollection targetConstraints,
-    ImmutableList<ConfigMatchingProvider> targetSettings,
+    ImmutableList<Label> targetSettings,
     Label targetLabel,
     Label resolvedToolchainLabel)
     implements TransitiveInfoProvider {
@@ -79,8 +80,7 @@ public record DeclaredToolchainInfo(
     private ToolchainTypeInfo toolchainType;
     private final ConstraintCollection.Builder execConstraints = ConstraintCollection.builder();
     private final ConstraintCollection.Builder targetConstraints = ConstraintCollection.builder();
-    private final ImmutableList.Builder<ConfigMatchingProvider> targetSettings =
-        new ImmutableList.Builder<>();
+    private final ImmutableList.Builder<Label> targetSettings = new ImmutableList.Builder<>();
     private Label targetLabel;
     private Label resolvedToolchainLabel;
 
@@ -118,7 +118,7 @@ public record DeclaredToolchainInfo(
     }
 
     @CanIgnoreReturnValue
-    public Builder addTargetSettings(Iterable<ConfigMatchingProvider> targetSettings) {
+    public Builder addTargetSettings(Iterable<Label> targetSettings) {
       this.targetSettings.addAll(targetSettings);
       return this;
     }

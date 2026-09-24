@@ -43,6 +43,9 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
   private static final Predicate<SkyKey> IS_REGISTERED_TOOLCHAINS_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.REGISTERED_TOOLCHAINS);
 
+  private static final Predicate<SkyKey> IS_TOOLCHAIN_DECLARATIONS_SKY_KEY =
+      SkyFunctions.isSkyFunction(SkyFunctions.TOOLCHAIN_DECLARATIONS);
+
   private static final Predicate<SkyKey> IS_CONFIGURED_TARGET_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET);
 
@@ -55,6 +58,7 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
   private static final Predicate<SkyKey> IS_TOOLCHAIN_RELATED =
       Predicates.or(
           IS_REGISTERED_TOOLCHAINS_SKY_KEY,
+          IS_TOOLCHAIN_DECLARATIONS_SKY_KEY,
           IS_SINGLE_TOOLCHAIN_RESOLUTION_SKY_KEY,
           IS_TOOLCHAIN_RESOLUTION_SKY_KEY);
 
@@ -85,6 +89,9 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
           }
           if (input instanceof RegisteredToolchainsValue.Key) {
             return "RegisteredToolchains";
+          }
+          if (input instanceof ToolchainDeclarationsValue.Key) {
+            return "ToolchainDeclarations";
           }
           if (input instanceof SingleToolchainResolutionKey) {
             Label toolchainType =
@@ -127,7 +134,9 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
     boolean rtvFound = false;
     for (int i = 0; i < cycle.size() * 2; i++) {
       SkyKey skyKey = cycle.get(i % cycle.size());
-      if (!rtvFound && IS_REGISTERED_TOOLCHAINS_SKY_KEY.apply(skyKey)) {
+      if (!rtvFound
+          && (IS_REGISTERED_TOOLCHAINS_SKY_KEY.apply(skyKey)
+              || IS_TOOLCHAIN_DECLARATIONS_SKY_KEY.apply(skyKey))) {
         rtvFound = true;
       }
       if (rtvFound && IS_CONFIGURED_TARGET_SKY_KEY.apply(skyKey)) {
