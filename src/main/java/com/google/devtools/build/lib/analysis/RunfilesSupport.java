@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLine.FlatCommandLine;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.RunfilesTreeAction;
-import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -520,7 +519,6 @@ public final class RunfilesSupport {
         .getAnalysisEnvironment()
         .registerAction(
             new SourceManifestAction(
-                ManifestType.SOURCE_SYMLINKS,
                 context.getActionOwner(),
                 inputManifest,
                 runfiles,
