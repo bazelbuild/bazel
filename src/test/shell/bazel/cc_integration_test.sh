@@ -622,7 +622,7 @@ function test_compiler_flag_gcc() {
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 config_setting(
     name = "gcc_compiler",
-    flag_values = {"@bazel_tools//tools/cpp:compiler": "gcc"},
+    flag_values = {"@rules_cc//cc/private/toolchain:compiler": "gcc"},
 )
 
 cc_binary(
@@ -645,7 +645,7 @@ function test_compiler_flag_clang() {
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 config_setting(
     name = "clang_compiler",
-    flag_values = {"@bazel_tools//tools/cpp:compiler": "clang"},
+    flag_values = {"@rules_cc//cc/private/toolchain:compiler": "clang"},
 )
 
 cc_binary(
@@ -897,6 +897,7 @@ EOF
 function setup_find_optional_cpp_toolchain() {
 
   add_platforms "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
 
   mkdir -p pkg
 
@@ -932,7 +933,7 @@ my_rule = rule(
     implementation = _my_rule_impl,
     attrs = {
         "_cc_toolchain": attr.label(
-            default = "@bazel_tools//tools/cpp:optional_current_cc_toolchain",
+            default = "@rules_cc//cc:optional_current_cc_toolchain",
         ),
     },
     toolchains = use_cpp_toolchain(mandatory = False),
