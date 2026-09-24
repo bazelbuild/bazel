@@ -31,15 +31,16 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.MaybePathBacked;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
-import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -47,7 +48,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 import java.util.concurrent.Executors;
-import javax.annotation.Nullable;
 
 /**
  * An on-disk store for the remote action cache.
@@ -80,18 +80,7 @@ public class DiskCacheClient {
       MoreExecutors.listeningDecorator(
           Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("disk-cache-", 0).factory()));
 
-  private final boolean verifyDownloads;
-  private final DigestUtil digestUtil;
-
-  /**
-   * @param verifyDownloads whether verify the digest of downloaded content are the same as the
-   *     digest used to index that file.
-   */
-  public DiskCacheClient(Path root, DigestUtil digestUtil, boolean verifyDownloads)
-      throws IOException {
-    this.digestUtil = digestUtil;
-    this.verifyDownloads = verifyDownloads;
-
+  public DiskCacheClient(Path root, DigestUtil digestUtil) throws IOException {
     Path fnRoot =
         isOldStyleDigestFunction(digestUtil.getDigestFunction())
             ? root
@@ -154,23 +143,29 @@ public class DiskCacheClient {
           if (!refresh(path)) {
             throw new CacheNotFoundException(digest);
           }
-          try (InputStream in = path.getInputStream()) {
-            ByteStreams.copy(in, out);
+          Path outPath = null;
+          if (out instanceof MaybePathBacked maybePathBacked) {
+            outPath = maybePathBacked.maybeGetPath();
+          }
+
+          if (outPath != null) {
+            // If the output stream is path-backed, the filesystem may be able to avoid copying the
+            // file.
+            FileSystemUtils.copyFile(path, outPath);
+          } else {
+            try (InputStream in = path.getInputStream()) {
+              ByteStreams.copy(in, out);
+            }
           }
           return null;
         });
   }
 
   public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
-    @Nullable
-    DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
-        download(digest, digestOut != null ? digestOut : out, Store.CAS),
+        download(digest, out, Store.CAS),
         (v) -> {
           try {
-            if (digestOut != null) {
-              Utils.verifyBlobContents(digest, digestOut.digest());
-            }
             out.flush();
             return immediateFuture(null);
           } catch (IOException e) {
@@ -276,9 +271,7 @@ public class DiskCacheClient {
   public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
     return executorService.submit(
         () -> {
-          try (InputStream in = file.getInputStream()) {
-            saveFile(digest, Store.CAS, in);
-          }
+          saveFile(digest, Store.CAS, file);
           return null;
         });
   }
@@ -319,6 +312,51 @@ public class DiskCacheClient {
   }
 
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
+    save(
+        digest,
+        store,
+        temp -> {
+          try (OutputStream out = temp.getOutputStream()) {
+            ByteStreams.copy(in, out);
+            // Fsync temp before we rename it to avoid data loss in the case of machine
+            // crashes (the OS may reorder the writes and the rename).
+            if (out instanceof FileOutputStream fos) {
+              fos.getFD().sync();
+            }
+          }
+        });
+  }
+
+  /**
+   * Saves an existing file into the cache.
+   *
+   * <p>The contents are copied through {@link FileSystemUtils#copyFile}, so a filesystem with
+   * copy-on-write support (clonefile on macOS, copy_file_range on Linux) can serve the copy as a
+   * clone, leaving the entry sharing its blocks with the file it was saved from.
+   */
+  private void saveFile(Digest digest, Store store, Path file) throws IOException {
+    save(
+        digest,
+        store,
+        temp -> {
+          FileSystemUtils.copyFile(file, temp);
+          // copyFile preserves the source's permissions and mtime, neither of which suits a cache
+          // entry: an entry must remain readable by every user of a shared cache, and its mtime
+          // records when it was last stored or retrieved.
+          temp.chmod(0644);
+          temp.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+          // Fsync temp before we rename it to avoid data loss in the case of machine
+          // crashes (the OS may reorder the writes and the rename).
+          syncFile(temp);
+        });
+  }
+
+  /** Writes the contents of a cache entry into a temporary file. */
+  private interface TempFileWriter {
+    void write(Path temp) throws IOException;
+  }
+
+  private void save(Digest digest, Store store, TempFileWriter writer) throws IOException {
     Path path = toPath(digest, store);
 
     // CAS entries are content-addressed and thus automatically have the correct content if they
@@ -331,14 +369,7 @@ public class DiskCacheClient {
     Path temp = getTempPath();
 
     try {
-      try (OutputStream out = temp.getOutputStream()) {
-        ByteStreams.copy(in, out);
-        // Fsync temp before we rename it to avoid data loss in the case of machine
-        // crashes (the OS may reorder the writes and the rename).
-        if (out instanceof FileOutputStream fos) {
-          fos.getFD().sync();
-        }
-      }
+      writer.write(temp);
       path.getParentDirectory().createDirectoryAndParents();
       FileSystemUtils.renameToleratingConcurrentCreation(temp, path);
     } catch (IOException e) {
@@ -348,6 +379,15 @@ public class DiskCacheClient {
         e.addSuppressed(deleteErr);
       }
       throw e;
+    }
+  }
+
+  /** Flushes a file's contents to stable storage, where the filesystem supports it. */
+  private static void syncFile(Path path) throws IOException {
+    try (InputStream in = path.getInputStream()) {
+      if (in instanceof FileInputStream fileInputStream) {
+        fileInputStream.getFD().sync();
+      }
     }
   }
 }
