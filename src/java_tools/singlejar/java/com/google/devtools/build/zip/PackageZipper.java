@@ -46,7 +46,14 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 public final class PackageZipper {
   private PackageZipper() {}
 
-  private record PackageEntry(String name, byte[] data) implements Comparable<PackageEntry> {
+  private static final class PackageEntry implements Comparable<PackageEntry> {
+    final String name;
+    final byte[] data;
+
+    PackageEntry(String name, byte[] data) {
+      this.name = name;
+      this.data = data;
+    }
 
     @Override
     public int compareTo(PackageEntry other) {
