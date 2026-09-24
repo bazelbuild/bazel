@@ -384,13 +384,6 @@ public class RuleContext extends TargetContext
     return null;
   }
 
-  /**
-   * Returns a rule class name suitable for log messages, including an aspect name if applicable.
-   */
-  public String getRuleClassNameForLogging() {
-    return ruleClassNameForLogging;
-  }
-
   /** Returns the workspace name for the rule. */
   public String getWorkspaceName() {
     return rule.getPackageMetadata().workspaceName();
