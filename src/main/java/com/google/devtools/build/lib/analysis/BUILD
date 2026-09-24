@@ -19,47 +19,6 @@ filegroup(
 )
 
 java_library(
-    name = "analysis_cluster",
-    exports = [
-        ":actions/action_construction_context",
-        ":actions/file_write_action",
-        ":actions/shell_command",
-        ":alias_provider",
-        ":analysis_and_execution_result",
-        ":analysis_core",
-        ":analysis_environment",
-        ":analysis_failure_event",
-        ":analysis_issues",
-        ":analysis_result",
-        ":analysis_root_cause_event",
-        ":aspect_complete_event",
-        ":aspect_resolution_helpers",
-        ":aspect_value",
-        ":caching_analysis_environment",
-        ":configuration_make_variable_context",
-        ":configured_aspect_factory",
-        ":configured_target_factory",
-        ":dependency_resolution_helpers",
-        ":event_handling_error_reporter",
-        ":materialized_deps_info",
-        ":package_specification_provider",
-        ":required_fragments_util",
-        ":sh_toolchain",
-        ":shell_configuration",
-        ":starlark/composed_transition_materializer",
-        ":starlark/starlark_aspect_propagation_context",
-        ":starlark/starlark_rule_transition_provider",
-        ":starlark/unresolved_symlink_action",
-        ":target_complete_event",
-        ":target_context",
-        ":test/coverage_common",
-        ":test/test_tags_provider",
-        ":top_level_artifact_helper",
-        ":transitive_visibility_provider",
-    ],
-)
-
-java_library(
     name = "analysis_core",
     srcs = [
         "Allowlist.java",
@@ -546,9 +505,11 @@ java_library(
     name = "build_view",
     srcs = ["BuildView.java"],
     deps = [
-        ":analysis_cluster",
+        ":analysis_and_execution_result",
+        ":analysis_core",
         ":analysis_options",
         ":analysis_phase_started_event",
+        ":analysis_result",
         ":blaze_directories",
         ":configured_target",
         ":extra_action_artifacts_provider",
@@ -612,7 +573,7 @@ java_library(
     name = "common_prerequisite_validator",
     srcs = ["CommonPrerequisiteValidator.java"],
     deps = [
-        ":analysis_cluster",
+        ":analysis_core",
         ":rule_error_consumer",
         ":visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1510,7 +1471,7 @@ java_library(
     srcs = ["actions/SpawnActionTemplate.java"],
     deps = [
         ":actions/custom_command_line",
-        ":analysis_cluster",
+        ":analysis_core",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -2035,7 +1996,7 @@ java_library(
     name = "test/test_trimming_transition_factory",
     srcs = ["test/TestTrimmingTransitionFactory.java"],
     deps = [
-        ":analysis_cluster",
+        ":analysis_core",
         ":test/test_configuration",
         ":test/test_trimming_logic",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
