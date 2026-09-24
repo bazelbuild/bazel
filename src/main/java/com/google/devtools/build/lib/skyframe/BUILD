@@ -3928,19 +3928,27 @@ java_library(
     ],
 )
 
+java_library(
+    name = "skyframe_executor_wrapping_walkable_graph",
+    srcs = ["SkyframeExecutorWrappingWalkableGraph.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
 # Core Skyframe evaluation cycle.
-# Contains the 7 mutually dependent files forming the central evaluation loop:
+# Contains the 6 mutually dependent files forming the central evaluation loop:
 #   - SkyframeExecutor.java (central evaluation engine and coordinator)
 #   - SkyframeBuildView.java (analysis phase coordinator)
 #   - ConfiguredTargetFunction.java (configured target evaluation)
 #   - AspectFunction.java & LoadAspectsFunction.java (aspect evaluation)
 #   - SkyframeTargetPatternEvaluator.java (target pattern parsing and preloading)
-#   - SkyframeExecutorWrappingWalkableGraph.java (walkable graph wrapper)
 #
 # Decoupling roadmap for future extraction:
-#   1. Extract SkyframeExecutorWrappingWalkableGraph (only needs MemoizingEvaluator).
-#   2. Extract SkyframeTargetPatternEvaluator via TargetPatternEvaluator interface.
-#   3. Decouple SkyframeBuildView from SkyframeExecutor via BuildViewProvider interface.
+#   1. Extract SkyframeTargetPatternEvaluator via TargetPatternEvaluator interface.
+#   2. Decouple SkyframeBuildView from SkyframeExecutor via BuildViewProvider interface.
 java_library(
     name = "skyframe_core",
     srcs = [
@@ -3949,7 +3957,6 @@ java_library(
         "LoadAspectsFunction.java",
         "SkyframeBuildView.java",
         "SkyframeExecutor.java",
-        "SkyframeExecutorWrappingWalkableGraph.java",
         "SkyframeTargetPatternEvaluator.java",
     ],
     deps = [
@@ -4062,6 +4069,7 @@ java_library(
         ":skyframe_analysis_and_execution_result",
         ":skyframe_analysis_result",
         ":skyframe_error_processor",
+        ":skyframe_executor_wrapping_walkable_graph",
         ":skyframe_incremental_build_monitor",
         ":skyframe_package_manager",
         ":skyframe_stats",

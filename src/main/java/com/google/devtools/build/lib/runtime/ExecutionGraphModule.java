@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.I
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport;
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -271,7 +270,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
   private void handleExecutionBegin() {
     if (graph == null) {
-      graph = SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
+      graph = env.getSkyframeExecutor().getWalkableGraph();
     }
     try {
       // Defer creation of writer until the start of the execution phase. This is done for two

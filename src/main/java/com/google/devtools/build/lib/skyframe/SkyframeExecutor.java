@@ -2724,8 +2724,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private void initializeSkymeldConflictFindingStates() {
     incrementalArtifactConflictFinder =
         new IncrementalArtifactConflictFinder(
-            new MapBasedActionGraph(actionKeyContext),
-            SkyframeExecutorWrappingWalkableGraph.of(this));
+            new MapBasedActionGraph(actionKeyContext), getWalkableGraph());
+  }
+
+  /** Returns a {@link WalkableGraph} backed by this executor's evaluator. */
+  public WalkableGraph getWalkableGraph() {
+    return SkyframeExecutorWrappingWalkableGraph.of(getEvaluator());
   }
 
   /** Clear the incremental conflict finding states to save memory. */
@@ -3775,7 +3779,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // is necessary to avoid collecting nodes that are in the graph from a previous build, but
         // unnecessary for this build.
         // TODO: jhorvitz - We could use the faster parallel sweep on clean builds.
-        new TransitiveActionLookupKeysCollector(SkyframeExecutorWrappingWalkableGraph.of(this))
+        new TransitiveActionLookupKeysCollector(getWalkableGraph())
             .collect(Iterables.concat(topLevelCtKeys, aspectKeys), alvTraversal);
       }
       return alvTraversal;
