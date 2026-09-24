@@ -985,7 +985,7 @@ my_test = rule(
             cfg = config.exec(exec_group = "test"),
         ),
         "_collect_cc_coverage": attr.label(
-            default = "@rules_cc//cc/private/coverage:collect_cc_coverage",
+            default = "@rules_cc//cc/coverage:collect_cc_coverage",
             executable = True,
             cfg = config.exec(exec_group = "test"),
         )
@@ -998,7 +998,7 @@ By using `configuration_field`, the dependency on the Java LCOV merger tool can
 be avoided as long as coverage is not requested.
 
 For C/C++ coverage collection, reference
-`@rules_cc//cc/private/coverage:collect_cc_coverage`.
+`@rules_cc//cc/coverage:collect_cc_coverage`.
 
 When the test is run, it should emit coverage information in the form of one or
 more [LCOV files](https://manpages.debian.org/unstable/lcov/geninfo.1.en.html#TRACEFILE_FORMAT)

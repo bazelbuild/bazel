@@ -564,4 +564,4 @@ function test_cc_test_coverage_gcov() {
     fi
 }
 
-run_suite "Testing @rules_cc//cc/private/coverage:collect_cc_coverage"
+run_suite "Testing @rules_cc//cc/coverage:collect_cc_coverage"
