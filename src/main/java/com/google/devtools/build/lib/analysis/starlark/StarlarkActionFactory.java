@@ -1184,6 +1184,15 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             .setExecutionInfo(executionInfo)
             .setOutputPathsMode(PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
 
+    // Verify whether declare_subdirectory is available for this target. The allowlist may match
+    // either the target's package or the .bzl file defining the rule class.
+    boolean isSubdirectoryAllowed =
+        Allowlist.hasAllowlist(ruleContext, "subdirectory")
+            && (Allowlist.isAvailable(ruleContext, "subdirectory")
+                || (ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel()
+                        != null
+                    && Allowlist.isAvailableBasedOnRuleLocation(ruleContext, "subdirectory")));
+
     StarlarkMapActionTemplate template =
         new StarlarkMapActionTemplate(
             getRuleContext().getActionOwner(execGroup),
@@ -1216,7 +1225,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             mnemonic,
             implementation,
             thread.getSemantics(),
-            ruleContext.getSymbolGenerator());
+            ruleContext.getSymbolGenerator(),
+            isSubdirectoryAllowed);
     registerAction(template);
   }
 

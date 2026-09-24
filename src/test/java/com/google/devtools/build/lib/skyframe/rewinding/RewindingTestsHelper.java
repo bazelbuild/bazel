@@ -2001,8 +2001,17 @@ public class RewindingTestsHelper {
             )
             return DefaultInfo(files = depset([out_dir]))
 
-        map_dir = rule(implementation = _map_dir_impl)
+        map_dir = rule(
+            implementation = _map_dir_impl,
+            attrs = {
+                "_allowlist_subdirectory": attr.label(
+                    default = "TOOLS_REPOSITORY//tools/allowlists/subdirectory_allowlist",
+                    providers = [PackageSpecificationInfo],
+                ),
+            },
+        )
         """
+            .replace("TOOLS_REPOSITORY", TestConstants.TOOLS_REPOSITORY.toString())
             .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT));
     testCase.write(
         "foo/BUILD",
@@ -2072,8 +2081,17 @@ public class RewindingTestsHelper {
             )
             return DefaultInfo(files = depset([out_dir]))
 
-        map_dir = rule(implementation = _map_dir_impl)
+        map_dir = rule(
+            implementation = _map_dir_impl,
+            attrs = {
+                "_allowlist_subdirectory": attr.label(
+                    default = "TOOLS_REPOSITORY//tools/allowlists/subdirectory_allowlist",
+                    providers = [PackageSpecificationInfo],
+                ),
+            },
+        )
         """
+            .replace("TOOLS_REPOSITORY", TestConstants.TOOLS_REPOSITORY.toString())
             .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT));
     mockFooBinary("foo/foo_binary.bzl");
     testCase.write(

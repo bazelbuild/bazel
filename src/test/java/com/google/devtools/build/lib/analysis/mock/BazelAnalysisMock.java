@@ -537,6 +537,14 @@ launcher_flag_alias(
         )
         """);
     config.create(
+        "embedded_tools/tools/allowlists/subdirectory_allowlist/BUILD",
+        """
+        package_group(
+            name = "subdirectory_allowlist",
+            packages = ["public"],
+        )
+        """);
+    config.create(
         "embedded_tools/tools/allowlists/subrules_allowlist/BUILD",
         """
         package_group(
