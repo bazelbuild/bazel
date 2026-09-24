@@ -67,6 +67,8 @@ public final class PathCanonicalizerTest {
   @Test
   public void testRoot() throws Exception {
     assertSuccess("/", "/");
+    assertThat(canonicalizer.resolveSymbolicLinksForParent(pathFragment("/")))
+        .isEqualTo(pathFragment("/"));
   }
 
   @Test
@@ -283,13 +285,41 @@ public final class PathCanonicalizerTest {
   }
 
   @Test
+  public void testParentResolutionDoesNotFollowFinalSymlink() throws Exception {
+    createSymlink("/a/dir/leaf", "/missing");
+    createSymlink("/a/link", "dir");
+
+    assertThat(canonicalizer.resolveSymbolicLinksForParent(pathFragment("/a/link/leaf")))
+        .isEqualTo(pathFragment("/a/dir/leaf"));
+  }
+
+  @Test
+  public void testParentResolutionRequiresDirectory() throws Exception {
+    createNonSymlink("/a/file");
+    createSymlink("/a/link", "file");
+
+    assertThrows(
+        FileNotFoundException.class,
+        () -> canonicalizer.resolveSymbolicLinksForParent(pathFragment("/a/link/child")));
+    assertThrows(
+        FileNotFoundException.class,
+        () -> canonicalizer.resolveSymbolicLinksForParent(pathFragment("/a/file/child")));
+  }
+
+  @Test
   public void testEmpty() throws Exception {
     assertFailure(IllegalArgumentException.class, "");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> canonicalizer.resolveSymbolicLinksForParent(pathFragment("")));
   }
 
   @Test
   public void testNonAbsolute() throws Exception {
     assertFailure(IllegalArgumentException.class, "a/b");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> canonicalizer.resolveSymbolicLinksForParent(pathFragment("a/b")));
   }
 
   private void createSymlink(String linkPathStr, String targetPathStr) throws Exception {

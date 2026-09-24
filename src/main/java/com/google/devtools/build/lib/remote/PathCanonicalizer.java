@@ -110,12 +110,15 @@ final class PathCanonicalizer {
    * @param path the path to canonicalize.
    * @param maxLinks the maximum number of symlinks that can be followed in the process of
    *     canonicalizing the path.
+   * @param requireDirectory whether the canonical path must be a directory.
    * @throws FileSymlinkLoopException if too many symlinks had to be followed.
-   * @throws FileNotFoundException if one of the path components could not be found
+   * @throws FileNotFoundException if a path component does not exist or a non-directory component
+   *     is used as a directory
    * @throws IOException if an I/O error occurs
    * @return the canonical path.
    */
-  private PathFragment resolveSymbolicLinks(PathFragment path, int maxLinks) throws IOException {
+  private PathFragment resolveSymbolicLinks(
+      PathFragment path, int maxLinks, boolean requireDirectory) throws IOException {
     // This code is carefully written to be as fast as possible when the path is already canonical
     // and has been previously cached. Avoid making changes without benchmarking. A tree artifact
     // with hundreds of thousands of files makes for a good benchmark.
@@ -173,14 +176,14 @@ final class PathCanonicalizer {
           // For absolute symlinks, we must start over.
           // For relative symlinks, it would have been possible to restart after the already
           // canonicalized prefix, but they're too rare to be worth optimizing for.
-          return resolveSymbolicLinks(newPath, maxLinks);
+          return resolveSymbolicLinks(newPath, maxLinks, requireDirectory);
         }
         case DirectoryNode directoryNode -> {
           node = directoryNode;
           segmentIndex++;
         }
         case NonDirectoryNode ignored -> {
-          if (segmentIndex + 1 < path.segmentCount()) {
+          if (requireDirectory || segmentIndex + 1 < path.segmentCount()) {
             throw new FileNotFoundException(path.getPathString() + ERR_NOT_A_DIRECTORY);
           }
           segmentIndex++;
@@ -202,7 +205,25 @@ final class PathCanonicalizer {
    * @return the canonical path.
    */
   PathFragment resolveSymbolicLinks(PathFragment path) throws IOException {
-    return resolveSymbolicLinks(path, FileSystem.MAX_SYMLINKS);
+    return resolveSymbolicLinks(path, FileSystem.MAX_SYMLINKS, /* requireDirectory= */ false);
+  }
+
+  /**
+   * Canonicalizes the parent of an absolute path, requiring it to resolve to a directory. The final
+   * component is neither looked up nor followed.
+   *
+   * @throws FileSymlinkLoopException if too many symlinks had to be followed
+   * @throws FileNotFoundException if a parent component does not exist or is not a directory
+   * @throws IOException if an I/O error occurs
+   */
+  PathFragment resolveSymbolicLinksForParent(PathFragment path) throws IOException {
+    PathFragment parent = path.getParentDirectory();
+    if (parent == null) {
+      checkArgument(path.isAbsolute());
+      return path;
+    }
+    return resolveSymbolicLinks(parent, FileSystem.MAX_SYMLINKS, /* requireDirectory= */ true)
+        .getChild(path.getBaseName());
   }
 
   /** Removes cached information for a path prefix. */
