@@ -22,51 +22,6 @@ filegroup(
 )
 
 java_library(
-    name = "skyframe_cluster",
-    exports = [
-        ":action_execution_function",
-        ":action_lookup_conflict_finding_function",
-        ":action_lookup_values_traversal",
-        ":aspect_completor",
-        ":bazel_skyframe_executor_constants",
-        ":bzl_load_function",
-        ":completion_function",
-        ":configured_target_evaluation_exceptions",
-        ":coverage_report_function",
-        ":dependency_resolver",
-        ":directory_listing_state_function",
-        ":dirtiness_checker_utils",
-        ":environment_backed_recursive_package_provider",
-        ":eval_macro_function",
-        ":external_files_helper",
-        ":file_state_function",
-        ":high_water_mark_limiter",
-        ":local_repository_lookup_function",
-        ":macro_instance_function",
-        ":non_finalizer_package_pieces_function",
-        ":package_declarations_function",
-        ":package_function",
-        ":prepare_deps_of_pattern_function",
-        ":sequenced_skyframe_executor",
-        ":sequenced_skyframe_executor_factory",
-        ":skyframe_analysis_and_execution_result",
-        ":skyframe_analysis_result",
-        ":skyframe_core",
-        ":skyframe_executor_factory",
-        ":skyframe_package_manager",
-        ":starlark_aspect_factory",
-        ":starlark_build_settings_details_function",
-        ":target_completor",
-        ":target_pattern_function",
-        ":target_pattern_phase_function",
-        ":test_completion_function",
-        ":top_level_action_lookup_conflict_finding_function",
-        ":toplevel_starlark_aspect_function",
-        ":transitive_target_function",
-    ],
-)
-
-java_library(
     name = "detailed_exceptions",
     srcs = [
         "DetailedException.java",
@@ -3973,7 +3928,19 @@ java_library(
     ],
 )
 
-# Core Skyframe evaluation cycle (SkyframeExecutor <-> SkyframeBuildView <-> ConfiguredTargetFunction <-> AspectFunction).
+# Core Skyframe evaluation cycle.
+# Contains the 7 mutually dependent files forming the central evaluation loop:
+#   - SkyframeExecutor.java (central evaluation engine and coordinator)
+#   - SkyframeBuildView.java (analysis phase coordinator)
+#   - ConfiguredTargetFunction.java (configured target evaluation)
+#   - AspectFunction.java & LoadAspectsFunction.java (aspect evaluation)
+#   - SkyframeTargetPatternEvaluator.java (target pattern parsing and preloading)
+#   - SkyframeExecutorWrappingWalkableGraph.java (walkable graph wrapper)
+#
+# Decoupling roadmap for future extraction:
+#   1. Extract SkyframeExecutorWrappingWalkableGraph (only needs MemoizingEvaluator).
+#   2. Extract SkyframeTargetPatternEvaluator via TargetPatternEvaluator interface.
+#   3. Decouple SkyframeBuildView from SkyframeExecutor via BuildViewProvider interface.
 java_library(
     name = "skyframe_core",
     srcs = [
