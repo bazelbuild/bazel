@@ -62,13 +62,11 @@ public final class Types {
   /**
    * The bottom type of the type hierarchy.
    *
-   * <p>Admits no values.
+   * <p>Admits no values, but supports every operation.
    *
    * <p>In practice, an expression whose type is {@code Never} is unreachable, assuming typing is
    * sound.
    */
-  // TODO: #27370 - we want to say "Admits no values, but supports every operation", but it's not
-  // true at the moment.
   public static final StarlarkType NEVER = new NeverType();
 
   // Primitive types
@@ -265,6 +263,11 @@ public final class Types {
     @Override
     public boolean hasSetIndex() {
       return true;
+    }
+
+    @Override
+    public StarlarkType getField(String name, TypeContext context) {
+      return NEVER;
     }
 
     @Override

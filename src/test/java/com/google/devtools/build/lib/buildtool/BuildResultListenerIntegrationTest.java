@@ -14,20 +14,20 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
-import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
-import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
-import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BazelIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BazelServer;
+import com.google.devtools.build.lib.buildtool.util.CommandResult;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -40,7 +40,7 @@ import org.junit.runner.RunWith;
 
 /** Integration test for {@link com.google.devtools.build.lib.skyframe.BuildResultListener}. */
 @RunWith(TestParameterInjector.class)
-public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase {
+public class BuildResultListenerIntegrationTest extends BazelIntegrationTestCase {
   @TestParameter boolean mergedAnalysisExecution;
 
   @Before
@@ -52,8 +52,8 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
   private final InterruptModule interruptModule = new InterruptModule();
 
   @Override
-  protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    return super.getRuntimeBuilder().addBlazeModule(interruptModule);
+  protected BazelServer.Builder getServerBuilder() {
+    return super.getServerBuilder().addBlazeModule(interruptModule);
   }
 
   /** A simple rule that has srcs, deps and writes these attributes to its output. */
@@ -155,9 +155,9 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
     write("foo/bar.in");
     addOptions("--aspects=//foo:aspect.bzl%successful_aspect");
 
-    BuildResult result = buildTarget("//foo:foo", "//foo:bar");
+    CommandResult result = buildTarget("//foo:foo", "//foo:bar");
 
-    assertThat(result.getSuccess()).isTrue();
+    assertThat(result.isSuccess()).isTrue();
     assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:foo", "//foo:bar");
     assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo", "//foo:bar");
     assertThat(getLabelsOfAnalyzedAspects()).containsExactly("//foo:foo", "//foo:bar");
@@ -182,7 +182,10 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
 
     addOptions("--aspects=//foo:aspect.bzl%analysis_err_aspect", "--output_groups=files");
 
-    assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
+    CommandResult result = buildTarget("//foo:foo");
+    assertThat(result.isSuccess()).isFalse();
+    assertThat(result.getDetailedExitCode().getFailureDetail().getAnalysis().getCode())
+        .isEqualTo(FailureDetails.Analysis.Code.ASPECT_CREATION_FAILED);
 
     assertThat(getLabelsOfAnalyzedAspects()).isEmpty();
   }
@@ -207,7 +210,8 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
 
     addOptions("--aspects=//foo:aspect.bzl%execution_err_aspect", "--output_groups=files");
 
-    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+    CommandResult result = buildTarget("//foo:foo");
+    assertThat(result.isSuccess()).isFalse();
 
     assertThat(getLabelsOfAnalyzedAspects()).contains("//foo:foo");
     assertThat(getLabelsOfBuiltAspects()).isEmpty();
@@ -235,8 +239,8 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
         """);
     write("foo/foo.in");
 
-    assertThrows(
-        BuildFailedException.class, () -> buildTarget("//foo:foo", "//foo:execution_failure"));
+    CommandResult result = buildTarget("//foo:foo", "//foo:execution_failure");
+    assertThat(result.isSuccess()).isFalse();
 
     assertThat(getLabelsOfAnalyzedTargets()).contains("//foo:execution_failure");
     if (keepGoing) {
@@ -269,15 +273,14 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
         """);
     write("foo/foo.in");
 
+    CommandResult result = buildTarget("//foo:foo", "//foo:analysis_failure");
+    assertThat(result.isSuccess()).isFalse();
     if (keepGoing) {
-      assertThrows(
-          BuildFailedException.class, () -> buildTarget("//foo:foo", "//foo:analysis_failure"));
       assertThat(getLabelsOfAnalyzedTargets()).contains("//foo:foo");
       assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo");
     } else {
-      assertThrows(
-          ViewCreationFailedException.class,
-          () -> buildTarget("//foo:foo", "//foo:analysis_failure"));
+      assertThat(result.getDetailedExitCode().getFailureDetail().getAnalysis().getCode())
+          .isEqualTo(FailureDetails.Analysis.Code.CONFIGURED_VALUE_CREATION_FAILED);
       assertThat(getBuildResultListener().getBuiltTargets()).isEmpty();
     }
   }
@@ -297,15 +300,15 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
         """);
     write("foo/foo.in");
 
-    BuildResult result = buildTarget("//foo:foo");
+    CommandResult result = buildTarget("//foo:foo");
 
-    assertThat(result.getSuccess()).isTrue();
+    assertThat(result.isSuccess()).isTrue();
     assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:foo");
     assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo");
 
     result = buildTarget("//foo:foo");
 
-    assertThat(result.getSuccess()).isTrue();
+    assertThat(result.isSuccess()).isTrue();
     assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:foo");
     assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo");
   }
@@ -414,9 +417,10 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
 
     interruptModule.setEventToInterruptOn(TargetConfiguredEvent.class);
 
-    assertThrows(InterruptedException.class, () -> buildTarget("//foo:foo"));
+    CommandResult result = buildTarget("//foo:foo");
+    assertThat(result.getExitCode()).isEqualTo(ExitCode.INTERRUPTED);
 
-    BuildResultListener listener = getCommandEnvironment().getBuildResultListener();
+    BuildResultListener listener = getBuildResultListener();
     long analysisDuration = listener.getAnalysisPhaseTimeInMillis();
     assertThat(analysisDuration).isGreaterThan(0L);
     assertThat(listener.getExecutionPhaseTimeInMillis()).isEqualTo(0L);
@@ -443,9 +447,10 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
 
     interruptModule.setEventToInterruptOn(ActionStartedEvent.class);
 
-    assertThrows(InterruptedException.class, () -> buildTarget("//foo:foo"));
+    CommandResult result = buildTarget("//foo:foo");
+    assertThat(result.getExitCode()).isEqualTo(ExitCode.INTERRUPTED);
 
-    BuildResultListener listener = getCommandEnvironment().getBuildResultListener();
+    BuildResultListener listener = getBuildResultListener();
     long analysisDuration = listener.getAnalysisPhaseTimeInMillis();
     long executionDuration = listener.getExecutionPhaseTimeInMillis();
     assertThat(analysisDuration).isGreaterThan(0L);
@@ -480,9 +485,10 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
 
     interruptModule.setEventToInterruptOn(ActionStartedEvent.class);
 
-    assertThrows(InterruptedException.class, () -> buildTarget("//foo:target1", "//foo:target2"));
+    CommandResult result = buildTarget("//foo:target1", "//foo:target2");
+    assertThat(result.getExitCode()).isEqualTo(ExitCode.INTERRUPTED);
 
-    BuildResultListener listener = getCommandEnvironment().getBuildResultListener();
+    BuildResultListener listener = getBuildResultListener();
     long analysisDuration = listener.getAnalysisPhaseTimeInMillis();
     long executionDuration = listener.getExecutionPhaseTimeInMillis();
     assertThat(analysisDuration).isGreaterThan(0L);
@@ -516,9 +522,10 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
 
     interruptModule.setEventToInterruptOn(ExecutionStartingEvent.class);
 
-    assertThrows(InterruptedException.class, () -> buildTarget("//foo:foo"));
+    CommandResult result = buildTarget("//foo:foo");
+    assertThat(result.getExitCode()).isEqualTo(ExitCode.INTERRUPTED);
 
-    BuildResultListener listener = getCommandEnvironment().getBuildResultListener();
+    BuildResultListener listener = getBuildResultListener();
     long analysisDuration = listener.getAnalysisPhaseTimeInMillis();
     long executionDuration = listener.getExecutionPhaseTimeInMillis();
     assertThat(analysisDuration).isGreaterThan(0L);

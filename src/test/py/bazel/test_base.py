@@ -25,6 +25,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import zipfile
 from absl.testing import absltest
 import runfiles
 
@@ -90,7 +91,11 @@ class TestBase(absltest.TestCase):
     with open(self._test_bazelrc, 'wt') as f:
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:
-        f.write('startup --install_base={}\n'.format(shared_install_base))
+        f.write(
+            'startup --install_base={}\n'.format(
+                self._InstallBaseForBazelBinary(shared_install_base)
+            )
+        )
       shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
       if shared_repo_cache:
         f.write('common --repository_cache={}\n'.format(shared_repo_cache))
@@ -103,6 +108,10 @@ class TestBase(absltest.TestCase):
         if TestBase.IsDarwin():
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')
+      # The repo contents cache defaults to a directory under the repository
+      # cache, which is shared with other tests and test attempts on CI. Tests
+      # that exercise the repo contents cache opt in explicitly.
+      f.write('common --repo_contents_cache=\n')
       if TestBase.IsDarwin() and _HasIpv6DefaultRoute():
         # Prefer IPv6 network on macOS only when an IPv6 default route exists.
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
@@ -197,6 +206,18 @@ class TestBase(absltest.TestCase):
       ] + (stderr_lines or []) + [
           '(end stderr)------------------------------------------',
       ]))
+
+  def _InstallBaseForBazelBinary(self, shared_install_base):
+    """Returns a shared install base keyed by the Bazel binary under test."""
+
+    # Test rules may build Bazel in different configurations, which yields
+    # binaries with different install base keys. Bazel wipes an install base
+    # populated by a different binary, which fails on Windows while another
+    # Bazel server is still running from it, so the key is made part of the
+    # path.
+    with zipfile.ZipFile(self.Rlocation('io_bazel/src/bazel')) as bazel:
+      key = bazel.read('install_base_key').decode('ascii').strip()
+    return '{}-{}'.format(shared_install_base, key)
 
   def AssertExitCode(self,
                      actual_exit_code,

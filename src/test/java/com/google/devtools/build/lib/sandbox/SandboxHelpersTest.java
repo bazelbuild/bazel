@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -214,9 +216,11 @@ public class SandboxHelpersTest {
     assertThat(outputFile.isExecutable()).isTrue();
   }
 
-  private static ImmutableMap<PathFragment, ActionInput> inputMap(ActionInput... inputs) {
+  private static ImmutableSortedMap<PathFragment, ActionInput> inputMap(ActionInput... inputs) {
     return Arrays.stream(inputs)
-        .collect(toImmutableMap(ActionInput::getExecPath, Function.identity()));
+        .collect(
+            toImmutableSortedMap(
+                HIERARCHICAL_COMPARATOR, ActionInput::getExecPath, Function.identity()));
   }
 
   @Test

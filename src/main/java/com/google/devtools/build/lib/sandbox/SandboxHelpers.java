@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.FILE;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
+import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -62,6 +63,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
@@ -638,14 +640,18 @@ public final class SandboxHelpers {
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
    * host filesystem where the input files can be found.
    *
-   * @param inputMap the map of action inputs and where they should be visible in the action
+   * @param inputMap the map of action inputs and where they should be visible in the action, sorted
+   *     by {@link PathFragment#HIERARCHICAL_COMPARATOR}
    * @param execRoot the exec root
    * @throws IOException if processing symlinks fails
    */
   @CanIgnoreReturnValue
   public static SandboxInputs processInputFiles(
-      Map<PathFragment, ActionInput> inputMap, Path execRoot)
+      SortedMap<PathFragment, ActionInput> inputMap, Path execRoot)
       throws IOException, InterruptedException {
+    Preconditions.checkArgument(
+        Objects.equals(inputMap.comparator(), HIERARCHICAL_COMPARATOR),
+        "inputMap must be sorted by PathFragment.HIERARCHICAL_COMPARATOR");
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
     Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();

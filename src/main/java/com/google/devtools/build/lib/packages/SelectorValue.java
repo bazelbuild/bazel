@@ -208,6 +208,12 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
       ArrayList<StarlarkType> resultTypes = new ArrayList<>();
       for (StarlarkType thisValueType : thisValueTypes) {
         for (StarlarkType thatValueType : thatValueTypes) {
+          if (Types.NUMERIC.getTypes().contains(thisValueType)
+              && Types.NUMERIC.getTypes().contains(thatValueType)
+              && !thisValueType.equals(thatValueType)) {
+            // SelectorList dynamically disallows adding ints to floats.
+            return null;
+          }
           StarlarkType lhsValueType = thisLeft ? thisValueType : thatValueType;
           StarlarkType rhsValueType = thisLeft ? thatValueType : thisValueType;
           StarlarkType result =

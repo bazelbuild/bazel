@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ArgChunk;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -669,6 +670,181 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
+  public void vectorArgArguments_expandsTreeArtifact_uniquify() throws Exception {
+    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree1, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree1, "child2");
+    TreeArtifactValue treeArtifactValue1 =
+        TreeArtifactValue.newBuilder(tree1)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    TreeFileArtifact child3 = TreeFileArtifact.createTreeOutput(tree2, "child3");
+    TreeArtifactValue treeArtifactValue2 =
+        TreeArtifactValue.newBuilder(tree2)
+            .putChild(child3, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree1, treeArtifactValue1);
+    fakeActionInputFileCache.putTreeArtifact(tree2, treeArtifactValue2);
+
+    if (!useNestedSet) {
+      CommandLine commandLine =
+          builder
+              .add(
+                  vectorArg(tree1, artifact1, tree1, artifact1, tree2)
+                      .setExpandDirectories(true)
+                      .uniquify(true))
+              .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+      Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
+      assertThat(arguments)
+          .containsExactly(
+              "bin/tree1/child1",
+              "bin/tree1/child2",
+              artifact1.getExecPathString(),
+              "bin/tree2/child3")
+          .inOrder();
+    } else {
+      CommandLine commandLine =
+          builder
+              .add(vectorArg(tree1, tree2).setExpandDirectories(true).uniquify(true))
+              .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+      Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
+      assertThat(arguments)
+          .containsExactly("bin/tree1/child1", "bin/tree1/child2", "bin/tree2/child3")
+          .inOrder();
+    }
+  }
+
+  @Test
+  public void vectorArgArguments_expandsSubTreeArtifact_uniquify() throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    SpecialArtifact subtree = createSubTreeArtifact(tree, "subdir");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(subtree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(subtree, "child2");
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(subtree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(subtree, treeArtifactValue);
+
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(subtree, subtree).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
+    assertThat(arguments)
+        .containsExactly("bin/tree/subdir/child1", "bin/tree/subdir/child2")
+        .inOrder();
+
+    TreeFileArtifact treeRootChild = TreeFileArtifact.createTreeOutput(tree, "root_child");
+    TreeArtifactValue parentTreeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(treeRootChild, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    fakeActionInputFileCache.putTreeArtifact(tree, parentTreeArtifactValue);
+
+    CommandLine treeThenSubtreeChild =
+        new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
+            .add(vectorArg(tree, child1).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(treeThenSubtreeChild.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/tree/root_child", "bin/tree/subdir/child1", "bin/tree/subdir/child2")
+        .inOrder();
+
+    CommandLine subtreeChildThenTree =
+        new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
+            .add(vectorArg(child2, tree).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(subtreeChildThenTree.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/tree/subdir/child2", "bin/tree/root_child", "bin/tree/subdir/child1")
+        .inOrder();
+  }
+
+  @Test
+  public void vectorArgArguments_expandsTreeArtifactAndChild_uniquify() throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+
+    // tree first, child second: child1 should not be duplicated
+    CommandLine commandLine1 =
+        builder
+            .add(vectorArg(tree, child1).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(commandLine1.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/tree/child1", "bin/tree/child2")
+        .inOrder();
+
+    // child2 first, tree second: child2 should appear before child1 and not be duplicated
+    CommandLine commandLine2 =
+        new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
+            .add(vectorArg(child2, tree).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(commandLine2.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/tree/child2", "bin/tree/child1")
+        .inOrder();
+  }
+
+  @Test
+  public void vectorArgArguments_expandsTreeArtifactAndFileset_uniquify() throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    SpecialArtifact fileset = createFileset("fileset");
+    FilesetOutputSymlink symlinkFromTree = createFilesetSymlink("symlink_child1", child1);
+    FilesetOutputSymlink symlinkOther = createFilesetSymlink("other");
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+    fakeActionInputFileCache.putFileset(
+        fileset,
+        FilesetOutputTree.create(
+            ImmutableList.of(symlinkFromTree, symlinkOther),
+            ImmutableMap.of(tree, treeArtifactValue)));
+
+    // tree first, fileset second: child1 should not be duplicated
+    CommandLine commandLine1 =
+        builder
+            .add(vectorArg(tree, fileset).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(commandLine1.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/tree/child1", "bin/tree/child2", "bin/fileset/other")
+        .inOrder();
+
+    // fileset first, tree second: child1 is emitted by fileset first and not duplicated by tree
+    CommandLine commandLine2 =
+        new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
+            .add(vectorArg(fileset, tree).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(commandLine2.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/fileset/other", "bin/fileset/symlink_child1", "bin/tree/child2")
+        .inOrder();
+  }
+
+  @Test
   public void vectorArgArguments_expandsFileset() throws Exception {
     SpecialArtifact fileset = createFileset("fileset");
     FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
@@ -964,6 +1140,21 @@ public final class StarlarkCustomCommandLineTest {
         PathFragment.create(relativePath),
         ActionsTestUtil.createArtifact(derivedRoot, "some/target"),
         FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1));
+  }
+
+  private FilesetOutputSymlink createFilesetSymlink(String relativePath, Artifact target) {
+    return new FilesetOutputSymlink(
+        PathFragment.create(relativePath),
+        target,
+        FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1));
+  }
+
+  private SpecialArtifact createSubTreeArtifact(SpecialArtifact parent, String parentRelativePath) {
+    SpecialArtifact subtree =
+        SpecialArtifact.createSubTreeArtifact(
+            parent, PathFragment.create(parentRelativePath), ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    subtree.setGeneratingActionKey(ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, 0));
+    return subtree;
   }
 
   private SpecialArtifact createTreeArtifact(String relativePath) {

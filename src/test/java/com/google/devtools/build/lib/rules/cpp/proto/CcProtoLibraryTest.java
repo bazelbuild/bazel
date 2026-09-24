@@ -18,8 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -121,27 +119,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto"))))
         .containsExactly("x/foo.pb.h", "x/foo.pb.cc", "x/libfoo_proto.a",
             "x/libfoo_proto.ifso", "x/libfoo_proto.so");
-  }
-
-  @Test
-  public void canBeUsedFromCcRules() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
-        "cc_library(name = 'foo', srcs = ['foo.cc'], deps = ['foo_cc_proto'])",
-        "cc_binary(name = 'bin', srcs = ['bin.cc'], deps = ['foo_cc_proto'])",
-        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
-        "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
-
-    update(
-        ImmutableList.of("//x:foo", "//x:bin"),
-        false /* keepGoing */,
-        1 /* loadingPhaseThreads */,
-        true /* doAnalysis */,
-        new EventBus());
   }
 
   @Test

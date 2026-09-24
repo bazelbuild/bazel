@@ -9,10 +9,7 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob([
-        "*",
-        "cache/*",
-    ]) + [
+    srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/actions/util:srcs",
     ],
     visibility = [
@@ -22,14 +19,7 @@ filegroup(
 
 java_library(
     name = "ActionsTests_lib",
-    srcs = glob(
-        [
-            "*.java",
-            "cache/*.java",
-        ],
-    ),
-    javacopts = [
-    ],
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_execution_status_reporter",
@@ -46,13 +36,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:metadata_digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_info",
         "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
-        "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/symlink_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
@@ -93,7 +85,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//src/test/java/com/google/devtools/build/lib/worker:testutil",
         "//third_party/java/auto:auto_value",
         "//third_party/java/caffeine",

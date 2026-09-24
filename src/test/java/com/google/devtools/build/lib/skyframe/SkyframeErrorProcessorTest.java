@@ -481,27 +481,25 @@ public class SkyframeErrorProcessorTest {
         .isEqualTo("Analysis of target '//pkg:cycle' failed; build aborted due to cycle");
   }
 
-  // TODO(b/561978611): Remove this behavior. An execution cycle is reported with analysis wording,
-  // because its cause is null.
   @Test
   public void executionCycle_keepGoing_executionErrorWithCycleCode() throws Exception {
     ConfiguredTargetKey key = configuredTargetKey("//pkg:exec_cycle");
+    CycleInfo cycle = executionCycle(key);
 
     ErrorProcessingResult result =
         processErrors(
-            resultOf(key, ErrorInfo.fromCycle(executionCycle(key))),
+            resultOf(key, ErrorInfo.fromCycle(cycle)),
             /* keepGoing= */ true,
             /* includeExecutionPhase= */ true);
 
     assertThat(result.executionDetailedExitCode()).isEqualTo(EXECUTION_CYCLE_CODE);
     assertThat(result.hasAnalysisError()).isFalse();
-    // WART, pinned deliberately: the wording is wrong for an execution cycle. processErrors
-    // computes isExecutionException from the *cause*, and a cycle has a null cause, so it is false
-    // here even though the exit code is the execution CYCLE code and isAnalysisError() is false.
-    // logOrPrintWarningsKeepGoing therefore emits the analysis-worded warning.
-    assertThat(warningMessages())
-        .containsExactly(
-            "errors encountered while analyzing target '//pkg:exec_cycle', it will not be built.");
+    // A cycle has no cause, so its severity cannot be read off an exception: classify decides it,
+    // logOrPrintWarningsKeepGoing keys off that, and Severity.EXECUTION returns before any
+    // user-visible warning. An execution cycle is therefore not warned about in analysis wording.
+    assertThat(warningMessages()).isEmpty();
+    // No warning, but the cycle itself is reported to the user by the cycles reporter.
+    assertThat(cyclesReporter.cycles).containsExactly(cycle);
   }
 
   @Test
@@ -582,8 +580,6 @@ public class SkyframeErrorProcessorTest {
     assertThat(result.aspectKeysForConflictReporting()).isEmpty();
   }
 
-  // TODO(b/561978611): Remove this behavior. The warning names the target 'null', because an
-  // ActionLookupData has no label.
   @Test
   public void actionLookupDataKey_isAlwaysAnExecutionError() throws Exception {
     ConfiguredTargetKey ctKey = configuredTargetKey("//build_info");
@@ -603,15 +599,11 @@ public class SkyframeErrorProcessorTest {
     assertThat(result.hasAnalysisError()).isFalse();
     assertThat(result.hasLoadingError()).isFalse();
     assertThat(eventBusCollector.allEvents).isEmpty();
-    // WART: ActionLookupData implements ExecutionPhaseSkyKey, not ActionLookupKey, so the label
-    // lookup returns null and the warning interpolates the literal string "null". The analysis
-    // wording is itself a second wart here (see executionCycle_keepGoing_...): the cause is an
-    // analysis exception, so isExecutionException is false even though this key is always
-    // classified as an execution error.
-    assertThat(warningMessages())
-        .containsExactly(
-            "errors encountered while analyzing target 'null', it will not be built.\n"
-                + "analysis exception");
+    // Every ActionLookupData is Severity.EXECUTION whatever its exception is, and
+    // logOrPrintWarningsKeepGoing returns before warning for those. That matters here: the label of
+    // an ActionLookupData is null, so an analysis-worded warning would interpolate the literal
+    // string "null" into a user-visible message.
+    assertThat(warningMessages()).isEmpty();
   }
 
   // -------------------------------------------------------------------------------------------
@@ -818,21 +810,27 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown).hasCauseThat().isEqualTo(cause);
   }
 
-  // TODO(b/561978611): Remove this behavior. Failing a build with a raw ClassCastException tells
-  // the user nothing.
   @Test
-  public void noKeepGoing_bareAspectKeyAnalysisError_throwsClassCastException() {
-    // Known wart: throwOrReturnAspectAnalysisException only special-cases TopLevelAspectsKey, so a
-    // bare AspectKey falls through to an unchecked cast to ConfiguredTargetKey.
+  public void noKeepGoing_bareAspectKeyAnalysisError_throwsViewCreationFailedWithAspectMessage() {
     ConfiguredTargetKey baseKey = configuredTargetKey("//aspect_err");
     AspectKey key = aspectKey(baseKey);
+    ConfiguredValueCreationException cause =
+        analysisException("aspect exception", baseKey.getLabel());
 
-    EvaluationResult<SkyValue> result =
-        resultOf(key, errorInfo(analysisException("aspect exception", baseKey.getLabel())));
+    ViewCreationFailedException thrown =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                processErrors(
+                    resultOf(key, errorInfo(cause)),
+                    /* keepGoing= */ false,
+                    /* includeExecutionPhase= */ false));
 
-    assertThrows(
-        ClassCastException.class,
-        () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ false));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains(
+            String.format("Analysis of aspects '%s' failed; build aborted", key.prettyPrint()));
+    assertThat(thrown).hasCauseThat().isEqualTo(cause);
   }
 
   @Test
@@ -1654,29 +1652,37 @@ public class SkyframeErrorProcessorTest {
   }
 
   @Test
-  public void validAnalysisExceptionOfUnrecognizedSubtype_filesBugReportFromIndividualProcessing() {
-    // The fallback else branch of processIndividualError. Unlike
-    // unrecognizedExceptionType_crashesWithABugReport, the exception here *is* a
-    // SaneAnalysisException, so it passes validation and the bug report is filed from
-    // processIndividualError rather than from assertValidAnalysisException.
+  public void aspectCreationExceptionOnConfiguredTargetKey_keepGoing_rootCausesComeFromGetCauses()
+      throws Exception {
+    // classify's switch has an explicit AspectCreationException arm, so an AspectCreationException
+    // on a ConfiguredTargetKey is an ordinary analysis error carrying the exception's own causes,
+    // with no bug report.
     //
-    // SYNTHETIC INPUT: production never gets here. ConfiguredTargetFunction wraps analysis failures
-    // into a ConfiguredValueCreationException, and aspect exceptions ride on aspect keys and take
-    // the aspect branch. That is precisely why the branch files a bug report: it is a "should never
-    // happen" fallback. Because it goes through the *static* BugReport, the test cannot observe a
-    // result and has to assert on the thrown IllegalStateException instead.
+    // That also makes the switch's default arm unreachable from this entry point, and in fact from
+    // any entry point a test can construct: execution exceptions return before the switch,
+    // conflicts are harvested out before classify runs, and everything else has to survive
+    // assertValidAnalysisException, which only passes causes that convertToAnalysisException can
+    // cast to DetailedException - i.e. exactly the arm that must stay last.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:aspect_creation_err");
+    AspectCreationException cause =
+        new AspectCreationException(
+            "aspect creation failed", Label.parseCanonicalUnchecked("//other:cause"));
 
-    EvaluationResult<SkyValue> result =
-        resultOf(
-            key, errorInfo(new AspectCreationException("aspect creation failed", key.getLabel())));
+    ErrorProcessingResult result =
+        processErrors(
+            resultOf(key, errorInfo(cause)),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ false);
 
-    IllegalStateException thrown =
-        assertThrows(
-            IllegalStateException.class,
-            () -> processErrors(result, /* keepGoing= */ true, /* includeExecutionPhase= */ false));
-
-    assertThat(thrown).hasMessageThat().contains("Unexpected cause encountered while evaluating");
+    assertThat(result.hasAnalysisError()).isTrue();
+    assertThat(result.hasLoadingError()).isFalse();
+    assertThat(result.executionDetailedExitCode()).isNull();
+    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList())
+        .containsExactlyElementsIn(cause.getCauses().toList());
+    assertThat(rootCauseDetailedExitCodes(onlyAnalysisFailureEvent()))
+        .containsExactly(cause.getDetailedExitCode());
+    assertThat(bugReporter.bugReports).isEmpty();
+    assertThat(bugReporter.nonFatalBugReports).isEmpty();
   }
 
   /** Runs an analysis-phase {@code --nokeep_going} {@code processErrors} that must throw. */
@@ -1749,8 +1755,6 @@ public class SkyframeErrorProcessorTest {
     assertThat(eventBusCollector.allEvents).isEmpty();
   }
 
-  // TODO(b/561978611): Remove this behavior. An execution cycle on an aspect is reported with
-  // analysis wording, because its cause is null.
   @Test
   public void topLevelAspectsKey_executionCycle_keepGoing_cycleCodeAndNoAnalysisFailureEvent()
       throws Exception {
@@ -1758,13 +1762,11 @@ public class SkyframeErrorProcessorTest {
     // again no AnalysisFailureEvent.
     TopLevelAspectsKey key =
         topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_exec_cycle"));
+    CycleInfo cycle = executionCycle(configuredTargetKey("//pkg:aspect_exec_cycle"));
 
     ErrorProcessingResult result =
         processErrors(
-            resultOf(
-                key,
-                ErrorInfo.fromCycle(
-                    executionCycle(configuredTargetKey("//pkg:aspect_exec_cycle")))),
+            resultOf(key, ErrorInfo.fromCycle(cycle)),
             /* keepGoing= */ true,
             /* includeExecutionPhase= */ true);
 
@@ -1772,13 +1774,12 @@ public class SkyframeErrorProcessorTest {
     assertThat(result.hasAnalysisError()).isFalse();
     assertThat(eventBusCollector.analysisFailures).isEmpty();
     assertThat(eventBusCollector.allEvents).isEmpty();
-    // Wart: a cycle carries no exception, so isExecutionException(null) is false and the keep_going
-    // warning claims this was an *analysis* failure, even though the error was just classified as
-    // an execution one. The message also has no cause line, because there is no cause.
-    assertThat(warningMessages())
-        .containsExactly(
-            "errors encountered while analyzing target '//pkg:aspect_exec_cycle', it will not be"
-                + " built.");
+    // An execution cycle is Severity.EXECUTION like every other execution error, and
+    // logOrPrintWarningsKeepGoing returns early for those - so no analysis wording here either.
+    // The aspect-key twin of executionCycle_keepGoing_executionErrorWithCycleCode.
+    assertThat(warningMessages()).isEmpty();
+    // No warning, but the cycle itself is reported to the user by the cycles reporter.
+    assertThat(cyclesReporter.cycles).containsExactly(cycle);
   }
 
   // TODO(b/561978611): Remove this behavior. An aspect's loading causes are dropped, so
@@ -2009,23 +2010,31 @@ public class SkyframeErrorProcessorTest {
     assertThat(event.getRootCauses().toList()).isEmpty();
   }
 
-  // TODO(b/561978611): Remove this behavior. Failing a build with a raw ClassCastException tells
-  // the user nothing.
   @Test
-  public void noKeepGoing_aspectCompletionKey_throwsClassCastException() {
-    // An AspectCompletionKey unwraps to a *bare* AspectKey, not a TopLevelAspectsKey, so the
-    // deferral check does not match and the key falls through to the ConfiguredTargetKey cast: the
-    // same wart as noKeepGoing_bareAspectKeyAnalysisError_throwsClassCastException, reached here
-    // through the wrapper. The other wrapper tests only ever run with keepGoing = true.
+  public void noKeepGoing_aspectCompletionKey_throwsViewCreationFailedWithAspectMessage() {
+    // An AspectCompletionKey unwraps to a *bare* AspectKey, not to a TopLevelAspectsKey. abortBuild
+    // branches on Severity, and every AspectBaseKey - bare AspectKey included - is
+    // Severity.ASPECT_ANALYSIS, so it gets the aspect-worded message.
     ConfiguredTargetKey baseKey = configuredTargetKey("//pkg:aspect_err");
-    SkyKey key = wrapKey(TopLevelKeyKind.ASPECT_COMPLETION, baseKey);
-
+    AspectKey aspectKey = aspectKey(baseKey);
+    ConfiguredValueCreationException cause =
+        analysisException("aspect exception", baseKey.getLabel());
     EvaluationResult<SkyValue> result =
-        resultOf(key, errorInfo(analysisException("aspect exception", baseKey.getLabel())));
+        resultOf(
+            AspectCompletionKey.create(aspectKey, TOP_LEVEL_ARTIFACT_CONTEXT), errorInfo(cause));
 
-    assertThrows(
-        ClassCastException.class,
-        () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ false));
+    ViewCreationFailedException thrown =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ false));
+
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains(
+            String.format(
+                "Analysis of aspects '%s' failed; build aborted", aspectKey.prettyPrint()));
+    assertThat(thrown).hasCauseThat().isEqualTo(cause);
   }
 
   /** The base configured targets of every posted {@link AnalysisFailureEvent}. */
@@ -2039,24 +2048,35 @@ public class SkyframeErrorProcessorTest {
   // K. ActionLookupData warts, cycle culprits, and exception-plus-cycle precedence.
   // -------------------------------------------------------------------------------------------
 
-  // TODO(b/561978611): Remove this behavior. Failing a build with a raw ClassCastException tells
-  // the user nothing.
   @Test
-  public void noKeepGoing_actionLookupDataAnalysisError_throwsClassCastException() {
-    // Wart: an ActionLookupData carrying a *non-execution* exception has isExecutionException ==
-    // false, so --nokeep_going enters throwOrReturnAspectAnalysisException, which only
-    // special-cases TopLevelAspectsKey and then casts the key to ConfiguredTargetKey. This is the
-    // same cast as in noKeepGoing_bareAspectKeyAnalysisError_throwsClassCastException above, for a
-    // different key type.
+  public void noKeepGoing_actionLookupDataAnalysisError_bugReportMasksTheBuildFailedException() {
+    // classify marks every ActionLookupData Severity.EXECUTION, so abortBuild calls rethrow, and a
+    // ConfiguredValueCreationException IS a DetailedException, so rethrow takes its
+    // "escaped Skyframe error bubbling" branch: it files a bug report and throws
+    // BuildFailedException carrying the exception's own DetailedExitCode.
+    //
+    // The BuildFailedException is not observable here. rethrow calls bugReporter.logUnexpected,
+    // which RecordingBugReporter does not override; the BugReporter default delegates to the
+    // *static* BugReport.logUnexpected, and that rethrows inside a test instead of recording. So
+    // the bug report masks the BuildFailedException, and the honest assertion is on the
+    // IllegalStateException it surfaces as. The injected reporter sees nothing at all.
     ConfiguredTargetKey ctKey = configuredTargetKey("//pkg:build_info");
     ActionLookupData key = ActionLookupData.create(ctKey, /* actionIndex= */ 0);
-    EvaluationResult<SkyValue> result =
-        resultOf(key, errorInfo(analysisException("analysis exception", ctKey.getLabel())));
+    ConfiguredValueCreationException cause =
+        analysisException("analysis exception", ctKey.getLabel());
+    EvaluationResult<SkyValue> result = resultOf(key, errorInfo(cause));
 
-    // The exception type only: the ClassCastException message is JVM-version-dependent.
-    assertThrows(
-        ClassCastException.class,
-        () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
+    IllegalStateException thrown =
+        assertThrows(
+            IllegalStateException.class,
+            () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
+
+    assertThat(thrown)
+        .hasMessageThat()
+        .startsWith("action terminated with unexpected exception with result");
+    assertThat(thrown).hasCauseThat().isEqualTo(cause);
+    assertThat(bugReporter.bugReports).isEmpty();
+    assertThat(bugReporter.nonFatalBugReports).isEmpty();
   }
 
   // TODO(b/561978611): Remove this behavior. A cycle on an ActionLookupData crashes with a
@@ -2143,45 +2163,43 @@ public class SkyframeErrorProcessorTest {
             "errors encountered while analyzing target '//pkg:cycle', it will not be built.");
   }
 
-  // TODO(b/561978611): Remove this behavior. The execution failure is silently dropped in favour of
-  // the cycle.
   @Test
-  public void executionExceptionPlusAnalysisCycle_keepGoing_cycleWinsAndDropsTheExecutionFailure()
+  public void executionExceptionPlusAnalysisCycle_keepGoing_executionWinsAndKeepsTheExitCode()
       throws Exception {
-    // Wart: on a ConfiguredTargetKey the cycle arm of processIndividualError is checked before the
-    // isExecutionException arm, so an ErrorInfo carrying *both* an ActionExecutionException and an
-    // analysis cycle is classified as a pure analysis cycle: the execution exit code is silently
-    // dropped, and the caller never learns that an action failed.
+    // classify tests isExecutionException before the cycle, so an ErrorInfo carrying *both* an
+    // ActionExecutionException and an analysis cycle is Severity.EXECUTION: the execution exit
+    // code survives and no AnalysisFailureEvent is posted for it.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:both");
     ConfiguredTargetKey culprit = configuredTargetKey("//cycle:culprit");
     ActionExecutionException cause =
         actionExecutionException(
             "action failed",
             executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE));
+    CycleInfo cycle = CycleInfo.createCycleInfo(ImmutableList.of(culprit));
 
     ErrorProcessingResult result =
         processErrors(
-            resultOf(
-                key, errorInfo(key, cause, CycleInfo.createCycleInfo(ImmutableList.of(culprit)))),
+            resultOf(key, errorInfo(key, cause, cycle)),
             /* keepGoing= */ true,
             /* includeExecutionPhase= */ true);
 
-    assertThat(result.hasAnalysisError()).isTrue();
-    // The surprising part: the ActionExecutionException's exit code is gone.
-    assertThat(result.executionDetailedExitCode()).isNull();
-    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList())
-        .containsExactly(dependencyCycleCause(culprit.getLabel()));
-    // Also surprising: no warning either. logOrPrintWarningsKeepGoing is passed
-    // isExecutionException(rawCause), which is true for the ActionExecutionException even though
-    // the error was just classified as an analysis cycle, so it returns without warning.
+    assertThat(result.hasAnalysisError()).isFalse();
+    // The ActionExecutionException's exit code survives.
+    assertThat(result.executionDetailedExitCode()).isEqualTo(cause.getDetailedExitCode());
+    assertThat(eventBusCollector.analysisFailures).isEmpty();
+    // No warning: Severity.EXECUTION returns early, and an ActionExecutionException is not even
+    // worth a GoogleLogger line.
     assertThat(warningMessages()).isEmpty();
+    // The cycle is not swallowed, it is still handed to the cycles reporter (with a path to it
+    // prepended, hence the assertion on the members rather than on the CycleInfo).
+    assertThat(cyclesReporter.cycles).hasSize(1);
+    assertThat(cyclesReporter.cycles.get(0).getCycle()).containsExactly(culprit);
   }
 
   @Test
   public void executionExceptionPlusAnalysisCycle_noKeepGoing_throwsBuildFailedException() {
-    // The other half of the divergence: --nokeep_going consults isExecutionException on the raw
-    // cause *before* looking at the classification, so the very same ErrorInfo that keep_going
-    // reports as an analysis cycle is rethrown here as an execution failure.
+    // The --nokeep_going half of the same shape: both modes agree that this ErrorInfo means an
+    // execution failure.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:both");
     ConfiguredTargetKey culprit = configuredTargetKey("//cycle:culprit");
     DetailedExitCode exitCode =
@@ -2201,19 +2219,19 @@ public class SkyframeErrorProcessorTest {
 
     assertThat(thrown.getDetailedExitCode()).isEqualTo(exitCode);
     assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed: action failed");
-    // The AnalysisFailureEvent for the cycle is still posted before the throw.
-    assertThat(eventBusCollector.analysisFailures).hasSize(1);
+    // maybePostFailureEvents posts no AnalysisFailureEvent for an execution error.
+    assertThat(eventBusCollector.analysisFailures).isEmpty();
   }
 
   @Test
   public void analysisExceptionPlusAnalysisCycle_keepGoing_exceptionWinsOverTheCycle()
       throws Exception {
-    // The other side of the precedence order, of which the two tests above only show one half: on
-    // a ConfiguredTargetKey the ConfiguredValueCreationException arm comes *before* the cycle arm,
-    // while the cycle arm comes before the NoSuchThingException, ExternalDepsException,
-    // TargetCompatibilityCheckException and execution arms. So here the exception's root causes
-    // win and the cycle contributes nothing at all. A conflict is not on this list at all: it is
-    // harvested before the loop and its cycles are reported anyway, see
+    // The other side of the precedence order, of which the two tests above only show one half:
+    // classify looks for an execution error first, then treats a null cause as a cycle, and only
+    // then reads the analysis exception's root causes. An ErrorInfo carrying both an exception and
+    // a cycle never reaches the cycle arm, so here the exception's root causes win and the cycle
+    // contributes nothing at all. A conflict is not on this list at all: it is harvested before
+    // classification and its cycles are reported anyway, see
     // actionConflictPlusCycle_keepGoing_reportsTheCycleAndHarvestsTheConflict.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:both");
     ConfiguredTargetKey culprit = configuredTargetKey("//cycle:culprit");
@@ -2615,9 +2633,11 @@ public class SkyframeErrorProcessorTest {
   @Test
   public void analysisErrorOnAnInvalidErrorKeyType_throwsIllegalStateException() {
     // The other half of the skip above: with a real EventBus there is no skip, so a key that is
-    // neither a ConfiguredTargetKey nor an AspectBaseKey falls through to the checkState at the
-    // bottom of processIndividualError. The exception still has to be a valid analysis exception,
-    // because validation runs first.
+    // not an ActionLookupKey falls through to the default arm of classify's switch. The exception
+    // still has to be a valid analysis exception, because validation runs first.
+    //
+    // The boundary is ActionLookupKey, not ConfiguredTargetKey: any other ActionLookupKey - a
+    // BuildInfoKey, say - reaches classify and is handled like any other analysis error.
     Label label = Label.parseCanonicalUnchecked("//pkg:bad_key");
     EvaluationResult<SkyValue> result =
         resultOf(
@@ -2629,30 +2649,29 @@ public class SkyframeErrorProcessorTest {
             IllegalStateException.class,
             () -> processErrors(result, /* keepGoing= */ true, /* includeExecutionPhase= */ false));
 
-    assertThat(thrown).hasMessageThat().contains("to be a ConfiguredTargetKey");
+    assertThat(thrown).hasMessageThat().contains("Unexpected error key");
   }
 
-  // TODO(b/561978611): Remove this behavior. An error key this class does not recognize should not
-  // be a crash.
   @Test
-  public void executionErrorOnAnInvalidErrorKeyType_throwsIllegalStateException() {
-    // Same crash for an execution exception: the key type is inspected before anything notices that
-    // this error has nothing to do with analysis in the first place.
+  public void executionErrorOnAnInvalidErrorKeyType_isJustAnExecutionError() throws Exception {
+    // classify returns for an execution error before it needs an ActionLookupKey, so the key type
+    // is never inspected and the error is reported like any other execution failure. Contrast with
+    // the analysis error above, which reaches the switch and crashes on the key type.
     Label label = Label.parseCanonicalUnchecked("//pkg:bad_key");
-    EvaluationResult<SkyValue> result =
-        resultOf(
-            TransitiveTargetKey.of(label),
-            errorInfo(
-                actionExecutionException(
-                    "action failed",
-                    executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE))));
+    DetailedExitCode exitCode =
+        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
 
-    IllegalStateException thrown =
-        assertThrows(
-            IllegalStateException.class,
-            () -> processErrors(result, /* keepGoing= */ true, /* includeExecutionPhase= */ true));
+    ErrorProcessingResult result =
+        processErrors(
+            resultOf(
+                TransitiveTargetKey.of(label),
+                errorInfo(actionExecutionException("action failed", exitCode))),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ true);
 
-    assertThat(thrown).hasMessageThat().contains("to be a ConfiguredTargetKey");
+    assertThat(result.executionDetailedExitCode()).isEqualTo(exitCode);
+    assertThat(result.hasAnalysisError()).isFalse();
+    assertThat(eventBusCollector.analysisFailures).isEmpty();
   }
 
   @Test

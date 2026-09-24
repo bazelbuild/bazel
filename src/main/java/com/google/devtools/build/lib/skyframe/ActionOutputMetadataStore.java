@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -69,10 +69,10 @@ import javax.annotation.Nullable;
  * metadata while {@link com.google.devtools.build.lib.actions.ActionCacheChecker} determines
  * whether the action needs to be executed. If the action needs to be executed (i.e. no action cache
  * hit), {@link #prepareForActionExecution} is called. This call switches the handler to a mode
- * where it accepts {@linkplain com.google.devtools.build.lib.actions.cache.OutputMetadataStore
- * injected output data}, or otherwise obtains metadata from the filesystem. Freshly created output
- * files are set read-only and executable <em>before</em> statting them to ensure that the stat's
- * ctime is up to date.
+ * where it accepts {@linkplain com.google.devtools.build.lib.actions.OutputMetadataStore injected
+ * output data}, or otherwise obtains metadata from the filesystem. Freshly created output files are
+ * set read-only and executable <em>before</em> statting them to ensure that the stat's ctime is up
+ * to date.
  *
  * <p>After action execution, {@link #getOutputMetadata} or {@link #getTreeArtifactValue} should be
  * called on each of the action's outputs (except those that were {@linkplain #artifactOmitted

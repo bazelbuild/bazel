@@ -48,6 +48,7 @@ import net.starlark.java.spelling.SpellChecker;
 public final class TypeChecker extends NodeVisitor {
 
   private final TypeTable typeTable;
+  private final Resolver.Module module;
   private final TypeContext typeContext;
 
   private static record FunctionStackEntry(
@@ -108,9 +109,10 @@ public final class TypeChecker extends NodeVisitor {
     return n == 1 ? "" : "s";
   }
 
-  private TypeChecker(TypeTable typeTable, TypeContext typeContext) {
+  private TypeChecker(TypeTable typeTable, Resolver.Module module) {
     this.typeTable = typeTable;
-    this.typeContext = typeContext;
+    this.module = module;
+    this.typeContext = module.getTypeContext();
   }
 
   /**
@@ -127,8 +129,8 @@ public final class TypeChecker extends NodeVisitor {
     checkNotNull(binding);
     StarlarkType type =
         switch (binding.getScope()) {
-          case UNIVERSAL -> checkNotNull(typeContext.getUniversalSymbolType(binding.getName()));
-          case PREDECLARED -> checkNotNull(typeContext.getPredeclaredSymbolType(binding.getName()));
+          case UNIVERSAL -> checkNotNull(module.getUniversalSymbolType(binding.getName()));
+          case PREDECLARED -> checkNotNull(module.getPredeclaredSymbolType(binding.getName()));
           default -> typeTable.getType(binding);
         };
     return type != null ? type : Types.ANY;
@@ -215,7 +217,14 @@ public final class TypeChecker extends NodeVisitor {
           inferCall((CallExpression) expr);
       case CONDITIONAL -> {
         var cond = (ConditionalExpression) expr;
-        yield Types.union(infer(cond.getThenCase()), infer(cond.getElseCase()));
+        StarlarkType condType = infer(cond.getCondition());
+        StarlarkType thenType = infer(cond.getThenCase());
+        StarlarkType elseType = infer(cond.getElseCase());
+        if (condType.equals(Types.NEVER)) {
+          yield Types.NEVER;
+        } else {
+          yield Types.union(thenType, elseType);
+        }
       }
       case BINARY_OPERATOR -> {
         var binop = (BinaryOperatorExpression) expr;
@@ -232,11 +241,13 @@ public final class TypeChecker extends NodeVisitor {
       }
       case UNARY_OPERATOR -> {
         var unop = (UnaryOperatorExpression) expr;
-        if (unop.getOperator() == TokenKind.NOT) {
-          // NOT always returns a boolean (even if applied to Any or unions).
+        StarlarkType xType = infer(unop.getX());
+        if (xType.equals(Types.NEVER)) {
+          yield Types.NEVER;
+        } else if (unop.getOperator() == TokenKind.NOT) {
+          // NOT of a value always returns a boolean (even if applied to Any or unions).
           yield Types.BOOL;
         }
-        StarlarkType xType = infer(unop.getX());
         if (xType.equals(Types.ANY)
             || ((unop.getOperator() == TokenKind.MINUS || unop.getOperator() == TokenKind.PLUS)
                 && StarlarkType.assignableFrom(Types.NUMERIC, xType, typeContext))
@@ -332,7 +343,9 @@ public final class TypeChecker extends NodeVisitor {
     Expression obj = index.getObject();
     Expression key = index.getKey();
 
-    if (objType.equals(Types.ANY)) {
+    if (objType.equals(Types.NEVER)) {
+      return ImmutableList.of(Types.NEVER);
+    } else if (objType.equals(Types.ANY)) {
       return ImmutableList.of(Types.ANY);
     }
 
@@ -435,7 +448,9 @@ public final class TypeChecker extends NodeVisitor {
     }
 
     StarlarkType objType = infer(slice.getObject());
-    if (objType.equals(Types.ANY)) {
+    if (objType.equals(Types.NEVER)) {
+      return Types.NEVER;
+    } else if (objType.equals(Types.ANY)) {
       return Types.ANY;
     }
     ArrayList<StarlarkType> resultTypes = new ArrayList<>();
@@ -506,23 +521,30 @@ public final class TypeChecker extends NodeVisitor {
       Expression yExpr,
       StarlarkType yType,
       boolean augmentedAssignment) {
-    // TokenKind operator = binop.getOperator();
+    // Note that unions always simplify away Never elements, so we don't need to unfold unions to
+    // check for Never-ness.
+    boolean isNever = xType.equals(Types.NEVER) || yType.equals(Types.NEVER);
     return switch (operator) {
       case EQUALS_EQUALS, NOT_EQUALS ->
-          // Boolean regardless of LHS and RHS.
-          Types.BOOL;
+          // Boolean regardless of LHS and RHS (as long as both are non-Never).
+          isNever ? Types.NEVER : Types.BOOL;
       case AND, OR ->
-          // LHS | RHS
-          Types.union(xType, yType);
+          // LHS is always evaluated, so if it's Never, the result is Never. Otherwise, the result
+          // is LHS | RHS; note that a Never RHS might not be evaluated due to short-circuiting, so
+          // we optimistically assume that it indeed won't be evaluated.
+          xType.equals(Types.NEVER) ? Types.NEVER : Types.union(xType, yType);
       case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> {
-        // Boolean or type error.
+        // Boolean or Never or type error.
         if (StarlarkType.comparable(xType, yType, typeContext)) {
-          yield Types.BOOL;
+          yield isNever ? Types.NEVER : Types.BOOL;
         }
         binaryOperatorError(xType, operator, operatorLocation, yType, augmentedAssignment);
         yield Types.ANY;
       }
       default -> {
+        if (isNever) {
+          yield Types.NEVER;
+        }
         // Take the union of all types inferred by crossing the left and right union elements
         // (each of which must be a valid combination of rhs and lhs for the operator).
         ImmutableCollection<StarlarkType> xTypes = Types.unfoldUnion(xType);
@@ -550,6 +572,10 @@ public final class TypeChecker extends NodeVisitor {
               yield Types.ANY;
             }
             resultTypes.add(resultType);
+            // Hypothetically, resultType could be Never indicating a guaranteed dynamic error (e.g.
+            // for a division by zero, if we had static checks for it). If that is the case, we
+            // still want to propagate the Never up to the union, because if there are non-Never
+            // results possible, we want to type-check the cases where the error doesn't occur.
           }
         }
         yield Types.union(resultTypes);
@@ -581,6 +607,9 @@ public final class TypeChecker extends NodeVisitor {
     }
 
     StarlarkType callFunctionType = infer(call.getFunction());
+    if (callFunctionType.equals(Types.NEVER)) {
+      return Types.NEVER;
+    }
     if (callFunctionType.equals(Types.ANY) || callFunctionType.equals(Types.ANY_CALLABLE)) {
       return Types.ANY;
     }
@@ -967,7 +996,9 @@ public final class TypeChecker extends NodeVisitor {
   private void checkForClause(Expression vars, Expression iterable, String what) {
     StarlarkType iterableType = infer(iterable);
     StarlarkType varsRhsType; // The type of the value assigned to the vars expression.
-    if (iterableType.equals(Types.ANY)) {
+    if (iterableType.equals(Types.NEVER)) {
+      varsRhsType = Types.NEVER;
+    } else if (iterableType.equals(Types.ANY)) {
       varsRhsType = Types.ANY;
     } else {
       ArrayList<StarlarkType> varUnionElements = new ArrayList<>();
@@ -1026,8 +1057,8 @@ public final class TypeChecker extends NodeVisitor {
    * @throws SyntaxError.Exception if a static type error is present in the expression.
    */
   public static StarlarkType inferTypeOf(
-      Expression expr, TypeTable typeTable, TypeContext typeContext) throws SyntaxError.Exception {
-    TypeChecker tc = new TypeChecker(typeTable, typeContext);
+      Expression expr, TypeTable typeTable, Resolver.Module module) throws SyntaxError.Exception {
+    TypeChecker tc = new TypeChecker(typeTable, module);
     StarlarkType result = tc.infer(expr);
     if (!typeTable.ok()) {
       throw new SyntaxError.Exception(typeTable.errors());
@@ -1462,24 +1493,25 @@ public final class TypeChecker extends NodeVisitor {
    *     FileOptions#resolveTypeSyntax()} or do contain {@link
    *     FileOptions#tolerateInvalidTypeExpressions()}.
    */
-  public static void checkFile(StarlarkFile file, TypeTable typeTable, TypeContext typeContext) {
+  public static void checkFile(StarlarkFile file, TypeTable typeTable, Resolver.Module module) {
     checkFileOptions(file.getOptions());
-    TypeChecker checker = new TypeChecker(typeTable, typeContext);
+    TypeChecker checker = new TypeChecker(typeTable, module);
     checker.visit(file);
   }
 
   /**
    * Like {@link #checkFile}, but on an already-compiled {@link Program}.
    *
-   * <p>The program is *not* mutated. Any errors are appended to the type table's errors list.
+   * <p>The program and module are *not* mutated. Any errors are appended to the type table's errors
+   * list.
    *
    * @throws IllegalArgumentException if the program's {@link FileOptions} don't contain {@link
    *     FileOptions#resolveTypeSyntax()} or do contain {@link
    *     FileOptions#tolerateInvalidTypeExpressions()}.
    */
-  public static void checkProgram(Program prog, TypeTable typeTable, TypeContext typeContext) {
+  public static void checkProgram(Program prog, TypeTable typeTable, Resolver.Module module) {
     checkFileOptions(prog.getOptions());
-    TypeChecker checker = new TypeChecker(typeTable, typeContext);
+    TypeChecker checker = new TypeChecker(typeTable, module);
     checker.visitProgram(prog);
   }
 }

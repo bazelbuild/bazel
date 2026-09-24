@@ -381,6 +381,52 @@ public final class SharedValueDeserializationContextTest {
   }
 
   @Test
+  public void
+      distinctClassesWithIdenticalSerializedBytes_haveDistinctFingerprintsAndDeserializeCorrectly()
+          throws Exception {
+    var compressionService = new CompressionServiceImpl();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(FingerprintValueCache.SyncMode.LINKED);
+    ObjectCodecs codecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .add(new ContainerACodec())
+                .add(new ContainerBCodec())
+                .build());
+
+    ContainerA first = new ContainerA(new SharedElement(42));
+    ContainerB second = new ContainerB(new OtherSharedElement(42));
+
+    // Both SharedElement(42) and OtherSharedElement(42) serialize to identical bytes (int32 42).
+    SerializationResult<ByteString> serializedFirst =
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, first);
+    if (serializedFirst.getFutureToBlockWritesOn() != null) {
+      serializedFirst.getFutureToBlockWritesOn().get();
+    }
+
+    SerializationResult<ByteString> serializedSecond =
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, second);
+    if (serializedSecond.getFutureToBlockWritesOn() != null) {
+      serializedSecond.getFutureToBlockWritesOn().get();
+    }
+
+    // Because the codecs have different class names, the resulting fingerprints must differ.
+    assertThat(serializedFirst.getObject()).isNotEqualTo(serializedSecond.getObject());
+
+    // Deserializing `second` retrieves from the cache or deserializes without ClassCastException.
+    ListenableFuture<Object> deserializedSecond =
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serializedSecond.getObject());
+    assertThat(((ContainerB) deserializedSecond.get()).element.value).isEqualTo(42);
+
+    ListenableFuture<Object> deserializedFirst =
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serializedFirst.getObject());
+    assertThat(((ContainerA) deserializedFirst.get()).element.value).isEqualTo(42);
+  }
+
+  @Test
   public void missingSharedValueData_producesSpecificError() throws Exception {
     GetRecordingStore store = new GetRecordingStore();
     var compressionService = new CompressionServiceImpl();
@@ -597,6 +643,119 @@ public final class SharedValueDeserializationContextTest {
         throws SerializationException, IOException {
       int value = codedIn.readInt32();
       return () -> new SharedElement(value);
+    }
+  }
+
+  private static class OtherSharedElement {
+    private final int value;
+
+    private OtherSharedElement(int value) {
+      this.value = value;
+    }
+  }
+
+  private static class DeferredOtherSharedElementCodec
+      extends DeferredObjectCodec<OtherSharedElement> {
+    private static final DeferredOtherSharedElementCodec INSTANCE =
+        new DeferredOtherSharedElementCodec();
+
+    @Override
+    public Class<OtherSharedElement> getEncodedClass() {
+      return OtherSharedElement.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, OtherSharedElement obj, CodedOutputStream codedOut)
+        throws IOException {
+      codedOut.writeInt32NoTag(obj.value);
+    }
+
+    @Override
+    public DeferredValue<OtherSharedElement> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn) throws IOException {
+      int value = codedIn.readInt32();
+      return () -> new OtherSharedElement(value);
+    }
+  }
+
+  private static class ContainerA {
+    private SharedElement element;
+
+    private ContainerA(SharedElement element) {
+      this.element = element;
+    }
+  }
+
+  private static class ContainerACodec extends DeferredObjectCodec<ContainerA> {
+    @Override
+    public Class<ContainerA> getEncodedClass() {
+      return ContainerA.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, ContainerA obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.element, /* distinguisher= */ null, DeferredSharedElementCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<ContainerA> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      ContainerA container = new ContainerA(null);
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          DeferredSharedElementCodec.INSTANCE,
+          container,
+          (parent, v) -> parent.element = (SharedElement) v);
+      return () -> container;
+    }
+  }
+
+  private static class ContainerB {
+    private OtherSharedElement element;
+
+    private ContainerB(OtherSharedElement element) {
+      this.element = element;
+    }
+  }
+
+  private static class ContainerBCodec extends DeferredObjectCodec<ContainerB> {
+    @Override
+    public Class<ContainerB> getEncodedClass() {
+      return ContainerB.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, ContainerB obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.element,
+          /* distinguisher= */ null,
+          DeferredOtherSharedElementCodec.INSTANCE,
+          codedOut);
+    }
+
+    @Override
+    public DeferredValue<ContainerB> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      ContainerB container = new ContainerB(null);
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          DeferredOtherSharedElementCodec.INSTANCE,
+          container,
+          (parent, v) -> parent.element = (OtherSharedElement) v);
+      return () -> container;
     }
   }
 

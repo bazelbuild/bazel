@@ -106,6 +106,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   private final StarlarkFunction implementation;
   private final StarlarkSemantics semantics;
   private final SymbolGenerator<?> symbolGenerator;
+  private final boolean isSubdirectoryAllowed;
 
   public StarlarkMapActionTemplate(
       ActionOwner actionOwner,
@@ -122,7 +123,8 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
       String expandedActionsMnemonic,
       StarlarkFunction implementation,
       StarlarkSemantics semantics,
-      SymbolGenerator<?> symbolGenerator)
+      SymbolGenerator<?> symbolGenerator,
+      boolean isSubdirectoryAllowed)
       throws EvalException, InterruptedException {
     NestedSetBuilder<Artifact> allInputsNsBuilder = NestedSetBuilder.<Artifact>stableOrder();
     NestedSetBuilder<Artifact> toolsNsBuilder = NestedSetBuilder.<Artifact>stableOrder();
@@ -149,6 +151,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     this.implementation = implementation;
     this.semantics = semantics;
     this.symbolGenerator = symbolGenerator;
+    this.isSubdirectoryAllowed = isSubdirectoryAllowed;
   }
 
   private <V> Dict<String, V> validateDictValues(
@@ -221,7 +224,8 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
             spawnActionBuilder,
             () -> repoMapping,
             ImmutableSet.copyOf(outputDirectories.values()),
-            getExecutionInfo());
+            getExecutionInfo(),
+            isSubdirectoryAllowed);
 
     ImmutableMap.Builder<String, ExpandedDirectory> expandedDirectories = ImmutableMap.builder();
     for (Entry<String, SpecialArtifact> entry : inputDirectories.entrySet()) {
@@ -341,6 +345,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     env.addTo(fp);
     fp.addString(implementation.getName());
     fp.addBytes(BazelModuleContext.of(implementation.getModule()).bzlTransitiveDigest());
+    fp.addBoolean(isSubdirectoryAllowed);
   }
 
   private void addMapToFingerprint(

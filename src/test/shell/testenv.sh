@@ -340,10 +340,18 @@ EOF
       echo "common --experimental_repository_cache_hardlinks" >> $TEST_TMPDIR/bazelrc
     fi
   fi
+  # The repo contents cache defaults to a directory under the repository cache,
+  # which is shared with other tests and test attempts on CI. Tests that
+  # exercise the repo contents cache opt in explicitly.
+  echo "common --repo_contents_cache=" >> $TEST_TMPDIR/bazelrc
 
   if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
-    echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
-    echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
+    local install_base_key
+    install_base_key="$(unzip -p "$PATH_TO_BAZEL_BIN" install_base_key)" || \
+      log_fatal "Could not read install_base_key from the Bazel binary."
+    local shared_install_base="${TEST_INSTALL_BASE}-${install_base_key}"
+    echo "testenv.sh: Using shared install base at $shared_install_base."
+    echo "startup --install_base=$shared_install_base" >> $TEST_TMPDIR/bazelrc
   fi
 
   if is_darwin && has_ipv6_default_route; then
