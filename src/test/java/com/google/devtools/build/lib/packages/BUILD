@@ -36,6 +36,7 @@ java_test(
         include = ["*.java"],
         exclude = [
             "BazelDocumentationTest.java",
+            "StarlarkProviderCodecTest.java",
         ],
     ),
     shard_count = 20,
@@ -126,6 +127,28 @@ java_test(
         "//third_party/java/guava:io",
         "//third_party/java/junit",
         "@rules_java//java/runfiles",
+    ],
+)
+
+java_test(
+    name = "StarlarkProviderCodecTest",
+    srcs = ["StarlarkProviderCodecTest.java"],
+    test_class = "com.google.devtools.build.lib.packages.StarlarkProviderCodecTest",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/packages:bzl_visibility",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

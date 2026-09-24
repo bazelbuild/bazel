@@ -45,6 +45,33 @@ public final class FingerprintValueServiceTest {
   }
 
   @Test
+  public void saltedFingerprint_isConsistentAndDiffers() {
+    FingerprintValueService service =
+        new FingerprintValueService(
+            new SafeExecutorOwner(newSingleThreadExecutor()),
+            new InMemoryFingerprintValueStore(),
+            new FingerprintValueCache(),
+            FingerprintValueService.NONPROD_FINGERPRINTER);
+
+    byte[] testValue = new byte[] {0, 1, 2};
+    PackedFingerprint testFingerprint = service.fingerprint(testValue);
+    PackedFingerprint saltedFingerprint1 = service.fingerprint(testValue, "salt1");
+    PackedFingerprint saltedFingerprint2 = service.fingerprint(testValue, "salt2");
+
+    assertThat(saltedFingerprint1).isNotEqualTo(testFingerprint);
+    assertThat(saltedFingerprint1).isNotEqualTo(saltedFingerprint2);
+    assertThat(saltedFingerprint1.toBytes()).hasLength(16);
+
+    // Deterministic check
+    assertThat(service.fingerprint(testValue, "salt1")).isEqualTo(saltedFingerprint1);
+
+    // Boundary collision resistance check
+    PackedFingerprint fp1 = service.fingerprint(new byte[] {'c'}, "ab");
+    PackedFingerprint fp2 = service.fingerprint(new byte[] {'b', 'c'}, "a");
+    assertThat(fp1).isNotEqualTo(fp2);
+  }
+
+  @Test
   public void put_delegatesToStore() {
     SettableWriteStatus expectedStatus = new SettableWriteStatus();
     FingerprintValueStore store =

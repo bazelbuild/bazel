@@ -789,7 +789,7 @@ public class BzlLoadFunction implements SkyFunction {
             pkg,
             ruleClassProvider::isPackageUnderExperimental,
             ruleClassProvider::isPackageUnderPrototypes,
-            ruleClassProvider::mayPackageDependOnPrototypes,
+            ruleClassProvider::mayLoadPrototypes,
             builtins.starlarkSemantics.getBool(BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
             repoMapping,
             key.isSclDialect(),

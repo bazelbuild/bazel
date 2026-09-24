@@ -56,6 +56,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/docgen:srcs",
         "//src/main/java/com/google/devtools/build/lib/actions:srcs",
+        "//src/main/java/com/google/devtools/build/lib/actions/cache:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis:srcs",
         "//src/main/java/com/google/devtools/build/lib/authandtls:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel:srcs",

@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.StringSubject;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.StarlarkType;
@@ -250,13 +249,12 @@ public class DynamicTypeCheckTest {
 
   @Test
   public void testStarlarkUniverseTypes() {
-    TypeContext typeContext =
-        Module.withPredeclared(ev.getStarlarkThread().getSemantics(), ImmutableMap.of());
+    StarlarkSemantics semantics = ev.getStarlarkThread().getSemantics();
+    TypeContext typeContext = ev.getStarlarkThread().getTypeContext();
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     for (var entry : Starlark.UNIVERSE.entrySet()) {
       String description;
-      StarlarkType type =
-          Starlark.getStarlarkType(entry.getValue(), ev.getStarlarkThread().getSemantics());
+      StarlarkType type = Starlark.getStarlarkType(entry.getValue(), semantics);
       CallableType callable = Types.toCallableType(type, typeContext);
       if (callable != null) {
         description = entry.getKey() + ": " + callable.toSignatureString();

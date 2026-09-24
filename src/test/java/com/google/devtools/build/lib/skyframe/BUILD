@@ -56,6 +56,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
+        "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
@@ -272,6 +273,7 @@ java_library(
         ":TimestampBuilderTestCase",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:builder",
@@ -285,7 +287,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party/java/flogger",
         "//third_party/java/guava:collect",
-        "//third_party/java/guava:concurrent",
         "//third_party/java/guava:eventbus",
         "//third_party/java/junit",
         "//third_party/java/truth",
@@ -761,6 +762,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -1125,7 +1127,6 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
-        "//third_party/java/guava:concurrent",
         "//third_party/java/guava:hash",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",
@@ -1625,6 +1626,7 @@ java_test(
         "//third_party/java/guava:collect",
         "//third_party/java/guava:testing",
         "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -1858,8 +1860,8 @@ java_test(
     srcs = ["TimestampBuilderWithCompactPersistentActionCacheTest.java"],
     deps = [
         ":TimestampBuilderTestCase",
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:builder",

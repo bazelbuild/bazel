@@ -335,7 +335,8 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       COUNTERS.objectsWaitingForUpload.incrementAndGet();
       COUNTERS.bytesWaitingForUpload.addAndGet(childBytesCount);
 
-      PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
+      PackedFingerprint fingerprint =
+          fingerprintValueService.fingerprint(childBytes, codec.getClass().getName());
       fingerprint.writeTo(codedOut); // Writes only the fingerprint to the stream.
       WriteStatus writeStatus = fingerprintValueService.put(fingerprint, childBytes);
 
@@ -364,7 +365,8 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
             childWriteStatuses,
             childBytes,
             childFuturePuts,
-            childRecorder);
+            childRecorder,
+            codec.getClass().getName());
 
     putOperation.setFuture(upload);
     recordFuturePut(upload, codedOut);
@@ -409,6 +411,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       implements FuturePutBuffer {
     private final FingerprintValueService fingerprintValueService;
     @Nullable private final ProfileRecorder childRecorder;
+    private final String codecName;
 
     private byte[] childBytes;
     private final WriteStatusBuilder childWriteStatuses;
@@ -418,10 +421,12 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
         List<WriteStatus> childWriteStatuses,
         byte[] childBytes,
         Collection<FuturePut> childFuturePuts,
-        @Nullable ProfileRecorder childRecorder) {
+        @Nullable ProfileRecorder childRecorder,
+        String codecName) {
       super(fingerprintValueService.getExecutor());
       this.fingerprintValueService = fingerprintValueService;
       this.childRecorder = childRecorder;
+      this.codecName = codecName;
       this.childWriteStatuses = new WriteStatusBuilder().addAll(childWriteStatuses);
       this.childBytes = childBytes;
       FuturePutBuffer.register(this, childFuturePuts);
@@ -451,7 +456,8 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       COUNTERS.bytesWaitingForFuturePuts.addAndGet(-childBytes.length);
       COUNTERS.bytesWaitingForUpload.addAndGet(childBytesCount);
 
-      PackedFingerprint fingerprint = fingerprintValueService.fingerprint(maybeCompressedBytes);
+      PackedFingerprint fingerprint =
+          fingerprintValueService.fingerprint(maybeCompressedBytes, codecName);
       WriteStatus writeStatus = fingerprintValueService.put(fingerprint, maybeCompressedBytes);
       if (childRecorder != null) {
         childRecorder.registerWriteStatus(writeStatus);

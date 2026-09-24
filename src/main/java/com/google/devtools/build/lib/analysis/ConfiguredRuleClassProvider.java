@@ -671,7 +671,7 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
 
-  @Nullable private final ConstraintSemantics<RuleContext> constraintSemantics;
+  private final ConstraintSemantics<RuleContext> constraintSemantics;
 
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist
   @Nullable private final Label networkAllowlistForTests;
@@ -698,7 +698,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
       Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider,
-      @Nullable ConstraintSemantics<RuleContext> constraintSemantics,
+      ConstraintSemantics<RuleContext> constraintSemantics,
       @Nullable Label networkAllowlistForTests,
       @Nullable Label noExplicitMnemonicAllowlist) {
     this.preludeLabel = preludeLabel;
@@ -757,8 +757,8 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
-  public boolean mayPackageDependOnPrototypes(PackageIdentifier packageIdentifier) {
-    return prerequisiteValidator.mayDependOnPrototypes(packageIdentifier);
+  public boolean mayLoadPrototypes(PackageIdentifier packageIdentifier) {
+    return prerequisiteValidator.mayLoadPrototypes(packageIdentifier);
   }
 
   @Override
@@ -884,7 +884,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     return symlinkDefinitions;
   }
 
-  @Nullable
   public ConstraintSemantics<RuleContext> getConstraintSemantics() {
     return constraintSemantics;
   }

@@ -335,7 +335,8 @@ public final class SkyValueRetrieverTest {
     CodedOutputStream cos = CodedOutputStream.newInstance(outputStream);
     codec.serialize(codecs.getSerializationContextForTesting(), o, cos);
     cos.flush();
-    return fingerprintValueService.fingerprint(outputStream.toByteArray());
+    return fingerprintValueService.fingerprint(
+        outputStream.toByteArray(), codec.getClass().getName());
   }
 
   @Test

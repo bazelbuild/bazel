@@ -285,7 +285,6 @@ public class StarlarkOptionsParser {
 
       String scopeType = getScopeType(buildSettingTarget);
       scopeTypeMap.put(buildSetting, scopeType);
-      nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
       if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
         customExecFlags.add(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()));
       }
