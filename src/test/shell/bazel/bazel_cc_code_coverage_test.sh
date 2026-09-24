@@ -564,4 +564,51 @@ function test_cc_test_coverage_gcov() {
     fi
 }
 
+function test_llvm_lcov_preserves_runtime_object_paths() {
+  local llvm_cov_args="${TEST_TMPDIR}/llvm-cov.args"
+  local llvm_cov="${TEST_TMPDIR}/llvm-cov"
+  local llvm_profdata="${TEST_TMPDIR}/llvm-profdata"
+  local object_dir="${TEST_TMPDIR}/object files"
+  local object_file="${object_dir}/runtime.o"
+  local runtime_objects="${TEST_TMPDIR}/runtime_objects_list.txt"
+
+  mkdir -p "${object_dir}"
+  touch "${object_file}" "${COVERAGE_DIR_VAR}/coverage.profraw"
+  printf '%s\n' "${object_file}" > "${runtime_objects}"
+  printf '%s\n' "${runtime_objects}" > "${COVERAGE_MANIFEST_VAR}"
+
+  cat > "${llvm_profdata}" <<'EOF'
+#!/usr/bin/env bash
+touch "$3"
+EOF
+  cat > "${llvm_cov}" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "${LLVM_COV_ARGS}"
+echo 'TN:'
+EOF
+  chmod +x "${llvm_cov}" "${llvm_profdata}"
+
+  (COVERAGE_DIR="${COVERAGE_DIR_VAR}" \
+    COVERAGE_GCOV_PATH="${COVERAGE_GCOV_PATH_VAR}" \
+    COVERAGE_MANIFEST="${COVERAGE_MANIFEST_VAR}" \
+    GENERATE_LLVM_LCOV=1 \
+    LLVM_COV="${llvm_cov}" \
+    LLVM_COV_ARGS="${llvm_cov_args}" \
+    LLVM_PROFDATA="${llvm_profdata}" \
+    ROOT="${ROOT_VAR}" \
+    "${COLLECT_CC_COVERAGE_SCRIPT}") > "${TEST_log}"
+
+  cat > "${TEST_TMPDIR}/expected-llvm-cov.args" <<EOF
+export
+-instr-profile
+${COVERAGE_DIR_VAR}/_cc_coverage.dat.data
+-format=lcov
+-ignore-filename-regex=^/tmp/.+
+-object
+${object_file}
+EOF
+  diff -u "${TEST_TMPDIR}/expected-llvm-cov.args" "${llvm_cov_args}" \
+      || fail "llvm-cov arguments did not preserve the runtime object path"
+}
+
 run_suite "Testing tools/test/collect_cc_coverage.sh"

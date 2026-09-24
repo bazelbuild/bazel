@@ -76,18 +76,18 @@ function llvm_coverage_lcov() {
   "${LLVM_PROFDATA}" merge -output "${output_file}.data" \
       "${COVERAGE_DIR}"/*.profraw
 
-  local object_param=""
+  local object_params=()
   while read -r line; do
     if [[ ${line: -24} == "runtime_objects_list.txt" ]]; then
       while read -r line_runtime_object; do
-        object_param+=" -object ${line_runtime_object}"
+        object_params+=(-object "${line_runtime_object}")
       done < "${line}"
     fi
   done < "${COVERAGE_MANIFEST}"
 
   "${LLVM_COV}" export -instr-profile "${output_file}.data" -format=lcov \
       -ignore-filename-regex='^/tmp/.+' \
-      ${object_param} | sed 's#/proc/self/cwd/##' > "${output_file}"
+      "${object_params[@]}" | sed 's#/proc/self/cwd/##' > "${output_file}"
 }
 
 function llvm_coverage_profdata() {
