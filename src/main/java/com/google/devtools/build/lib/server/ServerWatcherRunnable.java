@@ -46,20 +46,17 @@ class ServerWatcherRunnable implements Runnable {
   private final boolean shutdownOnLowSysMem;
 
   /** Generic abstraction to check for low memory conditions on different platforms. */
-  private abstract static class LowMemoryChecker {
+  abstract static class LowMemoryChecker {
 
     /** Timestamp of the moment the server went idle. */
     private long lastIdleTimeMillis = -1;
 
     /** Creates a memory checker that makes sense for the current platform. */
-    static LowMemoryChecker forCurrentOS() {
-      switch (OS.getCurrent()) {
-        case LINUX:
-          return new ProcMeminfoLowMemoryChecker(ProcMeminfoParser::new);
-
-        default:
-          return new MemoryPressureLowMemoryChecker();
-      }
+    static LowMemoryChecker forCurrentOs() {
+      return switch (OS.getCurrent()) {
+        case LINUX -> new ProcMeminfoLowMemoryChecker(ProcMeminfoParser::new);
+        default -> new MemoryPressureLowMemoryChecker();
+      };
     }
 
     /** Checks if the server should shut down due to a low memory condition. */
@@ -142,7 +139,7 @@ class ServerWatcherRunnable implements Runnable {
         maxIdleSeconds,
         shutdownOnLowSysMem,
         commandManager,
-        LowMemoryChecker.forCurrentOS());
+        LowMemoryChecker.forCurrentOs());
   }
 
   @VisibleForTesting
@@ -165,13 +162,18 @@ class ServerWatcherRunnable implements Runnable {
 
   @Override
   public void run() {
-    boolean idle = commandManager.isEmpty();
+    long lastCommandCounter;
+    boolean idle;
+    do {
+      lastCommandCounter = commandManager.getCommandCounter();
+      idle = commandManager.isEmpty();
+    } while (lastCommandCounter != commandManager.getCommandCounter());
     boolean wasIdle = false;
     long shutdownTimeMillis = -1;
+    long now = BlazeClock.instance().currentTimeMillis();
 
     while (true) {
       if (!wasIdle && idle) {
-        long now = BlazeClock.instance().currentTimeMillis();
         shutdownTimeMillis = now + Duration.ofSeconds(maxIdleSeconds).toMillis();
         lowMemoryChecker.reset(now);
       }
@@ -179,12 +181,18 @@ class ServerWatcherRunnable implements Runnable {
       try {
         if (idle) {
           Verify.verify(shutdownTimeMillis > 0);
-          if (shutdownOnLowSysMem && lowMemoryChecker.shouldShutdown()) {
+          if (shutdownOnLowSysMem
+              && lowMemoryChecker.shouldShutdown()
+              && commandManager.getCommandCounter() == lastCommandCounter) {
             logger.atSevere().log("Available RAM is low. Shutting down idle server...");
             break;
           }
-          // Re-run the check every 5 seconds if no other commands have been sent to the server.
-          commandManager.waitForChange(IDLE_MEMORY_CHECK_INTERVAL.toMillis());
+          long remainingIdleMillis = shutdownTimeMillis - now;
+          Verify.verify(remainingIdleMillis > 0);
+          // Re-run the check every 5 seconds if no other commands have been sent to the server,
+          // or when the remaining idle timeout expires, whichever comes first.
+          commandManager.waitForChange(
+              Math.min(IDLE_MEMORY_CHECK_INTERVAL.toMillis(), remainingIdleMillis));
         } else {
           commandManager.waitForChange();
         }
@@ -192,9 +200,18 @@ class ServerWatcherRunnable implements Runnable {
         // Dealt with by checking the current time below.
       }
 
-      wasIdle = idle;
-      idle = commandManager.isEmpty();
-      if (wasIdle && idle && BlazeClock.instance().currentTimeMillis() >= shutdownTimeMillis) {
+      long currentCommandCounter;
+      boolean currentlyIdle;
+      do {
+        currentCommandCounter = commandManager.getCommandCounter();
+        currentlyIdle = commandManager.isEmpty();
+      } while (currentCommandCounter != commandManager.getCommandCounter());
+      boolean commandRan = currentCommandCounter != lastCommandCounter;
+      lastCommandCounter = currentCommandCounter;
+      wasIdle = idle && !commandRan;
+      idle = currentlyIdle;
+      now = BlazeClock.instance().currentTimeMillis();
+      if (wasIdle && idle && now >= shutdownTimeMillis) {
         logger.atInfo().log("About to shutdown due to idleness");
         break;
       }
