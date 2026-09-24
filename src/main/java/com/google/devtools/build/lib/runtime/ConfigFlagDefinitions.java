@@ -53,7 +53,8 @@ public final class ConfigFlagDefinitions {
    * There's no need for callers outside {@code lib.runtime} to construct this or see its underlying
    * data. The underlying data is a complicated implementation detail of the options parsing logic.
    */
-  ConfigFlagDefinitions(ImmutableListMultimap<String, ConfigDefinition> definitions) {
+  @VisibleForTesting
+  public ConfigFlagDefinitions(ImmutableListMultimap<String, ConfigDefinition> definitions) {
     this.definitions = definitions;
   }
 
@@ -131,7 +132,8 @@ public final class ConfigFlagDefinitions {
 
   /** Serialization- and BUILD library-friendly version of RcChunkOfArgs. */
   @AutoCodec
-  record ConfigDefinition(ImmutableList<String> flags, String rcSource) {}
+  @VisibleForTesting
+  public record ConfigDefinition(ImmutableList<String> flags, String rcSource) {}
 
   @Override
   public boolean equals(Object o) {
