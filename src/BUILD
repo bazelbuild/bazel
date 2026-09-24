@@ -5,6 +5,7 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
 load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
@@ -12,6 +13,15 @@ load(":package_zip.bzl", "package_zip")
 load(":rule_size_test.bzl", "rule_size_test")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
+
+sh_test(
+    name = "combine_derived_java_srcs_test",
+    size = "small",
+    srcs = ["combine_derived_java_srcs_test.sh"],
+    data = ["combine_derived_java_srcs.sh"],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
 
 exports_files([
     "jdeps_modules.golden",
