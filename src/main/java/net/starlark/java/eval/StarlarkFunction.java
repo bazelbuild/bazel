@@ -596,7 +596,7 @@ public final class StarlarkFunction implements StarlarkCallable {
         throw Starlark.errorf("function '%s' called recursively", owner.getName());
       }
 
-      Frame fr = thread.frame(0);
+      Frame fr = (Frame) thread.frame(0);
       fr.locals = locals;
       Object returnValue = Eval.execFunctionBody(fr, rfn.getBody());
 

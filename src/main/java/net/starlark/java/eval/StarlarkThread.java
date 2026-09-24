@@ -144,19 +144,48 @@ public final class StarlarkThread {
     return v == null ? null : key.cast(v);
   }
 
-  /** A Frame records information about an active function call. */
-  static final class Frame implements Debug.Frame {
-    final StarlarkThread thread;
+  /** Records call metadata shared by builtin and Starlark function calls. */
+  static class CallFrame implements Debug.Frame {
     final StarlarkCallable fn; // the called function
+
+    // Current PC location. Initially fn.getLocation(); for Starlark functions,
+    // it is updated at key points when it may be observed: calls, breakpoints, errors.
+    Location loc;
+    private long profileStartTimeNanos; // start time nanos of walltime call profiler
+
+    private CallFrame(StarlarkCallable fn) {
+      this.fn = fn;
+    }
+
+    @Override
+    public StarlarkCallable getFunction() {
+      return fn;
+    }
+
+    @Override
+    public Location getLocation() {
+      return loc;
+    }
+
+    @Override
+    public ImmutableMap<String, Object> getLocals() {
+      return ImmutableMap.of();
+    }
+
+    @Override
+    public String toString() {
+      return fn.getName() + "@" + loc;
+    }
+  }
+
+  /** Interpreter state needed only for a Starlark function call. */
+  static final class Frame extends CallFrame {
+    final StarlarkThread thread;
 
     @Nullable
     final Debug.Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
 
     Object result = Starlark.NONE; // the operand of a Starlark return statement
-
-    // Current PC location. Initially fn.getLocation(); for Starlark functions,
-    // it is updated at key points when it may be observed: calls, breakpoints, errors.
-    private Location loc;
 
     // Indicates that setErrorLocation has been called already and the error
     // location (loc) should not be overwritten.
@@ -167,11 +196,9 @@ public final class StarlarkThread {
     // values, or wrapped in StarlarkFunction.Cells if shared with a nested function.
     @Nullable Object[] locals;
 
-    private long profileStartTimeNanos; // start time nanos of walltime call profiler
-
     private Frame(StarlarkThread thread, StarlarkCallable fn) {
+      super(fn);
       this.thread = thread;
-      this.fn = fn;
     }
 
     // Updates the PC location in this frame.
@@ -191,16 +218,6 @@ public final class StarlarkThread {
         errorLocationSet = true;
         this.loc = loc;
       }
-    }
-
-    @Override
-    public StarlarkCallable getFunction() {
-      return fn;
-    }
-
-    @Override
-    public Location getLocation() {
-      return loc;
     }
 
     @Override
@@ -235,11 +252,6 @@ public final class StarlarkThread {
       // in a comprehension.
       return env.buildKeepingLast();
     }
-
-    @Override
-    public String toString() {
-      return fn.getName() + "@" + loc;
-    }
   }
 
   /** The semantics options that affect how Starlark code is evaluated. */
@@ -257,7 +269,7 @@ public final class StarlarkThread {
   private UncheckedExceptionContext uncheckedExceptionContext = () -> "";
 
   /** Stack of active function calls. */
-  private final ArrayList<Frame> callstack = new ArrayList<>();
+  private final ArrayList<CallFrame> callstack = new ArrayList<>();
 
   /** A hook for notifications of assignments at top level. */
   PostAssignHook postAssignHook;
@@ -288,7 +300,7 @@ public final class StarlarkThread {
       }
     }
 
-    Frame fr = new Frame(this, fn);
+    CallFrame fr = fn instanceof StarlarkFunction ? new Frame(this, fn) : new CallFrame(fn);
     callstack.add(fr);
 
     // Notify debug tools of the thread's first push.
@@ -308,7 +320,7 @@ public final class StarlarkThread {
   /** Pops a function off the call stack. */
   void pop() {
     int last = callstack.size() - 1;
-    Frame fr = callstack.get(last);
+    CallFrame fr = callstack.get(last);
 
     if (profiler != null) {
       int ticks = cpuTicks.getAndSet(0);
@@ -414,7 +426,7 @@ public final class StarlarkThread {
   boolean isRecursiveCall(StarlarkFunction fn) {
     // Find fn buried within stack. (The top of the stack is assumed to be fn.)
     for (int i = callstack.size() - 2; i >= 0; --i) {
-      Frame fr = callstack.get(i);
+      CallFrame fr = callstack.get(i);
       // We compare code, not closure values, otherwise one can defeat the
       // check by writing the Y combinator.
       if (fr.fn instanceof StarlarkFunction && ((StarlarkFunction) fr.fn).rfn.equals(fn.rfn)) {
@@ -446,7 +458,7 @@ public final class StarlarkThread {
   }
 
   // Returns the stack frame at the specified depth. 0 means top of stack, 1 is its caller, etc.
-  Frame frame(int depth) {
+  CallFrame frame(int depth) {
     return callstack.get(callstack.size() - 1 - depth);
   }
 
@@ -612,7 +624,7 @@ public final class StarlarkThread {
   public ImmutableList<CallStackEntry> getCallStack() {
     ImmutableList.Builder<CallStackEntry> stack =
         ImmutableList.builderWithExpectedSize(callstack.size());
-    for (Frame fr : callstack) {
+    for (CallFrame fr : callstack) {
       stack.add(callStackEntry(fr.fn.getName(), fr.loc));
     }
     return stack.build();
@@ -622,7 +634,7 @@ public final class StarlarkThread {
   void fillInStackTrace(Throwable throwable) {
     StackTraceElement[] trace = new StackTraceElement[callstack.size()];
     for (int i = 0; i < callstack.size(); i++) {
-      Frame frame = callstack.get(i);
+      CallFrame frame = callstack.get(i);
       trace[trace.length - i - 1] =
           new StackTraceElement(
               "<starlark>", frame.fn.getName(), frame.loc.file(), frame.loc.line());
