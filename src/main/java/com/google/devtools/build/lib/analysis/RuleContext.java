@@ -128,17 +128,45 @@ import net.starlark.java.syntax.Location;
 public class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer, AutoCloseable {
 
+  /**
+   * The consumer of a prerequisite validated by a {@link PrerequisiteValidator}, as well as the
+   * sink for the errors and warnings it reports.
+   *
+   * <p>This is usually a {@link Builder}, but can also represent a consumer that refers to the
+   * prerequisite without depending on it, such as a label in a {@code nodep} attribute that is
+   * resolved later.
+   */
+  public interface PrerequisiteValidationContext extends RuleErrorConsumer {
+    /** The rule that refers to the prerequisite. */
+    Rule getRule();
+
+    /** The configuration in which the prerequisite is validated. */
+    BuildConfigurationValue getConfiguration();
+
+    /** The main aspect being evaluated, or {@code null} if a rule is being evaluated. */
+    @Nullable
+    Aspect getMainAspect();
+
+    /** Whether an aspect is being evaluated. */
+    boolean forAspect();
+
+    /** Whether the rule or aspect being evaluated is defined in Starlark. */
+    boolean isStarlarkRuleOrAspect();
+  }
+
   /** Custom dependency validation logic. */
   public interface PrerequisiteValidator {
     /**
-     * Checks whether the rule in {@code contextBuilder} is allowed to depend on {@code
-     * prerequisite} through the attribute {@code attribute}.
+     * Checks whether the rule in {@code context} is allowed to depend on {@code prerequisite}
+     * through the attribute {@code attribute}.
      *
      * <p>Can be used for enforcing any organization-specific policies about the layout of the
      * workspace.
      */
     void validate(
-        Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
+        PrerequisiteValidationContext context,
+        ConfiguredTargetAndData prerequisite,
+        Attribute attribute);
 
     /**
      * Returns whether a package is considered experimental. Packages outside of experimental may
@@ -1392,7 +1420,7 @@ public class RuleContext extends TargetContext
   }
 
   /** Builder class for a RuleContext. */
-  public static final class Builder implements RuleErrorConsumer {
+  public static final class Builder implements PrerequisiteValidationContext {
     private final AnalysisEnvironment env;
     private final Target target;
     private final ImmutableList<Aspect> aspects;
@@ -1862,10 +1890,12 @@ public class RuleContext extends TargetContext
     }
 
     /** Returns whether the context being constructed is for the evaluation of an aspect. */
+    @Override
     public boolean forAspect() {
       return !aspects.isEmpty();
     }
 
+    @Override
     public Rule getRule() {
       return target.getAssociatedRule();
     }
@@ -1905,12 +1935,14 @@ public class RuleContext extends TargetContext
       return reporter;
     }
 
+    @Override
     public BuildConfigurationValue getConfiguration() {
       return configuration;
     }
 
+    @Override
     @Nullable
-    Aspect getMainAspect() {
+    public Aspect getMainAspect() {
       return Streams.findLast(aspects.stream()).orElse(null);
     }
 
@@ -1918,7 +1950,8 @@ public class RuleContext extends TargetContext
       return aspects;
     }
 
-    boolean isStarlarkRuleOrAspect() {
+    @Override
+    public boolean isStarlarkRuleOrAspect() {
       Aspect mainAspect = getMainAspect();
       if (mainAspect != null) {
         return mainAspect.getAspectClass() instanceof StarlarkAspectClass;

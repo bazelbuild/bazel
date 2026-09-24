@@ -37,6 +37,7 @@ public class ToolchainRule implements RuleDefinition {
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
   public static final String TARGET_COMPATIBLE_WITH_ATTR = "target_compatible_with";
   public static final String TARGET_SETTING_ATTR = "target_settings";
+  public static final String TARGET_SETTING_RULE_CLASS = "config_setting";
   public static final String TOOLCHAIN_ATTR = "toolchain";
   public static final String USE_TARGET_PLATFORM_CONSTRAINTS_ATTR =
       "use_target_platform_constraints";
@@ -97,10 +98,10 @@ public class ToolchainRule implements RuleDefinition {
         A list of <code>config_setting</code>s that must be satisfied by the target configuration
         in order for this toolchain to be selected during toolchain resolution.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr(TARGET_SETTING_ATTR, BuildType.LABEL_LIST)
-                .allowedRuleClasses("config_setting")
-                .allowedFileTypes(FileTypeSet.NO_FILE))
+        // This is not a dependency so that the toolchain declaration can be analyzed independently
+        // of the target configuration. The settings are instead analyzed, validated and evaluated
+        // in each target configuration during toolchain resolution.
+        .add(attr(TARGET_SETTING_ATTR, BuildType.NODEP_LABEL_LIST))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain) -->
         The target representing the actual tool or tool suite that is made available when this
         toolchain is selected.
