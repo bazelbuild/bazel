@@ -44,8 +44,9 @@ The available subcommands and their respective required arguments are:
     4) the argument modules themselves (see [example](#mod-example5)).
 
 *   `show_repo <arg>...`: Displays the definition and location of the
-    specified repos (see [example](#mod-example6)). Use `--all_repos` to show
-    definitions of all repos in the entire dependency graph, or
+    specified repos (see [example](#mod-example6)). This does not cause the
+    repos to be materialized, use `bazel fetch` for that. Use `--all_repos` to
+    show definitions of all repos in the entire dependency graph, or
     `--all_visible_repos` to show definitions of all repos visible from the
     `--base_module`.
 
