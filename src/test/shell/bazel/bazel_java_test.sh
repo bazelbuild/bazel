@@ -1641,8 +1641,8 @@ EOF
 # This test exercises the built-in @bazel_tools//tools/jdk:jni target.
 #
 # The java_binary wrapper script specifies -Djava.library.path=$runfiles/jni,
-# and the Java program expects to find a DSO there---except on MS Windows,
-# which lacks support for symbolic links. Really there needs to
+# and the Java program expects to find a DSO there---except when runfiles are
+# disabled, which is often the case on Windows. Really there needs to
 # be a cleaner mechanism for finding and loading the JNI library (and better
 # hygiene around the library namespace). By contrast, Blaze links all the
 # native code and the JVM into a single executable, which is an elegant solution.
@@ -1670,11 +1670,11 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 java_library(
   name = "lib",
   srcs = ["App.java"],
-  deps = [":libnative.so"],
+  deps = [":native"],
   visibility = ["//visibility:public"],
 )
 cc_binary(
-  name = "libnative.so",
+  name = "native",
   srcs = ["native.cc"],
   linkshared = 1,
   deps = ["@bazel_tools//tools/jdk:jni"],
@@ -1717,34 +1717,23 @@ function test_jni() {
     return
   fi
 
-  # Skip on Darwin, as System.loadLibrary looks for a file named
-  # .dylib, not .so, and that's not what the file is called.
-  # TODO(adonovan): make this just work.
-  if is_darwin; then
-    return
-  fi
-
   setup_jni_targets ""
 
-  bazel run //test:app >> $TEST_log || {
-    find bazel-bin/ | native # helpful for debugging
-    fail "bazel run command failed"
-  }
+  bazel run //test:app &> "$TEST_log" || fail "bazel run command failed"
+
   expect_log "hello 123"
 }
 
 function test_jni_external_repo_runfiles() {
-  # Skip on Windows and MacOS. See details in test_jni.
-  if (is_windows || is_darwin); then
+  # Skip on Windows. See details in test_jni.
+  if (is_windows); then
     return
   fi
 
   setup_jni_targets "my_other_repo"
 
-  bazel run //test:app >> $TEST_log || {
-    find bazel-bin/ | native # helpful for debugging
-    fail "bazel run command failed"
-  }
+  bazel run //test:app &> "$TEST_log" || fail "bazel run command failed"
+
   expect_log "hello 123"
 }
 
