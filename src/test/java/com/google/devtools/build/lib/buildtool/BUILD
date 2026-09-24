@@ -739,7 +739,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:file_write_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
