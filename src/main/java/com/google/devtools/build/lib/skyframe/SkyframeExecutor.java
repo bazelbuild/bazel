@@ -176,7 +176,6 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetParsingPhaseTimeEvent;
-import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
@@ -2873,11 +2872,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public QueryTransitivePackagePreloader getQueryTransitivePackagePreloader() {
     return queryTransitivePackagePreloader;
-  }
-
-  @VisibleForTesting
-  public TargetPatternPreloader newTargetPatternPreloader() {
-    return new SkyframeTargetPatternEvaluator(this);
   }
 
   public ActionKeyContext getActionKeyContext() {

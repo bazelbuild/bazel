@@ -118,6 +118,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_options",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_stats",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_target_pattern_evaluator",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
