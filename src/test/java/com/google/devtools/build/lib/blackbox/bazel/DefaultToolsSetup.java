@@ -19,10 +19,14 @@ import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
 import com.google.devtools.build.lib.util.OS;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 /** Setup for Bazel default tools */
 public class DefaultToolsSetup implements ToolsSetup {
@@ -35,7 +39,7 @@ public class DefaultToolsSetup implements ToolsSetup {
 
     String sharedInstallBase = System.getenv("TEST_INSTALL_BASE");
     if (sharedInstallBase != null) {
-      lines.add("startup --install_base=" + sharedInstallBase);
+      lines.add("startup --install_base=" + installBaseForBazelBinary(sharedInstallBase));
     }
 
     String sharedRepoCache = System.getenv("REPOSITORY_CACHE");
@@ -61,6 +65,19 @@ public class DefaultToolsSetup implements ToolsSetup {
     }
 
     context.write(".bazelrc", lines);
+  }
+
+  private static String installBaseForBazelBinary(String sharedInstallBase) throws IOException {
+    try (ZipFile bazel = new ZipFile(RunfilesUtil.find("io_bazel/src/bazel").toFile())) {
+      ZipEntry entry = bazel.getEntry("install_base_key");
+      if (entry == null) {
+        throw new IOException("Could not find install_base_key in the Bazel binary");
+      }
+      try (InputStream keyStream = bazel.getInputStream(entry)) {
+        String key = new String(keyStream.readAllBytes(), StandardCharsets.US_ASCII);
+        return sharedInstallBase + "-" + key.trim();
+      }
+    }
   }
 
   private static boolean hasIpv6DefaultRouteOnDarwin() {
