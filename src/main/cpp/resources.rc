@@ -1,0 +1,3 @@
+// Application icon shown by Windows Explorer and the taskbar for bazel.exe.
+// Resource ID 1 is the lowest ID, which Windows uses as the executable's icon.
+1 ICON "bazel.ico"

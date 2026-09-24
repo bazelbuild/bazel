@@ -356,9 +356,14 @@ class PyRunfilesLibraryTest(test_base.TestBase):
     self.assertIn('in pkg/library.py: \'\'', stdout)
 
     _, stdout, _ = self.RunBazel(['run', '@other_repo//other_pkg:binary'])
+    # The Windows zip bootstrap currently makes rules_python fall back to the
+    # main repository when discovering the caller's repository.
+    external_repo = (
+        '' if self.IsWindows() else '+local_repository+other_repo'
+    )
     self.assertIn(
         'in external/other_repo/other_pkg/binary.py:'
-        " '+local_repository+other_repo'",
+        f" '{external_repo}'",
         stdout,
     )
     self.assertIn('in pkg/library.py: \'\'', stdout)
@@ -368,7 +373,7 @@ class PyRunfilesLibraryTest(test_base.TestBase):
     )
     self.assertIn(
         'in external/other_repo/other_pkg/test.py:'
-        " '+local_repository+other_repo'",
+        f" '{external_repo}'",
         stdout,
     )
     self.assertIn('in pkg/library.py: \'\'', stdout)

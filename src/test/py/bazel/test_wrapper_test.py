@@ -533,8 +533,7 @@ class TestWrapperTest(test_base.TestBase):
         actual)
 
   def _AssertUndeclaredOutputs(self, flags):
-    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
-    bazel_testlogs = bazel_testlogs[0]
+    bazel_testlogs = self.GetTargetTestlogs('//foo:undecl_test', flags)
 
     self.RunBazel(
         [
@@ -590,8 +589,7 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(mf_content)
 
   def _AssertUndeclaredOutputsAnnotations(self, flags):
-    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
-    bazel_testlogs = bazel_testlogs[0]
+    bazel_testlogs = self.GetTargetTestlogs('//foo:annot_test', flags)
 
     self.RunBazel(
         [
@@ -618,8 +616,7 @@ class TestWrapperTest(test_base.TestBase):
       self.assertEqual(f.read(), b'\x03\x0a\x01\x00\x03\x0a\x01\xff')
 
   def _AssertXmlGeneration(self, flags):
-    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
-    bazel_testlogs = bazel_testlogs[0]
+    bazel_testlogs = self.GetTargetTestlogs('//foo:xml_test', flags)
 
     self.RunBazel(
         [
@@ -666,8 +663,7 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(xml_contents)
 
   def _AssertXmlGeneratedByTestIsRetained(self, flags):
-    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
-    bazel_testlogs = bazel_testlogs[0]
+    bazel_testlogs = self.GetTargetTestlogs('//foo:xml2_test', flags)
 
     self.RunBazel(
         [

@@ -46,7 +46,7 @@ cc_binary(
     srcs = ["windows/tw_main.cc"],
     linkopts = select({
         # MinGW requires -municode when using wmain.
-        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//src/conditions:windows_gcc_like": ["-municode"],
         "//conditions:default": [],
     }),
     target_compatible_with = ["@platforms//os:windows"],
@@ -68,7 +68,7 @@ cc_binary(
     srcs = ["windows/xml_main.cc"],
     linkopts = select({
         # MinGW requires -municode when using wmain.
-        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//src/conditions:windows_gcc_like": ["-municode"],
         "//conditions:default": [],
     }),
     target_compatible_with = ["@platforms//os:windows"],

@@ -1,0 +1,2 @@
+1 ICON "bazel.ico"
+STRINGTABLE { 1, "hello" }
