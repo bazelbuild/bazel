@@ -231,7 +231,9 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
         platformKey =
             ConfiguredTargetKey.builder()
                 .setLabel(platformLabel)
-                .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
+                .setConfigurationKey(
+                    BuildConfigurationKey.create(
+                        CommonOptions.noConfigOptions(configuration.getOptions())))
                 .build();
 
         platforms.put(platformKey, platformInfo);

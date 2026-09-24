@@ -78,7 +78,7 @@ public final class StarlarkExecTransitionLoader {
   public static Optional<StarlarkAttributeTransitionProvider> loadStarlarkExecTransition(
       @Nullable BuildOptions options, BzlFileLoader bzlFileLoader)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
-    if (options == null || options.equals(CommonOptions.EMPTY_OPTIONS)) {
+    if (options == null || options.hasNoConfig()) {
       return Optional.empty();
     }
     String userRef =
