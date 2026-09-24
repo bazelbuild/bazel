@@ -1189,8 +1189,9 @@ public class ModuleFileGlobals {
       name = "flag_alias",
       doc =
           """
-            Maps a command-line flag --foo to a Starlark flag --@repo//defs:foo. Bazel translates all
-            instances of $ bazel build //target --foo to $ bazel build //target --@repo//defs:foo.
+            Maps a command-line flag <code>--foo</code> to a Starlark flag <code>--@repo//defs:foo</code>.
+            Bazel translates all instances of <code>bazel build //target --foo</code>
+            to <code>bazel build //target --@repo//defs:foo</code>.
           """,
       parameters = {
         @Param(name = "name", doc = "The name of the flag.", named = true, positional = false),

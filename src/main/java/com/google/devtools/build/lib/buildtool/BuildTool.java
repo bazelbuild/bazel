@@ -26,6 +26,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -60,7 +61,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.ReleaseReplaceableBuil
 import com.google.devtools.build.lib.buildtool.buildevent.StartingAqueryDumpAfterBuildEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.UpdateOptionsEvent;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
@@ -88,6 +88,7 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -236,7 +237,6 @@ public class BuildTool {
           AbruptExitException,
           InvalidConfigurationException,
           TestExecException,
-          LabelSyntaxException,
           ExitException,
           PostExecutionDumpException,
           RepositoryMappingResolutionException,
@@ -1028,12 +1028,10 @@ public class BuildTool {
       TargetValidator validator,
       OptionsParsingResult options,
       List<String> targetsForProjectResolution,
-      PostBuildCallback postBuildCallback)
-      // Don't add any throws here. The purpose of this method is to catch all checked exceptions
-      // so that the catch-all `catch (Throwable throwable)` in `processRequest` only gets to handle
-      // unchecked exceptions.
-      // TODO(b/556811853): Replace throws clause with exception handling within the method.
-      throws LabelSyntaxException, OptionsParsingException {
+      PostBuildCallback postBuildCallback) {
+    // Don't add any throws here. The purpose of this method is to catch all checked exceptions
+    // so that the catch-all `catch (Throwable throwable)` in `processRequest` only gets to handle
+    // unchecked exceptions.
     DetailedExitCode detailedExitCode;
     try {
       try (SilentCloseable c = Profiler.instance().profile("buildTargets")) {
@@ -1133,6 +1131,16 @@ public class BuildTool {
                       ActionQuery.newBuilder()
                           .setCode(ActionQuery.Code.SKYFRAME_STATE_AFTER_EXECUTION)
                           .build())
+                  .build());
+      reportExceptionError(e);
+    } catch (OptionsParsingException e) {
+      detailedExitCode =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(Strings.nullToEmpty(e.getMessage()))
+                  .setCommand(
+                      FailureDetails.Command.newBuilder()
+                          .setCode(FailureDetails.Command.Code.OPTIONS_PARSE_FAILURE))
                   .build());
       reportExceptionError(e);
     }

@@ -32,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -186,68 +187,125 @@ public final class IntegrationTestUtils {
       Preconditions.checkState(process == null);
       Preconditions.checkState(port == null);
 
-      ensureMkdir(workPath);
-      ensureMkdir(casPath);
-      ensureMkdir(stdPath);
-      Files.createFile(stdoutPath);
-      Files.createFile(stderrPath);
-      Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-      String workerPath = runfiles.rlocation(WORKER_RLOCATIONPATH);
-      ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
-      env.putAll(System.getenv());
-      env.putAll(runfiles.getEnvVars());
-      port = FreePortFinder.pickUnusedRandomPort();
-      ImmutableList.Builder<String> argv =
-          ImmutableList.<String>builder()
-              .add(
-                  workerPath,
-                  "--work_path=" + workPath,
-                  "--cas_path=" + casPath,
-                  (useHttp ? "--http_listen_port=" : "--listen_port=") + port);
-      if (failureCount > 0) {
-        argv.add("--failure_count=" + failureCount)
-            .add("--failure_method=" + failureMethod)
-            .add("--failure_marker_file=" + markerPath);
-      }
-      argv.addAll(extraArgs);
-      process =
-          new SubprocessBuilder(System.getenv())
-              .setEnv(env.buildKeepingLast())
-              .setStdout(stdoutPath.toFile())
-              .setStderr(stderrPath.toFile())
-              .setArgv(argv.build())
-              .start();
-      waitForPortOpen(process, port);
+      boolean started = false;
+      try {
+        ensureMkdir(workPath);
+        ensureMkdir(casPath);
+        ensureMkdir(stdPath);
+        Path pidPath = stdPath.resolve("worker.pid");
+        Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+        String workerPath = runfiles.rlocation(WORKER_RLOCATIONPATH);
+        ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
+        env.putAll(System.getenv());
+        env.putAll(runfiles.getEnvVars());
+        var builtEnv = env.buildKeepingLast();
 
-      return this::stop;
+        IOException lastException = null;
+        for (int attempt = 0; attempt < 3; ++attempt) {
+          Files.deleteIfExists(stdoutPath);
+          Files.deleteIfExists(stderrPath);
+          Files.deleteIfExists(pidPath);
+          Files.createFile(stdoutPath);
+          Files.createFile(stderrPath);
+          port = FreePortFinder.pickUnusedRandomPort();
+          ImmutableList.Builder<String> argv =
+              ImmutableList.<String>builder()
+                  .add(
+                      workerPath,
+                      "--work_path=" + workPath,
+                      "--cas_path=" + casPath,
+                      "--pid_file=" + pidPath);
+          if (useHttp) {
+            argv.add("--listen_port=0", "--http_listen_port=" + port);
+          } else {
+            argv.add("--listen_port=" + port);
+          }
+          if (failureCount > 0) {
+            argv.add("--failure_count=" + failureCount)
+                .add("--failure_method=" + failureMethod)
+                .add("--failure_marker_file=" + markerPath);
+          }
+          argv.addAll(extraArgs);
+          process =
+              new SubprocessBuilder(System.getenv())
+                  .setEnv(builtEnv)
+                  .setStdout(stdoutPath.toFile())
+                  .setStderr(stderrPath.toFile())
+                  .setArgv(argv.build())
+                  .start();
+          try {
+            waitForPortOpen(process, port, pidPath);
+            started = true;
+            return this::stop;
+          } catch (IOException e) {
+            if (lastException != null) {
+              e.addSuppressed(lastException);
+            }
+            lastException = e;
+            process.destroyAndWait();
+            process = null;
+            port = null;
+          } catch (Throwable t) {
+            process.destroyAndWait();
+            process = null;
+            port = null;
+            throw t;
+          }
+        }
+        throw lastException;
+      } finally {
+        if (!started) {
+          deleteTree(stdPath);
+          deleteTree(workPath);
+          deleteTree(casPath);
+        }
+      }
     }
 
-    private void waitForPortOpen(Subprocess process, int port)
+    private void waitForPortOpen(Subprocess process, int port, Path pidPath)
         throws IOException, InterruptedException {
       var addr = new InetSocketAddress("localhost", port);
-      var timeout = new IOException("Timed out while trying to connect to worker");
+      var connectFailures = new ArrayList<IOException>();
       for (var i = 0; i < 20; ++i) {
         if (!process.isAlive()) {
-          throw new IOException(
-              String.format(
-                  "Worker died while trying to connect\n"
-                      + "----- STDOUT -----\n%s\n"
-                      + "----- STDERR -----\n%s\n",
-                  getStdout(), getStderr()));
+          throw workerStartupFailure("Worker died while trying to connect", connectFailures);
         }
 
         try {
+          if (!Files.exists(pidPath) || Files.size(pidPath) == 0) {
+            throw new IOException("Worker pid file not yet written");
+          }
           try (var socketChannel = SocketChannel.open()) {
             socketChannel.configureBlocking(/* block= */ true);
             socketChannel.connect(addr);
           }
           return;
         } catch (IOException e) {
-          timeout.addSuppressed(e);
+          connectFailures.add(e);
           Thread.sleep(1000);
         }
       }
-      throw timeout;
+      throw workerStartupFailure("Timed out while trying to connect to worker", connectFailures);
+    }
+
+    /**
+     * Returns an exception describing a failure to start the worker, including its stdout and
+     * stderr. The output must be captured here because {@link #start} deletes the worker's
+     * directories before the exception reaches the test.
+     */
+    private IOException workerStartupFailure(String reason, List<IOException> connectFailures) {
+      var failure =
+          new IOException(
+              """
+              %s
+              ----- STDOUT -----
+              %s
+              ----- STDERR -----
+              %s
+              """
+                  .formatted(reason, getStdout(), getStderr()));
+      connectFailures.forEach(failure::addSuppressed);
+      return failure;
     }
 
     private void stop() throws IOException {
@@ -307,6 +365,11 @@ public final class IntegrationTestUtils {
     }
 
     private static void deleteTree(Path path) throws IOException {
+      if (!Files.exists(path)) {
+        // Tolerate a missing path so that cleanup in a finally block doesn't mask the failure that
+        // prevented the path from being created in the first place.
+        return;
+      }
       List<Path> toDelete;
       try (var stream = Files.walk(path)) {
         toDelete = stream.sorted(Comparator.reverseOrder()).toList();
@@ -336,6 +399,20 @@ public final class IntegrationTestUtils {
     /** Returns the path of the blob with the given digest in the worker's CAS. */
     public PathFragment getCasBlobPath(Digest digest) {
       return PathFragment.create(casBlobPath(digest).toString());
+    }
+
+    /**
+     * Deletes every blob from the worker's CAS, while leaving the AC entries that reference them
+     * intact.
+     */
+    public void evictAllCasBlobs() throws IOException {
+      List<Path> toClear;
+      try (var stream = Files.list(casPath.resolve("cas"))) {
+        toClear = stream.toList();
+      }
+      for (var path : toClear) {
+        deleteTree(path);
+      }
     }
 
     /**

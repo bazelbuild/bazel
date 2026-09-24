@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.MoreObjects;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import javax.annotation.Nullable;
 

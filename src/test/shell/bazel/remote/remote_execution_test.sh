@@ -313,7 +313,10 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "[0-9] processes: [0-9] internal, 2 remote\\."
+  # The exact number of actions depends on the toolchain in use (e.g. the Xcode
+  # toolchain from apple_support runs additional actions to set up its module
+  # maps), so only check that no action fell back to local execution.
+  expect_log "[0-9]* processes: [0-9]* internal, [0-9]* remote\\."
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
@@ -3136,7 +3139,7 @@ function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "apple_support", version = "2.5.4")
+bazel_dep(name = "apple_support", version = "2.8.4")
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",

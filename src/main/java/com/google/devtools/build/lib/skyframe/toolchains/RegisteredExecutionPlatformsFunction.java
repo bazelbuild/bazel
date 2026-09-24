@@ -172,6 +172,9 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
     ImmutableList.Builder<TargetPattern> executionPlatforms = ImmutableList.builder();
     for (Module module : bazelDepGraphValue.getDepGraph().values()) {
+      if (module.getExecutionPlatformsToRegister().isEmpty()) {
+        continue;
+      }
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,

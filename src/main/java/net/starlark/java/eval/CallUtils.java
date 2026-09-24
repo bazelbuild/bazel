@@ -255,7 +255,7 @@ public final class CallUtils {
    * <p>This class is public for the benefit of serialization in Bazel. Other code outside the
    * Starlark interpreter should not rely on it.
    */
-  public static class BuiltinManager {
+  public static class BuiltinManager implements TypeContext {
 
     private final StarlarkSemantics semantics;
 
@@ -313,15 +313,6 @@ public final class CallUtils {
     }
 
     /**
-     * Returns the supertypes of the generated Starlark type associated with the given Java class,
-     * or null if no such generated type exists.
-     */
-    @Nullable
-    ImmutableList<StarlarkType> getStarlarkBuiltinAutoTypeSupertypes(Class<?> clazz) {
-      return getClassDescriptor(clazz).starlarkBuiltinAutoTypeSupertypes;
-    }
-
-    /**
      * Returns a {@link MethodDescriptor} object representing a function which calls the selfCall
      * java method of the given object (the {@link StarlarkMethod} method with {@link
      * StarlarkMethod#selfCall()} set to true). Returns null if no such method exists.
@@ -342,6 +333,53 @@ public final class CallUtils {
         return null;
       }
       return descriptor.getMethod();
+    }
+
+    // TypeContext implementation //
+
+    @Override
+    @Nullable
+    public StarlarkType getStrFieldType(String name) {
+      MethodDescriptor desc = getAnnotatedMethods(String.class).get(name);
+      return desc == null ? null : desc.getStarlarkType();
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getListFieldType(String name) {
+      MethodDescriptor desc = getAnnotatedMethods(StarlarkList.class).get(name);
+      return desc == null ? null : desc.getStarlarkType();
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getDictFieldType(String name) {
+      MethodDescriptor desc = getAnnotatedMethods(Dict.class).get(name);
+      return desc == null ? null : desc.getStarlarkType();
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getSetFieldType(String name) {
+      MethodDescriptor desc = getAnnotatedMethods(StarlarkSet.class).get(name);
+      return desc == null ? null : desc.getStarlarkType();
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getStarlarkBuiltinFieldType(Class<?> clazz, String fieldName) {
+      if (StarlarkAnnotations.getStarlarkBuiltin(clazz) == null) {
+        // Support only @StarlarkBuiltin annotated classes, not @StarlarkLibrary ones.
+        return null;
+      }
+      MethodDescriptor desc = getAnnotatedMethods(clazz).get(fieldName);
+      return desc == null ? null : desc.getStarlarkType();
+    }
+
+    @Override
+    @Nullable
+    public ImmutableList<StarlarkType> getStarlarkBuiltinAutoTypeSupertypes(Class<?> clazz) {
+      return getClassDescriptor(clazz).starlarkBuiltinAutoTypeSupertypes;
     }
   }
 

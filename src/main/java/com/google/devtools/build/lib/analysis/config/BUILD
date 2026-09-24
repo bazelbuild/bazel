@@ -126,18 +126,6 @@ java_library(
 )
 
 java_library(
-    name = "build_options_cache",
-    srcs = ["BuildOptionsCache.java"],
-    deps = [
-        ":build_options",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party/java/caffeine",
-        "//third_party/java/guava:base",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
     name = "common_options",
     srcs = ["CommonOptions.java"],
     deps = [
@@ -266,7 +254,7 @@ java_library(
         ":common_options",
         ":core_options",
         ":starlark_defined_config_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",

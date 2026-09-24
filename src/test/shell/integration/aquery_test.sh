@@ -2044,6 +2044,11 @@ EOF
 
   if is_windows; then
     assert_contains '  key: "INCLUDE"' output
+  elif is_darwin; then
+    # CppCompileAction only injects PWD=/proc/self/cwd for actions that aren't
+    # tagged with `requires-darwin`, which the Xcode toolchain provided by
+    # apple_support does tag them with.
+    assert_contains '  key: "XCODE_VERSION_OVERRIDE"' output
   else
     assert_contains '  key: "PWD"' output
   fi

@@ -27,8 +27,11 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -38,6 +41,8 @@ import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -578,5 +583,76 @@ public class PathMappersTest extends BuildViewTestCase {
     assertThat(spawn.getArguments()).doesNotContain(format("%s/cfg/bin/collide/a.out", outDir));
     assertThat(spawn.getArguments().stream().anyMatch(arg -> arg.endsWith("/bin/collide/a.out")))
         .isTrue();
+  }
+
+  @Test
+  public void testRunnerAction_environmentVariablesStripped() throws Exception {
+    useConfiguration(
+        "--experimental_output_paths=strip",
+        "--modify_execution_info=TestRunner=+supports-path-mapping");
+    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            srcs = ["test.sh"],
+        )
+        """);
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
+    TestRunnerAction action =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+
+    Map<String, String> env = new HashMap<>();
+    action.setupEnvVariables(env);
+
+    String outDir = analysisMock.getProductName() + "-out";
+    assertThat(env)
+        .containsEntry("XML_OUTPUT_FILE", format("%s/cfg/testlogs/tests/test/test.xml", outDir));
+    assertThat(env)
+        .containsEntry(
+            "TEST_WARNINGS_OUTPUT_FILE",
+            format("%s/cfg/testlogs/tests/test/test.warnings", outDir));
+    assertThat(env)
+        .containsEntry(
+            "TEST_UNDECLARED_OUTPUTS_DIR",
+            format("%s/cfg/testlogs/tests/test/test.outputs", outDir));
+    assertThat(env)
+        .containsEntry(
+            "TEST_PREMATURE_EXIT_FILE",
+            format("%s/cfg/testlogs/tests/test/test.exited_prematurely", outDir));
+    assertThat(env)
+        .containsEntry(
+            "TEST_UNUSED_RUNFILES_LOG_FILE",
+            format("%s/cfg/testlogs/tests/test/test.unused_runfiles_log", outDir));
+  }
+
+  @Test
+  public void testRunnerAction_disabledWithoutStripMode() throws Exception {
+    useConfiguration("--experimental_output_paths=off");
+    scratch.file("tests2/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests2/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            srcs = ["test.sh"],
+        )
+        """);
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests2:test");
+    TestRunnerAction action =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+
+    Map<String, String> env = new HashMap<>();
+    action.setupEnvVariables(env);
+
+    String outDir = analysisMock.getProductName() + "-out";
+    assertThat(env.get("XML_OUTPUT_FILE")).doesNotContain(format("%s/cfg/", outDir));
   }
 }

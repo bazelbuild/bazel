@@ -49,6 +49,10 @@ public class DefaultToolsSetup implements ToolsSetup {
         lines.add("common --experimental_repository_cache_hardlinks");
       }
     }
+    // The repo contents cache defaults to a directory under the repository cache, which is shared
+    // with other tests and test attempts on CI. Tests that exercise the repo contents cache opt in
+    // explicitly.
+    lines.add("common --repo_contents_cache=");
 
     if (OS.getCurrent() == OS.DARWIN && hasIpv6DefaultRouteOnDarwin()) {
       // Prefer IPv6 network on macOS only when an IPv6 default route exists.

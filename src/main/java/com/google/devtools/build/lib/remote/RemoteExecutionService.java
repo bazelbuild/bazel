@@ -524,7 +524,6 @@ public class RemoteExecutionService {
                 toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                 scrubber,
                 context,
-                remotePathResolver,
                 blobPolicy);
       } catch (CredentialHelperException e) {
         throw createExecExceptionForCredentialHelperException(e);
@@ -804,12 +803,20 @@ public class RemoteExecutionService {
     // the build to abort and rewind, so there is no data race here. This allows us to avoid the
     // check until cache eviction happens.
     if (!knownMissingCasDigests.isEmpty()) {
-      var metadata =
-          result.getOrParseActionResultMetadata(
-              combinedCache,
-              digestUtil,
-              action.getRemoteActionExecutionContext(),
-              action.getRemotePathResolver());
+      ActionResultMetadata metadata;
+      try {
+        metadata =
+            result.getOrParseActionResultMetadata(
+                combinedCache,
+                digestUtil,
+                action.getRemoteActionExecutionContext(),
+                action.getRemotePathResolver());
+      } catch (BulkTransferException e) {
+        if (!e.allCausedByCacheNotFoundException()) {
+          throw e;
+        }
+        return null; // Handle dangling reference to lost Tree message as AC miss.
+      }
 
       // If we already know digests referenced by this AC is missing from remote cache, ignore it so
       // that we can fall back to execution. This could happen when the remote cache is an HTTP
@@ -2012,7 +2019,6 @@ public class RemoteExecutionService {
                     toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                     scrubber,
                     context,
-                    action.getRemotePathResolver(),
                     force
                         ? MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD
                         : MerkleTreeComputer.BlobPolicy.KEEP);
@@ -2024,8 +2030,7 @@ public class RemoteExecutionService {
               .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
           merkleTree,
           additionalInputs,
-          force,
-          action.getRemotePathResolver());
+          force);
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }

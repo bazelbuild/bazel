@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -46,6 +47,9 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
   private static final Label TRANSITIVE_CONFIG_TO_TRIGGER_SKIP =
       Label.parseCanonicalUnchecked("//command_line_option/fragment:test");
 
+  private static final ImmutableSet<Class<? extends FragmentOptions>> REQUIRED_FRAGMENTS =
+      ImmutableSet.of(CoreOptions.class, TestOptions.class);
+
   /**
    * Trimming transition which removes the test config fragment if --trim_test_configuration is on.
    *
@@ -68,7 +72,7 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return TestTrimmingLogic.REQUIRED_FRAGMENTS;
+      return REQUIRED_FRAGMENTS;
     }
 
     @Override

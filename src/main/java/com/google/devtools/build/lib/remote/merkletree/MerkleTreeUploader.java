@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.remote.merkletree;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
 /** The basic cache operations needed to upload a {@link MerkleTree} and its associated blobs. */
@@ -27,12 +27,17 @@ public interface MerkleTreeUploader {
   ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, byte[] data, boolean force);
 
-  /** Uploads a local file to the remote cache. */
+  /**
+   * Uploads a local file to the remote cache.
+   *
+   * @param execPath the exec path of the action input backing the file, which is used to report it
+   *     as a lost input if it is available neither locally nor remotely
+   */
   ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context,
-      RemotePathResolver remotePathResolver,
       Digest digest,
       Path path,
+      PathFragment execPath,
       boolean force);
 
   /** Uploads in-memory content provided by a {@link DeterministicWriter} to the remote cache. */
@@ -50,9 +55,6 @@ public interface MerkleTreeUploader {
    *     uploaded before.
    */
   void ensureInputsPresent(
-      RemoteActionExecutionContext context,
-      MerkleTree.Uploadable merkleTree,
-      boolean force,
-      RemotePathResolver remotePathResolver)
+      RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force)
       throws IOException, InterruptedException;
 }

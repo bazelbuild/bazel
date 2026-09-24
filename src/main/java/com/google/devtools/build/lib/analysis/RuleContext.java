@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -103,7 +102,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -155,10 +153,11 @@ public class RuleContext extends TargetContext
     public abstract boolean packageUnderPrototypes(PackageIdentifier packageIdentifier);
 
     /**
-     * Returns whether the given package is allowed to depend on prototype packages. (If the given
-     * package is itself an experimental or prototype package, this method's result is ignored.)
+     * Returns whether the given package is allowed to load Starlark files from prototype packages.
+     * (If the given package is itself an experimental or prototype package, this method's result is
+     * ignored.)
      */
-    default boolean mayDependOnPrototypes(PackageIdentifier packageIdentifier) {
+    default boolean mayLoadPrototypes(PackageIdentifier packageIdentifier) {
       return false;
     }
   }
@@ -383,13 +382,6 @@ public class RuleContext extends TargetContext
   @Nullable
   public Aspect getMainAspect() {
     return null;
-  }
-
-  /**
-   * Returns a rule class name suitable for log messages, including an aspect name if applicable.
-   */
-  public String getRuleClassNameForLogging() {
-    return ruleClassNameForLogging;
   }
 
   /** Returns the workspace name for the rule. */
@@ -1406,6 +1398,7 @@ public class RuleContext extends TargetContext
     private final ImmutableList<Aspect> aspects;
     private final BuildConfigurationValue configuration;
     private final RuleErrorConsumer reporter;
+    private final String ruleClassNameForLogging;
     private ConfiguredRuleClassProvider ruleClassProvider;
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ActionLookupKey actionOwnerSymbol;
@@ -1443,12 +1436,13 @@ public class RuleContext extends TargetContext
       this.target = Preconditions.checkNotNull(target);
       this.aspects = Preconditions.checkNotNull(aspects);
       this.configuration = Preconditions.checkNotNull(configuration);
+      this.ruleClassNameForLogging = computeRuleClassNameForLogging(target, aspects);
       if (configuration.allowAnalysisFailures()) {
         reporter = new SuppressingErrorReporter();
       } else {
         reporter =
             new ErrorReporter(
-                env, target.getAssociatedRule(), configuration, getRuleClassNameForLogging());
+                env, target.getAssociatedRule(), configuration, ruleClassNameForLogging);
       }
     }
 
@@ -1888,14 +1882,23 @@ public class RuleContext extends TargetContext
      * Returns a rule class name suitable for log messages, including an aspect name if applicable.
      */
     String getRuleClassNameForLogging() {
-      if (aspects.isEmpty()) {
-        return target.getAssociatedRule().getRuleClass();
-      }
+      return ruleClassNameForLogging;
+    }
 
-      return Joiner.on(",")
-              .join(aspects.stream().map(Aspect::getDescriptor).collect(Collectors.toList()))
-          + " aspect on "
-          + target.getAssociatedRule().getRuleClass();
+    private static String computeRuleClassNameForLogging(
+        Target target, ImmutableList<Aspect> aspects) {
+      String ruleClass = target.getAssociatedRule().getRuleClass();
+      if (aspects.isEmpty()) {
+        return ruleClass;
+      }
+      StringBuilder sb = new StringBuilder();
+      for (int i = 0; i < aspects.size(); i++) {
+        if (i > 0) {
+          sb.append(',');
+        }
+        sb.append(aspects.get(i).getDescriptor());
+      }
+      return sb.append(" aspect on ").append(ruleClass).toString();
     }
 
     RuleErrorConsumer getErrorConsumer() {

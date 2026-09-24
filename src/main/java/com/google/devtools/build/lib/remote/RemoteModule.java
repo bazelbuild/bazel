@@ -185,7 +185,7 @@ public final class RemoteModule extends BlazeModule {
   private final RepositoryRemoteHelpersFactoryDelegate repositoryRemoteHelpersFactoryDelegate =
       new RepositoryRemoteHelpersFactoryDelegate();
 
-  private Downloader remoteDownloader;
+  @Nullable private GrpcRemoteDownloader remoteDownloader;
 
   private CredentialModule credentialModule;
 
@@ -1137,11 +1137,20 @@ public final class RemoteModule extends BlazeModule {
     // Some cleanup tasks must wait until every other BlazeModule's afterCommand() has run, as
     // otherwise we might interfere with asynchronous remote downloads that are in progress.
     RemoteActionContextProvider actionContextProviderRef = actionContextProvider;
+    GrpcRemoteDownloader remoteDownloaderRef = remoteDownloader;
     TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
     AsynchronousMessageOutputStream<LogEntry> rpcLogFileRef = rpcLogFile;
-    if (actionContextProviderRef != null || tempPathGeneratorRef != null || rpcLogFileRef != null) {
+    if (actionContextProviderRef != null
+        || remoteDownloaderRef != null
+        || tempPathGeneratorRef != null
+        || rpcLogFileRef != null) {
       blockWaitingModule.submit(
-          () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
+          () ->
+              afterCommandTask(
+                  actionContextProviderRef,
+                  remoteDownloaderRef,
+                  tempPathGeneratorRef,
+                  rpcLogFileRef));
     }
 
     lastRemoteOutputChecker = remoteOutputChecker;
@@ -1166,11 +1175,16 @@ public final class RemoteModule extends BlazeModule {
 
   private static void afterCommandTask(
       @Nullable RemoteActionContextProvider actionContextProvider,
+      @Nullable GrpcRemoteDownloader remoteDownloader,
       @Nullable TempPathGenerator tempPathGenerator,
       @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile)
       throws AbruptExitException {
     if (actionContextProvider != null) {
       actionContextProvider.afterCommand();
+    }
+
+    if (remoteDownloader != null) {
+      remoteDownloader.close();
     }
 
     if (tempPathGenerator != null) {
