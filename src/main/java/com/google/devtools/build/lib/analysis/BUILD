@@ -2024,6 +2024,7 @@ java_library(
         "test/TestShardingStrategy.java",
         "test/TestShardingStrategyForced.java",
         "test/TestShardingStrategyNotForced.java",
+        "test/TestShardingStrategyOnly.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
