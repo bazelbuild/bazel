@@ -320,7 +320,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:module_codec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",

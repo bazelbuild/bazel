@@ -348,7 +348,7 @@ java_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
     ],
 )
 

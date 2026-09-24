@@ -741,7 +741,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:prerequisite_package_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_options",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
