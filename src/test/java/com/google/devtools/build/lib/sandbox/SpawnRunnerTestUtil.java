@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Preconditions;
@@ -127,7 +128,7 @@ public final class SpawnRunnerTestUtil {
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
         PathFragment baseDirectory, boolean willAccessRepeatedly) {
-      TreeMap<PathFragment, ActionInput> inputMapping = new TreeMap<>();
+      TreeMap<PathFragment, ActionInput> inputMapping = new TreeMap<>(HIERARCHICAL_COMPARATOR);
       for (ActionInput actionInput : spawn.getInputFiles().toList()) {
         inputMapping.put(baseDirectory.getRelative(actionInput.getExecPath()), actionInput);
       }
