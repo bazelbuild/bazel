@@ -1127,7 +1127,6 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
-        "//third_party/java/guava:concurrent",
         "//third_party/java/guava:hash",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",
@@ -1627,6 +1626,7 @@ java_test(
         "//third_party/java/guava:collect",
         "//third_party/java/guava:testing",
         "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

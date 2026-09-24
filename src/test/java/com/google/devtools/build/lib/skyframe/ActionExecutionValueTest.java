@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -39,6 +42,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
+import java.time.Instant;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -143,6 +147,16 @@ public final class ActionExecutionValueTest {
     new SerializationTester(
             // Single output file
             createWithArtifactData(ImmutableMap.of(output("output1"), VALUE_1_REMOTE)),
+            // Remote file with materialization data
+            createWithArtifactData(
+                ImmutableMap.of(
+                    output("output_remote_mat"),
+                    FileArtifactValue.createForRemoteFileWithMaterializationData(
+                        new byte[] {1, 2, 3},
+                        /* size= */ 10,
+                        /* locationIndex= */ 1,
+                        /* expirationTime= */ Instant.ofEpochMilli(123456789L),
+                        /* inMemoryOutput= */ false))),
             // Fileset
             createWithFilesetOutput(
                 FilesetOutputTree.create(
@@ -185,6 +199,49 @@ public final class ActionExecutionValueTest {
         .addDependency(
             RootCodecDependencies.class, new RootCodecDependencies(OUTPUT_ROOT.getRoot()))
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .runTests();
+  }
+
+  @Test
+  public void remoteFileArtifactValueWithMaterializationData_serializationIgnoresEphemeralFields()
+      throws Exception {
+    FileArtifactValue value1 =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            new byte[] {1, 2, 3},
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ Instant.ofEpochMilli(123456789L),
+            /* inMemoryOutput= */ false);
+
+    FileArtifactValue value2 =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            new byte[] {1, 2, 3},
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ Instant.ofEpochMilli(987654321L),
+            /* inMemoryOutput= */ false);
+    value2.setContentsProxy(new FileContentsProxy(10L, 20L, 30L));
+    value2.setMaterializedAsToplevelOutput(true);
+
+    ActionExecutionValue aev1 = createWithArtifactData(ImmutableMap.of(output("output1"), value1));
+    ActionExecutionValue aev2 = createWithArtifactData(ImmutableMap.of(output("output1"), value2));
+
+    new SerializationTester(aev1, aev2)
+        .addDependency(FileSystem.class, OUTPUT_ROOT.getRoot().getFileSystem())
+        .addDependency(
+            PackagePathCodecDependencies.class, () -> ImmutableList.of(OUTPUT_ROOT.getRoot()))
+        .addDependency(
+            RootCodecDependencies.class, new RootCodecDependencies(OUTPUT_ROOT.getRoot()))
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .setVerificationFunction(
+            (original, deserialized) -> {
+              ActionExecutionValue deserializedValue = (ActionExecutionValue) deserialized;
+              FileArtifactValue metadata =
+                  deserializedValue.getExistingFileArtifactValue(output("output1"));
+              assertThat(metadata.getExpirationTime()).isNull();
+              assertThat(metadata.getContentsProxy()).isNull();
+              assertThat(metadata.wasMaterializedAsToplevelOutput()).isFalse();
+            })
         .runTests();
   }
 
