@@ -15,6 +15,7 @@
 package com.google.devtools.build.zip;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparing;
 
 import com.google.devtools.build.zip.ZipFileEntry.Compression;
 import java.io.ByteArrayOutputStream;
@@ -45,14 +46,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 public final class PackageZipper {
   private PackageZipper() {}
 
-  private static final class PackageEntry implements Comparable<PackageEntry> {
-    final String name;
-    final byte[] data;
-
-    PackageEntry(String name, byte[] data) {
-      this.name = name;
-      this.data = data;
-    }
+  private record PackageEntry(String name, byte[] data) implements Comparable<PackageEntry> {
 
     @Override
     public int compareTo(PackageEntry other) {
@@ -118,7 +112,7 @@ public final class PackageZipper {
               continue;
             }
             try (InputStream in = zipFile.getInputStream(ze)) {
-              byte[] data = readAllBytes(in);
+              byte[] data = in.readAllBytes();
               entries.add(new PackageEntry("embedded_tools/" + ze.getName(), data));
             }
           }
@@ -133,7 +127,7 @@ public final class PackageZipper {
             if (te.isDirectory()) {
               continue;
             }
-            byte[] data = readAllBytes(tarIn);
+            byte[] data = tarIn.readAllBytes();
             entries.add(new PackageEntry(te.getName(), data));
           }
         }
@@ -144,6 +138,9 @@ public final class PackageZipper {
 
     Collections.sort(entries);
 
+    byte[] serverJarBytes =
+        fastCompression ? Files.readAllBytes(serverJar) : makeUncompressedServerJar(serverJar);
+
     if (outputPath.getParent() != null) {
       Files.createDirectories(outputPath.getParent());
     }
@@ -152,7 +149,7 @@ public final class PackageZipper {
       ZipWriter writer = new ZipWriter(fos, UTF_8, true);
 
       // 1. Mandatory first entry: A-server.jar (for Bazel client JVM bootstrapper)
-      writeBytesEntry(writer, "A-server.jar", Files.readAllBytes(serverJar), compressionLevel);
+      writeBytesEntry(writer, "A-server.jar", serverJarBytes, compressionLevel);
 
       // 2. Sorted intermediate package entries (including build-label.txt, embedded_tools/,
       // platforms/, tools, binaries)
@@ -174,12 +171,24 @@ public final class PackageZipper {
     }
   }
 
-  private static byte[] readAllBytes(InputStream in) throws IOException {
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    byte[] buffer = new byte[65536];
-    int n;
-    while ((n = in.read(buffer)) > 0) {
-      out.write(buffer, 0, n);
+  /**
+   * Repackages the server JAR with uncompressed entries so that compressing it as a single entry in
+   * the outer archive can exploit redundancy across class files.
+   */
+  private static byte[] makeUncompressedServerJar(Path serverJar) throws IOException {
+    var out = new ByteArrayOutputStream();
+    try (var zipFile = new ZipFile(serverJar.toFile(), UTF_8);
+        var writer = new ZipWriter(out, UTF_8, true)) {
+      var entries =
+          Collections.list(zipFile.entries()).stream()
+              .filter(entry -> !entry.isDirectory())
+              .sorted(comparing(ZipEntry::getName))
+              .toList();
+      for (var entry : entries) {
+        try (var in = zipFile.getInputStream(entry)) {
+          writeStoredBytesEntry(writer, entry.getName(), in.readAllBytes());
+        }
+      }
     }
     return out.toByteArray();
   }
@@ -217,17 +226,35 @@ public final class PackageZipper {
     writer.closeEntry();
   }
 
+  private static void writeStoredBytesEntry(ZipWriter writer, String entryName, byte[] rawBytes)
+      throws IOException {
+    var crc32 = new CRC32();
+    crc32.update(rawBytes);
+
+    var entry = new ZipFileEntry(entryName);
+    entry.setTime(ZipUtil.DOS_EPOCH);
+    entry.setVersion((short) 20);
+    entry.setMethod(Compression.STORED);
+    entry.setSize(rawBytes.length);
+    entry.setCompressedSize(rawBytes.length);
+    entry.setCrc(crc32.getValue());
+
+    writer.putNextEntry(entry);
+    writer.write(rawBytes);
+    writer.closeEntry();
+  }
+
   private static byte[] deflate(byte[] data, int compressionLevel) {
-    Deflater deflater = new Deflater(compressionLevel, true);
-    deflater.setInput(data);
-    deflater.finish();
-    ByteArrayOutputStream out = new ByteArrayOutputStream(data.length);
-    byte[] buf = new byte[65536];
-    while (!deflater.finished()) {
-      int count = deflater.deflate(buf);
-      out.write(buf, 0, count);
+    try (var deflater = new Deflater(compressionLevel, true)) {
+      deflater.setInput(data);
+      deflater.finish();
+      var out = new ByteArrayOutputStream(data.length);
+      byte[] buf = new byte[65536];
+      while (!deflater.finished()) {
+        int count = deflater.deflate(buf);
+        out.write(buf, 0, count);
+      }
+      return out.toByteArray();
     }
-    deflater.end();
-    return out.toByteArray();
   }
 }
