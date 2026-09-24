@@ -20,16 +20,18 @@ import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -48,20 +50,31 @@ public final class PathCanonicalizerTest {
 
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
-  private final PathCanonicalizer canonicalizer = new PathCanonicalizer(this::resolve);
+  private final PathCanonicalizer canonicalizer =
+      new PathCanonicalizer(
+          new PathCanonicalizer.Resolver() {
+            @Override
+            @Nullable
+            public FileStatus statIfFound(PathFragment path) throws IOException {
+              return fs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
+            }
 
-  private @Nullable PathFragment resolve(PathFragment pathFragment) throws IOException {
-    Path path = fs.getPath(pathFragment);
-    try {
-      return path.readSymbolicLink();
-    } catch (NotASymlinkException e) {
-      return null;
-    }
-  }
+            @Override
+            public PathFragment readSymbolicLink(PathFragment path) throws IOException {
+              return fs.getPath(path).readSymbolicLink();
+            }
+
+            @Override
+            public boolean cacheDirectory(FileStatus status) {
+              return true;
+            }
+          });
 
   @Test
   public void testRoot() throws Exception {
     assertSuccess("/", "/");
+    assertThat(canonicalizer.resolveSymbolicLinksForParent(pathFragment("/")))
+        .isEqualTo(pathFragment("/"));
   }
 
   @Test
@@ -266,13 +279,96 @@ public final class PathCanonicalizerTest {
   }
 
   @Test
+  public void testIntermediatePathIsNonDirectory() throws Exception {
+    createNonSymlink("/a/file");
+    createSymlink("/a/link", "file");
+    assertFailure(FileNotFoundException.class, "/a/file/child");
+    assertFailure(FileNotFoundException.class, "/a/link/child");
+
+    deleteTree("/a/file");
+    createNonSymlink("/a/file/child");
+    assertSuccess("/a/file/child", "/a/file/child");
+  }
+
+  @Test
+  public void testParentResolutionDoesNotFollowFinalSymlink() throws Exception {
+    createSymlink("/a/dir/leaf", "/missing");
+    createSymlink("/a/link", "dir");
+
+    assertThat(canonicalizer.resolveSymbolicLinksForParent(pathFragment("/a/link/leaf")))
+        .isEqualTo(pathFragment("/a/dir/leaf"));
+  }
+
+  @Test
+  public void testParentResolutionRequiresDirectory() throws Exception {
+    createNonSymlink("/a/file");
+    createSymlink("/a/link", "file");
+
+    assertThrows(
+        FileNotFoundException.class,
+        () -> canonicalizer.resolveSymbolicLinksForParent(pathFragment("/a/link/child")));
+    assertThrows(
+        FileNotFoundException.class,
+        () -> canonicalizer.resolveSymbolicLinksForParent(pathFragment("/a/file/child")));
+  }
+
+  @Test
   public void testEmpty() throws Exception {
     assertFailure(IllegalArgumentException.class, "");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> canonicalizer.resolveSymbolicLinksForParent(pathFragment("")));
   }
 
   @Test
   public void testNonAbsolute() throws Exception {
     assertFailure(IllegalArgumentException.class, "a/b");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> canonicalizer.resolveSymbolicLinksForParent(pathFragment("a/b")));
+  }
+
+  @Test
+  public void testPhysicalDirectoryMaterializedOverVirtualDirectoryRetainsChildren() throws Exception {
+    createNonSymlink("/backing/child");
+    FileStatus virtualDirectory = fs.getPath(pathFragment("/backing")).stat(Symlinks.NOFOLLOW);
+    FileStatus child = fs.getPath(pathFragment("/backing/child")).stat(Symlinks.NOFOLLOW);
+    AtomicInteger childProbes = new AtomicInteger();
+    PathFragment directoryPath = pathFragment("/virtual");
+    PathFragment childPath = pathFragment("/virtual/child");
+    PathCanonicalizer virtualCanonicalizer =
+        new PathCanonicalizer(
+            new PathCanonicalizer.Resolver() {
+              @Override
+              @Nullable
+              public FileStatus statIfFound(PathFragment path) throws IOException {
+                if (path.equals(directoryPath)) {
+                  FileStatus local = fs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
+                  return local == null ? virtualDirectory : local;
+                }
+                if (path.equals(childPath)) {
+                  childProbes.incrementAndGet();
+                  return child;
+                }
+                return fs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
+              }
+
+              @Override
+              public PathFragment readSymbolicLink(PathFragment path) throws IOException {
+                return fs.getPath(path).readSymbolicLink();
+              }
+
+              @Override
+              public boolean cacheDirectory(FileStatus status) {
+                return status != virtualDirectory;
+              }
+            });
+
+    assertThat(virtualCanonicalizer.resolveSymbolicLinks(childPath)).isEqualTo(childPath);
+    fs.getPath(directoryPath).createDirectory();
+    assertThat(virtualCanonicalizer.resolveSymbolicLinks(childPath)).isEqualTo(childPath);
+    assertThat(virtualCanonicalizer.resolveSymbolicLinks(childPath)).isEqualTo(childPath);
+    assertThat(childProbes.get()).isEqualTo(1);
   }
 
   private void createSymlink(String linkPathStr, String targetPathStr) throws Exception {

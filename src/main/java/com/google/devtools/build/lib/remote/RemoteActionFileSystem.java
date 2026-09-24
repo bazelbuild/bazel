@@ -20,9 +20,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
+import static com.google.devtools.build.lib.vfs.FileSystem.ERR_NOT_A_DIRECTORY;
+import static com.google.devtools.build.lib.vfs.FileSystem.ERR_NO_SUCH_FILE_OR_DIR;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,8 +33,10 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -49,6 +54,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
@@ -104,11 +110,13 @@ import javax.annotation.Nullable;
  * sources, such as the same path existing in multiple underlying sources with different type or
  * contents.
  */
-public class RemoteActionFileSystem extends FileSystem implements PathCanonicalizer.Resolver {
+public class RemoteActionFileSystem extends FileSystem {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final InputMetadataProvider inputArtifactData;
   private final TreeArtifactDirectoryCache inputTreeArtifactDirectoryCache;
+  private final InputDirectoryIndex inputDirectories;
+  private final ImmutableSet<PathFragment> outputFiles;
   private final PathCanonicalizer pathCanonicalizer;
   private final RemoteActionInputFetcher inputFetcher;
   private final FileSystem localFs;
@@ -136,48 +144,50 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     IN_MEMORY_ONLY,
   }
 
-  private static final FileStatus DIRECTORY_FILE_STATUS =
-      new FileStatus() {
-        @Override
-        public boolean isFile() {
-          return false;
-        }
+  private static final FileStatus DIRECTORY_FILE_STATUS = new DirectoryFileStatus();
+  private static final FileStatus IMPLIED_INPUT_DIRECTORY_STATUS = new DirectoryFileStatus();
 
-        @Override
-        public boolean isDirectory() {
-          return true;
-        }
+  private static final class DirectoryFileStatus implements FileStatus {
+    @Override
+    public boolean isFile() {
+      return false;
+    }
 
-        @Override
-        public boolean isSymbolicLink() {
-          return false;
-        }
+    @Override
+    public boolean isDirectory() {
+      return true;
+    }
 
-        @Override
-        public boolean isSpecialFile() {
-          return false;
-        }
+    @Override
+    public boolean isSymbolicLink() {
+      return false;
+    }
 
-        @Override
-        public long getSize() {
-          return 0;
-        }
+    @Override
+    public boolean isSpecialFile() {
+      return false;
+    }
 
-        @Override
-        public long getLastModifiedTime() {
-          throw new UnsupportedOperationException();
-        }
+    @Override
+    public long getSize() {
+      return 0;
+    }
 
-        @Override
-        public long getLastChangeTime() {
-          throw new UnsupportedOperationException();
-        }
+    @Override
+    public long getLastModifiedTime() {
+      throw new UnsupportedOperationException();
+    }
 
-        @Override
-        public long getNodeId() {
-          throw new UnsupportedOperationException();
-        }
-      };
+    @Override
+    public long getLastChangeTime() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long getNodeId() {
+      throw new UnsupportedOperationException();
+    }
+  }
 
   /**
    * Caches the contents of intermediate subdirectories of tree artifact inputs, to speed up {@link
@@ -241,17 +251,61 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       FileSystem localFs,
       PathFragment execRootFragment,
       String relativeOutputPath,
+      ActionInputMap checkedInputs,
+      RemoteActionInputFetcher inputFetcher) {
+    this(
+        localFs,
+        execRootFragment,
+        relativeOutputPath,
+        checkedInputs,
+        checkedInputs,
+        ImmutableList.of(),
+        inputFetcher);
+  }
+
+  public RemoteActionFileSystem(
+      FileSystem localFs,
+      PathFragment execRootFragment,
+      String relativeOutputPath,
       InputMetadataProvider inputArtifactData,
+      ActionInputMap checkedInputs,
+      Iterable<Artifact> outputs,
       RemoteActionInputFetcher inputFetcher) {
     super(localFs.getDigestFunction());
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
-    this.pathCanonicalizer = new PathCanonicalizer(this);
+    this.inputDirectories = new InputDirectoryIndex(checkNotNull(checkedInputs, "checkedInputs"));
+    ImmutableSet.Builder<PathFragment> outputFiles = ImmutableSet.builder();
+    for (Artifact output : outputs) {
+      if (!output.isDirectory() && !output.isRunfilesTree()) {
+        outputFiles.add(execRoot.getRelative(output.getExecPath()));
+      }
+    }
+    this.outputFiles = outputFiles.build();
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.localFs = checkNotNull(localFs, "localFs");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
+    this.pathCanonicalizer =
+        new PathCanonicalizer(
+            new PathCanonicalizer.Resolver() {
+              @Override
+              @Nullable
+              public FileStatus statIfFound(PathFragment path) throws IOException {
+                return statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
+              }
+
+              @Override
+              public PathFragment readSymbolicLink(PathFragment path) throws IOException {
+                return readSymbolicLinkInternal(path);
+              }
+
+              @Override
+              public boolean cacheDirectory(FileStatus status) {
+                return status != IMPLIED_INPUT_DIRECTORY_STATUS;
+              }
+            });
   }
 
   @Override
@@ -304,6 +358,8 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   public void updateContext(ActionExecutionMetadata action) {
     this.action = action;
+    // Input discovery may have added checked inputs since the previous phase.
+    inputDirectories.clear();
   }
 
   void injectRemoteFile(
@@ -345,20 +401,11 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     return stat.isSymbolicLink() ? readSymbolicLinkInternal(path) : null;
   }
 
-  // Like resolveSymbolicLinks(), except that only the parent path is canonicalized.
-  private PathFragment resolveSymbolicLinksForParent(PathFragment path) throws IOException {
-    PathFragment parentPath = path.getParentDirectory();
-    if (parentPath != null) {
-      return resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
-    }
-    return path;
-  }
-
   @Override
   public boolean delete(PathFragment path) throws IOException {
     PathFragment originalPath = path;
     try {
-      path = resolveSymbolicLinksForParent(path);
+      path = pathCanonicalizer.resolveSymbolicLinksForParent(path);
     } catch (FileNotFoundException ignored) {
       // Failure to delete a nonexistent path is not an error.
       pathCanonicalizer.clearPrefix(originalPath);
@@ -566,7 +613,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    return readSymbolicLinkInternal(resolveSymbolicLinksForParent(path));
+    return readSymbolicLinkInternal(pathCanonicalizer.resolveSymbolicLinksForParent(path));
   }
 
   // Like readSymbolicLink(), except that the parent path is assumed to be already canonical.
@@ -596,14 +643,21 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       }
     }
 
-    return localFs.getPath(path).readSymbolicLink();
+    try {
+      return localFs.getPath(path).readSymbolicLink();
+    } catch (FileNotFoundException e) {
+      if (isImpliedInputDirectory(path)) {
+        throw new NotASymlinkException(path);
+      }
+      throw e;
+    }
   }
 
   @Override
   public void createSymbolicLink(
       PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
-    linkPath = resolveSymbolicLinksForParent(linkPath);
+    linkPath = pathCanonicalizer.resolveSymbolicLinksForParent(linkPath);
 
     if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment, type);
@@ -659,10 +713,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       if (followMode == FollowMode.FOLLOW_ALL) {
         path = resolveSymbolicLinks(path).asFragment();
       } else if (followMode == FollowMode.FOLLOW_PARENT) {
-        PathFragment parent = path.getParentDirectory();
-        if (parent != null) {
-          path = resolveSymbolicLinks(parent).asFragment().getChild(path.getBaseName());
-        }
+        path = pathCanonicalizer.resolveSymbolicLinksForParent(path);
       }
     } catch (FileNotFoundException e) {
       return null;
@@ -688,10 +739,26 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     }
 
     if (statSources == StatSources.ALL) {
-      return localFs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
+      stat = localFs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
+      if (stat != null) {
+        return stat;
+      }
+      if (isImpliedInputDirectory(path)) {
+        return IMPLIED_INPUT_DIRECTORY_STATUS;
+      }
     }
 
     return null;
+  }
+
+  private boolean isImpliedInputDirectory(PathFragment path) {
+    return canContainInputs(path) && inputDirectories.isDirectory(path.relativeTo(execRoot));
+  }
+
+  private boolean canContainInputs(PathFragment path) {
+    // An output file cannot be an input's parent. Cache checks routinely stat or readlink absent
+    // remote outputs, so use this information to avoid building the input directory index.
+    return path.startsWith(execRoot) && !outputFiles.contains(path);
   }
 
   private static FileStatusWithMetadata statFromMetadata(FileArtifactValue m) {
@@ -759,8 +826,8 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public void renameTo(PathFragment srcPath, PathFragment dstPath) throws IOException {
-    srcPath = resolveSymbolicLinksForParent(srcPath);
-    dstPath = resolveSymbolicLinksForParent(dstPath);
+    srcPath = pathCanonicalizer.resolveSymbolicLinksForParent(srcPath);
+    dstPath = pathCanonicalizer.resolveSymbolicLinksForParent(dstPath);
 
     checkArgument(isOutput(srcPath), "srcPath must be an output path");
     checkArgument(isOutput(dstPath), "dstPath must be an output path");
@@ -850,7 +917,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
           }
           exists = true;
         } catch (FileNotFoundException ignored) {
-          // Will be rethrown below if directory does not exist in any of the sources.
+          // The directory may exist in another source.
         }
       }
 
@@ -861,12 +928,33 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
         }
         exists = true;
       } catch (FileNotFoundException ignored) {
-        // Will be rethrown below if directory does not exist in any of the sources.
+        // The directory may exist in another source.
+      }
+
+      if (canContainInputs(path)) {
+        for (PathFragment child : inputDirectories.children(path.relativeTo(execRoot))) {
+          exists = true;
+          String name = child.getBaseName();
+          FileStatus status =
+              statInternal(execRoot.getRelative(child), FollowMode.FOLLOW_NONE, StatSources.ALL);
+          if (status != null) {
+            entries.put(
+                name,
+                maybeFollowSymlinkForDirent(
+                    path, new Dirent(name, direntFromStat(status)), followSymlinks));
+          }
+        }
       }
     }
 
     if (!exists) {
-      throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
+      FileStatus status = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
+      if (status == null) {
+        throw new FileNotFoundException(path.getPathString() + ERR_NO_SUCH_FILE_OR_DIR);
+      }
+      if (!status.isDirectory()) {
+        throw new IOException(path.getPathString() + ERR_NOT_A_DIRECTORY);
+      }
     }
 
     // Sort entries to get a deterministic order.

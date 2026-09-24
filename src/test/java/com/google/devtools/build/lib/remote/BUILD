@@ -77,6 +77,7 @@ java_library(
             "DiskCacheIntegrationTest.java",
             "RemoteCircuitBreakerRecoveryIntegrationTest.java",
             "RemoteModuleIntegrationTest.java",
+            "RemoteInputDirectoryBenchmark.java",
         ],
     ),
     deps = [
@@ -91,6 +92,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
@@ -191,6 +193,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/runtime:repository_remote_executor",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_input_metadata_provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/testing/vfs:spied_filesystem",
@@ -320,6 +323,26 @@ java_opt_binary(
         "//third_party/java/mockito",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_opt_binary(
+    name = "RemoteInputDirectoryBenchmark",
+    srcs = ["RemoteInputDirectoryBenchmark.java"],
+    main_class = "org.openjdk.jmh.Main",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_action_file_system",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_action_input_fetcher",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//third_party/java/jmh",
+        "//third_party/java/mockito",
     ],
 )
 

@@ -224,6 +224,34 @@ public interface OutputService {
   }
 
   /**
+   * Like {@link #createActionFileSystem(FileSystem, PathFragment, String, ImmutableList,
+   * InputMetadataProvider, Iterable, boolean)}, with the checked inputs available for enumeration.
+   *
+   * @param checkedInputs the checked-input part of {@code inputArtifactData}; input discovery may
+   *     add entries between filesystem uses, followed by {@link #updateActionFileSystemContext}
+   *     before the next use. The map must not be modified concurrently with filesystem operations.
+   */
+  @Nullable
+  default FileSystem createActionFileSystem(
+      FileSystem delegateFileSystem,
+      PathFragment execRootFragment,
+      String relativeOutputPath,
+      ImmutableList<Root> sourceRoots,
+      InputMetadataProvider inputArtifactData,
+      ActionInputMap checkedInputs,
+      Iterable<Artifact> outputArtifacts,
+      boolean rewindingEnabled) {
+    return createActionFileSystem(
+        delegateFileSystem,
+        execRootFragment,
+        relativeOutputPath,
+        sourceRoots,
+        inputArtifactData,
+        outputArtifacts,
+        rewindingEnabled);
+  }
+
+  /**
    * Updates the context used by the filesystem returned by {@link #createActionFileSystem}.
    *
    * <p>Should be called as context changes throughout action execution.

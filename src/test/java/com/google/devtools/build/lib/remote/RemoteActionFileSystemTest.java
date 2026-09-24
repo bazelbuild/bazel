@@ -47,8 +47,11 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
+import com.google.devtools.build.lib.skyframe.ActionInputMetadataProvider;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -111,7 +114,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     doReturn(DUMMY_REMOTE_OUTPUT_CHECKER).when(inputFetcher).getRemoteOutputChecker();
     RemoteActionFileSystem remoteActionFileSystem =
         new RemoteActionFileSystem(
-            fs, execRoot.asFragment(), RELATIVE_OUTPUT_PATH, inputs, inputFetcher);
+            fs, execRoot.asFragment(), RELATIVE_OUTPUT_PATH, inputs, inputs, outputs, inputFetcher);
     remoteActionFileSystem.updateContext(mock(ActionExecutionMetadata.class));
     remoteActionFileSystem.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
     return remoteActionFileSystem;
@@ -222,6 +225,200 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void stat_remoteInputWithMissingParents(@TestParameter boolean followSymlinks)
+      throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createRemoteArtifact("missing/dir/file", "contents", inputs);
+    PathFragment path = artifact.getPath().asFragment();
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    FileStatus status = actionFs.stat(path, followSymlinks);
+    assertThat(status.isFile()).isTrue();
+    assertThat(((FileStatusWithDigest) status).getDigest()).isEqualTo(getDigest("contents"));
+  }
+
+  @Test
+  public void readSymbolicLink_impliedInputDirectory() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createRemoteArtifact("missing/dir/file", "contents", inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment parent = artifact.getPath().asFragment().getParentDirectory();
+
+    assertThrows(NotASymlinkException.class, () -> actionFs.readSymbolicLink(parent));
+  }
+
+  @Test
+  public void stat_runfilesOutputContainingInputManifest() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    createRemoteArtifact("app.runfiles/MANIFEST", "manifest", inputs);
+    Artifact runfiles = ActionsTestUtil.createRunfilesArtifact(outputRoot, "out/app.runfiles");
+    RemoteActionFileSystem actionFs = createActionFileSystem(inputs, ImmutableList.of(runfiles));
+
+    assertThat(actionFs.stat(runfiles.getPath().asFragment(), true).isDirectory()).isTrue();
+  }
+
+  @Test
+  public void readdir_mergesInputAndPhysicalChildrenWithoutNestedEntries() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(5);
+    createRemoteArtifact("virtual/a/nested/file", "contents", inputs);
+    createRemoteArtifact("virtual/a/nested/other", "contents", inputs);
+    createRemoteArtifact("virtual/a/sibling", "contents", inputs);
+    createRemoteArtifact("virtual/a-other", "contents", inputs);
+    createRemoteArtifact("virtual/b", "contents", inputs);
+    PathFragment parent = getOutputPath("virtual");
+    fs.getPath(parent).createDirectoryAndParents();
+    FileSystemUtils.writeContent(fs.getPath(parent.getChild("local")), UTF_8, "local");
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    assertReaddir(
+        actionFs,
+        parent,
+        /* followSymlinks= */ true,
+        new Dirent("a", Dirent.Type.DIRECTORY),
+        new Dirent("a-other", Dirent.Type.FILE),
+        new Dirent("b", Dirent.Type.FILE),
+        new Dirent("local", Dirent.Type.FILE));
+    assertReaddir(
+        actionFs,
+        parent.getChild("a"),
+        /* followSymlinks= */ true,
+        new Dirent("nested", Dirent.Type.DIRECTORY),
+        new Dirent("sibling", Dirent.Type.FILE));
+    assertReaddir(
+        actionFs,
+        parent.getRelative("a/nested"),
+        /* followSymlinks= */ true,
+        new Dirent("file", Dirent.Type.FILE),
+        new Dirent("other", Dirent.Type.FILE));
+  }
+
+  @Test
+  public void readdir_inputsAddedBetweenDiscoveryAndExecution() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(2);
+    createRemoteArtifact("dir/first", "contents", inputs);
+    PathFragment parent = getOutputPath("dir");
+    fs.getPath(parent).createDirectoryAndParents();
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    assertReaddir(
+        actionFs, parent, /* followSymlinks= */ true, new Dirent("first", Dirent.Type.FILE));
+
+    createRemoteArtifact("dir/second", "contents", inputs);
+    actionFs.updateContext(mock(ActionExecutionMetadata.class));
+
+    assertReaddir(
+        actionFs,
+        parent,
+        /* followSymlinks= */ true,
+        new Dirent("first", Dirent.Type.FILE),
+        new Dirent("second", Dirent.Type.FILE));
+  }
+
+  @Test
+  public void stat_inputParentAddedBetweenDiscoveryAndExecution() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(2);
+    createRemoteArtifact("first/file", "contents", inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    assertThat(actionFs.stat(getOutputPath("first"), true).isDirectory()).isTrue();
+
+    createRemoteArtifact("second/file", "contents", inputs);
+    actionFs.updateContext(mock(ActionExecutionMetadata.class));
+
+    assertThat(actionFs.stat(getOutputPath("second"), true).isDirectory()).isTrue();
+  }
+
+  @Test
+  public void stat_missingInputDoesNotImplyDirectory(@TestParameter boolean tree) throws Exception {
+    ActionInputMap inputs = new ActionInputMap(2);
+    createRemoteArtifact("optional/subdir-other/file", "contents", inputs);
+    if (tree) {
+      inputs.putTreeArtifact(
+          ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "optional/subdir/input"),
+          TreeArtifactValue.MISSING_TREE_ARTIFACT);
+    } else {
+      inputs.put(
+          ActionsTestUtil.createArtifact(outputRoot, "optional/subdir/input"),
+          FileArtifactValue.MISSING_FILE_MARKER);
+    }
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment parent = getOutputPath("optional/subdir");
+
+    assertThat(actionFs.statIfFound(parent, /* followSymlinks= */ true)).isNull();
+    assertThrows(FileNotFoundException.class, () -> actionFs.getDirectoryEntries(parent));
+  }
+
+  @Test
+  public void readdir_remoteTreeUnderMissingParent() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact tree =
+        createRemoteTreeArtifact("sparse/parent/tree", ImmutableMap.of("child", "contents"), inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment parent = tree.getPath().asFragment().getParentDirectory();
+
+    assertReaddir(
+        actionFs, parent, /* followSymlinks= */ true, new Dirent("tree", Dirent.Type.DIRECTORY));
+    assertReaddir(
+        actionFs,
+        tree.getPath().asFragment(),
+        /* followSymlinks= */ true,
+        new Dirent("child", Dirent.Type.FILE));
+  }
+
+  @Test
+  public void stat_filesetTargetUnderMissingParent() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact fileset = ActionsTestUtil.createFilesetArtifact(outputRoot, "out/fileset");
+    Artifact target = ActionsTestUtil.createArtifact(outputRoot, "fileset/remote/file");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            getDigest("contents"),
+            /* size= */ 8,
+            /* locationIndex= */ 0,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false);
+    inputs.putFileset(
+        fileset,
+        FilesetOutputTree.create(
+            ImmutableList.of(
+                new FilesetOutputSymlink(PathFragment.create("entry"), target, metadata)),
+            ImmutableMap.of()));
+    RemoteActionFileSystem actionFs =
+        new RemoteActionFileSystem(
+            fs,
+            execRoot.asFragment(),
+            RELATIVE_OUTPUT_PATH,
+            new ActionInputMetadataProvider(inputs),
+            inputs,
+            ImmutableList.of(),
+            inputFetcher);
+    assertThat(((FileStatusWithDigest) actionFs.stat(target.getPath().asFragment(), true)).getDigest())
+        .isEqualTo(metadata.getDigest());
+  }
+
+  @Test
+  public void stat_physicalPathsShadowAndThenRevealImpliedDirectory() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(2);
+    createRemoteArtifact("link/dir/file", "original", inputs);
+    createRemoteArtifact("target/dir/file", "target", inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment link = getOutputPath("link");
+    PathFragment path = getOutputPath("link/dir/file");
+
+    assertThat(((FileStatusWithDigest) actionFs.stat(path, true)).getDigest())
+        .isEqualTo(getDigest("original"));
+    fs.getPath(link).createSymbolicLink(getOutputPath("target"));
+    assertThat(((FileStatusWithDigest) actionFs.stat(path, true)).getDigest())
+        .isEqualTo(getDigest("target"));
+
+    fs.getPath(link).delete();
+    FileSystemUtils.writeContent(fs.getPath(link), UTF_8, "physical file");
+    assertThat(actionFs.statIfFound(path, true)).isNull();
+
+    fs.getPath(link).delete();
+    assertThat(((FileStatusWithDigest) actionFs.stat(path, true)).getDigest())
+        .isEqualTo(getDigest("original"));
+  }
+
+  @Test
   public void statAndExists_fromInputArtifactData_treeSubDir() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
     SpecialArtifact tree =
@@ -322,6 +519,29 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
 
     assertThrows(
         FileNotFoundException.class, () -> actionFs.stat(path, /* followSymlinks= */ true));
+  }
+
+  @Test
+  public void stat_remoteInputBelowLocalFile() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact child = createRemoteArtifact("blocked/child", "contents", inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    writeLocalFile(actionFs, getOutputPath("blocked"), "file");
+    PathFragment path = child.getPath().asFragment();
+
+    assertThat(actionFs.statIfFound(path, /* followSymlinks= */ false)).isNull();
+    // Check the cached parent as well.
+    assertThat(actionFs.statIfFound(path, /* followSymlinks= */ false)).isNull();
+  }
+
+  @Test
+  public void delete_childBelowLocalFile() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment parent = getOutputPath("blocked");
+    writeLocalFile(actionFs, parent, "file");
+
+    assertThat(actionFs.delete(parent.getChild("child"))).isFalse();
+    assertThat(actionFs.stat(parent, /* followSymlinks= */ true).isFile()).isTrue();
   }
 
   @Test
@@ -621,9 +841,13 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void readdir_fromInputArtifactData_emptyDir() throws Exception {
+  public void readdir_fromInputArtifactData_emptyDir(@TestParameter boolean remote) throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
-    createLocalTreeArtifact("tree", ImmutableMap.of(), inputs);
+    if (remote) {
+      createRemoteTreeArtifact("tree", ImmutableMap.of(), inputs);
+    } else {
+      createLocalTreeArtifact("tree", ImmutableMap.of(), inputs);
+    }
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
     assertReaddir(actionFs, getOutputPath("tree"), /* followSymlinks= */ true);
@@ -745,7 +969,10 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
 
     writeLocalFile(actionFs, path, "content");
 
-    assertReaddirThrows(actionFs, path, /* followSymlinks= */ true);
+    assertThat(assertThrows(IOException.class, () -> actionFs.readdir(path, true)))
+        .isNotInstanceOf(FileNotFoundException.class);
+    assertThat(assertThrows(IOException.class, () -> actionFs.getDirectoryEntries(path)))
+        .isNotInstanceOf(FileNotFoundException.class);
   }
 
   @Test
