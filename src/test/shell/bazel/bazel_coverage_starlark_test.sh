@@ -718,4 +718,98 @@ function test_starlark_rule_custom_baseline_coverage_with_split_postprocessing()
   do_test_starlark_rule_custom_baseline_coverage
 }
 
+# Sets up a Starlark test rule whose test always fails, wired to a custom
+# lcov_merger that records that it was invoked in the coverage output file.
+function setup_failing_test_with_custom_lcov_merger() {
+    add_rules_shell "MODULE.bazel"
+    cat <<EOF > lcov_merger.sh
+for var in "\$@"
+do
+    if [[ "\$var" == "--output_file="* ]]; then
+        path="\${var##--output_file=}"
+        mkdir -p "\$(dirname \$path)"
+        echo lcov_merger_called >> \$path
+        exit 0
+    fi
+done
+EOF
+chmod +x lcov_merger.sh
+
+    cat <<EOF > rules.bzl
+UNIX_FAILING_TEST = "exit 1"
+WINDOWS_FAILING_TEST = "@echo off\nexit /b 1"
+
+def _impl(ctx):
+    output = ctx.actions.declare_file(ctx.attr.name + ".bat")
+    ctx.actions.write(output, WINDOWS_FAILING_TEST if ${starlark_is_windows} else UNIX_FAILING_TEST, is_executable = True)
+    return [DefaultInfo(executable=output)]
+
+custom_test = rule(
+    implementation = _impl,
+    test = True,
+    attrs = {
+        "_lcov_merger": attr.label(default = ":lcov_merger", cfg = config.exec(exec_group = "test")),
+    },
+)
+EOF
+
+    cat <<EOF > BUILD
+load(":rules.bzl", "custom_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+    name = "lcov_merger",
+    srcs = ["lcov_merger.sh"],
+)
+custom_test(name = "foo_test")
+EOF
+}
+
+# Exercises BAZEL_COVERAGE_COLLECT_ON_TEST_FAILURE with the given extra flags,
+# which select the coverage post-processing path. Both paths have to be covered
+# explicitly because --experimental_split_coverage_postprocessing defaults to
+# true in Bazel but not in Blaze.
+function do_test_failing_test_coverage_collection() {
+    setup_failing_test_with_custom_lcov_merger
+    local coverage_file="bazel-testlogs/foo_test/coverage.dat"
+
+    # By default no coverage is collected for a failing test.
+    if bazel coverage --test_output=all "$@" //:foo_test > $TEST_log; then
+      fail "Coverage run succeeded but should have failed."
+    fi
+    expect_log "//:foo_test.*FAILED"
+    expect_log "Not collecting coverage for failed test"
+    [[ -e "$coverage_file" ]] || fail "Coverage output file does not exist!"
+    if grep -q "lcov_merger_called" "$coverage_file"; then
+      fail "lcov_merger should not have been run for a failing test by default."
+    fi
+
+    # With BAZEL_COVERAGE_COLLECT_ON_TEST_FAILURE set, the test must still be
+    # reported as failed...
+    if bazel coverage --test_output=all "$@" \
+        --test_env=BAZEL_COVERAGE_COLLECT_ON_TEST_FAILURE=1 \
+        //:foo_test > $TEST_log; then
+      fail "Coverage run succeeded but should have failed."
+    fi
+    expect_log "//:foo_test.*FAILED"
+    expect_log "Collecting coverage for failed test"
+    expect_not_log "Not collecting coverage for failed test"
+
+    # ...but coverage must have been collected anyway.
+    [[ -e "$coverage_file" ]] || fail "Coverage output file does not exist!"
+    grep -q "lcov_merger_called" "$coverage_file" \
+        || fail "lcov_merger was not run for the failing test."
+}
+
+function test_failing_test_coverage_collection() {
+    do_test_failing_test_coverage_collection \
+        --noexperimental_split_coverage_postprocessing
+}
+
+function test_failing_test_coverage_collection_with_split_postprocessing() {
+    do_test_failing_test_coverage_collection \
+        --experimental_fetch_all_coverage_outputs \
+        --experimental_split_coverage_postprocessing
+}
+
 run_suite "test tests"
