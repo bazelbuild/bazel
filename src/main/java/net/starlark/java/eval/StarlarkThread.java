@@ -191,10 +191,10 @@ public final class StarlarkThread {
     // location (loc) should not be overwritten.
     private boolean errorLocationSet;
 
-    // The locals of this frame, if fn is a StarlarkFunction, otherwise null.
-    // Set by StarlarkFunction.fastcall. Elements may be regular Starlark
-    // values, or wrapped in StarlarkFunction.Cells if shared with a nested function.
-    @Nullable Object[] locals;
+    // The locals of this Starlark function call, set by StarlarkFunction.ArgumentProcessor.call
+    // before executing the function body. Elements may be regular Starlark values, or wrapped in
+    // StarlarkFunction.Cells if shared with a nested function.
+    Object[] locals;
 
     private Frame(StarlarkThread thread, StarlarkCallable fn) {
       super(fn);
@@ -224,21 +224,19 @@ public final class StarlarkThread {
     public ImmutableMap<String, Object> getLocals() {
       // TODO(adonovan): provide a more efficient API.
       ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-      if (fn instanceof StarlarkFunction) {
-        for (int i = 0; i < locals.length; i++) {
-          Object local = locals[i];
-          if (local instanceof StarlarkFunction.Cell) {
-            local = ((StarlarkFunction.Cell) local).x;
+      for (int i = 0; i < locals.length; i++) {
+        Object local = locals[i];
+        if (local instanceof StarlarkFunction.Cell) {
+          local = ((StarlarkFunction.Cell) local).x;
+        }
+        if (local != null) {
+          Binding binding = ((StarlarkFunction) fn).rfn.getLocals().get(i);
+          if (binding instanceof ComprehensionBinding comprehensionBinding
+              && !comprehensionBinding.inScope(loc)) {
+            // Ignore comprehension variables when outside their comprehension's lexical scope.
+            continue;
           }
-          if (local != null) {
-            Binding binding = ((StarlarkFunction) fn).rfn.getLocals().get(i);
-            if (binding instanceof ComprehensionBinding comprehensionBinding
-                && !comprehensionBinding.inScope(loc)) {
-              // Ignore comprehension variables when outside their comprehension's lexical scope.
-              continue;
-            }
-            env.put(binding.getName(), local);
-          }
+          env.put(binding.getName(), local);
         }
       }
       // TODO(https://github.com/bazelbuild/bazel/issues/24931): comprehension variables are stored
