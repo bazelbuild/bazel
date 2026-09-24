@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
 import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP;
 import static java.util.Objects.requireNonNull;
@@ -53,7 +54,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
@@ -75,10 +76,8 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** A utility class that provides methods to parse errors from Skyframe EvaluationResults. */
@@ -133,13 +132,12 @@ public final class SkyframeErrorProcessor {
       @Nullable private DetailedExitCode executionDetailedExitCode = null;
       private ImmutableList<ActionLookupKey> aspectKeysForConflictReporting = ImmutableList.of();
 
-      void aggregateSingleResult(IndividualErrorProcessingResult individualErrorProcessingResult) {
-        hasLoadingError = hasLoadingError || individualErrorProcessingResult.isLoadingError();
-        hasAnalysisError = hasAnalysisError || individualErrorProcessingResult.isAnalysisError();
+      private void aggregateSingleResult(ClassifiedError error) {
+        hasLoadingError = hasLoadingError || error.isLoadingError();
+        hasAnalysisError = hasAnalysisError || error.isAnalysisError();
         executionDetailedExitCode =
             DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                executionDetailedExitCode,
-                individualErrorProcessingResult.executionDetailedExitCode());
+                executionDetailedExitCode, error.executionDetailedExitCode());
       }
 
       private void addConflicts(ConflictHarvest harvest) {
@@ -162,25 +160,100 @@ public final class SkyframeErrorProcessor {
   }
 
   /**
-   * Represents the information around one single error in the build. These are the building blocks
-   * for the final {@link ErrorProcessingResult}.
+   * Which error wins when {@code --nokeep_going} has to pick a single one to abort the build with.
+   * Lower ordinal wins.
+   *
+   * <p>This is a reporting order, not a statement about how bad an error is.
    */
-  record IndividualErrorProcessingResult(
+  private enum ReportingPriority {
+    EXECUTION,
+    TARGET_ANALYSIS,
+    ASPECT_ANALYSIS
+  }
+
+  /**
+   * One error from {@link EvaluationResult#errorMap}, normalized: the wrapper key peeled off, the
+   * exception classified and the root causes extracted. These are the building blocks of the final
+   * {@link ErrorProcessingResult}.
+   *
+   * <p>Classifying an error makes no decisions, posts nothing and throws nothing.
+   *
+   * @param normalizedKey the error key with any wrapper peeled off by {@link
+   *     #getEffectiveErrorKey}, not the key Skyframe reported the error under.
+   * @param cause the exception that failed the key, or null if it failed because of a cycle.
+   * @param executionDetailedExitCode non-null iff {@code reportingPriority} is {@link
+   *     ReportingPriority#EXECUTION}.
+   * @param loadingRootCauses the labels of the {@link LoadingFailedCause}s among {@code
+   *     analysisRootCauses}, de-duplicated.
+   */
+  private record ClassifiedError(
+      SkyKey normalizedKey,
+      @Nullable Exception cause,
+      ReportingPriority reportingPriority,
       @Nullable DetailedExitCode executionDetailedExitCode,
       NestedSet<Cause> analysisRootCauses,
       ImmutableSet<Label> loadingRootCauses) {
-    IndividualErrorProcessingResult {
-      requireNonNull(analysisRootCauses, "analysisRootCauses");
-      requireNonNull(loadingRootCauses, "loadingRootCauses");
+
+    static ClassifiedError execution(
+        SkyKey normalizedKey,
+        @Nullable Exception cause,
+        DetailedExitCode executionDetailedExitCode,
+        NestedSet<Cause> analysisRootCauses) {
+      return new ClassifiedError(
+          normalizedKey,
+          cause,
+          ReportingPriority.EXECUTION,
+          executionDetailedExitCode,
+          analysisRootCauses,
+          /* loadingRootCauses= */ ImmutableSet.of());
+    }
+
+    static ClassifiedError analysis(
+        SkyKey normalizedKey, @Nullable Exception cause, NestedSet<Cause> analysisRootCauses) {
+      NestedSet<Cause> rootCauses =
+          normalizedKey instanceof AspectBaseKey
+              // Aspect errors discard their root causes, so a TopLevelAspectsKey posts an
+              // AnalysisFailureEvent with an empty cause set and a bare AspectKey posts nothing at
+              // all, even though e.g. AspectCreationException#getCauses would supply real ones.
+              // TODO(b/561978611): Stop doing this and treat aspect keys like any other key.
+              ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER)
+              : analysisRootCauses;
+      return new ClassifiedError(
+          normalizedKey,
+          cause,
+          normalizedKey instanceof AspectBaseKey
+              ? ReportingPriority.ASPECT_ANALYSIS
+              : ReportingPriority.TARGET_ANALYSIS,
+          /* executionDetailedExitCode= */ null,
+          rootCauses,
+          // A Cause carries a message as well as a label, so the same label can appear more
+          // than once. The pre-BEP LoadingFailureEvent protocol only knows about labels, so
+          // de-duplicate. TODO(ulfjack): Remove this once we've migrated to the BEP.
+          rootCauses.toList().stream()
+              .filter(LoadingFailedCause.class::isInstance)
+              .map(Cause::getLabel)
+              .collect(toImmutableSet()));
+    }
+
+    /** A cycle is the only way for a key to fail without an exception. */
+    boolean isCycle() {
+      return cause == null;
+    }
+
+    /** True for all non-execution errors, including loading errors. */
+    boolean isAnalysisError() {
+      return reportingPriority != ReportingPriority.EXECUTION;
     }
 
     boolean isLoadingError() {
-      return !loadingRootCauses().isEmpty();
+      return !loadingRootCauses.isEmpty();
     }
 
-    /** This is true for all non-execution errors, including loading errors. */
-    boolean isAnalysisError() {
-      return executionDetailedExitCode() == null;
+    @Nullable
+    Label label() {
+      return normalizedKey instanceof ActionLookupKey actionLookupKey
+          ? actionLookupKey.getLabel()
+          : null;
     }
   }
 
@@ -375,9 +448,8 @@ public final class SkyframeErrorProcessor {
       } else {
         assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph(), keepEdges);
       }
-      Exception nullableCause = errorInfo.getException();
       Preconditions.checkState(
-          nullableCause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
+          errorInfo.getException() != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
       // TODO(b/561978611): Can we remove this divergence?
       if (inBuildViewTest && !isValidErrorKeyType(errorKey)) {
@@ -394,32 +466,15 @@ public final class SkyframeErrorProcessor {
         continue;
       }
 
-      Label label = getLabel(errorKey);
-      IndividualErrorProcessingResult individualErrorProcessingResult =
-          processIndividualError(result, bugReporter, errorKey, errorInfo);
+      ClassifiedError error = classify(result, bugReporter, errorKey, errorInfo);
+      maybePostFailureEvents(eventHandler, eventBus, inBuildViewTest, error);
 
-      maybePostFailureEvents(
-          eventHandler,
-          eventBus,
-          inBuildViewTest,
-          errorKey,
-          label,
-          individualErrorProcessingResult);
-
-      boolean isExecutionException = isExecutionException(nullableCause);
       if (keepGoing) {
-        aggregatingResultBuilder.aggregateSingleResult(individualErrorProcessingResult);
-        logOrPrintWarningsKeepGoing(isExecutionException, label, eventHandler, nullableCause);
+        aggregatingResultBuilder.aggregateSingleResult(error);
+        logOrPrintWarningsKeepGoing(error, eventHandler);
       } else {
         noKeepGoingAnalysisExceptionAspect =
-            throwOrReturnAspectAnalysisException(
-                result,
-                nullableCause,
-                bugReporter,
-                errorKey,
-                isExecutionException,
-                /* hasExecutionCycle= */ CYCLE_CODE.equals(
-                    individualErrorProcessingResult.executionDetailedExitCode()));
+            throwOrReturnAspectAnalysisException(result, bugReporter, error);
       }
     }
 
@@ -434,216 +489,171 @@ public final class SkyframeErrorProcessor {
    * Posts the failure events for a single error.
    *
    * <p>A {@link TopLevelAspectsKey} does get an {@link AnalysisFailureEvent}, attributed to its
-   * base configured target, but with no root causes (see {@link #processIndividualError}). A bare
+   * base configured target, but with no root causes (see {@link ClassifiedError#analysis}). A bare
    * aspect key, and any key type other than {@link ConfiguredTargetKey}, gets nothing.
    */
   private static void maybePostFailureEvents(
       ExtendedEventHandler eventHandler,
       @Nullable EventBus eventBus,
       boolean inBuildViewTest,
-      SkyKey errorKey,
-      @Nullable Label label,
-      IndividualErrorProcessingResult individualErrorProcessingResult) {
+      ClassifiedError error) {
     if (inBuildViewTest) {
       // eventBus is null, but tests can still assert on the expected root causes being found.
-      eventHandler.handle(
-          Event.error(individualErrorProcessingResult.analysisRootCauses().toList().toString()));
+      eventHandler.handle(Event.error(error.analysisRootCauses().toList().toString()));
       return;
     }
 
     Preconditions.checkNotNull(eventBus);
     // AnalysisFailureEvent.whileAnalyzingTarget can only name a configured target, so a failing
     // aspect is reported against the configured target it was applied to.
-    if (errorKey instanceof TopLevelAspectsKey topLevelAspectsKey) {
-      if (individualErrorProcessingResult.isAnalysisError()) {
+    if (error.normalizedKey() instanceof TopLevelAspectsKey topLevelAspectsKey) {
+      if (error.isAnalysisError()) {
         eventBus.post(
             AnalysisFailureEvent.whileAnalyzingTarget(
-                topLevelAspectsKey.getBaseConfiguredTargetKey(),
-                individualErrorProcessingResult.analysisRootCauses()));
+                topLevelAspectsKey.getBaseConfiguredTargetKey(), error.analysisRootCauses()));
       }
       return;
     }
-    if (!(errorKey instanceof ConfiguredTargetKey ctKey)) {
+    if (!(error.normalizedKey() instanceof ConfiguredTargetKey ctKey)) {
       return;
     }
 
     // For loading errors, we expect both LoadingFailureEvent and AnalysisFailureEvent.
-    if (individualErrorProcessingResult.isLoadingError()) {
-      for (Label loadingRootCause : individualErrorProcessingResult.loadingRootCauses()) {
+    if (error.isLoadingError()) {
+      for (Label loadingRootCause : error.loadingRootCauses()) {
         // This event is only for backwards compatibility with the old event protocol. Remove
         // once we've migrated to the build event protocol.
-        eventBus.post(new LoadingFailureEvent(Preconditions.checkNotNull(label), loadingRootCause));
+        eventBus.post(
+            new LoadingFailureEvent(Preconditions.checkNotNull(error.label()), loadingRootCause));
       }
     }
 
-    if (individualErrorProcessingResult.isAnalysisError()) {
-      eventBus.post(
-          AnalysisFailureEvent.whileAnalyzingTarget(
-              ctKey, individualErrorProcessingResult.analysisRootCauses()));
+    if (error.isAnalysisError()) {
+      eventBus.post(AnalysisFailureEvent.whileAnalyzingTarget(ctKey, error.analysisRootCauses()));
     }
   }
 
   /**
-   * Throw the necessary exceptions based on the error processing result.
+   * Throws the exception that aborts a {@code --nokeep_going} build, if this error is the one to
+   * abort it with.
    *
-   * <p>This method should be called in --nokeep_going mode, unless the error is an action conflict.
-   *
-   * <p>Special case: if the analysis error belongs to a top-level Aspect, we don't throw the
-   * ViewCreationFailedException immediately to make sure that a target analysis error is preferred
+   * <p>Special case: if the analysis error belongs to an aspect, we don't throw the
+   * ViewCreationFailedException immediately, to make sure that a target analysis error is preferred
    * over an aspect one.
    *
    * @throws ViewCreationFailedException when the root cause is analysis-related.
    * @throws BuildFailedException when the root cause is execution-related.
    * @throws TestExecException when the root cause is test-related.
-   * @return a ViewCreationFailedException if the error belongs to a top-level Aspect.
+   * @return a ViewCreationFailedException if the error belongs to an aspect.
    */
   private static ViewCreationFailedException throwOrReturnAspectAnalysisException(
-      EvaluationResult<? extends SkyValue> result,
-      @Nullable Exception cause,
-      BugReporter bugReporter,
-      SkyKey errorKey,
-      boolean isExecutionException,
-      boolean hasExecutionCycle)
+      EvaluationResult<? extends SkyValue> result, BugReporter bugReporter, ClassifiedError error)
       throws BuildFailedException, TestExecException, ViewCreationFailedException {
     // If the error is execution-related: straightaway rethrow. No further steps required.
-    if (isExecutionException) {
-      // cause is not null for execution exceptions.
-      Preconditions.checkNotNull(cause);
-      rethrow(cause, bugReporter, result);
-    }
-    // If a --nokeep_going build found a cycle, that means there were no other errors thrown
-    // during evaluation (otherwise, it wouldn't have bothered to find a cycle). So the best
-    // we can do is throw a generic build failure exception, since we've already reported the
-    // cycles above. Analysis cycles are handled below.
-    if (hasExecutionCycle) {
-      throw new BuildFailedException(null, CYCLE_CODE);
+    if (error.reportingPriority() == ReportingPriority.EXECUTION) {
+      if (error.isCycle()) {
+        // A --nokeep_going build that found a cycle had no other error to throw (otherwise it
+        // wouldn't have bothered looking for a cycle), and the cycle itself has already been
+        // reported, so a generic build failure is the best we can do. Analysis cycles are handled
+        // below.
+        throw new BuildFailedException(null, CYCLE_CODE);
+      }
+      rethrow(error.cause(), bugReporter, result);
     }
 
-    if (errorKey instanceof TopLevelAspectsKey aspectKey) {
-      String errorMsg =
+    if (error.reportingPriority() == ReportingPriority.ASPECT_ANALYSIS) {
+      return createViewCreationFailedException(
+          error.cause(),
           String.format(
-              "Analysis of aspects '%s' failed; build aborted", aspectKey.getDescription());
-      return createViewCreationFailedException(cause, errorMsg);
+              "Analysis of aspects '%s' failed; build aborted",
+              describeAspect((AspectBaseKey) error.normalizedKey())));
     }
 
-    Label topLevelLabel = ((ConfiguredTargetKey) errorKey).getLabel();
     throw createViewCreationFailedException(
-        cause, String.format("Analysis of target '%s' failed; build aborted", topLevelLabel));
+        error.cause(),
+        String.format("Analysis of target '%s' failed; build aborted", error.label()));
+  }
+
+  private static String describeAspect(AspectBaseKey aspectKey) {
+    return aspectKey instanceof TopLevelAspectsKey topLevelAspectsKey
+        ? topLevelAspectsKey.getDescription()
+        : ((AspectKey) aspectKey).prettyPrint();
   }
 
   /**
-   * Processes one individual error from the result.
+   * Classifies one single error from the result.
    *
-   * <p>No exception should ever be thrown here: this is just to gather the relevant information
-   * around 1 single error. {@link #processErrors} will decide what to do with this information.
+   * <p>No exception is ever thrown here, and nothing is posted: this only gathers the information
+   * around one single error. {@link #processErrors} decides what to do with it.
    */
-  private static IndividualErrorProcessingResult processIndividualError(
+  private static ClassifiedError classify(
       EvaluationResult<? extends SkyValue> result,
       BugReporter bugReporter,
       SkyKey errorKey,
       ErrorInfo errorInfo) {
-    Exception exception = errorInfo.getException();
-    Set<Label> loadingRootCauses = new HashSet<>();
-    DetailedExitCode executionDetailedExitCode = null;
+    Exception cause = errorInfo.getException();
 
-    // Aspect errors discard their root causes. An AnalysisFailureEvent is still posted for a
-    // TopLevelAspectsKey (see maybePostFailureEvents), but with an empty cause
-    // set, even though e.g. AspectCreationException#getCauses would supply real ones. A bare
-    // AspectKey gets no event at all.
-    // TODO(b/561978611): Populate the root causes and treat aspect keys like any other key.
-    if (errorKey instanceof AspectBaseKey) {
-      if (isExecutionException(exception)) {
-        executionDetailedExitCode =
-            getExecutionDetailedExitCodeFromCause(result, exception, bugReporter);
-      } else if (!errorInfo.getCycleInfo().isEmpty()
-          && isExecutionCycle(errorInfo.getCycleInfo())) {
-        executionDetailedExitCode = CYCLE_CODE;
-      }
-      return new IndividualErrorProcessingResult(
-          executionDetailedExitCode,
-          /* analysisRootCauses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* loadingRootCauses= */ ImmutableSet.of());
-    }
-
-    // Only possible with actions generating build-info.txt and build-changelist.txt.
-    if (errorKey instanceof ActionLookupData) {
-      return new IndividualErrorProcessingResult(
-          getExecutionDetailedExitCodeFromCause(result, exception, bugReporter),
-          /* analysisRootCauses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* loadingRootCauses= */ ImmutableSet.of());
-    }
-
-    Preconditions.checkState(
-        errorKey instanceof ConfiguredTargetKey,
-        "expected '%s' to be a ConfiguredTargetKey",
-        errorKey);
-    ConfiguredTargetKey ctKey = (ConfiguredTargetKey) errorKey;
-    Label topLevelLabel = ctKey.getLabel();
-    NestedSet<Cause> analysisRootCauses;
-
-    if (exception instanceof ConfiguredValueCreationException ctCause) {
-      // Previously, the nested set was de-duplicating loading root cause labels. Now that we
-      // track Cause instances including a message, we get one event per label and message. In
-      // order to keep backwards compatibility, we deduplicate root cause labels here.
-      // TODO(ulfjack): Remove this code once we've migrated to the BEP.
-      for (Cause rootCause : ctCause.getRootCauses().toList()) {
-        if (rootCause instanceof LoadingFailedCause) {
-          loadingRootCauses.add(rootCause.getLabel());
-        }
-      }
-      analysisRootCauses = ctCause.getRootCauses();
-    } else if (!errorInfo.getCycleInfo().isEmpty()) {
-      if (isExecutionCycle(errorInfo.getCycleInfo())) {
-        // If we have a cycle, cause would be null, so it's guaranteed that this
-        // executionDetailedExitCode is final.
-        executionDetailedExitCode = CYCLE_CODE;
-        analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      } else {
-        Label analysisRootCause =
-            maybeGetConfiguredTargetCycleCulprit(topLevelLabel, errorInfo.getCycleInfo());
-        analysisRootCauses =
-            analysisRootCause != null
-                ? NestedSetBuilder.create(
-                    Order.STABLE_ORDER,
-                    new LabelCause(
-                        analysisRootCause,
-                        DetailedExitCode.of(createFailureDetail("Dependency cycle", Code.CYCLE))))
-                // TODO(ulfjack): We need to report the dependency cycle here. How?
-                : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      }
-    } else if (exception instanceof NoSuchThingException) {
-      // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
-      // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
-      AnalysisFailedCause analysisFailedCause =
-          new AnalysisFailedCause(
-              topLevelLabel,
-              configurationIdMessage(ctKey.getConfigurationKey()),
-              ((NoSuchThingException) exception).getDetailedExitCode());
-      analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
-    } else if (exception instanceof ExternalDepsException externalDepsException) {
-      AnalysisFailedCause analysisFailedCause =
-          new AnalysisFailedCause(
-              topLevelLabel,
-              configurationIdMessage(ctKey.getConfigurationKey()),
-              externalDepsException.getDetailedExitCode());
-      analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
-    } else if (exception instanceof TargetCompatibilityCheckException) {
-      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (isExecutionException(exception)) {
-      executionDetailedExitCode =
-          getExecutionDetailedExitCodeFromCause(result, exception, bugReporter);
-      analysisRootCauses =
-          exception instanceof ActionExecutionException actionExecutionException
+    if (errorKey instanceof ActionLookupData || isExecutionException(cause)) {
+      return ClassifiedError.execution(
+          errorKey,
+          cause,
+          getExecutionDetailedExitCodeFromCause(result, cause, bugReporter),
+          cause instanceof ActionExecutionException actionExecutionException
               ? actionExecutionException.getRootCauses()
-              : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else {
-      BugReport.logUnexpected(
-          exception, "Unexpected cause encountered while evaluating: %s", errorKey);
-      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+              : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     }
 
-    return new IndividualErrorProcessingResult(
-        executionDetailedExitCode, analysisRootCauses, ImmutableSet.copyOf(loadingRootCauses));
+    ActionLookupKey actionLookupKey =
+        switch (errorKey) {
+          case ActionLookupKey key -> key;
+          default -> throw new IllegalStateException("Unexpected error key: " + errorKey);
+        };
+
+    // A cycle is the only way to fail without an exception.
+    if (cause == null) {
+      return isExecutionCycle(errorInfo.getCycleInfo())
+          ? ClassifiedError.execution(
+              errorKey, null, CYCLE_CODE, NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+          : ClassifiedError.analysis(errorKey, null, cycleRootCauses(actionLookupKey, errorInfo));
+    }
+
+    NestedSet<Cause> analysisRootCauses =
+        switch (cause) {
+          case ConfiguredValueCreationException e -> e.getRootCauses();
+          case AspectCreationException e -> e.getCauses();
+          // Reported entirely through the DetailedExitCode; no label is implicated.
+          case TargetCompatibilityCheckException _ -> NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+          // This arm must come last: SaneAnalysisException extends DetailedException, so every
+          // well-behaved analysis exception that does not carry root causes of its own lands here.
+          // In a --keep_going build most of them arrive wrapped in a
+          // ConfiguredValueCreationException instead, which does carry them.
+          case DetailedException e ->
+              NestedSetBuilder.create(
+                  Order.STABLE_ORDER,
+                  new AnalysisFailedCause(
+                      actionLookupKey.getLabel(),
+                      configurationIdMessage(actionLookupKey.getConfigurationKey()),
+                      e.getDetailedExitCode()));
+          default -> {
+            BugReport.logUnexpected(
+                cause, "Unexpected cause encountered while evaluating: %s", errorKey);
+            yield NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+          }
+        };
+    return ClassifiedError.analysis(errorKey, cause, analysisRootCauses);
+  }
+
+  /** The root causes of an analysis cycle: the culprit, if we can name one. */
+  private static NestedSet<Cause> cycleRootCauses(ActionLookupKey errorKey, ErrorInfo errorInfo) {
+    Label culprit =
+        maybeGetConfiguredTargetCycleCulprit(errorKey.getLabel(), errorInfo.getCycleInfo());
+    // TODO(ulfjack): We need to report the dependency cycle here. How?
+    return culprit == null
+        ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+        : NestedSetBuilder.create(
+            Order.STABLE_ORDER,
+            new LabelCause(
+                culprit, DetailedExitCode.of(createFailureDetail("Dependency cycle", Code.CYCLE))));
   }
 
   private static DetailedExitCode getExecutionDetailedExitCodeFromCause(
@@ -669,23 +679,21 @@ public final class SkyframeErrorProcessor {
   }
 
   private static void logOrPrintWarningsKeepGoing(
-      boolean isExecutionException,
-      @Nullable Label topLevelLabel,
-      ExtendedEventHandler eventHandler,
-      @Nullable Exception cause) {
-    // For execution exceptions, we don't print any extra warning.
-    if (isExecutionException) {
-      if (isExecutionCauseWorthLogging(cause)) {
-        logger.atWarning().withCause(cause).log(
-            "Non-action-execution/input-error exception while building target %s", topLevelLabel);
+      ClassifiedError error, ExtendedEventHandler eventHandler) {
+    if (error.reportingPriority() == ReportingPriority.EXECUTION) {
+      // The action machinery has already told the user about this, so only log the exceptions that
+      // it doesn't know about.
+      if (error.cause() != null && isExecutionCauseWorthLogging(error.cause())) {
+        logger.atWarning().withCause(error.cause()).log(
+            "Non-action-execution/input-error exception while building target %s", error.label());
       }
       return;
     }
     var message =
         String.format(
-            "errors encountered while analyzing target '%s', it will not be built.", topLevelLabel);
-    if (cause != null) {
-      message += String.format("\n%s", cause.getMessage());
+            "errors encountered while analyzing target '%s', it will not be built.", error.label());
+    if (error.cause() != null) {
+      message += String.format("\n%s", error.cause().getMessage());
     }
     eventHandler.handle(Event.warn(message));
   }
@@ -711,11 +719,6 @@ public final class SkyframeErrorProcessor {
       case AspectCompletionKey aspectCompletionKey -> aspectCompletionKey.actionLookupKey();
       default -> key;
     };
-  }
-
-  @Nullable
-  private static Label getLabel(SkyKey errorKey) {
-    return errorKey instanceof ActionLookupKey ? ((ActionLookupKey) errorKey).getLabel() : null;
   }
 
   private static ViewCreationFailedException createViewCreationFailedException(
