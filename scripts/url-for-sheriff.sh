@@ -17,7 +17,9 @@
 # Prints a github URL for all bugs sheriff needs to look at
 # (open, no category assigned)
 
-NO_LABELS=$(curl -f https://api.github.com/repos/bazelbuild/bazel/labels 2>/dev/null | grep "url" | awk -f <(cat - <<-'EOD'
+set -o pipefail
+
+if ! NO_LABELS=$(curl -f https://api.github.com/repos/bazelbuild/bazel/labels 2>/dev/null | grep "url" | awk -f <(cat - <<-'EOD'
   BEGIN {
     ORS = ""
   }
@@ -30,5 +32,8 @@ NO_LABELS=$(curl -f https://api.github.com/repos/bazelbuild/bazel/labels 2>/dev/
     print "%20-label%3A\"" label "\""
   }
 EOD
-))
+)); then
+  echo "Failed to retrieve GitHub labels" >&2
+  exit 1
+fi
 echo "https://github.com/bazelbuild/bazel/issues?utf8=✓&q=is%3Aopen%20-label%3A\"type%3A%20documentation\"%20-label%3A\"Under investigation\"${NO_LABELS}"
