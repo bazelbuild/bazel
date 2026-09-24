@@ -18,7 +18,10 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -52,16 +55,34 @@ public class SingleExtensionUsagesFunction implements SkyFunction {
     // We never request an extension without usages in Skyframe.
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> usagesTable =
         bazelDepGraphValue.getExtensionUsagesTable();
+    var usages = usagesTable.row(id);
+    var canonicalRepoNames = bazelDepGraphValue.getCanonicalRepoNameLookup().inverse();
+    var repoMappingKeys =
+        usages.keySet().stream()
+            .collect(
+                toImmutableMap(
+                    moduleKey -> moduleKey,
+                    moduleKey -> RepositoryMappingValue.key(canonicalRepoNames.get(moduleKey))));
+    var repoMappingValues = env.getValuesAndExceptions(repoMappingKeys.values());
+    var repoMappings =
+        ImmutableMap.<ModuleKey, RepositoryMapping>builderWithExpectedSize(usages.size());
+    for (var entry : repoMappingKeys.entrySet()) {
+      var repoMapping = (RepositoryMappingValue) repoMappingValues.get(entry.getValue());
+      if (repoMapping != null) {
+        repoMappings.put(entry.getKey(), repoMapping.repositoryMapping());
+      }
+    }
+    if (env.valuesMissing()) {
+      return null;
+    }
     return SingleExtensionUsagesValue.create(
-        usagesTable.row(id),
+        usages,
         bazelDepGraphValue.getExtensionUniqueNames().get(id),
         // Filter abridged modules down to only those that actually used this extension.
         bazelDepGraphValue.getAbridgedModules().stream()
-            .filter(module -> usagesTable.contains(id, module.getKey()))
+            .filter(module -> usages.containsKey(module.getKey()))
             .collect(toImmutableList()),
-        // TODO(wyv): Maybe cache these mappings?
-        usagesTable.row(id).keySet().stream()
-            .collect(toImmutableMap(key -> key, bazelDepGraphValue::getFullRepoMapping)),
+        repoMappings.buildOrThrow(),
         bazelDepGraphValue.getRepoOverrides().row(id));
   }
 }
