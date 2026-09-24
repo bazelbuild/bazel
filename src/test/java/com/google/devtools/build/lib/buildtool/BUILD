@@ -709,11 +709,11 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_configured_event",
-        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
-        "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party/java/guava:eventbus",
         "//third_party/java/junit",
