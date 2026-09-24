@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
@@ -562,20 +561,6 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Adds "declared providers" defined in native code to the rule. Use this method for declared
-   * providers in definitions of native rules.
-   *
-   * <p>Use {@link #addStarlarkDeclaredProvider(Info)} for Starlark rule implementations.
-   */
-  @CanIgnoreReturnValue
-  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
-    for (Info provider : providers) {
-      addNativeDeclaredProvider(provider);
-    }
-    return this;
-  }
-
-  /**
    * Adds a "declared provider" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
@@ -589,41 +574,12 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
-  /**
-   * Returns true if a provider matching the given provider key has already been added to the
-   * configured target builder.
-   */
-  public boolean containsProviderKey(Provider.Key providerKey) {
-    return providersBuilder.contains(providerKey);
-  }
-
-  /**
-   * Returns true if a provider matching the given legacy key has already been added to the
-   * configured target builder.
-   */
-  public boolean containsLegacyKey(String legacyId) {
-    return providersBuilder.contains(legacyId);
-  }
-
-  /** Add a Starlark transitive info. The provider value must be safe. */
-  @CanIgnoreReturnValue
-  public RuleConfiguredTargetBuilder addStarlarkTransitiveInfo(String name, Object value) {
-    providersBuilder.put(name, value);
-    return this;
-  }
-
   /** Set the runfiles support for executable targets. */
   @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder setRunfilesSupport(
       RunfilesSupport runfilesSupport, Artifact executable) {
     this.runfilesSupport = runfilesSupport;
     this.executable = executable;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public RuleConfiguredTargetBuilder addTestActionTools(List<Artifact> tools) {
-    this.additionalTestActionTools.addAll(tools);
     return this;
   }
 
