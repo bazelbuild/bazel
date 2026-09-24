@@ -1480,6 +1480,12 @@ public final class RemoteModule extends BlazeModule {
     return actionContextProvider;
   }
 
+  /** Returns how many digests are currently known to be missing from the cache. */
+  @VisibleForTesting
+  int getKnownMissingCasDigestsSize() {
+    return knownMissingCasDigests.size();
+  }
+
   @VisibleForTesting
   ThreadPoolExecutor getExecutorService() {
     return executorService;
