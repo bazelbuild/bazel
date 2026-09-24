@@ -103,6 +103,15 @@ genrule(
 )
 
 sh_test(
+    name = "combine_distfiles_to_tar_test",
+    size = "small",
+    srcs = ["combine_distfiles_to_tar_test.sh"],
+    data = ["combine_distfiles_to_tar.sh"],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "verify_module_bazel_lock",
     timeout = "long",
     srcs = ["verify_module_bazel_lock.sh"],
