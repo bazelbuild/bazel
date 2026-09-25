@@ -383,7 +383,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   @Override
   public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
-    StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
+    StarlarkProvider.Builder builder =
+        StarlarkProvider.builder(
+            thread.getCallerLocation(), thread.getSemantics(), thread.getTypeContext());
     Starlark.toJavaOptional(doc, String.class)
         .map(Starlark::trimDocString)
         .ifPresent(builder::setDocumentation);

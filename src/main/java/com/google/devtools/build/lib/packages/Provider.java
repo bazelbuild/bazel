@@ -34,7 +34,6 @@ import net.starlark.java.syntax.TypeContext;
  * <p>Prefer to use {@link Key} as a serializable identifier of {@link Provider}. In particular,
  * {@link Key} should be used in all data structures exposed to Skyframe.
  */
-// TODO: #27370 - the StarlarkType of Provider must be made assignable to both Callable and Type.
 @Immutable
 public interface Provider extends ProviderApi {
 

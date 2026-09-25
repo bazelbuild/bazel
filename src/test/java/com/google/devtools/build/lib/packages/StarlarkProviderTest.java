@@ -18,11 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -40,6 +44,8 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -134,6 +140,11 @@ public final class StarlarkProviderTest {
           public Location getLocation() {
             return Location.BUILTIN;
           }
+
+          @Override
+          public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+            return Types.ANY_CALLABLE;
+          }
         };
 
     StarlarkProvider provider =
@@ -165,6 +176,11 @@ public final class StarlarkProviderTest {
           public Location getLocation() {
             return Location.BUILTIN;
           }
+
+          @Override
+          public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+            return Types.ANY_CALLABLE;
+          }
         };
 
     StarlarkProvider provider =
@@ -178,14 +194,16 @@ public final class StarlarkProviderTest {
   @Test
   public void rawConstructorBypassesInit() throws Exception {
     StarlarkCallable init = mock(StarlarkCallable.class, "init");
+    when(init.getCallableType(any(), any())).thenReturn(Types.ANY_CALLABLE);
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)
             .setInit(init)
             .buildWithIdentityToken(generator.generate());
+    verify(init).getCallableType(any(), any());
     StarlarkInfo infoFromRawConstructor = instantiateWithA1B2C3(provider.createRawConstructor());
     assertHasExactlyValuesA1B2C3(infoFromRawConstructor);
     assertThat(infoFromRawConstructor.getProvider()).isEqualTo(provider);
-    verifyNoInteractions(init);
+    verifyNoMoreInteractions(init);
   }
 
   @Test
@@ -693,6 +711,19 @@ public final class StarlarkProviderTest {
         @Override
         public Location getLocation() {
           return Location.BUILTIN;
+        }
+
+        @Override
+        public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+          return Types.generalCallable(
+              ImmutableList.of("a"),
+              ImmutableList.of(Types.ANY),
+              0,
+              1,
+              ImmutableSet.of("a"),
+              null,
+              null,
+              Types.dict(Types.STR, Types.ANY));
         }
       };
 

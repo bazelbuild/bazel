@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.bugreport.BugReport.sendNonFatalBugReport;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
@@ -23,9 +24,11 @@ import static com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue.isBui
 import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
 import static com.google.devtools.build.lib.util.TestType.isInTest;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -42,6 +45,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.CallUtils;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -51,6 +55,10 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeContext;
+import net.starlark.java.syntax.Types;
 
 /**
  * A provider defined in Starlark rather than in native code.
@@ -72,7 +80,8 @@ import net.starlark.java.syntax.Location;
  * pre-exported provider directly. Exported providers use only their key for {@link #equals} and
  * {@link #hashCode}.
  */
-public final class StarlarkProvider implements StarlarkCallable, StarlarkExportable, Provider {
+public final class StarlarkProvider extends StarlarkType
+    implements StarlarkCallable, StarlarkExportable, Provider, TypeConstructor {
 
   private final Location location;
 
@@ -128,6 +137,13 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    */
   @Nullable private AtomicReferenceArray<Class<?>> depsetTypePredictor;
 
+  // The Starlark supertype of the Info objects produced by this provider. This is a total struct
+  // for schemaful providers, and {@link Types.ANY_STRUCT} for schemaless providers.
+  private final Types.StructType structType;
+
+  // The Starlark type of the provider symbol itself.
+  private final StarlarkProviderType providerSymbolType;
+
   /**
    * Returns a new empty builder.
    *
@@ -140,13 +156,26 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    * @param location the location of the Starlark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
+  public static Builder builder(
+      Location location, StarlarkSemantics starlarkSemantics, TypeContext typeContext) {
+    return new Builder(location, starlarkSemantics, typeContext);
+  }
+
+  @VisibleForTesting
   public static Builder builder(Location location) {
-    return new Builder(location);
+    return new Builder(
+        location,
+        StarlarkSemantics.DEFAULT,
+        CallUtils.getBuiltinManager(StarlarkSemantics.DEFAULT));
   }
 
   /** A builder which may be used to construct a StarlarkProvider. */
   public static final class Builder {
     private final Location location;
+
+    private final StarlarkSemantics starlarkSemantics;
+
+    private final TypeContext typeContext;
 
     @Nullable private String documentation;
 
@@ -154,8 +183,11 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
     @Nullable private StarlarkCallable init;
 
-    private Builder(Location location) {
+    private Builder(
+        Location location, StarlarkSemantics starlarkSemantics, TypeContext typeContext) {
       this.location = location;
+      this.starlarkSemantics = starlarkSemantics;
+      this.typeContext = typeContext;
     }
 
     /**
@@ -214,12 +246,14 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
     /** Builds an exported StarlarkProvider. */
     public StarlarkProvider buildExported(Key key) {
-      return new StarlarkProvider(location, documentation, schema, init, key);
+      return new StarlarkProvider(
+          location, documentation, schema, init, key, starlarkSemantics, typeContext);
     }
 
     /** Builds a unexported StarlarkProvider. */
     public StarlarkProvider buildWithIdentityToken(SymbolGenerator.Symbol<?> identityToken) {
-      return new StarlarkProvider(location, documentation, schema, init, identityToken);
+      return new StarlarkProvider(
+          location, documentation, schema, init, identityToken, starlarkSemantics, typeContext);
     }
   }
 
@@ -235,7 +269,9 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       @Nullable String documentation,
       @Nullable ImmutableMap<String, Optional<String>> schema,
       @Nullable StarlarkCallable init,
-      Object keyOrIdentityToken) {
+      Object keyOrIdentityToken,
+      StarlarkSemantics starlarkSemantics,
+      TypeContext typeContext) {
     this.location = location;
     this.documentation = documentation;
     if (schema != null) {
@@ -245,8 +281,14 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
         fieldsBuilder.put(sortedFields.get(i), i);
       }
       this.fields = fieldsBuilder.buildOrThrow();
+      // TODO: #27370 - Allow specifying field types in Starlark.
+      this.structType =
+          Types.struct(
+              this.fields.keySet().stream()
+                  .collect(toImmutableMap(name -> name, name -> Types.ANY)));
     } else {
       this.fields = null;
+      this.structType = Types.ANY_STRUCT;
     }
     this.schema = schema;
     this.init = init;
@@ -254,6 +296,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     if (schema != null) {
       depsetTypePredictor = new AtomicReferenceArray<>(schema.size());
     }
+    this.providerSymbolType = new StarlarkProviderType(this, starlarkSemantics, typeContext);
   }
 
   @Override
@@ -650,6 +693,124 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     @Override
     public String toString() {
       return exportedName;
+    }
+  }
+
+  // StarlarkProvider as a Starlark type / type constructor (for Info objects)
+
+  @Override
+  public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
+    return ImmutableList.of(structType);
+  }
+
+  @Nullable
+  @Override
+  public StarlarkType getField(String name, TypeContext context) {
+    return structType.getField(name);
+  }
+
+  @Override
+  public String typeRepr() {
+    return getName();
+  }
+
+  /** Returns this provider symbol, which is a type of Info objects. */
+  @Override
+  public StarlarkType createStarlarkType(ImmutableList<Term> argsTuple)
+      throws TypeConstructor.Failure {
+    if (!argsTuple.isEmpty()) {
+      throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", getName()));
+    }
+    return this;
+  }
+
+  // StarlarkProvider as a value having its own Starlark type
+
+  /**
+   * Returns the {@link Provider.ProviderType} of this provider symbol.
+   *
+   * <p>Note that this provider symbol is itself a type - but a different type (a type of Info
+   * objects).
+   */
+  @Override
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    return providerSymbolType;
+  }
+
+  /**
+   * The {@link StarlarkType} of a {@link StarlarkProvider} symbol. There should be a 1-1
+   * correspondence between {@link StarlarkProvider} instances and {@link StarlarkProviderType}
+   * instances.
+   */
+  private static final class StarlarkProviderType extends ProviderType {
+    private final StarlarkProvider provider;
+    private final Types.CallableType callableType;
+
+    private StarlarkProviderType(
+        StarlarkProvider provider, StarlarkSemantics starlarkSemantics, TypeContext typeContext) {
+      this.provider = provider;
+      if (provider.init != null) {
+        this.callableType =
+            provider.init.getCallableType(starlarkSemantics, typeContext).withReturnType(provider);
+      } else if (!provider.structType.equals(Types.ANY_STRUCT)) {
+        // Schema, but no init callback - accept keyword-only params matching the fields schema.
+        ImmutableMap<String, StarlarkType> fieldTypes = provider.structType.getFields();
+        this.callableType =
+            Types.generalCallable(
+                fieldTypes.keySet().asList(),
+                fieldTypes.values().asList(),
+                /* numPositionalOnlyParameters= */ 0,
+                /* numPositionalParameters= */ 0,
+                /* mandatoryParams= */ ImmutableSet.of(),
+                /* varargsType= */ null,
+                /* kwargsType= */ null,
+                /* returns= */ provider);
+      } else {
+        // No schema and no init callback - accept arbitrary **kwargs.
+        this.callableType =
+            Types.generalCallable(
+                /* parameterNames= */ ImmutableList.of(),
+                /* parameterTypes= */ ImmutableList.of(),
+                /* numPositionalOnlyParameters= */ 0,
+                /* numPositionalParameters= */ 0,
+                /* mandatoryParams= */ ImmutableSet.of(),
+                /* varargsType= */ null,
+                /* kwargsType= */ Types.ANY,
+                /* returns= */ provider);
+      }
+    }
+
+    @Override
+    public String typeRepr() {
+      // angle brackets because the type is not constructable directly in Starlark code
+      return String.format("<Provider[%s]>", provider.getName());
+    }
+
+    @Override
+    public Types.CallableType asCallableType(TypeContext context) {
+      return callableType;
+    }
+
+    @Override
+    public StarlarkType getInfoType(TypeContext context) {
+      return provider;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(ProviderType.class, provider);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof StarlarkProviderType other)) {
+        return false;
+      }
+      // There should be a at most one provider type for a provider
+      return this.provider.equals(other.provider);
     }
   }
 
