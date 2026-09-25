@@ -50,7 +50,57 @@ lockfile. The available modes are:
     network requests, but are expected to always produce the same result. Note
     that superfluous information is ignored, not reported, so a lockfile that
     passes in this mode may nevertheless be rewritten (pruned) by `update`.
+    To also check for information that would be pruned, use
+    [`bazel mod tidy --diff`](#updating-and-checking).
 *   `off`: The lockfile is neither checked nor updated.
+
+### Updating and checking module files and the lockfile {#updating-and-checking}
+
+To update `MODULE.bazel`, its included module files, and `MODULE.bazel.lock`, run:
+
+```sh
+bazel mod tidy
+```
+
+This formats module files, fixes supported `use_repo` calls, and evaluates all
+extensions in the dependency graph. The lockfile updater adds missing
+information, updates stale results, and prunes information that is no longer
+needed.
+
+For a CI check that reports the same changes without writing these files, run:
+
+```sh
+bazel mod tidy --diff
+```
+
+The command prints module-file diffs and reports whether the lockfile would
+change. It exits with code 1 if changes are needed and fails on evaluation
+errors. It may download dependencies and update caches, including the
+[hidden lockfile](#hidden-lockfile).
+
+Checking lockfile additions and pruning requires `update` (default) or `refresh`.
+If your `.bazelrc` sets another mode, override it with `--lockfile_mode=update`.
+
+For CI builds and tests, use `error` to require the recorded information needed
+by that invocation to be up-to-date:
+
+```sh
+bazel test --lockfile_mode=error //...
+```
+
+This complements the tidy check for jobs that use different platforms or flags.
+It permits unused lockfile entries and ignores module-file formatting.
+
+To also refresh mutable registry information, such as yanked status, use
+`--lockfile_mode=refresh` in both the update and check commands. With
+`--lockfile_mode=error`, `tidy --diff` rejects missing or stale required
+information but does not check for pruning; with `off`, it only checks module
+files.
+
+The check uses the current flags and host environment and compares parsed
+lockfile contents, so it does not enforce JSON whitespace or key ordering.
+Results for other operating systems or architectures may be retained without
+being revalidated.
 
 ## Lockfile Benefits {#lockfile-benefits}
 
@@ -221,8 +271,10 @@ practices:
 
 *   Regularly update the lockfile to reflect changes in project dependencies or
     configuration. This ensures that subsequent builds are based on the most
-    up-to-date and accurate set of dependencies. To lock down all extensions
-    at once, run `bazel mod deps --lockfile_mode=update`.
+    up-to-date and accurate set of dependencies. Run `bazel mod tidy` to format
+    module files, fix supported `use_repo` calls, and update the lockfile from
+    all extensions in the dependency graph, including those used only by
+    dependencies. Valid cached extension results are reused.
 
 *   Include the lockfile in version control to facilitate collaboration and
     ensure that all team members have access to the same lockfile, promoting
