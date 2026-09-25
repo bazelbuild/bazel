@@ -1149,6 +1149,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
         "//third_party/java/junit",
         "//third_party/java/truth",
     ],
