@@ -415,6 +415,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         actionKeyContext,
         outputPathsMode,
         fp);
+    Artifact stdoutOutput = getStdoutOutput();
+    if (stdoutOutput != null) {
+      fp.addString("stdout:");
+      fp.addPath(stdoutOutput.getExecPath());
+    }
   }
 
   @Override
@@ -523,12 +528,26 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return mergeMaps(super.getExecutionInfo(), sortedExecutionInfo);
   }
 
+  /**
+   * Returns the output into which the spawn's standard output stream is redirected, or {@code null}
+   * if the spawn's standard output is reported as regular action output (i.e. printed to the
+   * terminal).
+   *
+   * <p>The returned artifact, when non-null, is a regular output of the action (it is included in
+   * {@link #getOutputs} and in the spawn's output files).
+   */
+  @Nullable
+  public Artifact getStdoutOutput() {
+    return null;
+  }
+
   /** A spawn instance that is tied to a specific SpawnAction. */
   private static final class ActionSpawn extends BaseSpawn {
     private final SpawnInputs inputs;
     private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
     private final PathMapper pathMapper;
+    @Nullable private final Artifact stdoutOutput;
 
     /**
      * Creates an ActionSpawn with the given environment variables.
@@ -555,6 +574,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.pathMapper = pathMapper;
       this.effectiveEnvironment = parent.getEffectiveEnvironment(clientEnv, pathMapper);
       this.reportOutputs = reportOutputs;
+      this.stdoutOutput = parent.getStdoutOutput();
     }
 
     @Override
@@ -575,6 +595,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @Override
     public Collection<? extends ActionInput> getOutputFiles() {
       return reportOutputs ? super.getOutputFiles() : ImmutableSet.of();
+    }
+
+    @Nullable
+    @Override
+    public Artifact getStdout() {
+      return stdoutOutput;
     }
   }
 
