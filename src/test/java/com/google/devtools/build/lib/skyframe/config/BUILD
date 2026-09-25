@@ -41,6 +41,7 @@ java_test(
     name = "ParsedFlagsValueTest",
     srcs = ["ParsedFlagsValueTest.java"],
     deps = [
+        "//third_party/java/guava:testing",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
