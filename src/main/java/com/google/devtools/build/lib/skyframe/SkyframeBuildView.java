@@ -501,9 +501,9 @@ public final class SkyframeBuildView {
         if (keepGoing) {
           eventHandler.handle(
               Event.warn(
-                  "errors encountered while analyzing target '"
-                      + bad.getKey().getOwner().getLabel()
-                      + "': it will not be built"));
+                  String.format(
+                      "errors encountered while analyzing target '%s', it will not be built.",
+                      bad.getKey().getOwner().getLabel())));
         }
       }
       if (!keepGoing) {
@@ -1065,7 +1065,7 @@ public final class SkyframeBuildView {
           eventHandler.handle(
               Event.warn(
                   String.format(
-                      "errors encountered while analyzing target '%s': it will not be built",
+                      "errors encountered while analyzing target '%s', it will not be built.",
                       e.getArtifact().getOwnerLabel())));
         }
       }
