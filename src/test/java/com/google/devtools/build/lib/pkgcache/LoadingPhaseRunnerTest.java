@@ -543,6 +543,29 @@ public final class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getLabels("//cc:tests", "//cc:my_test"));
     assertThat(tester.getTestSuiteTargets())
         .containsExactly(Label.parseCanonicalUnchecked("//cc:tests"));
+    assertThat(loadingResult.getExpandedTestSuiteLabels())
+        .containsExactlyElementsIn(getLabels("//cc:tests"));
+  }
+
+  @Test
+  public void testTestSuiteNotExpanded() throws Exception {
+    tester.addFile(
+        "cc/BUILD",
+        """
+        fake_cc_test(
+            name = "my_test",
+            srcs = ["test.cc"],
+        )
+
+        test_suite(
+            name = "tests",
+            tests = [":my_test"],
+        )
+        """);
+    tester.useLoadingOptions("--noexpand_test_suites");
+    TargetPatternPhaseValue loadingResult = assertNoErrors(tester.load("//cc:tests"));
+    assertThat(loadingResult.getTargetLabels()).containsExactlyElementsIn(getLabels("//cc:tests"));
+    assertThat(loadingResult.getExpandedTestSuiteLabels()).isEmpty();
   }
 
   @Test
@@ -1028,6 +1051,9 @@ public final class LoadingPhaseRunnerTest {
         """);
     TargetPatternPhaseValue result = assertNoErrors(tester.load("//suite:a"));
     assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//suite:c"));
+    // Only the requested suite is expanded away; the nested suite is reached through it.
+    assertThat(result.getExpandedTestSuiteLabels())
+        .containsExactlyElementsIn(getLabels("//suite:a"));
   }
 
   @Test

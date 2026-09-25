@@ -2425,12 +2425,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Invalidates SkyFrame values that may have failed for transient reasons. */
   public abstract void invalidateTransientErrors();
 
-  /** Configures a given set of configured targets. */
+  /**
+   * Configures a given set of configured targets.
+   *
+   * <p>{@code analysisOnlyConfiguredTargetKeys} are evaluated as well, but they are excluded from
+   * the result and no {@link TargetConfiguredEvent} is posted for them.
+   */
   @CanIgnoreReturnValue
   protected ConfigureTargetsResult configureTargets(
       ExtendedEventHandler eventHandler,
       ImmutableMap<Label, Target> labelToTargetMap,
       ImmutableList<ConfiguredTargetKey> configuredTargetKeys,
+      ImmutableList<ConfiguredTargetKey> analysisOnlyConfiguredTargetKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectKeys,
       boolean keepGoing,
       QuiescingExecutors executors)
@@ -2447,7 +2453,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .build();
     EvaluationResult<ActionLookupValue> result =
         memoizingEvaluator.evaluate(
-            Iterables.concat(configuredTargetKeys, topLevelAspectKeys), evaluationContext);
+            Iterables.concat(
+                configuredTargetKeys, analysisOnlyConfiguredTargetKeys, topLevelAspectKeys),
+            evaluationContext);
     syscallCache.noteAnalysisPhaseEnded();
 
     var targetsWithConfiguration =
