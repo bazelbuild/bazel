@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.buildtool.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
+import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -35,6 +37,9 @@ import org.junit.Before;
 public abstract class BazelIntegrationTestCase {
 
   protected BazelServer bazel;
+
+  /** Backwards-compatible events apparatus. Available after {@link #setUpServer()}. */
+  protected EventCollectionApparatus events;
 
   /**
    * Returns the {@link BazelServer.Builder} used to configure and construct the test server.
@@ -57,6 +62,7 @@ public abstract class BazelIntegrationTestCase {
         bazel.close();
       } finally {
         bazel = null;
+        events = null;
       }
     }
   }
@@ -65,6 +71,7 @@ public abstract class BazelIntegrationTestCase {
   protected BazelServer server() {
     if (bazel == null) {
       bazel = getServerBuilder().build();
+      events = bazel.events();
     }
     return bazel;
   }
@@ -101,6 +108,10 @@ public abstract class BazelIntegrationTestCase {
   }
 
   // --- State Introspection ---
+
+  protected PackageManager getPackageManager() {
+    return server().getPackageManager();
+  }
 
   protected BuildResultListener getBuildResultListener() {
     return server().getBuildResultListener();
