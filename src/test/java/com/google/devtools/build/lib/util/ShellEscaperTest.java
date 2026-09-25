@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.ShellEscaper.escapeString;
+import static com.google.devtools.build.lib.util.ShellEscaper.unescapeString;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
@@ -45,6 +46,22 @@ public class ShellEscaperTest {
     assertThat(escapeString("external/protobuf+3.19.6/src/goo~gle"))
         .isEqualTo("external/protobuf+3.19.6/src/goo~gle");
     assertThat(escapeString("external/+install_dev_dependencies+foo/pkg"))
+        .isEqualTo("external/+install_dev_dependencies+foo/pkg");
+  }
+
+  @Test
+  public void shellUnescape() {
+    assertThat(unescapeString("''")).isEqualTo("");
+    assertThat(unescapeString("foo")).isEqualTo("foo");
+    assertThat(unescapeString("'foo bar'")).isEqualTo("foo bar");
+    assertThat(unescapeString("''\\''foo'\\'''")).isEqualTo("'foo'");
+    assertThat(unescapeString("'\\'\\''foo\\'\\'''")).isEqualTo("\\'foo\\'");
+    assertThat(unescapeString("'${filename%.c}.o'")).isEqualTo("${filename%.c}.o");
+    assertThat(unescapeString("'<html!>'")).isEqualTo("<html!>");
+    assertThat(unescapeString("'~not_home'")).isEqualTo("~not_home");
+    assertThat(unescapeString("external/protobuf+3.19.6/src/goo~gle"))
+        .isEqualTo("external/protobuf+3.19.6/src/goo~gle");
+    assertThat(unescapeString("external/+install_dev_dependencies+foo/pkg"))
         .isEqualTo("external/+install_dev_dependencies+foo/pkg");
   }
 
