@@ -16,13 +16,13 @@
 """A tool for converting .html/.md(x) docs to valid .mdx files."""
 
 import os
+import pathlib
 import re
 import sys
 
 from absl import app
 from absl import flags
 import markdownify
-from scripts.docs import clr_converter
 
 
 FLAGS = flags.FLAGS
@@ -187,12 +187,12 @@ def _convert_directory(root_dir, mdx_dir):
 
     for fname in files:
       basename, ext = os.path.splitext(fname)
+
       if ext not in (".html", ".md", ".mdx"):
         continue
 
       src = os.path.join(curr_dir, fname)
       dest = os.path.join(dest_dir, f"{basename}.mdx")
-
       _convert_file(src, dest)
 
 
@@ -205,12 +205,8 @@ def _convert_file(src, dest):
 
 
 def _transform(path, content):
-  content = _pre_markdown_transforms(content)
   if path.endswith(".html"):
-    if os.path.basename(path) == "command-line-reference.html":
-      md = clr_converter.convert(content)
-    else:
-      md = _html2md(content)
+    md = _html2md(content)
   else:
     md = content
   return _post_markdown_transforms(md)
