@@ -2092,6 +2092,10 @@ public class RemoteExecutionService {
     ActionResult actionResult = resp.getResult();
     if (resp.getServerLogsCount() > 0
         && (actionResult.getExitCode() != 0 || resp.getStatus().getCode() != Code.OK.value())) {
+      // Always read from remote cache for just remotely executed action, even if the spawn doesn't
+      // accept cached results (e.g. because it is tagged with no-cache).
+      var context = action.getRemoteActionExecutionContext();
+      context = context.withReadCachePolicy(context.getReadCachePolicy().addRemoteCache());
       for (Map.Entry<String, LogFile> e : resp.getServerLogsMap().entrySet()) {
         if (e.getValue().getHumanReadable()) {
           Path lastLogPath = serverLogs.directory.getRelative(e.getKey());
@@ -2106,9 +2110,7 @@ public class RemoteExecutionService {
           serverLogs.logCount++;
           getFromFuture(
               combinedCache.downloadFile(
-                  action.getRemoteActionExecutionContext(),
-                  serverLogs.lastLogPath,
-                  e.getValue().getDigest()));
+                  context, serverLogs.lastLogPath, e.getValue().getDigest()));
         }
       }
     }
