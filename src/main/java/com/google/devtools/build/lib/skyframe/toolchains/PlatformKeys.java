@@ -52,6 +52,7 @@ record PlatformKeys(
     private final SkyFunction.Environment environment;
     private final ToolchainResolutionDebugPrinter debugPrinter;
     private final BuildConfigurationKey configurationKey;
+    private final BuildConfigurationKey noConfigKey;
 
     // Internal state used during loading.
     private final Label hostPlatformLabel;
@@ -68,6 +69,9 @@ record PlatformKeys(
       this.environment = environment;
       this.debugPrinter = debugPrinter;
       this.configurationKey = configurationKey;
+      this.noConfigKey =
+          BuildConfigurationKey.create(
+              CommonOptions.noConfigOptions(configurationKey.getOptions()));
 
       this.hostPlatformLabel = platformConfiguration.getHostPlatform();
       this.targetPlatformLabel = platformConfiguration.getTargetPlatform();
@@ -147,7 +151,7 @@ record PlatformKeys(
       this.hostPlatformKey =
           ConfiguredTargetKey.builder()
               .setLabel(hostPlatformLabel)
-              .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
+              .setConfigurationKey(noConfigKey)
               .build();
       executionPlatformKeys.add(this.hostPlatformKey);
     }
@@ -161,8 +165,7 @@ record PlatformKeys(
               .add(
                   ConfiguredTargetKey.builder()
                       .setLabel(targetPlatformLabel)
-                      .setConfigurationKey(
-                          BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
+                      .setConfigurationKey(noConfigKey)
                       .build())
               .addAll(this.executionPlatformKeys)
               .build();
@@ -185,8 +188,7 @@ record PlatformKeys(
               info ->
                   ConfiguredTargetKey.builder()
                       .setLabel(info.label())
-                      .setConfigurationKey(
-                          BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
+                      .setConfigurationKey(noConfigKey)
                       .build())
           .orElse(null);
     }
@@ -209,8 +211,7 @@ record PlatformKeys(
                   label ->
                       ConfiguredTargetKey.builder()
                           .setLabel(label)
-                          .setConfigurationKey(
-                              BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
+                          .setConfigurationKey(noConfigKey)
                           .build())
               .collect(toImmutableList());
 

@@ -192,11 +192,11 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
 
   @Test
   public void createKey_emptyConfig() throws Exception {
-    BuildOptions baseOptions = CommonOptions.EMPTY_OPTIONS;
+    BuildOptions baseOptions = CommonOptions.noConfigOptions(createBuildOptions());
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptionsChecksum()).isEqualTo(CommonOptions.EMPTY_OPTIONS.checksum());
+    assertThat(result.getOptionsChecksum()).isEqualTo(baseOptions.checksum());
   }
 
   @Test

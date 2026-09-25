@@ -610,6 +610,8 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
               + " packages may depend on them.")
   public abstract boolean getEnforceTransitiveVisibility();
 
+  public abstract void setEnforceTransitiveVisibility(boolean value);
+
   @Option(
       name = "verbose_visibility_errors",
       defaultValue = "false",
@@ -618,6 +620,8 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.NON_CONFIGURABLE},
       help = "If enabled, visibility errors include additional diagnostic information.")
   public abstract boolean getVerboseVisibilityErrors();
+
+  public abstract void setVerboseVisibilityErrors(boolean value);
 
   @Option(
       name = "incompatible_check_testonly_for_output_files",
@@ -630,6 +634,8 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
               + " looking up the testonly of the generating rule. This matches visibility"
               + " checking.")
   public abstract boolean getCheckTestonlyForOutputFiles();
+
+  public abstract void setCheckTestonlyForOutputFiles(boolean value);
 
   // Moved from viewOptions to here because license information is very expensive to serialize.
   // Having it here allows us to skip computation of transitive license information completely

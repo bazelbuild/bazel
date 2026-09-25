@@ -21,7 +21,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
@@ -1439,11 +1438,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
-  protected static boolean isEmptyOptionsKey(@Nullable BuildConfigurationKey key) {
+  protected static boolean isNoConfigKey(@Nullable BuildConfigurationKey key) {
     if (key == null) {
       return false;
     }
-    return key.getOptionsChecksum().equals(EMPTY_OPTIONS.checksum());
+    return key.getOptions().hasNoConfig();
   }
 
   /** Signals whether nodes (or some internal node data) can be removed from the analysis cache. */
@@ -1487,9 +1486,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // case isn't worth optimizing for.
           return true;
         }
-        if (isEmptyOptionsKey(configuredTarget.getConfigurationKey())) {
+        if (isNoConfigKey(configuredTarget.getConfigurationKey())) {
           // Keep these to avoid the need to re-create them later, they are dependencies of the
-          // empty configuration key and will never change.
+          // no-config configuration key and will never change.
           return false;
         }
         ctValue.clear(!topLevel && !remoteAnalysisCachingEnabled);
@@ -1506,9 +1505,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             && !hasActions(aspectValue)) {
           return true;
         }
-        if (isEmptyOptionsKey(aspectKey.getConfigurationKey())) {
+        if (isNoConfigKey(aspectKey.getConfigurationKey())) {
           // Keep these to avoid the need to re-create them later, they are dependencies of the
-          // empty configuration key and will never change.
+          // no-config configuration key and will never change.
           return false;
         }
         aspectValue.clear(!topLevel && !remoteAnalysisCachingEnabled);
@@ -4418,8 +4417,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // a non-ActionLookupKey depending on an ActionLookupKey. So we can skip any other
           // non-ActionLookupKeys in the traversal as an optimization.
           if (dep.functionName().equals(SkyFunctions.PLATFORM)) {
-            var platformLabel = ((PlatformValue.Key) dep.argument()).label();
-            dep = PlatformFunction.configuredTargetDep(platformLabel);
+            dep = PlatformFunction.configuredTargetDep((PlatformValue.Key) dep.argument());
           }
           if (!(dep instanceof ActionLookupKey depKey)) {
             continue;
