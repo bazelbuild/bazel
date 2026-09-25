@@ -94,12 +94,27 @@ systems. Because Docker also uses Linux namespaces for its container magic, you
 cannot easily run `linux-sandbox` inside a Docker container, unless you use
 `docker run --privileged`. On macOS, you cannot run `sandbox-exec` inside a
 process that's already being sandboxed. Thus, in these cases, Bazel
-automatically falls back to using `processwrapper-sandbox`.
+automatically falls back to using `processwrapper-sandbox` (or `local` if no
+sandbox strategy is supported).
 
-If you would rather get a build error — such as to not accidentally build with a
-less strict execution strategy — explicitly modify the list of execution
-strategies that Bazel tries to use (for example, `bazel build
---spawn_strategy=worker,linux-sandbox`).
+If you want to prevent silent fallback and enforce a specific sandboxing
+strategy — such as to ensure consistent, reproducible CI checks across
+environments:
+
+*   **Enforce general sandboxing**: Pass `--spawn_strategy=sandboxed` (without
+    `local` in the fallback list). If sandboxing cannot execute, Bazel fails the
+    action rather than silently falling back to un-sandboxed execution.
+*   **Enforce OS-level sandboxing (e.g. `linux-sandbox`)**: Explicitly request
+    the strategy by name, such as `--spawn_strategy=linux-sandbox` or
+    `--spawn_strategy=worker,linux-sandbox`. If the requested strategy is not
+    supported on the host platform or environment, Bazel immediately errors
+    out at the start of the build (for example: `'linux-sandbox' was requested
+    for default strategies but no strategy with that identifier was registered`).
+*   **Best-effort sandboxing**: Pass multiple strategies separated by commas in
+    order of preference (for example, `--spawn_strategy=sandboxed,local` or
+    `--spawn_strategy=linux-sandbox,processwrapper-sandbox,local`). Bazel tries
+    each registered strategy in order.
+*   **Disable sandboxing completely**: Pass `--spawn_strategy=local`.
 
 Dynamic execution usually requires sandboxing for local execution. To opt out,
 pass the `--experimental_local_lockfree_output` flag. Dynamic execution silently
@@ -125,17 +140,40 @@ sandboxes [persistent workers](/remote/persistent).
 
 Follow the strategies below to debug issues with sandboxing.
 
-### Deactivated namespaces {#deactivated-namespaces}
+### Deactivated namespaces and containers {#deactivated-namespaces}
 
 On some platforms, such as
 [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/)
-cluster nodes or Debian, user namespaces are deactivated by default due to
-security concerns. If the `/proc/sys/kernel/unprivileged_userns_clone` file
-exists and contains a 0, you can activate user namespaces by running:
+cluster nodes, Docker containers, or Debian/Ubuntu distributions, user
+namespaces or mount operations may be restricted by default due to security
+policies:
 
-```posix-terminal
-   sudo sysctl kernel.unprivileged_userns_clone=1
-```
+-   **User namespace clone sysctl**: If `/proc/sys/kernel/unprivileged_userns_clone`
+    exists and contains `0`, you can activate user namespaces on the host with:
+
+    ```posix-terminal
+    sudo sysctl kernel.unprivileged_userns_clone=1
+    ```
+
+-   **Docker / container privileges**: `linux-sandbox` requires the `CLONE_NEWUSER`,
+    `CLONE_NEWNS`, `CLONE_NEWPID`, and `CLONE_NEWIPC` clone flags and mount namespace
+    isolation (`mount(..., MS_REC | MS_PRIVATE, ...)`). In unprivileged Docker
+    containers, default seccomp profiles block the necessary `clone` or `mount`
+    syscalls. To run `linux-sandbox` inside Docker, launch the container with
+    `docker run --privileged` or grant the necessary capabilities and relax the
+    seccomp filter:
+
+    ```posix-terminal
+    docker run --cap-add=SYS_ADMIN --security-opt seccomp=unconfined ...
+    ```
+
+-   **Kubernetes Pod security**: In Kubernetes, Pods running Bazel with
+    `linux-sandbox` require `securityContext.privileged: true` or
+    `securityContext.capabilities.add: ["SYS_ADMIN"]` with an unconfined seccomp
+    profile. If running in an unprivileged container where user namespaces cannot
+    be enabled, either use `--spawn_strategy=processwrapper-sandbox` for portable
+    symlink-based sandboxing without namespaces, or run Bazel builds via remote
+    execution (`--spawn_strategy=remote`).
 
 ### Rule execution failures {#rule-failures}
 
