@@ -480,6 +480,7 @@ java_library(
         ":build_options",
         ":fragment_options",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:cache",
         "//third_party/java/guava:collect",
     ],
 )
