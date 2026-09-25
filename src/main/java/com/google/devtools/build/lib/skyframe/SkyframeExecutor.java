@@ -37,6 +37,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -579,7 +580,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Represents the baseline target and exec configurations. */
-  public record BaselineConfigurations(BuildOptions targetBaseline, BuildOptions execBaseline) {}
+  public record BaselineConfigurations(BuildOptions targetBaseline, BuildOptions execBaseline) {
+
+    public BaselineConfigurations {
+      checkNotNull(targetBaseline);
+      checkNotNull(execBaseline);
+    }
+
+    @Override // Only include option checksums, since this is printed in logging.
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("targetBaseline", targetBaseline.checksum())
+          .add("execBaseline", execBaseline.checksum())
+          .toString();
+    }
+  }
 
   public void setRemoteAnalysisCachingDependenciesProvider(
       RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
