@@ -122,8 +122,17 @@ public class CppCompileAction extends AbstractAction
 
   private static final UUID GUID = UUID.fromString("97493805-894f-493a-be66-9a698f45c31d");
 
-  @VisibleForTesting static final String CPP_COMPILE_MNEMONIC = "CppCompile";
-  @VisibleForTesting static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
+  private static final String CPP_COMPILE_MNEMONIC = "CppCompile";
+  @VisibleForTesting static final String CPP_COMPILE_HEADER_MNEMONIC = "CppCompileHeader";
+  private static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
+  private static final String OBJC_COMPILE_HEADER_MNEMONIC = "ObjcCompileHeader";
+
+  static final ImmutableSet<String> PATH_MAPPING_SUPPORTED_MNEMONICS =
+      ImmutableSet.of(
+          CPP_COMPILE_MNEMONIC,
+          CPP_COMPILE_HEADER_MNEMONIC,
+          OBJC_COMPILE_MNEMONIC,
+          OBJC_COMPILE_HEADER_MNEMONIC);
 
   @Nullable private final Artifact gcnoFile;
   private final Artifact sourceFile;
@@ -2039,10 +2048,10 @@ public class CppCompileAction extends AbstractAction
         return "CppLinkstampCompile";
 
       case CppActionNames.CPP_HEADER_PARSING:
-        String suffix = useCppCompileHeaderMnemonic ? "Header" : "";
-        return featureConfiguration.isEnabled(CppRuleClasses.LANG_OBJC)
-            ? OBJC_COMPILE_MNEMONIC + suffix
-            : CPP_COMPILE_MNEMONIC + suffix;
+        if (featureConfiguration.isEnabled(CppRuleClasses.LANG_OBJC)) {
+          return useCppCompileHeaderMnemonic ? OBJC_COMPILE_HEADER_MNEMONIC : OBJC_COMPILE_MNEMONIC;
+        }
+        return useCppCompileHeaderMnemonic ? CPP_COMPILE_HEADER_MNEMONIC : CPP_COMPILE_MNEMONIC;
       case CppActionNames.CPP_HEADER_ANALYSIS:
         return "CppHeaderAnalysis";
       case CppActionNames.CPP_MODULE_DEPS_SCANNING:

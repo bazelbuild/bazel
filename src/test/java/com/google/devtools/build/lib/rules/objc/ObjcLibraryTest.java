@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Collection;
 import java.util.List;
@@ -1986,6 +1987,37 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .isEqualTo("ObjcCompileHeader");
     assertThat(getGeneratingCompileAction("_objs/x/arc/z.h.processed", x).getMnemonic())
         .isEqualTo("ObjcCompileHeader");
+  }
+
+  @Test
+  public void testCompilePathMapping(
+      @TestParameter boolean disablePathMapping, @TestParameter boolean useHeaderMnemonic)
+      throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--incompatible_use_cpp_compile_header_mnemonic=" + useHeaderMnemonic,
+        "--features=parse_headers",
+        "--process_headers_in_dependencies",
+        "--modify_execution_info="
+            + (disablePathMapping
+                ? "ObjcCompile=-supports-path-mapping,ObjcCompileHeader=-supports-path-mapping"
+                : ""));
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
+            "objc_library(name = 'x', srcs = ['a.m', 'b.mm', 'y.h'], hdrs = ['z.h'])");
+
+    for (String output : ImmutableList.of("a.o", "b.o", "y.h.processed", "z.h.processed")) {
+      assertThat(
+              getGeneratingCompileAction("_objs/x/arc/" + output, x)
+                  .getExecutionInfo()
+                  .containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING))
+          .isEqualTo(!disablePathMapping);
+    }
   }
 
   @Test
