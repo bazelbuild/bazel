@@ -3416,6 +3416,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
     BazelDepGraphValue depGraphValue = evalResult.get(BazelDepGraphValue.KEY);
     var bzlmodDepGraph = depGraphValue.getDepGraph();
+    EvaluationResult<RepositoryMappingValue> repoMappings =
+        evaluate(
+            bzlmodDepGraph.values().stream()
+                .filter(module -> !module.getFlagAliases().isEmpty())
+                .map(
+                    module ->
+                        RepositoryMappingValue.key(
+                            depGraphValue
+                                .getCanonicalRepoNameLookup()
+                                .inverse()
+                                .get(module.getKey())))
+                .collect(toImmutableList()),
+            false,
+            DEFAULT_THREAD_COUNT,
+            eventHandler);
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
     for (var module : bzlmodDepGraph.entrySet()) {
       ModuleKey moduleKey = module.getKey();
@@ -3427,7 +3442,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // "@rules_python//python/config_settings:python_path"), so resolve them with that module's
         // repo mapping rather than the main repo's.
         RepoContext repoContext =
-            RepoContext.of(canonicalRepoName, depGraphValue.getFullRepoMapping(moduleKey));
+            RepoContext.of(
+                canonicalRepoName,
+                repoMappings
+                    .get(RepositoryMappingValue.key(canonicalRepoName))
+                    .repositoryMapping());
         for (var flagAlias : flagAliases.entrySet()) {
           aliasesMap.put(
               flagAlias.getKey(), toCanonicalLabelString(flagAlias.getValue(), repoContext));
