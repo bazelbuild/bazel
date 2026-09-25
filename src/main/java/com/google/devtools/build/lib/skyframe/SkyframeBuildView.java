@@ -910,9 +910,7 @@ public final class SkyframeBuildView {
 
       return SkyframeAnalysisAndExecutionResult.withErrors(
           /* hasLoadingError= */ errorProcessingResult.hasLoadingError(),
-          // legacy behavior: action conflicts are considered analysis errors.
-          /* hasAnalysisError= */ errorProcessingResult.hasAnalysisError()
-              || foundActionConflictInLatestCheck,
+          /* hasAnalysisError= */ errorProcessingResult.hasAnalysisError(),
           /* hasActionConflicts= */ foundActionConflictInLatestCheck,
           successfulConfiguredTargets,
           mainEvaluationResult.getWalkableGraph(),
