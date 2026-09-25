@@ -393,6 +393,16 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return getOwner().getBuildConfigurationInfo().getCommandLineLimits();
   }
 
+  protected final OutputPathsMode getOutputPathsMode() {
+    return outputPathsMode;
+  }
+
+  /** Returns the spawn outputs, which may differ from this action's declared outputs. */
+  @ForOverride
+  protected Collection<? extends ActionInput> getSpawnOutputs() {
+    return getOutputs();
+  }
+
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
@@ -527,7 +537,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private static final class ActionSpawn extends BaseSpawn {
     private final SpawnInputs inputs;
     private final ImmutableMap<String, String> effectiveEnvironment;
-    private final boolean reportOutputs;
+    private final Collection<? extends ActionInput> outputs;
     private final PathMapper pathMapper;
 
     /**
@@ -554,7 +564,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.inputs = SpawnInputs.of(inputs, additionalInputs);
       this.pathMapper = pathMapper;
       this.effectiveEnvironment = parent.getEffectiveEnvironment(clientEnv, pathMapper);
-      this.reportOutputs = reportOutputs;
+      this.outputs = reportOutputs ? parent.getSpawnOutputs() : ImmutableSet.of();
     }
 
     @Override
@@ -574,7 +584,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     @Override
     public Collection<? extends ActionInput> getOutputFiles() {
-      return reportOutputs ? super.getOutputFiles() : ImmutableSet.of();
+      return outputs;
+    }
+
+    @Override
+    public Collection<Artifact> getOutputEdgesForExecutionGraph() {
+      // Downstream spawns consume the action's declared outputs, which may differ from the spawn
+      // outputs (see SpawnAction#getSpawnOutputs).
+      return getResourceOwner().getOutputs();
     }
   }
 
