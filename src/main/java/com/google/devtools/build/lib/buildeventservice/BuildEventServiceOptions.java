@@ -250,6 +250,19 @@ public abstract class BuildEventServiceOptions extends OptionsBase {
 
   public abstract void setBesOomFinishUploadTimeout(Duration value);
 
+  @Option(
+      name = "experimental_memory_profile_await_bes_quiescence",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If set, wait for the Build Event Service event queue to quiesce before taking memory"
+              + " profile measurements at the end of the build. Ignored if --memory_profile is not"
+              + " set.")
+  public abstract boolean getExperimentalMemoryProfileAwaitBesQuiescence();
+
+  public abstract void setExperimentalMemoryProfileAwaitBesQuiescence(boolean value);
+
   /** Determines the mode that will be used to upload data to the Build Event Service. */
   public enum BesUploadMode {
     /** Block at the end of the build waiting for the upload to complete */
