@@ -22,13 +22,22 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -72,6 +81,48 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
     fv = new RegularFileStateValueWithContentsProxy(3, FileContentsProxy.create(status));
     String expectedDigest = BaseEncoding.base16().lowerCase().encode(path.asPath().getDigest());
     assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo(expectedDigest);
+  }
+
+  @Test
+  public void testFileValueToMarkerValue_usesDigestCache() throws Exception {
+    var getDigestCounter = new AtomicInteger();
+    var statCounter = new AtomicInteger();
+    var tracingFileSystem =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public byte[] getDigest(PathFragment path) throws IOException {
+            getDigestCounter.incrementAndGet();
+            return super.getDigest(path);
+          }
+
+          @Override
+          public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+            statCounter.incrementAndGet();
+            return super.stat(path, followSymlinks);
+          }
+        };
+    var file = tracingFileSystem.getPath("/file.txt");
+    FileSystemUtils.writeContentAsLatin1(file, "some contents");
+    var path = RootedPath.toRootedPath(Root.absoluteRoot(tracingFileSystem), file);
+    var fv = FileStateValue.create(path, SyscallCache.NO_CACHE, /* tsgm= */ null);
+    assertThat(fv.getDigest()).isNull();
+
+    DigestUtils.configureCache(/* maximumSize= */ 100);
+    try {
+      String expectedDigest = BaseEncoding.base16().lowerCase().encode(file.getDigest());
+      getDigestCounter.set(0);
+      statCounter.set(0);
+
+      assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv))
+          .isEqualTo(expectedDigest);
+      assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv))
+          .isEqualTo(expectedDigest);
+      assertThat(getDigestCounter.get()).isEqualTo(1);
+      // The cache key is derived from the FileValue's contents proxy.
+      assertThat(statCounter.get()).isEqualTo(0);
+    } finally {
+      DigestUtils.configureCache(/* maximumSize= */ 0);
+    }
   }
 
   @Test
