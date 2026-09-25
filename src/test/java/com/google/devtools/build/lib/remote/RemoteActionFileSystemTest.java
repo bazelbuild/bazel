@@ -325,6 +325,29 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void stat_remoteInputBelowLocalFile() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact child = createRemoteArtifact("blocked/child", "contents", inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    writeLocalFile(actionFs, getOutputPath("blocked"), "file");
+    PathFragment path = child.getPath().asFragment();
+
+    assertThat(actionFs.statIfFound(path, /* followSymlinks= */ false)).isNull();
+    // Check the cached parent as well.
+    assertThat(actionFs.statIfFound(path, /* followSymlinks= */ false)).isNull();
+  }
+
+  @Test
+  public void delete_childBelowLocalFile() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment parent = getOutputPath("blocked");
+    writeLocalFile(actionFs, parent, "file");
+
+    assertThat(actionFs.delete(parent.getChild("child"))).isFalse();
+    assertThat(actionFs.stat(parent, /* followSymlinks= */ true).isFile()).isTrue();
+  }
+
+  @Test
   public void statAndExists_danglingSymlink_notFound() throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
     PathFragment path = getOutputPath("sym");
