@@ -47,7 +47,7 @@ bazel_dep(name = "rules_java", version = "9.9.0")
 bazel_dep(name = "rules_cc", version = "0.2.25")
 
 # //tools/python, //tools/build_defs/{hash,pkg}, //third_party/def_parser.
-bazel_dep(name = "rules_python", version = "1.7.0")
+bazel_dep(name = "rules_python", version = "1.9.2")
 
 # //tools/sh, //tools/test, //tools/bash/runfiles.
 bazel_dep(name = "rules_shell", version = "0.6.1")
