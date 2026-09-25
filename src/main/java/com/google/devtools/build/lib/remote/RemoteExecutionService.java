@@ -799,10 +799,11 @@ public class RemoteExecutionService {
 
     var result = RemoteActionResult.createFromCache(cachedActionResult);
 
-    // We only add digests to `knownMissingCasDigests` when LostInputsEvent occurs which will cause
-    // the build to abort and rewind, so there is no data race here. This allows us to avoid the
-    // check until cache eviction happens.
-    if (!knownMissingCasDigests.isEmpty()) {
+    // The legacy whole-invocation retry path uses knownMissingCasDigests to prevent a retried
+    // invocation from accepting the same stale action result. Rewinding instead bypasses remote
+    // cache lookup only for the rewound action via SpawnExecutionContext#bustCaches.
+    if (!action.getSpawnExecutionContext().isRewindingEnabled()
+        && !knownMissingCasDigests.isEmpty()) {
       ActionResultMetadata metadata;
       try {
         metadata =
