@@ -19,7 +19,10 @@ The available subcommands and their respective required arguments are:
 
 *   `tidy`: Formats `MODULE.bazel` and its included module files and updates
     `use_repo` calls for supported module extensions. It evaluates all extensions
-    in the dependency graph to update `MODULE.bazel.lock`.
+    in the dependency graph to update `MODULE.bazel.lock`. Pass `--diff` to
+    report the same changes without modifying files and exit with code 1 if any
+    are needed. See the
+    [recommended update and CI workflows](/external/lockfile#updating-and-checking).
 
 *   `graph`: Displays the full dependency graph of the project, starting from
     the root module. If one or more modules are specified in `--from`, these

@@ -968,9 +968,24 @@ class BazelVendorTest(test_base.TestBase):
         '\n'.join(stderr),
     )
 
-    # Vendor the entire graph before updating module files offline.
+    # Vendor the entire graph before checking and updating module files offline.
     self.RunBazel(['vendor', '--vendor_dir=vendor'])
 
+    original_files = {}
+    for path in ['MODULE.bazel', 'MODULE.bazel.lock']:
+      with open(self.Path(path), 'rb') as f:
+        original_files[path] = f.read()
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'tidy', '--diff', '--vendor_dir=vendor', '--nofetch'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('--- a/MODULE.bazel', stdout)
+    for path, contents in original_files.items():
+      with open(self.Path(path), 'rb') as f:
+        self.assertEqual(contents, f.read(), path)
+
+    # Apply the reported changes with fetching still disabled.
     self.RunBazel([
         'mod',
         'tidy',
@@ -985,6 +1000,10 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('"dep"', contents)
     self.assertIn('"missing_dep"', contents)
     self.assertNotIn('"indirect_dep"', contents)
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'tidy', '--diff', '--vendor_dir=vendor', '--nofetch']
+    )
+    self.assertEmpty(stdout)
 
 
 if __name__ == '__main__':

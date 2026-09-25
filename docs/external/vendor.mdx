@@ -119,6 +119,7 @@ graph while fetching is available:
 ```sh
 bazel vendor --vendor_dir=vendor_src
 bazel mod tidy --vendor_dir=vendor_src --nofetch
+bazel mod tidy --vendor_dir=vendor_src --nofetch --diff
 ```
 
 Vendoring the full graph includes the tools as well, so a separate filegroup

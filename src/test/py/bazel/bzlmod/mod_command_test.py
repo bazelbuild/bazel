@@ -1012,6 +1012,58 @@ class ModCommandTest(test_base.TestBase):
         stderr,
     )
 
+  def assertModTidyDiff(
+      self,
+      changed_files,
+      module_files=('MODULE.bazel',),
+      flags=(),
+      exit_code=None,
+      lockfile_changes=None,
+  ):
+    original_contents = {}
+    for path in module_files:
+      with open(path, 'rb') as module_file:
+        original_contents[path] = module_file.read()
+    lockfile_path = 'MODULE.bazel.lock'
+    if os.path.exists(lockfile_path):
+      with open(lockfile_path, 'rb') as lockfile:
+        original_contents[lockfile_path] = lockfile.read()
+
+    actual_exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'tidy', '--diff', *flags], allow_failure=True, rstrip=True
+    )
+    self.AssertExitCode(
+        actual_exit_code,
+        exit_code
+        if exit_code is not None
+        else (1 if changed_files or lockfile_changes else 0),
+        stderr,
+    )
+    self.assertEqual(
+        ['--- a/' + path for path in sorted(changed_files)],
+        [line for line in stdout if line.startswith('--- a/')],
+    )
+    self.assertEqual(
+        ['+++ b/' + path for path in sorted(changed_files)],
+        [line for line in stdout if line.startswith('+++ b/')],
+    )
+    if changed_files:
+      self.assertTrue(any(line.startswith('@@ ') for line in stdout))
+    else:
+      self.assertEmpty(stdout)
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('INFO: Updated use_repo calls', stderr)
+    if lockfile_changes is not None:
+      self.assertEqual(
+          lockfile_changes, 'MODULE.bazel.lock would change.' in stderr
+      )
+    for path in original_contents:
+      with open(path, 'rb') as module_file:
+        self.assertEqual(original_contents[path], module_file.read(), path)
+    if lockfile_path not in original_contents:
+      self.assertFalse(os.path.exists(lockfile_path))
+    return stderr
+
   def testModTidy(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -1094,6 +1146,10 @@ class ModCommandTest(test_base.TestBase):
         'Imported, but reported as indirect dependencies by the'
         ' extension:\nindirect_dep',
         stderr,
+    )
+
+    self.assertModTidyDiff(
+        ['MODULE.bazel'], flags=['--experimental_isolated_extension_usages']
     )
 
     # Run bazel mod tidy to fix the imports.
@@ -1182,6 +1238,10 @@ class ModCommandTest(test_base.TestBase):
           module_file.read().split('\n'),
       )
 
+    self.assertModTidyDiff(
+        [], flags=['--experimental_isolated_extension_usages']
+    )
+
   def createTransitiveTidyExtension(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -1210,7 +1270,9 @@ class ModCommandTest(test_base.TestBase):
 
   def testModTidyLocksTransitiveExtensions(self):
     extension_id = self.createTransitiveTidyExtension()
+    self.assertModTidyDiff(['MODULE.bazel'], lockfile_changes=True)
     self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([], lockfile_changes=False)
     with open('MODULE.bazel.lock', 'r') as lockfile:
       original = json.load(lockfile)
     self.assertIn(extension_id, original['moduleExtensions'])
@@ -1220,7 +1282,9 @@ class ModCommandTest(test_base.TestBase):
     # A dependency-only extension must also be updated when its result is stale.
     with open('dep/ext.bzl', 'a') as extension:
       extension.write('\n# Changed implementation digest.\n')
+    self.assertModTidyDiff([], lockfile_changes=True)
     self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([], lockfile_changes=False)
     with open('MODULE.bazel.lock', 'r') as lockfile:
       updated = json.load(lockfile)
     self.assertNotEqual(
@@ -1232,7 +1296,9 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'dep/MODULE.bazel', ['module(name = "dep", version = "1.0")']
     )
+    self.assertModTidyDiff([], lockfile_changes=True)
     self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([], lockfile_changes=False)
     with open('MODULE.bazel.lock', 'r') as lockfile:
       updated = json.load(lockfile)
     for field in ['moduleExtensions', 'facts', 'factsVersions']:
@@ -1251,6 +1317,122 @@ class ModCommandTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['mod', 'tidy'], allow_failure=True)
     self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn('dependency extension failed', '\n'.join(stderr))
+
+  def testModTidyDiffLockfileChanges(self):
+    extension_id = self.createTransitiveTidyExtension()
+    self.RunBazel(['mod', 'tidy', '--lockfile_mode=refresh'])
+    with open('MODULE.bazel.lock', 'rb') as lockfile:
+      original = lockfile.read()
+
+    changes = [
+        'missing_file',
+        'missing_hash',
+        'extra_hash',
+        'missing_extension',
+        'extra_extension',
+        'missing_facts',
+        'extra_facts',
+        'extra_facts_version',
+        'extra_yanked_version',
+        'old_lockfile_version',
+    ]
+    # Refresh mode shares the updater with update mode, so a few cases suffice.
+    for mode, cases in [('update', changes), ('refresh', changes[:2])]:
+      for change in cases:
+        with self.subTest(mode=mode, change=change):
+          contents = json.loads(original)
+          unused_extension = '//:unused.bzl%unused'
+          if change == 'missing_file':
+            os.remove('MODULE.bazel.lock')
+          else:
+            if change == 'missing_hash':
+              del contents['registryFileHashes'][
+                  next(iter(contents['registryFileHashes']))
+              ]
+            elif change == 'extra_hash':
+              contents['registryFileHashes'][
+                  'https://example.invalid/unused/MODULE.bazel'
+              ] = '0' * 64
+            elif change == 'missing_extension':
+              del contents['moduleExtensions'][extension_id]
+            elif change == 'extra_extension':
+              contents['moduleExtensions'][unused_extension] = contents[
+                  'moduleExtensions'
+              ][extension_id]
+            elif change == 'missing_facts':
+              del contents['facts'][extension_id]
+            elif change == 'extra_facts':
+              contents['facts'][unused_extension] = {'unused': 'value'}
+            elif change == 'extra_facts_version':
+              contents['factsVersions'][unused_extension] = 1
+            elif change == 'extra_yanked_version':
+              contents['selectedYankedVersions']['unused@1.0'] = 'unused'
+            elif change == 'old_lockfile_version':
+              contents['lockFileVersion'] = 1
+            with open('MODULE.bazel.lock', 'w') as lockfile:
+              json.dump(contents, lockfile)
+
+          flags = ['--lockfile_mode=' + mode]
+          # Repeated checks must keep reporting the change without writing it,
+          # even after evaluation has populated the server and hidden caches.
+          self.assertModTidyDiff([], flags=flags, lockfile_changes=True)
+          self.assertModTidyDiff([], flags=flags, lockfile_changes=True)
+          self.RunBazel(['mod', 'tidy', *flags])
+          with open('MODULE.bazel.lock', 'rb') as lockfile:
+            self.assertEqual(original, lockfile.read())
+          self.assertModTidyDiff([], flags=flags, lockfile_changes=False)
+
+  def testModDiffRequiresTidy(self):
+    self.ScratchFile('MODULE.bazel', [])
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'graph', '--diff'], rstrip=True, allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 2, stderr)
+    self.assertIn(
+        "ERROR: the 'graph' command doesn't take the --diff option. Type"
+        " 'bazel help mod' for syntax and help.",
+        stderr,
+    )
+
+  def testModTidyDiffHonorsLockfileMode(self):
+    self.ScratchFile('MODULE.bazel', [])
+    self.RunBazel(['mod', 'tidy'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      contents = json.load(lockfile)
+    contents['registryFileHashes'][
+        'https://example.invalid/unused/MODULE.bazel'
+    ] = '0' * 64
+    with open('MODULE.bazel.lock', 'w') as lockfile:
+      json.dump(contents, lockfile)
+
+    for mode in ['error', 'off']:
+      self.assertModTidyDiff(
+          [], flags=['--lockfile_mode=' + mode], lockfile_changes=False
+      )
+    self.assertModTidyDiff([], lockfile_changes=True)
+    self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([], lockfile_changes=False)
+
+  def testModTidyDiffPreservesLockfileOnTransitiveExtensionError(self):
+    self.createTransitiveTidyExtension()
+    self.RunBazel(['mod', 'tidy'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      contents = json.load(lockfile)
+    contents['registryFileHashes'][
+        'https://example.invalid/unused/MODULE.bazel'
+    ] = '0' * 64
+    with open('MODULE.bazel.lock', 'w') as lockfile:
+      json.dump(contents, lockfile)
+    self.ScratchFile(
+        'dep/ext.bzl',
+        [
+            'def _impl(ctx):',
+            '    fail("dependency extension failed")',
+            'ext = module_extension(implementation = _impl)',
+        ],
+    )
+    stderr = self.assertModTidyDiff([], exit_code=2, lockfile_changes=True)
+    self.assertIn('dependency extension failed', stderr)
 
   def testModTidyAlwaysFormatsModuleFile(self):
     self.ScratchFile(
@@ -1297,13 +1479,13 @@ class ModCommandTest(test_base.TestBase):
       )
 
   def testModTidyNoop(self):
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'ext = use_extension("//:extension.bzl", "ext")',
-            'use_repo(ext, "dep")',
-        ],
-    )
+    with open(
+        'MODULE.bazel', 'w', encoding='utf-8', newline='\n'
+    ) as module_file:
+      module_file.write(
+          'ext = use_extension("//:extension.bzl", "ext")\n'
+          'use_repo(ext, "dep")\n'
+      )
     self.ScratchFile('BUILD.bazel')
     self.ScratchFile(
         'extension.bzl',
@@ -1325,8 +1507,10 @@ class ModCommandTest(test_base.TestBase):
         ],
     )
 
-    # Verify that bazel mod tidy doesn't fail or change the file.
+    # Only the missing lockfile needs updating; the module file is already tidy.
+    self.assertModTidyDiff([], lockfile_changes=True)
     self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([])
 
     with open('MODULE.bazel', 'r') as module_file:
       self.assertEqual(
@@ -1338,6 +1522,56 @@ class ModCommandTest(test_base.TestBase):
           ],
           module_file.read().split('\n'),
       )
+
+  def testModTidyDiffLineEndings(self):
+    for contents in [
+        b'module(name = "foo")',
+        b'module(name = "foo")\r\n',
+        b'\n',
+    ]:
+      with self.subTest(contents=contents):
+        with open('MODULE.bazel', 'wb') as module_file:
+          module_file.write(contents)
+        self.assertModTidyDiff(['MODULE.bazel'])
+        _, stdout, _ = self.RunBazel(
+            ['mod', 'tidy', '--diff'], allow_failure=True, rstrip=True
+        )
+        if contents == b'module(name = "foo")':
+          self.assertEqual(
+              [
+                  '--- a/MODULE.bazel',
+                  '+++ b/MODULE.bazel',
+                  '@@ -1,1 +1,1 @@',
+                  '-module(name = "foo")',
+                  '\\ No newline at end of file',
+                  '+module(name = "foo")',
+              ],
+              stdout,
+          )
+        self.RunBazel(['mod', 'tidy'])
+        self.assertModTidyDiff([])
+        with open('MODULE.bazel', 'rb') as module_file:
+          self.assertEqual(
+              b'' if contents == b'\n' else b'module(name = "foo")\n',
+              module_file.read(),
+          )
+
+  def testModTidyFormatsIncludedFile(self):
+    with open(
+        'MODULE.bazel', 'w', encoding='utf-8', newline='\n'
+    ) as module_file:
+      module_file.write('include("//:deps.MODULE.bazel")\n')
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile('deps.MODULE.bazel', ['# ü🌱', 'print(  "hello")'])
+    module_files = ['MODULE.bazel', 'deps.MODULE.bazel']
+
+    self.assertModTidyDiff(['deps.MODULE.bazel'], module_files)
+    self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([], module_files)
+    with open('MODULE.bazel', 'r') as module_file:
+      self.assertEqual('include("//:deps.MODULE.bazel")\n', module_file.read())
+    with open('deps.MODULE.bazel', 'r', encoding='utf-8') as module_file:
+      self.assertEqual('# ü🌱\nprint("hello")\n', module_file.read())
 
   def testModTidyWithNonRegistryOverride(self):
     self.ScratchFile(
@@ -1410,13 +1644,13 @@ class ModCommandTest(test_base.TestBase):
       )
 
   def testModTidyFailsOnExtensionFailure(self):
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'ext = use_extension("//:extension.bzl", "ext")',
-            'use_repo(ext, "dep")',
-        ],
-    )
+    with open(
+        'MODULE.bazel', 'w', encoding='utf-8', newline='\n'
+    ) as module_file:
+      module_file.write(
+          'ext = use_extension("//:extension.bzl", "ext")\n'
+          'use_repo(ext, "dep")\n'
+      )
     self.ScratchFile('BUILD.bazel')
     self.ScratchFile(
         'extension.bzl',
@@ -1429,6 +1663,8 @@ class ModCommandTest(test_base.TestBase):
     )
 
     # Verify that bazel mod tidy fails if an extension fails to execute.
+    stderr = self.assertModTidyDiff([], exit_code=2)
+    self.assertIn('Error: index out of range', stderr)
     exit_code, _, stderr = self.RunBazel(['mod', 'tidy'], allow_failure=True)
 
     self.AssertNotExitCode(exit_code, 0, stderr)
@@ -1512,6 +1748,9 @@ class ModCommandTest(test_base.TestBase):
         stderr,
     )
 
+    stderr = self.assertModTidyDiff(['MODULE.bazel'], exit_code=2)
+    self.assertIn('Failed to process 1 extension due to errors.', stderr)
+
     # Run bazel mod tidy to fix the imports.
     exit_code, stdout, stderr = self.RunBazel(
         [
@@ -1525,9 +1764,9 @@ class ModCommandTest(test_base.TestBase):
     self.assertEqual([], stdout)
     self.assertIn('ERROR: Failed to process 1 extension due to errors.', stderr)
     stderr = '\n'.join(stderr)
-    # The passing extension should not be reevaluated by the command.
+    # Neither extension should be reevaluated after --diff.
     self.assertNotIn('ext1 is being evaluated', stderr)
-    self.assertIn('ext2 is being evaluated', stderr)
+    self.assertNotIn('ext2 is being evaluated', stderr)
     # baze mod tidy doesn't show fixup warnings.
     self.assertNotIn(
         'Not imported, but reported as direct dependencies by the extension'
@@ -1588,6 +1827,8 @@ class ModCommandTest(test_base.TestBase):
           module_file.read().split('\n'),
       )
 
+    self.assertModTidyDiff([], exit_code=2)
+
   def testModTidyFixesInvalidImport(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -1619,6 +1860,7 @@ class ModCommandTest(test_base.TestBase):
 
     # Verify that bazel mod tidy fixes the MODULE.bazel file even though the
     # extension fails after evaluation.
+    self.assertModTidyDiff(['MODULE.bazel'])
     _, _, stderr = self.RunBazel(['mod', 'tidy'])
     stderr = '\n'.join(stderr)
     self.assertIn(
@@ -1636,13 +1878,13 @@ class ModCommandTest(test_base.TestBase):
       )
 
   def testModTidyWithIncludes(self):
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'include("//:firstProd.MODULE.bazel")',
-            'include("//:secondäöüÄÖÜß🌱.MODULE.bazel")',
-        ],
-    )
+    with open(
+        'MODULE.bazel', 'w', encoding='utf-8', newline='\n'
+    ) as module_file:
+      module_file.write(
+          'include("//:firstProd.MODULE.bazel")\n'
+          'include("//:secondäöüÄÖÜß🌱.MODULE.bazel")\n'
+      )
     self.ScratchFile(
         'firstProd.MODULE.bazel',
         [
@@ -1708,7 +1950,15 @@ class ModCommandTest(test_base.TestBase):
         ],
     )
 
+    module_files = [
+        'MODULE.bazel',
+        'firstProd.MODULE.bazel',
+        'firstDev.MODULE.bazel',
+        'secondäöüÄÖÜß🌱.MODULE.bazel',
+    ]
+    self.assertModTidyDiff(module_files[1:], module_files)
     _, _, stderr = self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([], module_files)
     stderr = '\n'.join(stderr)
     self.assertIn(
         'INFO: Updated use_repo calls for @//:extension.bzl%ext', stderr
