@@ -799,10 +799,11 @@ public class RemoteExecutionService {
 
     var result = RemoteActionResult.createFromCache(cachedActionResult);
 
-    // We only add digests to `knownMissingCasDigests` when LostInputsEvent occurs which will cause
-    // the build to abort and rewind, so there is no data race here. This allows us to avoid the
-    // check until cache eviction happens.
-    if (!knownMissingCasDigests.isEmpty()) {
+    // The legacy whole-invocation retry path uses knownMissingCasDigests to prevent a retried
+    // invocation from accepting the same stale action result. Rewinding instead bypasses remote
+    // cache lookup only for the rewound action via SpawnExecutionContext#bustCaches.
+    if (!action.getSpawnExecutionContext().isRewindingEnabled()
+        && !knownMissingCasDigests.isEmpty()) {
       ActionResultMetadata metadata;
       try {
         metadata =
@@ -822,13 +823,8 @@ public class RemoteExecutionService {
       // that we can fall back to execution. This could happen when the remote cache is an HTTP
       // cache, or doesn't implement AC integrity check.
       //
-      // The digests are only forgotten once the blobs have actually been uploaded again, either by
-      // a remote execution or by uploading the outputs of a local execution. Forgetting them here
-      // would let the next lookup accept the same stale action result if the action doesn't get to
-      // upload its outputs in the meantime, e.g. because it is rewound again first.
-      //
       // See https://github.com/bazelbuild/bazel/issues/18696.
-      if (referencesKnownMissingCasDigest(metadata)) {
+      if (updateKnownMissingCasDigests(knownMissingCasDigests, metadata)) {
         return null;
       }
     }
@@ -850,43 +846,27 @@ public class RemoteExecutionService {
     return null;
   }
 
-  /** Returns whether {@code metadata} references a file known to be missing from the cache. */
-  private boolean referencesKnownMissingCasDigest(ActionResultMetadata metadata) {
+  /**
+   * Removes digests referenced by {@code metadata} from {@code knownMissingCasDigests} and returns
+   * whether any were removed
+   */
+  private static boolean updateKnownMissingCasDigests(
+      Set<Digest> knownMissingCasDigests, ActionResultMetadata metadata) {
+    // Using `remove` below because we assume the missing blob will be uploaded afterwards.
+    var result = false;
     for (var file : metadata.files()) {
-      if (knownMissingCasDigests.contains(file.digest())) {
-        return true;
+      if (knownMissingCasDigests.remove(file.digest())) {
+        result = true;
       }
     }
     for (var entry : metadata.directories()) {
       for (var file : entry.getValue().files()) {
-        if (knownMissingCasDigests.contains(file.digest())) {
-          return true;
+        if (knownMissingCasDigests.remove(file.digest())) {
+          result = true;
         }
       }
     }
-    return false;
-  }
-
-  /** Forgets file digests referenced by {@code metadata} once their blobs are present again. */
-  private void forgetMissingCasDigests(ActionResultMetadata metadata) {
-    if (knownMissingCasDigests.isEmpty()) {
-      return;
-    }
-    for (var file : metadata.files()) {
-      knownMissingCasDigests.remove(file.digest());
-    }
-    for (var entry : metadata.directories()) {
-      for (var file : entry.getValue().files()) {
-        knownMissingCasDigests.remove(file.digest());
-      }
-    }
-  }
-
-  /** Forgets the given digests once their blobs are present again. */
-  private void forgetMissingCasDigests(Collection<Digest> digests) {
-    if (!knownMissingCasDigests.isEmpty()) {
-      knownMissingCasDigests.removeAll(digests);
-    }
+    return result;
   }
 
   private ListenableFuture<FileMetadata> downloadFile(
@@ -1488,10 +1468,10 @@ public class RemoteExecutionService {
                 .formatted(prettyPrint(missingMandatoryOutput.get())));
       }
 
-      if (result.executeResponse != null) {
+      if (result.executeResponse != null && !knownMissingCasDigests.isEmpty()) {
         // A succeeded execution uploads outputs to CAS. Refresh our knowledge about missing
         // digests.
-        forgetMissingCasDigests(metadata);
+        var unused = updateKnownMissingCasDigests(knownMissingCasDigests, metadata);
       }
 
       // When downloading outputs from just remotely executed action, the action result comes from
@@ -1949,9 +1929,6 @@ public class RemoteExecutionService {
       UploadManifest manifest = buildUploadManifest(action, spawnResult);
       var unused =
           manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter);
-      // The outputs of a rewound action that has been re-executed locally are present in the
-      // cache again, at least in the part of it that the write policy allows.
-      forgetMissingCasDigests(manifest.getDigestToFile().keySet());
     } catch (IOException e) {
       reportUploadError(e);
     } finally {

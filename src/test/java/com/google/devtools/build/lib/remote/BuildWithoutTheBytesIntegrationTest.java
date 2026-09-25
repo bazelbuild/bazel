@@ -633,25 +633,21 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       buildTarget("//a:baz");
 
       assertValidOutputFile("a/baz.out", "foobarbaz2\n");
-      // bar.out must still be known to be missing when //a:bar is retried after //a:foo has been
-      // rewound, so that its stale action result is rejected a second time. Otherwise //a:baz
-      // would discover bar.out lost again and rewind //a:bar once more.
+      // Cache lookup is bypassed for each rewound action. Otherwise //a:baz would discover bar.out
+      // lost again and rewind //a:bar once more.
       assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:bar", "//a:foo");
-      // Both blobs have been uploaded again by the remote executions.
+      // Rewinding doesn't populate the digest set used by the legacy whole-invocation retry path.
       sampler.assertSizeAtExecutionPhaseComplete(0);
     }
   }
 
   @Test
-  public void actionRewinding_localExecution_forgetsUploadedDigests(
+  public void actionRewinding_localExecution_bustsStaleCacheEntry(
       @TestParameter boolean actionCacheIntegrityCheck, @TestParameter boolean uploadLocalResults)
       throws Exception {
-    // A rewound action that is executed locally rather than remotely must also stop treating its
-    // outputs as missing from the cache once they have been uploaded. Otherwise, every later cache
-    // lookup keeps checking for the digests and rejects action results that reference them even
-    // though they are present again. This applies whether the stale action result for the rewound
-    // action is served and rejected or a cache that checks the integrity of its action results
-    // doesn't serve it at all.
+    // A rewound action that is executed locally rather than remotely must bypass its stale action
+    // result independently of whether that result is served by the cache. A cache that checks the
+    // integrity of action results doesn't serve it at all.
     var cacheWorker =
         IntegrationTestUtils.createWorker(
             "--action_cache_integrity_check=" + actionCacheIntegrityCheck);
@@ -693,10 +689,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       // //a:foo and thus have it executed instead of rewound.
       addOptions(
           "--strategy_regexp=.*=local",
-          "--remote_upload_local_results=" + uploadLocalResults,
-          // The digest is only forgotten once the upload has completed, which an asynchronous
-          // upload may do after the execution phase has completed.
-          "--remote_cache_async=false");
+          "--remote_upload_local_results=" + uploadLocalResults);
       // Invalidate only //a:bar so that its execution discovers the lost input and rewinds //a:foo.
       write("a/bar.in", "two");
       var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
@@ -707,10 +700,9 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:foo");
       assertValidOutputFile("a/bar.out", "footwo\n");
       assertThat(cacheWorker.hasCasBlob("foo".getBytes(UTF_8))).isEqualTo(uploadLocalResults);
-      // The digest of foo.out is forgotten if and only if the blob was uploaded to the remote or
-      // the disk cache. Otherwise it is still missing and the stale action result for //a:foo must
-      // keep being rejected.
-      sampler.assertSizeAtExecutionPhaseComplete(uploadLocalResults || useDiskCache ? 0 : 1);
+      // Rewinding doesn't populate the digest set used by the legacy whole-invocation retry path,
+      // regardless of whether the local result was uploaded.
+      sampler.assertSizeAtExecutionPhaseComplete(0);
     }
   }
 

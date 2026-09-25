@@ -2001,10 +2001,7 @@ java_library(
 java_library(
     name = "progress_suppressing_event_handler",
     srcs = ["ProgressSuppressingEventHandler.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/remote/common:lost_inputs_event",
-    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/events"],
 )
 
 java_library(

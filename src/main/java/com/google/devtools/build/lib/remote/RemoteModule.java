@@ -142,6 +142,9 @@ public final class RemoteModule extends BlazeModule {
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   private final ThreadPoolExecutor executorService;
+  // TODO: Remove this set together with the legacy whole-invocation retry path used when action
+  // rewinding is disabled. Rewinding communicates cache invalidation per action through
+  // SpawnExecutionContext#bustCaches instead.
   private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
   private final ChunkLocationMap chunkLocationMap = new ChunkLocationMap();
   private boolean useRemoteRepoContentsCache;
