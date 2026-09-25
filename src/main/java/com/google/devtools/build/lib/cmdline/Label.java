@@ -443,7 +443,7 @@ public final class Label
    * yield the same label! For that, use {@link #getUnambiguousCanonicalForm()}.
    */
   public String getCanonicalForm() {
-    return packageIdentifier.getCanonicalForm() + ":" + name;
+    return getRepository().getCanonicalForm() + "//" + getPackageName() + ":" + name;
   }
 
   /**
@@ -452,7 +452,7 @@ public final class Label
    * Label.parse*(x.getUnambiguousCanonicalForm(), ...).equals(x)}).
    */
   public String getUnambiguousCanonicalForm() {
-    return packageIdentifier.getUnambiguousCanonicalForm() + ":" + name;
+    return getRepository().getNameWithAt() + "//" + getPackageName() + ":" + name;
   }
 
   /**
