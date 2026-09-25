@@ -131,21 +131,8 @@ public class DigestUtils {
   /**
    * Calculates a digest manually (i.e., assuming that a fast digest can't obtained).
    *
-   * <p>Prefer calling {@link #manuallyComputeDigest(Path, FileStatus)} when a recently obtained
-   * {@link FileStatus} is available.
-   *
    * @param path the file path
-   */
-  public static byte[] manuallyComputeDigest(Path path) throws IOException {
-    return manuallyComputeDigest(path, null);
-  }
-
-  /**
-   * Same as {@link #manuallyComputeDigest(Path)}, but providing the ability to reuse a recently
-   * obtained {@link FileStatus}.
-   *
-   * @param path the file path
-   * @param status a recently obtained file status, if available
+   * @param status a recently obtained file status, if available. Used to skip a stat.
    */
   public static byte[] manuallyComputeDigest(Path path, @Nullable FileStatus status)
       throws IOException {

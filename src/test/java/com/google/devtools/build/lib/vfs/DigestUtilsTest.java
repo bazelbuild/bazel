@@ -105,7 +105,7 @@ public final class DigestUtilsTest {
     FileSystemUtils.writeContentAsLatin1(file, "some contents");
 
     // Without a stat, DigestUtils has to stat the file itself to build the cache key.
-    byte[] digest = DigestUtils.manuallyComputeDigest(file);
+    byte[] digest = DigestUtils.manuallyComputeDigest(file, /* status= */ null);
     assertThat(getDigestCounter.get()).isEqualTo(1);
     assertThat(statCounter.get()).isEqualTo(1);
 
@@ -137,7 +137,7 @@ public final class DigestUtilsTest {
     Path file = noDigestFileSystem.getPath("/f.txt");
     FileSystemUtils.writeContentAsLatin1(file, "contents");
 
-    assertThat(DigestUtils.manuallyComputeDigest(file)).isEqualTo(digest);
+    assertThat(DigestUtils.manuallyComputeDigest(file, /* status= */ null)).isEqualTo(digest);
   }
 
   @Test
