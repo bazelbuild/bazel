@@ -173,12 +173,24 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void testPublishLifecycleEvents_splitCommandSucceeded() throws Exception {
-    testPublishLifecycleEvents(InvocationStatus.SUCCEEDED, new BuildEventWithoutChildren(success));
+    testPublishLifecycleEvents(
+        InvocationStatus.SUCCEEDED,
+        new BuildEventWithoutChildren(
+            new BuildCompletingEvent(
+                ExitCode.SUCCESS,
+                System.currentTimeMillis(),
+                ImmutableList.of(BuildEventIdUtil.progressId(2))) {}));
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void testPublishLifecycleEvents_splitCommandFailed() throws Exception {
-    testPublishLifecycleEvents(InvocationStatus.FAILED, new BuildEventWithoutChildren(failed));
+    testPublishLifecycleEvents(
+        InvocationStatus.FAILED,
+        new BuildEventWithoutChildren(
+            new BuildCompletingEvent(
+                ExitCode.BUILD_FAILURE,
+                System.currentTimeMillis(),
+                ImmutableList.of(BuildEventIdUtil.progressId(2))) {}));
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
@@ -186,7 +198,11 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     testPublishLifecycleEvents(
         InvocationStatus.FAILED,
         new BuildEventWithoutChildren(
-            new AbortedEvent(BuildEventIdUtil.buildFinished(), AbortReason.INTERNAL, "crashed")));
+            new AbortedEvent(
+                BuildEventIdUtil.buildFinished(),
+                ImmutableList.of(BuildEventIdUtil.progressId(2)),
+                AbortReason.INTERNAL,
+                "crashed")));
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
