@@ -466,7 +466,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             positional = false,
             doc =
                 "Command line arguments of the action. "
-                    + "Must be a list of strings or "
+                    + "Must be a list of strings or a list of "
                     + "<a href=\"#args\"><code>actions.args()</code></a> objects."),
         @Param(
             name = "mnemonic",
@@ -676,7 +676,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             positional = false,
             doc =
                 "Command line arguments of the action. Must be a list of strings or "
-                    + "<a href=\"#args\"><code>actions.args()</code></a> objects."
+                    + "a list of <a href=\"#args\"><code>actions.args()</code></a> objects."
                     + ""
                     + "<p>Bazel passes the elements in this attribute as arguments to the command."
                     + "The command can access these arguments using shell variable substitutions "
