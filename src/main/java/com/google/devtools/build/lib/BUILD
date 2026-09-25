@@ -301,16 +301,15 @@ genrule(
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
 )
 
-# TODO: Rename to gen_reference_docs once the docs migration is done.
 genrule(
-    name = "gen_mdx_reference_docs",
+    name = "gen_reference_docs",
     srcs = [
         ":build-encyclopedia.zip",
         ":command-line-reference.html",
         ":skylark-library.zip",
         "//tools/build_defs/repo:doc",
     ],
-    outs = ["mdx-reference-docs.zip"],
+    outs = ["reference-docs.zip"],
     cmd = "mkdir -p $(@D)/html_for_mdx/reference/be && " +
           "cp $(location :command-line-reference.html) $(@D)/html_for_mdx/reference/ && " +
           "unzip -q -d $(@D)/html_for_mdx/reference/be/ $(location :build-encyclopedia.zip) && " +
