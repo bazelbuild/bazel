@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -107,6 +108,25 @@ public class FakeRegistry implements Registry {
   public Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(
       ModuleKey selectedModuleKey) {
     return Optional.empty();
+  }
+
+  @Override
+  public Optional<KnownVersions> getKnownVersions(
+      String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager) {
+    // Return the versions registered under this name, sorted, split into non-yanked and yanked.
+    ImmutableMap<Version, String> yanked =
+        yankedVersionMap.getOrDefault(moduleName, ImmutableMap.of());
+    ImmutableList<Version> available =
+        modules.keySet().stream()
+            .filter(key -> key.name().equals(moduleName))
+            .map(ModuleKey::version)
+            .filter(version -> !yanked.containsKey(version))
+            .sorted()
+            .collect(ImmutableList.toImmutableList());
+    if (available.isEmpty() && yanked.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(new KnownVersions(available, yanked.keySet()));
   }
 
   @Override
