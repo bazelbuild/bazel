@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -211,7 +210,14 @@ public final class BuildOptions implements Cloneable {
   /** Returns a string that uniquely identifies the options. */
   public static String optionsToCacheKey(OptionsBase options) {
     StringBuilder result = new StringBuilder(options.getOptionsClass().getName()).append("{");
-    result.append(mapToCacheKey(Options.toMap(options)));
+    for (OptionDefinition definition :
+        OptionDefinition.getOptionDefinitions(options.getOptionsClass())) {
+      appendCacheKeyEntry(
+          result,
+          definition.getOptionName(),
+          definition.getValue(options),
+          /* distinguishStarlarkTypes= */ false);
+    }
     return result.append("}").toString();
   }
 
@@ -223,27 +229,29 @@ public final class BuildOptions implements Cloneable {
   private static String mapToCacheKey(Map<?, ?> optionsMap, boolean distinguishStarlarkTypes) {
     StringBuilder result = new StringBuilder();
     for (Map.Entry<?, ?> entry : optionsMap.entrySet()) {
-      result.append(entry.getKey()).append("=");
-
-      Object value = entry.getValue();
-
-      if (value == null) {
-        result.append("NULL");
-      } else {
-        if (distinguishStarlarkTypes) {
-          result.append(Starlark.type(value));
-        }
-        // This special case is needed because Collection.toString() prints the same ("[]") for an
-        // empty collection and for a collection with a single empty string.
-        if (value instanceof Collection<?> c && c.isEmpty()) {
-          result.append("EMPTY");
-        } else {
-          result.append('"').append(ESCAPER.escape(value.toString())).append('"');
-        }
-      }
-      result.append(", ");
+      appendCacheKeyEntry(result, entry.getKey(), entry.getValue(), distinguishStarlarkTypes);
     }
     return result.toString();
+  }
+
+  private static void appendCacheKeyEntry(
+      StringBuilder result, Object key, Object value, boolean distinguishStarlarkTypes) {
+    result.append(key).append("=");
+    if (value == null) {
+      result.append("NULL");
+    } else {
+      if (distinguishStarlarkTypes) {
+        result.append(Starlark.type(value));
+      }
+      // This special case is needed because Collection.toString() prints the same ("[]") for an
+      // empty collection and for a collection with a single empty string.
+      if (value instanceof Collection<?> c && c.isEmpty()) {
+        result.append("EMPTY");
+      } else {
+        result.append('"').append(ESCAPER.escape(value.toString())).append('"');
+      }
+    }
+    result.append(", ");
   }
 
   /**
