@@ -32,7 +32,7 @@ else
 fi
 
 DIR=$(mktemp -d "${TEST_TMPDIR}/test.XXXXXXXX")
-cd $DIR
+cd "$DIR"
 
 # The following code produces a 120MB file (30*2^22 bytes)
 cat > input.txt <<EOF
