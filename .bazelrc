@@ -97,6 +97,7 @@ common:ci-common --lockfile_mode=error
 common:ci-common --remote_download_minimal
 common:ci-common --nobuild_runfile_links
 common:ci-common --experimental_profile_include_target_label
+common:ci-common --local_test_jobs=0
 
 ## For Linux
 common:ci-linux --config=ci-common
