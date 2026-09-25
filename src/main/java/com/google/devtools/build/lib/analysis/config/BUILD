@@ -508,7 +508,6 @@ java_library(
     srcs = ["Scope.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
     ],
