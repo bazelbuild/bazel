@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceC
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceProtoUtil;
 import com.google.devtools.build.lib.buildeventservice.client.CommandContext;
 import com.google.devtools.build.lib.buildeventservice.client.LifecycleEvent.InvocationStatus;
+import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -46,9 +47,11 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.NamedSetOfFiles;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithoutChildren;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -166,6 +169,24 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
   @Test(timeout = TIMEOUT_MILLIS)
   public void testPublishLifecycleEvents_commandFailed() throws Exception {
     testPublishLifecycleEvents(InvocationStatus.FAILED, failed);
+  }
+
+  @Test(timeout = TIMEOUT_MILLIS)
+  public void testPublishLifecycleEvents_splitCommandSucceeded() throws Exception {
+    testPublishLifecycleEvents(InvocationStatus.SUCCEEDED, new BuildEventWithoutChildren(success));
+  }
+
+  @Test(timeout = TIMEOUT_MILLIS)
+  public void testPublishLifecycleEvents_splitCommandFailed() throws Exception {
+    testPublishLifecycleEvents(InvocationStatus.FAILED, new BuildEventWithoutChildren(failed));
+  }
+
+  @Test(timeout = TIMEOUT_MILLIS)
+  public void testPublishLifecycleEvents_splitCommandAborted() throws Exception {
+    testPublishLifecycleEvents(
+        InvocationStatus.FAILED,
+        new BuildEventWithoutChildren(
+            new AbortedEvent(BuildEventIdUtil.buildFinished(), AbortReason.INTERNAL, "crashed")));
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
