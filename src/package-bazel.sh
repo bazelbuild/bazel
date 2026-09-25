@@ -33,22 +33,22 @@ else
 fi
 
 TMP_DIR=${TMPDIR:-/tmp}
-ROOT="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
+ROOT="$(mktemp -d "${TMP_DIR%%/}/bazel.XXXXXXXX")"
 RECOMP="$ROOT/recomp"
 PACKAGE_DIR="$ROOT/pkg"
 DEPLOY_UNCOMP="$ROOT/deploy-uncompressed.jar"
 FILE_LIST="$ROOT/file.list"
 mkdir -p "${PACKAGE_DIR}"
-trap "rm -fr ${ROOT}" EXIT
+trap 'rm -fr -- "$ROOT"' EXIT
 
-cp $* ${PACKAGE_DIR}
+cp -- "$@" "$PACKAGE_DIR"
 
 if [[ $DEV_BUILD -eq 0 ]]; then
   # Unpack the deploy jar for postprocessing and for "re-compressing" to save
   # ~10% of final binary size.
-  mkdir -p $RECOMP
-  unzip -q -d $RECOMP ${DEPLOY_JAR}
-  cd $RECOMP
+  mkdir -p "$RECOMP"
+  unzip -q -d "$RECOMP" "$DEPLOY_JAR"
+  cd "$RECOMP"
 
   # Zero out timestamps and sort the entries to ensure determinism.
   find . -type f -print0 | xargs -0 touch -t 198001010000.00
@@ -68,33 +68,33 @@ fi
 echo -n "${bazel_label:-no_version}" > "${PACKAGE_DIR}/build-label.txt"
 
 if [ -n "${EMBEDDED_TOOLS}" ]; then
-  mkdir ${PACKAGE_DIR}/embedded_tools
-  (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
+  mkdir "$PACKAGE_DIR/embedded_tools"
+  (cd "$PACKAGE_DIR/embedded_tools" && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
 
 (
-  cd $PACKAGE_DIR
+  cd "$PACKAGE_DIR"
   tar -xf "$WORKDIR/$PLATFORMS_ARCHIVE" -C .
   # "platforms" is a well-known module, so no need to tamper with anything here.
 )
 
 # Make a list of the files in the order we want them inside the final zip.
 (
-  cd $PACKAGE_DIR
+  cd "$PACKAGE_DIR"
   # The server jar needs to be the first binary we extract.
   # This is how the Bazel client knows which .jar to pass to the JVM.
   echo A-server.jar
   find . -type f | sort
   # And install_base_key must be last.
   echo install_base_key
-) > $FILE_LIST
+) > "$FILE_LIST"
 
 # Move these after the 'find' above.
-cp $DEPLOY_JAR $PACKAGE_DIR/A-server.jar
-cp $INSTALL_BASE_KEY $PACKAGE_DIR/install_base_key
+cp -- "$DEPLOY_JAR" "$PACKAGE_DIR/A-server.jar"
+cp -- "$INSTALL_BASE_KEY" "$PACKAGE_DIR/install_base_key"
 
 # Zero timestamps.
-(cd $PACKAGE_DIR; xargs touch -t 198001010000.00) < $FILE_LIST
+(cd "$PACKAGE_DIR"; find . -type f -print0 | xargs -0 touch -t 198001010000.00)
 
 if [[ "$DEV_BUILD" -eq 1 ]]; then
   # Create output zip with lowest compression, but fast.
@@ -103,4 +103,4 @@ else
   # Create output zip with highest compression, but slow.
   ZIP_ARGS="-q9DX@"
 fi
-(cd $PACKAGE_DIR; zip $ZIP_ARGS "$WORKDIR/$OUT") < $FILE_LIST
+(cd "$PACKAGE_DIR"; zip "$ZIP_ARGS" "$WORKDIR/$OUT") < "$FILE_LIST"
