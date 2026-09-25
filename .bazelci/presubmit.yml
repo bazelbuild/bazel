@@ -321,4 +321,4 @@ tasks:
       - "--config=docs"
     build_targets:
       - "//scripts/docs:gen_mdx_release_docs"
-      - "//src/main/java/com/google/devtools/build/lib:gen_mdx_reference_docs"
+      - "//src/main/java/com/google/devtools/build/lib:gen_reference_docs"
