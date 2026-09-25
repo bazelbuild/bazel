@@ -492,6 +492,49 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
+  public void bustCaches_skipsCacheLookupAndRemoteExecutorCache() throws Exception {
+    remoteOptions.setRemoteAcceptCached(true);
+    remoteOptions.setRemoteLocalFallback(false);
+
+    RemoteSpawnRunner runner = newSpawnRunner();
+    RemoteExecutionService service = runner.getRemoteExecutionService();
+
+    ExecuteResponse succeeded =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(0).build())
+            .build();
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
+        .thenReturn(succeeded);
+
+    Spawn spawn = newSimpleSpawn();
+    FakeSpawnExecutionContext policy = getSpawnContext(spawn);
+    policy.setBustCaches(true);
+
+    SpawnResult result = runner.exec(spawn, policy);
+
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+    assertThat(result.isCacheHit()).isFalse();
+    verify(service, never()).lookupCache(any());
+    verify(cache, never())
+        .downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            anyBoolean(),
+            any());
+    ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            requestCaptor.capture(),
+            any(OperationObserver.class));
+    assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
+    verifyNoMoreInteractions(localRunner);
+  }
+
+  @Test
   public void treatFailedCachedActionAsCacheMiss_remote() throws Exception {
     // Test that bazel treats failed cache action as a cache miss and attempts to execute action
     // remotely
