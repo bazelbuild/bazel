@@ -947,8 +947,8 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_aspectErrorPlusTargetAnalysisError_targetErrorWins() {
-    // Deterministic despite the HashMap iteration order: the aspect's exception is stashed and only
-    // thrown after the loop, so the target's exception always wins.
+    // NO_KEEP_GOING_PRECEDENCE ranks TARGET_ANALYSIS ahead of ASPECT_ANALYSIS, so the target error
+    // always aborts the build regardless of errorMap() iteration order.
     Label aspectLabel = Label.parseCanonicalUnchecked("//aspect_err");
     TopLevelAspectsKey aspectKey = topLevelAspectsKey(aspectLabel);
     ConfiguredTargetKey targetKey = configuredTargetKey("//pkg:analysis_err");
@@ -969,12 +969,14 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown)
         .hasMessageThat()
         .contains("Analysis of target '//pkg:analysis_err' failed; build aborted");
+    // The aspect's event is not posted, so it cannot overwrite the target's root causes.
+    assertThat(onlyAnalysisFailureEvent().getFailedTarget()).isEqualTo(targetKey);
   }
 
   @Test
   public void noKeepGoing_aspectErrorPlusActionConflict_throwsAspectErrorAndDropsTheConflict() {
-    // Known wart: the conflict is harvested into a result that is then never returned, because the
-    // stashed aspect exception is thrown after the loop. The conflict is silently lost.
+    // Known wart: the conflict is harvested into a result that is then never returned, because
+    // Phase 3 aborts the build with the non-conflict aspect error. The conflict is silently lost.
     Label aspectLabel = Label.parseCanonicalUnchecked("//aspect_err");
     TopLevelAspectsKey aspectKey = topLevelAspectsKey(aspectLabel);
     ConfiguredTargetKey conflictKey = configuredTargetKey("//conflict");
@@ -999,38 +1001,114 @@ public class SkyframeErrorProcessorTest {
   }
 
   @Test
-  public void noKeepGoing_executionErrorPlusAnalysisError_winnerIsOrderDependent() {
-    // ORDER DEPENDENCE: both errors throw immediately when they are reached, so whichever one
-    // errorMap() happens to yield first wins. Do not pin a winner here.
+  public void noKeepGoing_executionErrorPlusAnalysisError_executionWins() {
     ConfiguredTargetKey executionKey = configuredTargetKey("//exec_err");
     ConfiguredTargetKey analysisKey = configuredTargetKey("//analysis_err");
+    DetailedExitCode exitCode =
+        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
 
     EvaluationResult<SkyValue> result =
         EvaluationResult.<SkyValue>builder()
             .addError(
                 executionKey,
-                errorInfo(
-                    actionExecutionExceptionWithAction(
-                        "action failed",
-                        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE))))
+                errorInfo(actionExecutionExceptionWithAction("action failed", exitCode)))
             .addError(
                 analysisKey,
                 errorInfo(analysisException("analysis exception", analysisKey.getLabel())))
             .build();
 
-    Exception thrown =
+    BuildFailedException thrown =
         assertThrows(
-            Exception.class,
+            BuildFailedException.class,
             () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
 
-    assertThat(thrown.getClass())
-        .isAnyOf(BuildFailedException.class, ViewCreationFailedException.class);
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(exitCode);
+    // Only the error the build aborts with is reported.
+    assertThat(eventBusCollector.analysisFailures).isEmpty();
+  }
+
+  @Test
+  public void noKeepGoing_twoExecutionErrors_moreImportantExitCodeWins() {
+    ConfiguredTargetKey buildKey = configuredTargetKey("//a:a");
+    ConfiguredTargetKey infrastructureKey = configuredTargetKey("//z:z");
+    DetailedExitCode buildExitCode =
+        executionExitCode("build failure", Execution.Code.ACTION_NOT_UP_TO_DATE);
+    DetailedExitCode infrastructureExitCode =
+        executionExitCode("infra failure", Execution.Code.EXECUTION_LOG_WRITE_FAILURE);
+
+    EvaluationResult<SkyValue> result =
+        EvaluationResult.<SkyValue>builder()
+            .addError(
+                buildKey,
+                errorInfo(actionExecutionExceptionWithAction("build failure", buildExitCode)))
+            .addError(
+                infrastructureKey,
+                errorInfo(
+                    actionExecutionExceptionWithAction("infra failure", infrastructureExitCode)))
+            .build();
+
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
+
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(infrastructureExitCode);
+  }
+
+  @Test
+  public void noKeepGoing_twoAnalysisErrors_lowestLabelWins() {
+    ConfiguredTargetKey first = configuredTargetKey("//a:a");
+    ConfiguredTargetKey second = configuredTargetKey("//b:b");
+
+    EvaluationResult<SkyValue> result =
+        EvaluationResult.<SkyValue>builder()
+            .addError(first, errorInfo(analysisException("first", first.getLabel())))
+            .addError(second, errorInfo(analysisException("second", second.getLabel())))
+            .build();
+
+    ViewCreationFailedException thrown =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ false));
+
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("Analysis of target '//a:a' failed; build aborted");
+  }
+
+  @Test
+  public void noKeepGoing_twoAspectErrorsOnSameTarget_lowestAspectDescriptionWins() {
+    ConfiguredTargetKey baseKey = configuredTargetKey("//pkg:target");
+    AspectKey secondAspect =
+        AspectKeyCreator.createAspectKey(
+            AspectDescriptor.of(() -> "AspectB", AspectParameters.EMPTY), baseKey);
+    AspectKey firstAspect =
+        AspectKeyCreator.createAspectKey(
+            AspectDescriptor.of(() -> "AspectA", AspectParameters.EMPTY), baseKey);
+
+    EvaluationResult<SkyValue> result =
+        EvaluationResult.<SkyValue>builder()
+            .addError(
+                secondAspect, errorInfo(analysisException("second aspect", baseKey.getLabel())))
+            .addError(firstAspect, errorInfo(analysisException("first aspect", baseKey.getLabel())))
+            .build();
+
+    ViewCreationFailedException thrown =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ false));
+
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("Analysis of aspects '//pkg:target with aspect AspectA' failed; build aborted");
   }
 
   @Test
   public void noKeepGoing_severalErrors_everyCycleIsReportedBeforeTheBuildAborts() {
-    // The cycles are reported in a pass of their own, above the loop that throws, so an error that
-    // aborts the build does not truncate the reporting for the errors after it.
+    // Cycles are reported for every error before anything is classified, so the error that aborts
+    // the build does not suppress the cycle reporting for the others.
     ConfiguredTargetKey analysisKey = configuredTargetKey("//analysis_err");
     ConfiguredTargetKey cycleKey = configuredTargetKey("//pkg:cycle");
     CycleInfo cycle =
@@ -1055,11 +1133,8 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_executionErrorPlusAspectAnalysisError_executionErrorWins() {
-    // The mirror image of the test above, and this pairing *is* deterministic: an aspect's
-    // exception is only stashed, so the loop carries on and reaches the execution error, which
-    // rethrow() throws on the spot. The stashed exception's post-loop throw is never reached,
-    // whichever order errorMap() happens to yield. Only the thrown exception is safe to assert on
-    // - whether the aspect's AnalysisFailureEvent got posted first is order dependent.
+    // NO_KEEP_GOING_PRECEDENCE ranks EXECUTION ahead of ASPECT_ANALYSIS, and Phase 2 posts failure
+    // events for all errors before Phase 3 aborts the build.
     Label aspectLabel = Label.parseCanonicalUnchecked("//aspect_err");
     TopLevelAspectsKey aspectKey = topLevelAspectsKey(aspectLabel);
     ConfiguredTargetKey executionKey = configuredTargetKey("//exec_err");
@@ -1869,20 +1944,8 @@ public class SkyframeErrorProcessorTest {
     assertThat(eventBusCollector.analysisFailures).isEmpty();
   }
 
-  // TODO(b/561978611): Remove this behavior. Which aspect error aborts the build depends on hash
-  // order, so the same build can fail two different ways.
   @Test
-  public void noKeepGoing_twoTopLevelAspectsAnalysisErrors_postsBothEventsAndThrowsAfterTheLoop() {
-    // Pins the contrast with two ConfiguredTargetKey analysis errors, where the first one reached
-    // throws immediately and no further events are posted: the aspect deferral path *returns* the
-    // exception instead of throwing, so the loop runs to completion, an AnalysisFailureEvent is
-    // posted for every aspect, and the stashed exception is overwritten on each iteration before
-    // being thrown after the loop.
-    //
-    // ORDER DEPENDENCE: deliberately not pinning *which* of the two is thrown. EvaluationResult
-    // stores errors in a HashMap, and TopLevelAspectsKey's hash folds in
-    // ImmutableList<AspectClass>#hashCode, where ASPECT_CLASS is a lambda that does not override
-    // hashCode - so it gets an identity hash and the iteration order flips between JVM runs.
+  public void noKeepGoing_twoTopLevelAspectsAnalysisErrors_onlyTheLowestLabelIsReportedAndThrown() {
     Label firstLabel = Label.parseCanonicalUnchecked("//pkg:aspect_err_a");
     Label secondLabel = Label.parseCanonicalUnchecked("//pkg:aspect_err_b");
     TopLevelAspectsKey firstKey = topLevelAspectsKey(firstLabel);
@@ -1894,8 +1957,8 @@ public class SkyframeErrorProcessorTest {
 
     EvaluationResult<SkyValue> result =
         EvaluationResult.<SkyValue>builder()
-            .addError(firstKey, errorInfo(firstCause))
             .addError(secondKey, errorInfo(secondCause))
+            .addError(firstKey, errorInfo(firstCause))
             .build();
 
     ViewCreationFailedException thrown =
@@ -1904,10 +1967,8 @@ public class SkyframeErrorProcessorTest {
             () ->
                 processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ false));
 
-    assertThat(analysisFailureTargets())
-        .containsExactly(
-            firstKey.getBaseConfiguredTargetKey(), secondKey.getBaseConfiguredTargetKey());
-    assertThat(thrown).hasCauseThat().isAnyOf(firstCause, secondCause);
+    assertThat(analysisFailureTargets()).containsExactly(firstKey.getBaseConfiguredTargetKey());
+    assertThat(thrown).hasCauseThat().isSameInstanceAs(firstCause);
   }
 
   // TODO(b/561978611): Remove this behavior. An aspect failure should carry its root causes, the
