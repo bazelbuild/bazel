@@ -221,8 +221,10 @@ practices:
 
 *   Regularly update the lockfile to reflect changes in project dependencies or
     configuration. This ensures that subsequent builds are based on the most
-    up-to-date and accurate set of dependencies. To lock down all extensions
-    at once, run `bazel mod deps --lockfile_mode=update`.
+    up-to-date and accurate set of dependencies. Run `bazel mod tidy` to format
+    module files, fix supported `use_repo` calls, and update the lockfile from
+    all extensions in the dependency graph, including those used only by
+    dependencies. Valid cached extension results are reused.
 
 *   Include the lockfile in version control to facilitate collaboration and
     ensure that all team members have access to the same lockfile, promoting
