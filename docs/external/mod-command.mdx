@@ -17,6 +17,10 @@ bazel mod <subcommand> [<options>] [<arg> [<arg>...]]
 
 The available subcommands and their respective required arguments are:
 
+*   `tidy`: Formats `MODULE.bazel` and its included module files and updates
+    `use_repo` calls for supported module extensions. Also evaluates all
+    extensions in the dependency graph to update `MODULE.bazel.lock`.
+
 *   `graph`: Displays the full dependency graph of the project, starting from
     the root module. If one or more modules are specified in `--from`, these
     modules are shown directly under the root, and the graph is only expanded
