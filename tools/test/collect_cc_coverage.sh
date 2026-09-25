@@ -37,7 +37,7 @@
 # gcda or profraw) and uses either lcov or gcov to get the coverage data.
 # The coverage data is placed in $COVERAGE_OUTPUT_FILE.
 
-set -u
+set -euo pipefail
 
 if [[ -n "${VERBOSE_COVERAGE:-}" ]]; then
   set -x
@@ -66,6 +66,8 @@ function init_gcov() {
   # convert the path to an absolute one.
   COVERAGE_GCOV_PATH_ABS="$(cd "${COVERAGE_GCOV_PATH%/*}" && pwd)/${COVERAGE_GCOV_PATH##*/}"
   ln -s "${COVERAGE_GCOV_PATH_ABS}" "${GCOV}"
+  # Do not leave a toolchain symlink in the coverage tree artifact on failure.
+  trap 'rm -f "${GCOV}"' EXIT
 }
 
 # Computes code coverage data using the clang generated metadata found under
@@ -179,8 +181,6 @@ function gcov_coverage() {
       fi
     fi
   done < "${COVERAGE_MANIFEST}"
-
-  rm -f "${GCOV}"
 }
 
 function main() {
