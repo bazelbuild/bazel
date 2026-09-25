@@ -286,6 +286,22 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getExperimentalSiblingRepositoryLayout();
 
   @Option(
+      name = "incompatible_bazel_external_directory",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE
+      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, external repositories use the bazel-external directory in the "
+              + "execution root instead of the external directory.")
+  public abstract boolean getIncompatibleBazelExternalDirectory();
+
+  @Option(
       name = "incompatible_allow_tags_propagation",
       oldName = "experimental_allow_tags_propagation",
       defaultValue = "true",
@@ -861,6 +877,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_PLATFORMS_API, getExperimentalPlatformsApi())
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, getExperimentalCcSharedLibrary())
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, getExperimentalRepoRemoteExec())
+            .setBool(INCOMPATIBLE_BAZEL_EXTERNAL_DIRECTORY, getIncompatibleBazelExternalDirectory())
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS,
                 getIncompatibleAlwaysCheckDepsetElements())
@@ -1062,6 +1079,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
+  public static final String INCOMPATIBLE_BAZEL_EXTERNAL_DIRECTORY =
+      "-incompatible_bazel_external_directory";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
   public static final String INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY =
