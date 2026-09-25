@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithoutChildren;
 import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.Clock;
@@ -231,15 +232,20 @@ public final class BuildEventServiceUploader implements Runnable {
       if (startedClose) {
         return;
       }
+      // The wrapper may have been applied for chunking purposes and the status logic below should
+      // be based on the semantic type of the inner event.
+      BuildEvent semanticEvent =
+          event instanceof BuildEventWithoutChildren(BuildEvent inner) ? inner : event;
       // BuildCompletingEvent marks the end of the build in the BEP event stream.
-      if (event instanceof BuildCompletingEvent buildCompletingEvent) {
+      if (semanticEvent instanceof BuildCompletingEvent buildCompletingEvent) {
         ExitCode exitCode = buildCompletingEvent.getExitCode();
         if (exitCode != null && exitCode.getNumericExitCode() == 0) {
           invocationStatus = InvocationStatus.SUCCEEDED;
         } else {
           invocationStatus = InvocationStatus.FAILED;
         }
-      } else if (event instanceof AbortedEvent && event.getEventId().hasBuildFinished()) {
+      } else if (semanticEvent instanceof AbortedEvent
+          && semanticEvent.getEventId().hasBuildFinished()) {
         // An AbortedEvent with a build finished ID means we are crashing.
         invocationStatus = InvocationStatus.FAILED;
       }
