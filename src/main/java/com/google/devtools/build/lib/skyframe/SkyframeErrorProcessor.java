@@ -212,14 +212,6 @@ public final class SkyframeErrorProcessor {
 
     static ClassifiedError analysis(
         SkyKey normalizedKey, @Nullable Exception cause, NestedSet<Cause> analysisRootCauses) {
-      NestedSet<Cause> rootCauses =
-          normalizedKey instanceof AspectBaseKey
-              // Aspect errors discard their root causes, so a TopLevelAspectsKey posts an
-              // AnalysisFailureEvent with an empty cause set and a bare AspectKey posts nothing at
-              // all, even though e.g. AspectCreationException#getCauses would supply real ones.
-              // TODO(b/561978611): Stop doing this and treat aspect keys like any other key.
-              ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER)
-              : analysisRootCauses;
       return new ClassifiedError(
           normalizedKey,
           cause,
@@ -227,11 +219,11 @@ public final class SkyframeErrorProcessor {
               ? ReportingPriority.ASPECT_ANALYSIS
               : ReportingPriority.TARGET_ANALYSIS,
           /* executionDetailedExitCode= */ null,
-          rootCauses,
+          analysisRootCauses,
           // A Cause carries a message as well as a label, so the same label can appear more
           // than once. The pre-BEP LoadingFailureEvent protocol only knows about labels, so
           // de-duplicate. TODO(ulfjack): Remove this once we've migrated to the BEP.
-          rootCauses.toList().stream()
+          analysisRootCauses.toList().stream()
               .filter(LoadingFailedCause.class::isInstance)
               .map(Cause::getLabel)
               .collect(toImmutableSet()));
@@ -544,9 +536,9 @@ public final class SkyframeErrorProcessor {
   /**
    * Posts the failure events for a single error.
    *
-   * <p>A {@link TopLevelAspectsKey} does get an {@link AnalysisFailureEvent}, attributed to its
-   * base configured target, but with no root causes (see {@link ClassifiedError#analysis}). A bare
-   * aspect key, and any key type other than {@link ConfiguredTargetKey}, gets nothing.
+   * <p>An aspect error is attributed to the aspect's base configured target, because {@link
+   * AnalysisFailureEvent} has no factory for an aspect being analyzed. Any key that is neither an
+   * {@link AspectBaseKey} nor a {@link ConfiguredTargetKey} gets nothing.
    */
   private static void maybePostFailureEvents(
       ExtendedEventHandler eventHandler,
@@ -560,17 +552,13 @@ public final class SkyframeErrorProcessor {
     }
 
     Preconditions.checkNotNull(eventBus);
-    // AnalysisFailureEvent.whileAnalyzingTarget can only name a configured target, so a failing
-    // aspect is reported against the configured target it was applied to.
-    if (error.normalizedKey() instanceof TopLevelAspectsKey topLevelAspectsKey) {
-      if (error.isAnalysisError()) {
-        eventBus.post(
-            AnalysisFailureEvent.whileAnalyzingTarget(
-                topLevelAspectsKey.getBaseConfiguredTargetKey(), error.analysisRootCauses()));
-      }
-      return;
-    }
-    if (!(error.normalizedKey() instanceof ConfiguredTargetKey ctKey)) {
+    ConfiguredTargetKey attributedTo =
+        switch (error.normalizedKey()) {
+          case AspectBaseKey aspectKey -> aspectKey.getBaseConfiguredTargetKey();
+          case ConfiguredTargetKey ctKey -> ctKey;
+          default -> null;
+        };
+    if (attributedTo == null) {
       return;
     }
 
@@ -579,13 +567,13 @@ public final class SkyframeErrorProcessor {
       for (Label loadingRootCause : error.loadingRootCauses()) {
         // This event is only for backwards compatibility with the old event protocol. Remove
         // once we've migrated to the build event protocol.
-        eventBus.post(
-            new LoadingFailureEvent(Preconditions.checkNotNull(error.label()), loadingRootCause));
+        eventBus.post(new LoadingFailureEvent(attributedTo.getLabel(), loadingRootCause));
       }
     }
 
     if (error.isAnalysisError()) {
-      eventBus.post(AnalysisFailureEvent.whileAnalyzingTarget(ctKey, error.analysisRootCauses()));
+      eventBus.post(
+          AnalysisFailureEvent.whileAnalyzingTarget(attributedTo, error.analysisRootCauses()));
     }
   }
 

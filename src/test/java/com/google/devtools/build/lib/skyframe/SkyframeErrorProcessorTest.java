@@ -570,14 +570,12 @@ public class SkyframeErrorProcessorTest {
             /* keepGoing= */ true,
             /* includeExecutionPhase= */ true);
 
-    // Note: the *events* differ between these (an AspectCompletionKey unwraps to a bare AspectKey,
-    // which gets no event and discards its root causes) - see section D. The ErrorProcessingResult
-    // is identical.
     assertThat(result.hasAnalysisError()).isTrue();
     assertThat(result.hasLoadingError()).isFalse();
     assertThat(result.executionDetailedExitCode()).isNull();
     assertThat(result.actionConflicts()).isEmpty();
     assertThat(result.aspectKeysForConflictReporting()).isEmpty();
+    assertThat(onlyAnalysisFailureEvent().getFailedTarget()).isEqualTo(ctKey);
   }
 
   @Test
@@ -667,10 +665,11 @@ public class SkyframeErrorProcessorTest {
   }
 
   @Test
-  public void topLevelAspectsKey_postsAnalysisFailureEventForBaseTargetWithEmptyRootCauses()
+  public void topLevelAspectsKey_postsAnalysisFailureEventForBaseTargetWithRootCauses()
       throws Exception {
     Label label = Label.parseCanonicalUnchecked("//aspect_err");
     TopLevelAspectsKey key = topLevelAspectsKey(label);
+    LabelCause rootCause = new LabelCause(label, analysisExitCode("aspect failed"));
 
     processErrors(
         resultOf(
@@ -679,31 +678,37 @@ public class SkyframeErrorProcessorTest {
                 analysisExceptionWithCauses(
                     "aspect analysis exception",
                     label,
-                    NestedSetBuilder.create(
-                        Order.STABLE_ORDER,
-                        new LabelCause(label, analysisExitCode("aspect failed")))))),
+                    NestedSetBuilder.create(Order.STABLE_ORDER, rootCause)))),
         /* keepGoing= */ true,
         /* includeExecutionPhase= */ false);
 
     AnalysisFailureEvent event = onlyAnalysisFailureEvent();
     assertThat(event.getFailedTarget()).isEqualTo(key.getBaseConfiguredTargetKey());
-    // TODO(b/561978611): aspect errors discard their root causes today. This assertion is exactly
-    // what will catch a change to that.
-    assertThat(event.getRootCauses().toList()).isEmpty();
+    // An aspect error carries the same root causes as a target error would.
+    assertThat(event.getRootCauses().toList()).containsExactly(rootCause);
   }
 
   @Test
-  public void bareAspectKey_postsNoEventAtAll() throws Exception {
+  public void bareAspectKey_postsAnalysisFailureEventForBaseTargetWithRootCauses()
+      throws Exception {
     ConfiguredTargetKey baseKey = configuredTargetKey("//aspect_err");
     AspectKey key = aspectKey(baseKey);
+    LabelCause rootCause = new LabelCause(baseKey.getLabel(), analysisExitCode("aspect failed"));
 
     processErrors(
         resultOf(
-            key, errorInfo(analysisException("aspect analysis exception", baseKey.getLabel()))),
+            key,
+            errorInfo(
+                analysisExceptionWithCauses(
+                    "aspect analysis exception",
+                    baseKey.getLabel(),
+                    NestedSetBuilder.create(Order.STABLE_ORDER, rootCause)))),
         /* keepGoing= */ true,
         /* includeExecutionPhase= */ false);
 
-    assertThat(eventBusCollector.allEvents).isEmpty();
+    AnalysisFailureEvent event = onlyAnalysisFailureEvent();
+    assertThat(event.getFailedTarget()).isEqualTo(baseKey);
+    assertThat(event.getRootCauses().toList()).containsExactly(rootCause);
   }
 
   @Test
@@ -1857,18 +1862,21 @@ public class SkyframeErrorProcessorTest {
     assertThat(cyclesReporter.cycles).containsExactly(cycle);
   }
 
-  // TODO(b/561978611): Remove this behavior. An aspect's loading causes are dropped, so
-  // hasLoadingError() can never become true.
   @Test
-  public void topLevelAspectsKey_loadingFailedCause_keepGoing_noLoadingErrorAndNoEvent()
+  public void topLevelAspectsKey_loadingFailedCause_keepGoing_loadingErrorAndLoadingFailureEvent()
       throws Exception {
-    // Pins a wart: the aspect branch hardcodes an empty loading-root-cause set, so a
-    // LoadingFailedCause carried by the exception is dropped - hasLoadingError() is false and no
-    // LoadingFailureEvent is posted. The very same exception on a ConfiguredTargetKey reports both
-    // (see loadingError_postsOneLoadingFailureEventPerDedupedLabel).
+    // A LoadingFailedCause carried by an exception on an aspect key is reported like one on a
+    // ConfiguredTargetKey (see loadingError_postsOneLoadingFailureEventPerDedupedLabel):
+    // hasLoadingError() is true and a LoadingFailureEvent is posted, naming the aspect's base
+    // target as the failed target, not the aspect.
+    // hasLoadingError() is also what BuildView#createAnalysisFailureDetail keys on, so an aspect
+    // loading failure reports GENERIC_LOADING_PHASE_FAILURE for the build rather than
+    // NOT_ALL_TARGETS_ANALYZED.
     Label label = Label.parseCanonicalUnchecked("//pkg:aspect_loading_err");
     TopLevelAspectsKey key = topLevelAspectsKey(label);
     Label loadingRootCause = Label.parseCanonicalUnchecked("//pkg:missing_dep");
+    LoadingFailedCause rootCause =
+        new LoadingFailedCause(loadingRootCause, analysisExitCode("missing"));
 
     ErrorProcessingResult result =
         processErrors(
@@ -1878,18 +1886,16 @@ public class SkyframeErrorProcessorTest {
                     analysisExceptionWithCauses(
                         "aspect loading exception",
                         label,
-                        NestedSetBuilder.create(
-                            Order.STABLE_ORDER,
-                            new LoadingFailedCause(
-                                loadingRootCause, analysisExitCode("missing")))))),
+                        NestedSetBuilder.create(Order.STABLE_ORDER, rootCause)))),
             /* keepGoing= */ true,
             /* includeExecutionPhase= */ false);
 
-    assertThat(result.hasLoadingError()).isFalse();
+    assertThat(result.hasLoadingError()).isTrue();
     assertThat(result.hasAnalysisError()).isTrue();
-    assertThat(eventBusCollector.loadingFailures).isEmpty();
-    // The AnalysisFailureEvent is still posted, but with the root causes discarded.
-    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList()).isEmpty();
+    assertThat(eventBusCollector.loadingFailures)
+        .containsExactly(new LoadingFailureEvent(label, loadingRootCause));
+    // The AnalysisFailureEvent carries the very same cause.
+    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList()).containsExactly(rootCause);
   }
 
   @Test
@@ -1971,15 +1977,13 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown).hasCauseThat().isSameInstanceAs(firstCause);
   }
 
-  // TODO(b/561978611): Remove this behavior. An aspect failure should carry its root causes, the
-  // way a target failure does.
   @Test
-  public void aspectAnalysisCycle_keepGoing_analysisErrorWithEmptyRootCauses() throws Exception {
+  public void aspectAnalysisCycle_keepGoing_analysisErrorWithCycleLabelCause() throws Exception {
     // Pins an analysis (i.e. non-execution) cycle on a top-level aspect: an analysis error with no
-    // execution exit code, and an AnalysisFailureEvent for the base configured target.
-    // Wart: the aspect branch never runs the cycle-culprit helper, so the event has *empty* root
-    // causes, whereas the same cycle on a ConfiguredTargetKey synthesizes a LabelCause for the
-    // culprit (see analysisCycle_keepGoing_analysisErrorWithCycleLabelCause).
+    // execution exit code, and an AnalysisFailureEvent for the base configured target carrying a
+    // synthesized LabelCause for the cycle culprit. An aspect key and a ConfiguredTargetKey agree
+    // here: this asserts exactly what analysisCycle_keepGoing_analysisErrorWithCycleLabelCause
+    // asserts for a configured target.
     TopLevelAspectsKey key =
         topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_cycle"));
     ConfiguredTargetKey culprit = configuredTargetKey("//pkg:culprit");
@@ -1993,18 +1997,28 @@ public class SkyframeErrorProcessorTest {
 
     assertThat(result.hasAnalysisError()).isTrue();
     assertThat(result.executionDetailedExitCode()).isNull();
+    // A cycle culprit is not a loading failure, so this is false even though the error has root
+    // causes.
+    assertThat(result.hasLoadingError()).isFalse();
     AnalysisFailureEvent event = onlyAnalysisFailureEvent();
     assertThat(event.getFailedTarget()).isEqualTo(key.getBaseConfiguredTargetKey());
-    assertThat(event.getRootCauses().toList()).isEmpty();
+    assertThat(event.getRootCauses().toList())
+        .containsExactly(
+            new LabelCause(
+                culprit.getLabel(),
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage("Dependency cycle")
+                        .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.CYCLE))
+                        .build())));
   }
 
-  // TODO(b/561978611): Remove this behavior. An aspect failure should carry its root causes, the
-  // way a target failure does.
   @Test
   public void aspectAnalysisCycle_noKeepGoing_throwsViewCreationFailedWithCycleCode() {
     // Pins the exact aspect cycle failure detail. The description comes from
     // TopLevelAspectsKey#getDescription: the aspect class names, the (empty) parameters map and the
-    // target label.
+    // target label. The thrown exception is derived from the key and the absent cause only: the
+    // root causes go to the event posted below, not into the message or the failure detail.
     TopLevelAspectsKey key =
         topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_cycle"));
     ConfiguredTargetKey culprit = configuredTargetKey("//pkg:culprit");
@@ -2033,21 +2047,36 @@ public class SkyframeErrorProcessorTest {
                 + " build aborted due to cycle");
     assertThat(thrown.getFailureDetail().getAnalysis().getCode()).isEqualTo(Analysis.Code.CYCLE);
     assertThat(thrown).hasCauseThat().isNull();
-    // Same wart as in keep_going mode: the event is posted before the throw, with no root causes.
-    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList()).isEmpty();
+    // The event is posted before the throw, and it names the cycle culprit, exactly as in
+    // keep_going mode (see aspectAnalysisCycle_keepGoing_analysisErrorWithCycleLabelCause).
+    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList())
+        .containsExactly(
+            new LabelCause(
+                culprit.getLabel(),
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage("Dependency cycle")
+                        .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.CYCLE))
+                        .build())));
   }
 
-  // TODO(b/561978611): Remove this behavior. An aspect failure should carry its root causes, the
-  // way a target failure does.
   @Test
   public void buildDriverKeyWrappingTopLevelAspectsKey_isHandledLikeTheBareKey() throws Exception {
     // This is the real Skymeld top-level-aspect shape. getEffectiveErrorKey only calls
     // getActionLookupKey() and ignores isTopLevelAspectDriver, so it behaves exactly like the bare
-    // TopLevelAspectsKey (see
-    // topLevelAspectsKey_postsAnalysisFailureEventForBaseTargetWithEmptyRootCauses).
-    TopLevelAspectsKey aspectsKey =
-        topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_err"));
-    SkyKey key =
+    // TopLevelAspectsKey. The point of the test is that identity, so the same error is run through
+    // both keys and the two outcomes are compared directly. The root causes are the exception's
+    // own for both, like any other analysis error (see
+    // topLevelAspectsKey_postsAnalysisFailureEventForBaseTargetWithRootCauses).
+    Label label = Label.parseCanonicalUnchecked("//pkg:aspect_err");
+    TopLevelAspectsKey aspectsKey = topLevelAspectsKey(label);
+    LabelCause rootCause = new LabelCause(label, analysisExitCode("aspect failed"));
+    ConfiguredValueCreationException cause =
+        analysisExceptionWithCauses(
+            "aspect analysis exception",
+            label,
+            NestedSetBuilder.create(Order.STABLE_ORDER, rootCause));
+    SkyKey wrappedKey =
         BuildDriverKey.ofTopLevelAspect(
             aspectsKey,
             TOP_LEVEL_ARTIFACT_CONTEXT,
@@ -2056,19 +2085,28 @@ public class SkyframeErrorProcessorTest {
             /* extraActionTopLevelOnly= */ false,
             /* keepGoing= */ true);
 
-    ErrorProcessingResult result =
+    ErrorProcessingResult wrappedResult =
         processErrors(
-            resultOf(
-                key,
-                errorInfo(analysisException("aspect analysis exception", aspectsKey.getLabel()))),
+            resultOf(wrappedKey, errorInfo(cause)),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ true);
+    ErrorProcessingResult bareResult =
+        processErrors(
+            resultOf(aspectsKey, errorInfo(cause)),
             /* keepGoing= */ true,
             /* includeExecutionPhase= */ true);
 
-    assertThat(result.hasAnalysisError()).isTrue();
-    assertThat(result.executionDetailedExitCode()).isNull();
-    AnalysisFailureEvent event = onlyAnalysisFailureEvent();
-    assertThat(event.getFailedTarget()).isEqualTo(aspectsKey.getBaseConfiguredTargetKey());
-    assertThat(event.getRootCauses().toList()).isEmpty();
+    assertThat(wrappedResult).isEqualTo(bareResult);
+    assertThat(wrappedResult.hasAnalysisError()).isTrue();
+    assertThat(wrappedResult.executionDetailedExitCode()).isNull();
+    assertThat(eventBusCollector.analysisFailures).hasSize(2);
+    AnalysisFailureEvent wrappedEvent = eventBusCollector.analysisFailures.get(0);
+    AnalysisFailureEvent bareEvent = eventBusCollector.analysisFailures.get(1);
+    assertThat(wrappedEvent.getFailedTarget()).isEqualTo(aspectsKey.getBaseConfiguredTargetKey());
+    assertThat(wrappedEvent.getFailedTarget()).isEqualTo(bareEvent.getFailedTarget());
+    assertThat(wrappedEvent.getRootCauses().toList()).containsExactly(rootCause);
+    assertThat(wrappedEvent.getRootCauses().toList())
+        .containsExactlyElementsIn(bareEvent.getRootCauses().toList());
   }
 
   @Test
