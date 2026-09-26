@@ -144,10 +144,10 @@ genrule(
     cmd = """\
 cp $(location :turbine_direct_graal_unpatched) $@
 chmod +w $@
-cat $(location turbine_direct_graal.manifest) | $(location //src:write_manifest) $@
+$(location //src/tools/pe_manifest) write $@ $(location turbine_direct_graal.manifest)
 """,
     target_compatible_with = ["@platforms//os:windows"],
-    tools = ["//src:write_manifest"],
+    tools = ["//src/tools/pe_manifest"],
 )
 
 # Run with -c opt.
