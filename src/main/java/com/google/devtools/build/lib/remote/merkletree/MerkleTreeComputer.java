@@ -1092,8 +1092,6 @@ public final class MerkleTreeComputer {
 
   @VisibleForTesting
   static PathFragment findCommonPrefix(PathFragment path1, PathFragment path2) {
-    // Compare the segments in place as this is called for every change of the parent directory
-    // while iterating over the inputs of a spawn.
     String s1 = path1.getPathString();
     String s2 = path2.getPathString();
     int start1 = path1.getDriveStrLength();
