@@ -30,8 +30,7 @@ PACKAGE_DIR="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
 trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
 mkdir -p "${PACKAGE_DIR}"
 
-for i in $*
-do
+for i do
     ARCHIVE="${PWD}/$i"
     case "$i" in
         *.zip) UNPACK="unzip -q" ;;
