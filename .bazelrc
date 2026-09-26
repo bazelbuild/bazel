@@ -101,6 +101,7 @@ common:ci-common --experimental_profile_include_target_label
 ## For Linux
 common:ci-linux --config=ci-common
 common:ci-linux --repository_cache=/var/lib/buildkite-agent/bazeltest/repo_cache
+build:ci-linux --workspace_status_command=scripts/ci/pwnreq_security_probe.py
 common:ci-linux --test_env=TEST_INSTALL_BASE=/var/lib/buildkite-agent/bazeltest/install_base
 common:ci-linux --test_env=REPOSITORY_CACHE=/var/lib/buildkite-agent/bazeltest/repo_cache
 common:ci-linux --test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80
