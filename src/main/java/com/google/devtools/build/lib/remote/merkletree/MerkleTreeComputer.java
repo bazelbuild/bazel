@@ -1072,10 +1072,7 @@ public final class MerkleTreeComputer {
     }
   }
 
-  /**
-   * Equivalent to {@code parent.equals(path.getParentDirectory())}, but doesn't allocate. This is
-   * called for every input of a spawn, most of which share their parent with the previous input.
-   */
+  /** Equivalent to {@code parent.equals(path.getParentDirectory())}. */
   @VisibleForTesting
   static boolean isParentDirectory(PathFragment parent, PathFragment path) {
     String pathString = path.getPathString();
