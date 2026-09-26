@@ -25,6 +25,7 @@ import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
+import build.bazel.remote.execution.v2.SplitBlobResponse;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.Store;
@@ -47,12 +48,14 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -306,6 +309,30 @@ public class DiskCacheClientTest {
   }
 
   @Test
+  public void areBlobsPresent_whenAllPresent_returnsTrueAndRefreshesMtime() throws Exception {
+    Digest firstDigest = getDigest("first");
+    Digest secondDigest = getDigest("second");
+    Path firstPath = populateCas(firstDigest, "first");
+    Path secondPath = populateCas(secondDigest, "second");
+
+    assertThat(getFromFuture(client.areBlobsPresent(ImmutableList.of(firstDigest, secondDigest))))
+        .isTrue();
+    assertThat(firstPath.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(secondPath.getLastModifiedTime()).isNotEqualTo(0);
+  }
+
+  @Test
+  public void areBlobsPresent_whenOneMissing_returnsFalse() throws Exception {
+    Digest presentDigest = getDigest("present");
+    Digest missingDigest = getDigest("missing");
+    populateCas(presentDigest, "present");
+
+    assertThat(
+            getFromFuture(client.areBlobsPresent(ImmutableList.of(presentDigest, missingDigest))))
+        .isFalse();
+  }
+
+  @Test
   public void downloadActionResult_whenPresent_returnsCachedActionResult() throws Exception {
     ActionKey actionKey = new ActionKey(getDigest("key"));
     ActionResult actionResult = ActionResult.newBuilder().setExitCode(42).build();
@@ -325,6 +352,74 @@ public class DiskCacheClientTest {
     var result = getFromFuture(client.downloadActionResult(actionKey));
 
     assertThat(result).isNull();
+  }
+
+  @Test
+  public void uploadAndDownloadSplitBlobManifest_roundTrips() throws Exception {
+    Digest manifestKey = getDigest("manifest key");
+    SplitBlobResponse response =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(getDigest("chunk 1"))
+            .addChunkDigests(getDigest("chunk 2"))
+            .build();
+
+    var unused = getFromFuture(client.uploadSplitBlobManifest(manifestKey, response));
+
+    assertThat(getFromFuture(client.downloadSplitBlobManifest(manifestKey))).isEqualTo(response);
+  }
+
+  @Test
+  public void uploadSplitBlobManifest_whenPresent_replacesExistingManifest() throws Exception {
+    Digest manifestKey = getDigest("manifest key");
+    SplitBlobResponse firstResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(getDigest("chunk 1")).build();
+    SplitBlobResponse secondResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(getDigest("chunk 2")).build();
+    var unused = getFromFuture(client.uploadSplitBlobManifest(manifestKey, firstResponse));
+
+    unused = getFromFuture(client.uploadSplitBlobManifest(manifestKey, secondResponse));
+
+    assertThat(getFromFuture(client.downloadSplitBlobManifest(manifestKey)))
+        .isEqualTo(secondResponse);
+  }
+
+  @Test
+  public void downloadSplitBlobManifest_evictedAfterRefresh_throwsCacheNotFoundException()
+      throws Exception {
+    AtomicBoolean evictOnOpen = new AtomicBoolean();
+    FileSystem raceFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public synchronized InputStream getInputStream(PathFragment path) throws IOException {
+            if (evictOnOpen.compareAndSet(true, false)) {
+              delete(path);
+            }
+            return super.getInputStream(path);
+          }
+        };
+    DiskCacheClient raceClient =
+        new DiskCacheClient(
+            raceFs.getPath("/disk_cache"), DIGEST_UTIL, /* checkActionResultIntegrity= */ true);
+    Digest manifestKey = getDigest("manifest-key");
+    SplitBlobResponse manifest =
+        SplitBlobResponse.newBuilder().addChunkDigests(getDigest("chunk")).build();
+    try {
+      getFromFuture(raceClient.uploadSplitBlobManifest(manifestKey, manifest));
+      evictOnOpen.set(true);
+
+      assertThrows(
+          CacheNotFoundException.class,
+          () -> getFromFuture(raceClient.downloadSplitBlobManifest(manifestKey)));
+    } finally {
+      raceClient.close();
+    }
+  }
+
+  @Test
+  public void downloadSplitBlobManifest_whenMissing_throwsCacheNotFoundException() {
+    assertThrows(
+        CacheNotFoundException.class,
+        () -> getFromFuture(client.downloadSplitBlobManifest(getDigest("manifest key"))));
   }
 
   @Test

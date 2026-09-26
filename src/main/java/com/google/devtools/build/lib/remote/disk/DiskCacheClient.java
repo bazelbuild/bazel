@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDig
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.SplitBlobResponse;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
@@ -70,9 +71,11 @@ public class DiskCacheClient {
 
   private static final String AC_DIR = "ac";
   private static final String CAS_DIR = "cas";
+  private static final String SPLIT_BLOB_DIR = "blob_manifests";
   private static final String TMP_DIR = "tmp";
 
   private final ImmutableMap<Store, Path> storeRootMap;
+  private final Path splitBlobRoot;
   private final Path tmpRoot;
   private final boolean checkActionResultIntegrity;
 
@@ -99,6 +102,7 @@ public class DiskCacheClient {
                 Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
     this.storeRootMap =
         ImmutableMap.of(Store.AC, fnRoot.getChild(AC_DIR), Store.CAS, fnRoot.getChild(CAS_DIR));
+    this.splitBlobRoot = fnRoot.getChild(SPLIT_BLOB_DIR);
 
     this.tmpRoot = root.getChild(TMP_DIR);
 
@@ -229,6 +233,18 @@ public class DiskCacheClient {
     return refresh(toPath(digest, Store.CAS));
   }
 
+  /** Returns whether all blobs are present, marking present blobs as recently used. */
+  public ListenableFuture<Boolean> areBlobsPresent(Iterable<Digest> digests) {
+    return executorService.submit(
+        () -> {
+          boolean allPresent = true;
+          for (Digest digest : digests) {
+            allPresent &= refreshDigest(digest);
+          }
+          return allPresent;
+        });
+  }
+
   private boolean refreshOutputDirectory(Directory dir, boolean stopAtFirstMissing)
       throws IOException {
     boolean allPresent = true;
@@ -345,6 +361,34 @@ public class DiskCacheClient {
         });
   }
 
+  /** Downloads locally cached chunk metadata for a {@code SplitBlob} request. */
+  public ListenableFuture<SplitBlobResponse> downloadSplitBlobManifest(Digest manifestKey) {
+    return executorService.submit(
+        () -> {
+          Path path = toPathInStore(manifestKey.getHash(), splitBlobRoot);
+          if (!refresh(path)) {
+            throw new CacheNotFoundException(manifestKey);
+          }
+          try (InputStream in = path.getInputStream()) {
+            return SplitBlobResponse.parseFrom(in, ExtensionRegistryLite.getEmptyRegistry());
+          } catch (FileNotFoundException e) {
+            throw new CacheNotFoundException(manifestKey);
+          }
+        });
+  }
+
+  /** Caches chunk metadata returned by a {@code SplitBlob} request. */
+  public ListenableFuture<Void> uploadSplitBlobManifest(
+      Digest manifestKey, SplitBlobResponse response) {
+    return executorService.submit(
+        () -> {
+          try (InputStream data = response.toByteString().newInput()) {
+            saveFileInStore(manifestKey, splitBlobRoot, data);
+          }
+          return null;
+        });
+  }
+
   public void close() {
     executorService.close();
   }
@@ -388,8 +432,12 @@ public class DiskCacheClient {
   }
 
   public Path toPath(String hash, Store store) {
+    return toPathInStore(hash, storeRootMap.get(store));
+  }
+
+  private Path toPathInStore(String hash, Path storeRoot) {
     // Create the file in a subfolder to bypass possible folder file count limits.
-    return storeRootMap.get(store).getChild(hash.substring(0, 2)).getChild(hash);
+    return storeRoot.getChild(hash.substring(0, 2)).getChild(hash);
   }
 
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
@@ -406,6 +454,28 @@ public class DiskCacheClient {
             }
           }
         });
+  }
+
+  private void saveFileInStore(Digest digest, Path storeRoot, InputStream in) throws IOException {
+    Path path = toPathInStore(digest.getHash(), storeRoot);
+    Path temp = getTempPath();
+    try {
+      try (OutputStream out = temp.getOutputStream()) {
+        ByteStreams.copy(in, out);
+        if (out instanceof FileOutputStream fos) {
+          fos.getFD().sync();
+        }
+      }
+      path.getParentDirectory().createDirectoryAndParents();
+      temp.renameTo(path);
+    } catch (IOException e) {
+      try {
+        temp.delete();
+      } catch (IOException deleteErr) {
+        e.addSuppressed(deleteErr);
+      }
+      throw e;
+    }
   }
 
   /**
