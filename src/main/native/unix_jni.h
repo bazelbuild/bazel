@@ -27,15 +27,18 @@
 
 namespace blaze_jni {
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-// stat64 is deprecated on OS X/BSD.
-typedef struct stat portable_stat_struct;
-#define portable_stat ::stat
-#define portable_lstat ::lstat
-#else
+#if defined(__GLIBC__)
+// glibc keeps the 64-bit form of struct stat under its own name.  The other
+// libcs this is built against -- macOS, the BSDs, musl -- have had a 64-bit
+// off_t in struct stat all along, and musl 1.2.4 dropped the stat64 aliases
+// altogether.
 typedef struct stat64 portable_stat_struct;
 #define portable_stat ::stat64
 #define portable_lstat ::lstat64
+#else
+typedef struct stat portable_stat_struct;
+#define portable_stat ::stat
+#define portable_lstat ::lstat
 #endif
 
 #if !defined(ENODATA)
