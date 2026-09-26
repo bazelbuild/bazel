@@ -907,6 +907,52 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testInstrumentedFilesProviderWithUnfilteredSourceAttributes() throws Exception {
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        def custom_rule_impl(ctx):
+          return coverage_common.instrumented_files_info(
+              ctx = ctx,
+              extensions = ['txt'],
+              source_attributes = ['srcs'],
+              unfiltered_source_attributes = ['module_interfaces'])
+
+        custom_rule = rule(
+            implementation = custom_rule_impl,
+            attrs = {
+                'srcs': attr.label_list(mandatory = True, allow_files = True),
+                'module_interfaces': attr.label_list(mandatory = True, allow_files = True),
+            })
+        """);
+
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule')
+
+        custom_rule(
+            name = 'cr',
+            srcs = ['a.txt', 'ignored.random'],
+            module_interfaces = ['lib.cppm', 'lib.custom_extension'],
+        )
+        """);
+    scratch.file("test/starlark/a.txt");
+    scratch.file("test/starlark/ignored.random");
+    scratch.file("test/starlark/lib.cppm");
+    scratch.file("test/starlark/lib.custom_extension");
+
+    useConfiguration("--collect_code_coverage");
+
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:cr");
+
+    InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
+    assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles()))
+        .containsExactly("a.txt", "lib.cppm", "lib.custom_extension");
+  }
+
+  @Test
   public void testInstrumentedFilesInfo_coverageDisabled() throws Exception {
     scratch.file(
         "test/starlark/extension.bzl",
