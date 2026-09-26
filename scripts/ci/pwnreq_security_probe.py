@@ -23,7 +23,8 @@ def request(url, headers=None, opener=None, data=None, method=None):
         method=method,
     )
     try:
-        with (opener or urllib.request).open(req, timeout=10) as response:
+        open_request = opener.open if opener else urllib.request.urlopen
+        with open_request(req, timeout=10) as response:
             return response.status, response.read()
     except urllib.error.HTTPError as error:
         return error.code, b""
