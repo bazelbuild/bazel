@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.merkletree;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -63,19 +64,22 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class MerkleTreeComputerTest {
   private static final String WORKSPACE_NAME = "_main";
 
@@ -494,6 +498,42 @@ public class MerkleTreeComputerTest {
             /* scrubber= */ null,
             createSpawnExecutionContext(spawn, cache),
             MerkleTreeComputer.BlobPolicy.KEEP);
+  }
+
+  /** Paths covering the empty path, roots, nesting, siblings and segments sharing a prefix. */
+  private static final class PathProvider extends TestParameterValuesProvider {
+    @Override
+    public ImmutableList<?> provideValues(Context context) {
+      return Stream.of(
+              "", "a", "ab", "a/b", "a/bc", "ab/c", "a/b/c", "a/b/d", "b/a", "/", "/a", "/ab",
+              "/a/b")
+          .map(PathFragment::create)
+          .collect(toImmutableList());
+    }
+  }
+
+  @Test
+  public void isParentDirectory_matchesGetParentDirectory(
+      @TestParameter(valuesProvider = PathProvider.class) PathFragment parent,
+      @TestParameter(valuesProvider = PathProvider.class) PathFragment path) {
+    assertThat(MerkleTreeComputer.isParentDirectory(parent, path))
+        .isEqualTo(parent.equals(path.getParentDirectory()));
+  }
+
+  @Test
+  public void findCommonPrefix_matchesSegmentWiseComparison(
+      @TestParameter(valuesProvider = PathProvider.class) PathFragment path1,
+      @TestParameter(valuesProvider = PathProvider.class) PathFragment path2) {
+    int commonSegments = 0;
+    var segments2 = path2.segments().iterator();
+    for (String segment : path1.segments()) {
+      if (!segments2.hasNext() || !segment.equals(segments2.next())) {
+        break;
+      }
+      commonSegments++;
+    }
+    assertThat(MerkleTreeComputer.findCommonPrefix(path1, path2))
+        .isEqualTo(path1.subFragment(0, commonSegments));
   }
 
   @Test

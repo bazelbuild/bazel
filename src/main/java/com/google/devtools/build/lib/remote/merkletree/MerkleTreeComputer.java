@@ -26,6 +26,7 @@ import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
+import static java.lang.Math.max;
 import static java.util.Comparator.comparing;
 import static java.util.Map.entry;
 
@@ -36,6 +37,7 @@ import build.bazel.remote.execution.v2.NodeProperties;
 import build.bazel.remote.execution.v2.NodeProperty;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -578,8 +580,8 @@ public final class MerkleTreeComputer {
         lastSourceDirPath = null;
       }
       ActionInput input = entry.getValue();
-      PathFragment newParent = path.getParentDirectory();
-      if (!currentParent.equals(newParent)) {
+      if (!isParentDirectory(currentParent, path)) {
+        PathFragment newParent = path.getParentDirectory();
         PathFragment commonPrefix;
         PathFragment fragmentToPop;
         if (newParent != null) {
@@ -1070,18 +1072,57 @@ public final class MerkleTreeComputer {
     }
   }
 
-  private static PathFragment findCommonPrefix(PathFragment path1, PathFragment path2) {
+  /**
+   * Equivalent to {@code parent.equals(path.getParentDirectory())}, but doesn't allocate. This is
+   * called for every input of a spawn, most of which share their parent with the previous input.
+   */
+  @VisibleForTesting
+  static boolean isParentDirectory(PathFragment parent, PathFragment path) {
+    String pathString = path.getPathString();
+    int driveStrLength = path.getDriveStrLength();
+    if (pathString.length() <= driveStrLength) {
+      // The path is empty or a root, which has no parent.
+      return false;
+    }
+    int lastSeparator = pathString.lastIndexOf(PathFragment.SEPARATOR_CHAR);
+    int parentLength = max(lastSeparator, driveStrLength);
+    String parentString = parent.getPathString();
+    return parentString.length() == parentLength && pathString.startsWith(parentString);
+  }
+
+  @VisibleForTesting
+  static PathFragment findCommonPrefix(PathFragment path1, PathFragment path2) {
+    // Compare the segments in place as this is called for every change of the parent directory
+    // while iterating over the inputs of a spawn.
+    String s1 = path1.getPathString();
+    String s2 = path2.getPathString();
+    int start1 = path1.getDriveStrLength();
+    int start2 = path2.getDriveStrLength();
     int commonSegments = 0;
-    var segments2 = path2.segments().iterator();
-    for (String segment : path1.segments()) {
-      if (!segments2.hasNext()) {
-        break;
+    while (start1 < s1.length() && start2 < s2.length()) {
+      int end1 = s1.indexOf(PathFragment.SEPARATOR_CHAR, start1);
+      if (end1 == -1) {
+        end1 = s1.length();
       }
-      String segment2 = segments2.next();
-      if (!segment.equals(segment2)) {
+      int end2 = s2.indexOf(PathFragment.SEPARATOR_CHAR, start2);
+      if (end2 == -1) {
+        end2 = s2.length();
+      }
+      if (end1 - start1 != end2 - start2 || !s1.regionMatches(start1, s2, start2, end1 - start1)) {
         break;
       }
       commonSegments++;
+      start1 = end1 + 1;
+      start2 = end2 + 1;
+    }
+    if (start1 >= s1.length()) {
+      return path1;
+    }
+    int driveStrLength = path1.getDriveStrLength();
+    if (start2 >= s2.length()
+        && driveStrLength == path2.getDriveStrLength()
+        && s1.regionMatches(0, s2, 0, driveStrLength)) {
+      return path2;
     }
     return path1.subFragment(0, commonSegments);
   }

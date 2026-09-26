@@ -49,6 +49,7 @@ java_test(
         "//third_party/java/guava:concurrent",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
         "//third_party/java/truth",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
