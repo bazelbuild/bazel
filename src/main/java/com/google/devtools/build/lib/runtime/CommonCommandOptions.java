@@ -127,33 +127,36 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract void setInstallBaseGcMaxAge(Duration value);
 
   @Option(
-      name = "experimental_action_cache_gc_idle_delay",
+      name = "action_cache_gc_idle_delay",
+      oldName = "experimental_action_cache_gc_idle_delay",
       defaultValue = "5m",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = DurationConverter.class,
       help =
           "How long the server must remain idle before a garbage collection of the action cache is"
-              + " attempted. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+              + " attempted. Ineffectual unless --action_cache_gc_max_age is nonzero.")
   public abstract Duration getActionCacheGcIdleDelay();
 
   public abstract void setActionCacheGcIdleDelay(Duration value);
 
   @Option(
-      name = "experimental_action_cache_gc_threshold",
+      name = "action_cache_gc_threshold",
+      oldName = "experimental_action_cache_gc_threshold",
       defaultValue = "10",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = PercentageConverter.class,
       help =
           "The percentage of stale action cache entries required for garbage collection to be"
-              + " triggered. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+              + " triggered. Ineffectual unless --action_cache_gc_max_age is nonzero.")
   public abstract int getActionCacheGcThreshold();
 
   public abstract void setActionCacheGcThreshold(int value);
 
   @Option(
-      name = "experimental_action_cache_gc_max_age",
+      name = "action_cache_gc_max_age",
+      oldName = "experimental_action_cache_gc_max_age",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
@@ -162,8 +165,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
           "If set to a nonzero value, the action cache will be periodically garbage collected to"
               + " remove entries older than this age. Garbage collection occurs in the background"
               + " once the server has become idle, as determined by the"
-              + " --experimental_action_cache_gc_idle_delay and"
-              + " --experimental_action_cache_gc_threshold flags.")
+              + " --action_cache_gc_idle_delay and --action_cache_gc_threshold flags.")
   public abstract Duration getActionCacheGcMaxAge();
 
   public abstract void setActionCacheGcMaxAge(Duration value);

@@ -570,14 +570,12 @@ public class SkyframeErrorProcessorTest {
             /* keepGoing= */ true,
             /* includeExecutionPhase= */ true);
 
-    // Note: the *events* differ between these (an AspectCompletionKey unwraps to a bare AspectKey,
-    // which gets no event and discards its root causes) - see section D. The ErrorProcessingResult
-    // is identical.
     assertThat(result.hasAnalysisError()).isTrue();
     assertThat(result.hasLoadingError()).isFalse();
     assertThat(result.executionDetailedExitCode()).isNull();
     assertThat(result.actionConflicts()).isEmpty();
     assertThat(result.aspectKeysForConflictReporting()).isEmpty();
+    assertThat(onlyAnalysisFailureEvent().getFailedTarget()).isEqualTo(ctKey);
   }
 
   @Test
@@ -667,10 +665,11 @@ public class SkyframeErrorProcessorTest {
   }
 
   @Test
-  public void topLevelAspectsKey_postsAnalysisFailureEventForBaseTargetWithEmptyRootCauses()
+  public void topLevelAspectsKey_postsAnalysisFailureEventForBaseTargetWithRootCauses()
       throws Exception {
     Label label = Label.parseCanonicalUnchecked("//aspect_err");
     TopLevelAspectsKey key = topLevelAspectsKey(label);
+    LabelCause rootCause = new LabelCause(label, analysisExitCode("aspect failed"));
 
     processErrors(
         resultOf(
@@ -679,31 +678,37 @@ public class SkyframeErrorProcessorTest {
                 analysisExceptionWithCauses(
                     "aspect analysis exception",
                     label,
-                    NestedSetBuilder.create(
-                        Order.STABLE_ORDER,
-                        new LabelCause(label, analysisExitCode("aspect failed")))))),
+                    NestedSetBuilder.create(Order.STABLE_ORDER, rootCause)))),
         /* keepGoing= */ true,
         /* includeExecutionPhase= */ false);
 
     AnalysisFailureEvent event = onlyAnalysisFailureEvent();
     assertThat(event.getFailedTarget()).isEqualTo(key.getBaseConfiguredTargetKey());
-    // TODO(b/561978611): aspect errors discard their root causes today. This assertion is exactly
-    // what will catch a change to that.
-    assertThat(event.getRootCauses().toList()).isEmpty();
+    // An aspect error carries the same root causes as a target error would.
+    assertThat(event.getRootCauses().toList()).containsExactly(rootCause);
   }
 
   @Test
-  public void bareAspectKey_postsNoEventAtAll() throws Exception {
+  public void bareAspectKey_postsAnalysisFailureEventForBaseTargetWithRootCauses()
+      throws Exception {
     ConfiguredTargetKey baseKey = configuredTargetKey("//aspect_err");
     AspectKey key = aspectKey(baseKey);
+    LabelCause rootCause = new LabelCause(baseKey.getLabel(), analysisExitCode("aspect failed"));
 
     processErrors(
         resultOf(
-            key, errorInfo(analysisException("aspect analysis exception", baseKey.getLabel()))),
+            key,
+            errorInfo(
+                analysisExceptionWithCauses(
+                    "aspect analysis exception",
+                    baseKey.getLabel(),
+                    NestedSetBuilder.create(Order.STABLE_ORDER, rootCause)))),
         /* keepGoing= */ true,
         /* includeExecutionPhase= */ false);
 
-    assertThat(eventBusCollector.allEvents).isEmpty();
+    AnalysisFailureEvent event = onlyAnalysisFailureEvent();
+    assertThat(event.getFailedTarget()).isEqualTo(baseKey);
+    assertThat(event.getRootCauses().toList()).containsExactly(rootCause);
   }
 
   @Test
@@ -947,8 +952,8 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_aspectErrorPlusTargetAnalysisError_targetErrorWins() {
-    // Deterministic despite the HashMap iteration order: the aspect's exception is stashed and only
-    // thrown after the loop, so the target's exception always wins.
+    // NO_KEEP_GOING_PRECEDENCE ranks TARGET_ANALYSIS ahead of ASPECT_ANALYSIS, so the target error
+    // always aborts the build regardless of errorMap() iteration order.
     Label aspectLabel = Label.parseCanonicalUnchecked("//aspect_err");
     TopLevelAspectsKey aspectKey = topLevelAspectsKey(aspectLabel);
     ConfiguredTargetKey targetKey = configuredTargetKey("//pkg:analysis_err");
@@ -969,12 +974,14 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown)
         .hasMessageThat()
         .contains("Analysis of target '//pkg:analysis_err' failed; build aborted");
+    // The aspect's event is not posted, so it cannot overwrite the target's root causes.
+    assertThat(onlyAnalysisFailureEvent().getFailedTarget()).isEqualTo(targetKey);
   }
 
   @Test
   public void noKeepGoing_aspectErrorPlusActionConflict_throwsAspectErrorAndDropsTheConflict() {
-    // Known wart: the conflict is harvested into a result that is then never returned, because the
-    // stashed aspect exception is thrown after the loop. The conflict is silently lost.
+    // Known wart: the conflict is harvested into a result that is then never returned, because
+    // Phase 3 aborts the build with the non-conflict aspect error. The conflict is silently lost.
     Label aspectLabel = Label.parseCanonicalUnchecked("//aspect_err");
     TopLevelAspectsKey aspectKey = topLevelAspectsKey(aspectLabel);
     ConfiguredTargetKey conflictKey = configuredTargetKey("//conflict");
@@ -999,38 +1006,114 @@ public class SkyframeErrorProcessorTest {
   }
 
   @Test
-  public void noKeepGoing_executionErrorPlusAnalysisError_winnerIsOrderDependent() {
-    // ORDER DEPENDENCE: both errors throw immediately when they are reached, so whichever one
-    // errorMap() happens to yield first wins. Do not pin a winner here.
+  public void noKeepGoing_executionErrorPlusAnalysisError_executionWins() {
     ConfiguredTargetKey executionKey = configuredTargetKey("//exec_err");
     ConfiguredTargetKey analysisKey = configuredTargetKey("//analysis_err");
+    DetailedExitCode exitCode =
+        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
 
     EvaluationResult<SkyValue> result =
         EvaluationResult.<SkyValue>builder()
             .addError(
                 executionKey,
-                errorInfo(
-                    actionExecutionExceptionWithAction(
-                        "action failed",
-                        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE))))
+                errorInfo(actionExecutionExceptionWithAction("action failed", exitCode)))
             .addError(
                 analysisKey,
                 errorInfo(analysisException("analysis exception", analysisKey.getLabel())))
             .build();
 
-    Exception thrown =
+    BuildFailedException thrown =
         assertThrows(
-            Exception.class,
+            BuildFailedException.class,
             () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
 
-    assertThat(thrown.getClass())
-        .isAnyOf(BuildFailedException.class, ViewCreationFailedException.class);
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(exitCode);
+    // Only the error the build aborts with is reported.
+    assertThat(eventBusCollector.analysisFailures).isEmpty();
+  }
+
+  @Test
+  public void noKeepGoing_twoExecutionErrors_moreImportantExitCodeWins() {
+    ConfiguredTargetKey buildKey = configuredTargetKey("//a:a");
+    ConfiguredTargetKey infrastructureKey = configuredTargetKey("//z:z");
+    DetailedExitCode buildExitCode =
+        executionExitCode("build failure", Execution.Code.ACTION_NOT_UP_TO_DATE);
+    DetailedExitCode infrastructureExitCode =
+        executionExitCode("infra failure", Execution.Code.EXECUTION_LOG_WRITE_FAILURE);
+
+    EvaluationResult<SkyValue> result =
+        EvaluationResult.<SkyValue>builder()
+            .addError(
+                buildKey,
+                errorInfo(actionExecutionExceptionWithAction("build failure", buildExitCode)))
+            .addError(
+                infrastructureKey,
+                errorInfo(
+                    actionExecutionExceptionWithAction("infra failure", infrastructureExitCode)))
+            .build();
+
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
+
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(infrastructureExitCode);
+  }
+
+  @Test
+  public void noKeepGoing_twoAnalysisErrors_lowestLabelWins() {
+    ConfiguredTargetKey first = configuredTargetKey("//a:a");
+    ConfiguredTargetKey second = configuredTargetKey("//b:b");
+
+    EvaluationResult<SkyValue> result =
+        EvaluationResult.<SkyValue>builder()
+            .addError(first, errorInfo(analysisException("first", first.getLabel())))
+            .addError(second, errorInfo(analysisException("second", second.getLabel())))
+            .build();
+
+    ViewCreationFailedException thrown =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ false));
+
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("Analysis of target '//a:a' failed; build aborted");
+  }
+
+  @Test
+  public void noKeepGoing_twoAspectErrorsOnSameTarget_lowestAspectDescriptionWins() {
+    ConfiguredTargetKey baseKey = configuredTargetKey("//pkg:target");
+    AspectKey secondAspect =
+        AspectKeyCreator.createAspectKey(
+            AspectDescriptor.of(() -> "AspectB", AspectParameters.EMPTY), baseKey);
+    AspectKey firstAspect =
+        AspectKeyCreator.createAspectKey(
+            AspectDescriptor.of(() -> "AspectA", AspectParameters.EMPTY), baseKey);
+
+    EvaluationResult<SkyValue> result =
+        EvaluationResult.<SkyValue>builder()
+            .addError(
+                secondAspect, errorInfo(analysisException("second aspect", baseKey.getLabel())))
+            .addError(firstAspect, errorInfo(analysisException("first aspect", baseKey.getLabel())))
+            .build();
+
+    ViewCreationFailedException thrown =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ false));
+
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("Analysis of aspects '//pkg:target with aspect AspectA' failed; build aborted");
   }
 
   @Test
   public void noKeepGoing_severalErrors_everyCycleIsReportedBeforeTheBuildAborts() {
-    // The cycles are reported in a pass of their own, above the loop that throws, so an error that
-    // aborts the build does not truncate the reporting for the errors after it.
+    // Cycles are reported for every error before anything is classified, so the error that aborts
+    // the build does not suppress the cycle reporting for the others.
     ConfiguredTargetKey analysisKey = configuredTargetKey("//analysis_err");
     ConfiguredTargetKey cycleKey = configuredTargetKey("//pkg:cycle");
     CycleInfo cycle =
@@ -1055,11 +1138,8 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_executionErrorPlusAspectAnalysisError_executionErrorWins() {
-    // The mirror image of the test above, and this pairing *is* deterministic: an aspect's
-    // exception is only stashed, so the loop carries on and reaches the execution error, which
-    // rethrow() throws on the spot. The stashed exception's post-loop throw is never reached,
-    // whichever order errorMap() happens to yield. Only the thrown exception is safe to assert on
-    // - whether the aspect's AnalysisFailureEvent got posted first is order dependent.
+    // NO_KEEP_GOING_PRECEDENCE ranks EXECUTION ahead of ASPECT_ANALYSIS, and Phase 2 posts failure
+    // events for all errors before Phase 3 aborts the build.
     Label aspectLabel = Label.parseCanonicalUnchecked("//aspect_err");
     TopLevelAspectsKey aspectKey = topLevelAspectsKey(aspectLabel);
     ConfiguredTargetKey executionKey = configuredTargetKey("//exec_err");
@@ -1782,18 +1862,21 @@ public class SkyframeErrorProcessorTest {
     assertThat(cyclesReporter.cycles).containsExactly(cycle);
   }
 
-  // TODO(b/561978611): Remove this behavior. An aspect's loading causes are dropped, so
-  // hasLoadingError() can never become true.
   @Test
-  public void topLevelAspectsKey_loadingFailedCause_keepGoing_noLoadingErrorAndNoEvent()
+  public void topLevelAspectsKey_loadingFailedCause_keepGoing_loadingErrorAndLoadingFailureEvent()
       throws Exception {
-    // Pins a wart: the aspect branch hardcodes an empty loading-root-cause set, so a
-    // LoadingFailedCause carried by the exception is dropped - hasLoadingError() is false and no
-    // LoadingFailureEvent is posted. The very same exception on a ConfiguredTargetKey reports both
-    // (see loadingError_postsOneLoadingFailureEventPerDedupedLabel).
+    // A LoadingFailedCause carried by an exception on an aspect key is reported like one on a
+    // ConfiguredTargetKey (see loadingError_postsOneLoadingFailureEventPerDedupedLabel):
+    // hasLoadingError() is true and a LoadingFailureEvent is posted, naming the aspect's base
+    // target as the failed target, not the aspect.
+    // hasLoadingError() is also what BuildView#createAnalysisFailureDetail keys on, so an aspect
+    // loading failure reports GENERIC_LOADING_PHASE_FAILURE for the build rather than
+    // NOT_ALL_TARGETS_ANALYZED.
     Label label = Label.parseCanonicalUnchecked("//pkg:aspect_loading_err");
     TopLevelAspectsKey key = topLevelAspectsKey(label);
     Label loadingRootCause = Label.parseCanonicalUnchecked("//pkg:missing_dep");
+    LoadingFailedCause rootCause =
+        new LoadingFailedCause(loadingRootCause, analysisExitCode("missing"));
 
     ErrorProcessingResult result =
         processErrors(
@@ -1803,18 +1886,16 @@ public class SkyframeErrorProcessorTest {
                     analysisExceptionWithCauses(
                         "aspect loading exception",
                         label,
-                        NestedSetBuilder.create(
-                            Order.STABLE_ORDER,
-                            new LoadingFailedCause(
-                                loadingRootCause, analysisExitCode("missing")))))),
+                        NestedSetBuilder.create(Order.STABLE_ORDER, rootCause)))),
             /* keepGoing= */ true,
             /* includeExecutionPhase= */ false);
 
-    assertThat(result.hasLoadingError()).isFalse();
+    assertThat(result.hasLoadingError()).isTrue();
     assertThat(result.hasAnalysisError()).isTrue();
-    assertThat(eventBusCollector.loadingFailures).isEmpty();
-    // The AnalysisFailureEvent is still posted, but with the root causes discarded.
-    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList()).isEmpty();
+    assertThat(eventBusCollector.loadingFailures)
+        .containsExactly(new LoadingFailureEvent(label, loadingRootCause));
+    // The AnalysisFailureEvent carries the very same cause.
+    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList()).containsExactly(rootCause);
   }
 
   @Test
@@ -1869,20 +1950,8 @@ public class SkyframeErrorProcessorTest {
     assertThat(eventBusCollector.analysisFailures).isEmpty();
   }
 
-  // TODO(b/561978611): Remove this behavior. Which aspect error aborts the build depends on hash
-  // order, so the same build can fail two different ways.
   @Test
-  public void noKeepGoing_twoTopLevelAspectsAnalysisErrors_postsBothEventsAndThrowsAfterTheLoop() {
-    // Pins the contrast with two ConfiguredTargetKey analysis errors, where the first one reached
-    // throws immediately and no further events are posted: the aspect deferral path *returns* the
-    // exception instead of throwing, so the loop runs to completion, an AnalysisFailureEvent is
-    // posted for every aspect, and the stashed exception is overwritten on each iteration before
-    // being thrown after the loop.
-    //
-    // ORDER DEPENDENCE: deliberately not pinning *which* of the two is thrown. EvaluationResult
-    // stores errors in a HashMap, and TopLevelAspectsKey's hash folds in
-    // ImmutableList<AspectClass>#hashCode, where ASPECT_CLASS is a lambda that does not override
-    // hashCode - so it gets an identity hash and the iteration order flips between JVM runs.
+  public void noKeepGoing_twoTopLevelAspectsAnalysisErrors_onlyTheLowestLabelIsReportedAndThrown() {
     Label firstLabel = Label.parseCanonicalUnchecked("//pkg:aspect_err_a");
     Label secondLabel = Label.parseCanonicalUnchecked("//pkg:aspect_err_b");
     TopLevelAspectsKey firstKey = topLevelAspectsKey(firstLabel);
@@ -1894,8 +1963,8 @@ public class SkyframeErrorProcessorTest {
 
     EvaluationResult<SkyValue> result =
         EvaluationResult.<SkyValue>builder()
-            .addError(firstKey, errorInfo(firstCause))
             .addError(secondKey, errorInfo(secondCause))
+            .addError(firstKey, errorInfo(firstCause))
             .build();
 
     ViewCreationFailedException thrown =
@@ -1904,21 +1973,17 @@ public class SkyframeErrorProcessorTest {
             () ->
                 processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ false));
 
-    assertThat(analysisFailureTargets())
-        .containsExactly(
-            firstKey.getBaseConfiguredTargetKey(), secondKey.getBaseConfiguredTargetKey());
-    assertThat(thrown).hasCauseThat().isAnyOf(firstCause, secondCause);
+    assertThat(analysisFailureTargets()).containsExactly(firstKey.getBaseConfiguredTargetKey());
+    assertThat(thrown).hasCauseThat().isSameInstanceAs(firstCause);
   }
 
-  // TODO(b/561978611): Remove this behavior. An aspect failure should carry its root causes, the
-  // way a target failure does.
   @Test
-  public void aspectAnalysisCycle_keepGoing_analysisErrorWithEmptyRootCauses() throws Exception {
+  public void aspectAnalysisCycle_keepGoing_analysisErrorWithCycleLabelCause() throws Exception {
     // Pins an analysis (i.e. non-execution) cycle on a top-level aspect: an analysis error with no
-    // execution exit code, and an AnalysisFailureEvent for the base configured target.
-    // Wart: the aspect branch never runs the cycle-culprit helper, so the event has *empty* root
-    // causes, whereas the same cycle on a ConfiguredTargetKey synthesizes a LabelCause for the
-    // culprit (see analysisCycle_keepGoing_analysisErrorWithCycleLabelCause).
+    // execution exit code, and an AnalysisFailureEvent for the base configured target carrying a
+    // synthesized LabelCause for the cycle culprit. An aspect key and a ConfiguredTargetKey agree
+    // here: this asserts exactly what analysisCycle_keepGoing_analysisErrorWithCycleLabelCause
+    // asserts for a configured target.
     TopLevelAspectsKey key =
         topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_cycle"));
     ConfiguredTargetKey culprit = configuredTargetKey("//pkg:culprit");
@@ -1932,18 +1997,28 @@ public class SkyframeErrorProcessorTest {
 
     assertThat(result.hasAnalysisError()).isTrue();
     assertThat(result.executionDetailedExitCode()).isNull();
+    // A cycle culprit is not a loading failure, so this is false even though the error has root
+    // causes.
+    assertThat(result.hasLoadingError()).isFalse();
     AnalysisFailureEvent event = onlyAnalysisFailureEvent();
     assertThat(event.getFailedTarget()).isEqualTo(key.getBaseConfiguredTargetKey());
-    assertThat(event.getRootCauses().toList()).isEmpty();
+    assertThat(event.getRootCauses().toList())
+        .containsExactly(
+            new LabelCause(
+                culprit.getLabel(),
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage("Dependency cycle")
+                        .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.CYCLE))
+                        .build())));
   }
 
-  // TODO(b/561978611): Remove this behavior. An aspect failure should carry its root causes, the
-  // way a target failure does.
   @Test
   public void aspectAnalysisCycle_noKeepGoing_throwsViewCreationFailedWithCycleCode() {
     // Pins the exact aspect cycle failure detail. The description comes from
     // TopLevelAspectsKey#getDescription: the aspect class names, the (empty) parameters map and the
-    // target label.
+    // target label. The thrown exception is derived from the key and the absent cause only: the
+    // root causes go to the event posted below, not into the message or the failure detail.
     TopLevelAspectsKey key =
         topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_cycle"));
     ConfiguredTargetKey culprit = configuredTargetKey("//pkg:culprit");
@@ -1972,21 +2047,36 @@ public class SkyframeErrorProcessorTest {
                 + " build aborted due to cycle");
     assertThat(thrown.getFailureDetail().getAnalysis().getCode()).isEqualTo(Analysis.Code.CYCLE);
     assertThat(thrown).hasCauseThat().isNull();
-    // Same wart as in keep_going mode: the event is posted before the throw, with no root causes.
-    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList()).isEmpty();
+    // The event is posted before the throw, and it names the cycle culprit, exactly as in
+    // keep_going mode (see aspectAnalysisCycle_keepGoing_analysisErrorWithCycleLabelCause).
+    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList())
+        .containsExactly(
+            new LabelCause(
+                culprit.getLabel(),
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage("Dependency cycle")
+                        .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.CYCLE))
+                        .build())));
   }
 
-  // TODO(b/561978611): Remove this behavior. An aspect failure should carry its root causes, the
-  // way a target failure does.
   @Test
   public void buildDriverKeyWrappingTopLevelAspectsKey_isHandledLikeTheBareKey() throws Exception {
     // This is the real Skymeld top-level-aspect shape. getEffectiveErrorKey only calls
     // getActionLookupKey() and ignores isTopLevelAspectDriver, so it behaves exactly like the bare
-    // TopLevelAspectsKey (see
-    // topLevelAspectsKey_postsAnalysisFailureEventForBaseTargetWithEmptyRootCauses).
-    TopLevelAspectsKey aspectsKey =
-        topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_err"));
-    SkyKey key =
+    // TopLevelAspectsKey. The point of the test is that identity, so the same error is run through
+    // both keys and the two outcomes are compared directly. The root causes are the exception's
+    // own for both, like any other analysis error (see
+    // topLevelAspectsKey_postsAnalysisFailureEventForBaseTargetWithRootCauses).
+    Label label = Label.parseCanonicalUnchecked("//pkg:aspect_err");
+    TopLevelAspectsKey aspectsKey = topLevelAspectsKey(label);
+    LabelCause rootCause = new LabelCause(label, analysisExitCode("aspect failed"));
+    ConfiguredValueCreationException cause =
+        analysisExceptionWithCauses(
+            "aspect analysis exception",
+            label,
+            NestedSetBuilder.create(Order.STABLE_ORDER, rootCause));
+    SkyKey wrappedKey =
         BuildDriverKey.ofTopLevelAspect(
             aspectsKey,
             TOP_LEVEL_ARTIFACT_CONTEXT,
@@ -1995,19 +2085,28 @@ public class SkyframeErrorProcessorTest {
             /* extraActionTopLevelOnly= */ false,
             /* keepGoing= */ true);
 
-    ErrorProcessingResult result =
+    ErrorProcessingResult wrappedResult =
         processErrors(
-            resultOf(
-                key,
-                errorInfo(analysisException("aspect analysis exception", aspectsKey.getLabel()))),
+            resultOf(wrappedKey, errorInfo(cause)),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ true);
+    ErrorProcessingResult bareResult =
+        processErrors(
+            resultOf(aspectsKey, errorInfo(cause)),
             /* keepGoing= */ true,
             /* includeExecutionPhase= */ true);
 
-    assertThat(result.hasAnalysisError()).isTrue();
-    assertThat(result.executionDetailedExitCode()).isNull();
-    AnalysisFailureEvent event = onlyAnalysisFailureEvent();
-    assertThat(event.getFailedTarget()).isEqualTo(aspectsKey.getBaseConfiguredTargetKey());
-    assertThat(event.getRootCauses().toList()).isEmpty();
+    assertThat(wrappedResult).isEqualTo(bareResult);
+    assertThat(wrappedResult.hasAnalysisError()).isTrue();
+    assertThat(wrappedResult.executionDetailedExitCode()).isNull();
+    assertThat(eventBusCollector.analysisFailures).hasSize(2);
+    AnalysisFailureEvent wrappedEvent = eventBusCollector.analysisFailures.get(0);
+    AnalysisFailureEvent bareEvent = eventBusCollector.analysisFailures.get(1);
+    assertThat(wrappedEvent.getFailedTarget()).isEqualTo(aspectsKey.getBaseConfiguredTargetKey());
+    assertThat(wrappedEvent.getFailedTarget()).isEqualTo(bareEvent.getFailedTarget());
+    assertThat(wrappedEvent.getRootCauses().toList()).containsExactly(rootCause);
+    assertThat(wrappedEvent.getRootCauses().toList())
+        .containsExactlyElementsIn(bareEvent.getRootCauses().toList());
   }
 
   @Test

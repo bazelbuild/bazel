@@ -104,7 +104,7 @@ import javax.annotation.Nullable;
  * sources, such as the same path existing in multiple underlying sources with different type or
  * contents.
  */
-public class RemoteActionFileSystem extends FileSystem implements PathCanonicalizer.Resolver {
+public class RemoteActionFileSystem extends FileSystem {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final InputMetadataProvider inputArtifactData;
@@ -248,10 +248,23 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
-    this.pathCanonicalizer = new PathCanonicalizer(this);
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.localFs = checkNotNull(localFs, "localFs");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
+    this.pathCanonicalizer =
+        new PathCanonicalizer(
+            new PathCanonicalizer.Resolver() {
+              @Override
+              @Nullable
+              public FileStatus statIfFound(PathFragment path) throws IOException {
+                return statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
+              }
+
+              @Override
+              public PathFragment readSymbolicLink(PathFragment path) throws IOException {
+                return readSymbolicLinkInternal(path);
+              }
+            });
   }
 
   @Override

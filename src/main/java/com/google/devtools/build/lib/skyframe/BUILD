@@ -22,51 +22,6 @@ filegroup(
 )
 
 java_library(
-    name = "skyframe_cluster",
-    exports = [
-        ":action_execution_function",
-        ":action_lookup_conflict_finding_function",
-        ":action_lookup_values_traversal",
-        ":aspect_completor",
-        ":bazel_skyframe_executor_constants",
-        ":bzl_load_function",
-        ":completion_function",
-        ":configured_target_evaluation_exceptions",
-        ":coverage_report_function",
-        ":dependency_resolver",
-        ":directory_listing_state_function",
-        ":dirtiness_checker_utils",
-        ":environment_backed_recursive_package_provider",
-        ":eval_macro_function",
-        ":external_files_helper",
-        ":file_state_function",
-        ":high_water_mark_limiter",
-        ":local_repository_lookup_function",
-        ":macro_instance_function",
-        ":non_finalizer_package_pieces_function",
-        ":package_declarations_function",
-        ":package_function",
-        ":prepare_deps_of_pattern_function",
-        ":sequenced_skyframe_executor",
-        ":sequenced_skyframe_executor_factory",
-        ":skyframe_analysis_and_execution_result",
-        ":skyframe_analysis_result",
-        ":skyframe_core",
-        ":skyframe_executor_factory",
-        ":skyframe_package_manager",
-        ":starlark_aspect_factory",
-        ":starlark_build_settings_details_function",
-        ":target_completor",
-        ":target_pattern_function",
-        ":target_pattern_phase_function",
-        ":test_completion_function",
-        ":top_level_action_lookup_conflict_finding_function",
-        ":toplevel_starlark_aspect_function",
-        ":transitive_target_function",
-    ],
-)
-
-java_library(
     name = "detailed_exceptions",
     srcs = [
         "DetailedException.java",
@@ -3973,7 +3928,56 @@ java_library(
     ],
 )
 
-# Core Skyframe evaluation cycle (SkyframeExecutor <-> SkyframeBuildView <-> ConfiguredTargetFunction <-> AspectFunction).
+java_library(
+    name = "skyframe_executor_wrapping_walkable_graph",
+    srcs = ["SkyframeExecutorWrappingWalkableGraph.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "skyframe_target_pattern_evaluator",
+    srcs = ["SkyframeTargetPatternEvaluator.java"],
+    deps = [
+        ":detailed_exceptions",
+        ":package_identifier_batching_callback",
+        ":package_value",
+        ":pattern_expanding_error",
+        ":recursive_package_provider_backed_target_pattern_resolver",
+        ":skyframe_core",
+        ":target_pattern_value",
+        ":target_patterns_result_builder",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:query_exception_marker_interface",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+# Core Skyframe evaluation cycle.
+# Contains the 5 mutually dependent files forming the central evaluation loop:
+#   - SkyframeExecutor.java (central evaluation engine and coordinator)
+#   - SkyframeBuildView.java (analysis phase coordinator)
+#   - ConfiguredTargetFunction.java (configured target evaluation)
+#   - AspectFunction.java & LoadAspectsFunction.java (aspect evaluation)
+#
+# Decoupling roadmap for future extraction:
+#   1. Decouple SkyframeBuildView from SkyframeExecutor via BuildViewProvider interface.
 java_library(
     name = "skyframe_core",
     srcs = [
@@ -3982,8 +3986,6 @@ java_library(
         "LoadAspectsFunction.java",
         "SkyframeBuildView.java",
         "SkyframeExecutor.java",
-        "SkyframeExecutorWrappingWalkableGraph.java",
-        "SkyframeTargetPatternEvaluator.java",
     ],
     deps = [
         ":action_artifact_cycle_reporter",
@@ -4063,7 +4065,6 @@ java_library(
         ":package_error_function",
         ":package_error_message_function",
         ":package_function",
-        ":package_identifier_batching_callback",
         ":package_lookup_function",
         ":package_lookup_value",
         ":package_progress_receiver",
@@ -4078,7 +4079,6 @@ java_library(
         ":project_files_lookup_function",
         ":project_function",
         ":recursive_filesystem_traversal",
-        ":recursive_package_provider_backed_target_pattern_resolver",
         ":recursive_pkg_function",
         ":repo_environment_function",
         ":repo_file_function",
@@ -4095,6 +4095,7 @@ java_library(
         ":skyframe_analysis_and_execution_result",
         ":skyframe_analysis_result",
         ":skyframe_error_processor",
+        ":skyframe_executor_wrapping_walkable_graph",
         ":skyframe_incremental_build_monitor",
         ":skyframe_package_manager",
         ":skyframe_stats",
@@ -4110,8 +4111,6 @@ java_library(
         ":target_pattern_function",
         ":target_pattern_phase_function",
         ":target_pattern_phase_value",
-        ":target_pattern_value",
-        ":target_patterns_result_builder",
         ":test_completion_function",
         ":test_completion_value",
         ":test_expansion_cycle_reporter",
@@ -4203,7 +4202,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:query_exception_marker_interface",
         "//src/main/java/com/google/devtools/build/lib/collect:path_fragment_prefix_trie",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
@@ -4212,8 +4210,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_cycle_uniqueness_function",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_uniqueness_function",
-        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
-        "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",

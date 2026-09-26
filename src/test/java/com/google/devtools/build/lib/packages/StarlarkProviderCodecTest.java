@@ -31,12 +31,14 @@ import com.google.devtools.build.skyframe.state.EnvironmentForUtilities;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,36 +57,41 @@ public final class StarlarkProviderCodecTest {
       keyForBuild(Label.parseCanonicalUnchecked("//foo.bzl"));
   private final StarlarkProvider.Key providerKey = new StarlarkProvider.Key(bzlLoadKey, "prov");
 
+  private static final StarlarkCallable DUMMY_INIT =
+      new StarlarkCallable() {
+        @Override
+        public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
+            throws EvalException {
+          return Dict.empty();
+        }
+
+        @Override
+        public String getName() {
+          return "init";
+        }
+
+        @Override
+        public Location getLocation() {
+          return Location.BUILTIN;
+        }
+
+        @Override
+        public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+          return Types.ANY_CALLABLE;
+        }
+      };
+
   @Test
   public void schemaWithDocumentation() throws Exception {
     String documentation = "documentation";
     ImmutableMap<String, String> schemaWithDocumentation =
         ImmutableMap.of(
             "field1", "documentation1", "field2", "documentation2", "field3", "documentation3");
-    StarlarkCallable init =
-        new StarlarkCallable() {
-          @Override
-          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
-              throws EvalException {
-            return Starlark.NONE;
-          }
-
-          @Override
-          public String getName() {
-            return "init";
-          }
-
-          @Override
-          public Location getLocation() {
-            return Location.BUILTIN;
-          }
-        };
-
     var provider =
         StarlarkProvider.builder(Location.BUILTIN)
             .setDocumentation(documentation)
             .setSchema(schemaWithDocumentation)
-            .setInit(init)
+            .setInit(DUMMY_INIT)
             .buildExported(providerKey);
 
     var deserialized =
@@ -97,29 +104,11 @@ public final class StarlarkProviderCodecTest {
   public void schemaWithoutDocumentation() throws Exception {
     String documentation = "documentation";
     ImmutableList<String> fields = ImmutableList.of("a", "b", "c");
-    StarlarkCallable init =
-        new StarlarkCallable() {
-          @Override
-          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
-              throws EvalException {
-            return Starlark.NONE;
-          }
-
-          @Override
-          public String getName() {
-            return "init";
-          }
-
-          @Override
-          public Location getLocation() {
-            return Location.BUILTIN;
-          }
-        };
     var provider =
         StarlarkProvider.builder(Location.BUILTIN)
             .setDocumentation(documentation)
             .setSchema(fields)
-            .setInit(init)
+            .setInit(DUMMY_INIT)
             .buildExported(providerKey);
 
     var deserialized =
@@ -131,29 +120,10 @@ public final class StarlarkProviderCodecTest {
   @Test
   public void nullSchema() throws Exception {
     String documentation = "documentation";
-    StarlarkCallable init =
-        new StarlarkCallable() {
-          @Override
-          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
-              throws EvalException {
-            return Starlark.NONE;
-          }
-
-          @Override
-          public String getName() {
-            return "init";
-          }
-
-          @Override
-          public Location getLocation() {
-            return Location.BUILTIN;
-          }
-        };
-
     var provider =
         StarlarkProvider.builder(Location.BUILTIN)
             .setDocumentation(documentation)
-            .setInit(init)
+            .setInit(DUMMY_INIT)
             .buildExported(providerKey);
     var deserialized =
         (StarlarkProvider)
@@ -164,29 +134,11 @@ public final class StarlarkProviderCodecTest {
   @Test
   public void emptySchema() throws Exception {
     String documentation = "documentation";
-    StarlarkCallable init =
-        new StarlarkCallable() {
-          @Override
-          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
-              throws EvalException {
-            return Starlark.NONE;
-          }
-
-          @Override
-          public String getName() {
-            return "init";
-          }
-
-          @Override
-          public Location getLocation() {
-            return Location.BUILTIN;
-          }
-        };
     var provider =
         StarlarkProvider.builder(Location.BUILTIN)
             .setDocumentation(documentation)
             .setSchema(ImmutableList.of())
-            .setInit(init)
+            .setInit(DUMMY_INIT)
             .buildExported(providerKey);
     var deserialized =
         (StarlarkProvider)
@@ -212,29 +164,10 @@ public final class StarlarkProviderCodecTest {
   @Test
   public void noDocumentation() throws Exception {
     ImmutableList<String> fields = ImmutableList.of("a", "b", "c");
-    StarlarkCallable init =
-        new StarlarkCallable() {
-          @Override
-          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
-              throws EvalException {
-            return Starlark.NONE;
-          }
-
-          @Override
-          public String getName() {
-            return "init";
-          }
-
-          @Override
-          public Location getLocation() {
-            return Location.BUILTIN;
-          }
-        };
-
     var provider =
         StarlarkProvider.builder(Location.BUILTIN)
             .setSchema(fields)
-            .setInit(init)
+            .setInit(DUMMY_INIT)
             .buildExported(providerKey);
     var deserialized =
         (StarlarkProvider)

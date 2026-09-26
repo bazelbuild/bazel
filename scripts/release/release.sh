@@ -31,11 +31,11 @@ MASTER_REPOSITORY="https://bazel.googlesource.com/bazel"
 RELEASE_AUTHOR="Bazel Release System <noreply@google.com>"
 
 # Load relnotes.sh.
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source ${SCRIPT_DIR}/relnotes.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/relnotes.sh"
 
 # Load common.sh.
-source ${SCRIPT_DIR}/common.sh
+source "${SCRIPT_DIR}/common.sh"
 
 # Editing release notes info for the user.
 RELEASE_NOTE_MESSAGE='# Editing release notes

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +44,7 @@ import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -186,6 +188,42 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     Iterable<Event> newEvents = Iterables.skip(eventCollector, initialEventCount);
     MoreAsserts.assertContainsEvent(newEvents, expectedError);
+  }
+
+  /** Asserts {@code t1} is assignable to {@code t2}. */
+  private void assertLt(StarlarkType t1, StarlarkType t2) {
+    assertWithMessage("%s is expected to be assignable to %s", t1, t2)
+        .that(StarlarkType.assignableFrom(t2, t1, getTypeContext()))
+        .isTrue();
+  }
+
+  /** Asserts {@code t1} is *not* assignable to {@code t2}. */
+  private void assertNotLt(StarlarkType t1, StarlarkType t2) {
+    assertWithMessage("%s is expected to be *not* assignable to %s", t1, t2)
+        .that(StarlarkType.assignableFrom(t2, t1, getTypeContext()))
+        .isFalse();
+  }
+
+  /** Asserts {@code t1} is assignable to {@code t2}, but not vice versa. */
+  private void assertStrictLt(StarlarkType t1, StarlarkType t2) {
+    assertLt(t1, t2);
+    assertNotLt(t2, t1);
+  }
+
+  /** Asserts {@code t1} and {@code t2} are assignable in both directions. */
+  private void assertLtAndGt(StarlarkType t1, StarlarkType t2) {
+    assertLt(t1, t2);
+    assertLt(t2, t1);
+  }
+
+  /** Asserts that the given types are *not* assignable in either direction. */
+  private void assertIncomparable(StarlarkType... types) {
+    for (int i = 0; i < types.length - 1; i++) {
+      for (int j = i + 1; j < types.length; j++) {
+        assertNotLt(types[i], types[j]);
+        assertNotLt(types[j], types[i]);
+      }
+    }
   }
 
   @StarlarkBuiltin(name = "TestStructApiImpl")
@@ -769,5 +807,152 @@ public class StarlarkTypesTest extends BuildViewTestCase {
             SelectorValue.Type.of(Types.INT)
                 .inferBinaryOperator(TokenKind.PLUS, Types.FLOAT, false))
         .isNull();
+  }
+
+  @Test
+  public void schemalessProvider() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    scratch.file(
+        "lib/provider.bzl",
+        """
+        MyInfo = provider()
+        MyOtherInfo = provider()
+        """);
+    scratch.file("lib/BUILD");
+    Module providerBzl = loadModule("//lib:provider.bzl");
+    StarlarkType myInfoSymbolType = providerBzl.getExportType("MyInfo");
+    StarlarkType myOtherInfoSymbolType = providerBzl.getExportType("MyOtherInfo");
+
+    // Provider symbols can be used as provider symbols, as callables, or as types.
+    assertThat(myInfoSymbolType.typeRepr()).isEqualTo("<Provider[MyInfo]>");
+    assertLtAndGt(myInfoSymbolType, parseType("Provider"));
+    assertStrictLt(myInfoSymbolType, Types.ANY_CALLABLE);
+    assertStrictLt(myInfoSymbolType, Types.TYPE);
+    assertIncomparable(myInfoSymbolType, myOtherInfoSymbolType);
+
+    StarlarkType myInfoType = parseType("MyInfo", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(myInfoType.typeRepr()).isEqualTo("MyInfo");
+    StarlarkType myOtherInfoType =
+        parseType("MyOtherInfo", "load('//lib:provider.bzl', 'MyOtherInfo')");
+
+    assertStrictLt(myInfoType, Types.ANY_STRUCT);
+    assertIncomparable(myInfoType, myOtherInfoType);
+    // Allow all field access.
+    assertThat(myInfoType.getField("nonexistent field", typeContext)).isEqualTo(Types.ANY);
+
+    StarlarkType instanceTypeStatically =
+        revealStaticType("MyInfo(foobar = 'abc')", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeStatically).isEqualTo(myInfoType);
+
+    StarlarkType instanceTypeDynamically =
+        revealExportedType("MyInfo(foobar = 'abc')", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeDynamically).isEqualTo(myInfoType);
+  }
+
+  @Test
+  public void schemafulProvider_noInit() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    scratch.file(
+        "lib/provider.bzl",
+        """
+        MyInfo = provider(fields = ["x", "y"])
+        MyOtherInfo = provider(fields = ["x", "y"])
+        """);
+    scratch.file("lib/BUILD");
+    Module providerBzl = loadModule("//lib:provider.bzl");
+    StarlarkType myInfoSymbolType = providerBzl.getExportType("MyInfo");
+    StarlarkType myOtherInfoSymbolType = providerBzl.getExportType("MyOtherInfo");
+
+    // Provider symbols can be used as provider symbols, as callables, or as types.
+    assertLtAndGt(myInfoSymbolType, parseType("Provider"));
+    assertStrictLt(
+        myInfoSymbolType,
+        revealStaticType(
+            "callable_with_MyInfo_signature",
+            """
+            load("//lib:provider.bzl", "MyInfo")
+
+            def callable_with_MyInfo_signature(*, x=None, y=None) -> MyInfo:
+                return MyInfo(x = x, y = y)
+            """));
+    assertStrictLt(myInfoSymbolType, Types.TYPE);
+    assertIncomparable(myInfoSymbolType, myOtherInfoSymbolType);
+
+    StarlarkType myInfoType = parseType("MyInfo", "load('//lib:provider.bzl', 'MyInfo')");
+    StarlarkType myOtherInfoType =
+        parseType("MyOtherInfo", "load('//lib:provider.bzl', 'MyOtherInfo')");
+
+    assertStrictLt(myInfoType, Types.struct(ImmutableMap.of("x", Types.ANY, "y", Types.ANY)));
+    assertIncomparable(myInfoType, myOtherInfoType);
+    assertThat(myInfoType.getField("y", typeContext)).isEqualTo(Types.ANY);
+    assertThat(myInfoType.getField("nonexistent field", typeContext)).isNull();
+
+    StarlarkType instanceTypeStatically =
+        revealStaticType("MyInfo(x = 1)", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeStatically).isEqualTo(myInfoType);
+
+    StarlarkType instanceTypeDynamically =
+        revealExportedType("MyInfo(x = 1)", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeDynamically).isEqualTo(myInfoType);
+  }
+
+  @Test
+  public void schemafulProvider_withInit() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    scratch.file(
+        "lib/provider.bzl",
+        """
+        def init(a: int, *, b: str = "", **kwargs):
+            return {"x": a, "y": b}
+
+        MyInfo, _new_MyInfo = provider(fields = ["x", "y"], init = init)
+        MyOtherInfo, _new_MyOtherInfo = provider(fields = ["x", "y"], init = init)
+        """);
+    scratch.file("lib/BUILD");
+    Module providerBzl = loadModule("//lib:provider.bzl");
+    StarlarkType myInfoSymbolType = providerBzl.getExportType("MyInfo");
+    StarlarkType myOtherInfoSymbolType = providerBzl.getExportType("MyOtherInfo");
+
+    // Provider symbols can be used as provider symbols, as callables, or as types.
+    assertLtAndGt(myInfoSymbolType, parseType("Provider"));
+    assertStrictLt(
+        myInfoSymbolType,
+        revealStaticType(
+            "callable_with_MyInfo_signature",
+            """
+            load("//lib:provider.bzl", "MyInfo")
+
+            def callable_with_MyInfo_signature(a: int, *, b: str = "", **kwargs) -> MyInfo:
+                return MyInfo(a, b = b, **kwargs)
+            """));
+    assertStrictLt(myInfoSymbolType, Types.TYPE);
+    assertIncomparable(myInfoSymbolType, myOtherInfoSymbolType);
+
+    StarlarkType myInfoType = parseType("MyInfo", "load('//lib:provider.bzl', 'MyInfo')");
+    StarlarkType myOtherInfoType =
+        parseType("MyOtherInfo", "load('//lib:provider.bzl', 'MyOtherInfo')");
+
+    assertIncomparable(myInfoType, myOtherInfoType);
+    // Fields, not init params
+    assertStrictLt(myInfoType, Types.struct(ImmutableMap.of("x", Types.ANY, "y", Types.ANY)));
+    assertThat(myInfoType.getField("y", typeContext)).isEqualTo(Types.ANY);
+    assertThat(myInfoType.getField("nonexistent field", typeContext)).isNull();
+
+    StarlarkType instanceTypeStatically =
+        revealStaticType("MyInfo(1)", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeStatically).isEqualTo(myInfoType);
+
+    StarlarkType instanceTypeDynamically =
+        revealExportedType("MyInfo(2)", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeDynamically).isEqualTo(myInfoType);
   }
 }

@@ -604,16 +604,6 @@ public class BuildConfigurationValue
     return getFragment(clazz) != null;
   }
 
-  /** Returns true if all requested configuration fragment are present (this may be slow). */
-  public boolean hasAllFragments(Set<Class<?>> fragmentClasses) {
-    for (Class<?> fragmentClass : fragmentClasses) {
-      if (!hasFragment(fragmentClass.asSubclass(Fragment.class))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   public BlazeDirectories getDirectories() {
     return outputDirectories.getDirectories();
   }
@@ -724,10 +714,6 @@ public class BuildConfigurationValue
 
   public boolean checkTestonlyForOutputFiles() {
     return options.getCheckTestonlyForOutputFiles();
-  }
-
-  public boolean checkLicenses() {
-    return options.getCheckLicenses();
   }
 
   public boolean enforceConstraints() {

@@ -29,7 +29,7 @@ import net.starlark.java.eval.StarlarkValue;
 @StarlarkBuiltin(
     // TODO: #27370 - make capitalization consistent
     name = "runfiles",
-    starlarkTypeName = "Runfiles",
+    typeRepr = "Runfiles",
     category = DocCategory.BUILTIN,
     doc =
 """

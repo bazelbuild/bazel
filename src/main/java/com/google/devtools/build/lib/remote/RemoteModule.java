@@ -97,7 +97,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -1241,7 +1240,7 @@ public final class RemoteModule extends BlazeModule {
       registryBuilder.register(
           ImportantOutputHandler.class,
           new RemoteImportantOutputHandler(
-              SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()),
+              env.getSkyframeExecutor().getWalkableGraph(),
               remoteOutputChecker,
               actionInputFetcher,
               Preconditions.checkNotNull(outputService).getRewoundActionSynchronizer()));
@@ -1330,8 +1329,7 @@ public final class RemoteModule extends BlazeModule {
       if (outputService instanceof RemoteOutputService remoteOutputService) {
         remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
         remoteOutputService.setActionInputFetcher(
-            actionInputFetcher,
-            SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()));
+            actionInputFetcher, env.getSkyframeExecutor().getWalkableGraph());
         if (leaseService != null) {
           remoteOutputService.setLeaseService(leaseService);
         }

@@ -64,11 +64,29 @@ public final class MemoryProfiler {
   @Nullable private MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
   private Pattern internalJvmObjectPattern;
 
+  /** Handles waiting for quiescence before taking memory measurements. */
+  @FunctionalInterface
+  public interface QuiescenceAwaiter {
+    QuiescenceAwaiter NO_OP = () -> {};
+
+    void await() throws InterruptedException;
+  }
+
+  private QuiescenceAwaiter quiescenceAwaiter = QuiescenceAwaiter.NO_OP;
+
   public synchronized void setStableMemoryParameters(
       MemoryProfileStableHeapParameters memoryProfileStableHeapParameters,
       Pattern internalJvmObjectPattern) {
     this.memoryProfileStableHeapParameters = memoryProfileStableHeapParameters;
     this.internalJvmObjectPattern = internalJvmObjectPattern;
+  }
+
+  public synchronized void setQuiescenceAwaiter(QuiescenceAwaiter quiescenceAwaiter) {
+    this.quiescenceAwaiter = requireNonNull(quiescenceAwaiter);
+  }
+
+  public synchronized void resetQuiescenceAwaiter() {
+    this.quiescenceAwaiter = QuiescenceAwaiter.NO_OP;
   }
 
   public synchronized void start(OutputStream out) {
@@ -83,6 +101,7 @@ public final class MemoryProfiler {
       memoryProfile = null;
     }
     heapUsedMemoryAtFinish = 0;
+    quiescenceAwaiter = QuiescenceAwaiter.NO_OP;
   }
 
   public synchronized long getHeapUsedMemoryAtFinish() {
@@ -91,6 +110,12 @@ public final class MemoryProfiler {
 
   public synchronized void markPhase(ProfilePhase nextPhase) throws InterruptedException {
     if (memoryProfile != null) {
+      if (nextPhase == ProfilePhase.FINISH) {
+        try (SilentCloseable c = Profiler.instance().profile("waitForQuiescence")) {
+          quiescenceAwaiter.await();
+        }
+        quiescenceAwaiter = QuiescenceAwaiter.NO_OP;
+      }
       MemoryMXBean bean = ManagementFactory.getMemoryMXBean();
       HeapAndNonHeap memoryUsages =
           prepareBeanAndGetLocalMinUsage(

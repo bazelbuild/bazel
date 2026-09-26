@@ -15,10 +15,8 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import javax.annotation.Nonnull;
 import net.starlark.java.eval.EvalException;
@@ -70,42 +68,11 @@ public abstract class Substitution {
     }
   }
 
-  private static final class ListSubstitution extends Substitution {
-    private final String key;
-    private final ImmutableList<?> value;
-
-    ListSubstitution(String key, ImmutableList<?> value) {
-      this.key = key;
-      this.value = value;
-    }
-
-    @Override
-    public String getKey() {
-      return key;
-    }
-
-    @Override
-    public String getValue() {
-      return Joiner.on(" ").join(value);
-    }
-  }
-
   /** Returns an immutable Substitution instance for the given key and value. */
   public static Substitution of(@Nonnull final String key, @Nonnull final String value) {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(value);
     return new StringSubstitution(key, value);
-  }
-
-  /**
-   * Returns an immutable Substitution instance for the key and list of values. The values will be
-   * joined by spaces before substitution.
-   */
-  public static Substitution ofSpaceSeparatedList(
-      @Nonnull final String key, @Nonnull final ImmutableList<?> value) {
-    Preconditions.checkNotNull(key);
-    Preconditions.checkNotNull(value);
-    return new ListSubstitution(key, value);
   }
 
   @Override

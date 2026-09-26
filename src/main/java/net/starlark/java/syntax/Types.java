@@ -502,8 +502,9 @@ public final class Types {
   }
 
   /**
-   * Finds the first {@link CallableType} in the type's hierarchy in DFS order. Returns {@code null}
-   * if none is found.
+   * Finds the first {@link CallableType} in the type's hierarchy in DFS order. Returns {@link
+   * ANY_CALLABLE} if the type is {@link ANY}; otherwise returns {@code null} if no callable type is
+   * found.
    *
    * <p>Intended for use with {@link net.starlark.java.eval.BuiltinFunction.BuiltinTypeFunction} and
    * similar callable values whose {@code getStarlarkType} method doesn't directly return a {@link
@@ -511,6 +512,9 @@ public final class Types {
    */
   @Nullable
   public static CallableType toCallableType(StarlarkType type, TypeContext context) {
+    if (type.equals(ANY)) {
+      return ANY_CALLABLE;
+    }
     if (type instanceof CallableType callable) {
       return callable;
     }
@@ -731,6 +735,8 @@ public final class Types {
       ImmutableList<String> paramList = params.build();
       return "(" + String.join(", ", paramList) + ") -> " + getReturnType().typeRepr();
     }
+
+    public abstract CallableType withReturnType(StarlarkType returnType);
   }
 
   // About 0.1% memory regression may be removed by specializing GeneralCallableType for function
@@ -758,6 +764,19 @@ public final class Types {
         return false;
       }
       return getMandatoryParameters().contains(getParameterNames().get(i));
+    }
+
+    @Override
+    public CallableType withReturnType(StarlarkType returnType) {
+      return generalCallable(
+          getParameterNames(),
+          getParameterTypes(),
+          getNumPositionalOnlyParameters(),
+          getNumPositionalParameters(),
+          getMandatoryParameters(),
+          getVarargsType(),
+          getKwargsType(),
+          returnType);
     }
   }
 
@@ -830,6 +849,11 @@ public final class Types {
     public boolean equals(Object obj) {
       return obj instanceof AnyCallableType;
     }
+
+    @Override
+    public CallableType withReturnType(StarlarkType returnType) {
+      return simpleCallable(ImmutableList.of(), true, returnType);
+    }
   }
 
   /**
@@ -896,6 +920,11 @@ public final class Types {
     @Override
     public StarlarkType getKwargsType() {
       return hasVarargsAndKwargs() ? Types.ANY : null;
+    }
+
+    @Override
+    public CallableType withReturnType(StarlarkType returnType) {
+      return simpleCallable(getParameterTypes(), hasVarargsAndKwargs(), returnType);
     }
   }
 

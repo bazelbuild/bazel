@@ -230,7 +230,7 @@ public class RuleContext extends TargetContext
         builder.env,
         builder.target.getAssociatedRule(),
         builder.configuration,
-        getDirectPrerequisites(builder.prerequisiteMap),
+        getDirectPrerequisitesWithoutToolchainDeps(builder.prerequisiteMap),
         builder.visibility,
         builder.transitiveVisibilityImposedByThisPackage);
     this.rule = builder.target.getAssociatedRule();
@@ -287,10 +287,14 @@ public class RuleContext extends TargetContext
         FeatureSet.merge(pkg, rule), getConfiguration().getDefaultFeatures());
   }
 
-  private static ImmutableSet<ConfiguredTargetAndData> getDirectPrerequisites(
+  /**
+   * Returns the direct (non-attribute) prerequisites for validation, excluding toolchain
+   * dependencies which are managed separately via {@link #toolchainContexts}.
+   */
+  private static ImmutableSet<ConfiguredTargetAndData> getDirectPrerequisitesWithoutToolchainDeps(
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap) {
     return prerequisiteMap.entries().stream()
-        .filter(e -> e.getKey().getAttribute() == null)
+        .filter(e -> e.getKey().getAttribute() == null && !DependencyKind.isToolchain(e.getKey()))
         .map(e -> e.getValue())
         .collect(toImmutableSet());
   }
@@ -1582,6 +1586,9 @@ public class RuleContext extends TargetContext
     /**
      * Sets the prerequisites and checks their visibility. It also generates appropriate error or
      * warning messages and sets the error flag as appropriate.
+     *
+     * <p>Toolchain dependencies in {@code prerequisiteMap} are ignored; toolchains are provided via
+     * {@link #setToolchainContexts} instead.
      */
     @CanIgnoreReturnValue
     public Builder setPrerequisites(
@@ -1684,7 +1691,7 @@ public class RuleContext extends TargetContext
     private ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> createTargetMap()
         throws IOException {
       ImmutableListMultimap.Builder<DependencyKind, ConfiguredTargetAndData> mapBuilder =
-          ImmutableListMultimap.builder();
+          ImmutableListMultimap.builderWithExpectedKeys(prerequisiteMap.keySet().size());
 
       for (Map.Entry<DependencyKind, Collection<ConfiguredTargetAndData>> entry :
           prerequisiteMap.asMap().entrySet()) {
@@ -1911,7 +1918,7 @@ public class RuleContext extends TargetContext
 
     @Nullable
     Aspect getMainAspect() {
-      return Streams.findLast(aspects.stream()).orElse(null);
+      return Iterables.getLast(aspects, null);
     }
 
     ImmutableList<Aspect> getAspects() {

@@ -52,11 +52,6 @@ public abstract class PlatformProperties {
       return this;
     }
 
-    /** Returns the current properties (but not any from the parent), for validation. */
-    ImmutableMap<String, String> getProperties() {
-      return this.properties;
-    }
-
     @CanIgnoreReturnValue
     public Builder setProperties(Map<String, String> properties) {
       this.properties = ImmutableMap.copyOf(properties);

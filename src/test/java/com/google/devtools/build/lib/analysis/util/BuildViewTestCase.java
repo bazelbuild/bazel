@@ -173,7 +173,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -203,8 +202,10 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.CallUtils;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.TypeContext;
 import org.junit.After;
 import org.junit.Before;
 
@@ -440,6 +441,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected StarlarkSemantics getStarlarkSemantics() {
     return buildLanguageOptions.toStarlarkSemantics();
+  }
+
+  protected TypeContext getTypeContext() {
+    return CallUtils.getBuiltinManager(getStarlarkSemantics());
   }
 
   protected PackageValidator getPackageValidator() {

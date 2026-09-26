@@ -96,9 +96,14 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                 "cat_tool": attr.label(cfg = "exec", executable = True),
                 "cp_dir_tool": attr.label(cfg = "exec", executable = True),
                 "gen_subdir_tool": attr.label(cfg = "exec", executable = True),
+                "_allowlist_subdirectory": attr.label(
+                    default = "TOOLS_REPOSITORY//tools/allowlists/subdirectory_allowlist",
+                    providers = [PackageSpecificationInfo],
+                ),
             },
         )
-        """);
+        """
+            .replace("TOOLS_REPOSITORY", TestConstants.TOOLS_REPOSITORY.toString()));
     write(
         "test/helpers.bzl",
         """
@@ -642,6 +647,133 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
     assertThat(recordingOutErr.errAsLatin1())
         .containsMatch(
             "Cannot declare file `child` in non-output directory File.*test/target_input_dir");
+  }
+
+  @Test
+  public void cannotDeclareSubdirectoryWhenNotAllowlisted() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "disallowed/BUILD",
+        """
+        load(":my_rule.bzl", "my_rule")
+
+        genrule(
+            name = "cat_tool",
+            outs = ["cat_tool.sh"],
+            executable = True,
+            cmd = "echo 'cat $$@ > $$1' > $@",
+        )
+
+        my_rule(
+            name = "target",
+            cat_tool = ":cat_tool",
+        )
+        """);
+    write(
+        "disallowed/my_rule.bzl",
+        """
+        load("//test:helpers.bzl", "create_seed_dir")
+
+        def wrong_declare_subdir_impl(template_ctx, input_directories, output_directories, **kwargs):
+            template_ctx.declare_subdirectory("subdir", directory = output_directories["output_dir"])
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 3)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = wrong_declare_subdir_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+
+        my_rule = rule(
+            implementation = rule_impl,
+            attrs = {
+                "cat_tool": attr.label(cfg = "exec", executable = True),
+            },
+        )
+        """);
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//disallowed:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .contains(
+            "Target //disallowed:target is not allowlisted to use declare_subdirectory. See"
+                + " //tools/allowlists/subdirectory_allowlist");
+  }
+
+  @Test
+  public void canDeclareSubdirectoryWhenRuleDefinedInAllowlistEvenIfTargetOutside()
+      throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/allowlisted_rule.bzl",
+        """
+        load("//test:helpers.bzl", "create_seed_dir", "create_seed_subdir")
+
+        def declare_subdir_impl(
+            template_ctx, input_directories, output_directories, tools, **kwargs):
+            create_seed_subdir(template_ctx, "subdir_0", output_directories["output_dir"], tools)
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 2)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = declare_subdir_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "gen_subdir_tool": ctx.attr.gen_subdir_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+
+        allowlisted_rule = rule(
+            implementation = rule_impl,
+            attrs = {
+                "gen_subdir_tool": attr.label(cfg = "exec", executable = True),
+                "_allowlist_subdirectory": attr.label(
+                    default = "TOOLS_REPOSITORY//tools/allowlists/subdirectory_allowlist",
+                    providers = [PackageSpecificationInfo],
+                ),
+            },
+        )
+        """
+            .replace("TOOLS_REPOSITORY", TestConstants.TOOLS_REPOSITORY.toString()));
+    write(
+        "outside/BUILD",
+        """
+        load("//test:allowlisted_rule.bzl", "allowlisted_rule")
+
+        genrule(
+            name = "genrule_gen_subdir_tool",
+            outs = ["gen_subdir_tool"],
+            executable = True,
+            cmd = "echo 'mkdir -p $$1; touch $$1/f1; touch $$1/f2;' > $@",
+        )
+
+        allowlisted_rule(
+            name = "target",
+            gen_subdir_tool = ":genrule_gen_subdir_tool",
+        )
+        """);
+    buildTarget("//outside:target");
+    SpecialArtifact outputTree = assertTreeBuilt("//outside:target", "outside/target_output_dir");
+    SpecialArtifact subdir = getSubdirArtifact(outputTree, "subdir_0", 0);
+    assertThat(getChildRelativePaths(subdir, getTreeArtifactValue(subdir)))
+        .containsExactly(PathFragment.create("f1"), PathFragment.create("f2"));
   }
 
   @Test
@@ -1313,7 +1445,11 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   }
 
   private SpecialArtifact assertTreeBuilt(String rootRelativePath) throws Exception {
-    ImmutableList<Artifact> artifacts = getArtifacts("//test:target");
+    return assertTreeBuilt("//test:target", rootRelativePath);
+  }
+
+  private SpecialArtifact assertTreeBuilt(String target, String rootRelativePath) throws Exception {
+    ImmutableList<Artifact> artifacts = getArtifacts(target);
     Optional<Artifact> maybeTree =
         artifacts.stream()
             .filter(a -> a.getRootRelativePathString().equals(rootRelativePath))

@@ -76,6 +76,8 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -210,14 +212,6 @@ public final class SkyframeErrorProcessor {
 
     static ClassifiedError analysis(
         SkyKey normalizedKey, @Nullable Exception cause, NestedSet<Cause> analysisRootCauses) {
-      NestedSet<Cause> rootCauses =
-          normalizedKey instanceof AspectBaseKey
-              // Aspect errors discard their root causes, so a TopLevelAspectsKey posts an
-              // AnalysisFailureEvent with an empty cause set and a bare AspectKey posts nothing at
-              // all, even though e.g. AspectCreationException#getCauses would supply real ones.
-              // TODO(b/561978611): Stop doing this and treat aspect keys like any other key.
-              ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER)
-              : analysisRootCauses;
       return new ClassifiedError(
           normalizedKey,
           cause,
@@ -225,11 +219,11 @@ public final class SkyframeErrorProcessor {
               ? ReportingPriority.ASPECT_ANALYSIS
               : ReportingPriority.TARGET_ANALYSIS,
           /* executionDetailedExitCode= */ null,
-          rootCauses,
+          analysisRootCauses,
           // A Cause carries a message as well as a label, so the same label can appear more
           // than once. The pre-BEP LoadingFailureEvent protocol only knows about labels, so
           // de-duplicate. TODO(ulfjack): Remove this once we've migrated to the BEP.
-          rootCauses.toList().stream()
+          analysisRootCauses.toList().stream()
               .filter(LoadingFailedCause.class::isInstance)
               .map(Cause::getLabel)
               .collect(toImmutableSet()));
@@ -373,15 +367,10 @@ public final class SkyframeErrorProcessor {
   /**
    * Process errors encountered during analysis/execution.
    *
-   * <p>This method has different goals depending on --(no)keep_going:
-   *
-   * <ul>
-   *   <li>In case of --keep_going: post the necessary events, then construct an {@link
-   *       ErrorProcessingResult}.
-   *   <li>In case of --nokeep_going: post the necessary events, then throw an appropriate exception
-   *       ASAP, except when the error is caused by an action conflict: we need more downstream
-   *       information.
-   * </ul>
+   * <p>Runs in three phases: classify every error, report all of them, then decide what to throw.
+   * With --keep_going there is nothing to decide and an {@link ErrorProcessingResult} is returned
+   * instead. Action conflicts take none of these phases: reporting one needs information that isn't
+   * available yet, so they are handed to {@link SkyframeBuildView} untouched.
    *
    * <p>A null {@code eventBus} indicates that this is a {@code BuildViewTestCase}. Such tests don't
    * parse target patterns before requesting analysis, so the {@code result} may contain {@link
@@ -407,12 +396,11 @@ public final class SkyframeErrorProcessor {
           BuildFailedException,
           TestExecException {
     boolean inBuildViewTest = eventBus == null;
-    ViewCreationFailedException noKeepGoingAnalysisExceptionAspect = null;
-    ErrorProcessingResult.AggregatingBuilder aggregatingResultBuilder =
-        ErrorProcessingResult.newBuilder();
 
-    Map<SkyKey, ErrorInfo> errors = result.errorMap();
+    Map<SkyKey, ErrorInfo> allErrors = result.errorMap();
 
+    // Phase 0: report the cycles and take the action conflicts out.
+    //
     // Cycles are reported for every error, including the conflicts harvested below:
     // ErrorInfo#fromChildErrors keeps one child's exception and the cycles of all of them, so an
     // error can be both at once. CyclesReporter deduplicates against the cycles it has already
@@ -426,7 +414,7 @@ public final class SkyframeErrorProcessor {
     // 2) We wanted to share the error handling code between skymeld and non skymeld.
     // To do so, we need to "normalize" the top level key in Skymeld mode by getting the effective
     // ActionLookupKey from a BuildDriverKey. The rest of the method can then be easily shared.
-    for (Map.Entry<SkyKey, ErrorInfo> errorEntry : errors.entrySet()) {
+    for (Map.Entry<SkyKey, ErrorInfo> errorEntry : allErrors.entrySet()) {
       cyclesReporter.reportCycles(
           errorEntry.getValue().getCycleInfo(),
           /* topLevelKey= */ errorEntry.getKey(),
@@ -435,10 +423,66 @@ public final class SkyframeErrorProcessor {
 
     // Action conflicts are pulled out and handed to SkyframeBuildView untouched: reporting them
     // needs information that isn't available yet. Nothing below this point knows they exist.
-    ConflictHarvest conflictHarvest = harvestActionConflicts(errors);
-    aggregatingResultBuilder.addConflicts(conflictHarvest);
+    ConflictHarvest conflictHarvest = harvestActionConflicts(allErrors);
 
-    for (RemainingError remainingError : conflictHarvest.remainingErrors()) {
+    // Phase 1: classify. Decides nothing and posts nothing.
+    ImmutableList<ClassifiedError> errors =
+        classifyAll(
+            result,
+            conflictHarvest.remainingErrors(),
+            eventHandler,
+            keepEdges,
+            inBuildViewTest,
+            bugReporter,
+            includeExecutionPhase);
+
+    // Under --nokeep_going, the build aborts with exactly one error, and only that error is
+    // reported.
+    @Nullable
+    ClassifiedError abortWith =
+        keepGoing || errors.isEmpty() ? null : Collections.min(errors, NO_KEEP_GOING_PRECEDENCE);
+
+    // Phase 2: report.
+    for (ClassifiedError error : abortWith == null ? errors : ImmutableList.of(abortWith)) {
+      maybePostFailureEvents(eventHandler, eventBus, inBuildViewTest, error);
+      if (keepGoing) {
+        logOrPrintWarningsKeepGoing(error, eventHandler);
+      }
+    }
+
+    // Phase 3: decide.
+    if (abortWith != null) {
+      abortBuild(result, bugReporter, abortWith);
+    }
+
+    ErrorProcessingResult.AggregatingBuilder aggregatingResultBuilder =
+        ErrorProcessingResult.newBuilder();
+    aggregatingResultBuilder.addConflicts(conflictHarvest);
+    errors.forEach(aggregatingResultBuilder::aggregateSingleResult);
+    return aggregatingResultBuilder.build();
+  }
+
+  /**
+   * Validates the non-conflict {@link RemainingError}s from {@link #harvestActionConflicts} and
+   * converts each one via {@link #classify} into a {@link ClassifiedError} (recording its {@link
+   * ReportingPriority}, {@link DetailedExitCode}, and root causes).
+   *
+   * <p>In {@code BuildViewTestCase} ({@code inBuildViewTest}), entries whose key is not a valid
+   * top-level error key are reported directly to {@code eventHandler} and omitted from the returned
+   * list.
+   */
+  private static ImmutableList<ClassifiedError> classifyAll(
+      EvaluationResult<? extends SkyValue> result,
+      ImmutableList<RemainingError> remainingErrors,
+      ExtendedEventHandler eventHandler,
+      boolean keepEdges,
+      boolean inBuildViewTest,
+      @Nullable BugReporter bugReporter,
+      boolean includeExecutionPhase)
+      throws InterruptedException {
+    ImmutableList.Builder<ClassifiedError> errors =
+        ImmutableList.builderWithExpectedSize(remainingErrors.size());
+    for (RemainingError remainingError : remainingErrors) {
       SkyKey errorKey = remainingError.errorKey();
       ErrorInfo errorInfo = remainingError.errorInfo();
 
@@ -466,31 +510,35 @@ public final class SkyframeErrorProcessor {
         continue;
       }
 
-      ClassifiedError error = classify(result, bugReporter, errorKey, errorInfo);
-      maybePostFailureEvents(eventHandler, eventBus, inBuildViewTest, error);
-
-      if (keepGoing) {
-        aggregatingResultBuilder.aggregateSingleResult(error);
-        logOrPrintWarningsKeepGoing(error, eventHandler);
-      } else {
-        noKeepGoingAnalysisExceptionAspect =
-            throwOrReturnAspectAnalysisException(result, bugReporter, error);
-      }
+      errors.add(classify(result, bugReporter, errorKey, errorInfo));
     }
-
-    if (noKeepGoingAnalysisExceptionAspect != null) {
-      throw noKeepGoingAnalysisExceptionAspect;
-    }
-
-    return aggregatingResultBuilder.build();
+    return errors.build();
   }
+
+  /**
+   * The order in which {@code --nokeep_going} prefers to abort the build. Total, and independent of
+   * the order Skyframe surfaced the errors in, so that the same build always fails the same way.
+   *
+   * <p>The {@link ReportingPriority} ordering ({@code EXECUTION > TARGET_ANALYSIS >
+   * ASPECT_ANALYSIS}) preserves legacy precedence. Within {@link ReportingPriority#EXECUTION}, the
+   * more important exit code wins ({@code executionDetailedExitCode} is null for analysis errors).
+   * Remaining ties are broken by label, then by {@code normalizedKey().toString()} (which tells
+   * apart e.g. the same target in different configurations).
+   */
+  private static final Comparator<ClassifiedError> NO_KEEP_GOING_PRECEDENCE =
+      Comparator.comparing(ClassifiedError::reportingPriority)
+          .thenComparing(
+              ClassifiedError::executionDetailedExitCode,
+              DetailedExitCodeComparator.INSTANCE.reversed())
+          .thenComparing(error -> error.label() == null ? "" : error.label().toString())
+          .thenComparing(error -> error.normalizedKey().toString());
 
   /**
    * Posts the failure events for a single error.
    *
-   * <p>A {@link TopLevelAspectsKey} does get an {@link AnalysisFailureEvent}, attributed to its
-   * base configured target, but with no root causes (see {@link ClassifiedError#analysis}). A bare
-   * aspect key, and any key type other than {@link ConfiguredTargetKey}, gets nothing.
+   * <p>An aspect error is attributed to the aspect's base configured target, because {@link
+   * AnalysisFailureEvent} has no factory for an aspect being analyzed. Any key that is neither an
+   * {@link AspectBaseKey} nor a {@link ConfiguredTargetKey} gets nothing.
    */
   private static void maybePostFailureEvents(
       ExtendedEventHandler eventHandler,
@@ -504,17 +552,13 @@ public final class SkyframeErrorProcessor {
     }
 
     Preconditions.checkNotNull(eventBus);
-    // AnalysisFailureEvent.whileAnalyzingTarget can only name a configured target, so a failing
-    // aspect is reported against the configured target it was applied to.
-    if (error.normalizedKey() instanceof TopLevelAspectsKey topLevelAspectsKey) {
-      if (error.isAnalysisError()) {
-        eventBus.post(
-            AnalysisFailureEvent.whileAnalyzingTarget(
-                topLevelAspectsKey.getBaseConfiguredTargetKey(), error.analysisRootCauses()));
-      }
-      return;
-    }
-    if (!(error.normalizedKey() instanceof ConfiguredTargetKey ctKey)) {
+    ConfiguredTargetKey attributedTo =
+        switch (error.normalizedKey()) {
+          case AspectBaseKey aspectKey -> aspectKey.getBaseConfiguredTargetKey();
+          case ConfiguredTargetKey ctKey -> ctKey;
+          default -> null;
+        };
+    if (attributedTo == null) {
       return;
     }
 
@@ -523,30 +567,27 @@ public final class SkyframeErrorProcessor {
       for (Label loadingRootCause : error.loadingRootCauses()) {
         // This event is only for backwards compatibility with the old event protocol. Remove
         // once we've migrated to the build event protocol.
-        eventBus.post(
-            new LoadingFailureEvent(Preconditions.checkNotNull(error.label()), loadingRootCause));
+        eventBus.post(new LoadingFailureEvent(attributedTo.getLabel(), loadingRootCause));
       }
     }
 
     if (error.isAnalysisError()) {
-      eventBus.post(AnalysisFailureEvent.whileAnalyzingTarget(ctKey, error.analysisRootCauses()));
+      eventBus.post(
+          AnalysisFailureEvent.whileAnalyzingTarget(attributedTo, error.analysisRootCauses()));
     }
   }
 
   /**
-   * Throws the exception that aborts a {@code --nokeep_going} build, if this error is the one to
-   * abort it with.
+   * Aborts a {@code --nokeep_going} build with the error that {@link #NO_KEEP_GOING_PRECEDENCE}
+   * picked out.
    *
-   * <p>Special case: if the analysis error belongs to an aspect, we don't throw the
-   * ViewCreationFailedException immediately, to make sure that a target analysis error is preferred
-   * over an aspect one.
+   * <p>Action conflicts are harvested before classification and never reach this method.
    *
    * @throws ViewCreationFailedException when the root cause is analysis-related.
    * @throws BuildFailedException when the root cause is execution-related.
    * @throws TestExecException when the root cause is test-related.
-   * @return a ViewCreationFailedException if the error belongs to an aspect.
    */
-  private static ViewCreationFailedException throwOrReturnAspectAnalysisException(
+  private static void abortBuild(
       EvaluationResult<? extends SkyValue> result, BugReporter bugReporter, ClassifiedError error)
       throws BuildFailedException, TestExecException, ViewCreationFailedException {
     // If the error is execution-related: straightaway rethrow. No further steps required.
@@ -561,17 +602,13 @@ public final class SkyframeErrorProcessor {
       rethrow(error.cause(), bugReporter, result);
     }
 
-    if (error.reportingPriority() == ReportingPriority.ASPECT_ANALYSIS) {
-      return createViewCreationFailedException(
-          error.cause(),
-          String.format(
-              "Analysis of aspects '%s' failed; build aborted",
-              describeAspect((AspectBaseKey) error.normalizedKey())));
-    }
-
     throw createViewCreationFailedException(
         error.cause(),
-        String.format("Analysis of target '%s' failed; build aborted", error.label()));
+        error.reportingPriority() == ReportingPriority.ASPECT_ANALYSIS
+            ? String.format(
+                "Analysis of aspects '%s' failed; build aborted",
+                describeAspect((AspectBaseKey) error.normalizedKey()))
+            : String.format("Analysis of target '%s' failed; build aborted", error.label()));
   }
 
   private static String describeAspect(AspectBaseKey aspectKey) {

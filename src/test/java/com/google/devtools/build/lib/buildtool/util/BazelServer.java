@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PostGCMemor
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
 import com.google.devtools.build.lib.outputfilter.OutputFilteringModule;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -598,6 +599,10 @@ public class BazelServer implements TestRule, AutoCloseable {
       return runtime.getWorkspace().getSkyframeExecutor();
     }
     throw new IllegalStateException("No SkyframeExecutor available");
+  }
+
+  public PackageManager getPackageManager() {
+    return getSkyframeExecutor().getPackageManager();
   }
 
   public ImmutableSet<ConfiguredTarget> getAnalyzedTargets() {

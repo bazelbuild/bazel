@@ -37,6 +37,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -176,7 +177,6 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetParsingPhaseTimeEvent;
-import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
@@ -580,7 +580,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Represents the baseline target and exec configurations. */
-  public record BaselineConfigurations(BuildOptions targetBaseline, BuildOptions execBaseline) {}
+  public record BaselineConfigurations(BuildOptions targetBaseline, BuildOptions execBaseline) {
+
+    public BaselineConfigurations {
+      checkNotNull(targetBaseline);
+      checkNotNull(execBaseline);
+    }
+
+    @Override // Only include option checksums, since this is printed in logging.
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("targetBaseline", targetBaseline.checksum())
+          .add("execBaseline", execBaseline.checksum())
+          .toString();
+    }
+  }
 
   public void setRemoteAnalysisCachingDependenciesProvider(
       RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
@@ -2724,8 +2738,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private void initializeSkymeldConflictFindingStates() {
     incrementalArtifactConflictFinder =
         new IncrementalArtifactConflictFinder(
-            new MapBasedActionGraph(actionKeyContext),
-            SkyframeExecutorWrappingWalkableGraph.of(this));
+            new MapBasedActionGraph(actionKeyContext), getWalkableGraph());
+  }
+
+  /** Returns a {@link WalkableGraph} backed by this executor's evaluator. */
+  public WalkableGraph getWalkableGraph() {
+    return SkyframeExecutorWrappingWalkableGraph.of(getEvaluator());
   }
 
   /** Clear the incremental conflict finding states to save memory. */
@@ -2869,11 +2887,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public QueryTransitivePackagePreloader getQueryTransitivePackagePreloader() {
     return queryTransitivePackagePreloader;
-  }
-
-  @VisibleForTesting
-  public TargetPatternPreloader newTargetPatternPreloader() {
-    return new SkyframeTargetPatternEvaluator(this);
   }
 
   public ActionKeyContext getActionKeyContext() {
@@ -3775,7 +3788,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // is necessary to avoid collecting nodes that are in the graph from a previous build, but
         // unnecessary for this build.
         // TODO: jhorvitz - We could use the faster parallel sweep on clean builds.
-        new TransitiveActionLookupKeysCollector(SkyframeExecutorWrappingWalkableGraph.of(this))
+        new TransitiveActionLookupKeysCollector(getWalkableGraph())
             .collect(Iterables.concat(topLevelCtKeys, aspectKeys), alvTraversal);
       }
       return alvTraversal;
