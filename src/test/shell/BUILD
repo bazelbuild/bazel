@@ -92,3 +92,14 @@ sh_test(
         "no_windows",  # test asserts symlink behavior
     ],
 )
+
+# Temporary fork-presubmit check for the reported CI identity boundary.
+sh_test(
+    name = "ci_identity_isolation_test",
+    srcs = ["ci_identity_isolation_test.sh"],
+    size = "small",
+    tags = [
+        "local",
+        "no_windows",
+    ],
+)
