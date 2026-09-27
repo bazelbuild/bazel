@@ -27,6 +27,8 @@ import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent;
+import com.google.devtools.build.lib.remote.CombinedCache.CdcChunk;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.chunking.FastCdcChunkingConfig;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
@@ -126,9 +128,9 @@ public class ChunkedBlobDownloaderTest {
             .build();
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
-    when(combinedCache.downloadBlob(any(), eq(chunk1Digest)))
-        .thenReturn(Futures.immediateFuture(chunk1Data));
-    when(combinedCache.downloadBlob(any(), eq(chunk2Digest)))
+    when(combinedCache.downloadCdcChunk(any(), eq(chunk1Digest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(chunk1Data)));
+    when(combinedCache.downloadCdcChunk(any(), eq(chunk2Digest)))
         .thenReturn(Futures.immediateFailedFuture(new CacheNotFoundException(chunk2Digest)));
 
     // A missing chunk is a missing blob, not an invitation to retry the download differently.
@@ -147,13 +149,175 @@ public class ChunkedBlobDownloaderTest {
         SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
-    when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
-        .thenReturn(Futures.immediateFuture(chunkData));
+    when(combinedCache.downloadCdcChunk(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(chunkData)));
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     downloader.downloadChunked(context, blobDigest, out);
 
     assertThat(out.toByteArray()).isEqualTo(chunkData);
+  }
+
+  @Test
+  public void downloadChunked_reportsDiskCacheAndRemoteChunks() throws Exception {
+    byte[] diskChunkData = new byte[] {1, 2, 3};
+    byte[] remoteChunkData = new byte[] {4, 5, 6, 7};
+    Digest diskChunkDigest = DIGEST_UTIL.compute(diskChunkData);
+    Digest remoteChunkDigest = DIGEST_UTIL.compute(remoteChunkData);
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[] {1, 2, 3, 4, 5, 6, 7});
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
+        .thenReturn(
+            Futures.immediateFuture(
+                SplitBlobResponse.newBuilder()
+                    .addChunkDigests(diskChunkDigest)
+                    .addChunkDigests(remoteChunkDigest)
+                    .build()));
+    when(combinedCache.downloadCdcChunk(any(), eq(diskChunkDigest)))
+        .thenReturn(
+            Futures.immediateFuture(
+                new CdcChunk(
+                    diskChunkData,
+                    /* diskCacheHit= */ true,
+                    /* diskCacheLookupAttempted= */ true)));
+    when(combinedCache.downloadCdcChunk(any(), eq(remoteChunkDigest)))
+        .thenReturn(
+            Futures.immediateFuture(
+                new CdcChunk(
+                    remoteChunkData,
+                    /* diskCacheHit= */ false,
+                    /* diskCacheLookupAttempted= */ true)));
+    List<RemoteCacheCdcEvent> metricsEvents = new ArrayList<>();
+    ChunkedBlobDownloader metricsDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            metricsEvents::add);
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    metricsDownloader.downloadChunked(context, blobDigest, out);
+
+    assertThat(out.toByteArray()).isEqualTo(new byte[] {1, 2, 3, 4, 5, 6, 7});
+    assertThat(metricsEvents).hasSize(1);
+    RemoteCacheCdcEvent.Download metrics = (RemoteCacheCdcEvent.Download) metricsEvents.getFirst();
+    assertThat(metrics.outcome()).isEqualTo(RemoteCacheCdcEvent.Outcome.SUCCESS);
+    assertThat(metrics.blobBytes()).isEqualTo(7);
+    assertThat(metrics.chunkReferences()).isEqualTo(2);
+    assertThat(metrics.diskCacheHitChunks()).isEqualTo(1);
+    assertThat(metrics.diskCacheHitBytes()).isEqualTo(3);
+    assertThat(metrics.diskCacheMissChunks()).isEqualTo(1);
+    assertThat(metrics.diskCacheMissBytes()).isEqualTo(4);
+    assertThat(metrics.remoteChunks()).isEqualTo(1);
+    assertThat(metrics.remoteBytes()).isEqualTo(4);
+  }
+
+  @Test
+  public void downloadChunked_localFileReuse_doesNotReportCacheTraffic() throws Exception {
+    byte[] data = new byte[] {1, 2, 3};
+    Digest digest = DIGEST_UTIL.compute(data);
+    when(grpcCacheClient.splitBlob(any(), eq(digest), any()))
+        .thenReturn(
+            Futures.immediateFuture(
+                SplitBlobResponse.newBuilder().addChunkDigests(digest).build()));
+    when(combinedCache.downloadCdcChunk(any(), eq(digest)))
+        .thenReturn(
+            Futures.immediateFuture(
+                new CdcChunk(
+                    data, /* diskCacheHit= */ false, /* diskCacheLookupAttempted= */ false)));
+    List<RemoteCacheCdcEvent> metricsEvents = new ArrayList<>();
+    ChunkedBlobDownloader metricsDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            metricsEvents::add);
+    Path firstFile = tmpDir.getChild("metrics-first-output");
+    try (LazyFileOutputStream out = new LazyFileOutputStream(firstFile)) {
+      metricsDownloader.downloadChunked(context, digest, out);
+    }
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    metricsDownloader.downloadChunked(context, digest, out);
+
+    assertThat(out.toByteArray()).isEqualTo(data);
+    verify(combinedCache, times(1)).downloadCdcChunk(any(), eq(digest));
+    verify(combinedCache, never()).downloadBlob(any(), any(Digest.class));
+    assertThat(metricsEvents).hasSize(2);
+    assertThat(metricsEvents.get(1))
+        .isEqualTo(
+            new RemoteCacheCdcEvent.Download(
+                RemoteCacheCdcEvent.Outcome.SUCCESS,
+                /* blobBytes= */ 3,
+                /* chunkReferences= */ 1,
+                /* diskCacheHitChunks= */ 0,
+                /* diskCacheHitBytes= */ 0,
+                /* diskCacheMissChunks= */ 0,
+                /* diskCacheMissBytes= */ 0,
+                /* remoteChunks= */ 0,
+                /* remoteBytes= */ 0));
+  }
+
+  @Test
+  public void downloadChunked_notSplittable_reportsFallback() {
+    Digest digest = DIGEST_UTIL.compute(new byte[] {1, 2, 3});
+    when(grpcCacheClient.splitBlob(any(), eq(digest), any()))
+        .thenReturn(null)
+        .thenReturn(Futures.immediateFuture(SplitBlobResponse.getDefaultInstance()));
+    List<RemoteCacheCdcEvent> metricsEvents = new ArrayList<>();
+    ChunkedBlobDownloader metricsDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            metricsEvents::add);
+
+    // Both an unsupported SplitBlob RPC and a blob with no chunk metadata permit fallback.
+    for (int i = 0; i < 2; i++) {
+      assertThrows(
+          BlobNotSplittableException.class,
+          () -> metricsDownloader.downloadChunked(context, digest, new ByteArrayOutputStream()));
+    }
+
+    assertThat(metricsEvents).hasSize(2);
+    for (RemoteCacheCdcEvent event : metricsEvents) {
+      assertThat(((RemoteCacheCdcEvent.Download) event).outcome())
+          .isEqualTo(RemoteCacheCdcEvent.Outcome.FALLBACK);
+    }
+    verify(combinedCache, never()).downloadCdcChunk(any(), any(Digest.class));
+  }
+
+  @Test
+  public void downloadChunked_missingChunk_reportsFailure() {
+    Digest digest = DIGEST_UTIL.compute(new byte[] {1, 2, 3});
+    when(grpcCacheClient.splitBlob(any(), eq(digest), any()))
+        .thenReturn(
+            Futures.immediateFuture(
+                SplitBlobResponse.newBuilder().addChunkDigests(digest).build()));
+    when(combinedCache.downloadCdcChunk(any(), eq(digest)))
+        .thenReturn(Futures.immediateFailedFuture(new CacheNotFoundException(digest)));
+    List<RemoteCacheCdcEvent> metricsEvents = new ArrayList<>();
+    ChunkedBlobDownloader metricsDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            metricsEvents::add);
+
+    assertThrows(
+        CacheNotFoundException.class,
+        () -> metricsDownloader.downloadChunked(context, digest, new ByteArrayOutputStream()));
+
+    assertThat(metricsEvents).hasSize(1);
+    assertThat(((RemoteCacheCdcEvent.Download) metricsEvents.getFirst()).outcome())
+        .isEqualTo(RemoteCacheCdcEvent.Outcome.FAILURE);
   }
 
   @Test
@@ -174,20 +338,20 @@ public class ChunkedBlobDownloaderTest {
             .build();
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
-    when(combinedCache.downloadBlob(any(), eq(chunk1Digest)))
-        .thenReturn(Futures.immediateFuture(chunk1Data));
-    when(combinedCache.downloadBlob(any(), eq(chunk2Digest)))
-        .thenReturn(Futures.immediateFuture(chunk2Data));
-    when(combinedCache.downloadBlob(any(), eq(chunk3Digest)))
-        .thenReturn(Futures.immediateFuture(chunk3Data));
+    when(combinedCache.downloadCdcChunk(any(), eq(chunk1Digest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(chunk1Data)));
+    when(combinedCache.downloadCdcChunk(any(), eq(chunk2Digest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(chunk2Data)));
+    when(combinedCache.downloadCdcChunk(any(), eq(chunk3Digest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(chunk3Data)));
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     downloader.downloadChunked(context, blobDigest, out);
 
     assertThat(out.toByteArray()).isEqualTo(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9});
-    verify(combinedCache).downloadBlob(any(), eq(chunk1Digest));
-    verify(combinedCache).downloadBlob(any(), eq(chunk2Digest));
-    verify(combinedCache).downloadBlob(any(), eq(chunk3Digest));
+    verify(combinedCache).downloadCdcChunk(any(), eq(chunk1Digest));
+    verify(combinedCache).downloadCdcChunk(any(), eq(chunk2Digest));
+    verify(combinedCache).downloadCdcChunk(any(), eq(chunk3Digest));
   }
 
   @Test
@@ -204,7 +368,7 @@ public class ChunkedBlobDownloaderTest {
     downloader.downloadChunked(context, blobs.secondBlob(), secondOut);
 
     assertThat(secondOut.toByteArray()).isEqualTo(blobs.secondContent());
-    verify(combinedCache, times(1)).downloadBlob(any(), eq(blobs.sharedChunk()));
+    verify(combinedCache, times(1)).downloadCdcChunk(any(), eq(blobs.sharedChunk()));
   }
 
   @Test
@@ -222,13 +386,14 @@ public class ChunkedBlobDownloaderTest {
     downloader.downloadChunked(context, blobs.secondBlob(), secondOut);
 
     assertThat(secondOut.toByteArray()).isEqualTo(blobs.secondContent());
-    verify(combinedCache, times(1)).downloadBlob(any(), eq(blobs.sharedChunk()));
+    verify(combinedCache, times(1)).downloadCdcChunk(any(), eq(blobs.sharedChunk()));
   }
 
   @Test
   public void downloadChunked_windowRefillsAfterOneChunkCompletes() throws Exception {
     List<Digest> chunkDigests = new ArrayList<>(MAX_IN_FLIGHT_CHUNK_DOWNLOADS + 1);
-    List<SettableFuture<byte[]>> chunkFutures = new ArrayList<>(MAX_IN_FLIGHT_CHUNK_DOWNLOADS + 1);
+    List<SettableFuture<CdcChunk>> chunkFutures =
+        new ArrayList<>(MAX_IN_FLIGHT_CHUNK_DOWNLOADS + 1);
     byte[] expectedData = new byte[MAX_IN_FLIGHT_CHUNK_DOWNLOADS + 1];
     SplitBlobResponse.Builder splitResponse = SplitBlobResponse.newBuilder();
     for (int i = 0; i < MAX_IN_FLIGHT_CHUNK_DOWNLOADS + 1; i++) {
@@ -246,7 +411,7 @@ public class ChunkedBlobDownloaderTest {
     CountDownLatch firstWindowRequested = new CountDownLatch(MAX_IN_FLIGHT_CHUNK_DOWNLOADS);
     CountDownLatch overflowChunkRequested = new CountDownLatch(1);
 
-    when(combinedCache.downloadBlob(any(), any(Digest.class)))
+    when(combinedCache.downloadCdcChunk(any(), any(Digest.class)))
         .thenAnswer(
             invocation -> {
               Digest digest = invocation.getArgument(1);
@@ -275,13 +440,13 @@ public class ChunkedBlobDownloaderTest {
     assertThat(firstWindowRequested.await(1, TimeUnit.SECONDS)).isTrue();
     assertThat(overflowChunkRequested.await(100, TimeUnit.MILLISECONDS)).isFalse();
 
-    chunkFutures.get(0).set(new byte[] {expectedData[0]});
+    chunkFutures.get(0).set(remoteChunk(new byte[] {expectedData[0]}));
     assertThat(overflowChunkRequested.await(1, TimeUnit.SECONDS)).isTrue();
 
     for (int i = 0; i < chunkFutures.size(); i++) {
-      SettableFuture<byte[]> future = chunkFutures.get(i);
+      SettableFuture<CdcChunk> future = chunkFutures.get(i);
       if (!future.isDone()) {
-        future.set(new byte[] {expectedData[i]});
+        future.set(remoteChunk(new byte[] {expectedData[i]}));
       }
     }
     downloadThread.join(TimeUnit.SECONDS.toMillis(1));
@@ -304,8 +469,8 @@ public class ChunkedBlobDownloaderTest {
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
 
-    SettableFuture<byte[]> chunkFuture = SettableFuture.create();
-    when(combinedCache.downloadBlob(any(), eq(chunkDigest))).thenReturn(chunkFuture);
+    SettableFuture<CdcChunk> chunkFuture = SettableFuture.create();
+    when(combinedCache.downloadCdcChunk(any(), eq(chunkDigest))).thenReturn(chunkFuture);
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     Thread downloadThread =
@@ -320,12 +485,12 @@ public class ChunkedBlobDownloaderTest {
                 });
     downloadThread.start();
 
-    chunkFuture.set(chunkData);
+    chunkFuture.set(remoteChunk(chunkData));
     downloadThread.join(TimeUnit.SECONDS.toMillis(1));
 
     assertThat(downloadThread.isAlive()).isFalse();
     assertThat(out.toByteArray()).isEqualTo(new byte[] {1, 2, 3, 1, 2, 3});
-    verify(combinedCache, times(1)).downloadBlob(any(), eq(chunkDigest));
+    verify(combinedCache, times(1)).downloadCdcChunk(any(), eq(chunkDigest));
   }
 
   @Test
@@ -354,25 +519,25 @@ public class ChunkedBlobDownloaderTest {
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse.build()));
 
-    SettableFuture<byte[]> firstChunkFuture = SettableFuture.create();
-    SettableFuture<byte[]> duplicateChunkFuture = SettableFuture.create();
-    SettableFuture<byte[]> finalChunkFuture = SettableFuture.create();
+    SettableFuture<CdcChunk> firstChunkFuture = SettableFuture.create();
+    SettableFuture<CdcChunk> duplicateChunkFuture = SettableFuture.create();
+    SettableFuture<CdcChunk> finalChunkFuture = SettableFuture.create();
     CountDownLatch initialDownloadsRequested = new CountDownLatch(2);
     CountDownLatch finalChunkRequested = new CountDownLatch(1);
 
-    when(combinedCache.downloadBlob(any(), eq(firstChunkDigest)))
+    when(combinedCache.downloadCdcChunk(any(), eq(firstChunkDigest)))
         .thenAnswer(
             invocation -> {
               initialDownloadsRequested.countDown();
               return firstChunkFuture;
             });
-    when(combinedCache.downloadBlob(any(), eq(duplicateChunkDigest)))
+    when(combinedCache.downloadCdcChunk(any(), eq(duplicateChunkDigest)))
         .thenAnswer(
             invocation -> {
               initialDownloadsRequested.countDown();
               return duplicateChunkFuture;
             });
-    when(combinedCache.downloadBlob(any(), eq(finalChunkDigest)))
+    when(combinedCache.downloadCdcChunk(any(), eq(finalChunkDigest)))
         .thenAnswer(
             invocation -> {
               finalChunkRequested.countDown();
@@ -395,13 +560,13 @@ public class ChunkedBlobDownloaderTest {
     assertThat(initialDownloadsRequested.await(1, TimeUnit.SECONDS)).isTrue();
     assertThat(finalChunkRequested.await(100, TimeUnit.MILLISECONDS)).isFalse();
 
-    duplicateChunkFuture.set(duplicateChunkData);
+    duplicateChunkFuture.set(remoteChunk(duplicateChunkData));
     assertThat(finalChunkRequested.await(100, TimeUnit.MILLISECONDS)).isFalse();
 
-    firstChunkFuture.set(firstChunkData);
+    firstChunkFuture.set(remoteChunk(firstChunkData));
     assertThat(finalChunkRequested.await(1, TimeUnit.SECONDS)).isTrue();
 
-    finalChunkFuture.set(finalChunkData);
+    finalChunkFuture.set(remoteChunk(finalChunkData));
     downloadThread.join(TimeUnit.SECONDS.toMillis(1));
 
     assertThat(downloadThread.isAlive()).isFalse();
@@ -438,7 +603,7 @@ public class ChunkedBlobDownloaderTest {
             () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
 
     assertThat(e).hasMessageThat().contains("exceeds max chunk size");
-    verify(combinedCache, never()).downloadBlob(any(), any(Digest.class));
+    verify(combinedCache, never()).downloadCdcChunk(any(), any(Digest.class));
   }
 
   @Test
@@ -456,7 +621,7 @@ public class ChunkedBlobDownloaderTest {
             () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
 
     assertThat(e).hasMessageThat().contains("non-positive size");
-    verify(combinedCache, never()).downloadBlob(any(), any(Digest.class));
+    verify(combinedCache, never()).downloadCdcChunk(any(), any(Digest.class));
   }
 
   @Test
@@ -474,7 +639,7 @@ public class ChunkedBlobDownloaderTest {
             () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
 
     assertThat(e).hasMessageThat().contains("chunk sizes exceed blob size");
-    verify(combinedCache, never()).downloadBlob(any(), any(Digest.class));
+    verify(combinedCache, never()).downloadCdcChunk(any(), any(Digest.class));
   }
 
   @Test
@@ -492,7 +657,7 @@ public class ChunkedBlobDownloaderTest {
             () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
 
     assertThat(e).hasMessageThat().contains("chunk sizes do not match blob size");
-    verify(combinedCache, never()).downloadBlob(any(), any(Digest.class));
+    verify(combinedCache, never()).downloadCdcChunk(any(), any(Digest.class));
   }
 
   @Test
@@ -510,9 +675,9 @@ public class ChunkedBlobDownloaderTest {
             .build();
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
-    when(combinedCache.downloadBlob(any(), eq(chunk1Digest)))
-        .thenReturn(Futures.immediateFuture(chunk1Data));
-    when(combinedCache.downloadBlob(any(), eq(chunk2Digest)))
+    when(combinedCache.downloadCdcChunk(any(), eq(chunk1Digest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(chunk1Data)));
+    when(combinedCache.downloadCdcChunk(any(), eq(chunk2Digest)))
         .thenReturn(Futures.immediateFailedFuture(new IOException("connection reset")));
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -533,8 +698,8 @@ public class ChunkedBlobDownloaderTest {
         SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
-    when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
-        .thenReturn(Futures.immediateFuture(chunkData));
+    when(combinedCache.downloadCdcChunk(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(chunkData)));
 
     OutputDigestMismatchException e =
         assertThrows(
@@ -556,8 +721,8 @@ public class ChunkedBlobDownloaderTest {
         SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
-    when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
-        .thenReturn(Futures.immediateFuture(chunkData));
+    when(combinedCache.downloadCdcChunk(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(chunkData)));
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     downloader.downloadChunked(context, blobDigest, out);
@@ -576,9 +741,9 @@ public class ChunkedBlobDownloaderTest {
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
 
-    SettableFuture<byte[]> cancelledDownload = SettableFuture.create();
+    SettableFuture<CdcChunk> cancelledDownload = SettableFuture.create();
     cancelledDownload.cancel(/* mayInterruptIfRunning= */ true);
-    when(combinedCache.downloadBlob(any(), eq(chunkDigest))).thenReturn(cancelledDownload);
+    when(combinedCache.downloadCdcChunk(any(), eq(chunkDigest))).thenReturn(cancelledDownload);
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     assertThrows(
@@ -601,16 +766,16 @@ public class ChunkedBlobDownloaderTest {
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
 
-    SettableFuture<byte[]> failedDownload = SettableFuture.create();
-    SettableFuture<byte[]> cancelledDownload = SettableFuture.create();
+    SettableFuture<CdcChunk> failedDownload = SettableFuture.create();
+    SettableFuture<CdcChunk> cancelledDownload = SettableFuture.create();
     CountDownLatch downloadsStarted = new CountDownLatch(2);
-    when(combinedCache.downloadBlob(any(), eq(chunk1Digest)))
+    when(combinedCache.downloadCdcChunk(any(), eq(chunk1Digest)))
         .thenAnswer(
             invocation -> {
               downloadsStarted.countDown();
               return failedDownload;
             });
-    when(combinedCache.downloadBlob(any(), eq(chunk2Digest)))
+    when(combinedCache.downloadCdcChunk(any(), eq(chunk2Digest)))
         .thenAnswer(
             invocation -> {
               downloadsStarted.countDown();
@@ -637,6 +802,10 @@ public class ChunkedBlobDownloaderTest {
 
     assertThat(downloadThread.isAlive()).isFalse();
     assertThat(cancelledDownload.isCancelled()).isTrue();
+  }
+
+  private static CdcChunk remoteChunk(byte[] data) {
+    return new CdcChunk(data, /* diskCacheHit= */ false, /* diskCacheLookupAttempted= */ false);
   }
 
   @SuppressWarnings("ArrayRecordComponent")
@@ -674,12 +843,12 @@ public class ChunkedBlobDownloaderTest {
                     .addChunkDigests(sharedDigest)
                     .addChunkDigests(secondTailDigest)
                     .build()));
-    when(combinedCache.downloadBlob(any(), eq(sharedDigest)))
-        .thenReturn(Futures.immediateFuture(shared));
-    when(combinedCache.downloadBlob(any(), eq(firstTailDigest)))
-        .thenReturn(Futures.immediateFuture(firstTail));
-    when(combinedCache.downloadBlob(any(), eq(secondTailDigest)))
-        .thenReturn(Futures.immediateFuture(secondTail));
+    when(combinedCache.downloadCdcChunk(any(), eq(sharedDigest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(shared)));
+    when(combinedCache.downloadCdcChunk(any(), eq(firstTailDigest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(firstTail)));
+    when(combinedCache.downloadCdcChunk(any(), eq(secondTailDigest)))
+        .thenReturn(Futures.immediateFuture(remoteChunk(secondTail)));
 
     return new SharedChunkBlobs(
         sharedDigest, firstBlobDigest, firstContent, secondBlobDigest, secondContent);

@@ -123,11 +123,14 @@ public class ChunkedTransferBenchmark {
         totalBytes += chunkData.length;
       }
 
-      when(combinedCache.downloadBlob(any(), any(Digest.class)))
+      when(combinedCache.downloadCdcChunk(any(), any(Digest.class)))
           .thenAnswer(
               invocation ->
                   delayedFuture(
-                      chunkDataByDigest.get(invocation.getArgument(1)),
+                      new CombinedCache.CdcChunk(
+                          chunkDataByDigest.get(invocation.getArgument(1)),
+                          /* diskCacheHit= */ false,
+                          /* diskCacheLookupAttempted= */ false),
                       delayMillis,
                       jitterMillis,
                       latencyJitter,

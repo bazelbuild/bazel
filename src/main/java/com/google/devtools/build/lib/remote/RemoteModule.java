@@ -317,7 +317,8 @@ public final class RemoteModule extends BlazeModule {
             Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
             digestUtil,
             remoteOptions.getEffectiveChunkingFunction(),
-            chunkLocationMap);
+            chunkLocationMap,
+            env.getEventBus()::post);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
             env,
@@ -892,7 +893,8 @@ public final class RemoteModule extends BlazeModule {
               Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
               digestUtil,
               remoteOptions.getEffectiveChunkingFunction(),
-              chunkLocationMap);
+              chunkLocationMap,
+              env.getEventBus()::post);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
               env,
@@ -926,7 +928,8 @@ public final class RemoteModule extends BlazeModule {
               Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
               digestUtil,
               remoteOptions.getEffectiveChunkingFunction(),
-              chunkLocationMap);
+              chunkLocationMap,
+              env.getEventBus()::post);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
               env,

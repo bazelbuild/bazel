@@ -36,6 +36,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -73,6 +74,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** A {@link CombinedCache} with additional functionality needed for remote execution. */
@@ -141,13 +143,32 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       DigestUtil digestUtil,
       @Nullable ChunkingFunctionValue chunkingFunction,
       ChunkLocationMap chunkLocationMap) {
+    this(
+        remoteCacheClient,
+        diskCacheClient,
+        symlinkTemplate,
+        digestUtil,
+        chunkingFunction,
+        chunkLocationMap,
+        unused -> {});
+  }
+
+  public RemoteExecutionCache(
+      RemoteCacheClient remoteCacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
+      @Nullable String symlinkTemplate,
+      DigestUtil digestUtil,
+      @Nullable ChunkingFunctionValue chunkingFunction,
+      ChunkLocationMap chunkLocationMap,
+      Consumer<RemoteCacheCdcEvent> cdcMetricsSink) {
     super(
         checkNotNull(remoteCacheClient),
         diskCacheClient,
         symlinkTemplate,
         digestUtil,
         chunkingFunction,
-        chunkLocationMap);
+        chunkLocationMap,
+        cdcMetricsSink);
   }
 
   @VisibleForTesting
