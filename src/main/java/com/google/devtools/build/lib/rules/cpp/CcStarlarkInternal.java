@@ -17,13 +17,17 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
+import com.google.common.hash.Hashing;
+import com.google.common.io.Files;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -87,6 +91,8 @@ import net.starlark.java.eval.Tuple;
 public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
+
+  @VisibleForTesting public static final int MAX_FILENAME_LENGTH = 255;
 
   private static final int ALLOWLIST_CACHE_MAX_SIZE = 32;
   private static final Object ALLOWLIST_CACHE_LOCK = new Object();
@@ -246,76 +252,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "solib_symlink_action",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "artifact", positional = false, named = true),
-        @Param(name = "solib_directory", positional = false, named = true),
-        @Param(name = "runtime_solib_dir_base", positional = false, named = true),
-      })
-  public Artifact solibSymlinkAction(
-      StarlarkRuleContext ruleContext,
-      Artifact artifact,
-      String solibDirectory,
-      String runtimeSolibDirBase) {
-    return SolibSymlinkAction.getCppRuntimeSymlink(
-        ruleContext.getRuleContext(), artifact, solibDirectory, runtimeSolibDirBase);
-  }
-
-  @StarlarkMethod(
-      name = "dynamic_library_symlink",
-      documented = false,
-      parameters = {
-        @Param(name = "actions"),
-        @Param(name = "library"),
-        @Param(name = "solib_directory"),
-        @Param(name = "preserve_name"),
-        @Param(name = "prefix_consumer"),
-      })
-  public Artifact dynamicLibrarySymlinkAction(
-      StarlarkActionFactory actions,
-      Artifact library,
-      String solibDirectory,
-      boolean preserveName,
-      boolean prefixConsumer) {
-    return SolibSymlinkAction.getDynamicLibrarySymlink(
-        actions.getRuleContext(), solibDirectory, library, preserveName, prefixConsumer);
-  }
-
-  @StarlarkMethod(
-      name = "dynamic_library_symlink2",
-      documented = false,
-      parameters = {
-        @Param(name = "actions"),
-        @Param(name = "library"),
-        @Param(name = "solib_directory"),
-        @Param(name = "path"),
-      })
-  public Artifact dynamicLibrarySymlinkAction2(
-      StarlarkActionFactory actions, Artifact library, String solibDirectory, String path) {
-    return SolibSymlinkAction.getDynamicLibrarySymlink(
-        actions.getRuleContext(), solibDirectory, library, PathFragment.create(path));
-  }
-
-  @StarlarkMethod(
-      name = "dynamic_library_soname",
-      documented = false,
-      parameters = {
-        @Param(name = "actions"),
-        @Param(name = "path"),
-        @Param(name = "preserve_name"),
-      })
-  public String dynamicLibrarySoname(
-      WrappedStarlarkActionFactory actions, String path, boolean preserveName) {
-
-    return SolibSymlinkAction.getDynamicLibrarySoname(
-        PathFragment.create(path),
-        preserveName,
-        actions.construction.getContext().getConfiguration().getMnemonic());
-  }
-
-  @StarlarkMethod(
       name = "cc_toolchain_features",
       documented = false,
       parameters = {
@@ -328,61 +264,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     return new CcToolchainFeatures(
         CcToolchainConfigInfo.PROVIDER.wrap(ccToolchainConfigInfo),
         PathFragment.create(toolsDirectoryPathString));
-  }
-
-  @StarlarkMethod(
-      name = "is_package_headers_checking_mode_set",
-      documented = false,
-      parameters = {@Param(name = "ctx", positional = false, named = true)})
-  public boolean isPackageHeadersCheckingModeSetForStarlark(
-      StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext
-        .getRuleContext()
-        .getRule()
-        .getPackageDeclarations()
-        .getPackageArgs()
-        .isDefaultHdrsCheckSet();
-  }
-
-  @StarlarkMethod(
-      name = "package_headers_checking_mode",
-      documented = false,
-      parameters = {@Param(name = "ctx", positional = false, named = true)})
-  public String getPackageHeadersCheckingModeForStarlark(StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext
-        .getRuleContext()
-        .getRule()
-        .getPackageDeclarations()
-        .getPackageArgs()
-        .getDefaultHdrsCheck();
-  }
-
-  @StarlarkMethod(
-      name = "is_package_headers_checking_mode_set_for_aspect",
-      documented = false,
-      parameters = {@Param(name = "ctx", positional = false, named = true)})
-  public boolean isPackageHeadersCheckingModeSetForStarlarkAspect(
-      StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext
-        .getRuleContext()
-        .getTarget()
-        .getPackageDeclarations()
-        .getPackageArgs()
-        .isDefaultHdrsCheckSet();
-  }
-
-  @StarlarkMethod(
-      name = "package_headers_checking_mode_for_aspect",
-      documented = false,
-      parameters = {@Param(name = "ctx", positional = false, named = true)})
-  public String getPackageHeadersCheckingModeForStarlarkAspect(
-      StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext
-        .getRuleContext()
-        .getTarget()
-        .getPackageDeclarations()
-        .getPackageArgs()
-        .getDefaultHdrsCheck();
   }
 
   /**
@@ -463,7 +344,17 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "filename")})
   public String maybeHashPreserveExtension(String filename) {
-    return SolibSymlinkAction.maybeHashPreserveExtension(filename);
+    if (filename.length() <= MAX_FILENAME_LENGTH) {
+      return filename;
+    } else {
+      String hashedName = Hashing.sha256().hashString(filename, UTF_8).toString();
+      String extension = Files.getFileExtension(filename);
+      if (extension.isEmpty()) {
+        return hashedName;
+      } else {
+        return hashedName + "." + extension;
+      }
+    }
   }
 
   @StarlarkMethod(
@@ -632,28 +523,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public boolean isTreeArtifact(Artifact artifact) {
     return artifact.isTreeArtifact();
-  }
-
-  @StarlarkMethod(
-      name = "compute_output_name_prefix_dir",
-      documented = false,
-      parameters = {
-        @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "purpose", positional = false, named = true),
-      })
-  public String computeOutputNamePrefixDir(BuildConfigurationValue configuration, String purpose) {
-    String outputNamePrefixDir = null;
-    // purpose is only used by objc rules; if set it ends with either "_non_objc_arc" or
-    // "_objc_arc", and it is used to override configuration.getMnemonic() to prefix the output
-    // dir with "non_arc" or "arc".
-    String mnemonic = configuration.getMnemonic();
-    if (purpose != null) {
-      mnemonic = purpose;
-    }
-    if (mnemonic.endsWith("_objc_arc")) {
-      outputNamePrefixDir = mnemonic.endsWith("_non_objc_arc") ? "non_arc" : "arc";
-    }
-    return Objects.requireNonNullElse(outputNamePrefixDir, "");
   }
 
   @StarlarkMethod(
