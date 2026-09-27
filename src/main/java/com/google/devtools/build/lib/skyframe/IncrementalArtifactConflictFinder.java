@@ -447,7 +447,6 @@ public final class IncrementalArtifactConflictFinder {
     }
   }
 
-  // TODO(b/214389062) Fix the issue with SolibSymlinkAction before launch.
   private static Artifact getOwningArtifactFromTrie(Object trieNode) {
     Preconditions.checkArgument(
         trieNode instanceof Artifact || trieNode instanceof ConcurrentHashMap);
