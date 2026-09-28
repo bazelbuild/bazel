@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -27,6 +28,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.IncompatiblePlatformProviderApi;
 import java.util.Comparator;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Provider instance for the {@code target_compatible_with} attribute.
@@ -50,11 +54,13 @@ import javax.annotation.Nullable;
  *     this provider to be present.
  *     <p>This may be null. If it is null, then at least one of {@code
  *     getConstraintsResponsibleForIncompatibility()} and {@code
- *     getConfigSettingsResponsibleForIncompatibility()} is guaranteed to be non-null. It will have
- *     at least one element in it if it is not null.
+ *     getConfigSettingsResponsibleForIncompatibility()} is guaranteed to be non-null. The
+ *     constraints list may be empty when a Starlark rule directly marks its target incompatible
+ *     without identifying specific constraint values.
  * @param constraintsResponsibleForIncompatibility Returns the constraints that the target platform
  *     didn't satisfy.
- *     <p>This may be null. It will have at least one element in it if it is not null.
+ *     <p>This may be null. It may be empty when a Starlark rule directly marks its target
+ *     incompatible without identifying specific constraint values.
  *     <p>The list is sorted based on the stringified label of each constraint.
  * @param configSettingsResponsibleForIncompatibility Returns the config_settings that didn't match.
  *     <p>This may be null. It will have at least one element in it if it is not null.
@@ -72,9 +78,54 @@ public record IncompatiblePlatformProvider(
   public static final String STARLARK_NAME = "IncompatiblePlatformProvider";
 
   /** Provider singleton constant. */
-  public static final BuiltinProvider<IncompatiblePlatformProvider> PROVIDER =
-      new BuiltinProvider<IncompatiblePlatformProvider>(
-          STARLARK_NAME, IncompatiblePlatformProvider.class) {};
+  public static final Provider PROVIDER = new Provider();
+
+  /** Provider class for {@link IncompatiblePlatformProvider} objects. */
+  public static class Provider extends BuiltinProvider<IncompatiblePlatformProvider>
+      implements IncompatiblePlatformProviderApi.IncompatiblePlatformProviderApiProvider {
+    private Provider() {
+      super(STARLARK_NAME, IncompatiblePlatformProvider.class);
+    }
+
+    @Override
+    public IncompatiblePlatformProviderApi constructor(Object constraints) throws EvalException {
+      ImmutableList<ConstraintValueInfo> constraintList =
+          constraints == Starlark.NONE
+              ? ImmutableList.of()
+              : ImmutableList.copyOf(
+                  Sequence.cast(constraints, ConstraintValueInfo.class, "constraints"));
+      try {
+        ConstraintCollection.validateConstraints(constraintList);
+      } catch (ConstraintCollection.DuplicateConstraintException e) {
+        throw Starlark.errorf("%s", e.getMessage());
+      }
+      return new IncompatiblePlatformProvider(
+          /* targetPlatform= */ null,
+          /* targetsResponsibleForIncompatibility= */ null,
+          sortAndDeduplicateConstraints(constraintList),
+          /* configSettingsResponsibleForIncompatibility= */ null);
+    }
+  }
+
+  /** Returns this provider with {@code targetPlatform} filled in if it was not already known. */
+  public IncompatiblePlatformProvider withTargetPlatform(@Nullable Label targetPlatform) {
+    if (this.targetPlatform != null || targetPlatform == null) {
+      return this;
+    }
+    return new IncompatiblePlatformProvider(
+        targetPlatform,
+        targetsResponsibleForIncompatibility,
+        constraintsResponsibleForIncompatibility,
+        configSettingsResponsibleForIncompatibility);
+  }
+
+  private static ImmutableList<ConstraintValueInfo> sortAndDeduplicateConstraints(
+      ImmutableList<ConstraintValueInfo> constraints) {
+    return constraints.stream()
+        .sorted(Comparator.comparing(ConstraintValueInfo::label))
+        .distinct()
+        .collect(toImmutableList());
+  }
 
   @Override
   public BuiltinProvider<IncompatiblePlatformProvider> getProvider() {
@@ -112,11 +163,7 @@ public record IncompatiblePlatformProvider(
 
     // Deduplicate and sort the list of incompatible constraints. Doing it here means that everyone
     // inspecting this provider doesn't have to deal with it.
-    constraints =
-        constraints.stream()
-            .sorted(Comparator.comparing(ConstraintValueInfo::label))
-            .distinct()
-            .collect(toImmutableList());
+    constraints = sortAndDeduplicateConstraints(constraints);
 
     configSettings =
         configSettings.stream()

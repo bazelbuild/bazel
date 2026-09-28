@@ -317,11 +317,16 @@ public class TopLevelConstraintSemantics {
       @Nullable Label targetPlatform,
       @Nullable ImmutableList<ConstraintValueInfo> constraints,
       @Nullable ImmutableList<Label> configSettings) {
+    if ((constraints == null || constraints.isEmpty())
+        && (configSettings == null || configSettings.isEmpty())) {
+      return " target was marked incompatible";
+    }
+
     StringJoiner reasons = new StringJoiner(" and");
-    if (constraints != null) {
+    if (constraints != null && !constraints.isEmpty()) {
       reasons.add(formatConstraintIncompatibility(targetPlatform, constraints));
     }
-    if (configSettings != null) {
+    if (configSettings != null && !configSettings.isEmpty()) {
       reasons.add(formatConfigSettingIncompatibility(configSettings));
     }
     return reasons.toString();
@@ -330,7 +335,9 @@ public class TopLevelConstraintSemantics {
   private static String formatConstraintIncompatibility(
       @Nullable Label targetPlatform, ImmutableList<ConstraintValueInfo> constraints) {
     String message =
-        String.format(" target platform (%s) didn't satisfy constraint", targetPlatform);
+        targetPlatform == null
+            ? " target platform didn't satisfy constraint"
+            : String.format(" target platform (%s) didn't satisfy constraint", targetPlatform);
     if (constraints.size() == 1) {
       return message + " " + constraints.get(0).label();
     }
