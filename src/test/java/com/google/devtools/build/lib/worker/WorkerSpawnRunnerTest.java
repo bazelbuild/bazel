@@ -491,15 +491,15 @@ public class WorkerSpawnRunnerTest {
   @Test
   public void testExpandArgument_expandsArgumentsRecursively() throws Exception {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
-    FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@file2\nmulti arg\n");
-    FileSystemUtils.writeIsoLatin1(fs.getPath("/file2"), "arg2\narg3");
+    FileSystemUtils.writeIsoLatin1(fs.getPath("/execRoot/file"), "arg1\n@file2\nmulti arg\n");
+    FileSystemUtils.writeIsoLatin1(fs.getPath("/execRoot/file2"), "arg2\narg3");
     SandboxInputs inputs =
         new SandboxInputs(
             ImmutableMap.of(
                 PathFragment.create("file"),
-                fs.getPath("/file"),
+                fs.getPath("/execRoot/file"),
                 PathFragment.create("file2"),
-                fs.getPath("/file2")),
+                fs.getPath("/execRoot/file2")),
             ImmutableMap.of(),
             ImmutableMap.of());
     WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder, fs.getPath("/execRoot"));
@@ -510,10 +510,10 @@ public class WorkerSpawnRunnerTest {
   @Test
   public void testExpandArgument_expandsOnlyProperArguments() throws Exception {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
-    FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@@nonfile\n@foo//bar\narg2");
+    FileSystemUtils.writeIsoLatin1(fs.getPath("/execRoot/file"), "arg1\n@@nonfile\n@foo//bar\narg2");
     SandboxInputs inputs =
         new SandboxInputs(
-            ImmutableMap.of(PathFragment.create("file"), fs.getPath("/file")),
+            ImmutableMap.of(PathFragment.create("file"), fs.getPath("/execRoot/file")),
             ImmutableMap.of(),
             ImmutableMap.of());
     WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder, fs.getPath("/execRoot"));
