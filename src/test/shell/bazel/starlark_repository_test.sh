@@ -1600,6 +1600,81 @@ EOF
        || fail "Parsed dict not equal to expected value"
 }
 
+function test_netrc_reading_ignores_unknown_keywords() {
+  # Keywords unknown to Bazel, as written by other tools, must be skipped
+  # together with their values wherever they appear.
+  cat > .netrc <<'EOF'
+consolekey unknownvalue1
+machine first.example.com login firstuser password firstpass
+consolekey unknownvalue2
+machine second.example.com login seconduser consolekey unknownvalue3
+password secondpass
+machine consolekey.example.com consolekey unknownvalue4
+machine third.example.com consolekey unknownvalue5 login thirduser password thirdpass
+default login defaultuser consolekey unknownvalue6 password defaultpass
+consolekey unknownvalue7
+EOF
+  cat > def.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc")
+def _impl(ctx):
+  rc = read_netrc(ctx, ctx.attr.path)
+  ctx.file("data.bzl", "netrc = %s" % (rc,))
+  ctx.file("BUILD", "")
+  ctx.file("REPO.bazel", "")
+
+netrcrepo = repository_rule(
+  implementation = _impl,
+  attrs = {"path": attr.string()},
+)
+EOF
+
+  netrc_dir="$(pwd)"
+  if is_windows; then
+    netrc_dir="$(cygpath -m ${netrc_dir})"
+  fi
+
+  cat > $(setup_module_dot_bazel) <<EOF
+netrcrepo = use_repo_rule("//:def.bzl", "netrcrepo")
+
+netrcrepo(name = "netrc", path="${netrc_dir}/.netrc")
+EOF
+
+  cat > expected.bzl <<'EOF'
+expected = {
+  "first.example.com" : { "login" : "firstuser", "password" : "firstpass" },
+  "second.example.com" : { "login" : "seconduser", "password" : "secondpass" },
+  "consolekey.example.com" : {},
+  "third.example.com" : { "login" : "thirduser", "password" : "thirdpass" },
+  "" : { "login" : "defaultuser", "password" : "defaultpass" },
+}
+EOF
+  cat > verify.bzl <<'EOF'
+load("@netrc//:data.bzl", "netrc")
+load("//:expected.bzl", "expected")
+
+def check_equal_expected():
+  print("Parsed value:   %s" % (netrc,))
+  print("Expected value: %s" % (expected,))
+  if netrc == expected:
+    return "OK"
+  else:
+    return "BAD"
+EOF
+  cat > BUILD <<'EOF'
+load ("//:verify.bzl", "check_equal_expected")
+genrule(
+  name = "check_expected",
+  outs = ["check_expected.txt"],
+  cmd = "echo %s > $@" % (check_equal_expected(),)
+)
+EOF
+  bazel build //:check_expected &> $TEST_log \
+      || fail "Expected unknown keywords in .netrc to be ignored"
+  grep 'OK' `bazel info bazel-bin`/check_expected.txt \
+       || fail "Parsed dict not equal to expected value"
+  expect_not_log "unknownvalue"
+}
+
 function test_use_netrc() {
     # Test the starlark utility function use_netrc.
   cat > .netrc <<'EOF'

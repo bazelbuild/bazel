@@ -342,12 +342,15 @@ def read_netrc(ctx, filename):
     contents = ctx.read(filename, watch = "no")
     return parse_netrc(contents, filename)
 
-def parse_netrc(contents, filename = "a .netrc file"):
+def parse_netrc(contents, filename = "a .netrc file"):  # buildifier: disable=unused-variable
     """Utility function to parse at least a basic .netrc file.
+
+    Tokens that are not recognized netrc keywords (or their arguments) are
+    ignored.
 
     Args:
       contents: input for the parser.
-      filename: filename to use in error messages, if any.
+      filename: unused; kept for backwards compatibility.
 
     Returns:
       dict mapping a machine names to a dict with the information provided
@@ -425,7 +428,10 @@ def parse_netrc(contents, filename = "a .netrc file"):
                     currentmachinename = ""
                     currentmachine = {}
                 else:
-                    fail("Unexpected token '%s' while reading %s" % (token, filename))
+                    # A keyword unknown to us, or an argument of one. Like curl,
+                    # ignore it: other tools may add their own keywords, and
+                    # this token may be a secret, so it must not be reported.
+                    pass
     if not currentmachinename == None:
         netrc[currentmachinename] = currentmachine
     return netrc
