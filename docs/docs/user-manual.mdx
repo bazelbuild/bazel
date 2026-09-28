@@ -687,6 +687,12 @@ This option controls where and how commands are executed.
   This requires that all input files, data dependencies and tools are listed as direct
   dependencies in the `srcs`, `data` and `tools` attributes.
   Bazel enables local sandboxing by default, on systems that support sandboxed execution.
+* `processwrapper-sandbox` causes commands to be executed inside a portable symlink-based
+  sandbox without OS-specific namespace or container mechanisms.
+* `linux-sandbox` causes commands to be executed inside a Linux namespace sandbox (using
+  User, Mount, PID, Network, and IPC namespaces).
+* `darwin-sandbox` causes commands to be executed inside a macOS sandbox using `sandbox-exec`.
+* `windows-sandbox` causes commands to be executed inside a Windows sandbox.
 * `local` causes commands to be executed as local subprocesses.
 * `worker` causes commands to be executed using a persistent worker, if available.
 * `docker` causes commands to be executed inside a docker sandbox on the local machine.
