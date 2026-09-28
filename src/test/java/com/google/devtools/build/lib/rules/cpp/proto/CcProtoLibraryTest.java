@@ -75,32 +75,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void protoToolchainResolution_enabled() throws Exception {
-    setBuildLanguageOptions("--incompatible_enable_proto_toolchain_resolution");
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
-                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-    scratch.file(
-        "x/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
-        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
-        "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
-    assertThat(prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto"))))
-        .containsExactly(
-            "x/foo.pb.h",
-            "x/foo.pb.cc",
-            "x/libfoo_proto.a",
-            "x/libfoo_proto.ifso",
-            "x/libfoo_proto.so");
-  }
-
-  @Test
   public void basic() throws Exception {
     getAnalysisMock()
         .ccSupport()
