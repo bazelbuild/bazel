@@ -502,7 +502,7 @@ public class WorkerSpawnRunnerTest {
                 fs.getPath("/file2")),
             ImmutableMap.of(),
             ImmutableMap.of());
-    WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder);
+    WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder, fs.getPath("/execRoot"));
     assertThat(requestBuilder.getArgumentsList())
         .containsExactly("arg1", "arg2", "arg3", "multi arg", "");
   }
@@ -516,7 +516,7 @@ public class WorkerSpawnRunnerTest {
             ImmutableMap.of(PathFragment.create("file"), fs.getPath("/file")),
             ImmutableMap.of(),
             ImmutableMap.of());
-    WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder);
+    WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder, fs.getPath("/execRoot"));
     assertThat(requestBuilder.getArgumentsList())
         .containsExactly("arg1", "@@nonfile", "@foo//bar", "arg2");
   }
@@ -532,7 +532,7 @@ public class WorkerSpawnRunnerTest {
     IOException e =
         assertThrows(
             IOException.class,
-            () -> WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder));
+            () -> WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder, fs.getPath("/execRoot")));
     assertThat(e).hasMessageThat().contains("file");
     assertThat(e).hasMessageThat().contains("/dir/file");
   }
@@ -645,7 +645,7 @@ public class WorkerSpawnRunnerTest {
     IOException e =
         assertThrows(
             IOException.class,
-            () -> WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder));
+            () -> WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder, fs.getPath("/execRoot")));
     assertThat(e).hasMessageThat().contains("file");
     assertThat(e).hasMessageThat().contains("declared input");
   }
