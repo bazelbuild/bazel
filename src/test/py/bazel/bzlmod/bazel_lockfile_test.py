@@ -168,6 +168,44 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
 
+  def testChangedRegistryFileHashIgnoredWithoutLockfile(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/31101:
+    # --lockfile_mode=off must not consult the registry file hashes recorded
+    # in the lockfile.
+    self.main_registry.createShModule('sss', '1.3', {'aaa': '1.1'})
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "sss", version = "1.3")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '--nobuild', '--lockfile_mode=update', '//:all'])
+
+    # Change registry -> update 'sss' module file (corrupt it)
+    module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
+    # Running again with --lockfile_mode=off must fetch the changed module
+    # file instead of failing on the hash recorded in the lockfile, which
+    # shows up as an error parsing the corrupted content.
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '--lockfile_mode=off', '//:all'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertNotIn('Checksum was', '\n'.join(stderr))
+    self.assertIn(
+        (
+            'ERROR: Error computing the main repository mapping: in module '
+            'dependency chain <root> -> sss@1.3: error parsing MODULE.bazel '
+            'file for sss@1.3'
+        ),
+        stderr,
+    )
+
   def testChangeModuleInRegistryWithLockfile(self):
     # Add module 'sss' to the registry with dep on 'aaa'
     self.main_registry.createShModule('sss', '1.3', {'aaa': '1.1'})

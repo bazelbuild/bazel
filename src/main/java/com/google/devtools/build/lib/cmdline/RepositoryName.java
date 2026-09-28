@@ -42,7 +42,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
 /** The canonical name of an external repository. */
-public final class RepositoryName {
+public class RepositoryName {
 
   @SerializationConstant
   public static final RepositoryName BAZEL_TOOLS = new RepositoryName("bazel_tools");

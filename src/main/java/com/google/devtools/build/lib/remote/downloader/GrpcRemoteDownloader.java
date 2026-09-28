@@ -122,12 +122,16 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     this.remoteDownloaderLocalFallback = remoteDownloaderLocalFallback;
   }
 
+  /**
+   * Releases the reference to the channel held by this downloader.
+   *
+   * <p>The {@link RemoteCacheClient} is owned by the caller and thus not closed here.
+   */
   @Override
   public void close() {
     if (closed.getAndSet(true)) {
       return;
     }
-    cacheClient.close();
     channel.release();
   }
 
