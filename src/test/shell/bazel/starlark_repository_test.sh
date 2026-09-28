@@ -60,11 +60,10 @@ add_to_bazelrc "common --repository_cache="
 
 # Basic test.
 function test_macro_local_repository() {
-  create_new_workspace
-  repo2=$new_workspace_dir
-
-  mkdir -p carnivore
-  cat > carnivore/BUILD <<'EOF'
+  local repo2="$(mktemp -d "${TEST_TMPDIR}/repo2XXXXXX")"
+  touch "${repo2}/REPO.bazel"
+  mkdir -p "${repo2}/carnivore"
+  cat > "${repo2}/carnivore/BUILD" <<'EOF'
 genrule(
     name = "mongoose",
     cmd = "echo 'Tra-la!' | tee $@",
@@ -73,7 +72,6 @@ genrule(
 )
 EOF
 
-  cd ${WORKSPACE_DIR}
   cat > $(setup_module_dot_bazel) <<EOF
 ext = use_extension("//:test.bzl", "repo_ext")
 use_repo(ext, "endangered")
@@ -111,11 +109,10 @@ EOF
   expect_not_log "Tra-la!"  # No invalidation
 
   # Test invalidation of the WORKSPACE file
-  create_new_workspace
-  repo2=$new_workspace_dir
-
-  mkdir -p carnivore
-  cat > carnivore/BUILD <<'EOF'
+  repo2="$(mktemp -d "${TEST_TMPDIR}/repo2XXXXXX")"
+  touch "${repo2}/REPO.bazel"
+  mkdir -p "${repo2}/carnivore"
+  cat > "${repo2}/carnivore/BUILD" <<'EOF'
 genrule(
     name = "mongoose",
     cmd = "echo 'Tra-la-la!' | tee $@",
@@ -123,7 +120,6 @@ genrule(
     visibility = ["//visibility:public"],
 )
 EOF
-  cd ${WORKSPACE_DIR}
   cat >test.bzl <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 def macro():
@@ -143,14 +139,12 @@ EOF
 }
 
 function test_starlark_local_repository() {
-  create_new_workspace
-  repo2=$new_workspace_dir
-
-  cat > BUILD <<'EOF'
+  local repo2="$(mktemp -d "${TEST_TMPDIR}/repo2XXXXXX")"
+  touch "${repo2}/REPO.bazel"
+  cat > "${repo2}/BUILD" <<'EOF'
 genrule(name='bar', cmd='echo foo | tee $@', outs=['bar.txt'])
 EOF
 
-  cd ${WORKSPACE_DIR}
   cat > $(setup_module_dot_bazel) <<EOF
 repo = use_repo_rule('//:test.bzl', 'repo')
 repo(name='foo', path='$repo2')
@@ -176,13 +170,10 @@ EOF
 }
 
 function setup_starlark_repository() {
-  create_new_workspace
-  repo2=$new_workspace_dir
+  repo2="$(mktemp -d "${TEST_TMPDIR}/repo2XXXXXX")"
+  touch "${repo2}/REPO.bazel" "${repo2}/bar.txt"
+  echo "filegroup(name='bar', srcs=['bar.txt'])" > "${repo2}/BUILD"
 
-  cat > bar.txt
-  echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
-
-  cd "${WORKSPACE_DIR}"
   cat > $(setup_module_dot_bazel) <<EOF
 repo = use_repo_rule('//:test.bzl', 'repo')
 repo(name = 'foo')
@@ -743,7 +734,6 @@ function test_starlark_repository_bzl_invalidation_batch() {
 
 function test_starlark_repo_bzl_invalidation_wrong_digest() {
   # regression test for https://github.com/bazelbuild/bazel/pull/21131#discussion_r1471924084
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 ext = use_extension("//:r.bzl", "ext")
 use_repo(ext, "r")
@@ -1024,8 +1014,6 @@ EOF
 
 function test_repo_env_invalidation() {
     # regression test for https://github.com/bazelbuild/bazel/issues/8869
-    WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-    cd "${WRKDIR}"
     cat > $(setup_module_dot_bazel) <<'EOF'
 my_repository_rule = use_repo_rule("//:my_repository_rule.bzl", "my_repository_rule")
 
@@ -1245,11 +1233,7 @@ function test_starlark_repository_download_args() {
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
-  create_new_workspace
-  repo2=$new_workspace_dir
-
-  cat > bar.txt
-  echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
+  touch BUILD
 
   cat > $(setup_module_dot_bazel) <<EOF
 repo = use_repo_rule('//:test.bzl', 'repo')
@@ -1941,8 +1925,6 @@ login foo
 password bar
 EOF
 
-  mkdir main
-  cd main
   cat > $(setup_module_dot_bazel) <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -2022,8 +2004,6 @@ login badusername
 password badpassword
 EOF
 
-  mkdir main
-  cd main
   cat > $(setup_module_dot_bazel) <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -2052,8 +2032,6 @@ function test_disable_download_should_prevent_downloading() {
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file x.tar
 
-  mkdir main
-  cd main
   cat > $(setup_module_dot_bazel) <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -2294,7 +2272,6 @@ EOF
 }
 
 function test_repo_boundary_files() {
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2312,7 +2289,6 @@ EOF
 
 function test_repo_mapping_change_in_rule_impl() {
   # regression test for #20722
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2358,7 +2334,6 @@ EOF
 
 function test_repo_mapping_change_in_bzl_init() {
   # same as above, but tests .bzl init time repo mapping usages
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2406,7 +2381,6 @@ EOF
 function test_file_watching_inside_working_dir() {
   # when reading a file inside the working directory (where the repo
   # is to be fetched), we shouldn't watch it.
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2434,7 +2408,6 @@ function test_file_watching_inside_working_dir_forcing_error() {
   # when reading a file inside the working directory (where the repo
   # is to be fetched), we shouldn't watch it. Forcing the watch should
   # result in an error.
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2458,7 +2431,6 @@ function test_file_watching_outside_workspace() {
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2490,7 +2462,6 @@ function test_file_watching_in_other_repo() {
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
@@ -2535,7 +2506,6 @@ function test_incompatible_no_implicit_watch_label() {
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
@@ -2582,7 +2552,6 @@ function test_no_incompatible_no_implicit_watch_label() {
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
@@ -2627,7 +2596,6 @@ function test_bad_marker_file_ignored() {
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
@@ -2670,7 +2638,6 @@ EOF
 }
 
 function test_file_watching_in_undefined_repo() {
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:foo.bzl", "foo")
 foo(name = "foo")
@@ -2710,7 +2677,6 @@ EOF
 }
 
 function test_file_watching_in_other_repo_cycle() {
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
@@ -2738,7 +2704,6 @@ function test_watch_file_status_change() {
   mkdir -p "${outside_dir}"
   echo something > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2799,7 +2764,6 @@ function test_watch_file_status_change_dangling_symlink() {
   mkdir -p "${outside_dir}"
   ln -s ${outside_dir}/pointee ${outside_dir}/pointer
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2840,7 +2804,6 @@ function test_watch_file_status_change_symlink_parent() {
   local outside_dir=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   mkdir -p "${outside_dir}/a"
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2885,7 +2848,6 @@ function test_path_readdir_watches_dirents() {
   touch ${outside_dir}/bar
   touch ${outside_dir}/baz
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2939,7 +2901,6 @@ function test_watch_tree() {
   mkdir -p ${outside_dir}/other/dir/not/.ignored
   touch ${outside_dir}/other/dir/not/.ignored/grault
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -3000,7 +2961,6 @@ EOF
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/30883.
 function test_path_readdir_deleted_dir() {
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -3037,7 +2997,6 @@ EOF
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/30883.
 function test_path_readdir_deleted_dir_without_watch() {
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -3068,7 +3027,6 @@ EOF
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/30883.
 function test_watch_tree_deleted_dir() {
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -3116,7 +3074,6 @@ function test_path_readdir_unreadable_dir() {
     return 0
   fi
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -3213,7 +3170,6 @@ function test_keep_going_weird_deadlock() {
     # no symlinks on windows
     return
   fi
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r=use_repo_rule("//:r.bzl", "r")
 r(name="r")
@@ -3238,8 +3194,6 @@ EOF
 }
 
 function test_legacy_label_print() {
-    WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-    cd "${WRKDIR}"
     cat > $(setup_module_dot_bazel) <<'EOF'
 my_repository_rule = use_repo_rule("//:my_repository_rule.bzl", "my_repository_rule")
 
@@ -4101,7 +4055,6 @@ function test_local_module_file_patch_with_copy() {
 }
 
 function test_http_file_root_build_alias() {
-  create_new_workspace
   local file="${TEST_TMPDIR}/AvailablePortFinder.java"
   printf "final class AvailablePortFinder {}\n" > "$file"
   if is_windows; then
