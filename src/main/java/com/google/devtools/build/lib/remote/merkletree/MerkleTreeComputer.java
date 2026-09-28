@@ -147,7 +147,6 @@ public final class MerkleTreeComputer {
           .build();
   private static final ImmutableList<Map.Entry<PathFragment, ActionInput>> END_OF_INPUTS_SENTINEL =
       ImmutableList.of(entry(PathFragment.EMPTY_FRAGMENT, VirtualActionInput.EMPTY_MARKER));
-  private static final PathFragment ROOT_FAKE_PATH_SEGMENT = PathFragment.create("root");
 
   // Building Merkle trees mostly involves computing hashes of protos and is thus CPU-bound.
   // TODO: Source directories are also visited on this pool in a single-threaded manner.
@@ -582,17 +581,26 @@ public final class MerkleTreeComputer {
       ActionInput input = entry.getValue();
       if (!isParentDirectory(currentParent, path)) {
         PathFragment newParent = path.getParentDirectory();
-        PathFragment commonPrefix;
-        PathFragment fragmentToPop;
+        String currentParentString = currentParent.getPathString();
+        // The sentinel also pops the root directory, whose path string has length zero.
+        int commonPrefixLength = -1;
         if (newParent != null) {
-          commonPrefix = findCommonPrefix(currentParent, newParent);
-          fragmentToPop = currentParent.relativeTo(commonPrefix);
-        } else {
-          fragmentToPop = ROOT_FAKE_PATH_SEGMENT.getRelative(currentParent);
-          // Unused.
-          commonPrefix = null;
+          String newParentString = newParent.getPathString();
+          commonPrefixLength = currentParent.getCommonPrefixLength(newParent);
+          // Only retain complete common segments, including when one string is a prefix of the
+          // other (e.g. "a/b" and "a/bc").
+          if ((commonPrefixLength < currentParentString.length()
+                  && currentParentString.charAt(commonPrefixLength) != PathFragment.SEPARATOR_CHAR)
+              || (commonPrefixLength < newParentString.length()
+                  && newParentString.charAt(commonPrefixLength) != PathFragment.SEPARATOR_CHAR)) {
+            commonPrefixLength =
+                max(
+                    0,
+                    currentParentString.lastIndexOf(
+                        PathFragment.SEPARATOR_CHAR, commonPrefixLength - 1));
+          }
         }
-        for (String dirToPop : fragmentToPop.splitToListOfSegments().reverse()) {
+        for (int end = currentParentString.length(); end > commonPrefixLength; ) {
           byte[] directoryBlob = directoryStack.pop().build().toByteArray();
           Digest directoryBlobDigest = digestUtil.compute(directoryBlob);
           if (blobPolicy != BlobPolicy.DISCARD && directoryBlobDigest.getSizeBytes() != 0) {
@@ -613,12 +621,17 @@ public final class MerkleTreeComputer {
                   blobs);
             }
           }
+          int start = currentParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1) + 1;
           topDirectory
               .addDirectoriesBuilder()
-              .setName(internalToUnicode(dirToPop))
+              .setName(internalToUnicode(currentParentString.substring(start, end)))
               .setDigest(directoryBlobDigest);
+          end = max(0, start - 1);
         }
-        for (int i = 0; i < newParent.segmentCount() - commonPrefix.segmentCount(); i++) {
+        String newParentString = newParent.getPathString();
+        for (int end = newParentString.length();
+            end > commonPrefixLength;
+            end = max(0, newParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1))) {
           directoryStack.push(Directory.newBuilder());
         }
         currentParent = newParent;
@@ -1085,41 +1098,6 @@ public final class MerkleTreeComputer {
     int parentLength = max(lastSeparator, driveStrLength);
     String parentString = parent.getPathString();
     return parentString.length() == parentLength && pathString.startsWith(parentString);
-  }
-
-  @VisibleForTesting
-  static PathFragment findCommonPrefix(PathFragment path1, PathFragment path2) {
-    String s1 = path1.getPathString();
-    String s2 = path2.getPathString();
-    int start1 = path1.getDriveStrLength();
-    int start2 = path2.getDriveStrLength();
-    int commonSegments = 0;
-    while (start1 < s1.length() && start2 < s2.length()) {
-      int end1 = s1.indexOf(PathFragment.SEPARATOR_CHAR, start1);
-      if (end1 == -1) {
-        end1 = s1.length();
-      }
-      int end2 = s2.indexOf(PathFragment.SEPARATOR_CHAR, start2);
-      if (end2 == -1) {
-        end2 = s2.length();
-      }
-      if (end1 - start1 != end2 - start2 || !s1.regionMatches(start1, s2, start2, end1 - start1)) {
-        break;
-      }
-      commonSegments++;
-      start1 = end1 + 1;
-      start2 = end2 + 1;
-    }
-    if (start1 >= s1.length()) {
-      return path1;
-    }
-    int driveStrLength = path1.getDriveStrLength();
-    if (start2 >= s2.length()
-        && driveStrLength == path2.getDriveStrLength()
-        && s1.regionMatches(0, s2, 0, driveStrLength)) {
-      return path2;
-    }
-    return path1.subFragment(0, commonSegments);
   }
 
   private static ImmutableSortedMap<PathFragment, ActionInput> explodeDirectory(

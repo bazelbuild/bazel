@@ -18,10 +18,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
+import build.bazel.remote.execution.v2.FileNode;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -520,20 +522,59 @@ public class MerkleTreeComputerTest {
         .isEqualTo(parent.equals(path.getParentDirectory()));
   }
 
-  @Test
-  public void findCommonPrefix_matchesSegmentWiseComparison(
-      @TestParameter(valuesProvider = PathProvider.class) PathFragment path1,
-      @TestParameter(valuesProvider = PathProvider.class) PathFragment path2) {
-    int commonSegments = 0;
-    var segments2 = path2.segments().iterator();
-    for (String segment : path1.segments()) {
-      if (!segments2.hasNext() || !segment.equals(segments2.next())) {
-        break;
-      }
-      commonSegments++;
+  private static final class DirectoryProvider extends TestParameterValuesProvider {
+    @Override
+    public ImmutableList<?> provideValues(Context context) {
+      return ImmutableList.of(
+          "", "a", "ab", "a/b", "a/bc", "ab/c", "a/b/c", "a/b/d", "z", "a/é", "a/ê");
     }
-    assertThat(MerkleTreeComputer.findCommonPrefix(path1, path2))
-        .isEqualTo(path1.subFragment(0, commonSegments));
+  }
+
+  @Test
+  public void buildForSpawn_directoryTransitions(
+      @TestParameter(valuesProvider = DirectoryProvider.class) String firstDirectory,
+      @TestParameter(valuesProvider = DirectoryProvider.class) String secondDirectory)
+      throws Exception {
+    var sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var fakeFileCache = new FakeActionInputFileCache();
+    var spawnBuilder = new SpawnBuilder();
+    var directories = ImmutableList.of(firstDirectory, secondDirectory);
+    for (int i = 0; i < directories.size(); i++) {
+      var execPath =
+          PathFragment.create(unicodeToInternal(directories.get(i))).getRelative("file" + i);
+      var artifact = ActionsTestUtil.createArtifactWithExecPath(sourceRoot, execPath);
+      artifact.getPath().getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "content" + i);
+      fakeFileCache.put(artifact, FileArtifactValue.createForTesting(artifact));
+      spawnBuilder.withInputs(artifact);
+    }
+    var spawn = spawnBuilder.build();
+
+    var merkleTree =
+        (MerkleTree.Uploadable)
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    MerkleTreeComputer.BlobPolicy.KEEP);
+
+    assertThat(merkleTree.inputFiles()).isEqualTo(2);
+    for (int i = 0; i < directories.size(); i++) {
+      String directory = directories.get(i);
+      Directory dir =
+          findDirectory(merkleTree, directory.isEmpty() ? new String[0] : directory.split("/"));
+      assertThat(dir.getFilesList())
+          .contains(
+              FileNode.newBuilder()
+                  .setName("file" + i)
+                  .setDigest(digestUtil.computeAsUtf8("content" + i))
+                  .setIsExecutable(true)
+                  .build());
+      assertThat(dir.getFilesCount()).isEqualTo(firstDirectory.equals(secondDirectory) ? 2 : 1);
+    }
   }
 
   @Test
