@@ -75,6 +75,46 @@ public final class DigestUtilsTest {
   }
 
   @Test
+  public void cacheHitWithoutRestatingWhenTheCallerSuppliesTheStat() throws Exception {
+    AtomicInteger getDigestCounter = new AtomicInteger(0);
+    AtomicInteger statCounter = new AtomicInteger(0);
+
+    FileSystem tracingFileSystem =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public byte[] getDigest(PathFragment path) throws IOException {
+            getDigestCounter.incrementAndGet();
+            return super.getDigest(path);
+          }
+
+          @Override
+          public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+            statCounter.incrementAndGet();
+            return super.stat(path, followSymlinks);
+          }
+        };
+
+    DigestUtils.configureCache(/* maximumSize= */ 100);
+
+    Path file = tracingFileSystem.getPath("/file.txt");
+    FileSystemUtils.writeContentAsLatin1(file, "some contents");
+
+    // Without a stat, DigestUtils has to stat the file itself to build the cache key.
+    byte[] digest = DigestUtils.manuallyComputeDigest(file, /* status= */ null);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
+    assertThat(statCounter.get()).isEqualTo(1);
+
+    // A caller that already stat'ed the file gets the cached digest without a further stat, which
+    // only works if both spellings of the key agree.
+    FileStatus stat = file.stat();
+    getDigestCounter.set(0);
+    statCounter.set(0);
+    assertThat(DigestUtils.manuallyComputeDigest(file, stat)).isEqualTo(digest);
+    assertThat(getDigestCounter.get()).isEqualTo(0);
+    assertThat(statCounter.get()).isEqualTo(0);
+  }
+
+  @Test
   public void manuallyComputeDigest() throws Exception {
     byte[] digest = {1, 2, 3};
     FileSystem noDigestFileSystem =
@@ -92,7 +132,7 @@ public final class DigestUtilsTest {
     Path file = noDigestFileSystem.getPath("/f.txt");
     FileSystemUtils.writeContentAsLatin1(file, "contents");
 
-    assertThat(DigestUtils.manuallyComputeDigest(file)).isEqualTo(digest);
+    assertThat(DigestUtils.manuallyComputeDigest(file, /* status= */ null)).isEqualTo(digest);
   }
 
   @Test
