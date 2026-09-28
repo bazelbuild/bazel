@@ -38,9 +38,9 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
 
   /**
    * Returns true if the given non-experimental, non-prototype package is allowed to bzl load
-   * prototype packages.
+   * prototype packages and depend on targets in prototype packages.
    */
-  boolean mayLoadPrototypes(PackageIdentifier packageIdentifier);
+  boolean hasHardCodedException(PackageIdentifier packageIdentifier);
 
   /** The runfiles prefix. */
   String getRunfilesPrefix();
