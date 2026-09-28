@@ -1155,21 +1155,7 @@ EOF
   expect_log "Hello from main.cpp"
 }
 
-function test_cpp20_modules_with_clang() {
-  type -P clang || return 0
-  type -P clang-scan-deps || return 0
-  # Check if clang version is less than 17
-  clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
-  if [[ -n "$clang_version" ]]; then
-    major_version=$(echo "$clang_version" | cut -d. -f1)
-    if [[ "$major_version" -lt 17 ]]; then
-      return 0
-    fi
-  fi
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    return 0
-  fi
-
+function setup_cpp20_modules_workspace() {
   add_rules_cc "MODULE.bazel"
 
   cat > BUILD.bazel <<'EOF'
@@ -1234,12 +1220,78 @@ export void f_base() {
 }
 EOF
 
+}
+
+function test_cpp20_modules_with_clang() {
+  type -P clang || return 0
+  # Check if clang version is less than 17
+  clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+  if [[ -n "$clang_version" ]]; then
+    major_version=$(echo "$clang_version" | cut -d. -f1)
+    if [[ "$major_version" -lt 17 ]]; then
+      return 0
+    fi
+  fi
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    return 0
+  fi
+
+  setup_cpp20_modules_workspace
+
   bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
 
   # Verify that the build can hit the cache without action cycles.
   bazel clean || fail "Expected clean success"
   bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
   expect_log "17 disk cache hit"
+}
+
+function test_cpp20_modules_with_gcc() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    return 0
+  fi
+
+  local gcc_compiler=
+  for candidate in gcc g++-16 g++-15 g++-14; do
+    if ! type -P "$candidate" >/dev/null 2>&1; then
+      continue
+    fi
+    local version=$("$candidate" -dumpversion 2>/dev/null | cut -d. -f1)
+    if [[ -z "$version" || "$version" -lt 14 ]]; then
+      continue
+    fi
+    if echo 'export module m;' | "$candidate" -std=c++20 -fmodules -fsyntax-only -x c++ - \
+        >/dev/null 2>&1; then
+      gcc_compiler=$(type -P "$candidate")
+      break
+    fi
+  done
+  if [[ -z "$gcc_compiler" ]]; then
+    return 0
+  fi
+
+  setup_cpp20_modules_workspace
+
+  bazel build //:main --experimental_cpp_modules --repo_env=CC="${gcc_compiler}" \
+    --features=ignore_unresolvable_dep_paths \
+    --copt=-std=c++20 --copt=-fmodules --disk_cache=disk &> $TEST_log \
+    || fail "Expected build C++20 Modules success with compiler '${gcc_compiler}'"
+
+  ./bazel-bin/main || fail "Expected module binary to run successfully"
+
+  # Verify that the build can hit the cache without action cycles.
+  bazel clean || fail "Expected clean success"
+  bazel build //:main --experimental_cpp_modules --repo_env=CC="${gcc_compiler}" \
+    --features=ignore_unresolvable_dep_paths \
+    --copt=-std=c++20 --copt=-fmodules --disk_cache=disk &> $TEST_log \
+    || fail "Expected build C++20 Modules success with compiler '${gcc_compiler}'"
+  expect_log "disk cache hit"
+
+  # Disabling the feature must not reuse a locally cached successful action.
+  bazel build //:main --experimental_cpp_modules --repo_env=CC="${gcc_compiler}" \
+    --features=-ignore_unresolvable_dep_paths --copt=-std=c++20 --copt=-fmodules &> $TEST_log \
+    && fail "Expected undeclared dependency entries to be rejected"
+  expect_log "undeclared inclusion"
 }
 
 function test_external_repo_lto() {

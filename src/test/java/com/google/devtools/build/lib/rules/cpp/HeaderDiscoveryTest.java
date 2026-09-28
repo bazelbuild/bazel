@@ -206,6 +206,7 @@ public final class HeaderDiscoveryTest {
             ImmutableList.of(dep),
             /* permittedSystemIncludePrefixes= */ ImmutableList.of(systemIncludeDir),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* ignoreUnresolvableDepPaths= */ false,
             execRoot,
             artifactResolver,
             PathMapper.NOOP);
@@ -230,6 +231,7 @@ public final class HeaderDiscoveryTest {
             ImmutableList.of(dep),
             /* permittedSystemIncludePrefixes= */ ImmutableList.of(systemIncludeDir),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* ignoreUnresolvableDepPaths= */ false,
             execRoot,
             artifactResolver,
             PathMapper.NOOP);
@@ -252,6 +254,7 @@ public final class HeaderDiscoveryTest {
             ImmutableList.of(execRoot.getRelative("pkg/foo.cc")),
             /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* ignoreUnresolvableDepPaths= */ false,
             execRoot,
             artifactResolver,
             PathMapper.NOOP);
@@ -357,6 +360,7 @@ public final class HeaderDiscoveryTest {
             dependencies,
             /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             includedHeaders,
+            /* ignoreUnresolvableDepPaths= */ false,
             execRoot,
             artifactResolver,
             PathMapper.NOOP);
@@ -375,6 +379,7 @@ public final class HeaderDiscoveryTest {
         dependencies,
         /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
         allowedDerivedInputs,
+        /* ignoreUnresolvableDepPaths= */ false,
         execRoot,
         artifactResolver,
         PathMapper.NOOP);

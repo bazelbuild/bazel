@@ -1381,6 +1381,7 @@ public class CppCompileAction extends AbstractAction
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addBoolean(getDotdFile() != null && useInMemoryDotdFiles());
+    fp.addBoolean(ignoreUnresolvableDepPaths());
     computeKey(
         actionKeyContext,
         fp,
@@ -1855,9 +1856,23 @@ public class CppCompileAction extends AbstractAction
             .build(),
         getPermittedSystemIncludePrefixes(execRoot),
         getAllowedDerivedInputs(),
+        ignoreUnresolvableDepPaths(),
         execRoot,
         artifactResolver,
         pathMapper);
+  }
+
+  /**
+   * Returns whether dependency-file entries that do not resolve to discoverable compile inputs
+   * should be ignored rather than reported as undeclared inclusions.
+   *
+   * <p>Some compilers list entries in dependency files that are not compile inputs: notably, GCC
+   * C++20 module builds emit Makefile metadata (e.g. {@code .PHONY} targets, order-only {@code |}
+   * markers) and module pseudo-targets. Toolchains for such compilers should enable the
+   *  {@code ignore_unresolvable_dep_paths} feature.
+   */
+  private boolean ignoreUnresolvableDepPaths() {
+    return featureConfiguration.isEnabled(CppRuleClasses.IGNORE_UNRESOLVABLE_DEP_PATHS);
   }
 
   @VisibleForTesting
@@ -1876,6 +1891,7 @@ public class CppCompileAction extends AbstractAction
         processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies(),
         getPermittedSystemIncludePrefixes(execRoot),
         getAllowedDerivedInputs(),
+        ignoreUnresolvableDepPaths(),
         execRoot,
         artifactResolver,
         pathMapper);

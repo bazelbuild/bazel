@@ -1145,6 +1145,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
   }
 
+
   @Test
   public void testCppCompileActionArgvIgnoreParamFile() throws Exception {
     AnalysisMock.get()
