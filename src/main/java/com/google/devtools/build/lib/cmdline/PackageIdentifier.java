@@ -97,13 +97,20 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    */
   public static Optional<PackageIdentifier> discoverFromExecPath(
       PathFragment execPath, boolean forFiles) {
+    return discoverFromExecPath(execPath, forFiles, /* bazelExternalDirectory= */ false);
+  }
+
+  public static Optional<PackageIdentifier> discoverFromExecPath(
+      PathFragment execPath, boolean forFiles, boolean bazelExternalDirectory) {
     Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
     PathFragment tofind =
         forFiles
             ? Preconditions.checkNotNull(
                 execPath.getParentDirectory(), "Must pass in files, not root directory")
             : execPath;
-    if (tofind.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+    PathFragment prefix = LabelConstants.getExternalPathPrefix(bazelExternalDirectory);
+    if (tofind.startsWith(prefix)) {
+      // The path prefix depends on the selected external repository layout.
       try {
         RepositoryName repository = RepositoryName.create(tofind.getSegment(1));
         return Optional.of(PackageIdentifier.create(repository, tofind.subFragment(2)));
@@ -187,7 +194,11 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
   }
 
   public PathFragment getExecPath() {
-    return repository.getExecPath().getRelative(pkgName);
+    return getExecPath(/* bazelExternalDirectory= */ false);
+  }
+
+  public PathFragment getExecPath(boolean bazelExternalDirectory) {
+    return repository.getExecPath(bazelExternalDirectory).getRelative(pkgName);
   }
 
   /**

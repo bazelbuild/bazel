@@ -139,6 +139,8 @@ public class BuildConfigurationValue
   /** Data for introspecting the options used by this configuration. */
   private final BuildOptionDetails buildOptionDetails;
 
+  private final boolean bazelExternalDirectory;
+
   private final FeatureSet defaultFeatures;
 
   @Nullable // lazily initialized
@@ -195,6 +197,7 @@ public class BuildConfigurationValue
   public static BuildConfigurationValue create(
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
+      boolean bazelExternalDirectory,
       String platformCpu,
       // Arguments below this are server-global.
       BlazeDirectories directories,
@@ -215,6 +218,7 @@ public class BuildConfigurationValue
     return new BuildConfigurationValue(
         buildOptions,
         mnemonic,
+        bazelExternalDirectory,
         platformCpu,
         globalProvider.getRunfilesPrefix(),
         directories,
@@ -246,6 +250,7 @@ public class BuildConfigurationValue
     return new BuildConfigurationValue(
         buildOptions,
         mnemonic,
+        /* bazelExternalDirectory= */ false,
         "",
         globalProvider.getRunfilesPrefix(),
         directories,
@@ -272,6 +277,7 @@ public class BuildConfigurationValue
   BuildConfigurationValue(
       BuildOptions buildOptions,
       String mnemonic,
+      boolean bazelExternalDirectory,
       String platformCpu,
       // Arguments below this are either server-global and constant or completely dependent values.
       String workspaceName,
@@ -290,6 +296,7 @@ public class BuildConfigurationValue
         new OutputDirectories(
             directories, options, buildOptions.get(PlatformOptions.class), mnemonic, workspaceName);
     this.workspaceName = workspaceName;
+    this.bazelExternalDirectory = bazelExternalDirectory;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -501,6 +508,10 @@ public class BuildConfigurationValue
 
   public ActionEnvironment getActionEnvironment() {
     return actionEnv;
+  }
+
+  public boolean isBazelExternalDirectory() {
+    return bazelExternalDirectory;
   }
 
   /**

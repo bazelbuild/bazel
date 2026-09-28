@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -325,7 +326,10 @@ public final class ConfiguredTargetFactory {
               transitiveVisibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
-              inputFile.getExecPath(),
+              inputFile.getExecPath(
+                  analysisEnvironment
+                      .getStarlarkSemantics()
+                      .getBool(BuildLanguageOptions.INCOMPATIBLE_BAZEL_EXTERNAL_DIRECTORY)),
               inputFile.getPackageMetadata().sourceRoot(),
               ConfiguredTargetKey.builder()
                   .setLabel(target.getLabel())
