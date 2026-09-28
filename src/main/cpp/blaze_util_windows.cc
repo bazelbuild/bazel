@@ -785,29 +785,29 @@ ATTRIBUTE_NORETURN static void ExecuteProgram(
   exit(RunProgram(exe, wargs_vector));
 }
 
-// Quotes an argument for a Java launcher argument file. Within quotes, a
-// backslash starts an escape sequence and a line break ends the argument.
-static string QuoteForJavaArgFile(const string& arg) {
-  string result = "\"";
+// Appends an argument quoted for a Java launcher argument file to *out.
+// Within quotes, a backslash starts an escape sequence and a line break ends
+// the argument.
+static void AppendQuotedForJavaArgFile(const string& arg, string* out) {
+  *out += '"';
   for (char c : arg) {
     switch (c) {
       case '\\':
       case '"':
-        result += '\\';
-        result += c;
+        *out += '\\';
+        *out += c;
         break;
       case '\n':
-        result += "\\n";
+        *out += "\\n";
         break;
       case '\r':
-        result += "\\r";
+        *out += "\\r";
         break;
       default:
-        result += c;
+        *out += c;
     }
   }
-  result += '"';
-  return result;
+  *out += '"';
 }
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
@@ -831,12 +831,13 @@ void ExecuteServerJvm(const blaze_util::Path& exe,
   // launcher read the arguments from a file instead. The embedded JDK's
   // java.exe uses UTF-8 as its active code page and thus reads the file as
   // UTF-8.
-  std::stringstream content;
+  string content;
   // Skip the first argument, it is equal to 'exe'.
   for (size_t i = 1; i < server_jvm_args.size(); ++i) {
-    content << QuoteForJavaArgFile(server_jvm_args[i]) << '\n';
+    AppendQuotedForJavaArgFile(server_jvm_args[i], &content);
+    content += '\n';
   }
-  if (!blaze_util::WriteFile(content.str(), argfile, 0600)) {
+  if (!blaze_util::WriteFile(content, argfile, 0600)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteServerJvm: failed to write " << argfile.AsPrintablePath()
         << ": " << GetLastErrorString();
