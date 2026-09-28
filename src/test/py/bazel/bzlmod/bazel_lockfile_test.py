@@ -2453,6 +2453,7 @@ class BazelLockfileTest(test_base.TestBase):
             'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
+            '    print("evaluating reproducible extension")',
             '    repo_rule(name="repo")',
             '    return ctx.extension_metadata(',
             '        root_module_direct_deps=[],',
@@ -2463,13 +2464,26 @@ class BazelLockfileTest(test_base.TestBase):
         ],
     )
 
-    self.RunBazel(['build', '@repo//:all'])
+    # Populate the workspace lockfile without evaluating the extension.
+    self.RunBazel(['build', '//:all'])
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
-      lockfile = json.loads(f.read().strip())
+      lockfile_contents = f.read()
+      lockfile = json.loads(lockfile_contents)
       self.assertNotIn('//:extension.bzl%ext', lockfile['moduleExtensions'])
 
-    # Assert ext does NOT fail in error mode
-    self.RunBazel(['build', '@repo//:all', '--lockfile_mode=error'])
+    # Error mode may populate the hidden cache, without changing the workspace
+    # lockfile. The cached result must survive a server restart.
+    _, _, stderr = self.RunBazel(
+        ['build', '@repo//:all', '--lockfile_mode=error']
+    )
+    self.assertIn('evaluating reproducible extension', ''.join(stderr))
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@repo//:all', '--lockfile_mode=error']
+    )
+    self.assertNotIn('evaluating reproducible extension', ''.join(stderr))
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      self.assertEqual(lockfile_contents, f.read())
 
     # Update extension to not be reproducible
     self.ScratchFile(

@@ -289,7 +289,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // influence the evaluation of the extension and the validation also runs when the extension
     // result is taken from the lockfile, we can already populate the lockfile info. This is
     // necessary to prevent the extension from rerunning when only the imports change.
-    if (lockfileMode == LockfileMode.UPDATE || lockfileMode == LockfileMode.REFRESH) {
+    if (lockfileMode != LockfileMode.OFF) {
       lockFileInfo =
           Optional.of(
               new LockFileModuleExtension.WithFactors(
