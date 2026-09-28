@@ -1085,17 +1085,15 @@ public final class MerkleTreeComputer {
     }
   }
 
-  /** Equivalent to {@code parent.equals(path.getParentDirectory())}. */
+  /** Equivalent to {@code parent.equals(path.getParentDirectory())} for relative paths. */
   @VisibleForTesting
   static boolean isParentDirectory(PathFragment parent, PathFragment path) {
     String pathString = path.getPathString();
-    int driveStrLength = path.getDriveStrLength();
-    if (pathString.length() <= driveStrLength) {
-      // The path is empty or a root, which has no parent.
+    if (pathString.isEmpty()) {
       return false;
     }
     int lastSeparator = pathString.lastIndexOf(PathFragment.SEPARATOR_CHAR);
-    int parentLength = max(lastSeparator, driveStrLength);
+    int parentLength = max(lastSeparator, 0);
     String parentString = parent.getPathString();
     return parentString.length() == parentLength && pathString.startsWith(parentString);
   }

@@ -502,13 +502,11 @@ public class MerkleTreeComputerTest {
             MerkleTreeComputer.BlobPolicy.KEEP);
   }
 
-  /** Paths covering the empty path, roots, nesting, siblings and segments sharing a prefix. */
+  /** Relative paths covering the empty path, nesting, siblings and segments sharing a prefix. */
   private static final class PathProvider extends TestParameterValuesProvider {
     @Override
     public ImmutableList<?> provideValues(Context context) {
-      return Stream.of(
-              "", "a", "ab", "a/b", "a/bc", "ab/c", "a/b/c", "a/b/d", "b/a", "/", "/a", "/ab",
-              "/a/b")
+      return Stream.of("", "a", "ab", "a/b", "a/bc", "ab/c", "a/b/c", "a/b/d", "b/a")
           .map(PathFragment::create)
           .collect(toImmutableList());
     }
