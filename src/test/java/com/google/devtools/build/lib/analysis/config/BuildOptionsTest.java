@@ -176,8 +176,7 @@ public final class BuildOptionsTest {
   }
 
   @Test
-  public void checksumOfChangedClone(@TestParameter boolean viaOptionDefinition)
-      throws Exception {
+  public void checksumOfChangedClone(@TestParameter boolean viaOptionDefinition) throws Exception {
     var options = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo");
     var checksum = options.checksum();
 
@@ -203,13 +202,13 @@ public final class BuildOptionsTest {
   public void checksumOfCloneReusesFragmentDigests() throws Exception {
     var options = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo");
     var checksum = options.checksum();
-    var digest = options.get(DummyTestOptions.class).cacheKeyDigest;
+    var digest = options.get(DummyTestOptions.class).cacheKeyDigest();
 
     var clone = options.toBuilder().build();
     var fragment = clone.get(DummyTestOptions.class);
     fragment.setStrOption(fragment.getStrOption());
 
-    assertThat(fragment.cacheKeyDigest).isSameInstanceAs(digest);
+    assertThat(fragment.cacheKeyDigest()).isSameInstanceAs(digest);
     assertThat(clone.checksum()).isEqualTo(checksum);
   }
 

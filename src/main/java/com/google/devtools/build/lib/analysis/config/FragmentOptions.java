@@ -17,30 +17,89 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.escape.CharEscaperBuilder;
+import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.util.EnvVar;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.AbstractMap;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Command-line build options for a Blaze module. */
 public abstract class FragmentOptions extends OptionsBase implements Cloneable {
 
+  private static final Escaper ESCAPER =
+      new CharEscaperBuilder().addEscape('\\', "\\\\").addEscape('"', "\\\"").toEscaper();
+
   /**
-   * Memoized digest of this fragment's contribution to {@link BuildOptions#checksum}.
+   * Memoized digest of {@link #cacheKey()}.
    *
    * <p>Clones inherit it, which allows most fragments of a transitioned {@link BuildOptions} to
    * reuse the digest of the original. Changing the value of any option resets it.
    */
-  @Nullable transient volatile byte[] cacheKeyDigest;
+  @Nullable private transient volatile byte[] cacheKeyDigest;
 
   @Override
-  protected void onOptionChanged() {
+  protected final void onOptionChanged() {
     cacheKeyDigest = null;
+  }
+
+  /** Returns a string that uniquely identifies the options. */
+  public final String cacheKey() {
+    return getOptionsClass().getName()
+        + "{"
+        + mapToCacheKey(Options.toMap(this), /* valueType= */ null)
+        + "}";
+  }
+
+  /** Returns the digest of {@link #cacheKey()}, memoized until the value of an option changes. */
+  final byte[] cacheKeyDigest() {
+    byte[] digest = cacheKeyDigest;
+    if (digest == null) {
+      digest = new Fingerprint().addString(cacheKey()).digestAndReset();
+      cacheKeyDigest = digest;
+    }
+    return digest;
+  }
+
+  /**
+   * Returns a string that uniquely identifies the options map.
+   *
+   * @param valueType if not null, prefixes each value with the result of applying this function to
+   *     it, which makes the key sensitive to the type of a value in addition to its string
+   *     representation
+   */
+  static String mapToCacheKey(Map<?, ?> optionsMap, @Nullable Function<Object, String> valueType) {
+    StringBuilder result = new StringBuilder();
+    for (Map.Entry<?, ?> entry : optionsMap.entrySet()) {
+      result.append(entry.getKey()).append("=");
+
+      Object value = entry.getValue();
+
+      if (value == null) {
+        result.append("NULL");
+      } else {
+        if (valueType != null) {
+          result.append(valueType.apply(value));
+        }
+        // This special case is needed because Collection.toString() prints the same ("[]") for an
+        // empty collection and for a collection with a single empty string.
+        if (value instanceof Collection<?> c && c.isEmpty()) {
+          result.append("EMPTY");
+        } else {
+          result.append('"').append(ESCAPER.escape(value.toString())).append('"');
+        }
+      }
+      result.append(", ");
+    }
+    return result.toString();
   }
 
   @Override

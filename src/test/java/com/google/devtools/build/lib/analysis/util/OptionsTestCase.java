@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.stream;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.List;
@@ -61,8 +60,7 @@ public abstract class OptionsTestCase<T extends FragmentOptions> {
     // the diff on cacheKey is humanreadable.
     FragmentOptions oneNormalized = one.getNormalized();
     FragmentOptions twoNormalized = two.getNormalized();
-    assertThat(BuildOptions.optionsToCacheKey(oneNormalized))
-        .isEqualTo(BuildOptions.optionsToCacheKey(twoNormalized));
+    assertThat(oneNormalized.cacheKey()).isEqualTo(twoNormalized.cacheKey());
     // Also check equality of toString() as that influences the ST-hash computation.
     assertThat(oneNormalized.toString()).isEqualTo(twoNormalized.toString());
   }
@@ -73,8 +71,7 @@ public abstract class OptionsTestCase<T extends FragmentOptions> {
     // the diff on cacheKey is humanreadable.
     FragmentOptions oneNormalized = one.getNormalized();
     FragmentOptions twoNormalized = two.getNormalized();
-    assertThat(BuildOptions.optionsToCacheKey(oneNormalized))
-        .isNotEqualTo(BuildOptions.optionsToCacheKey(twoNormalized));
+    assertThat(oneNormalized.cacheKey()).isNotEqualTo(twoNormalized.cacheKey());
     // Also check equality of toString() as that influences the ST-hash computation.
     assertThat(oneNormalized.toString()).isNotEqualTo(twoNormalized.toString());
   }
