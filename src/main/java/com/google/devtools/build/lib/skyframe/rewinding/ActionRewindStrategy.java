@@ -294,8 +294,8 @@ public final class ActionRewindStrategy {
     if (skyframeActionExecutor.rewindingEnabled()) {
       // Action rewinding takes precedence over whole-invocation retries when both are enabled.
       // Remote execution skips cache lookup for rewound actions without tracking lost digests.
-      // Other transient cache errors (such as failures to prefetch inputs) can still trigger
-      // invocation retries in BlazeCommandDispatcher without passing through this method.
+      // Other transient cache errors, including evicted repository files read during loading,
+      // can still trigger invocation retries in BlazeCommandDispatcher without passing here.
       return;
     }
     if (skyframeActionExecutor.invocationRetriesEnabled()) {

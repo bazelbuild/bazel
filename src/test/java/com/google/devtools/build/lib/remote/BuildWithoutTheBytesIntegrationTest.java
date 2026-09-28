@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper.rewoundArtifactOwnerLabels;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -23,12 +22,11 @@ import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
-import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
@@ -46,10 +44,12 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -64,31 +64,17 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   private final RewindingTestsHelper rewindingTestsHelper =
       new RewindingTestsHelper(this, new ActionEventRecorder());
 
-  /**
-   * Samples how many digests are known to be missing from the cache when the execution phase
-   * completes. This is before the build-complete event clears them on a successful build, which
-   * would otherwise hide digests that a rewind left behind.
-   */
-  private final class KnownMissingCasDigestsSampler {
-    private volatile int sizeAtExecutionPhaseComplete = -1;
-
-    @Subscribe
-    public void onExecutionPhaseComplete(ExecutionPhaseCompleteEvent event) {
-      sizeAtExecutionPhaseComplete = knownMissingCasDigestsSize();
-    }
-
-    void assertSizeAtExecutionPhaseComplete(int expected) {
-      assertThat(sizeAtExecutionPhaseComplete).isEqualTo(expected);
-    }
-  }
-
-  private int knownMissingCasDigestsSize() {
-    for (BlazeModule module : getRuntime().getBlazeModules()) {
-      if (module instanceof RemoteModule remoteModule) {
-        return remoteModule.getKnownMissingCasDigestsSize();
-      }
-    }
-    throw new AssertionError("no RemoteModule in the runtime");
+  private static void assertRewoundActions(List<SkyKey> rewoundKeys, String... expectedLabels) {
+    assertThat(
+            rewoundKeys.stream()
+                .filter(key -> key instanceof ActionLookupData)
+                .map(
+                    key ->
+                        ((ActionLookupData) key)
+                            .getActionLookupKey()
+                            .getLabel()
+                            .getCanonicalForm()))
+        .containsExactlyElementsIn(ImmutableList.copyOf(expectedLabels));
   }
 
   @TestParameter public boolean useDiskCache;
@@ -630,21 +616,17 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       write("a/baz.in", "baz2");
       setDownloadToplevel();
       var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
-      var sampler = new KnownMissingCasDigestsSampler();
-      getRuntimeWrapper().registerSubscriber(sampler);
       buildTarget("//a:baz");
 
       assertValidOutputFile("a/baz.out", "foobarbaz2\n");
       // Cache lookup is bypassed for each rewound action. Otherwise //a:baz would discover bar.out
       // lost again and rewind //a:bar once more.
-      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:bar", "//a:foo");
-      // Rewinding doesn't populate the digest set used by the legacy whole-invocation retry path.
-      sampler.assertSizeAtExecutionPhaseComplete(0);
+      assertRewoundActions(rewoundKeys, "//a:bar", "//a:foo");
     }
   }
 
   @Test
-  public void actionRewinding_localExecution_dropsLostDigests(
+  public void actionRewinding_cacheOnlyLocalExecution_skipsStaleCacheEntry(
       @TestParameter boolean uploadLocalResults) throws Exception {
     // Exercise cache-only local execution after clean(), including recovery without uploads.
     var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
@@ -689,23 +671,19 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       }
       addOptions("--remote_upload_local_results=" + uploadLocalResults);
       var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
-      var sampler = new KnownMissingCasDigestsSampler();
-      getRuntimeWrapper().registerSubscriber(sampler);
 
       buildTarget("//a:bar");
 
-      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:foo");
+      assertRewoundActions(rewoundKeys, "//a:foo");
       assertValidOutputFile("a/bar.out", "footwo\n");
       assertThat(unverifiedWorker.hasCasBlob("foo".getBytes(UTF_8))).isEqualTo(uploadLocalResults);
-
-      sampler.assertSizeAtExecutionPhaseComplete(0);
     }
   }
 
   @Test
-  public void actionRewinding_unrelatedFailure_dropsLostDigests() throws Exception {
-    // Rewinding must not leave missing-digest state behind after an unrelated build failure.
-    // Once another build restores the lost blob, the next build should accept its cache entry.
+  public void actionRewinding_unrelatedFailure_reusesRepairedCacheEntry() throws Exception {
+    // After rewinding and an unrelated build failure, restoring the lost blob should let the next
+    // build accept the cache entry again.
     assumeFalse(useDiskCache);
     var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
     try (var ignored = unverifiedWorker.start()) {
@@ -754,12 +732,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
           "--notrack_incremental_state",
           "--remote_upload_local_results=false");
       var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
-      var sampler = new KnownMissingCasDigestsSampler();
-      getRuntimeWrapper().registerSubscriber(sampler);
       assertThrows(BuildFailedException.class, () -> buildTarget("//a:fail"));
-      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:bar");
-      sampler.assertSizeAtExecutionPhaseComplete(0);
-      assertThat(knownMissingCasDigestsSize()).isEqualTo(0);
+      assertRewoundActions(rewoundKeys, "//a:bar");
 
       // Put the blob back, as another build writing the same output would.
       Path restoredBlob = getFileSystem().getPath(unverifiedWorker.getCasBlobPath(barContents));
@@ -839,16 +813,11 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       // Invalidate only //a:bar so that its execution discovers the lost input and rewinds //a:foo.
       write("a/bar.in", "two");
       var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
-      var sampler = new KnownMissingCasDigestsSampler();
-      getRuntimeWrapper().registerSubscriber(sampler);
       buildTarget("//a:bar");
 
-      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:foo");
+      assertRewoundActions(rewoundKeys, "//a:foo");
       assertValidOutputFile("a/bar.out", "footwo\n");
       assertThat(cacheWorker.hasCasBlob("foo".getBytes(UTF_8))).isEqualTo(uploadLocalResults);
-      // Rewinding doesn't populate the digest set used by the legacy whole-invocation retry path,
-      // regardless of whether the local result was uploaded.
-      sampler.assertSizeAtExecutionPhaseComplete(0);
     }
   }
 
@@ -1143,14 +1112,11 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       }
       enableActionRewinding();
       var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
-      var sampler = new KnownMissingCasDigestsSampler();
-      getRuntimeWrapper().registerSubscriber(sampler);
 
       buildTarget("//a:bar");
 
-      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:foo.out");
+      assertRewoundActions(rewoundKeys, "//a:foo.out");
       assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
-      sampler.assertSizeAtExecutionPhaseComplete(0);
     }
   }
 

@@ -300,7 +300,7 @@ public class RewindingTestsHelper {
     }
   }
 
-  public static ImmutableList<String> rewoundArtifactOwnerLabels(List<SkyKey> rewoundKeys) {
+  static ImmutableList<String> rewoundArtifactOwnerLabels(List<SkyKey> rewoundKeys) {
     return rewoundKeys.stream()
         .filter(k -> k instanceof ActionLookupData)
         .map(k -> ((ActionLookupData) k).getActionLookupKey().getLabel().getCanonicalForm())
