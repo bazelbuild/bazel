@@ -166,12 +166,16 @@ std::string GetJavaBinaryUnderJavabase();
 // Start the Bazel server's JVM in the current directory.
 //
 // Note on Windows: 'server_jvm_args' is NOT expected to be escaped for
-// CreateProcessW, and 'run_in_user_cgroup' is ignored.
+// CreateProcessW, and 'run_in_user_cgroup' is ignored. If the command line
+// exceeds the length limit of CreateProcessW, the arguments are passed to the
+// JVM via the argument file 'argfile' instead, which is deleted after the JVM
+// exits. 'argfile' is ignored on other platforms.
 //
 // This function does not return on success.
 ATTRIBUTE_NORETURN void ExecuteServerJvm(
     const blaze_util::Path& exe,
-    const std::vector<std::string>& server_jvm_args, bool run_in_user_cgroup);
+    const std::vector<std::string>& server_jvm_args,
+    const blaze_util::Path& argfile, bool run_in_user_cgroup);
 
 // Execute the "bazel run" request in the current directory.
 //

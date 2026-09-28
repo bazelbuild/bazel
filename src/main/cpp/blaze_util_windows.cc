@@ -488,8 +488,9 @@ static const int MAX_CMDLINE_LENGTH = 32768;
 struct CmdLine {
   WCHAR cmdline[MAX_CMDLINE_LENGTH];
 };
-static void CreateCommandLine(CmdLine* result, const blaze_util::Path& exe,
-                              const std::vector<std::wstring>& wargs_vector) {
+static std::wstring BuildCommandLine(
+    const blaze_util::Path& exe,
+    const std::vector<std::wstring>& wargs_vector) {
   std::wstringstream cmdline;
   string short_exe;
   if (!exe.IsEmpty()) {
@@ -515,8 +516,12 @@ static void CreateCommandLine(CmdLine* result, const blaze_util::Path& exe,
     }
     cmdline << wa;
   }
+  return cmdline.str();
+}
 
-  wstring cmdline_str = cmdline.str();
+static void CreateCommandLine(CmdLine* result, const blaze_util::Path& exe,
+                              const std::vector<std::wstring>& wargs_vector) {
+  wstring cmdline_str = BuildCommandLine(exe, wargs_vector);
   if (cmdline_str.size() >= MAX_CMDLINE_LENGTH) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "Command line too long (" << cmdline_str.size() << " > "
@@ -744,11 +749,9 @@ int ExecuteDaemon(
 }
 
 // Run the given program in the current working directory, using the given
-// argument vector, wait for it to finish, then exit ourselves with the exitcode
-// of that program.
-ATTRIBUTE_NORETURN static void ExecuteProgram(
-    const blaze_util::Path& exe,
-    const std::vector<std::wstring>& wargs_vector) {
+// argument vector, wait for it to finish, then return its exit code.
+static int RunProgram(const blaze_util::Path& exe,
+                      const std::vector<std::wstring>& wargs_vector) {
   CmdLine cmdline;
   CreateCommandLine(&cmdline, blaze_util::Path(), wargs_vector);
 
@@ -770,11 +773,46 @@ ATTRIBUTE_NORETURN static void ExecuteProgram(
         << "ExecuteProgram(" << exe.AsPrintablePath()
         << ") failed: " << blaze_util::WstringToCstring(werror);
   }
-  exit(x);
+  return x;
+}
+
+// Run the given program in the current working directory, using the given
+// argument vector, wait for it to finish, then exit ourselves with the exitcode
+// of that program.
+ATTRIBUTE_NORETURN static void ExecuteProgram(
+    const blaze_util::Path& exe,
+    const std::vector<std::wstring>& wargs_vector) {
+  exit(RunProgram(exe, wargs_vector));
+}
+
+// Quotes an argument for a Java launcher argument file. Within quotes, a
+// backslash starts an escape sequence and a line break ends the argument.
+static string QuoteForJavaArgFile(const string& arg) {
+  string result = "\"";
+  for (char c : arg) {
+    switch (c) {
+      case '\\':
+      case '"':
+        result += '\\';
+        result += c;
+        break;
+      case '\n':
+        result += "\\n";
+        break;
+      case '\r':
+        result += "\\r";
+        break;
+      default:
+        result += c;
+    }
+  }
+  result += '"';
+  return result;
 }
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args,
+                      const blaze_util::Path& argfile,
                       bool run_in_user_cgroup) {
   std::vector<std::wstring> wargs;
   wargs.reserve(server_jvm_args.size());
@@ -784,7 +822,37 @@ void ExecuteServerJvm(const blaze_util::Path& exe,
     wargs.push_back(wesc);
   }
 
-  ExecuteProgram(exe, wargs);
+  if (BuildCommandLine(exe, wargs).size() < MAX_CMDLINE_LENGTH) {
+    ExecuteProgram(exe, wargs);
+  }
+
+  // The command line is too long for CreateProcessW, which happens in batch
+  // mode with a large client environment passed via --client_env. Let the Java
+  // launcher read the arguments from a file instead. The embedded JDK's
+  // java.exe uses UTF-8 as its active code page and thus reads the file as
+  // UTF-8.
+  std::stringstream content;
+  // Skip the first argument, it is equal to 'exe'.
+  for (size_t i = 1; i < server_jvm_args.size(); ++i) {
+    content << QuoteForJavaArgFile(server_jvm_args[i]) << '\n';
+  }
+  if (!blaze_util::WriteFile(content.str(), argfile, 0600)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ExecuteServerJvm: failed to write " << argfile.AsPrintablePath()
+        << ": " << GetLastErrorString();
+  }
+  wstring wshort_argfile;
+  string error;
+  if (!blaze_util::AsShortWindowsPath(argfile.AsNativePath(), &wshort_argfile,
+                                      &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ExecuteServerJvm: AsShortWindowsPath(" << argfile.AsPrintablePath()
+        << "): " << error;
+  }
+  int exit_code = RunProgram(
+      exe, {wargs[0], bazel::windows::WindowsEscapeArg(L"@" + wshort_argfile)});
+  blaze_util::UnlinkPath(argfile);
+  exit(exit_code);
 }
 
 void ExecuteRunRequest(const blaze_util::Path& exe,

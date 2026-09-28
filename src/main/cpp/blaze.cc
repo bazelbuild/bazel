@@ -722,6 +722,13 @@ static bool CanRunOutsideWorkspace(const string& command) {
          command == "version";
 }
 
+// Returns the path of the file that the server JVM reads its arguments from on
+// Windows if they exceed the command line length limit.
+static blaze_util::Path GetServerJvmArgFilePath(
+    const blaze_util::Path &output_base) {
+  return output_base.GetRelative("server_jvm.args");
+}
+
 // Replace this process with the blaze server. Does not exit.
 static void RunServerMode(
     const blaze_util::Path &server_exe, const vector<string> &server_exe_args,
@@ -760,7 +767,9 @@ static void RunServerMode(
 #else
     bool run_in_user_cgroup = false;
 #endif
-    ExecuteServerJvm(server_exe, server_exe_args, run_in_user_cgroup);
+    ExecuteServerJvm(server_exe, server_exe_args,
+                     GetServerJvmArgFilePath(startup_options.output_base),
+                     run_in_user_cgroup);
   }
 }
 
@@ -823,7 +832,9 @@ static void RunBatchMode(
 #else
     bool run_in_user_cgroup = false;
 #endif
-    ExecuteServerJvm(server_exe, jvm_args_vector, run_in_user_cgroup);
+    ExecuteServerJvm(server_exe, jvm_args_vector,
+                     GetServerJvmArgFilePath(startup_options.output_base),
+                     run_in_user_cgroup);
   }
 }
 
