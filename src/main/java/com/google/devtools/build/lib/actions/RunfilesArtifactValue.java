@@ -87,8 +87,9 @@ public final class RunfilesArtifactValue implements RichArtifactData {
   private byte[] computeDigest() {
     Fingerprint result = new Fingerprint();
 
-    result.addInt(runfilesTree.getMapping().size());
-    for (var entry : runfilesTree.getMapping().entrySet()) {
+    var mapping = runfilesTree.getMapping();
+    result.addInt(mapping.size());
+    for (var entry : mapping.entrySet()) {
       result.addPath(entry.getKey());
       result.addBoolean(entry.getValue() != null);
       if (entry.getValue() != null) {
