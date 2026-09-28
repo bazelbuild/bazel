@@ -30,6 +30,19 @@ import javax.annotation.Nullable;
 /** Command-line build options for a Blaze module. */
 public abstract class FragmentOptions extends OptionsBase implements Cloneable {
 
+  /**
+   * Memoized digest of this fragment's contribution to {@link BuildOptions#checksum}.
+   *
+   * <p>Clones inherit it, which allows most fragments of a transitioned {@link BuildOptions} to
+   * reuse the digest of the original. Changing the value of any option resets it.
+   */
+  @Nullable transient volatile byte[] cacheKeyDigest;
+
+  @Override
+  protected void onOptionChanged() {
+    cacheKeyDigest = null;
+  }
+
   @Override
   @SuppressWarnings("unchecked") // Reflection doesn't support generics
   public Class<? extends FragmentOptions> getOptionsClass() {

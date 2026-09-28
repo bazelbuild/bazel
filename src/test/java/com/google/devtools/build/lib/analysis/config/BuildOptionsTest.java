@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
@@ -64,6 +66,8 @@ public final class BuildOptionsTest {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
     public abstract String getStrOption();
+
+    public abstract void setStrOption(String value);
 
     @Option(
         name = "another_str_option",
@@ -169,6 +173,44 @@ public final class BuildOptionsTest {
                         ImmutableList.of(DummyTestOptions.class, SecondDummyTestOptions.class),
                         options1)))
         .isFalse();
+  }
+
+  @Test
+  public void checksumOfChangedClone(@TestParameter boolean viaOptionDefinition)
+      throws Exception {
+    var options = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo");
+    var checksum = options.checksum();
+
+    var clone = options.clone();
+    assertThat(clone.checksum()).isEqualTo(checksum);
+    var fragment = clone.get(DummyTestOptions.class);
+    if (viaOptionDefinition) {
+      OptionDefinition.getOptionDefinitions(DummyTestOptions.class).stream()
+          .filter(def -> def.getOptionName().equals("str_option"))
+          .collect(onlyElement())
+          .setValue(fragment, "bar");
+    } else {
+      fragment.setStrOption("bar");
+    }
+    var changed = BuildOptions.builder().merge(clone).build();
+
+    assertThat(options.checksum()).isEqualTo(checksum);
+    assertThat(changed.checksum())
+        .isEqualTo(BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=bar").checksum());
+  }
+
+  @Test
+  public void checksumOfCloneReusesFragmentDigests() throws Exception {
+    var options = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo");
+    var checksum = options.checksum();
+    var digest = options.get(DummyTestOptions.class).cacheKeyDigest;
+
+    var clone = options.toBuilder().build();
+    var fragment = clone.get(DummyTestOptions.class);
+    fragment.setStrOption(fragment.getStrOption());
+
+    assertThat(fragment.cacheKeyDigest).isSameInstanceAs(digest);
+    assertThat(clone.checksum()).isEqualTo(checksum);
   }
 
   @Test
