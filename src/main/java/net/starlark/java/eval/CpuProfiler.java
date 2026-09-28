@@ -122,7 +122,7 @@ public final class CpuProfiler {
 
   /** Associates a counter with the current OS thread and returns its previous counter, if any. */
   @Nullable
-  static AtomicInteger setCpuTicks(@Nullable AtomicInteger cpuTicks) {
+  static AtomicInteger setCpuTicksForCurrentThread(@Nullable AtomicInteger cpuTicks) {
     if (cpuTicks == null) {
       return cpuTicksByThread.remove(nativeSupport.getThreadId());
     } else {

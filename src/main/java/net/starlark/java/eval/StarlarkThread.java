@@ -297,7 +297,7 @@ public final class StarlarkThread {
       if (profiler != null) {
         // Associate the current OS thread with this evaluation's CPU tick counter.
         // (Save the previous association so we can restore it later.)
-        this.savedCpuTicks = CpuProfiler.setCpuTicks(cpuTicks);
+        this.savedCpuTicks = CpuProfiler.setCpuTicksForCurrentThread(cpuTicks);
       }
     }
 
@@ -349,7 +349,7 @@ public final class StarlarkThread {
       // unregister it from the profiler.
       if (last == 0) {
         // Restore the previous association (in case of reentrant evaluation).
-        CpuProfiler.setCpuTicks(this.savedCpuTicks);
+        CpuProfiler.setCpuTicksForCurrentThread(this.savedCpuTicks);
         this.savedCpuTicks = null;
         this.profiler = null;
       }
