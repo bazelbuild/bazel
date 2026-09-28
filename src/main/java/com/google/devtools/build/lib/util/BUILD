@@ -351,7 +351,10 @@ java_library(
 
 java_library(
     name = "deterministic_writer",
-    srcs = ["DeterministicWriter.java"],
+    srcs = [
+        "DeterministicWriter.java",
+        "DeterministicWriterInputStream.java",
+    ],
     deps = ["//third_party/java/protobuf"],
 )
 

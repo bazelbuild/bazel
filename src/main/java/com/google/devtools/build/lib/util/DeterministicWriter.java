@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.util;
 
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -55,5 +56,18 @@ public interface DeterministicWriter {
     ByteString.Output out = ByteString.newOutput();
     writeTo(out);
     return out.toByteString();
+  }
+
+  /**
+   * Provides an {@link InputStream} that reads the contents without materializing them entirely in
+   * memory. The pipe buffers at most {@code bufferSize} bytes, in addition to any memory used by
+   * the writer itself.
+   *
+   * <p>The writer runs on a virtual thread and blocks when the buffer is full. The caller must
+   * close the stream to stop the writer if it does not read to the end. Writer failures are
+   * propagated to the reader as {@link IOException}s.
+   */
+  default InputStream getInputStream(int bufferSize) {
+    return new DeterministicWriterInputStream(this, bufferSize);
   }
 }
