@@ -195,7 +195,7 @@ public final class BuildOptions implements Cloneable {
           } else {
             Fingerprint fingerprint = new Fingerprint();
             for (FragmentOptions options : fragmentOptionsMap.values()) {
-              fingerprint.addString(optionsToCacheKey(options));
+              fingerprint.addBytes(cacheKeyDigest(options));
             }
             fingerprint.addString(starlarkMapToCacheKey(starlarkOptionsMap));
             fingerprint.addString(mapToCacheKey(scopes));
@@ -206,6 +206,15 @@ public final class BuildOptions implements Cloneable {
       }
     }
     return checksum;
+  }
+
+  private static byte[] cacheKeyDigest(FragmentOptions options) {
+    byte[] digest = options.cacheKeyDigest;
+    if (digest == null) {
+      digest = new Fingerprint().addString(optionsToCacheKey(options)).digestAndReset();
+      options.cacheKeyDigest = digest;
+    }
+    return digest;
   }
 
   /** Returns a string that uniquely identifies the options. */

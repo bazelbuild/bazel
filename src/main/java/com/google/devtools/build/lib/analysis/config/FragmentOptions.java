@@ -30,6 +30,14 @@ import javax.annotation.Nullable;
 /** Command-line build options for a Blaze module. */
 public abstract class FragmentOptions extends OptionsBase implements Cloneable {
 
+  /**
+   * Memoized digest of this fragment's contribution to {@link BuildOptions#checksum}.
+   *
+   * <p>Like the checksum itself, this assumes that the fragment isn't mutated after it has become
+   * part of a {@link BuildOptions} whose checksum has been computed. {@link #clone} resets it.
+   */
+  @Nullable transient volatile byte[] cacheKeyDigest;
+
   @Override
   @SuppressWarnings("unchecked") // Reflection doesn't support generics
   public Class<? extends FragmentOptions> getOptionsClass() {
@@ -39,7 +47,9 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
   @Override
   public FragmentOptions clone() {
     try {
-      return (FragmentOptions) super.clone();
+      FragmentOptions clone = (FragmentOptions) super.clone();
+      clone.cacheKeyDigest = null;
+      return clone;
     } catch (CloneNotSupportedException e) {
       // This can't happen.
       throw new IllegalStateException(e);

@@ -1099,18 +1099,28 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Override
   public final CoreOptions getNormalized() {
-    CoreOptions result = (CoreOptions) clone();
-    result.setAllowedCpuValues(dedupAndSort(getAllowedCpuValues()));
-    result.setCommandLineBuildVariables(
-        sortEntries(normalizeEntries(getCommandLineBuildVariables())));
-
-    // Normalize features.
-    result.setDefaultFeatures(getNormalizedFeatures(getDefaultFeatures()));
-
-    result.setActionEnvironment(normalizeEnvVars(getActionEnvironment()));
-    result.setHostActionEnvironment(normalizeEnvVars(getHostActionEnvironment()));
-    result.setCommandLineFlagAliases(sortEntries(normalizeEntries(getCommandLineFlagAliases())));
-
+    var allowedCpuValues = dedupAndSort(getAllowedCpuValues());
+    var commandLineBuildVariables = sortEntries(normalizeEntries(getCommandLineBuildVariables()));
+    var defaultFeatures = getNormalizedFeatures(getDefaultFeatures());
+    var actionEnvironment = normalizeEnvVars(getActionEnvironment());
+    var hostActionEnvironment = normalizeEnvVars(getHostActionEnvironment());
+    var commandLineFlagAliases = sortEntries(normalizeEntries(getCommandLineFlagAliases()));
+    // The helpers return their input if it is already normalized.
+    if (allowedCpuValues == getAllowedCpuValues()
+        && commandLineBuildVariables == getCommandLineBuildVariables()
+        && defaultFeatures == getDefaultFeatures()
+        && actionEnvironment == getActionEnvironment()
+        && hostActionEnvironment == getHostActionEnvironment()
+        && commandLineFlagAliases == getCommandLineFlagAliases()) {
+      return this;
+    }
+    CoreOptions result = clone();
+    result.setAllowedCpuValues(allowedCpuValues);
+    result.setCommandLineBuildVariables(commandLineBuildVariables);
+    result.setDefaultFeatures(defaultFeatures);
+    result.setActionEnvironment(actionEnvironment);
+    result.setHostActionEnvironment(hostActionEnvironment);
+    result.setCommandLineFlagAliases(commandLineFlagAliases);
     return result;
   }
 

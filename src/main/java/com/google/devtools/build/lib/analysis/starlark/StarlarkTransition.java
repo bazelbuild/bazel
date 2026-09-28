@@ -209,7 +209,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
             || validateAndCheckIfAtDefault(
                 details, options, maybeAliasSetting, setting, rawInputAndOutputSettings)) {
           if (cleanedOptions == null) {
-            cleanedOptions = options.toBuilder();
+            cleanedOptions = BuildOptions.builder().merge(options);
           }
           cleanedOptions.removeStarlarkOption(setting);
         }
@@ -305,7 +305,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     }
     Collection<Label> aliases = aliasToActual.keySet();
     Collection<Label> actuals = aliasToActual.values();
-    BuildOptions.Builder toReturn = options.toBuilder();
+    BuildOptions.Builder toReturn = BuildOptions.builder().merge(options);
     for (Entry<Label, Object> entry : options.getStarlarkOptions().entrySet()) {
       Label setting = entry.getKey();
       if (actuals.contains(setting)) {

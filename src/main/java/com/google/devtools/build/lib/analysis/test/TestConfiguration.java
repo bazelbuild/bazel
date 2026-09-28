@@ -385,8 +385,12 @@ public class TestConfiguration extends Fragment {
 
     @Override
     public TestOptions getNormalized() {
+      var testEnvironment = normalizeEnvVars(getTestEnvironment());
+      if (testEnvironment == getTestEnvironment()) {
+        return this;
+      }
       TestOptions result = (TestOptions) clone();
-      result.setTestEnvironment(normalizeEnvVars(getTestEnvironment()));
+      result.setTestEnvironment(testEnvironment);
       return result;
     }
   }

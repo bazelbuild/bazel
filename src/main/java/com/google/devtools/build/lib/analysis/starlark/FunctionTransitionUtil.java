@@ -49,6 +49,7 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -615,14 +616,12 @@ public final class FunctionTransitionUtil {
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
       throws ValidationException {
-    // toOptions being null means the transition hasn't changed anything. We avoid preemptively
-    // cloning it from fromOptions since options cloning is an expensive operation.
-    BuildOptions toOptions = null;
-    // Starlark options that are different after this transition. We collect all of them, then clone
-    // the build options once with all cumulative changes. Native option changes, in contrast, are
-    // set directly in the BuildOptions instance. The former approach is preferred since it makes
-    // BuildOptions objects more immutable. Native options use the latter approach for legacy
-    // reasons. While not preferred, direct mutation doesn't require expensive cloning.
+    // Fragments with native options that are different after this transition. Each fragment is
+    // cloned before its first change, all other fragments are shared with fromOptions. This avoids
+    // both cloning and recomputing the checksum contribution of unchanged fragments.
+    Map<Class<? extends FragmentOptions>, FragmentOptions> changedFragments = new HashMap<>();
+    // Starlark options that are different after this transition. We collect all of them, then build
+    // the new build options once with all cumulative changes.
     Map<Label, Object> changedStarlarkOptions = new LinkedHashMap<>();
     for (Map.Entry<Label, Object> entry : newValues.entrySet()) {
       Label optionKey = entry.getKey();
@@ -767,10 +766,10 @@ public final class FunctionTransitionUtil {
 
           Object oldValue = def.getRawValue(fromOptions.get(optionInfo.getOptionClass()));
           if (!Objects.equals(oldValue, convertedValue)) {
-            if (toOptions == null) {
-              toOptions = fromOptions.clone();
-            }
-            def.setValue(toOptions.get(optionInfo.getOptionClass()), convertedValue);
+            def.setValue(
+                changedFragments.computeIfAbsent(
+                    optionInfo.getOptionClass(), c -> fromOptions.get(c).clone()),
+                convertedValue);
           }
 
         } catch (IllegalArgumentException e) {
@@ -783,20 +782,19 @@ public final class FunctionTransitionUtil {
       }
     }
 
-    if (toOptions == null && changedStarlarkOptions.isEmpty()) {
+    if (changedFragments.isEmpty() && changedStarlarkOptions.isEmpty()) {
       return fromOptions;
+    }
+    if (starlarkTransition.isForAnalysisTesting()) {
+      ((CoreOptions)
+              changedFragments.computeIfAbsent(CoreOptions.class, c -> fromOptions.get(c).clone()))
+          .setEvaluatingForAnalysisTest(true);
     }
     // Note that rebuilding also calls FragmentOptions.getNormalized() to guarantee --define,
     // --features, and similar flags are consistently ordered.
-    toOptions =
-        BuildOptions.builder()
-            .merge(toOptions == null ? fromOptions.clone() : toOptions)
-            .addStarlarkOptions(changedStarlarkOptions)
-            .build();
-    if (starlarkTransition.isForAnalysisTesting()) {
-      toOptions.get(CoreOptions.class).setEvaluatingForAnalysisTest(true);
-    }
-    return toOptions;
+    BuildOptions.Builder toOptions = BuildOptions.builder().merge(fromOptions);
+    changedFragments.values().forEach(toOptions::addFragmentOptions);
+    return toOptions.addStarlarkOptions(changedStarlarkOptions).build();
   }
 
   private FunctionTransitionUtil() {}

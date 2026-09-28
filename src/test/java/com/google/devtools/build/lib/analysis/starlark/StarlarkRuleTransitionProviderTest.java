@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -34,6 +36,7 @@ import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOp
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -1774,6 +1777,73 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     assertContainsEvent(
         "'None' value not allowed for List-type option 'copt'. Please use '[]' instead if trying"
             + " to set option to empty value.");
+  }
+
+  @Test
+  public void testTransitionSharesUnchangedFragmentOptions() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(settings, attr):
+            return {
+                "//command_line_option:foo": "post-transition",
+                "//test:flag": "post-transition",
+            }
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//command_line_option:foo", "//test:flag"],
+        )
+        my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule", "string_flag")
+
+        string_flag(
+            name = "flag",
+            build_setting_default = "default",
+        )
+
+        my_rule(name = "test")
+        """);
+    var rule = (Rule) getTarget("//test:test");
+    var transition =
+        rule.getRuleClassObject()
+            .getTransitionFactory()
+            .create(RuleTransitionData.create(rule, null, ""));
+    var flag = Label.parseCanonicalUnchecked("//test:flag");
+    var details =
+        StarlarkBuildSettingsDetailsValue.create(
+            ImmutableMap.of(flag, "default"),
+            ImmutableMap.of(flag, Type.STRING),
+            ImmutableSet.of(),
+            ImmutableMap.of(),
+            ImmutableMap.of());
+    var fromOptions = getTargetConfiguration().getOptions();
+
+    var toOptions =
+        getOnlyElement(
+            new StarlarkTransitionCache()
+                .computeIfAbsent(fromOptions, transition, details, reporter)
+                .values());
+
+    assertThat(toOptions.getStarlarkOptions()).containsExactly(flag, "post-transition");
+    assertThat(toOptions.get(DummyTestOptions.class).getFoo()).isEqualTo("post-transition");
+    assertThat(fromOptions.get(DummyTestOptions.class).getFoo()).isNotEqualTo("post-transition");
+    for (FragmentOptions fragment : fromOptions.getNativeOptions()) {
+      if (fragment instanceof DummyTestOptions) {
+        assertThat(toOptions.get(DummyTestOptions.class)).isNotSameInstanceAs(fragment);
+      } else {
+        assertThat(toOptions.get(fragment.getOptionsClass())).isSameInstanceAs(fragment);
+      }
+    }
   }
 
   @Test

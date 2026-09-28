@@ -194,12 +194,16 @@ public abstract class PlatformOptions extends FragmentOptions {
 
   @Override
   public PlatformOptions getNormalized() {
-    PlatformOptions result = (PlatformOptions) clone();
-    result.setExtraToolchains(
+    var extraToolchains =
         dedupeKeepingLast(
-            result.getExtraToolchains() == null
+            getExtraToolchains() == null
                 ? ImmutableList.of()
-                : ImmutableList.copyOf(result.getExtraToolchains())));
+                : ImmutableList.copyOf(getExtraToolchains()));
+    if (extraToolchains == getExtraToolchains() && getPlatforms().size() <= 1) {
+      return this;
+    }
+    PlatformOptions result = (PlatformOptions) clone();
+    result.setExtraToolchains(extraToolchains);
     // Only the first entry of platforms is used (it should have been Label and not List<Label>)
     // So drop all but the first entry.
     if (result.getPlatforms().size() > 1) {

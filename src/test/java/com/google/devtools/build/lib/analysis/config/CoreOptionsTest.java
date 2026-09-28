@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.util.OptionsTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,6 +28,27 @@ public final class CoreOptionsTest extends OptionsTestCase<CoreOptions> {
   private static final String FEATURES_PREFIX = "--features=";
   private static final String DEFINE_PREFIX = "--define=";
   private static final String FLAG_ALIAS_PREFIX = "--flag_alias=";
+
+  @Test
+  public void testGetNormalized_normalized_returnsSameInstance() throws Exception {
+    var normalized =
+        createWithPrefix(
+                ImmutableList.of("--define=b=2", "--define=a=1"), FEATURES_PREFIX, "foo", "bar")
+            .getNormalized();
+
+    assertThat(normalized.getNormalized()).isSameInstanceAs(normalized);
+  }
+
+  @Test
+  public void testGetNormalized_notNormalized_returnsNormalizedCopy() throws Exception {
+    var options = createWithPrefix(FEATURES_PREFIX, "foo", "bar");
+
+    var normalized = options.getNormalized();
+
+    assertThat(normalized).isNotSameInstanceAs(options);
+    assertThat(normalized.getDefaultFeatures()).containsExactly("bar", "foo").inOrder();
+    assertThat(options.getDefaultFeatures()).containsExactly("foo", "bar").inOrder();
+  }
 
   @Test
   public void testFeatures_orderingOfPositiveFeatures() throws Exception {

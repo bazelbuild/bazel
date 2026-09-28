@@ -65,6 +65,8 @@ public final class BuildOptionsTest {
         defaultValue = "defVal")
     public abstract String getStrOption();
 
+    public abstract void setStrOption(String value);
+
     @Option(
         name = "another_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -169,6 +171,20 @@ public final class BuildOptionsTest {
                         ImmutableList.of(DummyTestOptions.class, SecondDummyTestOptions.class),
                         options1)))
         .isFalse();
+  }
+
+  @Test
+  public void checksumOfMutatedClone() throws Exception {
+    var options = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo");
+    var checksum = options.checksum();
+
+    var clone = options.clone();
+    clone.get(DummyTestOptions.class).setStrOption("bar");
+
+    assertThat(options.checksum()).isEqualTo(checksum);
+    assertThat(clone.checksum()).isNotEqualTo(checksum);
+    assertThat(clone.checksum())
+        .isEqualTo(BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=bar").checksum());
   }
 
   @Test

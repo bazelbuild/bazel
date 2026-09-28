@@ -115,7 +115,7 @@ public final class StarlarkTransitionCache {
       Label setting = details.aliasToActual().getOrDefault(maybeAliasSetting, maybeAliasSetting);
       if (!fromOptions.getStarlarkOptions().containsKey(maybeAliasSetting)) {
         if (optionsWithDefaults == null) {
-          optionsWithDefaults = fromOptions.toBuilder();
+          optionsWithDefaults = BuildOptions.builder().merge(fromOptions);
         }
         optionsWithDefaults.addStarlarkOption(
             maybeAliasSetting, details.buildSettingToDefault().get(setting));
@@ -131,7 +131,7 @@ public final class StarlarkTransitionCache {
       BuildOptions fromOptions) {
     for (Label customExecSetting : details.customExecScopeValues().keySet()) {
       if (optionsWithDefaults == null) {
-        optionsWithDefaults = fromOptions.toBuilder();
+        optionsWithDefaults = BuildOptions.builder().merge(fromOptions);
       }
 
       CustomExecScopeValue customExecScopeValue =
