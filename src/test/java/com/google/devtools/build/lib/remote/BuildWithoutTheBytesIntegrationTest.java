@@ -26,6 +26,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
@@ -571,18 +572,19 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void actionRewinding_chainedLostInputsWithStaleActionCacheEntries_recovers(
-      @TestParameter boolean actionCacheIntegrityCheck) throws Exception {
-    // A rewound action that itself observes a lost input must report the lost digest just like an
-    // action that hasn't been rewound. Otherwise, if the worker serves cached action results even
-    // if the blobs they reference are missing from the CAS, the rewound generating action accepts
-    // the stale action result and the two actions keep rewinding each other until the limit on
-    // repeated lost inputs fails the build.
+      @TestParameter boolean actionCacheIntegrityCheck, @TestParameter boolean invocationRetries)
+      throws Exception {
+    // A rewound action that itself observes a lost input must rewind that input's producer too.
+    // Each rewound action must skip its stale cache entry to avoid repeatedly losing the same
+    // input.
     var chainWorker =
         IntegrationTestUtils.createWorker(
             "--action_cache_integrity_check=" + actionCacheIntegrityCheck);
     try (var ignored = chainWorker.start()) {
       addOptions("--remote_executor=grpc://localhost:" + chainWorker.getPort());
       enableActionRewinding();
+      // Action rewinding takes precedence, even if whole-invocation retries are also enabled.
+      addOptions("--experimental_remote_cache_eviction_retries=" + (invocationRetries ? 5 : 0));
       write(
           "a/BUILD",
           """
@@ -638,6 +640,150 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:bar", "//a:foo");
       // Rewinding doesn't populate the digest set used by the legacy whole-invocation retry path.
       sampler.assertSizeAtExecutionPhaseComplete(0);
+    }
+  }
+
+  @Test
+  public void actionRewinding_localExecution_dropsLostDigests(
+      @TestParameter boolean uploadLocalResults) throws Exception {
+    // Exercise cache-only local execution after clean(), including recovery without uploads.
+    var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = unverifiedWorker.start()) {
+      addOptions(
+          "--remote_executor=", "--remote_cache=grpc://localhost:" + unverifiedWorker.getPort());
+      enableActionRewinding();
+      write(
+          "a/BUILD",
+          """
+          genrule(
+              name = "foo",
+              srcs = [],
+              outs = ["foo.out"],
+              cmd = "echo -n foo > $@",
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [
+                  ":foo.out",
+                  "bar.in",
+              ],
+              outs = ["bar.out"],
+              cmd = "cat $(location :foo.out) $(location bar.in) > $@",
+          )
+          """);
+      write("a/bar.in", "one");
+
+      buildTarget("//a:bar");
+
+      // Delete foo.out locally.
+      clean();
+      // Delete foo.out remotely, but keep the AC for foo.
+      unverifiedWorker.evictBlob("foo".getBytes(UTF_8));
+      // Invalidate //a:bar, so its execution finds foo.out lost and rewinds //a:foo.
+      write("a/bar.in", "two");
+      setDownloadToplevel();
+      if (useDiskCache) {
+        // Prevent the disk cache from restoring the deleted blobs.
+        addOptions("--disk_cache=" + UUID.randomUUID());
+      }
+      addOptions("--remote_upload_local_results=" + uploadLocalResults);
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+      var sampler = new KnownMissingCasDigestsSampler();
+      getRuntimeWrapper().registerSubscriber(sampler);
+
+      buildTarget("//a:bar");
+
+      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:foo");
+      assertValidOutputFile("a/bar.out", "footwo\n");
+      assertThat(unverifiedWorker.hasCasBlob("foo".getBytes(UTF_8))).isEqualTo(uploadLocalResults);
+
+      sampler.assertSizeAtExecutionPhaseComplete(0);
+    }
+  }
+
+  @Test
+  public void actionRewinding_unrelatedFailure_dropsLostDigests() throws Exception {
+    // Rewinding must not leave missing-digest state behind after an unrelated build failure.
+    // Once another build restores the lost blob, the next build should accept its cache entry.
+    assumeFalse(useDiskCache);
+    var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = unverifiedWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + unverifiedWorker.getPort());
+      enableActionRewinding();
+      write(
+          "a/BUILD",
+          """
+          genrule(
+              name = "bar",
+              srcs = [],
+              outs = ["bar.out"],
+              cmd = "echo -n bar > $@",
+          )
+
+          genrule(
+              name = "consumer",
+              srcs = [
+                  ":bar.out",
+                  "consumer.in",
+              ],
+              outs = ["consumer.out"],
+              cmd = "cat $(location :bar.out) $(location consumer.in) > $@",
+          )
+
+          genrule(
+              name = "fail",
+              srcs = [":consumer.out"],
+              outs = ["fail.out"],
+              cmd = "exit 1",
+          )
+          """);
+      write("a/consumer.in", "one");
+
+      buildTarget("//a:consumer");
+
+      // Delete the blob backing bar.out, keeping //a:bar's action cache entry.
+      byte[] barContents = "bar".getBytes(UTF_8);
+      unverifiedWorker.evictBlob(barContents);
+
+      // Invalidate only //a:consumer, so its execution finds bar.out lost and rewinds //a:bar.
+      write("a/consumer.in", "two");
+      setDownloadToplevel();
+      addOptions(
+          "--strategy_regexp=.*=standalone",
+          "--notrack_incremental_state",
+          "--remote_upload_local_results=false");
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+      var sampler = new KnownMissingCasDigestsSampler();
+      getRuntimeWrapper().registerSubscriber(sampler);
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:fail"));
+      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:bar");
+      sampler.assertSizeAtExecutionPhaseComplete(0);
+      assertThat(knownMissingCasDigestsSize()).isEqualTo(0);
+
+      // Put the blob back, as another build writing the same output would.
+      Path restoredBlob = getFileSystem().getPath(unverifiedWorker.getCasBlobPath(barContents));
+      restoredBlob.getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.writeContent(restoredBlob, barContents);
+
+      // Delete the locally regenerated outputs and change //a:consumer's input, so the next build
+      // must re-evaluate and cannot reuse local state, forcing //a:bar's entry to be looked up.
+      getOutputPath("a/bar.out").delete();
+      getOutputPath("a/consumer.out").delete();
+      write("a/consumer.in", "three");
+      ActionEventRecorder actionEventRecorder = new ActionEventRecorder();
+      getRuntimeWrapper().registerSubscriber(actionEventRecorder);
+      buildTarget("//a:consumer");
+      assertThat(
+              actionEventRecorder.getActionResultReceivedEvents().stream()
+                  .filter(
+                      event ->
+                          !event.getActionResult().spawnResults().isEmpty()
+                              && event.getActionResult().spawnResults().stream()
+                                  .allMatch(SpawnResult::isCacheHit))
+                  .map(event -> event.getAction().getOwner().getLabel().getCanonicalForm()))
+          .containsExactly("//a:bar");
+      assertValidOutputFile("a/consumer.out", "barthree\n");
     }
   }
 
@@ -996,10 +1142,15 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         addOptions("--strategy_regexp=.*=local");
       }
       enableActionRewinding();
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+      var sampler = new KnownMissingCasDigestsSampler();
+      getRuntimeWrapper().registerSubscriber(sampler);
 
       buildTarget("//a:bar");
 
+      assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//a:foo.out");
       assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
+      sampler.assertSizeAtExecutionPhaseComplete(0);
     }
   }
 

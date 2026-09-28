@@ -743,9 +743,8 @@ public final class SkyframeActionExecutor {
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
     boolean bustActionCache =
-        wasRewound(action)
-            || (bustActionCachesTarget != null
-                && bustActionCachesTarget.equals(actionLookupData.getLabel()));
+        bustActionCachesTarget != null
+            && bustActionCachesTarget.equals(actionLookupData.getLabel());
     return new ActionExecutionContext(
         executorEngine,
         compositeInputMetadataProvider,

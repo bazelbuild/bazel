@@ -84,8 +84,7 @@ final class RemoteSpawnCache implements SpawnCache {
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException {
     boolean shouldAcceptCachedResult =
-        !context.bustCaches()
-            && remoteExecutionService.getReadCachePolicy(spawn).allowAnyCache();
+        remoteExecutionService.getReadCachePolicy(spawn).allowAnyCache();
     boolean shouldUploadLocalResults =
         remoteExecutionService.getWriteCachePolicy(spawn).allowAnyCache();
     if (!shouldAcceptCachedResult && !shouldUploadLocalResults) {

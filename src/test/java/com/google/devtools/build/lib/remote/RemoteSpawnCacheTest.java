@@ -44,6 +44,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -113,6 +114,7 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -135,6 +137,8 @@ public class RemoteSpawnCacheTest {
 
   private static final String BUILD_REQUEST_ID = "build-req-id";
   private static final String COMMAND_ID = "command-id";
+
+  @Mock private Predicate<ActionAnalysisMetadata> wasRewound;
 
   private FileSystem fs;
   private DigestUtil digestUtil;
@@ -321,7 +325,8 @@ public class RemoteSpawnCacheTest {
                 /* captureCorruptedOutputsDir= */ null,
                 DUMMY_REMOTE_OUTPUT_CHECKER,
                 mock(OutputService.class),
-                Sets.newConcurrentHashSet()));
+                Sets.newConcurrentHashSet(),
+                wasRewound));
     return new RemoteSpawnCache(options, /* verboseFailures= */ true, service, digestUtil);
   }
 
@@ -797,6 +802,15 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void pathMappedActionIsDeduplicated() throws Exception {
+    pathMappedActionIsDeduplicated(/* rewound= */ false);
+  }
+
+  @Test
+  public void rewoundPathMappedActionIsDeduplicated() throws Exception {
+    pathMappedActionIsDeduplicated(/* rewound= */ true);
+  }
+
+  private void pathMappedActionIsDeduplicated(boolean rewound) throws Exception {
     // arrange
     RemoteSpawnCache cache = createRemoteSpawnCache();
 
@@ -813,6 +827,9 @@ public class RemoteSpawnCacheTest {
         Iterables.getOnlyElement(secondSpawn.getInputFiles().flatten()), "xyz");
     SpawnExecutionContext secondPolicy =
         createSpawnExecutionContext(secondSpawn, execRoot, secondFakeFileCache, outErr);
+
+    when(wasRewound.test(firstSpawn.getResourceOwner())).thenReturn(rewound);
+    when(wasRewound.test(secondSpawn.getResourceOwner())).thenReturn(rewound);
 
     RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
     Mockito.doCallRealMethod().when(remoteExecutionService).waitForAndReuseOutputs(any(), any());
@@ -851,6 +868,9 @@ public class RemoteSpawnCacheTest {
     assertThat(secondCacheHandle.willStore()).isFalse();
     onUploadComplete.get().run();
     assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
+    if (rewound) {
+      verify(combinedCache, never()).downloadActionResult(any(), any(), anyBoolean(), any());
+    }
   }
 
   @Test

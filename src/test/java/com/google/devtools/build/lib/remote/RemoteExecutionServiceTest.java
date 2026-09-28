@@ -3354,7 +3354,8 @@ public class RemoteExecutionServiceTest {
         null,
         remoteOutputChecker,
         outputService,
-        Sets.newConcurrentHashSet());
+        Sets.newConcurrentHashSet(),
+        /* wasRewound= */ action -> false);
   }
 
   private RunfilesTree createRunfilesTree(String root, Collection<Artifact> artifacts) {

@@ -53,6 +53,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -130,6 +131,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -156,6 +158,8 @@ public class RemoteSpawnRunnerTest {
   private static final ImmutableMap<String, String> NO_CACHE =
       ImmutableMap.of(ExecutionRequirements.NO_CACHE, "");
   private ListeningScheduledExecutorService retryService;
+
+  @Mock private Predicate<ActionAnalysisMetadata> wasRewound;
 
   private FileSystem fs;
   private Path execRoot;
@@ -217,6 +221,24 @@ public class RemoteSpawnRunnerTest {
   public void afterEverything() throws InterruptedException {
     retryService.shutdownNow();
     retryService.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+  }
+
+  @Test
+  public void rewoundActionSkipsCacheLookup() throws Exception {
+    Spawn spawn = newSimpleSpawn();
+    when(wasRewound.test(spawn.getResourceOwner())).thenReturn(true);
+    when(executor.executeRemotely(any(), any(), any()))
+        .thenReturn(
+            ExecuteResponse.newBuilder().setResult(ActionResult.getDefaultInstance()).build());
+
+    SpawnResult result = newSpawnRunner().exec(spawn, getSpawnContext(spawn));
+
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+    assertThat(result.isCacheHit()).isFalse();
+    verify(cache, never()).downloadActionResult(any(), any(), anyBoolean(), any());
+    ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
+    verify(executor).executeRemotely(any(), requestCaptor.capture(), any());
+    assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
   }
 
   @Test
@@ -1380,7 +1402,8 @@ public class RemoteSpawnRunnerTest {
             /* captureCorruptedOutputsDir= */ null,
             remoteOutputChecker,
             mock(OutputService.class),
-            Sets.newConcurrentHashSet());
+            Sets.newConcurrentHashSet(),
+            wasRewound);
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
             remoteOptions,
@@ -1913,7 +1936,8 @@ public class RemoteSpawnRunnerTest {
                 /* captureCorruptedOutputsDir= */ null,
                 remoteOutputChecker,
                 mock(OutputService.class),
-                Sets.newConcurrentHashSet()));
+                Sets.newConcurrentHashSet(),
+                wasRewound));
 
     return new RemoteSpawnRunner(
         remoteOptions,
