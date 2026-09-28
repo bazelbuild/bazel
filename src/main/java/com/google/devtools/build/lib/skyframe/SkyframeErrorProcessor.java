@@ -90,8 +90,7 @@ public final class SkyframeErrorProcessor {
   private SkyframeErrorProcessor() {}
 
   /**
-   * Indicates if there are errors with the various phases, and an exception to be thrown to halt
-   * the build, in case of --nokeep_going.
+   * Indicates if there are errors with the various phases.
    *
    * <p>The various attributes will be used later on to construct the FailureDetail in {@link
    * com.google.devtools.build.lib.analysis.BuildView#createAnalysisFailureDetail}.
@@ -178,7 +177,7 @@ public final class SkyframeErrorProcessor {
    * exception classified and the root causes extracted. These are the building blocks of the final
    * {@link ErrorProcessingResult}.
    *
-   * <p>Classifying an error makes no decisions, posts nothing and throws nothing.
+   * <p>Classifying an error makes no decisions and posts nothing.
    *
    * @param normalizedKey the error key with any wrapper peeled off by {@link
    *     #getEffectiveErrorKey}, not the key Skyframe reported the error under.
@@ -367,10 +366,20 @@ public final class SkyframeErrorProcessor {
   /**
    * Process errors encountered during analysis/execution.
    *
-   * <p>Runs in three phases: classify every error, report all of them, then decide what to throw.
-   * With --keep_going there is nothing to decide and an {@link ErrorProcessingResult} is returned
-   * instead. Action conflicts take none of these phases: reporting one needs information that isn't
-   * available yet, so they are handed to {@link SkyframeBuildView} untouched.
+   * <p>Runs in four phases:
+   *
+   * <ul>
+   *   <li><b>Phase 0, harvest:</b> report every error's cycles, then take the action conflicts out.
+   *       Reporting a conflict needs information that isn't available yet, so conflicts skip the
+   *       remaining phases and are handed to {@link SkyframeBuildView} untouched.
+   *   <li><b>Phase 1, classify:</b> turn every remaining error into a {@link ClassifiedError}.
+   *   <li><b>Phase 2, report:</b> post failure events and, with --keep_going, print warnings. With
+   *       --nokeep_going, {@link #NO_KEEP_GOING_PRECEDENCE} first picks the one error the build
+   *       aborts with, and only that error is reported.
+   *   <li><b>Phase 3, decide:</b> abort with that error if there is one. Otherwise, i.e. with
+   *       --keep_going or when no error is left after classification, return an {@link
+   *       ErrorProcessingResult}.
+   * </ul>
    *
    * <p>A null {@code eventBus} indicates that this is a {@code BuildViewTestCase}. Such tests don't
    * parse target patterns before requesting analysis, so the {@code result} may contain {@link
@@ -380,7 +389,8 @@ public final class SkyframeErrorProcessor {
    * @throws ViewCreationFailedException when the root cause is analysis-related.
    * @throws BuildFailedException when the root cause is execution-related.
    * @throws TestExecException when the root cause is test-related.
-   * @return an ErrorProcessingResult (only in --keep_going mode, or action conflict).
+   * @return an ErrorProcessingResult, with --keep_going or when no error is left after
+   *     classification (e.g. only action conflicts).
    */
   static ErrorProcessingResult processErrors(
       EvaluationResult<? extends SkyValue> result,
@@ -497,15 +507,9 @@ public final class SkyframeErrorProcessor {
 
       // TODO(b/561978611): Can we remove this divergence?
       if (inBuildViewTest && !isValidErrorKeyType(errorKey)) {
-        // This means that we are in a BuildViewTestCase.
-        //
         // Tests don't call target pattern parsing before requesting the analysis of a target.
         // Therefore if the package that contains them cannot be loaded, we get an error key that's
-        // not a ConfiguredTargetKey, which cannot happen in production code.
-        //
-        // If it's an existing target in a nonexistent package, the error is signaled by posting an
-        // AnalysisFailureEvent on the event bus, which is null in when running a BuildViewTestCase,
-        // so we emit the root cause labels directly to the event handler below.
+        // neither a ConfiguredTargetKey nor an AspectBaseKey, which cannot happen in production.
         eventHandler.handle(Event.error(errorInfo.toString()));
         continue;
       }
@@ -620,8 +624,12 @@ public final class SkyframeErrorProcessor {
   /**
    * Classifies one single error from the result.
    *
-   * <p>No exception is ever thrown here, and nothing is posted: this only gathers the information
-   * around one single error. {@link #processErrors} decides what to do with it.
+   * <p>Nothing is posted and nothing is decided here: this only gathers the information around one
+   * single error. {@link #processErrors} decides what to do with it.
+   *
+   * @throws IllegalStateException if {@code errorKey} is neither an {@link ActionLookupData} nor an
+   *     {@link ActionLookupKey} and the cause is not an execution exception. This includes an
+   *     execution cycle, which is only recognized after the key check.
    */
   private static ClassifiedError classify(
       EvaluationResult<? extends SkyValue> result,
@@ -801,13 +809,11 @@ public final class SkyframeErrorProcessor {
       if (culprit == null) {
         continue;
       }
-      if (culprit.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-        return ((ConfiguredTargetKey) culprit.argument()).getLabel();
-      } else if (culprit.functionName().equals(TransitiveTargetKey.NAME)) {
-        return ((TransitiveTargetKey) culprit).getLabel();
-      } else {
-        return labelToLoad;
-      }
+      return switch (culprit) {
+        case ConfiguredTargetKey ctKey -> ctKey.getLabel();
+        case TransitiveTargetKey ttKey -> ttKey.getLabel();
+        default -> labelToLoad;
+      };
     }
     return null;
   }
@@ -956,14 +962,13 @@ public final class SkyframeErrorProcessor {
     // an exception-processing bug in our code, such as lower level exceptions not being properly
     // handled, or in our expectations in this method.
 
-    if (cause instanceof DetailedException) {
+    if (cause instanceof DetailedException detailedException) {
       // The exception escaped Skyframe error bubbling, but its failure detail can still be used.
       bugReporter.logUnexpected(
           (Exception) cause,
           "action terminated with unexpected exception with result %s",
           resultForDebugging);
-      throw new BuildFailedException(
-          cause.getMessage(), ((DetailedException) cause).getDetailedExitCode());
+      throw new BuildFailedException(cause.getMessage(), detailedException.getDetailedExitCode());
     }
 
     DetailedExitCode unknownExitCode =
