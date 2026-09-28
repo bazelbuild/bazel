@@ -56,7 +56,6 @@ public final class OptionInfo {
         ImmutableSet.copyOf(buildOptions.getFragmentClasses()), OptionInfo::buildMap);
   }
 
-  // Keyed by the fragment classes only, of which there are few distinct sets.
   private static final ConcurrentHashMap<
           ImmutableSet<Class<? extends FragmentOptions>>, ImmutableMap<String, OptionInfo>>
       MAP_CACHE = new ConcurrentHashMap<>();
