@@ -89,13 +89,14 @@ public final class RunfilesArtifactValue implements RichArtifactData {
 
     var mapping = runfilesTree.getMapping();
     result.addInt(mapping.size());
-    for (var entry : mapping.entrySet()) {
-      result.addPath(entry.getKey());
-      result.addBoolean(entry.getValue() != null);
-      if (entry.getValue() != null) {
-        result.addPath(entry.getValue().getExecPath());
-      }
-    }
+    mapping.forEach(
+        (path, artifact) -> {
+          result.addPath(path);
+          result.addBoolean(artifact != null);
+          if (artifact != null) {
+            result.addPath(artifact.getExecPath());
+          }
+        });
 
     result.addInt(files.size());
     for (int i = 0; i < files.size(); i++) {
