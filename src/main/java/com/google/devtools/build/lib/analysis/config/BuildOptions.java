@@ -194,7 +194,6 @@ public final class BuildOptions implements Cloneable {
             checksum = "0".repeat(64); // Make empty build options easy to distinguish.
           } else {
             Fingerprint fingerprint = new Fingerprint();
-            // Only allocated if a fragment's digest hasn't been memoized yet.
             Fingerprint fragmentFingerprint = null;
             for (FragmentOptions options : fragmentOptionsMap.values()) {
               byte[] digest = options.cacheKeyDigest;
