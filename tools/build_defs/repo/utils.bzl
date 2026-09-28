@@ -497,12 +497,21 @@ def use_netrc(netrc, urls, patterns):
 def read_user_netrc(ctx):
     """Read user's default netrc file.
 
+    If the `NETRC` environment variable is set to a non-empty value, the file it
+    names is read; as with `read_netrc`, it is an error if that file does not
+    exist. Otherwise, `.netrc` in the user's home directory (`$HOME`, or
+    `%USERPROFILE%` on Windows) is read if it exists.
+
     Args:
       ctx: The repository context of the repository rule calling this utility function.
 
     Returns:
       dict mapping a machine names to a dict with the information provided about them.
     """
+    netrc_env = ctx.os.environ.get("NETRC", "")
+    if netrc_env:
+        return read_netrc(ctx, netrc_env)
+
     if ctx.os.name.startswith("windows"):
         home_dir = ctx.os.environ.get("USERPROFILE", "")
     else:

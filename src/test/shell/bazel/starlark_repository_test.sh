@@ -1729,6 +1729,125 @@ EOF
   expect_not_log "authrepo is being evaluated"
 }
 
+# Sets up a repository rule that calls `read_user_netrc` and a target that
+# compares the result with the value of `expected` in expected.bzl. Points
+# HOME (USERPROFILE on Windows) at an empty directory named home.
+function setup_read_user_netrc() {
+  cat > def.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_user_netrc")
+def _impl(ctx):
+  rc = read_user_netrc(ctx)
+  ctx.file("data.bzl", "netrc = %s" % (rc,))
+  ctx.file("BUILD", "")
+  ctx.file("REPO.bazel", "")
+
+netrcrepo = repository_rule(implementation = _impl)
+EOF
+
+  cat > $(setup_module_dot_bazel) <<'EOF'
+netrcrepo = use_repo_rule("//:def.bzl", "netrcrepo")
+
+netrcrepo(name = "netrc")
+EOF
+
+  cat > verify.bzl <<'EOF'
+load("@netrc//:data.bzl", "netrc")
+load("//:expected.bzl", "expected")
+
+def check_equal_expected():
+  print("Parsed value:   %s" % (netrc,))
+  print("Expected value: %s" % (expected,))
+  if netrc == expected:
+    return "OK"
+  else:
+    return "BAD"
+EOF
+  cat > BUILD <<'EOF'
+load ("//:verify.bzl", "check_equal_expected")
+genrule(
+  name = "check_expected",
+  outs = ["check_expected.txt"],
+  cmd = "echo %s > $@" % (check_equal_expected(),)
+)
+EOF
+
+  mkdir home
+  export HOME="$(pwd)/home"
+  if is_windows; then
+    export USERPROFILE="$(cygpath -m ${HOME})"
+  fi
+}
+
+function test_read_user_netrc_honors_netrc_env() {
+  setup_read_user_netrc
+  cat > home/.netrc <<'EOF'
+machine home.example.com login homeuser password homepass
+EOF
+  cat > alt-netrc <<'EOF'
+machine alt.example.com login altuser password altpass
+EOF
+  export NETRC="$(pwd)/alt-netrc"
+  if is_windows; then
+    export NETRC="$(cygpath -m ${NETRC})"
+  fi
+  cat > expected.bzl <<'EOF'
+expected = {
+  "alt.example.com" : { "login" : "altuser", "password" : "altpass" },
+}
+EOF
+
+  bazel build //:check_expected &> $TEST_log || fail "Expected success"
+  grep 'OK' `bazel info bazel-bin`/check_expected.txt \
+       || fail "Expected the file named by NETRC to be read instead of \$HOME/.netrc"
+}
+
+function test_read_user_netrc_reads_home_netrc() {
+  setup_read_user_netrc
+  unset NETRC
+  cat > home/.netrc <<'EOF'
+machine home.example.com login homeuser password homepass
+EOF
+  cat > expected.bzl <<'EOF'
+expected = {
+  "home.example.com" : { "login" : "homeuser", "password" : "homepass" },
+}
+EOF
+
+  bazel build //:check_expected &> $TEST_log || fail "Expected success"
+  grep 'OK' `bazel info bazel-bin`/check_expected.txt \
+       || fail "Expected \$HOME/.netrc to be read"
+}
+
+function test_read_user_netrc_without_netrc_file() {
+  setup_read_user_netrc
+  unset NETRC
+  cat > expected.bzl <<'EOF'
+expected = {}
+EOF
+
+  bazel build //:check_expected &> $TEST_log || fail "Expected success"
+  grep 'OK' `bazel info bazel-bin`/check_expected.txt \
+       || fail "Expected an empty result without a .netrc file"
+}
+
+function test_read_user_netrc_missing_netrc_env_file() {
+  setup_read_user_netrc
+  cat > home/.netrc <<'EOF'
+machine home.example.com login homeuser password homepass
+EOF
+  export NETRC="$(pwd)/does-not-exist"
+  if is_windows; then
+    export NETRC="$(cygpath -m ${NETRC})"
+  fi
+  cat > expected.bzl <<'EOF'
+expected = {}
+EOF
+
+  bazel build //:check_expected &> $TEST_log \
+      && fail "Expected failure when NETRC names a missing file"
+  expect_log "does-not-exist"
+}
+
 function test_localhost_http_without_checksum() {
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
