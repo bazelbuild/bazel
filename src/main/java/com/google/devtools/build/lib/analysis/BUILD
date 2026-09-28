@@ -2039,7 +2039,6 @@ java_library(
     ],
     deps = [
         ":options_diff_predicate",
-        ":test/coverage_configuration",
         ":test/test_sharding_strategy",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
