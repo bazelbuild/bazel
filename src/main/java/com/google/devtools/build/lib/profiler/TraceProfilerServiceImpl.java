@@ -56,7 +56,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** Blaze internal profiler implementation. */
@@ -70,8 +69,10 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
   private static final ImmutableMap<String, Predicate<? super String>> DEFAULT_VFS_TYPE_HEURISTICS =
       ImmutableMap.of(
-          "blaze-out", Pattern.compile("/blaze-out/").asPredicate(),
-          "source", Predicates.<CharSequence>alwaysTrue());
+          "blaze-out",
+          (String path) -> path.contains("/blaze-out/"),
+          "source",
+          Predicates.<CharSequence>alwaysTrue());
 
   /**
    * Aggregator class that keeps track of the slowest tasks of the specified type.
