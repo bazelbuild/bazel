@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.BazelCompileContext;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
@@ -262,23 +261,26 @@ public class BzlCompileFunction implements SkyFunction {
         // annotations in prelude not allowed (it has null key.label)
         !key.isBuildPrelude()
             // annotations in SCL not allowed (not yet compatible with Go-Starlark interpreter)
-            && !key.isSclDialect()
-            // TODO: #27370 - At the moment we haven't implemented the distinction between typed and
-            // untyped code, so we need this special casing to prevent type checking from applying
-            // to arbitrary @_builtins code. Same for @bazel_tools.
-            && !key.isBuiltins()
-            && !key.label.getRepository().equals(RepositoryName.BAZEL_TOOLS);
+            && !key.isSclDialect();
 
     boolean useTypeSyntax = false;
-    if (typeSyntaxFlag && okFiletype) {
-      if (allowlist.isEmpty()
-          || allowlist.stream().anyMatch(s -> key.label.getCanonicalForm().startsWith(s))) {
+    if (okFiletype) {
+      if (typeSyntaxFlag) {
+        if (allowlist.isEmpty()
+            || allowlist.stream().anyMatch(s -> key.label.getCanonicalForm().startsWith(s))) {
+          useTypeSyntax = true;
+        }
+      }
+      if (key.isBuiltins()) {
+        // Always enable type syntax for @_builtins
         useTypeSyntax = true;
       }
     }
     boolean doStaticTypeChecking =
         useTypeSyntax
-            && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING);
+            && (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING)
+                // Always enable static type checking for @_builtins
+                || key.isBuiltins());
     boolean doDynamicTypeChecking =
         useTypeSyntax
             && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
