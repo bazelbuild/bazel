@@ -155,6 +155,9 @@ public final class CallUtils {
       if (classDescriptor.selfCall != null) {
         // Values of a self-call type are callable, with the self-call method's signature.
         builder.add(classDescriptor.selfCall.getStarlarkType());
+      } else if (StarlarkCallable.class.isAssignableFrom(clazz)) {
+        // StarlarkCallable implementations are callable, with an unspecified signature.
+        builder.add(Types.ANY_CALLABLE);
       }
       if (StarlarkAnnotations.isAssignableToStructType(clazz)) {
         if (StarlarkAnnotations.getStarlarkBuiltin(clazz).isStructType()) {

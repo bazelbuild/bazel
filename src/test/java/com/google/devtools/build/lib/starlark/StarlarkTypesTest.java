@@ -955,4 +955,94 @@ public class StarlarkTypesTest extends BuildViewTestCase {
         revealExportedType("MyInfo(2)", "load('//lib:provider.bzl', 'MyInfo')");
     assertThat(instanceTypeDynamically).isEqualTo(myInfoType);
   }
+
+  @Test
+  public void nativeRule() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    StarlarkType genruleType = revealStaticType("native.genrule");
+    assertThat(genruleType).isEqualTo(revealExportedType("native.genrule"));
+    assertThat(genruleType.typeRepr()).isEqualTo("rule");
+    assertLt(genruleType, Types.ANY_CALLABLE);
+    Types.CallableType genruleCallableType = Types.toCallableType(genruleType, typeContext);
+    assertThat(genruleCallableType).isNotNull();
+    // TODO: #23730 - add types for rule attributes and return type
+  }
+
+  @Test
+  public void starlarkRule() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    StarlarkType myRuleType =
+        revealStaticType(
+            """
+            rule(
+                implementation = lambda ctx: None,
+                attrs = {
+                    "srcs": attr.label_list(allow_files = True),
+                    "deps": attr.label_list(),
+                },
+            )
+            """);
+
+    assertThat(myRuleType.typeRepr()).isEqualTo("rule");
+    assertLt(myRuleType, Types.ANY_CALLABLE);
+    Types.CallableType myRuleCallableType = Types.toCallableType(myRuleType, typeContext);
+    assertThat(myRuleCallableType).isNotNull();
+    // TODO: #23730 - add types for rule attributes and return type
+  }
+
+  @Test
+  public void subrule() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    StarlarkType subruleType =
+        revealStaticType(
+            """
+            subrule(
+                implementation = _subrule_impl,
+                attrs = {"_tool": attr.label(allow_files = True, default = "//tool")},
+            )
+            """,
+            """
+            def _subrule_impl(ctx, positional_arg, *, _tool, **kwargs) -> list[int]:
+                return [42]
+            """);
+    assertThat(subruleType.typeRepr()).isEqualTo("Subrule");
+    assertLt(subruleType, Types.ANY_CALLABLE);
+    Types.CallableType subruleCallableType = Types.toCallableType(subruleType, typeContext);
+    assertThat(subruleCallableType).isNotNull();
+    // TODO: #23730 - add types for subrule params and return type
+  }
+
+  @Test
+  public void symbolicMacro() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    StarlarkType macroType =
+        revealStaticType(
+            """
+            macro(
+                implementation = _macro_impl,
+                attrs = {"deps": attr.label_list()},
+            )
+            """,
+            """
+            def _macro_impl(*, deps, visibility, **kwargs):
+                pass
+            """);
+    assertThat(macroType.typeRepr()).isEqualTo("macro");
+    assertLt(macroType, Types.ANY_CALLABLE);
+    Types.CallableType macroCallableType = Types.toCallableType(macroType, typeContext);
+    assertThat(macroCallableType).isNotNull();
+    // TODO: #23730 - add types for macro attributes and return type
+  }
 }
