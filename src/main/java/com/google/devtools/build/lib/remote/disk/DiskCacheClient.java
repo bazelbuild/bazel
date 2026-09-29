@@ -361,13 +361,21 @@ public class DiskCacheClient {
     return uploadBlob(digest, (Blob) data::newInput);
   }
 
-  /** Uploads a blob from a stream supplier. */
+  /**
+   * Uploads a blob from a stream supplier, which is only opened if the cache doesn't have an entry
+   * for the digest yet.
+   */
   public ListenableFuture<Void> uploadBlob(Digest digest, Blob blob) {
     return executorService.submit(
         () -> {
-          try (InputStream in = blob.get()) {
-            saveFile(digest, Store.CAS, in);
-          }
+          save(
+              digest,
+              Store.CAS,
+              temp -> {
+                try (InputStream in = blob.get()) {
+                  copyToTemp(in, temp);
+                }
+              });
           return null;
         });
   }
@@ -393,19 +401,18 @@ public class DiskCacheClient {
   }
 
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
-    save(
-        digest,
-        store,
-        temp -> {
-          try (OutputStream out = temp.getOutputStream()) {
-            ByteStreams.copy(in, out);
-            // Fsync temp before we rename it to avoid data loss in the case of machine
-            // crashes (the OS may reorder the writes and the rename).
-            if (out instanceof FileOutputStream fos) {
-              fos.getFD().sync();
-            }
-          }
-        });
+    save(digest, store, temp -> copyToTemp(in, temp));
+  }
+
+  private static void copyToTemp(InputStream in, Path temp) throws IOException {
+    try (OutputStream out = temp.getOutputStream()) {
+      ByteStreams.copy(in, out);
+      // Fsync temp before we rename it to avoid data loss in the case of machine
+      // crashes (the OS may reorder the writes and the rename).
+      if (out instanceof FileOutputStream fos) {
+        fos.getFD().sync();
+      }
+    }
   }
 
   /**
