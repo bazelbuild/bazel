@@ -68,7 +68,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
           + " <code>ctx.version_file</code>. Therefore changes in this file will not retrigger"
           + " actions depending on it.";
   static final String TOOLS_ARG_DOC =
-"""
+      """
 List or <a href="../builtins/depset.html"><code>depset</code></a> of any tools needed by the \
 action. Tools are executable inputs that may have their own runfiles which are automatically made \
 available to the action. \
@@ -85,7 +85,7 @@ automatically added. All tools are implicitly added as inputs.
 </p>
 """;
   static final String MAP_DIRECTORY_IMPLEMENTATION_DOC =
-"""
+      """
 A Starlark function that gets called after input directories have been built to generate actions
 that output files to the specified output directories. This function is passed the following
 arguments:
@@ -372,7 +372,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {
@@ -477,7 +477,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "progress_message",
             allowedTypes = {
@@ -697,7 +697,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "command",
             allowedTypes = {
@@ -947,7 +947,8 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             named = true,
             positional = false,
             doc =
-                "A dictionary mapping of strings to additional parameters. The values specify any"
+                "A dictionary mapping of strings to additional parameters. Only strings, booleans,"
+                    + " and integers are allowed as values. The values specify any"
                     + " additional parameters that we want to make accessible to the implementation"
                     + " function that could be used to influence its behavior. The keys (strings)"
                     + " act as identifiers to easily reference a specific parameter from within the"
