@@ -26,6 +26,7 @@ import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
+import static java.lang.Math.max;
 import static java.util.Comparator.comparing;
 import static java.util.Map.entry;
 
@@ -36,6 +37,7 @@ import build.bazel.remote.execution.v2.NodeProperties;
 import build.bazel.remote.execution.v2.NodeProperty;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -145,7 +147,6 @@ public final class MerkleTreeComputer {
           .build();
   private static final ImmutableList<Map.Entry<PathFragment, ActionInput>> END_OF_INPUTS_SENTINEL =
       ImmutableList.of(entry(PathFragment.EMPTY_FRAGMENT, VirtualActionInput.EMPTY_MARKER));
-  private static final PathFragment ROOT_FAKE_PATH_SEGMENT = PathFragment.create("root");
 
   // Building Merkle trees mostly involves computing hashes of protos and is thus CPU-bound.
   // TODO: Source directories are also visited on this pool in a single-threaded manner.
@@ -578,19 +579,28 @@ public final class MerkleTreeComputer {
         lastSourceDirPath = null;
       }
       ActionInput input = entry.getValue();
-      PathFragment newParent = path.getParentDirectory();
-      if (!currentParent.equals(newParent)) {
-        PathFragment commonPrefix;
-        PathFragment fragmentToPop;
+      if (!isParentDirectory(currentParent, path)) {
+        PathFragment newParent = path.getParentDirectory();
+        String currentParentString = currentParent.getPathString();
+        // The sentinel also pops the root directory, whose path string has length zero.
+        int commonPrefixLength = -1;
         if (newParent != null) {
-          commonPrefix = findCommonPrefix(currentParent, newParent);
-          fragmentToPop = currentParent.relativeTo(commonPrefix);
-        } else {
-          fragmentToPop = ROOT_FAKE_PATH_SEGMENT.getRelative(currentParent);
-          // Unused.
-          commonPrefix = null;
+          String newParentString = newParent.getPathString();
+          commonPrefixLength = currentParent.getCommonPrefixLength(newParent);
+          // Only retain complete common segments, including when one string is a prefix of the
+          // other (e.g. "a/b" and "a/bc").
+          if ((commonPrefixLength < currentParentString.length()
+                  && currentParentString.charAt(commonPrefixLength) != PathFragment.SEPARATOR_CHAR)
+              || (commonPrefixLength < newParentString.length()
+                  && newParentString.charAt(commonPrefixLength) != PathFragment.SEPARATOR_CHAR)) {
+            commonPrefixLength =
+                max(
+                    0,
+                    currentParentString.lastIndexOf(
+                        PathFragment.SEPARATOR_CHAR, commonPrefixLength - 1));
+          }
         }
-        for (String dirToPop : fragmentToPop.splitToListOfSegments().reverse()) {
+        for (int end = currentParentString.length(); end > commonPrefixLength; ) {
           byte[] directoryBlob = directoryStack.pop().build().toByteArray();
           Digest directoryBlobDigest = digestUtil.compute(directoryBlob);
           if (blobPolicy != BlobPolicy.DISCARD && directoryBlobDigest.getSizeBytes() != 0) {
@@ -611,12 +621,17 @@ public final class MerkleTreeComputer {
                   blobs);
             }
           }
+          int start = currentParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1) + 1;
           topDirectory
               .addDirectoriesBuilder()
-              .setName(internalToUnicode(dirToPop))
+              .setName(internalToUnicode(currentParentString.substring(start, end)))
               .setDigest(directoryBlobDigest);
+          end = max(0, start - 1);
         }
-        for (int i = 0; i < newParent.segmentCount() - commonPrefix.segmentCount(); i++) {
+        String newParentString = newParent.getPathString();
+        for (int end = newParentString.length();
+            end > commonPrefixLength;
+            end = max(0, newParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1))) {
           directoryStack.push(Directory.newBuilder());
         }
         currentParent = newParent;
@@ -1070,20 +1085,17 @@ public final class MerkleTreeComputer {
     }
   }
 
-  private static PathFragment findCommonPrefix(PathFragment path1, PathFragment path2) {
-    int commonSegments = 0;
-    var segments2 = path2.segments().iterator();
-    for (String segment : path1.segments()) {
-      if (!segments2.hasNext()) {
-        break;
-      }
-      String segment2 = segments2.next();
-      if (!segment.equals(segment2)) {
-        break;
-      }
-      commonSegments++;
+  /** Equivalent to {@code parent.equals(path.getParentDirectory())} for relative paths. */
+  @VisibleForTesting
+  static boolean isParentDirectory(PathFragment parent, PathFragment path) {
+    String pathString = path.getPathString();
+    if (pathString.isEmpty()) {
+      return false;
     }
-    return path1.subFragment(0, commonSegments);
+    int lastSeparator = pathString.lastIndexOf(PathFragment.SEPARATOR_CHAR);
+    int parentLength = max(lastSeparator, 0);
+    String parentString = parent.getPathString();
+    return parentString.length() == parentLength && pathString.startsWith(parentString);
   }
 
   private static ImmutableSortedMap<PathFragment, ActionInput> explodeDirectory(
