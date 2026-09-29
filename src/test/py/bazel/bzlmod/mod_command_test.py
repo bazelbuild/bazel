@@ -520,6 +520,15 @@ class ModCommandTest(test_base.TestBase):
     )
     repos = [json.loads(line) for line in stdout]
 
+    _, output_base, _ = self.RunBazel(['info', 'output_base'], rstrip=True)
+    self.assertListEqual(
+        [repo.pop('repoRoot') for repo in repos],
+        [
+            output_base[0] + '/external/' + name
+            for name in ['bar+', 'ext+', 'ext++ext+repo3', 'bar+']
+        ],
+    )
+
     ignored_attrs = {
         'integrity',
         'path',
@@ -660,6 +669,21 @@ class ModCommandTest(test_base.TestBase):
         ],
         rstrip=True,
     )
+    _, output_base, _ = self.RunBazel(['info', 'output_base'], rstrip=True)
+    self.assertListEqual(
+        [line for line in stdout if line.startswith('# Located at: ')],
+        [
+            '# Located at: ' + output_base[0] + '/external/' + name
+            for name in [
+                'bar+',
+                'ext+',
+                'ext++ext+repo3',
+                'ext++ext+repo4',
+                'bar+',
+            ]
+        ],
+    )
+    stdout = [line for line in stdout if not line.startswith('# Located at: ')]
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
     self.assertRegex(
