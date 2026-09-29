@@ -271,7 +271,11 @@ public final class RuleConfiguredTargetBuilder {
         return null;
       }
 
-      AnalysisTestActionBuilder.writeAnalysisTestAction(ruleContext, testResultInfo);
+      AnalysisTestActionBuilder.writeAnalysisTestAction(
+          ruleContext,
+          ruleContext.isDefaultExecGroupExecutingOnWindows(),
+          ruleContext.createOutputArtifactScriptForAnalysisTest(),
+          testResultInfo);
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();

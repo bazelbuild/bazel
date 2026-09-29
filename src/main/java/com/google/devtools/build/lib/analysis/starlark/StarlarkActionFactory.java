@@ -244,7 +244,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                     .getBytes(StandardCharsets.UTF_8)),
             ruleContext.getActionOwner(),
             inputSet,
-            ImmutableList.of(PseudoAction.getDummyOutput(ruleContext)),
+            ImmutableList.of(PseudoAction.getDummyOutput(ruleContext, ruleContext.getLabel())),
             mnemonic,
             SPAWN_INFO,
             SpawnInfo.newBuilder().build());

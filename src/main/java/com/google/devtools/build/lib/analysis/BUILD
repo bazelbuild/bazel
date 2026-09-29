@@ -26,9 +26,7 @@ java_library(
         "AspectBaseTargetResolvedToolchainContext.java",
         "AspectContext.java",
         "BaseRuleClasses.java",
-        "BashCommandConstructor.java",
         "BazelRuleAnalysisThreadContext.java",
-        "CommandConstructor.java",
         "CommandHelper.java",
         "ConfiguredAspect.java",
         "ConfiguredRuleClassProvider.java",
@@ -43,7 +41,6 @@ java_library(
         "OutputGroupInfo.java",
         "PrerequisiteArtifacts.java",
         "PrerequisitesCollection.java",
-        "PseudoAction.java",
         "RuleConfiguredTargetBuilder.java",
         "RuleConfiguredTargetFactory.java",
         "RuleContext.java",
@@ -54,8 +51,6 @@ java_library(
         "SourceManifestAction.java",
         "StarlarkProviderValidationUtil.java",
         "Util.java",
-        "WindowsBatchCommandConstructor.java",
-        "WindowsPowershellCommandConstructor.java",
         "actions/StarlarkMapActionTemplate.java",
         "actions/SymlinkTreeAction.java",
         "actions/SymlinkTreeActionContext.java",
@@ -78,7 +73,6 @@ java_library(
         "starlark/StarlarkRuleContext.java",
         "starlark/StarlarkSubrule.java",
         "starlark/StarlarkTemplateContext.java",
-        "test/AnalysisTestActionBuilder.java",
         "test/InstrumentedFilesCollector.java",
         "test/TestActionBuilder.java",
         "test/TestActionContext.java",
@@ -100,12 +94,14 @@ java_library(
         ":analysis_issues",
         ":analysis_root_cause_event",
         ":caching_analysis_environment",
+        ":command_constructor",
         ":configuration_make_variable_context",
         ":dependency_resolution_helpers",
         ":event_handling_error_reporter",
         ":extra/extra_action",
         ":materialized_deps_info",
         ":package_specification_provider",
+        ":pseudo_action",
         ":sh_toolchain",
         ":shell_configuration",
         ":starlark/composed_transition_materializer",
@@ -113,6 +109,7 @@ java_library(
         ":starlark/starlark_rule_transition_provider",
         ":starlark/unresolved_symlink_action",
         ":target_context",
+        ":test/analysis_test_action_builder",
         ":test/baseline_coverage_action",
         ":test/instrumented_file_manifest_action",
         ":test/test_tags_provider",
@@ -137,6 +134,7 @@ java_library(
         ":blaze_version_info",
         ":build_setting_provider",
         ":caching_analysis_environment",
+        ":command_constructor",
         ":configuration_make_variable_context",
         ":configured_target",
         ":dependency_kind",
@@ -154,6 +152,7 @@ java_library(
         ":package_specification_provider",
         ":platform_configuration",
         ":provider_collection",
+        ":pseudo_action",
         ":repo_mapping_manifest_action",
         ":required_config_fragments_provider",
         ":resolved_toolchain_context",
@@ -179,6 +178,7 @@ java_library(
         ":template_variable_info",
         ":test/analysis_failure",
         ":test/analysis_failure_info",
+        ":test/analysis_test_action_builder",
         ":test/analysis_test_result_info",
         ":test/baseline_coverage_action",
         ":test/coverage_configuration",
@@ -569,6 +569,23 @@ java_library(
 )
 
 java_library(
+    name = "command_constructor",
+    srcs = [
+        "BashCommandConstructor.java",
+        "CommandConstructor.java",
+        "WindowsBatchCommandConstructor.java",
+        "WindowsPowershellCommandConstructor.java",
+    ],
+    deps = [
+        ":actions/action_construction_context",
+        ":actions/file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
     name = "common_prerequisite_validator",
     srcs = ["CommonPrerequisiteValidator.java"],
     deps = [
@@ -868,6 +885,25 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "pseudo_action",
+    srcs = ["PseudoAction.java"],
+    deps = [
+        ":actions/action_construction_context",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:extra_actions_base_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
     ],
 )
 
@@ -1925,6 +1961,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:base",
+    ],
+)
+
+java_library(
+    name = "test/analysis_test_action_builder",
+    srcs = ["test/AnalysisTestActionBuilder.java"],
+    deps = [
+        ":actions/action_construction_context",
+        ":actions/file_write_action",
+        ":test/analysis_test_result_info",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//third_party/java/guava:base",
     ],
 )
