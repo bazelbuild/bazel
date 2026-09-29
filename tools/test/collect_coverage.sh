@@ -100,8 +100,12 @@ export BULK_COVERAGE_RUN=1
 
 # Setting up the environment for executing the C++ tests.
 if [[ -z "$GCOV_PREFIX_STRIP" ]]; then
-  # TODO: GCOV_PREFIX_STRIP=3 is incorrect on MacOS in the default setup
-  export GCOV_PREFIX_STRIP=3
+  if [[ "$OSTYPE" == darwin* ]]; then
+    # Apple toolchains embed execroot-relative GCOV data paths.
+    export GCOV_PREFIX_STRIP=0
+  else
+    export GCOV_PREFIX_STRIP=3
+  fi
 fi
 export GCOV_PREFIX="${COVERAGE_DIR}"
 export LLVM_PROFILE_FILE="${COVERAGE_DIR}/${BAZEL_LLVM_PROFILE_FILE:-%h-%p-%m.profraw}"
