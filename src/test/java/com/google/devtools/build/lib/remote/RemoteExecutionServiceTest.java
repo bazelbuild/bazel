@@ -2572,6 +2572,7 @@ public class RemoteExecutionServiceTest {
         .new OutputUploadTask(
             action,
             spawnResult,
+            /* force= */ false,
             () -> {
               completionStarted.release();
               completionMayFinish.acquireUninterruptibly();
@@ -2637,7 +2638,9 @@ public class RemoteExecutionServiceTest {
             .setRunnerName("test")
             .build();
     var uploadComplete = new CountDownLatch(1);
-    var task = service.new OutputUploadTask(action, spawnResult, uploadComplete::countDown);
+    var task =
+        service
+        .new OutputUploadTask(action, spawnResult, /* force= */ false, uploadComplete::countDown);
     var spawnOwner = action.getRemoteActionExecutionContext().getSpawnOwner();
 
     task.start();
@@ -2668,7 +2671,10 @@ public class RemoteExecutionServiceTest {
             .setRunnerName("test")
             .build();
     AtomicInteger completionCalls = new AtomicInteger();
-    var task = service.new OutputUploadTask(action, spawnResult, completionCalls::incrementAndGet);
+    var task =
+        service
+        .new OutputUploadTask(
+            action, spawnResult, /* force= */ false, completionCalls::incrementAndGet);
 
     task.requestCancellation();
     task.awaitCompletion();

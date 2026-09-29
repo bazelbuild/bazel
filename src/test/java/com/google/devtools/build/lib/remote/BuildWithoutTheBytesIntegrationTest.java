@@ -822,6 +822,81 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void actionRewinding_localExecution_reuploadsBlobUploadedEarlierInBuild()
+      throws Exception {
+    // A rewound action that is executed locally may regenerate a blob that the same build has
+    // already uploaded before it was evicted. Its upload must not be deduplicated against the
+    // earlier one, or the refreshed action result would still reference a missing blob.
+    // With a disk cache, :bar would fetch foo.out from the copy uploaded by :same instead of
+    // discovering it lost.
+    assumeFalse(useDiskCache);
+    var cacheWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = cacheWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + cacheWorker.getPort());
+      enableActionRewinding();
+      byte[] fooContents = "foo".getBytes(UTF_8);
+      write(
+          "a/BUILD",
+          """
+          genrule(
+              name = "foo",
+              srcs = [],
+              outs = ["foo.out"],
+              cmd = "echo -n foo > $@",
+          )
+
+          # Produces the same blob as foo.out.
+          genrule(
+              name = "same",
+              srcs = [],
+              outs = ["same.out"],
+              cmd = "echo -n foo > $@",
+          )
+
+          # Evicts that blob from the CAS after :same has uploaded it.
+          genrule(
+              name = "evict",
+              srcs = [":same.out"],
+              outs = ["evict.out"],
+              cmd = "rm -f '%s' && touch $@",
+              tags = ["no-cache"],
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [
+                  ":foo.out",
+                  ":evict.out",
+              ],
+              outs = ["bar.out"],
+              cmd = "cat $(location :foo.out) > $@",
+          )
+          """
+              .formatted(cacheWorker.getCasBlobPath(fooContents)));
+
+      // Execute remotely without downloading outputs, so that foo.out only exists in the CAS.
+      buildTarget("//a:foo");
+
+      // Delete the blob backing foo.out from the CAS while keeping //a:foo's action cache entry, so
+      // that :same has to upload it again.
+      cacheWorker.evictBlob(fooContents);
+      // Execute locally from now on. Not by unsetting --remote_executor, as that would invalidate
+      // //a:foo and thus have it executed instead of rewound. Upload synchronously so that :evict
+      // only runs after :same has uploaded its output.
+      addOptions("--strategy_regexp=.*=local", "--noremote_cache_async");
+      setDownloadToplevel();
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+      // :bar discovers foo.out lost after :evict has deleted it and rewinds //a:foo, which
+      // regenerates the blob locally.
+      buildTarget("//a:bar");
+
+      assertRewoundActions(rewoundKeys, "//a:foo");
+      assertValidOutputFile("a/bar.out", "foo");
+      assertThat(cacheWorker.hasCasBlob(fooContents)).isTrue();
+    }
+  }
+
+  @Test
   public void downloadTopLevel_deepSymlinkToFile() throws Exception {
     setDownloadToplevel();
     write(

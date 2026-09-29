@@ -1833,11 +1833,16 @@ public class RemoteExecutionService {
       return;
     }
 
+    // The output blobs of a rewound action may have been evicted after this invocation uploaded
+    // them, so bypass the deduplication of completed uploads. Otherwise, the refreshed action
+    // result could still reference missing blobs. Evaluate this here rather than in the upload
+    // task, which may run after the build's rewinding state has been discarded.
+    boolean force = wasRewound.test(action.getSpawn().getResourceOwner());
     if (remoteOptions.getRemoteCacheAsync()
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      new OutputUploadTask(action, spawnResult, onUploadComplete).start();
+      new OutputUploadTask(action, spawnResult, force, onUploadComplete).start();
     } else {
-      doUploadOutputs(action, spawnResult, onUploadComplete);
+      doUploadOutputs(action, spawnResult, force, onUploadComplete);
     }
   }
 
@@ -1871,12 +1876,13 @@ public class RemoteExecutionService {
     // happens-before edge to the reads in run() on the executor thread.
     private Runnable unregisterHandle = () -> {};
 
-    OutputUploadTask(RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete) {
+    OutputUploadTask(
+        RemoteAction action, SpawnResult spawnResult, boolean force, Runnable onUploadComplete) {
       this.upload =
           new CancellableTask<>(
               () -> {
                 try {
-                  doUploadOutputs(action, spawnResult, /* onUploadComplete= */ () -> {});
+                  doUploadOutputs(action, spawnResult, force, /* onUploadComplete= */ () -> {});
                 } catch (ExecException e) {
                   reportUploadError(e);
                 }
@@ -1935,13 +1941,13 @@ public class RemoteExecutionService {
   }
 
   private void doUploadOutputs(
-      RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete)
+      RemoteAction action, SpawnResult spawnResult, boolean force, Runnable onUploadComplete)
       throws ExecException, InterruptedException {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
       UploadManifest manifest = buildUploadManifest(action, spawnResult);
       var unused =
-          manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter);
+          manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter, force);
     } catch (IOException e) {
       reportUploadError(e);
     } finally {

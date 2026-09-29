@@ -847,7 +847,8 @@ public class GrpcCacheClientTest {
             /* startTime= */ null,
             /* wallTimeInMs= */ 0,
             /* preserveExecutableBit= */ false);
-    return uploadManifest.upload(context, combinedCache, NullEventHandler.INSTANCE);
+    return uploadManifest.upload(
+        context, combinedCache, NullEventHandler.INSTANCE, /* force= */ false);
   }
 
   private ActionResult uploadDirectory(CombinedCache combinedCache, List<Path> outputs)
