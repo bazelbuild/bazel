@@ -357,18 +357,28 @@ public class CombinedCache extends AbstractReferenceCounted {
         .call(() -> null, directExecutor());
   }
 
+  /** Upload a local file to the remote and/or disk cache. */
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadFile(context, digest, file, /* force= */ false);
+  }
+
   /**
    * Upload a local file to the remote cache.
    *
    * <p>Trying to upload the same file multiple times concurrently, results in only one upload being
-   * performed.
+   * performed. An upload to the remote cache is also skipped if this instance has already completed
+   * an upload of the same blob, unless {@code force} is set.
    *
    * @param context the context for the action.
    * @param digest the digest of the file.
    * @param file the file to upload.
+   * @param force whether to upload to the remote cache even if this instance has already completed
+   *     an upload of the same blob, e.g. because it may have been evicted since. Concurrent uploads
+   *     are still deduplicated.
    */
   public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
@@ -390,9 +400,9 @@ public class CombinedCache extends AbstractReferenceCounted {
       if (chunkingSupported && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
         remoteCacheFuture =
             remoteCacheClient.dedupUpload(
-                digest, () -> uploadChunked(context, digest, file), /* force= */ false);
+                digest, () -> uploadChunked(context, digest, file, force), force);
       } else {
-        remoteCacheFuture = remoteCacheClient.uploadFile(context, digest, file, /* force= */ false);
+        remoteCacheFuture = remoteCacheClient.uploadFile(context, digest, file, force);
       }
     }
 
@@ -401,10 +411,10 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   private ListenableFuture<Void> uploadChunked(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     return virtualThreadExecutor.submit(
         () -> {
-          chunking.uploader().uploadChunked(context, digest, file);
+          chunking.uploader().uploadChunked(context, digest, file, force);
           return null;
         });
   }
@@ -432,6 +442,21 @@ public class CombinedCache extends AbstractReferenceCounted {
    */
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob) {
+    return uploadBlob(context, digest, blob, /* force= */ false);
+  }
+
+  /**
+   * Uploads a blob to the cache from a repeatable stream supplier.
+   *
+   * <p>The supplier may be opened more than once, including concurrently when both disk and remote
+   * cache writes are enabled.
+   *
+   * @param force whether to upload to the remote cache even if this instance has already completed
+   *     an upload of the same blob, e.g. because it may have been evicted since. Concurrent uploads
+   *     are still deduplicated.
+   */
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
@@ -443,7 +468,7 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      remoteCacheFuture = remoteCacheClient.uploadBlob(context, digest, blob, /* force= */ false);
+      remoteCacheFuture = remoteCacheClient.uploadBlob(context, digest, blob, force);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)

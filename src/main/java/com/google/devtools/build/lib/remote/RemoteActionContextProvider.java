@@ -184,7 +184,8 @@ final class RemoteActionContextProvider {
               captureCorruptedOutputsDir,
               remoteOutputChecker,
               outputService,
-              knownMissingCasDigests);
+              knownMissingCasDigests,
+              env.getSkyframeExecutor()::wasActionRewound);
       env.getEventBus().register(remoteExecutionService);
     }
 
