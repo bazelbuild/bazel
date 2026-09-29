@@ -135,6 +135,8 @@ public final class RemoteModule extends BlazeModule {
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   private final ThreadPoolExecutor executorService;
+  // TODO: Remove this set when whole-invocation retries no longer handle lost action inputs.
+  // RemoteExecutionService skips cache lookup for rewound actions instead.
   private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
   private final ChunkLocationMap chunkLocationMap = new ChunkLocationMap();
   private boolean useRemoteRepoContentsCache;

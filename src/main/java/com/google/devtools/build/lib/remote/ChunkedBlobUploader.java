@@ -91,8 +91,12 @@ public class ChunkedBlobUploader {
    * Uploads a blob in content-defined chunks. The file is chunked with the configured chunking
    * function, missing chunks are uploaded, and {@code SpliceBlob} is called to register the blob as
    * the concatenation of its chunks.
+   *
+   * @param force whether to upload missing chunks even if the cache client has already completed
+   *     uploads of them
    */
-  public void uploadChunked(RemoteActionExecutionContext context, Digest blobDigest, Path file)
+  public void uploadChunked(
+      RemoteActionExecutionContext context, Digest blobDigest, Path file, boolean force)
       throws IOException, InterruptedException {
     List<Digest> chunkDigests;
     try (InputStream input = file.getInputStream()) {
@@ -104,7 +108,7 @@ public class ChunkedBlobUploader {
 
     ImmutableSet<Digest> missingDigests =
         getFromFuture(grpcCacheClient.findMissingDigests(context, chunkDigests));
-    uploadMissingChunks(context, missingDigests, chunkDigests, file);
+    uploadMissingChunks(context, missingDigests, chunkDigests, file, force);
     getFromFuture(grpcCacheClient.spliceBlob(context, blobDigest, chunkDigests, chunkingFunction));
   }
 
@@ -112,12 +116,13 @@ public class ChunkedBlobUploader {
       RemoteActionExecutionContext context,
       ImmutableSet<Digest> missingDigests,
       List<Digest> chunkDigests,
-      Path file)
+      Path file,
+      boolean force)
       throws IOException, InterruptedException {
     if (missingDigests.isEmpty()) {
       return;
     }
-    new UploadSession(context, missingDigests, chunkDigests).run(file);
+    new UploadSession(context, missingDigests, chunkDigests, force).run(file);
   }
 
   private final class UploadSession {
@@ -129,14 +134,17 @@ public class ChunkedBlobUploader {
     private final RemoteActionExecutionContext context;
     private final ImmutableSet<Digest> missingDigests;
     private final List<Digest> chunkDigests;
+    private final boolean force;
 
     UploadSession(
         RemoteActionExecutionContext context,
         ImmutableSet<Digest> missingDigests,
-        List<Digest> chunkDigests) {
+        List<Digest> chunkDigests,
+        boolean force) {
       this.context = context;
       this.missingDigests = missingDigests;
       this.chunkDigests = chunkDigests;
+      this.force = force;
     }
 
     void run(Path file) throws IOException, InterruptedException {
@@ -169,7 +177,7 @@ public class ChunkedBlobUploader {
     private void startUpload(Path file, long chunkOffset, Digest chunkDigest) {
       ListenableFuture<Void> upload =
           combinedCache.uploadBlob(
-              context, chunkDigest, new ChunkBlob(file, chunkOffset, chunkDigest));
+              context, chunkDigest, new ChunkBlob(file, chunkOffset, chunkDigest), force);
       inFlightUploads.add(upload);
       upload.addListener(() -> completedUploads.add(upload), directExecutor());
     }

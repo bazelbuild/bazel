@@ -64,6 +64,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -158,6 +159,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -204,6 +206,7 @@ public class RemoteExecutionService {
 
   @Nullable private final Scrubber scrubber;
   private final Set<Digest> knownMissingCasDigests;
+  private final Predicate<ActionAnalysisMetadata> wasRewound;
 
   private Boolean useOutputPaths;
 
@@ -224,7 +227,8 @@ public class RemoteExecutionService {
       @Nullable Path captureCorruptedOutputsDir,
       @Nullable RemoteOutputChecker remoteOutputChecker,
       OutputService outputService,
-      Set<Digest> knownMissingCasDigests) {
+      Set<Digest> knownMissingCasDigests,
+      Predicate<ActionAnalysisMetadata> wasRewound) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -255,6 +259,7 @@ public class RemoteExecutionService {
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputService = outputService;
     this.knownMissingCasDigests = knownMissingCasDigests;
+    this.wasRewound = wasRewound;
   }
 
   private Command buildCommand(
@@ -779,6 +784,15 @@ public class RemoteExecutionService {
         action.getRemoteActionExecutionContext().getReadCachePolicy().allowAnyCache(),
         "spawn doesn't accept cached result");
 
+    // A rewound action must regenerate its lost outputs even if the cache still serves its stale
+    // action result. Treat this as a cache miss.
+    // TODO(https://github.com/bazelbuild/remote-apis/pull/386): Allow cache lookup for rewound
+    // actions when CacheCapabilities.verifies_action_results is advertised, while still bypassing
+    // unverified cache layers.
+    if (wasRewound.test(action.getSpawn().getResourceOwner())) {
+      return null;
+    }
+
     ImmutableSet<String> inlineOutputFiles = ImmutableSet.of();
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {
@@ -799,9 +813,9 @@ public class RemoteExecutionService {
 
     var result = RemoteActionResult.createFromCache(cachedActionResult);
 
-    // We only add digests to `knownMissingCasDigests` when LostInputsEvent occurs which will cause
-    // the build to abort and rewind, so there is no data race here. This allows us to avoid the
-    // check until cache eviction happens.
+    // The legacy whole-invocation retry path uses knownMissingCasDigests to prevent a retried
+    // invocation from accepting the same stale action result. Action rewinding bypasses cache
+    // lookup above without populating this set.
     if (!knownMissingCasDigests.isEmpty()) {
       ActionResultMetadata metadata;
       try {
@@ -1819,11 +1833,16 @@ public class RemoteExecutionService {
       return;
     }
 
+    // The output blobs of a rewound action may have been evicted after this invocation uploaded
+    // them, so bypass the deduplication of completed uploads. Otherwise, the refreshed action
+    // result could still reference missing blobs. Evaluate this here rather than in the upload
+    // task, which may run after the build's rewinding state has been discarded.
+    boolean force = wasRewound.test(action.getSpawn().getResourceOwner());
     if (remoteOptions.getRemoteCacheAsync()
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      new OutputUploadTask(action, spawnResult, onUploadComplete).start();
+      new OutputUploadTask(action, spawnResult, force, onUploadComplete).start();
     } else {
-      doUploadOutputs(action, spawnResult, onUploadComplete);
+      doUploadOutputs(action, spawnResult, force, onUploadComplete);
     }
   }
 
@@ -1857,12 +1876,13 @@ public class RemoteExecutionService {
     // happens-before edge to the reads in run() on the executor thread.
     private Runnable unregisterHandle = () -> {};
 
-    OutputUploadTask(RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete) {
+    OutputUploadTask(
+        RemoteAction action, SpawnResult spawnResult, boolean force, Runnable onUploadComplete) {
       this.upload =
           new CancellableTask<>(
               () -> {
                 try {
-                  doUploadOutputs(action, spawnResult, /* onUploadComplete= */ () -> {});
+                  doUploadOutputs(action, spawnResult, force, /* onUploadComplete= */ () -> {});
                 } catch (ExecException e) {
                   reportUploadError(e);
                 }
@@ -1921,13 +1941,13 @@ public class RemoteExecutionService {
   }
 
   private void doUploadOutputs(
-      RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete)
+      RemoteAction action, SpawnResult spawnResult, boolean force, Runnable onUploadComplete)
       throws ExecException, InterruptedException {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
       UploadManifest manifest = buildUploadManifest(action, spawnResult);
       var unused =
-          manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter);
+          manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter, force);
     } catch (IOException e) {
       reportUploadError(e);
     } finally {
@@ -2053,7 +2073,11 @@ public class RemoteExecutionService {
             .setInstanceName(remoteOptions.getRemoteInstanceName())
             .setDigestFunction(digestUtil.getDigestFunction())
             .setActionDigest(action.getActionKey().digest())
-            .setSkipCacheLookup(!acceptCachedResult);
+            // TODO(https://github.com/bazelbuild/remote-apis/pull/386): Allow cached execution
+            // results for rewound actions when ExecutionCapabilities.verifies_action_results is
+            // advertised.
+            .setSkipCacheLookup(
+                !acceptCachedResult || wasRewound.test(action.getSpawn().getResourceOwner()));
     if (remoteOptions.getRemoteResultCachePriority() != 0) {
       requestBuilder
           .getResultsCachePolicyBuilder()

@@ -291,15 +291,19 @@ public final class ActionRewindStrategy {
       LostType lostType,
       ExtendedEventHandler listener)
       throws ActionRewindException {
-    // Bazel's (but not Blaze's) remote implementation needs to learn about lost digests to
-    // invalidate caches, both for rewinding and for invocation retries in BlazeCommandDispatcher.
-    listener.post(new LostInputsEvent(lostArtifacts.keySet()));
     if (skyframeActionExecutor.rewindingEnabled()) {
+      // Action rewinding takes precedence over whole-invocation retries when both are enabled.
+      // Remote execution skips cache lookup for rewound actions without tracking lost digests.
+      // Other transient cache errors, including evicted repository files read during loading,
+      // can still trigger invocation retries in BlazeCommandDispatcher without passing here.
       return;
     }
     if (skyframeActionExecutor.invocationRetriesEnabled()) {
-      // If rewinding failed, Bazel may still be able to recover by retrying the invocation in
-      // BlazeCommandDispatcher if retries are enabled.
+      // Bazel's (but not Blaze's) remote implementation needs to learn about lost digests so that
+      // the retried invocation doesn't accept the same stale action result.
+      listener.post(new LostInputsEvent(lostArtifacts.keySet()));
+      // When action rewinding is disabled, recover by retrying the invocation in
+      // BlazeCommandDispatcher instead.
       throw new FallbackToBuildRewindingException(
           lostArtifacts.entries().stream()
               .limit(MAX_LOST_INPUTS_RECORDED)

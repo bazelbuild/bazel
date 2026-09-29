@@ -1306,7 +1306,11 @@ public class CombinedCacheTest {
     clearInvocations(remoteCacheClient);
 
     ActionResult actionResult =
-        um.upload(remoteActionExecutionContext, combinedCache, mock(ExtendedEventHandler.class));
+        um.upload(
+            remoteActionExecutionContext,
+            combinedCache,
+            mock(ExtendedEventHandler.class),
+            /* force= */ false);
     assertThat(actionResult).isNotNull();
 
     // Verify remote upload was only called for digest2 (not digest1, which was already in remote
