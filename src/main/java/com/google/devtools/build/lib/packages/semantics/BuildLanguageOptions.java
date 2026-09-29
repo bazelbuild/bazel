@@ -674,7 +674,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "If enabled, certain deprecated APIs (native.repository_name, Label.workspace_name,"
-              + " Label.relative) can be used.")
+              + " Label.workspace_root, Label.relative) can be used.")
   public abstract boolean getEnableDeprecatedLabelApis();
 
   @Option(
