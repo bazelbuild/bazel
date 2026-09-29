@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
-import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -61,7 +60,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -154,8 +152,6 @@ import java.util.stream.IntStream;
  */
 @SuppressWarnings("IdentifierName") // Using test method naming conventions.
 public class RewindingTestsHelper {
-
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   final ActionEventRecorder recorder;
   final BuildIntegrationTestCase testCase;
@@ -1743,7 +1739,7 @@ public class RewindingTestsHelper {
       throws Exception {
     // All consumers and the action that reports the lost input have to run concurrently for the
     // expansion to be rewound while the tree artifact is being read.
-    ensureMinimumJobs(TREE_CONSUMER_COUNT + 1);
+    testCase.ensureMinimumJobs(TREE_CONSUMER_COUNT + 1);
     testCase.addOptions("--experimental_allow_map_directory");
     testCase.write(
         "foo/defs.bzl",
@@ -2138,7 +2134,7 @@ public class RewindingTestsHelper {
     int concurrentActions = 8;
     // All re-executed sibling actions have to run concurrently for the rendezvous below to
     // complete.
-    ensureMinimumJobs(concurrentActions);
+    testCase.ensureMinimumJobs(concurrentActions);
     testCase.addOptions("--experimental_allow_map_directory");
     ImmutableList<String> children =
         IntStream.rangeClosed(1, concurrentActions)
@@ -3922,23 +3918,7 @@ public class RewindingTestsHelper {
    * CPU.
    */
   private void ensureMultipleJobs() throws Exception {
-    ensureMinimumJobs(2);
-  }
-
-  /**
-   * Ensures that the value of the {@code --jobs} flag is at least {@code minJobs}.
-   *
-   * <p>Note that the default value for {@code --jobs} is automatically calculated based on host
-   * CPU.
-   */
-  private void ensureMinimumJobs(int minJobs) throws Exception {
-    int autoJobs = new JobsConverter().convert("auto");
-    if (autoJobs < minJobs) {
-      logger.atInfo().log("Setting --jobs=%s (was %s)", minJobs, autoJobs);
-      testCase.addOptions("--jobs=" + minJobs);
-    } else {
-      logger.atInfo().log("Keeping default value of --jobs=%s", autoJobs);
-    }
+    testCase.ensureMinimumJobs(2);
   }
 
   private boolean keepGoing() {

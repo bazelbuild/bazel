@@ -144,6 +144,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party/google/protobuf:any_java_proto",
         "//third_party/java/error_prone:annotations",
+        "//third_party/java/flogger",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:eventbus",
