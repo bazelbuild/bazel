@@ -56,8 +56,6 @@ java_library(
         "Util.java",
         "WindowsBatchCommandConstructor.java",
         "WindowsPowershellCommandConstructor.java",
-        "actions/SpawnAction.java",
-        "actions/StarlarkAction.java",
         "actions/StarlarkMapActionTemplate.java",
         "actions/SymlinkTreeAction.java",
         "actions/SymlinkTreeActionContext.java",
@@ -69,12 +67,10 @@ java_library(
         "configuredtargets/OutputFileConfiguredTarget.java",
         "configuredtargets/PackageGroupConfiguredTarget.java",
         "configuredtargets/RuleConfiguredTarget.java",
-        "extra/ExtraAction.java",
         "extra/ExtraActionMapProvider.java",
         "extra/ExtraActionSpec.java",
         "starlark/StarlarkActionFactory.java",
         "starlark/StarlarkAttrModule.java",
-        "starlark/StarlarkAttributeTransitionProvider.java",
         "starlark/StarlarkAttributesCollection.java",
         "starlark/StarlarkGlobalsImpl.java",
         "starlark/StarlarkRuleClassFunctions.java",
@@ -83,8 +79,6 @@ java_library(
         "starlark/StarlarkSubrule.java",
         "starlark/StarlarkTemplateContext.java",
         "test/AnalysisTestActionBuilder.java",
-        "test/BaselineCoverageAction.java",
-        "test/InstrumentedFileManifestAction.java",
         "test/InstrumentedFilesCollector.java",
         "test/TestActionBuilder.java",
         "test/TestActionContext.java",
@@ -99,6 +93,7 @@ java_library(
     exports = [
         ":actions/action_construction_context",
         ":actions/shell_command",
+        ":actions/spawn_action",
         ":alias_provider",
         ":analysis_environment",
         ":analysis_failure_event",
@@ -108,14 +103,18 @@ java_library(
         ":configuration_make_variable_context",
         ":dependency_resolution_helpers",
         ":event_handling_error_reporter",
+        ":extra/extra_action",
         ":materialized_deps_info",
         ":package_specification_provider",
         ":sh_toolchain",
         ":shell_configuration",
         ":starlark/composed_transition_materializer",
+        ":starlark/starlark_attribute_transition_provider",
         ":starlark/starlark_rule_transition_provider",
         ":starlark/unresolved_symlink_action",
         ":target_context",
+        ":test/baseline_coverage_action",
+        ":test/instrumented_file_manifest_action",
         ":test/test_tags_provider",
         ":transitive_visibility_provider",
     ],
@@ -123,12 +122,11 @@ java_library(
         ":actions/abstract_file_write_action",
         ":actions/action_construction_context",
         ":actions/buildinfo_file_write_action",
-        ":actions/custom_command_line",
         ":actions/file_write_action",
         ":actions/lazy_write_nested_set_of_tuple_action",
         ":actions/parameter_file_write_action",
         ":actions/path_mappers",
-        ":actions/shell_command",
+        ":actions/spawn_action",
         ":actions/substitution",
         ":actions/symlink_action",
         ":actions/template_expansion_action",
@@ -145,6 +143,7 @@ java_library(
         ":dormant_dependency",
         ":event_handling_error_reporter",
         ":exec_group_collection",
+        ":extra/extra_action",
         ":extra/extra_action_info_file_write_action",
         ":extra_action_artifacts_provider",
         ":file_provider",
@@ -167,13 +166,12 @@ java_library(
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
         ":starlark/composed_transition_materializer",
-        ":starlark/function_transition_util",
         ":starlark/starlark_api_provider",
+        ":starlark/starlark_attribute_transition_provider",
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_rule_transition_provider",
         ":starlark/starlark_toolchain_context",
-        ":starlark/starlark_transition",
         ":starlark/template_dict",
         ":starlark/unresolved_symlink_action",
         ":symlink_entry",
@@ -182,8 +180,10 @@ java_library(
         ":test/analysis_failure",
         ":test/analysis_failure_info",
         ":test/analysis_test_result_info",
+        ":test/baseline_coverage_action",
         ":test/coverage_configuration",
         ":test/execution_info",
+        ":test/instrumented_file_manifest_action",
         ":test/instrumented_files_info",
         ":test/test_configuration",
         ":test/test_sharding_strategy",
@@ -232,7 +232,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:split_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:starlark_exposed_rule_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis/constraints:constraint_constants",
@@ -255,8 +254,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_exec_exception",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
         "//src/main/java/com/google/devtools/build/lib/exec:streamed_test_output",
         "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",
         "//src/main/java/com/google/devtools/build/lib/exec:test_xml_output_parser",
@@ -1469,10 +1466,57 @@ java_library(
 )
 
 java_library(
+    name = "actions/spawn_action",
+    srcs = [
+        "actions/SpawnAction.java",
+        "actions/StarlarkAction.java",
+    ],
+    deps = [
+        ":actions/action_construction_context",
+        ":actions/custom_command_line",
+        ":actions/path_mappers",
+        ":actions/shell_command",
+        ":starlark/args",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:param_file_info",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_exec_exception",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
+        "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:extra_actions_base_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
+    ],
+)
+
+java_library(
     name = "actions/spawn_action_template",
     srcs = ["actions/SpawnActionTemplate.java"],
     deps = [
         ":actions/custom_command_line",
+        ":actions/spawn_action",
         ":analysis_core",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -1583,8 +1627,26 @@ java_library(
     ],
 )
 
-# Targets for analysis/extra/*.java. Kept in analysis/BUILD because ExtraAction depends on
-# RuleContext and is part of the core analysis cycle (:analysis_core).
+# Targets for analysis/extra/*.java.
+java_library(
+    name = "extra/extra_action",
+    srcs = ["extra/ExtraAction.java"],
+    deps = [
+        ":actions/spawn_action",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
 java_library(
     name = "extra/extra_action_info_file_write_action",
     srcs = ["extra/ExtraActionInfoFileWriteAction.java"],
@@ -1877,6 +1939,21 @@ java_library(
 )
 
 java_library(
+    name = "test/baseline_coverage_action",
+    srcs = ["test/BaselineCoverageAction.java"],
+    deps = [
+        ":actions/abstract_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "test/coverage_configuration",
     srcs = ["test/CoverageConfiguration.java"],
     deps = [
@@ -1934,6 +2011,21 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "test/instrumented_file_manifest_action",
+    srcs = ["test/InstrumentedFileManifestAction.java"],
+    deps = [
+        ":actions/abstract_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -2222,6 +2314,28 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:configuration_transition_api",
         "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "starlark/starlark_attribute_transition_provider",
+    srcs = ["starlark/StarlarkAttributeTransitionProvider.java"],
+    deps = [
+        ":starlark/function_transition_util",
+        ":starlark/starlark_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_defined_config_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:split_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 

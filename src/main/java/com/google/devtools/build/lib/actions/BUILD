@@ -114,6 +114,7 @@ java_library(
         "Spawns.java",
         "StoppedScanningActionEvent.java",
         "TestExecException.java",
+        "ToolProvider.java",
         "TopLevelOutputException.java",
         "UploadingActionEvent.java",
     ],
