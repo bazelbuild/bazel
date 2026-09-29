@@ -35,7 +35,6 @@ java_library(
         "ExtraActionUtils.java",
         "ExtraActionsVisitor.java",
         "FilesToRunProvider.java",
-        "FragmentCollection.java",
         "LocationExpander.java",
         "LocationTemplateContext.java",
         "OutputGroupInfo.java",
@@ -49,7 +48,6 @@ java_library(
         "RunfilesProvider.java",
         "RunfilesSupport.java",
         "SourceManifestAction.java",
-        "StarlarkProviderValidationUtil.java",
         "Util.java",
         "actions/StarlarkMapActionTemplate.java",
         "actions/SymlinkTreeAction.java",
@@ -99,6 +97,7 @@ java_library(
         ":dependency_resolution_helpers",
         ":event_handling_error_reporter",
         ":extra/extra_action",
+        ":fragment_collection",
         ":materialized_deps_info",
         ":package_specification_provider",
         ":pseudo_action",
@@ -108,6 +107,7 @@ java_library(
         ":starlark/starlark_attribute_transition_provider",
         ":starlark/starlark_rule_transition_provider",
         ":starlark/unresolved_symlink_action",
+        ":starlark_provider_validation_util",
         ":target_context",
         ":test/analysis_test_action_builder",
         ":test/baseline_coverage_action",
@@ -145,6 +145,7 @@ java_library(
         ":extra/extra_action_info_file_write_action",
         ":extra_action_artifacts_provider",
         ":file_provider",
+        ":fragment_collection",
         ":incompatible_platform_provider",
         ":label_expander",
         ":materialized_deps_info",
@@ -173,6 +174,7 @@ java_library(
         ":starlark/starlark_toolchain_context",
         ":starlark/template_dict",
         ":starlark/unresolved_symlink_action",
+        ":starlark_provider_validation_util",
         ":symlink_entry",
         ":target_context",
         ":template_variable_info",
@@ -705,6 +707,18 @@ java_library(
 )
 
 java_library(
+    name = "fragment_collection",
+    srcs = ["FragmentCollection.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "incompatible_platform_provider",
     srcs = ["IncompatiblePlatformProvider.java"],
     deps = [
@@ -1062,6 +1076,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/guava:base",
+    ],
+)
+
+java_library(
+    name = "starlark_provider_validation_util",
+    srcs = ["StarlarkProviderValidationUtil.java"],
+    deps = [
+        ":analysis_environment",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 

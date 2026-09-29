@@ -126,7 +126,9 @@ import net.starlark.java.eval.Tuple;
  * (such attempts will result in {@link EvalException}s).
  */
 public final class StarlarkRuleContext
-    implements StarlarkRuleContextApi<ConstraintValueInfo>, StarlarkActionContext {
+    implements StarlarkRuleContextApi<ConstraintValueInfo>,
+        StarlarkActionContext,
+        FragmentCollection.FragmentSupplier {
 
   private static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
@@ -196,7 +198,7 @@ public final class StarlarkRuleContext
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.actionFactory = new StarlarkActionFactory(this);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
-    this.fragments = new FragmentCollection(ruleContext);
+    this.fragments = new FragmentCollection(this);
     this.aspectDescriptor = aspectDescriptor;
     this.isForAspect = aspectDescriptor != null;
     this.ruleClassUnderEvaluation = ruleContext.getRule().getRuleClassObject();
@@ -736,6 +738,17 @@ public final class StarlarkRuleContext
   public FragmentCollection getFragments() throws EvalException {
     checkMutable("fragments");
     return fragments;
+  }
+
+  @Override
+  @Nullable
+  public Object getStarlarkFragment(String name) throws EvalException {
+    return ruleContext.getStarlarkFragment(name);
+  }
+
+  @Override
+  public ImmutableCollection<String> getStarlarkFragmentNames() {
+    return ruleContext.getStarlarkFragmentNames();
   }
 
   @Override
