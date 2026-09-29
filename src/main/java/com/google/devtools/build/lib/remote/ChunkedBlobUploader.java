@@ -102,9 +102,13 @@ public class ChunkedBlobUploader {
       return;
     }
 
+    // FindMissingBlobs and the chunk uploads refer to chunk digests, so they announce the chunking
+    // function to the server. SpliceBlob refers to the whole blob and names the chunking function
+    // in its request instead.
+    RemoteActionExecutionContext chunkContext = context.chunked(chunkingFunction);
     ImmutableSet<Digest> missingDigests =
-        getFromFuture(grpcCacheClient.findMissingDigests(context, chunkDigests));
-    uploadMissingChunks(context, missingDigests, chunkDigests, file);
+        getFromFuture(grpcCacheClient.findMissingDigests(chunkContext, chunkDigests));
+    uploadMissingChunks(chunkContext, missingDigests, chunkDigests, file);
     getFromFuture(grpcCacheClient.spliceBlob(context, blobDigest, chunkDigests, chunkingFunction));
   }
 

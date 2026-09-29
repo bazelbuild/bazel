@@ -184,7 +184,8 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
       RemoteActionExecutionContext context, Channel channel) {
     return ContentAddressableStorageGrpc.newFutureStub(channel)
         .withInterceptors(
-            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
+            TracingMetadataUtils.attachMetadataInterceptor(
+                context.getRequestMetadata(), context.getChunkingFunction()),
             new NetworkTimeInterceptor(context::getNetworkTime))
         .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }
@@ -192,7 +193,8 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   private ByteStreamStub bsAsyncStub(RemoteActionExecutionContext context, Channel channel) {
     return ByteStreamGrpc.newStub(channel)
         .withInterceptors(
-            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
+            TracingMetadataUtils.attachMetadataInterceptor(
+                context.getRequestMetadata(), context.getChunkingFunction()),
             new NetworkTimeInterceptor(context::getNetworkTime))
         .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }

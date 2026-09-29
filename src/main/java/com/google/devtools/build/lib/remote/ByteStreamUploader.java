@@ -286,7 +286,8 @@ final class ByteStreamUploader {
     private ByteStreamStub bsAsyncStub(Channel channel) {
       return ByteStreamGrpc.newStub(channel)
           .withInterceptors(
-              TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
+              TracingMetadataUtils.attachMetadataInterceptor(
+                  context.getRequestMetadata(), context.getChunkingFunction()))
           .withCallCredentials(callCredentialsProvider.getCallCredentials());
     }
 

@@ -90,8 +90,10 @@ public class ChunkedBlobDownloader {
       out = digestOut;
     }
 
+    // SplitBlob refers to the whole blob and names the chunking function in its request. The chunk
+    // downloads refer to chunk digests, so they announce the chunking function to the server.
     List<Digest> chunkDigests = getChunkDigests(context, blobDigest);
-    new DownloadSession(context, chunkDigests, destination, out).run();
+    new DownloadSession(context.chunked(chunkingFunction), chunkDigests, destination, out).run();
     if (digestOut != null) {
       Utils.verifyBlobContents(blobDigest, digestOut.digest());
     }
