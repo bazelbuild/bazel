@@ -372,7 +372,7 @@ java_test(
 java_test(
     name = "OutputArtifactConflictTest",
     srcs = ["OutputArtifactConflictTest.java"],
-    shard_count = 3,
+    shard_count = 8,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
