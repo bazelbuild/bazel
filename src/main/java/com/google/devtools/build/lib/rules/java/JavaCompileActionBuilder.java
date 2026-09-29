@@ -29,7 +29,9 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -244,6 +246,12 @@ public final class JavaCompileActionBuilder {
             .getActionEnvironment()
             .withAdditionalFixedVariables(utf8Environment);
 
+    boolean useUnstrippedOutputDepsProto =
+        PathMappers.getEffectiveOutputPathsMode(
+                PathMappers.getOutputPathsMode(ruleContext.getConfiguration()),
+                MNEMONIC,
+                ruleContext.getConfiguration().modifiedExecutionInfo(executionInfo, MNEMONIC))
+            != OutputPathsMode.OFF;
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
         /* owner= */ ruleContext.getActionOwner(execGroup),
@@ -261,7 +269,7 @@ public final class JavaCompileActionBuilder {
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
         /* executableLine= */ executableLine,
-        /* flagLine= */ buildParamFileContents(javacOpts),
+        /* flagLine= */ buildParamFileContents(javacOpts, useUnstrippedOutputDepsProto),
         /* extraCommandLineArgs= */ extraCommandLineArgs,
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
@@ -278,7 +286,8 @@ public final class JavaCompileActionBuilder {
     return result.build();
   }
 
-  private CustomCommandLine buildParamFileContents(ImmutableList<String> javacOpts)
+  private CustomCommandLine buildParamFileContents(
+      ImmutableList<String> javacOpts, boolean useUnstrippedOutputDepsProto)
       throws RuleErrorException, InterruptedException {
 
     CustomCommandLine.Builder result = CustomCommandLine.builder();
@@ -290,7 +299,10 @@ public final class JavaCompileActionBuilder {
     if (compressJar) {
       result.add("--compress_jar");
     }
-    result.addExecPath("--output_deps_proto", outputs.depsProto());
+    result.addFormattedExecPath(
+        "--output_deps_proto",
+        useUnstrippedOutputDepsProto ? "%s.unstripped" : "%s",
+        outputs.depsProto());
     result.addExecPaths("--bootclasspath", bootClassPath.bootclasspath());
     if (bootClassPath.systemPath().isPresent()) {
       result.addPath("--system", bootClassPath.systemPath().get());

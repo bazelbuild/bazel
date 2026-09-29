@@ -122,6 +122,33 @@ public final class CustomCommandLineTest {
   public void addFormatted_addsCorrectlyFormattedArgument() throws Exception {
     assertThat(builder().addFormatted("%s%s", "hello", "world").build().arguments())
         .containsExactly("helloworld");
+    assertThat(builder().addFormattedExecPath("--arg", "%%/%s/%%", artifact1).build().arguments())
+        .containsExactly("--arg", "%/dir/file1.txt/%")
+        .inOrder();
+  }
+
+  @Test
+  public void addFormattedExecPath_mapsBeforeFormatting(
+      @TestParameter boolean pathMapping, @TestParameter boolean unstripped) throws Exception {
+    PathMapper pathMapper =
+        pathMapping
+            ? execPath -> PathFragment.create("mapped").getRelative(execPath)
+            : PathMapper.NOOP;
+    assertThat(
+            builder()
+                .add("before")
+                .addFormattedExecPath("--deps", unstripped ? "%s.unstripped" : "%s", artifact1)
+                .addFormattedExecPath("--omitted", "%s", null)
+                .add("after")
+                .build()
+                .arguments(null, pathMapper))
+        .containsExactly(
+            "before",
+            "--deps",
+            (pathMapping ? "mapped/dir/file1.txt" : "dir/file1.txt")
+                + (unstripped ? ".unstripped" : ""),
+            "after")
+        .inOrder();
   }
 
   @Test
@@ -668,6 +695,10 @@ public final class CustomCommandLineTest {
         ImmutableList.<CustomCommandLine>builder()
             .add(builder().add("arg").build())
             .add(builder().addFormatted("--foo=%s", "arg").build())
+            .add(builder().addFormattedExecPath("--deps", "%s", artifact1).build())
+            .add(builder().addFormattedExecPath("--deps", "%s.unstripped", artifact1).build())
+            .add(builder().addFormattedExecPath("--other", "%s", artifact1).build())
+            .add(builder().addFormattedExecPath("--deps", "%s", artifact2).build())
             .add(builder().addPrefixed("--foo=%s", "arg").build())
             .add(builder().addAll(values).build())
             .add(builder().addAll(VectorArg.addBefore("--foo=%s").each(values)).build())
