@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
+import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -361,10 +362,7 @@ public class DiskCacheClient {
     return uploadBlob(digest, (Blob) data::newInput);
   }
 
-  /**
-   * Uploads a blob from a stream supplier, which is only opened if the cache doesn't have an entry
-   * for the digest yet.
-   */
+  /** Uploads a blob from a stream supplier. */
   public ListenableFuture<Void> uploadBlob(Digest digest, Blob blob) {
     return executorService.submit(
         () -> {
@@ -404,17 +402,6 @@ public class DiskCacheClient {
     save(digest, store, temp -> copyToTemp(in, temp));
   }
 
-  private static void copyToTemp(InputStream in, Path temp) throws IOException {
-    try (OutputStream out = temp.getOutputStream()) {
-      ByteStreams.copy(in, out);
-      // Fsync temp before we rename it to avoid data loss in the case of machine
-      // crashes (the OS may reorder the writes and the rename).
-      if (out instanceof FileOutputStream fos) {
-        fos.getFD().sync();
-      }
-    }
-  }
-
   /**
    * Saves an existing file into the cache.
    *
@@ -437,6 +424,19 @@ public class DiskCacheClient {
           // crashes (the OS may reorder the writes and the rename).
           syncFile(temp);
         });
+  }
+
+  private static void copyToTemp(InputStream in, Path temp) throws IOException {
+    try (var out = temp.getOutputStream()) {
+      var bufferedOut = new BufferedOutputStream(out);
+      in.transferTo(bufferedOut);
+      bufferedOut.flush();
+      // Fsync temp before we rename it to avoid data loss in the case of machine
+      // crashes (the OS may reorder the writes and the rename).
+      if (out instanceof FileOutputStream fos) {
+        fos.getFD().sync();
+      }
+    }
   }
 
   /** Writes the contents of a cache entry into a temporary file. */
