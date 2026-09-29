@@ -875,13 +875,44 @@ class BazelVendorTest(test_base.TestBase):
 
   def testVendorToolsForBazelSubcommands(self):
     # Regression test for https://github.com/bazelbuild/bazel/issues/29222:
-    # `bazel vendor //...` alone doesn't pull in tools needed by Bazel
-    # subcommands (e.g. buildozer for `bazel mod tidy`). Users must explicitly
-    # vendor @bazel_tools//tools:tools_for_bazel_subcommands for those
-    # subcommands to work under `--nofetch`.
+    # The tools filegroup vendors buildozer. Tidy also needs the dependencies of
+    # all module extensions, including those unrelated to the build targets.
+    # Keep the real tools filegroup and its buildozer dependency, but omit the
+    # other built-in toolchains so vendoring the whole graph stays inexpensive.
+    self.useMockBuiltinModules()
+    with open(
+        self.Rlocation('io_bazel/src/MODULE.tools'), encoding='utf-8'
+    ) as f:
+      tools_module = [
+          line.rstrip('\n')
+          for line in f
+          if line.startswith((
+              'module(',
+              'bazel_dep(name = "buildozer",',
+              'bazel_dep(name = "platforms",',
+              'bazel_dep(name = "bazel_features",',
+              'bazel_dep(name = "bazel_skylib",',
+              'bazel_dep(name = "rules_shell",',
+              'buildozer_binary = ',
+              'use_repo(buildozer_binary,',
+          ))
+      ]
+    self.ScratchFile('tools_mock/MODULE.bazel', tools_module)
+    self.CopyFile(
+        self.Rlocation('io_bazel/tools/BUILD.tools'), 'tools_mock/tools/BUILD'
+    )
+    self.CopyFile(
+        self.Rlocation('io_bazel/tools/build_defs.bzl'),
+        'tools_mock/tools/build_defs.bzl',
+    )
+    self.ScratchFile('.bazelignore', ['tools_mock'])
     self.ScratchFile(
         'MODULE.bazel',
         [
+            'local_path_override(',
+            '    module_name = "bazel_tools",',
+            '    path = "tools_mock",',
+            ')',
             'ext = use_extension("//:extension.bzl", "ext")',
             'use_repo(ext, "dep", "indirect_dep")',
         ],
@@ -908,17 +939,53 @@ class BazelVendorTest(test_base.TestBase):
         ],
     )
 
-    # Vendor the main target set plus the tools filegroup so that
-    # `bazel mod tidy` (which invokes buildozer) can run offline.
+    # The filegroup vendors the buildozer module, which hosts the extension
+    # providing the buildozer binary. The binary's repo rule sets configure and
+    # is thus never vendored; the vendor command fetches it into the output base
+    # instead, where --nofetch finds it.
     self.RunBazel([
         'vendor',
         '--vendor_dir=vendor',
         '//...',
         '@bazel_tools//tools:tools_for_bazel_subcommands',
     ])
+    vendored_repos = os.listdir(self.Path('vendor'))
+    self.assertIn('buildozer+', vendored_repos)
+    self.assertNotIn(
+        'buildozer++buildozer_binary+buildozer_binary', vendored_repos
+    )
 
-    # Run `bazel mod tidy` under `--nofetch`. Without the filegroup being
-    # vendored above, this would fail because buildozer can't be fetched.
+    # Target-based vendoring does not cover extensions used only by
+    # dependencies, such as the one declared by rules_shell.
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'tidy', '--vendor_dir=vendor', '--nofetch'],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        'Vendored repository rules_shell+ not found under the vendor directory'
+        ' and fetching is disabled.',
+        '\n'.join(stderr),
+    )
+
+    # Vendor the entire graph before checking and updating module files offline.
+    self.RunBazel(['vendor', '--vendor_dir=vendor'])
+
+    original_files = {}
+    for path in ['MODULE.bazel', 'MODULE.bazel.lock']:
+      with open(self.Path(path), 'rb') as f:
+        original_files[path] = f.read()
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'tidy', '--diff', '--vendor_dir=vendor', '--nofetch'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('--- a/MODULE.bazel', stdout)
+    for path, contents in original_files.items():
+      with open(self.Path(path), 'rb') as f:
+        self.assertEqual(contents, f.read(), path)
+
+    # Apply the reported changes with fetching still disabled.
     self.RunBazel([
         'mod',
         'tidy',
@@ -933,6 +1000,10 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('"dep"', contents)
     self.assertIn('"missing_dep"', contents)
     self.assertNotIn('"indirect_dep"', contents)
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'tidy', '--diff', '--vendor_dir=vendor', '--nofetch']
+    )
+    self.assertEmpty(stdout)
 
 
 if __name__ == '__main__':

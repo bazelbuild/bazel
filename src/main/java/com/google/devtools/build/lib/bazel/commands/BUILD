@@ -30,6 +30,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:bazel_lockfile_module",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
@@ -78,6 +79,7 @@ java_library(
         "//third_party/java/guava:collect",
         "//third_party/java/guava:io",
         "//third_party/java/guava:primitives",
+        "//third_party/java/java_diff_utils",
         "//third_party/java/jsr305_annotations",
     ],
 )

@@ -107,9 +107,30 @@ vendor invocation:
 bazel vendor //... @bazel_tools//tools:tools_for_bazel_subcommands
 ```
 
-This is required if you plan to run commands like `bazel mod tidy` in an
-offline or hermetic environment (for example with `--vendor_dir` and
-`--nofetch`).
+The filegroup includes buildozer, which `bazel mod tidy` uses to edit module
+files. Tidy also evaluates every module extension in the dependency graph to
+update the lockfile, so it needs the repositories hosting those extensions,
+including those of modules that no build target depends on. Vendoring only
+build targets and the tools filegroup may therefore omit some of them.
+
+To prepare for running tidy with fetching disabled, vendor the full dependency
+graph while fetching is available:
+
+```sh
+bazel vendor --vendor_dir=vendor_src
+bazel mod tidy --vendor_dir=vendor_src --nofetch
+bazel mod tidy --vendor_dir=vendor_src --nofetch --diff
+```
+
+Vendoring the full graph includes the tools as well, so a separate filegroup
+invocation is unnecessary for this workflow. The same platform and environment
+limitations as [vendoring all dependencies](#vendor-all-dependencies) apply.
+Repositories that are [always excluded from vendoring](#configure-vendor-mode),
+such as the one providing the buildozer binary, are fetched into the output
+base by the vendor command instead. Since `--nofetch` relies on them being
+there, rerun `bazel vendor` after `bazel clean --expunge`. Re-vendor when
+dependencies or extension inputs change. `--nofetch` prevents repository
+fetching; extensions may still access the network themselves.
 
 ## Configure vendor mode with VENDOR.bazel {#configure-vendor-mode}
 

@@ -38,6 +38,10 @@ filegroup(
 #
 #   bazel vendor //... @bazel_tools//tools:tools_for_bazel_subcommands
 #
+# `mod tidy` also evaluates all module extensions. To cover their dependencies,
+# vendor the full graph with `bazel vendor`; this includes these tools as well.
+# See https://bazel.build/external/vendor#vendor-tools-for-subcommands.
+#
 # See https://github.com/bazelbuild/bazel/issues/29222.
 filegroup(
     name = "tools_for_bazel_subcommands",
