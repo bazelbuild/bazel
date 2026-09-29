@@ -672,7 +672,8 @@ public final class SandboxHelpers {
    * {@code MerkleTreeComputer} stages such inputs for remote execution. Inputs nested under an
    * input symlink are retained and fail when the sandbox is created.
    *
-   * @param inputMap the map of action inputs and where they should be visible in the action
+   * @param inputMap the map of action inputs and where they should be visible in the action, sorted
+   *     by {@link PathFragment#HIERARCHICAL_COMPARATOR}
    * @param execRoot the exec root
    * @throws IOException if processing symlinks fails
    */
