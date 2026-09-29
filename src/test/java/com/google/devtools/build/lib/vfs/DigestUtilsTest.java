@@ -16,15 +16,17 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.HexFormat;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link DigestUtils}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class DigestUtilsTest {
 
   @After
@@ -153,5 +155,23 @@ public final class DigestUtilsTest {
     byte[] a = {1, 2, 3};
     assertThat(DigestUtils.combineUnordered(a.clone(), a.clone()))
         .isNotEqualTo(new byte[] {0, 0, 0});
+  }
+
+  @Test
+  public void toHexByteString_matchesLowercaseHexEncoding(
+      @TestParameter({
+            "",
+            "00",
+            "0f",
+            "10",
+            "7f",
+            "80",
+            "ff",
+            "0123456789abcdef",
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          })
+          String hex) {
+    assertThat(DigestUtils.toHexByteString(HexFormat.of().parseHex(hex)).toStringUtf8())
+        .isEqualTo(hex);
   }
 }
