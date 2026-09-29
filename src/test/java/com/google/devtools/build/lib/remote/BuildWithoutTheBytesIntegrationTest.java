@@ -131,15 +131,14 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     buildTarget("//:foo");
     assertOutputsDoNotExist("//:foo");
 
-    // --file_write_strategy=remote has no effect without a remote cache.
+    // --file_write_strategy=remote has no effect without a disk or remote cache.
     addOptions("--remote_executor=", "--remote_cache=", "--disk_cache=");
     buildTarget("//:foo");
     assertOnlyOutputContent("//:foo", "foo", "hello");
   }
 
   @Test
-  public void remoteFileWrite_readOnlyCache_keepsOutputOffDiskIfPresentRemotely()
-      throws Exception {
+  public void remoteFileWrite_readOnlyRemoteCache() throws Exception {
     writeFileWriteRules();
     write(
         "BUILD",
@@ -149,7 +148,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         """);
     addOptions("--file_write_strategy=remote");
 
-    // Populate the remote cache with the contents of the file.
+    // Populate the caches with the contents of the file.
     buildTarget("//:foo");
     assertOutputsDoNotExist("//:foo");
 
@@ -164,7 +163,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     buildTarget("//:foo");
     assertOutputsDoNotExist("//:foo");
 
-    // Without the contents in the read-only remote cache, the file has to be written locally.
+    // Without the contents in any cache, they can only be kept off disk if there is a disk cache
+    // to store them in. Otherwise, the file has to be written locally.
     evictAllBlobs();
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
@@ -174,7 +174,40 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "--remote_cache=grpc://localhost:" + worker.getPort(),
         "--noremote_upload_local_results");
     buildTarget("//:foo");
-    assertOnlyOutputContent("//:foo", "foo", "hello");
+    if (useDiskCache) {
+      assertOutputsDoNotExist("//:foo");
+    } else {
+      assertOnlyOutputContent("//:foo", "foo", "hello");
+    }
+  }
+
+  @Test
+  public void remoteFileWrite_diskCacheOnly_keepsOutputOffDisk() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        genrule(
+            name = 'bar',
+            srcs = [':foo'],
+            outs = ['bar.txt'],
+            cmd = 'cat $(location :foo) > $@',
+        )
+        """);
+    addOptions(
+        "--file_write_strategy=remote",
+        "--remote_executor=",
+        "--remote_cache=",
+        "--disk_cache=" + getWorkspace().getRelative(UUID.randomUUID().toString()));
+
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    // A local consumer fetches the contents from the disk cache.
+    buildTarget("//:bar");
+    assertOnlyOutputContent("//:bar", "bar.txt", "hello");
   }
 
   @Override

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -178,9 +179,9 @@ public final class RemoteFileWriteStrategyTest {
   }
 
   @Test
-  public void uploadDisabled_missingRemotely_writesLocally() throws Exception {
+  public void remoteUploadDisabled_missingRemotely_writesLocally() throws Exception {
     var strategy =
-        createStrategy(RemoteOutputsMode.MINIMAL, cacheClient, /* uploadEnabled= */ false);
+        createStrategy(RemoteOutputsMode.MINIMAL, cacheClient, /* remoteUploadEnabled= */ false);
 
     var unused =
         strategy.writeOutputToFile(
@@ -196,12 +197,12 @@ public final class RemoteFileWriteStrategyTest {
   }
 
   @Test
-  public void uploadDisabled_alreadyStoredRemotely_recordsRemoteOutput() throws Exception {
+  public void remoteUploadDisabled_alreadyStoredRemotely_recordsRemoteOutput() throws Exception {
     var prepopulatedCacheClient =
         spy(new InMemoryCacheClient(ImmutableMap.of(CONTENT_DIGEST, CONTENT.getBytes(UTF_8))));
     var strategy =
         createStrategy(
-            RemoteOutputsMode.MINIMAL, prepopulatedCacheClient, /* uploadEnabled= */ false);
+            RemoteOutputsMode.MINIMAL, prepopulatedCacheClient, /* remoteUploadEnabled= */ false);
 
     var unused =
         strategy.writeOutputToFile(
@@ -236,6 +237,101 @@ public final class RemoteFileWriteStrategyTest {
   }
 
   @Test
+  public void diskCacheOnly_storesContentsInDiskCache() throws Exception {
+    var diskCacheClient = createDiskCacheClient();
+    var strategy =
+        createStrategy(
+            RemoteOutputsMode.MINIMAL,
+            /* cacheClient= */ null,
+            diskCacheClient,
+            /* remoteUploadEnabled= */ false);
+
+    var unused =
+        strategy.writeOutputToFile(
+            action,
+            createActionExecutionContext(actionFileSystem),
+            writer(CONTENT),
+            /* makeExecutable= */ false,
+            /* isRemotable= */ true);
+
+    assertStoredInDiskCache(diskCacheClient);
+    var metadata = getRemoteMetadata();
+    assertThat(metadata.isRemote()).isTrue();
+    assertThat(metadata.getDigest()).isEqualTo(DigestUtil.toBinaryDigest(CONTENT_DIGEST));
+    assertThat(output.getPath().exists()).isFalse();
+    assertThat(eventHandler.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void remoteUploadDisabled_missingRemotely_storesContentsInDiskCache() throws Exception {
+    var diskCacheClient = createDiskCacheClient();
+    var strategy =
+        createStrategy(
+            RemoteOutputsMode.MINIMAL, cacheClient, diskCacheClient, /* remoteUploadEnabled= */ false);
+
+    var unused =
+        strategy.writeOutputToFile(
+            action,
+            createActionExecutionContext(actionFileSystem),
+            writer(CONTENT),
+            /* makeExecutable= */ false,
+            /* isRemotable= */ true);
+
+    assertStoredInDiskCache(diskCacheClient);
+    assertNotStoredRemotely(cacheClient);
+    assertThat(getRemoteMetadata().isRemote()).isTrue();
+    assertThat(output.getPath().exists()).isFalse();
+    assertThat(eventHandler.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void alreadyStoredRemotely_storesContentsInDiskCache() throws Exception {
+    var diskCacheClient = createDiskCacheClient();
+    var prepopulatedCacheClient =
+        spy(new InMemoryCacheClient(ImmutableMap.of(CONTENT_DIGEST, CONTENT.getBytes(UTF_8))));
+    var strategy =
+        createStrategy(
+            RemoteOutputsMode.MINIMAL,
+            prepopulatedCacheClient,
+            diskCacheClient,
+            /* remoteUploadEnabled= */ true);
+
+    var unused =
+        strategy.writeOutputToFile(
+            action,
+            createActionExecutionContext(actionFileSystem),
+            writer(CONTENT),
+            /* makeExecutable= */ false,
+            /* isRemotable= */ true);
+
+    verify(prepopulatedCacheClient, never()).uploadBlobImpl(any(), any(), any());
+    assertStoredInDiskCache(diskCacheClient);
+    assertThat(getRemoteMetadata().isRemote()).isTrue();
+    assertThat(output.getPath().exists()).isFalse();
+  }
+
+  @Test
+  public void remotable_storesContentsInBothCaches() throws Exception {
+    var diskCacheClient = createDiskCacheClient();
+    var strategy =
+        createStrategy(
+            RemoteOutputsMode.MINIMAL, cacheClient, diskCacheClient, /* remoteUploadEnabled= */ true);
+
+    var unused =
+        strategy.writeOutputToFile(
+            action,
+            createActionExecutionContext(actionFileSystem),
+            writer(CONTENT),
+            /* makeExecutable= */ false,
+            /* isRemotable= */ true);
+
+    assertStoredRemotely(cacheClient);
+    assertStoredInDiskCache(diskCacheClient);
+    assertThat(getRemoteMetadata().isRemote()).isTrue();
+    assertThat(output.getPath().exists()).isFalse();
+  }
+
+  @Test
   public void uploadFails_writesLocallyAndWarns() throws Exception {
     doReturn(Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheClient)
@@ -259,16 +355,25 @@ public final class RemoteFileWriteStrategyTest {
 
   private RemoteFileWriteStrategy createStrategy(
       RemoteOutputsMode outputsMode, InMemoryCacheClient cacheClient) {
-    return createStrategy(outputsMode, cacheClient, /* uploadEnabled= */ true);
+    return createStrategy(outputsMode, cacheClient, /* remoteUploadEnabled= */ true);
   }
 
   private RemoteFileWriteStrategy createStrategy(
-      RemoteOutputsMode outputsMode, InMemoryCacheClient cacheClient, boolean uploadEnabled) {
+      RemoteOutputsMode outputsMode, InMemoryCacheClient cacheClient, boolean remoteUploadEnabled) {
+    return createStrategy(
+        outputsMode, cacheClient, /* diskCacheClient= */ null, remoteUploadEnabled);
+  }
+
+  private RemoteFileWriteStrategy createStrategy(
+      RemoteOutputsMode outputsMode,
+      @Nullable InMemoryCacheClient cacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
+      boolean remoteUploadEnabled) {
     return new RemoteFileWriteStrategy(
         new FileWriteStrategy(),
         new CombinedCache(
             cacheClient,
-            /* diskCacheClient= */ null,
+            diskCacheClient,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
             /* chunkingFunction= */ null,
@@ -278,8 +383,13 @@ public final class RemoteFileWriteStrategyTest {
         "build-request-id",
         "command-id",
         Duration.ofHours(1),
-        uploadEnabled,
+        remoteUploadEnabled,
         /* verboseFailures= */ false);
+  }
+
+  private DiskCacheClient createDiskCacheClient() throws IOException {
+    return new DiskCacheClient(
+        scratch.dir("/disk_cache"), DIGEST_UTIL, /* checkActionResultIntegrity= */ false);
   }
 
   private ActionExecutionContext createActionExecutionContext(
@@ -323,6 +433,10 @@ public final class RemoteFileWriteStrategyTest {
                     RemoteActionExecutionContext.create(RequestMetadata.getDefaultInstance()),
                     ImmutableList.of(CONTENT_DIGEST))))
         .isEmpty();
+  }
+
+  private static void assertStoredInDiskCache(DiskCacheClient diskCacheClient) throws Exception {
+    assertThat(diskCacheClient.toPath(CONTENT_DIGEST, Store.CAS).exists()).isTrue();
   }
 
   private static void assertNotStoredRemotely(InMemoryCacheClient cacheClient) throws Exception {

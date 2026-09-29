@@ -221,9 +221,9 @@ final class RemoteActionContextProvider {
   }
 
   /**
-   * Registers and selects a file write strategy that stores file contents in the remote cache if
-   * requested via {@code --file_write_strategy=remote} and this instance was created with a cache,
-   * otherwise does nothing.
+   * Registers and selects a file write strategy that stores file contents in the disk and/or
+   * remote cache if requested via {@code --file_write_strategy=remote} and this instance was
+   * created with a cache, otherwise does nothing.
    *
    * @param registryBuilder builder with which to register the strategy
    */
@@ -248,7 +248,7 @@ final class RemoteActionContextProvider {
             env.getCommandId().toString(),
             remoteOptions.getRemoteCacheTtl(),
             // Remote execution uploads action inputs regardless of the setting for local results.
-            /* uploadEnabled= */ remoteExecutor != null
+            /* remoteUploadEnabled= */ remoteExecutor != null
                 || remoteOptions.getRemoteUploadLocalResults(),
             executionOptions.getVerboseFailures()),
         "remote");
