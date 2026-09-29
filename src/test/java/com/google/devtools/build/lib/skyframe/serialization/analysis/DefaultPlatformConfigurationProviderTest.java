@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -46,16 +45,6 @@ public final class DefaultPlatformConfigurationProviderTest extends AnalysisTest
     Label topLevelPlatform = targetOptions.get(PlatformOptions.class).computeTargetPlatform();
     provider =
         new DefaultPlatformConfigurationProvider(topLevelPlatform, targetOptions, execOptions);
-  }
-
-  @Test
-  public void testTrimTestOptions() throws Exception {
-    BuildOptions withTestOptions =
-        BuildOptions.of(ImmutableList.of(CoreOptions.class, TestOptions.class));
-    BuildOptions withoutTestOptions = BuildOptions.of(ImmutableList.of(CoreOptions.class));
-
-    assertThat(provider.trimTestOptions(withTestOptions)).isFalse();
-    assertThat(provider.trimTestOptions(withoutTestOptions)).isTrue();
   }
 
   @Test

@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -161,6 +162,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -1930,6 +1933,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected BuildConfigurationValue getExecConfiguration() {
     return execConfig;
+  }
+
+  protected final PlatformConfigurationProvider getPlatformConfigurationProvider() {
+    Preconditions.checkNotNull(targetConfig);
+    Preconditions.checkNotNull(execConfig);
+    Label topLevelPlatform =
+        targetConfig.getOptions().get(PlatformOptions.class).computeTargetPlatform();
+    return new DefaultPlatformConfigurationProvider(
+        topLevelPlatform, targetConfig.getOptions(), execConfig.getOptions());
   }
 
   private BuildConfigurationValue getConfiguration(String label) {

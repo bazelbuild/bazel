@@ -684,6 +684,8 @@ java_library(
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/analysis:__pkg__",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/skyframe/config:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
