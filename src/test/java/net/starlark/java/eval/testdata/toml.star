@@ -1,24 +1,20 @@
-# tests of TOML encoding/decoding
+"""Tests of TOML encoding and decoding."""
 
 assert_eq(dir(toml), ["decode", "encode"])
 
 ## toml.decode
 
 assert_eq(toml.decode('title = "TOML Example"'), {"title": "TOML Example"})
-assert_eq(toml.decode('bool = true'), {"bool": True})
-assert_eq(toml.decode('date = 1979-05-27T07:32:00Z'), {})
-assert_eq(toml.decode('date = 1979-05-27T07:32:00Z', parse_dates_as_strings = True), {"date": "1979-05-27T07:32Z"})
-assert_eq(toml.decode('dates = [1979-05-27, 1980-06-28]'), {"dates": []})
-assert_eq(toml.decode('dates = [1979-05-27, 1980-06-28]', parse_dates_as_strings = True), {"dates": ["1979-05-27", "1980-06-28"]})
-assert_eq(toml.decode('mixed = ["a", 1979-05-27, "b"]'), {"mixed": ["a", "b"]})
-assert_eq(toml.decode('mixed = ["a", 1979-05-27, "b"]', parse_dates_as_strings = True), {"mixed": ["a", "1979-05-27", "b"]})
-assert_eq(toml.decode('[event]\nname = "meeting"\nwhen = 2024-01-15T10:00:00Z'), {"event": {"name": "meeting"}})
-assert_eq(toml.decode('[event]\nname = "meeting"\nwhen = 2024-01-15T10:00:00Z', parse_dates_as_strings = True), {"event": {"name": "meeting", "when": "2024-01-15T10:00Z"}})
-assert_eq(toml.decode('float = 42.42'), {"float": 42.42})
-assert_eq(toml.decode('number = 42'), {"number": 42})
-assert_eq(toml.decode('temp_targets = { cpu = 79.5, case = 72.0 }', ), {"temp_targets": {"cpu": 79.5, "case": 72.0}})
+assert_eq(toml.decode("bool = true"), {"bool": True})
+assert_eq(toml.decode("date = 1979-05-27T07:32:00Z"), {"date": "1979-05-27T07:32Z"})
+assert_eq(toml.decode("dates = [1979-05-27, 1980-06-28]"), {"dates": ["1979-05-27", "1980-06-28"]})
+assert_eq(toml.decode('mixed = ["a", 1979-05-27, "b"]'), {"mixed": ["a", "1979-05-27", "b"]})
+assert_eq(toml.decode('[event]\nname = "meeting"\nwhen = 2024-01-15T10:00:00Z'), {"event": {"name": "meeting", "when": "2024-01-15T10:00Z"}})
+assert_eq(toml.decode("float = 42.42"), {"float": 42.42})
+assert_eq(toml.decode("number = 42"), {"number": 42})
+assert_eq(toml.decode("temp_targets = { cpu = 79.5, case = 72.0 }"), {"temp_targets": {"cpu": 79.5, "case": 72.0}})
 assert_eq(toml.decode("nested_arrays_of_ints = [ [ 1, 2 ], [3, 4, 5] ]"), {"nested_arrays_of_ints": [[1, 2], [3, 4, 5]]})
-assert_eq(toml.decode('title =', default = True), True)
+assert_eq(toml.decode("title =", default = True), True)
 assert_eq(toml.decode(""), {})
 
 dict_example = """
@@ -36,10 +32,10 @@ role = "backend"
 """
 assert_eq(toml.decode(dict_example), {"servers": {"alpha": {"ip": "10.0.0.1", "role": "frontend"}, "beta": {"ip": "10.0.0.2", "role": "backend"}}})
 
-assert_fails(lambda: toml.decode('title = '), "Unexpected end of input")
-assert_fails(lambda: toml.decode('title = ['), "Unexpected end of input")
-assert_fails(lambda: toml.decode('['), "Unexpected end of input")
-assert_fails(lambda: toml.decode('{'), "Unexpected")
+assert_fails(lambda: toml.decode("title = "), "Unexpected end of input")
+assert_fails(lambda: toml.decode("title = ["), "Unexpected end of input")
+assert_fails(lambda: toml.decode("["), "Unexpected end of input")
+assert_fails(lambda: toml.decode("{"), "Unexpected")
 
 nested_array_of_tables = """
 [[fruits]]
@@ -72,7 +68,7 @@ assert_eq(toml.decode(nested_array_of_tables), {
                 {"name": "plantain"},
             ],
         },
-    ]
+    ],
 })
 
 ## toml.encode
@@ -127,12 +123,12 @@ assert_eq(toml.encode({"empty_array": []}), """\
 empty_array = []
 """)
 
-# Sets become TOML arrays (order is deterministic after sorting)
+# Sets retain their deterministic iteration order.
 assert_eq(toml.encode({"items": set([3, 1, 2])}), """\
 items = [
+  3,
   1,
   2,
-  3,
 ]
 """)
 
@@ -151,7 +147,6 @@ other = true
 path = 'a.txt'
 """)
 assert_eq(toml.encode({"nested1": {"nested2": {"x": 1, "y": 2}}}), """\
-[nested1]
 [nested1.nested2]
 x = 1
 y = 2
@@ -185,15 +180,13 @@ y = 4
 """)
 assert_eq(toml.encode({"points": [{"x": {"y": 1, "z": 2}}]}), """\
 [[points]]
+
 [points.x]
 y = 1
 z = 2
 """)
 
 assert_eq(toml.encode({"foo": {"bar": {"baz": {"qux": [{"x": 1}]}}}}), """\
-[foo]
-[foo.bar]
-[foo.bar.baz]
 [[foo.bar.baz.qux]]
 x = 1
 """)
@@ -211,6 +204,7 @@ flags = [
 # Array of tables with nested tables
 assert_eq(toml.encode({"data": [{"outer": {"inner": [1, 2, 3]}}]}), """\
 [[data]]
+
 [data.outer]
 inner = [
   1,
@@ -222,6 +216,7 @@ inner = [
 # Nested arrays of tables
 assert_eq(toml.encode({"config": [{"groups": [{"items": ["x", "y"]}]}]}), """\
 [[config]]
+
 [[config.groups]]
 items = [
   'x',
@@ -255,40 +250,35 @@ assert_eq(
     toml.encode({"database": {"host": "localhost", "port": 5432, "enabled": True}}),
     """\
 [database]
-enabled = true
 host = 'localhost'
 port = 5432
-"""
+enabled = true
+""",
 )
 
-# None values are omitted from output
-assert_eq(toml.encode({"value": (None, None)}), "value = []\n")
+# None-valued table fields are omitted, but None in arrays is rejected.
+assert_fails(lambda: toml.encode({"value": (None, None)}), "at tuple index 0: cannot encode NoneType")
 assert_eq(toml.encode({"val": None}), "")
 assert_eq(toml.encode({"a": 1, "b": None, "c": 3}), """\
 a = 1
 c = 3
 """)
-assert_eq(toml.encode({"items": [1, None, 3]}), """\
-items = [
-  1,
-  3,
-]
-""")
+assert_fails(lambda: toml.encode({"items": [1, None, 3]}), "at list index 1: cannot encode NoneType")
 assert_eq(toml.encode({"nested": {"x": 1, "y": None}}), """\
 [nested]
 x = 1
 """)
 
-# Error cases - non-finite floats
-assert_fails(lambda: toml.encode({"x": float("NaN")}), "cannot encode non-finite")
-assert_fails(lambda: toml.encode({"x": float("+Inf")}), "cannot encode non-finite")
-assert_fails(lambda: toml.encode({"x": float("-Inf")}), "cannot encode non-finite")
+# TOML supports non-finite floats.
+assert_eq(toml.encode({"x": float("NaN")}), "x = nan\n")
+assert_eq(toml.encode({"x": float("+Inf")}), "x = +inf\n")
+assert_eq(toml.encode({"x": float("-Inf")}), "x = -inf\n")
 
 # Error cases - non-dict top-level values
-assert_fails(lambda: toml.encode([1, 2, 3]), "TOML encode requires a dict at the top level")
-assert_fails(lambda: toml.encode((1, 2, 3)), "TOML encode requires a dict at the top level")
-assert_fails(lambda: toml.encode("hello"), "TOML encode requires a dict at the top level")
-assert_fails(lambda: toml.encode(42), "TOML encode requires a dict at the top level")
+assert_fails(lambda: toml.encode([1, 2, 3]), "TOML encode requires a dict, struct, or native provider at the top level")
+assert_fails(lambda: toml.encode((1, 2, 3)), "TOML encode requires a dict, struct, or native provider at the top level")
+assert_fails(lambda: toml.encode("hello"), "TOML encode requires a dict, struct, or native provider at the top level")
+assert_fails(lambda: toml.encode(42), "TOML encode requires a dict, struct, or native provider at the top level")
 
 # Error cases - non-string dict keys
 assert_fails(lambda: toml.encode({1: "two"}), "dict has int key, want string")
@@ -306,7 +296,7 @@ assert_fails(
 
 # Nesting depth limit
 def f(deep):
-    for x in range(100000):
+    for _ in range(100000):
         deep = [deep]
     toml.encode({"data": deep})
 
@@ -322,6 +312,7 @@ original = {
 }
 encoded = toml.encode(original)
 decoded = toml.decode(encoded)
+
 # Arrays will decode as expected
 assert_eq(decoded, original)
 
@@ -367,9 +358,6 @@ x = 1
 """)
 
 assert_eq(toml.encode({"a": {"b": {"c": {"d": {"e": 1}}}}}), """\
-[a]
-[a.b]
-[a.b.c]
 [a.b.c.d]
 e = 1
 """)
@@ -391,9 +379,9 @@ assert_eq(toml.encode({"outer": struct()}), """\
 """)
 
 assert_eq(toml.encode({"z": 1, "a": 2, "m": 3}), """\
+z = 1
 a = 2
 m = 3
-z = 1
 """)
 
 assert_eq(toml.encode({"foo": [
@@ -401,12 +389,12 @@ assert_eq(toml.encode({"foo": [
     {"name": "baz", "id": 2},
 ]}), """\
 [[foo]]
-id = 1
 name = 'bar'
+id = 1
 
 [[foo]]
-id = 2
 name = 'baz'
+id = 2
 """)
 
 ## Keys with special characters need quoting
@@ -449,7 +437,6 @@ x = 1
 
 # Deeply nested with special keys
 assert_eq(toml.encode({"a.b": {"c d": {"e": 1}}}), """\
-['a.b']
 ['a.b'.'c d']
 e = 1
 """)
@@ -478,3 +465,104 @@ special_keys_original = {
 special_keys_encoded = toml.encode(special_keys_original)
 special_keys_decoded = toml.decode(special_keys_encoded)
 assert_eq(special_keys_decoded, special_keys_original)
+
+# All date/time types are strings unless a callback transforms them.
+assert_eq(toml.decode("date = 1979-05-27"), {"date": "1979-05-27"})
+assert_eq(toml.decode("time = 07:32:01.123"), {"time": "07:32:01.123"})
+assert_eq(toml.decode("local = 1979-05-27T07:32:01"), {"local": "1979-05-27T07:32:01"})
+assert_eq(toml.decode("offset = 1979-05-27T07:32:01-07:00"), {"offset": "1979-05-27T07:32:01-07:00"})
+assert_eq(toml.decode("date = 1979-05-27", decode_date = None), {"date": "1979-05-27"})
+assert_eq(toml.decode("date = 1979-05-27", decode_date = lambda date: date.split("-")), {"date": ["1979", "05", "27"]})
+assert_eq(toml.decode("dates = [1979-05-27, 1980-06-28]", decode_date = lambda date: date[:4]), {"dates": ["1979", "1980"]})
+assert_eq(toml.decode("[event]\ndate = 1979-05-27", decode_date = lambda date: {"iso": date}), {"event": {"date": {"iso": "1979-05-27"}}})
+assert_eq(toml.decode('values = [1, 1979-05-27, "last"]', decode_date = lambda date: None), {"values": [1, None, "last"]})
+assert_eq(toml.decode("date = 1979-05-27", decode_date = lambda date: None), {"date": None})
+assert_eq(toml.decode('date = "1979-05-27"', decode_date = lambda date: fail("unexpected callback")), {"date": "1979-05-27"})
+assert_fails(lambda: toml.decode("date = 1979-05-27", decode_date = lambda date: fail("dates disabled")), "dates disabled")
+assert_fails(lambda: toml.decode("date = 1979-05-27", default = {}, decode_date = lambda date: fail("dates disabled")), "dates disabled")
+assert_fails(lambda: toml.decode("", decode_date = 1), "decode_date.*got value of type 'int'")
+assert_eq(toml.decode("broken =", default = None), None)
+assert_eq(toml.decode("broken =", default = 42, decode_date = lambda date: fail("unexpected callback")), 42)
+
+# Every decoded container belongs to the caller's mutability.
+mutable = toml.decode("[table]\nitems = [{x = 1}]")
+mutable["extra"] = True
+mutable["table"]["extra"] = True
+mutable["table"]["items"].append(2)
+mutable["table"]["items"][0]["x"] = 3
+assert_eq(mutable, {"extra": True, "table": {"extra": True, "items": [{"x": 3}, 2]}})
+
+# Unicode escapes and raw Unicode agree in both Starlark string modes.
+assert_eq(toml.decode('"\\u00E9" = "\\U0001F389"'), {"é": "🎉"})
+assert_eq(toml.decode('"é" = "🎉"'), {"é": "🎉"})
+assert_eq(toml.decode(toml.encode({"é": "🎉"})), {"é": "🎉"})
+assert_eq(toml.encode({"delete": "\177"}), 'delete = "\\u007F"\n')
+assert_eq(toml.decode(toml.encode({"\177": "\177"})), {"\177": "\177"})
+
+# All TOML spellings of non-finite numbers decode; encoding preserves their value.
+def test_nonfinite():
+    for literal in ["inf", "+inf", "-inf", "nan", "+nan", "-nan"]:
+        value = toml.decode("x = " + literal)["x"]
+        assert_eq(str(toml.decode(toml.encode({"x": value}))["x"]), str(value))
+
+test_nonfinite()
+
+# Sets do not need comparable elements, and retain insertion order.
+assert_eq(toml.decode(toml.encode({"values": set(["last", 2, True])})), {"values": ["last", 2, True]})
+assert_eq(toml.encode({"values": set(["z", "a"])}), "values = [\n  'z',\n  'a',\n]\n")
+
+# Scalars precede all tables, while tables and arrays of tables retain their relative order.
+interleaved = {"a": {"b": {"x": 1}, "c": [{"y": 2}], "d": {"z": 3}, "scalar": 4}}
+assert_eq(toml.encode(interleaved), """\
+[a]
+scalar = 4
+
+[a.b]
+x = 1
+
+[[a.c]]
+y = 2
+
+[a.d]
+z = 3
+""")
+assert_eq(toml.decode(toml.encode(interleaved)), interleaved)
+
+# Empty tables, including those left after omitting None fields, need headers.
+assert_eq(toml.encode({"a": {"b": {}}}), "[a.b]\n")
+assert_eq(toml.encode({"a": {"b": None}}), "[a]\n")
+assert_eq(toml.encode(struct(x = None)), "")
+assert_eq(toml.decode(toml.encode({"items": [{}, {"x": {}}, {}]})), {"items": [{}, {"x": {}}, {}]})
+assert_eq(toml.decode(toml.encode({"a": {"b": {}}, "c": {}})), {"a": {"b": {}}, "c": {}})
+
+# Inline tables must stay on one line, including their nested arrays and tables.
+mixed = {"items": [1, {"nested": {"values": [2, 3]}, "absent": None}]}
+assert_eq(toml.encode(mixed), """\
+items = [
+  1,
+  { nested = { values = [2, 3] } },
+]
+""")
+assert_eq(toml.decode(toml.encode(mixed)), {"items": [1, {"nested": {"values": [2, 3]}}]})
+assert_eq(toml.decode(toml.encode({"items": [[{"x": [1, 2]}, {}]]})), {"items": [[{"x": [1, 2]}, {}]]})
+assert_eq(toml.decode(toml.encode({"items": [struct(x = 1), struct(x = 2)]})), {"items": [{"x": 1}, {"x": 2}]})
+assert_eq(toml.decode(toml.encode({"items": [1, struct(x = 2)]})), {"items": [1, {"x": 2}]})
+
+# A reused table path cannot leak into siblings or later elements of an array of tables.
+paths = {"a.b": [{"c d": {"x": 1}}, {"c d": {"y": 2}}], "sibling": {"z": 3}}
+assert_eq(toml.decode(toml.encode(paths)), paths)
+assert_eq(toml.decode(toml.encode(toml.decode(nested_array_of_tables))), toml.decode(nested_array_of_tables))
+
+# None in an array cannot silently shift element positions.
+assert_fails(lambda: toml.encode({"items": [{"x": 1}, None]}), "at list index 1: cannot encode NoneType")
+assert_fails(lambda: toml.encode({"items": [1, {"x": [None]}]}), "in dict key.*x.*at list index 0: cannot encode NoneType")
+assert_fails(lambda: toml.encode(None), "TOML encode requires a dict, struct, or native provider")
+assert_fails(lambda: toml.encode({"a": [{"x": len}]}), "at list index 0: in dict key.*x.*cannot encode builtin_function_or_method")
+assert_fails(lambda: toml.encode({"a": {1: "bad"}}), "in dict key.*a.*dict has int key, want string")
+
+cycle = []
+cycle.append(cycle)
+assert_fails(lambda: toml.encode({"cycle": cycle}), "nesting depth limit exceeded")
+dict_cycle = {}
+dict_cycle["self"] = dict_cycle
+assert_fails(lambda: toml.encode(dict_cycle), "nesting depth limit exceeded")
