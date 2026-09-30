@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -131,10 +132,28 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     buildTarget("//:foo");
     assertOutputsDoNotExist("//:foo");
 
-    // --file_write_strategy=remote has no effect without a disk or remote cache.
-    addOptions("--remote_executor=", "--remote_cache=", "--disk_cache=");
+    addOptions(
+        "--file_write_strategy=local", "--remote_executor=", "--remote_cache=", "--disk_cache=");
     buildTarget("//:foo");
     assertOnlyOutputContent("//:foo", "foo", "hello");
+  }
+
+  @Test
+  public void remoteFileWrite_withoutCache_isRejected() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        """);
+    addOptions(
+        "--file_write_strategy=remote", "--remote_executor=", "--remote_cache=", "--disk_cache=");
+
+    var e = assertThrows(AbruptExitException.class, () -> buildTarget("//:foo"));
+
+    assertThat(e).hasMessageThat().contains("FileWriteActionContext");
+    assertThat(e).hasMessageThat().contains("'remote'");
   }
 
   @Test

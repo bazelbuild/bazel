@@ -118,8 +118,7 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
         throw new EnvironmentalExecException(e, Code.FILE_WRITE_IO_EXCEPTION);
       }
 
-      RemoteActionExecutionContext context =
-          RemoteActionExecutionContext.create(buildRequestMetadata(action, actionExecutionContext));
+      var context = RemoteActionExecutionContext.create(buildRequestMetadata(action));
       try {
         if (!storeInCaches(context, digest, deterministicWriter, output)) {
           // No cache has the contents and Bazel isn't allowed to store them in any, so the file
@@ -136,9 +135,7 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
         // Cache failures shouldn't fail the build, so write the file to disk instead.
         actionExecutionContext
             .getEventHandler()
-            .handle(
-                Event.warn(
-                    "Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+            .handle(Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
         return localStrategy.writeOutputToFile(
             action,
             actionExecutionContext,
@@ -198,16 +195,12 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
     return writeToDiskCache || presentInRemoteCache || uploadToRemoteCache;
   }
 
-  private RequestMetadata buildRequestMetadata(
-      AbstractAction action, ActionExecutionContext actionExecutionContext)
-      throws InterruptedException {
+  private RequestMetadata buildRequestMetadata(AbstractAction action) {
     ActionOwner owner = action.getOwner();
     return TracingMetadataUtils.buildMetadata(
         buildRequestId,
         commandId,
-        action.getKey(
-            actionExecutionContext.getActionKeyContext(),
-            actionExecutionContext.getInputMetadataProvider()),
+        action.getPrimaryOutput().getExecPathString(),
         action.getMnemonic(),
         owner.getLabel() != null ? owner.getLabel().getCanonicalForm() : null,
         owner.getConfigurationChecksum());
