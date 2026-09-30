@@ -384,6 +384,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime:block_waiting_module",
         "//src/main/java/com/google/devtools/build/lib/runtime:build_summary_stats_module",
         "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

@@ -221,22 +221,19 @@ final class RemoteActionContextProvider {
   }
 
   /**
-   * Registers and selects a file write strategy that stores file contents in the disk and/or
-   * remote cache if requested via {@code --file_write_strategy=remote} and this instance was
-   * created with a cache, otherwise does nothing.
+   * Registers a file write strategy that stores file contents in the disk and/or remote cache
+   * under the {@code remote} identifier if this instance was created with a cache, otherwise does
+   * nothing. Whether it is used is up to {@code --file_write_strategy}.
    *
    * @param registryBuilder builder with which to register the strategy
    */
   public void registerFileWriteStrategy(ModuleActionContextRegistry.Builder registryBuilder) {
-    ExecutionOptions executionOptions =
-        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
-    if (executionOptions.getFileWriteStrategy() != ExecutionOptions.FileWriteStrategy.REMOTE
-        || combinedCache == null
-        || remoteOutputChecker == null) {
+    if (combinedCache == null || remoteOutputChecker == null) {
       return;
     }
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
-    registryBuilder.restrictTo(FileWriteActionContext.class, "remote");
     registryBuilder.register(
         FileWriteActionContext.class,
         new RemoteFileWriteStrategy(
