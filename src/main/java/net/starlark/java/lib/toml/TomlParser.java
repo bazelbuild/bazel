@@ -28,6 +28,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.NoneType;
@@ -36,6 +37,7 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkIterable;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -166,23 +168,23 @@ public final class TomlParser implements StarlarkValue {
       throws EvalException, InterruptedException {
     if (x instanceof TemporalAccessor) {
       String date = x.toString();
-      return decodeDate == Starlark.NONE
-          ? date
-          : Starlark.call(thread, decodeDate, List.of(date), Map.of());
+      return decodeDate instanceof StarlarkCallable callback
+          ? Starlark.positionalOnlyCall(thread, callback, date)
+          : date;
     } else if (x instanceof TomlArray array) {
-      List<Object> values = new ArrayList<>(array.size());
+      StarlarkList<Object> values = StarlarkList.newList(thread.mutability());
       for (int i = 0; i < array.size(); i++) {
-        values.add(convertToStarlark(array.get(i), decodeDate, thread));
+        values.addElement(convertToStarlark(array.get(i), decodeDate, thread));
       }
-      return Starlark.fromJava(values, thread.mutability());
+      return values;
     } else if (x instanceof TomlTable table) {
-      Map<String, Object> values = new LinkedHashMap<>();
+      Dict<String, Object> values = Dict.of(thread.mutability());
       for (Map.Entry<String, Object> entry : table.entrySet()) {
-        values.put(
+        values.putEntry(
             (String) convertToStarlark(entry.getKey(), decodeDate, thread),
             convertToStarlark(entry.getValue(), decodeDate, thread));
       }
-      return Starlark.fromJava(values, thread.mutability());
+      return values;
     } else if (x instanceof String s
         && thread
             .getSemantics()
@@ -200,8 +202,8 @@ public final class TomlParser implements StarlarkValue {
   private static final class Encoder {
     final StringBuilder out = new StringBuilder();
     final StarlarkSemantics semantics;
-    // Encoded keys are pushed and popped as we visit nested tables.
-    final List<String> path = new ArrayList<>();
+    // Append encoded keys on descent and restore the parent's length on return.
+    final StringBuilder path = new StringBuilder();
 
     Encoder(StarlarkSemantics semantics) {
       this.semantics = semantics;
@@ -262,14 +264,17 @@ public final class TomlParser implements StarlarkValue {
         out.append('\n');
       }
       out.append(arrayElement ? "[[" : "[");
-      out.append(String.join(".", path));
+      out.append(path);
       out.append(arrayElement ? "]]\n" : "]\n");
     }
 
     private void encodeTable(Object table, boolean arrayElement)
         throws EvalException, InterruptedException {
+      if (arrayElement) {
+        header(true);
+      }
+      boolean needsHeader = !arrayElement && !path.isEmpty();
       List<Map.Entry<String, Object>> nested = new ArrayList<>();
-      boolean hasValues = false;
       // Emit scalar fields first, retaining the original values of nested tables for the second
       // pass.
       for (Map.Entry<?, ?> entry : fields(table).entrySet()) {
@@ -282,27 +287,23 @@ public final class TomlParser implements StarlarkValue {
           nested.add(Map.entry(key, value));
           continue;
         }
-        if (!hasValues && !path.isEmpty() && !arrayElement) {
+        if (needsHeader) {
           header(false);
+          needsHeader = false;
         }
-        hasValues = true;
-        encodeKey(out, key);
-        out.append(" = ");
-        try {
-          encodeValue(value, 0, /* inline= */ false);
-        } catch (EvalException ex) {
-          throw fieldError(table, key, ex);
-        }
+        encodeField(table, key, value, /* inline= */ false);
         out.append('\n');
       }
       // Preserve empty tables, but omit headers that would only introduce nested tables.
-      if (!hasValues && nested.isEmpty() && !path.isEmpty() && !arrayElement) {
+      if (needsHeader && nested.isEmpty()) {
         header(false);
       }
       for (Map.Entry<String, Object> entry : nested) {
-        StringBuilder encodedKey = new StringBuilder();
-        encodeKey(encodedKey, entry.getKey());
-        path.add(encodedKey.toString());
+        int parentLength = path.length();
+        if (parentLength > 0) {
+          path.append('.');
+        }
+        encodeKey(path, entry.getKey());
         try {
           Object value = entry.getValue();
           if (isTable(value)) {
@@ -310,7 +311,6 @@ public final class TomlParser implements StarlarkValue {
           } else {
             int i = 0;
             for (Object item : (StarlarkIterable<?>) value) {
-              header(true);
               try {
                 encodeTable(unpack(item), /* arrayElement= */ true);
               } catch (EvalException ex) {
@@ -323,7 +323,7 @@ public final class TomlParser implements StarlarkValue {
         } catch (EvalException ex) {
           throw fieldError(table, entry.getKey(), ex);
         } finally {
-          path.removeLast();
+          path.setLength(parentLength);
         }
       }
     }
@@ -331,27 +331,23 @@ public final class TomlParser implements StarlarkValue {
     private void encodeList(StarlarkIterable<?> list, int indent, boolean inline)
         throws EvalException, InterruptedException {
       out.append('[');
+      String prefix = inline ? "" : "\n" + "  ".repeat(indent + 1);
+      String separator = inline ? ", " : ",";
       int i = 0;
       for (Object item : list) {
-        if (inline) {
-          if (i > 0) {
-            out.append(", ");
-          }
-        } else {
-          out.append('\n').append("  ".repeat(indent + 1));
+        if (i > 0) {
+          out.append(separator);
         }
+        out.append(prefix);
         try {
           encodeValue(item, indent + 1, inline);
         } catch (EvalException ex) {
           throw Starlark.errorf("at %s index %d: %s", Starlark.type(list), i, ex.getMessage());
         }
-        if (!inline) {
-          out.append(',');
-        }
         i++;
       }
       if (i > 0 && !inline) {
-        out.append('\n').append("  ".repeat(indent));
+        out.append(",\n").append("  ".repeat(indent));
       }
       out.append(']');
     }
@@ -367,15 +363,20 @@ public final class TomlParser implements StarlarkValue {
         }
         out.append(first ? " " : ", ");
         first = false;
-        encodeKey(out, key);
-        out.append(" = ");
-        try {
-          encodeValue(value, 0, /* inline= */ true);
-        } catch (EvalException ex) {
-          throw fieldError(table, key, ex);
-        }
+        encodeField(table, key, value, /* inline= */ true);
       }
       out.append(first ? "}" : " }");
+    }
+
+    private void encodeField(Object table, String key, Object value, boolean inline)
+        throws EvalException, InterruptedException {
+      encodeKey(out, key);
+      out.append(" = ");
+      try {
+        encodeValue(value, 0, inline);
+      } catch (EvalException ex) {
+        throw fieldError(table, key, ex);
+      }
     }
 
     private void encodeValue(Object x, int indent, boolean inline)
