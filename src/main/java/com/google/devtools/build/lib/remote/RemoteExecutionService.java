@@ -952,27 +952,48 @@ public class RemoteExecutionService {
       Iterable<Path> localOutputs, Map<Path, Path> realToTmpPath) throws IOException {
     // Move the output files from their temporary name to the actual output file name. Executable
     // bit is ignored since the file permission will be changed to 0555 after execution.
+    Path resolvedExecRoot = execRoot.resolveSymbolicLinks();
     for (Path realPath : localOutputs) {
+      validateOutputPath(realPath, resolvedExecRoot);
       Path tmpPath = Preconditions.checkNotNull(realToTmpPath.get(realPath));
       realPath.getParentDirectory().createDirectoryAndParents();
       FileSystemUtils.moveFile(tmpPath, realPath);
     }
   }
 
+  private void validateOutputPath(Path outputPath, Path resolvedExecRoot) throws IOException {
+    // The path is derived from an ActionResult output path via execRoot.getRelative(...), which
+    // returns an absolute path verbatim. Reject absolute or otherwise escaping paths first.
+    if (!outputPath.startsWith(execRoot)) {
+      throw new IOException(
+          String.format(
+              "Failed to materialize output %s: the output path escapes the output tree %s",
+              outputPath, execRoot));
+    }
+
+    // The lexical check above is necessary but not sufficient: it never resolves symlinks in the
+    // output path's own ancestors. An ancestor that is itself a symlink leaving the tree (a
+    // pre-existing symlink-forest/external-repo entry, an output symlink from an earlier action, or
+    // a sibling entry in the same untrusted ActionResult) would otherwise let the write below
+    // escape the exec root. Resolve the deepest existing ancestor and require it to stay within the
+    // resolved exec root before creating any directory or output.
+    Path existingAncestor = outputPath.getParentDirectory();
+    while (existingAncestor != null && !existingAncestor.exists(Symlinks.NOFOLLOW)) {
+      existingAncestor = existingAncestor.getParentDirectory();
+    }
+    if (existingAncestor != null
+        && !existingAncestor.resolveSymbolicLinks().startsWith(resolvedExecRoot)) {
+      throw new IOException(
+          String.format(
+              "Failed to materialize output %s: an ancestor path escapes the output tree %s",
+              outputPath, execRoot));
+    }
+  }
+
   private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
+    Path resolvedExecRoot = execRoot.resolveSymbolicLinks();
     for (SymlinkMetadata symlink : symlinks) {
-      // Ensure the symlink is materialized inside the exec root. The local path is derived from an
-      // ActionResult output symlink path via execRoot.getRelative(...), which returns an absolute
-      // path verbatim, so without this check an absolute (or otherwise escaping) symlink path would
-      // be created outside the output tree. Output files already enforce containment via
-      // file.path.relativeTo(execRoot) in downloadOutputs(); apply the same guarantee to output
-      // symlinks (including tree-nested symlinks, which also flow through here).
-      if (!symlink.path().startsWith(execRoot)) {
-        throw new IOException(
-            String.format(
-                "Failed to create symlink %s: the output path escapes the output tree %s",
-                symlink.path(), execRoot));
-      }
+      validateOutputPath(symlink.path(), resolvedExecRoot);
       Preconditions.checkNotNull(
               symlink.path().getParentDirectory(),
               "Failed creating directory and parents for %s",

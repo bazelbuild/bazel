@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_MILL
 import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.naturalOrder;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -1333,13 +1334,9 @@ public class RemoteExecutionServiceTest {
 
   @Test
   public void downloadOutputs_outputSymlinkEscapingExecRoot_isRejected() throws Exception {
-    // An output symlink whose resolved local path is outside the exec root must be rejected,
-    // mirroring
-    // the containment enforced for output files (file.path.relativeTo(execRoot) throws in
-    // downloadOutputs). The escaping symlink is present only in the result passed to
-    // downloadOutputs;
-    // building the spawn from it would otherwise attempt to create a test artifact for the escaping
-    // path.
+    // An output symlink whose resolved local path is outside the exec root must be rejected. The
+    // escaping symlink is present only in the result passed to downloadOutputs; building the spawn
+    // from it would otherwise attempt to create a test artifact for the escaping path.
     Spawn spawn =
         newSpawnFromResult(
             RemoteActionResult.createFromCache(
@@ -1357,6 +1354,116 @@ public class RemoteExecutionServiceTest {
         RemoteActionResult.createFromCache(CachedActionResult.remote(poisoned.build()));
 
     assertThrows(IOException.class, () -> service.downloadOutputs(action, poisonedResult));
+  }
+
+  @Test
+  public void downloadOutputs_outputSymlinkThroughPreexistingSymlinkedParent_isRejected()
+      throws Exception {
+    // Regression test for the exec-root escape via a symlinked ANCESTOR (an incomplete-fix bypass of
+    // the lexical startsWith(execRoot) guard). The link path is lexically inside execRoot, but a
+    // pre-existing parent symlink redirects the write outside. The fix must reject it and write
+    // nothing out of tree.
+    Spawn spawn =
+        newSpawnFromResult(
+            RemoteActionResult.createFromCache(
+                CachedActionResult.remote(ActionResult.getDefaultInstance())));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+
+    Path outside = fs.getPath("/outside");
+    outside.createDirectoryAndParents();
+    Path forestLink = execRoot.getRelative("outputs/forest");
+    forestLink.getParentDirectory().createDirectoryAndParents();
+    forestLink.createSymbolicLink(outside.asFragment());
+
+    ActionResult poisoned =
+        ActionResult.newBuilder()
+            .addOutputSymlinks(
+                OutputSymlink.newBuilder()
+                    .setPath("outputs/forest/planted")
+                    .setTarget("innocuous-relative-target"))
+            .build();
+
+    assertThrows(
+        IOException.class,
+        () ->
+            service.downloadOutputs(
+                action, RemoteActionResult.createFromCache(CachedActionResult.remote(poisoned))));
+    assertThat(outside.getRelative("planted").exists(Symlinks.NOFOLLOW)).isFalse();
+  }
+
+  @Test
+  public void downloadOutputs_outputFileThroughPreexistingSymlinkedParent_isRejected()
+      throws Exception {
+    // Same escape, output-file variant: the file write must not follow a symlinked ancestor out of
+    // the exec root and must not overwrite the out-of-tree victim.
+    Spawn spawn =
+        newSpawnFromResult(
+            RemoteActionResult.createFromCache(
+                CachedActionResult.remote(ActionResult.getDefaultInstance())));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
+        .thenReturn(true);
+
+    Path outside = fs.getPath("/outside-file-write");
+    outside.createDirectoryAndParents();
+    Path victim = outside.getRelative("victim.bzl");
+    writeContent(victim, UTF_8, "SAFE");
+
+    Path forestLink = execRoot.getRelative("outputs/forest-file");
+    forestLink.getParentDirectory().createDirectoryAndParents();
+    forestLink.createSymbolicLink(outside.asFragment());
+
+    Digest payloadDigest = cache.addContents(remoteActionExecutionContext, "PWNED");
+    ActionResult poisoned =
+        ActionResult.newBuilder()
+            .addOutputFiles(
+                OutputFile.newBuilder()
+                    .setPath("outputs/forest-file/victim.bzl")
+                    .setDigest(payloadDigest))
+            .build();
+
+    assertThrows(
+        IOException.class,
+        () ->
+            service.downloadOutputs(
+                action, RemoteActionResult.createFromCache(CachedActionResult.remote(poisoned))));
+    assertThat(readContent(victim, UTF_8)).isEqualTo("SAFE");
+  }
+
+  @Test
+  public void downloadOutputs_legitimateInTreeOutputSymlink_stillMaterializes() throws Exception {
+    // Positive control: a normal output symlink whose parent stays inside the exec root must still
+    // be materialized after the fix.
+    Spawn spawn =
+        newSpawnFromResult(
+            RemoteActionResult.createFromCache(
+                CachedActionResult.remote(ActionResult.getDefaultInstance())));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+
+    ActionResult result =
+        ActionResult.newBuilder()
+            .addOutputSymlinks(
+                OutputSymlink.newBuilder()
+                    .setPath("outputs/link")
+                    .setTarget("some/relative/target"))
+            .build();
+
+    service.downloadOutputs(
+        action, RemoteActionResult.createFromCache(CachedActionResult.remote(result)));
+
+    Path link = execRoot.getRelative("outputs/link");
+    assertThat(link.startsWith(execRoot)).isTrue();
+    assertThat(link.isSymbolicLink()).isTrue();
+    assertThat(link.readSymbolicLink()).isEqualTo(PathFragment.create("some/relative/target"));
   }
 
   @Test
