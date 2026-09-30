@@ -15,7 +15,6 @@
 package net.starlark.java.lib.toml;
 
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.packages.NativeInfo;
 import java.math.BigInteger;
 import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
@@ -35,7 +34,6 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkIterable;
@@ -45,7 +43,7 @@ import net.starlark.java.eval.StarlarkSet;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
-import net.starlark.java.lib.json.Json;
+import net.starlark.java.lib.StarlarkEncodable;
 import org.tomlj.Toml;
 import org.tomlj.TomlArray;
 import org.tomlj.TomlParseResult;
@@ -238,8 +236,8 @@ public final class TomlParser implements StarlarkValue {
    */
   @Nullable
   private static Object convertToJava(Object x, StarlarkSemantics semantics) throws EvalException, InterruptedException {
-    if (x instanceof Json.Encodable) {
-      x = ((Json.Encodable) x).objectForEncoding(semantics);
+    if (x instanceof StarlarkEncodable encodable) {
+      x = encodable.objectForEncoding(semantics);
     }
 
     if (x == Starlark.NONE) {
@@ -283,7 +281,7 @@ public final class TomlParser implements StarlarkValue {
           }
         } catch (EvalException ex) {
           throw Starlark.errorf(
-              "in %s key %s: %s", Starlark.type(x), Starlark.repr(key), ex.getMessage());
+              "in %s key %s: %s", Starlark.type(x), Starlark.repr(key, semantics), ex.getMessage());
         }
       }
       return result;
@@ -333,8 +331,8 @@ public final class TomlParser implements StarlarkValue {
       return result;
     }
 
-    // e.g. struct
-    if (x instanceof Structure || x instanceof NativeInfo) {
+    // e.g. struct or a NativeInfo's EncodableStructure proxy.
+    if (x instanceof Structure) {
       // Sort fields for determinism
       List<String> fields =
           Ordering.natural().sortedCopy(Starlark.dir(Mutability.IMMUTABLE, semantics, x));
@@ -349,10 +347,6 @@ public final class TomlParser implements StarlarkValue {
                   x,
                   field,
                   null); // may fail (field not defined)
-          // Skip callables (methods)
-          if (x instanceof NativeInfo && v instanceof StarlarkCallable) {
-            continue;
-          }
           Object value = convertToJava(v, semantics);
           if (value != null) {
             result.put(field, value);

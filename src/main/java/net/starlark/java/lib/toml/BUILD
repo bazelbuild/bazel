@@ -16,11 +16,11 @@ java_library(
     srcs = ["TomlParser.java"],
     visibility = ["//src/main/java/net/starlark/java:clients"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/lib/json",
-        "//third_party:guava",
+        "//src/main/java/net/starlark/java/lib",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
         "@maven//:org_tomlj_tomlj",
     ],
 )
