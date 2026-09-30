@@ -70,7 +70,8 @@ class BuildResultPrinter {
       Collection<ConfiguredTarget> configuredTargetsToSkip,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses,
-      ImmutableMap<AspectKey, NestedSet<Cause>> aspectRootCauses) {
+      ImmutableMap<AspectKey, NestedSet<Cause>> aspectRootCauses,
+      boolean hasSandboxedActionFailures) {
     // NOTE: be careful what you print!  We don't want to create a consistency
     // problem where the summary message and the exit code disagree.  The logic
     // here is already complex.
@@ -92,7 +93,7 @@ class BuildResultPrinter {
             .getOutErr()
             .printErr("Use --verbose_failures to see the command lines of failed build steps.\n");
       }
-      if (sandboxOptions != null && !sandboxDebug) {
+      if (sandboxOptions != null && !sandboxDebug && hasSandboxedActionFailures) {
         request
             .getOutErr()
             .printErr(

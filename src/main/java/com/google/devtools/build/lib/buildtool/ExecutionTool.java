@@ -598,7 +598,8 @@ public class ExecutionTool {
           buildResultListener.getSkippedTargets(),
           buildResultListener.getAnalyzedAspects(),
           buildResultListener.getTargetRootCauses(),
-          buildResultListener.getAspectRootCauses());
+          buildResultListener.getAspectRootCauses(),
+          buildResultListener.hasSandboxedActionFailures());
     }
 
     if (explanationHandler != null) {

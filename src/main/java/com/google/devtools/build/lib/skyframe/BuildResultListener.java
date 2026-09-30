@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -26,6 +29,7 @@ import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectBuiltEvent;
@@ -37,6 +41,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -59,6 +64,7 @@ public class BuildResultListener {
   private final Map<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses =
       new ConcurrentHashMap<>();
   private final Map<AspectKey, NestedSet<Cause>> aspectRootCauses = new ConcurrentHashMap<>();
+  private final AtomicBoolean hasSandboxedActionFailures = new AtomicBoolean(false);
 
   @GuardedBy("this")
   @Nullable
@@ -190,5 +196,31 @@ public class BuildResultListener {
   @SuppressWarnings("GoodTime") // logged as a long
   public synchronized long getExecutionPhaseTimeInMillis() {
     return executionTimer != null ? executionTimer.elapsed().toMillis() : 0;
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionExecuted(ActionExecutedEvent event) {
+    ActionExecutionException exception = event.getException();
+    if (exception != null && isSandboxFailure(exception)) {
+      hasSandboxedActionFailures.set(true);
+    }
+  }
+
+  private static boolean isSandboxFailure(ActionExecutionException exception) {
+    if (exception instanceof SpawnActionExecutionException spawnException
+        && isSandboxedRunner(spawnException.getSpawnResult().getRunnerName())) {
+      return true;
+    }
+    FailureDetail failureDetail = exception.getDetailedExitCode().getFailureDetail();
+    return failureDetail != null && failureDetail.hasSandbox();
+  }
+
+  public boolean hasSandboxedActionFailures() {
+    return hasSandboxedActionFailures.get();
+  }
+
+  public static boolean isSandboxedRunner(@Nullable String runnerName) {
+    return runnerName != null && (runnerName.endsWith("-sandbox") || runnerName.equals("docker"));
   }
 }

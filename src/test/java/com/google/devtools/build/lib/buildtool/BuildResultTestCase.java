@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import org.junit.Before;
@@ -380,6 +381,7 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     assertThat(stderr).contains("Target //test:fail failed to build\n");
     assertThat(stderr)
         .contains("Use --verbose_failures to see the command lines of failed build steps.\n");
+    assertThat(stderr).doesNotContain("Use --sandbox_debug");
   }
 
   @Test
@@ -393,6 +395,39 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     assertThat(stderr).contains("Target //test:fail failed to build\n");
     assertThat(stderr)
         .doesNotContain("Use --verbose_failures to see the command lines of failed build steps.\n");
+  }
+
+  @Test
+  public void testSandboxedActionFailureShowsSandboxDebugSuggestion() throws Exception {
+    write("test/BUILD", "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+
+    build(true, GENRULE_ERROR, "//test:fail");
+
+    BuildResultListener listener = getCommandEnvironment().getBuildResultListener();
+    BuildResultPrinter printer = new BuildResultPrinter(getCommandEnvironment());
+    printer.showBuildResult(
+        getRequest(),
+        getResult(),
+        listener.getAnalyzedTargets(),
+        listener.getSkippedTargets(),
+        listener.getAnalyzedAspects(),
+        listener.getTargetRootCauses(),
+        listener.getAspectRootCauses(),
+        /* hasSandboxedActionFailures= */ true);
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr)
+        .contains(
+            "Use --sandbox_debug to see verbose messages from the sandbox and retain the"
+                + " sandbox build root for debugging\n");
+  }
+
+  @Test
+  public void testIsSandboxedRunner() {
+    assertThat(BuildResultListener.isSandboxedRunner("linux-sandbox")).isTrue();
+    assertThat(BuildResultListener.isSandboxedRunner("docker")).isTrue();
+    assertThat(BuildResultListener.isSandboxedRunner("standalone")).isFalse();
+    assertThat(BuildResultListener.isSandboxedRunner(null)).isFalse();
   }
 
   // Concrete implementations of this abstract test:
