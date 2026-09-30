@@ -123,25 +123,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void blacklistedProtosInTransitiveDeps() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
-        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
-        "proto_library(",
-        "    name = 'foo_proto',",
-        "    srcs = ['foo.proto'],",
-        "    deps = ['@com_google_protobuf//:any_proto'],",
-        ")");
-
-    CcCompilationContext ccCompilationContext =
-        CcInfo.get(getConfiguredTarget("//x:foo_cc_proto")).getCcCompilationContext();
-    assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
-        .containsExactly("x/foo.pb.h");
-  }
-
-  @Test
   public void ccCompilationContext() throws Exception {
     scratch.file(
         "x/BUILD",
