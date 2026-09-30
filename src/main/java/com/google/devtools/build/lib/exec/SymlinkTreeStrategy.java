@@ -13,14 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
@@ -28,9 +35,13 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Implements SymlinkTreeAction by using the output service or by running an embedded script to
@@ -83,13 +94,74 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           if (action.isFilesetTree()) {
             helper.createFilesetSymlinks(getFilesetMap(action, actionExecutionContext));
           } else {
-            helper.createRunfilesSymlinks(getRunfilesMap(action));
+            Map<PathFragment, Artifact> runfilesMap = getRunfilesMap(action);
+            if (helper.requiresExistingFileTargets()) {
+              prefetchRunfiles(action, runfilesMap.values(), actionExecutionContext);
+            }
+            helper.createRunfilesSymlinks(runfilesMap);
           }
           helper.linkManifest();
         }
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, action);
       }
+    }
+  }
+
+  /**
+   * Ensures that the runfiles that are regular files are present on disk.
+   *
+   * <p>Outputs of remotely cached or executed actions are generally only downloaded when a local
+   * spawn needs them as inputs. Since the symlink tree is created in-process, its inputs (which
+   * include the runfiles on Windows, see {@link SymlinkTreeAction}) aren't prefetched
+   * automatically. This is only an issue on file systems that emulate symlinks to files with copies
+   * and would otherwise create a junction to the not yet existing file, which can't be used to
+   * access it even after it has been downloaded.
+   *
+   * <p>Tree artifacts don't need to exist as they are linked via junctions, which are allowed to
+   * dangle, and unresolved symlinks are created textually from their metadata.
+   */
+  private static void prefetchRunfiles(
+      SymlinkTreeAction action,
+      Collection<Artifact> runfiles,
+      ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
+    ImmutableList<Artifact> files =
+        runfiles.stream()
+            .filter(
+                artifact ->
+                    artifact != null
+                        && !artifact.isTreeArtifact()
+                        && !artifact.isSymlink()
+                        && !artifact.isFileset()
+                        && !artifact.isRunfilesTree())
+            .collect(toImmutableList());
+    if (files.isEmpty()) {
+      return;
+    }
+    ListenableFuture<Void> prefetch =
+        actionExecutionContext
+            .getActionInputPrefetcher()
+            .prefetchFiles(
+                action,
+                /* spawn= */ null,
+                () -> files,
+                actionExecutionContext.getInputMetadataProvider(),
+                Priority.CRITICAL,
+                Reason.INPUTS);
+    try {
+      prefetch.get();
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause();
+      if (cause instanceof IOException ioException) {
+        throw new EnvironmentalExecException(
+            ioException, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
+      }
+      if (cause instanceof InterruptedException) {
+        throw new InterruptedException(cause.getMessage());
+      }
+      Throwables.throwIfUnchecked(cause);
+      throw new IllegalStateException(cause);
     }
   }
 

@@ -107,6 +107,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
         "//third_party/java/guava:io",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",

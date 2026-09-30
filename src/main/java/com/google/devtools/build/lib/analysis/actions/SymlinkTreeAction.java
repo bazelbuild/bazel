@@ -165,7 +165,9 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     inputs.add(inputManifest);
     // On Windows, we need to know whether the target artifact is a file or a directory in order to
-    // correctly create a symlink or junction to it.
+    // correctly create a symlink or junction to it. Furthermore, if symlinks to files are emulated
+    // by copies (i.e. without --windows_enable_symlinks), the files need to be present on disk,
+    // which requires them to be inputs so that they can be prefetched if they are remote.
     if (runfileSymlinksMode == RunfileSymlinksMode.CREATE
         && runfiles != null
         && OS.getCurrent() == OS.WINDOWS) {
