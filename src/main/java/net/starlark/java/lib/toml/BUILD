@@ -19,8 +19,6 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/lib",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
         "@maven//:org_tomlj_tomlj",
     ],
 )
