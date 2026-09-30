@@ -185,6 +185,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
     }
 
+    ImmutableSet<Label> explicitTargetLabels =
+        getExplicitTargetLabels(expandedPatterns, targets.getTargets());
+
     if (targets.hasError() && options.isKeepGoing()) {
       env.getListener().handle(Event.warn("Target pattern parsing failed."));
     }
@@ -229,6 +232,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
             Objects.equals(nonExpandedLabels, targetLabels.getTargets())
                 ? targetLabels.getTargets()
                 : nonExpandedLabels,
+            explicitTargetLabels,
             targets.hasError(),
             expandedTargets.hasError());
 
@@ -513,6 +517,22 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                     expansion.resolvedTargets().getTargets().stream()
                         .filter(includedTargets::contains)
                         .map(Target::getLabel)));
+  }
+
+  private static ImmutableSet<Label> getExplicitTargetLabels(
+      List<ExpandedPattern> expandedPatterns, Set<Target> includedTargets) {
+    return expandedPatterns.stream()
+        .filter(expansion -> !expansion.pattern().isNegative())
+        .filter(
+            expansion -> {
+              TargetPattern.Type type = expansion.pattern().getParsedPattern().getType();
+              return type == TargetPattern.Type.SINGLE_TARGET
+                  || type == TargetPattern.Type.PATH_AS_TARGET;
+            })
+        .flatMap(expansion -> expansion.resolvedTargets().getTargets().stream())
+        .filter(includedTargets::contains)
+        .map(Target::getLabel)
+        .collect(toImmutableSet());
   }
 
   /** Represents the expansion of a single target pattern. */
