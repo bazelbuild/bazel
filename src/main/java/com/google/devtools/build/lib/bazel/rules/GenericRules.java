@@ -25,12 +25,11 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.filegroup.FilegroupRule;
 import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
 import com.google.devtools.build.lib.rules.starlarkdocextract.StarlarkDocExtractRule;
+import com.google.devtools.build.lib.rules.starlarkdocextract.ValidateBzlLibrary;
 import com.google.devtools.build.lib.rules.test.TestSuiteRule;
 import net.starlark.java.eval.FlagGuardedValue;
 
-/**
- * A set of generic rules that provide miscellaneous capabilities to Bazel.
- */
+/** A set of generic rules that provide miscellaneous capabilities to Bazel. */
 public class GenericRules implements RuleSet {
   public static final GenericRules INSTANCE = new GenericRules();
 
@@ -49,6 +48,7 @@ public class GenericRules implements RuleSet {
     builder.addRuleDefinition(new LabelBuildSettingRule());
     builder.addRuleDefinition(new LabelBuildFlagRule());
     builder.addRuleDefinition(new StarlarkDocExtractRule());
+    builder.addNativeAspectClass(new ValidateBzlLibrary());
 
     // TODO(#11437): It'd be nice to hide this definition behind a static helper, but the most apt
     // place would be as a static method of InternalModule.java in lib.packages, and that package
