@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -80,8 +81,8 @@ public class TestSuite implements RuleConfiguredTargetFactory {
     }
 
     Runfiles runfiles =
-        new Runfiles.Builder(ruleContext.getWorkspaceName())
-            .addTargets(
+        RunfilesSupport.addTargets(
+                new Runfiles.Builder(ruleContext.getWorkspaceName()),
                 directTestsAndSuitesBuilder,
                 RunfilesProvider.DATA_RUNFILES,
                 ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData())
