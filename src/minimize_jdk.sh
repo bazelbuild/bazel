@@ -59,10 +59,7 @@ if [ -n "$jmods_archive" ]; then
   jmods_archive=$(cd "$(dirname "$jmods_archive")" && echo "$(pwd)/$(basename "$jmods_archive")")
 fi
 
-pe_manifest=$(rlocation io_bazel/src/tools/pe_manifest/pe_manifest_deploy.jar)
-# Convert to absolute path since we cd later.
-pe_manifest=$(cd "$(dirname "$pe_manifest")" && echo "$(pwd)/$(basename "$pe_manifest")")
-
+UNAME=$(uname -s | tr 'A-Z' 'a-z')
 # Options for the JVM that runs the Bazel server, which are either required or
 # recommended when using the embedded JDK on platforms that use a minified JDK.
 # Setting these options here rather than in blaze.cc avoids the need to detect
@@ -127,10 +124,8 @@ cd "target_jdk.$$"
 # The tool JDK runs on the host, the target JDK may be for another platform.
 if [[ -f "$tool_jdk_home/bin/jlink.exe" ]]; then
   jlink="$tool_jdk_home/bin/jlink.exe"
-  java="$tool_jdk_home/bin/java.exe"
 else
   jlink="$tool_jdk_home/bin/jlink"
-  java="$tool_jdk_home/bin/java"
 fi
 if [[ -f bin/java.exe ]]; then
   target_windows=true
@@ -179,9 +174,16 @@ if [[ "$target_windows" == true ]]; then
   # support of Unicode characters outside the system code page.
   # The JDK currently (as of JDK 23) doesn't support this natively:
   # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
-  "$java" -jar "$pe_manifest" read reduced/bin/java.exe \
-    | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
-    | "$java" -jar "$pe_manifest" write reduced/bin/java.exe
+  # The manifest tools use Windows APIs, so this is a no-op on other hosts.
+  # TODO: Patch the manifest when cross-compiling from a non-Windows host.
+  if [[ "$UNAME" =~ msys_nt* ]]; then
+    "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
+      | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
+      | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
+  else
+    echo >&2 "WARNING: not patching the app manifest of java.exe: only" \
+      "supported when building on Windows"
+  fi
 fi
 for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
 # These are necessary for --host_jvm_debug to work.
