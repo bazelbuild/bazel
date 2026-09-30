@@ -32,7 +32,9 @@ function assert_paths_stripped() {
   output_path=$(bazel info | grep '^output_path:')
   bazel_out="${output_path##*/}"
 
-  cmd=$(grep $identifying_action_output $subcommand_output | head -n 1 || true)
+  # Skip "SUBCOMMAND: # ... [action '<progress message>', ...]" header lines:
+  # progress messages may contain output paths (e.g. via %{output}).
+  cmd=$(grep -v '^SUBCOMMAND: ' $subcommand_output | grep $identifying_action_output | head -n 1 || true)
   # Verbose failure message to catch flaky failures described at b/398198569.
   if [[ -z "$cmd" ]]; then
     echo "$subcommand_output contents:"
