@@ -17,13 +17,20 @@ package net.starlark.java.lib.toml;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import java.time.temporal.TemporalAccessor;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -59,10 +66,10 @@ public final class TomlParser implements StarlarkValue {
 
   private TomlParser() {}
 
-  private static final Pattern BARE_KEY = Pattern.compile("[A-Za-z0-9_-]+");
-
   /** The module instance, suitable for a predeclared environment under the name {@code toml}. */
   public static final TomlParser INSTANCE = new TomlParser();
+
+  private static final char[] HEX = "0123456789ABCDEF".toCharArray();
 
   /** Encodes a Starlark value as TOML. */
   @StarlarkMethod(
@@ -113,11 +120,15 @@ public final class TomlParser implements StarlarkValue {
           "Decodes a TOML document as a dict. Tables become dicts, arrays become lists, and"
               + " booleans, strings, integers, and floats become the corresponding Starlark values."
               + " The returned dicts and lists are mutable.\n"
-              + "Dates and times become normalized ISO-8601 strings by default. Re-encoding these"
-              + " values produces TOML strings, not TOML dates or times. Supply"
-              + " <code>decode_date</code> to customize their conversion or reject them.\n"
-              + "If the input is invalid TOML and <code>default</code> is specified (including"
-              + " <code>None</code>), returns that value; otherwise invalid TOML causes an error."
+              + "Dates and times become strings in the RFC 3339 format that TOML uses, always"
+              + " including seconds, such as <code>1979-05-27T07:32:00Z</code>,"
+              + " <code>1979-05-27T07:32:00</code>, <code>1979-05-27</code>, or"
+              + " <code>07:32:00</code>. Re-encoding these values produces TOML strings, not TOML"
+              + " dates or times. Supply <code>decode_date</code> to customize their conversion or"
+              + " reject them.\n"
+              + "If the input cannot be decoded (it is invalid TOML, is not valid UTF-8, or is"
+              + " nested too deeply) and <code>default</code> is specified (including"
+              + " <code>None</code>), returns that value; otherwise such input causes an error."
               + " Errors raised by <code>decode_date</code> are propagated even if a default is"
               + " given.",
       parameters = {
@@ -125,7 +136,7 @@ public final class TomlParser implements StarlarkValue {
         @Param(
             name = "default",
             named = true,
-            doc = "If specified, the value to return when the input is invalid TOML.",
+            doc = "If specified, the value to return when the input cannot be decoded.",
             defaultValue = "unbound"),
         @Param(
             name = "decode_date",
@@ -136,79 +147,157 @@ public final class TomlParser implements StarlarkValue {
               @ParamType(type = NoneType.class)
             },
             doc =
-                "An optional function called with the normalized ISO-8601 string for each date or"
-                    + " time. Its return value replaces that date or time, including when it"
-                    + " returns None. It may call fail() to reject dates. With None, dates remain"
-                    + " strings.",
+                "An optional function called with the RFC 3339 string for each date or time. Its"
+                    + " return value replaces that date or time, including when it returns None."
+                    + " It may call fail() to reject dates. With None, dates remain strings.",
             defaultValue = "None")
       },
       useStarlarkThread = true)
   public Object decode(String x, Object defaultValue, Object decodeDate, StarlarkThread thread)
       throws EvalException, InterruptedException {
+    boolean byteStrings =
+        thread.getSemantics().getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS);
+    TomlParseResult result;
     try {
-      boolean byteStrings =
-          thread.getSemantics().getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS);
-      TomlParseResult result =
-          Toml.parse(byteStrings ? new String(x.getBytes(ISO_8859_1), UTF_8) : x);
-      if (result.hasErrors()) {
-        if (defaultValue != Starlark.UNBOUND) {
-          return defaultValue;
-        }
-        String errorMsg =
-            result.errors().stream().map(Object::toString).collect(Collectors.joining("; "));
-        throw Starlark.errorf("TOML decode error: %s", errorMsg);
-      }
-      return convertToStarlark(result, decodeDate, thread);
+      result = Toml.parse(byteStrings ? bytesToUnicode(x) : x);
+    } catch (CharacterCodingException unused) {
+      return decodeError(defaultValue, "input is not valid UTF-8");
     } catch (StackOverflowError unused) {
-      throw Starlark.errorf("nesting depth limit exceeded");
+      return decodeError(defaultValue, "nesting depth limit exceeded");
+    } catch (RuntimeException ex) {
+      // tomlj throws instead of reporting an error for some malformed input, such as the offset
+      // in 1979-05-27T07:32:00-07'00.
+      return decodeError(defaultValue, ex.toString());
+    }
+    if (result.hasErrors()) {
+      return decodeError(
+          defaultValue,
+          result.errors().stream().map(Object::toString).collect(Collectors.joining("; ")));
+    }
+    Decoder decoder =
+        new Decoder(
+            thread, byteStrings, decodeDate instanceof StarlarkCallable callback ? callback : null);
+    try {
+      return decoder.table(result);
+    } catch (StackOverflowError unused) {
+      return decodeError(defaultValue, "nesting depth limit exceeded");
     }
   }
 
-  private static Object convertToStarlark(Object x, Object decodeDate, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    if (x instanceof TemporalAccessor) {
-      String date = x.toString();
-      return decodeDate instanceof StarlarkCallable callback
-          ? Starlark.positionalOnlyCall(thread, callback, date)
-          : date;
-    } else if (x instanceof TomlArray array) {
-      StarlarkList<Object> values = StarlarkList.newList(thread.mutability());
-      for (int i = 0; i < array.size(); i++) {
-        values.addElement(convertToStarlark(array.get(i), decodeDate, thread));
-      }
-      return values;
-    } else if (x instanceof TomlTable table) {
-      Dict<String, Object> values = Dict.of(thread.mutability());
-      for (Map.Entry<String, Object> entry : table.entrySet()) {
-        values.putEntry(
-            (String) convertToStarlark(entry.getKey(), decodeDate, thread),
-            convertToStarlark(entry.getValue(), decodeDate, thread));
-      }
-      return values;
-    } else if (x instanceof String s
-        && thread
-            .getSemantics()
-            .getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS)) {
-      return new String(s.getBytes(UTF_8), ISO_8859_1);
+  private static Object decodeError(Object defaultValue, String message) throws EvalException {
+    if (defaultValue != Starlark.UNBOUND) {
+      return defaultValue;
     }
-    // TOML has no null value. All remaining parser values are strings, booleans, longs, or doubles.
-    return Starlark.fromJava(x, thread.mutability());
+    throw Starlark.errorf("TOML decode error: %s", message);
+  }
+
+  /** Converts the values of a parsed TOML document to Starlark values. */
+  private static final class Decoder {
+    private final StarlarkThread thread;
+    private final boolean byteStrings;
+    @Nullable private final StarlarkCallable decodeDate;
+
+    private Decoder(
+        StarlarkThread thread, boolean byteStrings, @Nullable StarlarkCallable decodeDate) {
+      this.thread = thread;
+      this.byteStrings = byteStrings;
+      this.decodeDate = decodeDate;
+    }
+
+    private Dict<String, Object> table(TomlTable table) throws EvalException, InterruptedException {
+      Dict<String, Object> dict = Dict.of(thread.mutability());
+      for (Map.Entry<String, Object> entry : table.entrySet()) {
+        dict.putEntry(string(entry.getKey()), value(entry.getValue()));
+      }
+      return dict;
+    }
+
+    private Object value(Object x) throws EvalException, InterruptedException {
+      // tomlj produces exactly the types listed in org.tomlj.TomlType, and never null.
+      return switch (x) {
+        case TomlTable table -> table(table);
+        case TomlArray array -> {
+          StarlarkList<Object> list = StarlarkList.newList(thread.mutability());
+          for (int i = 0; i < array.size(); i++) {
+            list.addElement(value(array.get(i)));
+          }
+          yield list;
+        }
+        case String s -> string(s);
+        case Boolean b -> b;
+        case Long l -> StarlarkInt.of(l);
+        case Double d -> StarlarkFloat.of(d);
+        // The ISO formatters always include seconds, unlike toString(), so that every date and
+        // time is spelled as TOML would spell it.
+        case OffsetDateTime t -> date(DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(t));
+        case LocalDateTime t -> date(DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(t));
+        case LocalDate t -> date(DateTimeFormatter.ISO_LOCAL_DATE.format(t));
+        case LocalTime t -> date(DateTimeFormatter.ISO_LOCAL_TIME.format(t));
+        default -> throw new IllegalStateException("unexpected TOML value of " + x.getClass());
+      };
+    }
+
+    private Object date(String date) throws EvalException, InterruptedException {
+      return decodeDate == null ? date : Starlark.positionalOnlyCall(thread, decodeDate, date);
+    }
+
+    private String string(String s) {
+      return byteStrings ? unicodeToBytes(s) : s;
+    }
+  }
+
+  // In UTF-8 byte-string mode, each char of a Starlark string holds one byte of the string's UTF-8
+  // encoding, whereas tomlj needs Unicode. ASCII strings have the same form in both.
+
+  private static boolean isAscii(String s) {
+    for (int i = 0; i < s.length(); i++) {
+      if (s.charAt(i) >= 0x80) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static String bytesToUnicode(String s) throws CharacterCodingException {
+    if (isAscii(s)) {
+      return s;
+    }
+    return UTF_8
+        .newDecoder()
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
+        .decode(ByteBuffer.wrap(s.getBytes(ISO_8859_1)))
+        .toString();
+  }
+
+  private static String unicodeToBytes(String s) {
+    return isAscii(s) ? s : new String(s.getBytes(UTF_8), ISO_8859_1);
   }
 
   private static boolean isTable(Object x) {
     return x instanceof Map || x instanceof Structure;
   }
 
+  /**
+   * Writes Starlark values as TOML.
+   *
+   * <p>Each value is unpacked (see {@link #unpack}) exactly once, when it is read from its
+   * container; the encoding methods expect unpacked values.
+   */
   private static final class Encoder {
-    final StringBuilder out = new StringBuilder();
-    final StarlarkSemantics semantics;
-    // Append encoded keys on descent and restore the parent's length on return.
-    final StringBuilder path = new StringBuilder();
+    private final StringBuilder out = new StringBuilder();
+    private final StarlarkSemantics semantics;
+    // Encoded keys of the table being written, extended on descent and truncated on return.
+    private final StringBuilder path = new StringBuilder();
 
-    Encoder(StarlarkSemantics semantics) {
+    /** A table entry written after the scalar entries: a table, or a non-empty array of tables. */
+    private record Nested(String key, Object value, @Nullable List<Object> tables) {}
+
+    private Encoder(StarlarkSemantics semantics) {
       this.semantics = semantics;
     }
 
+    /** Applies any application-defined encoding of a value. */
     private Object unpack(Object x) {
       return x instanceof StarlarkEncodable encodable ? encodable.objectForEncoding(semantics) : x;
     }
@@ -237,7 +326,11 @@ public final class TomlParser implements StarlarkValue {
           : Starlark.errorf("in %s field .%s: %s", Starlark.type(table), key, ex.getMessage());
     }
 
-    private String key(Object table, Object key) throws EvalException {
+    private static EvalException indexError(Object list, int index, EvalException ex) {
+      return Starlark.errorf("at %s index %d: %s", Starlark.type(list), index, ex.getMessage());
+    }
+
+    private static String key(Object table, Object key) throws EvalException {
       if (!(key instanceof String s)) {
         throw Starlark.errorf(
             "%s has %s key, want string", Starlark.type(table), Starlark.type(key));
@@ -245,18 +338,23 @@ public final class TomlParser implements StarlarkValue {
       return s;
     }
 
-    private boolean isArrayOfTables(Object x) {
+    /**
+     * Returns the unpacked elements of a non-empty iterable of tables, or null for any other value.
+     */
+    @Nullable
+    private List<Object> arrayOfTables(Object x) {
       if (!(x instanceof StarlarkIterable<?> iterable)) {
-        return false;
+        return null;
       }
-      boolean nonempty = false;
+      List<Object> tables = new ArrayList<>();
       for (Object item : iterable) {
-        if (!isTable(unpack(item))) {
-          return false;
+        Object table = unpack(item);
+        if (!isTable(table)) {
+          return null;
         }
-        nonempty = true;
+        tables.add(table);
       }
-      return nonempty;
+      return tables.isEmpty() ? null : tables;
     }
 
     private void header(boolean arrayElement) {
@@ -274,17 +372,21 @@ public final class TomlParser implements StarlarkValue {
         header(true);
       }
       boolean needsHeader = !arrayElement && !path.isEmpty();
-      List<Map.Entry<String, Object>> nested = new ArrayList<>();
-      // Emit scalar fields first, retaining the original values of nested tables for the second
-      // pass.
+      List<Nested> nested = new ArrayList<>();
+      // Write scalar entries first, so that they cannot be mistaken for entries of a nested table.
       for (Map.Entry<?, ?> entry : fields(table).entrySet()) {
         String key = key(table, entry.getKey());
         Object value = unpack(entry.getValue());
         if (value == Starlark.NONE) {
           continue;
         }
-        if (isTable(value) || isArrayOfTables(value)) {
-          nested.add(Map.entry(key, value));
+        if (isTable(value)) {
+          nested.add(new Nested(key, value, null));
+          continue;
+        }
+        List<Object> tables = arrayOfTables(value);
+        if (tables != null) {
+          nested.add(new Nested(key, value, tables));
           continue;
         }
         if (needsHeader) {
@@ -298,30 +400,28 @@ public final class TomlParser implements StarlarkValue {
       if (needsHeader && nested.isEmpty()) {
         header(false);
       }
-      for (Map.Entry<String, Object> entry : nested) {
+      for (Nested entry : nested) {
         int parentLength = path.length();
         if (parentLength > 0) {
           path.append('.');
         }
-        encodeKey(path, entry.getKey());
+        encodeKey(path, entry.key());
         try {
-          Object value = entry.getValue();
-          if (isTable(value)) {
-            encodeTable(value, /* arrayElement= */ false);
+          if (entry.tables() == null) {
+            encodeTable(entry.value(), /* arrayElement= */ false);
           } else {
             int i = 0;
-            for (Object item : (StarlarkIterable<?>) value) {
+            for (Object item : entry.tables()) {
               try {
-                encodeTable(unpack(item), /* arrayElement= */ true);
+                encodeTable(item, /* arrayElement= */ true);
               } catch (EvalException ex) {
-                throw Starlark.errorf(
-                    "at %s index %d: %s", Starlark.type(value), i, ex.getMessage());
+                throw indexError(entry.value(), i, ex);
               }
               i++;
             }
           }
         } catch (EvalException ex) {
-          throw fieldError(table, entry.getKey(), ex);
+          throw fieldError(table, entry.key(), ex);
         } finally {
           path.setLength(parentLength);
         }
@@ -340,9 +440,9 @@ public final class TomlParser implements StarlarkValue {
         }
         out.append(prefix);
         try {
-          encodeValue(item, indent + 1, inline);
+          encodeValue(unpack(item), indent + 1, inline);
         } catch (EvalException ex) {
-          throw Starlark.errorf("at %s index %d: %s", Starlark.type(list), i, ex.getMessage());
+          throw indexError(list, i, ex);
         }
         i++;
       }
@@ -381,7 +481,6 @@ public final class TomlParser implements StarlarkValue {
 
     private void encodeValue(Object x, int indent, boolean inline)
         throws EvalException, InterruptedException {
-      x = unpack(x);
       if (x instanceof String s) {
         encodeString(out, s);
       } else if (x instanceof Boolean || x instanceof StarlarkInt) {
@@ -400,30 +499,57 @@ public final class TomlParser implements StarlarkValue {
   }
 
   private static void encodeKey(StringBuilder out, String key) {
-    if (BARE_KEY.matcher(key).matches()) {
+    if (isBareKey(key)) {
       out.append(key);
     } else {
       encodeString(out, key);
     }
   }
 
-  private static void encodeString(StringBuilder out, String s) {
-    boolean needsEscaping = false;
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      if (c == '\'' || c == '\\' || c < 0x20 || c == 0x7f) {
-        needsEscaping = true;
-        break;
+  private static boolean isBareKey(String key) {
+    if (key.isEmpty()) {
+      return false;
+    }
+    for (int i = 0; i < key.length(); i++) {
+      char c = key.charAt(i);
+      boolean bare =
+          ('A' <= c && c <= 'Z')
+              || ('a' <= c && c <= 'z')
+              || ('0' <= c && c <= '9')
+              || c == '_'
+              || c == '-';
+      if (!bare) {
+        return false;
       }
     }
-    if (!needsEscaping) {
+    return true;
+  }
+
+  private static boolean isUnpairedSurrogate(int codePoint) {
+    return Character.MIN_SURROGATE <= codePoint && codePoint <= Character.MAX_SURROGATE;
+  }
+
+  private static void encodeString(StringBuilder out, String s) {
+    // Prefer a literal string, which needs no escaping but cannot contain single quotes or
+    // control characters. Backslashes are escaped too, for readers who expect them to be.
+    boolean literal = true;
+    for (int i = 0, n = s.length(); i < n; ) {
+      int cp = s.codePointAt(i);
+      if (cp == '\'' || cp == '\\' || cp < 0x20 || cp == 0x7f || isUnpairedSurrogate(cp)) {
+        literal = false;
+        break;
+      }
+      i += Character.charCount(cp);
+    }
+    if (literal) {
       out.append('\'').append(s).append('\'');
       return;
     }
     out.append('"');
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      switch (c) {
+    for (int i = 0, n = s.length(); i < n; ) {
+      int cp = s.codePointAt(i);
+      i += Character.charCount(cp);
+      switch (cp) {
         case '\\' -> out.append("\\\\");
         case '"' -> out.append("\\\"");
         case '\b' -> out.append("\\b");
@@ -432,10 +558,12 @@ public final class TomlParser implements StarlarkValue {
         case '\f' -> out.append("\\f");
         case '\r' -> out.append("\\r");
         default -> {
-          if (c < 0x20 || c == 0x7f) {
-            out.append(String.format("\\u%04X", (int) c));
+          if (cp < 0x20 || cp == 0x7f) {
+            out.append("\\u00").append(HEX[cp >> 4]).append(HEX[cp & 0xF]);
+          } else if (isUnpairedSurrogate(cp)) {
+            out.append('�');
           } else {
-            out.append(c);
+            out.appendCodePoint(cp);
           }
         }
       }

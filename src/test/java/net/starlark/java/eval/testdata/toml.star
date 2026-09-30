@@ -2,14 +2,17 @@
 
 assert_eq(dir(toml), ["decode", "encode"])
 
+def assert_round_trip(value):
+    assert_eq(toml.decode(toml.encode(value)), value)
+
 ## toml.decode
 
 assert_eq(toml.decode('title = "TOML Example"'), {"title": "TOML Example"})
 assert_eq(toml.decode("bool = true"), {"bool": True})
-assert_eq(toml.decode("date = 1979-05-27T07:32:00Z"), {"date": "1979-05-27T07:32Z"})
+assert_eq(toml.decode("date = 1979-05-27T07:32:00Z"), {"date": "1979-05-27T07:32:00Z"})
 assert_eq(toml.decode("dates = [1979-05-27, 1980-06-28]"), {"dates": ["1979-05-27", "1980-06-28"]})
 assert_eq(toml.decode('mixed = ["a", 1979-05-27, "b"]'), {"mixed": ["a", "1979-05-27", "b"]})
-assert_eq(toml.decode('[event]\nname = "meeting"\nwhen = 2024-01-15T10:00:00Z'), {"event": {"name": "meeting", "when": "2024-01-15T10:00Z"}})
+assert_eq(toml.decode('[event]\nname = "meeting"\nwhen = 2024-01-15T10:00:00Z'), {"event": {"name": "meeting", "when": "2024-01-15T10:00:00Z"}})
 assert_eq(toml.decode("float = 42.42"), {"float": 42.42})
 assert_eq(toml.decode("number = 42"), {"number": 42})
 assert_eq(toml.decode("temp_targets = { cpu = 79.5, case = 72.0 }"), {"temp_targets": {"cpu": 79.5, "case": 72.0}})
@@ -303,18 +306,13 @@ def f(deep):
 assert_fails(lambda: f(1), "nesting depth limit exceeded")
 
 # Round-trip test: encode then decode should give back original value
-original = {
+assert_round_trip({
     "title": "Config",
     "count": 42,
     "enabled": True,
     "ratio": 3.14,
     "items": ["a", "b", "c"],
-}
-encoded = toml.encode(original)
-decoded = toml.decode(encoded)
-
-# Arrays will decode as expected
-assert_eq(decoded, original)
+})
 
 ## String escaping in encode
 
@@ -458,19 +456,30 @@ assert_eq(toml.encode({"items": [{"my key": 1, "other key": 2}]}), """\
 """)
 
 # Round-trip with special keys
-special_keys_original = {
+assert_round_trip({
     "my key": "value1",
     "key.with.dots": "value2",
-}
-special_keys_encoded = toml.encode(special_keys_original)
-special_keys_decoded = toml.decode(special_keys_encoded)
-assert_eq(special_keys_decoded, special_keys_original)
+})
 
 # All date/time types are strings unless a callback transforms them.
 assert_eq(toml.decode("date = 1979-05-27"), {"date": "1979-05-27"})
 assert_eq(toml.decode("time = 07:32:01.123"), {"time": "07:32:01.123"})
 assert_eq(toml.decode("local = 1979-05-27T07:32:01"), {"local": "1979-05-27T07:32:01"})
 assert_eq(toml.decode("offset = 1979-05-27T07:32:01-07:00"), {"offset": "1979-05-27T07:32:01-07:00"})
+
+# Zero seconds are kept and +00:00 becomes Z, so decoded dates and times are spelled as TOML
+# spells them and can be re-parsed as dates.
+assert_eq(
+    toml.decode("t = 07:32:00\nd = 1979-05-27T07:32:00\no = 1979-05-27T07:32:00+00:00\nf = 07:32:00.5"),
+    {"t": "07:32:00", "d": "1979-05-27T07:32:00", "o": "1979-05-27T07:32:00Z", "f": "07:32:00.5"},
+)
+
+def test_dates_reparse():
+    for date in ["1979-05-27T07:32:00Z", "1979-05-27T07:32:00.5-07:00", "1979-05-27T07:32:00", "1979-05-27", "07:32:00"]:
+        assert_eq(toml.decode("x = " + toml.decode("x = " + date)["x"]), {"x": date})
+
+test_dates_reparse()
+
 assert_eq(toml.decode("date = 1979-05-27", decode_date = None), {"date": "1979-05-27"})
 assert_eq(toml.decode("date = 1979-05-27", decode_date = lambda date: date.split("-")), {"date": ["1979", "05", "27"]})
 assert_eq(toml.decode("dates = [1979-05-27, 1980-06-28]", decode_date = lambda date: date[:4]), {"dates": ["1979", "1980"]})
@@ -484,6 +493,31 @@ assert_fails(lambda: toml.decode("", decode_date = 1), "decode_date.*got value o
 assert_eq(toml.decode("broken =", default = None), None)
 assert_eq(toml.decode("broken =", default = 42, decode_date = lambda date: fail("unexpected callback")), 42)
 
+# Input that cannot be decoded for reasons other than a syntax error also yields the default.
+assert_fails(lambda: toml.decode("a = 1979-05-27T07:32:00-07'00"), "TOML decode error")
+assert_eq(toml.decode("a = 1979-05-27T07:32:00-07'00", default = None), None)
+assert_fails(lambda: toml.decode("x = " + "[" * 200000), "nesting depth limit exceeded")
+assert_eq(toml.decode("x = " + "[" * 200000, default = "deep"), "deep")
+assert_fails(lambda: toml.decode("x = 9223372036854775808"), "Integer is too large")
+assert_eq(toml.decode("x = 9223372036854775808", default = None), None)
+
+def test_invalid_utf8():
+    # In UTF-8 byte-string mode, "\377" is a lone byte that is not valid UTF-8.
+    if _utf8_byte_strings:
+        assert_fails(lambda: toml.decode("x = '\377'"), "TOML decode error: input is not valid UTF-8")
+        assert_eq(toml.decode("x = '\377'", default = None), None)
+    else:
+        assert_round_trip({"x": "\377"})
+
+test_invalid_utf8()
+
+def test_unpaired_surrogate():
+    # In UTF-16 mode, indexing splits a surrogate pair; TOML cannot represent the halves.
+    if not _utf8_byte_strings:
+        assert_eq(toml.encode({"x": "🎉"[0], "y": "🎉"}), "x = \"�\"\ny = '🎉'\n")
+
+test_unpaired_surrogate()
+
 # Every decoded container belongs to the caller's mutability.
 mutable = toml.decode("[table]\nitems = [{x = 1}]")
 mutable["extra"] = True
@@ -495,9 +529,9 @@ assert_eq(mutable, {"extra": True, "table": {"extra": True, "items": [{"x": 3}, 
 # Unicode escapes and raw Unicode agree in both Starlark string modes.
 assert_eq(toml.decode('"\\u00E9" = "\\U0001F389"'), {"é": "🎉"})
 assert_eq(toml.decode('"é" = "🎉"'), {"é": "🎉"})
-assert_eq(toml.decode(toml.encode({"é": "🎉"})), {"é": "🎉"})
+assert_round_trip({"é": "🎉"})
 assert_eq(toml.encode({"delete": "\177"}), 'delete = "\\u007F"\n')
-assert_eq(toml.decode(toml.encode({"\177": "\177"})), {"\177": "\177"})
+assert_round_trip({"\177": "\177"})
 
 # All TOML spellings of non-finite numbers decode; encoding preserves their value.
 def test_nonfinite():
@@ -526,14 +560,14 @@ y = 2
 [a.d]
 z = 3
 """)
-assert_eq(toml.decode(toml.encode(interleaved)), interleaved)
+assert_round_trip(interleaved)
 
 # Empty tables, including those left after omitting None fields, need headers.
 assert_eq(toml.encode({"a": {"b": {}}}), "[a.b]\n")
 assert_eq(toml.encode({"a": {"b": None}}), "[a]\n")
 assert_eq(toml.encode(struct(x = None)), "")
-assert_eq(toml.decode(toml.encode({"items": [{}, {"x": {}}, {}]})), {"items": [{}, {"x": {}}, {}]})
-assert_eq(toml.decode(toml.encode({"a": {"b": {}}, "c": {}})), {"a": {"b": {}}, "c": {}})
+assert_round_trip({"items": [{}, {"x": {}}, {}]})
+assert_round_trip({"a": {"b": {}}, "c": {}})
 
 # Inline tables must stay on one line, including their nested arrays and tables.
 mixed = {"items": [1, {"nested": {"values": [2, 3]}, "absent": None}]}
@@ -544,21 +578,21 @@ items = [
 ]
 """)
 assert_eq(toml.decode(toml.encode(mixed)), {"items": [1, {"nested": {"values": [2, 3]}}]})
-assert_eq(toml.decode(toml.encode({"items": [[{"x": [1, 2]}, {}]]})), {"items": [[{"x": [1, 2]}, {}]]})
+assert_round_trip({"items": [[{"x": [1, 2]}, {}]]})
 assert_eq(toml.decode(toml.encode({"items": [struct(x = 1), struct(x = 2)]})), {"items": [{"x": 1}, {"x": 2}]})
 assert_eq(toml.decode(toml.encode({"items": [1, struct(x = 2)]})), {"items": [1, {"x": 2}]})
 
 # A reused table path cannot leak into siblings or later elements of an array of tables.
 paths = {"a.b": [{"c d": {"x": 1}}, {"c d": {"y": 2}}], "sibling": {"z": 3}}
-assert_eq(toml.decode(toml.encode(paths)), paths)
-assert_eq(toml.decode(toml.encode(toml.decode(nested_array_of_tables))), toml.decode(nested_array_of_tables))
+assert_round_trip(paths)
+assert_round_trip(toml.decode(nested_array_of_tables))
 
 # None in an array cannot silently shift element positions.
 assert_fails(lambda: toml.encode({"items": [{"x": 1}, None]}), "at list index 1: cannot encode NoneType")
-assert_fails(lambda: toml.encode({"items": [1, {"x": [None]}]}), "in dict key.*x.*at list index 0: cannot encode NoneType")
+assert_fails(lambda: toml.encode({"items": [1, {"x": [None]}]}), 'in dict key "items": at list index 1: in dict key "x": at list index 0: cannot encode NoneType')
 assert_fails(lambda: toml.encode(None), "TOML encode requires a dict, struct, or native provider")
-assert_fails(lambda: toml.encode({"a": [{"x": len}]}), "at list index 0: in dict key.*x.*cannot encode builtin_function_or_method")
-assert_fails(lambda: toml.encode({"a": {1: "bad"}}), "in dict key.*a.*dict has int key, want string")
+assert_fails(lambda: toml.encode({"a": [{"x": len}]}), 'in dict key "a": at list index 0: in dict key "x": cannot encode builtin_function_or_method')
+assert_fails(lambda: toml.encode({"a": {1: "bad"}}), 'in dict key "a": dict has int key, want string')
 
 cycle = []
 cycle.append(cycle)
