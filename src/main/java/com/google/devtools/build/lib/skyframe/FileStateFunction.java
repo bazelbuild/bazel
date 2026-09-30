@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -65,8 +66,11 @@ public class FileStateFunction implements SkyFunction {
         return null;
       }
       if (fileType == FileType.EXTERNAL_REPO) {
-        // do not use syscallCache as files under repositories get generated during the build
-        return FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, tsgm.get());
+        // Do not use syscallCache as files under repositories get generated during the build. A
+        // refetch of the repository may also replace them while they are being read.
+        return RewindableRepoFileSystem.readUnderRepoLock(
+            rootedPath.asPath(),
+            () -> FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, tsgm.get()));
       }
       return FileStateValue.create(rootedPath, syscallCache, tsgm.get());
     } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {

@@ -250,6 +250,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
       return false;
     }
+    if (remoteFs.shouldRefetch(repoName)) {
+      // The remote cache has lost the contents of files in this repo. Report a cache miss so that
+      // the repo rule is executed again, which also uploads the fresh contents to the remote
+      // cache.
+      return false;
+    }
 
     var context = buildContext(repoName, CacheOp.DOWNLOAD);
     if (!context.getReadCachePolicy().allowRemoteCache()) {
@@ -297,6 +303,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       return false;
     }
 
+    // RepositoryFetchFunction holds the repo write lock throughout cache restoration and fetch.
     return remoteFs.injectRemoteRepo(
         repoName, repoDirectoryContentFuture.resultNow(), markerFileContent);
   }

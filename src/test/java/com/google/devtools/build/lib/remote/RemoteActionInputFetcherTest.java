@@ -192,7 +192,8 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         "none",
         "none",
         /* evaluator= */ null,
-        /* remoteCacheTtl= */ Duration.ofHours(1));
+        /* remoteCacheTtl= */ Duration.ofHours(1),
+        /* rewindingEnabled= */ false);
     for (String invalidPath :
         ImmutableList.of("../../../../../.bashrc.bzl", "/etc/cron.d/evil.bzl")) {
       Tree tree =

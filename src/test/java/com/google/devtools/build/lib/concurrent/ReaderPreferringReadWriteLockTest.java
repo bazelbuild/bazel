@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -24,6 +24,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -174,6 +175,38 @@ public class ReaderPreferringReadWriteLockTest {
     lock.unlockRead();
     lock.lockWriteInterruptibly();
     lock.unlockWrite();
+  }
+
+  @Test
+  public void tryLockRead_writerWaiting_onlyAdmittedIfBarging() throws Exception {
+    var lock = new ReaderPreferringReadWriteLock();
+    lock.lockReadInterruptibly();
+    var writer =
+        new TestThread(
+            () -> {
+              lock.lockWriteInterruptibly();
+              lock.unlockWrite();
+            });
+    writer.start();
+    waitUntilState(writer, Thread.State.WAITING);
+    assertThat(lock.tryLockReadUnlessWriterWaiting()).isFalse();
+    assertThat(lock.tryLockRead()).isTrue();
+    lock.unlockRead();
+    lock.unlockRead();
+    writer.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    assertThat(lock.tryLockReadUnlessWriterWaiting()).isTrue();
+    lock.unlockRead();
+  }
+
+  @Test
+  public void tryLockRead_lockHeldByWriter_fails() throws Exception {
+    var lock = new ReaderPreferringReadWriteLock();
+    lock.lockWriteInterruptibly();
+    assertThat(lock.tryLockRead()).isFalse();
+    assertThat(lock.tryLockReadUnlessWriterWaiting()).isFalse();
+    lock.unlockWrite();
+    assertThat(lock.tryLockRead()).isTrue();
+    lock.unlockRead();
   }
 
   @Test
@@ -352,6 +385,61 @@ public class ReaderPreferringReadWriteLockTest {
     while ((state = thread.getState()) != expectedState) {
       assertThat(state).isNotEqualTo(Thread.State.TERMINATED);
       Thread.yield();
+    }
+  }
+
+  @Test
+  public void lockWrite_giveUpWhileWaitingForWriter_returnsFalseWithoutLock() throws Exception {
+    ReaderPreferringReadWriteLock lock = new ReaderPreferringReadWriteLock();
+    lock.lockWriteInterruptibly();
+    AtomicBoolean giveUp = new AtomicBoolean();
+    AtomicBoolean locked = new AtomicBoolean(true);
+    TestThread writer = new TestThread(() -> locked.set(lock.lockWriteInterruptibly(giveUp::get)));
+
+    writer.start();
+    awaitWaiting(writer);
+    giveUp.set(true);
+    lock.wakeWaitingWriters();
+    writer.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+
+    assertThat(locked.get()).isFalse();
+    // The first writer still holds the lock. The condition is only consulted while waiting.
+    assertThat(lock.tryLockRead()).isFalse();
+    lock.unlockWrite();
+    assertThat(lock.lockWriteInterruptibly(() -> true)).isTrue();
+    lock.unlockWrite();
+  }
+
+  @Test
+  public void lockWrite_giveUpWhileWaitingForReaders_returnsFalseWithoutLock() throws Exception {
+    ReaderPreferringReadWriteLock lock = new ReaderPreferringReadWriteLock();
+    lock.lockReadInterruptibly();
+    AtomicBoolean giveUp = new AtomicBoolean();
+    AtomicBoolean locked = new AtomicBoolean(true);
+    TestThread writer = new TestThread(() -> locked.set(lock.lockWriteInterruptibly(giveUp::get)));
+
+    writer.start();
+    awaitWaiting(writer);
+    giveUp.set(true);
+    lock.wakeWaitingWriters();
+    writer.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+
+    assertThat(locked.get()).isFalse();
+    // The writer that gave up is still recorded as waiting until the last reader leaves, which
+    // doesn't keep other readers out and is cleared by the reader.
+    assertThat(lock.tryLockRead()).isTrue();
+    lock.unlockRead();
+    lock.unlockRead();
+    assertThat(lock.lockWriteInterruptibly(() -> true)).isTrue();
+    lock.unlockWrite();
+  }
+
+  private static void awaitWaiting(Thread thread) throws InterruptedException {
+    long deadline = System.currentTimeMillis() + 10_000;
+    while (thread.getState() != Thread.State.WAITING) {
+      assertThat(thread.isAlive()).isTrue();
+      assertThat(System.currentTimeMillis()).isLessThan(deadline);
+      Thread.sleep(10);
     }
   }
 }

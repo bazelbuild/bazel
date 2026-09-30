@@ -25,6 +25,7 @@ import static java.lang.Math.min;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -97,6 +98,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -114,11 +116,14 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -241,6 +246,8 @@ public final class SkyframeActionExecutor {
   @Nullable private ActionCompletedReceiver completionReceiver;
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
+  // Null if the file system doesn't serve repository contents that can be replaced during a build.
+  @Nullable private final RewindableRepoFileSystem repoFileSystem;
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
@@ -274,7 +281,8 @@ public final class SkyframeActionExecutor {
       Supplier<ImmutableList<Root>> sourceRootSupplier,
       SyscallCache syscallCache,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory,
-      ExistingActionLookupValuePeeker actionLookupValuePeeker) {
+      ExistingActionLookupValuePeeker actionLookupValuePeeker,
+      @Nullable RewindableRepoFileSystem repoFileSystem) {
     this.actionKeyContext = actionKeyContext;
     this.outputArtifactsSeen = outputArtifactsSeen;
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
@@ -283,6 +291,7 @@ public final class SkyframeActionExecutor {
     this.syscallCache = syscallCache;
     this.threadStateReceiverFactory = threadStateReceiverFactory;
     this.actionLookupValuePeeker = actionLookupValuePeeker;
+    this.repoFileSystem = repoFileSystem;
   }
 
   /**
@@ -1199,9 +1208,15 @@ public final class SkyframeActionExecutor {
               createOutputDirectories(action);
             }
 
+            // Acquired after the action output locks: a rewound action holds the lock on its
+            // outputs while waiting for its repo read locks, so a consumer of those outputs must
+            // not hold a repo read lock while waiting for that lock.
             try (SilentCloseable innerLock =
-                rewoundActionSynchronizer.enterActionExecution(
-                    action, wasRewound, actionExecutionContext.getInputMetadataProvider())) {
+                    rewoundActionSynchronizer.enterActionExecution(
+                        action, wasRewound, actionExecutionContext.getInputMetadataProvider());
+                SilentCloseable repoReadLocks =
+                    acquireRepoReadLocks(
+                        action, actionExecutionContext.getInputMetadataProvider())) {
               return executeAction(env.getListener(), action);
             }
           }
@@ -1330,6 +1345,11 @@ public final class SkyframeActionExecutor {
         }
         eventHandler.post(new ActionSuccessEvent(actionExecutionValue));
         return new ActionPostprocessingStep(actionExecutionValue);
+      } catch (LostInputsActionExecutionException e) {
+        // Completing the action may read an input for the first time, e.g. by downloading a
+        // top-level output that is a symlink to it. Its loss is recovered by rewinding, like one
+        // during execution, rather than reported as a failure.
+        throw e;
       } catch (ActionExecutionException e) {
         return ActionStepOrResult.of(e);
       }
@@ -1395,6 +1415,7 @@ public final class SkyframeActionExecutor {
         }
       } catch (ActionExecutionException actionException) {
         // Success in execution but failure in completion.
+        maybeSignalLostInputs(actionException, primaryOutputPath);
         reportActionExecution(
             eventHandler,
             primaryOutputPath,
@@ -1489,6 +1510,70 @@ public final class SkyframeActionExecutor {
         return ActionStepOrResult.of(value);
       }
     }
+  }
+
+  /**
+   * Requests the fetches of the repositories whose contents reading the given artifacts reads, as
+   * long as any of them may be refetched to recover a lost file, and returns whether they are all
+   * done.
+   *
+   * <p>A refetch replaces the repository's contents under its write lock, which it also holds while
+   * it waits for Skyframe dependencies of its own, e.g. the refetch of a repository whose file it
+   * reads. A reader that waits for the lock instead of the fetch blocks an evaluator thread for as
+   * long as the fetch waits, and enough such readers starve the fetch of the thread it needs to
+   * continue. This waits for the fetch as a dependency instead, which occupies no thread. A refetch
+   * that starts afterwards is still excluded by the locks, whose wait is then bounded by the
+   * refetch itself.
+   */
+  public boolean awaitRepoRefetches(
+      Environment env, Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider)
+      throws InterruptedException {
+    if (repoFileSystem == null
+        || !repoFileSystem.getRewindingSynchronizer().replacementsPossible()) {
+      return true;
+    }
+    var repos = metadataProvider.getExternalSourceRepositories(artifacts, repoFileSystem);
+    if (repos.isEmpty()) {
+      return true;
+    }
+    var keys = Iterables.transform(repos, repo -> RepositoryDirectoryValue.key(repo));
+    var values = env.getValuesAndExceptions(keys);
+    boolean allDone = true;
+    for (var key : keys) {
+      // A fetch that failed is over as well: it has released its lock, so the reader observes the
+      // same contents it would have after waiting for the lock and handles any failure to read
+      // them itself. The fetch's error is left to the nodes that actually depend on the fetch.
+      allDone &=
+          values.queryDep(
+              key,
+              new SkyframeLookupResult.QueryDepCallback() {
+                @Override
+                public void acceptValue(SkyKey unusedKey, SkyValue unusedValue) {}
+
+                @Override
+                public boolean tryHandleException(SkyKey unusedKey, Exception unusedException) {
+                  return true;
+                }
+              });
+    }
+    return allDone;
+  }
+
+  /**
+   * Acquires read locks for the external repositories containing source inputs of the given action,
+   * so that a concurrent refetch can't replace their contents while the action reads them.
+   */
+  private SilentCloseable acquireRepoReadLocks(
+      Action action, InputMetadataProvider metadataProvider) throws InterruptedException {
+    if (repoFileSystem == null) {
+      return () -> {};
+    }
+    return repoFileSystem
+        .getRewindingSynchronizer()
+        .acquireReadLocks(
+            () ->
+                metadataProvider.getExternalSourceRepositories(
+                    action.getInputs().toList(), repoFileSystem));
   }
 
   /**

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.util.OS;
@@ -64,6 +65,16 @@ public class RepositoryUtils {
         message = PackageLookupFunction.explainNoBuildFileValue(label.getPackageIdentifier(), env);
       }
       throw Starlark.errorf("Unable to load package for %s: %s", label, message);
+    }
+
+    if (!label.getRepository().isMain()) {
+      // The package lookup caches the repo root and stays valid while the fetch of the repo is
+      // rewound to recover a file that the remote repo contents cache has lost. Wait for such a
+      // refetch here, where the worker suspends without holding a thread, rather than on the
+      // repo's lock when the file is read.
+      if (env.getValue(RepositoryDirectoryValue.key(label.getRepository())) == null) {
+        return null;
+      }
     }
 
     // And now for the file
