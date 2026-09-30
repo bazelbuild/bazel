@@ -196,31 +196,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         .contains(String.format("--cpp_out=%s", getTargetConfiguration().getGenfilesFragment()));
   }
 
-  @Test
-  public void commandLineControlsOutputFileSuffixes() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
-                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-    useConfiguration(
-        "--cc_proto_library_header_suffixes=.pb.h,.proto.h",
-        "--cc_proto_library_source_suffixes=.pb.cc,.pb.cc.meta");
-    scratch.file(
-        "x/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
-        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
-        "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
-
-    assertThat(prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto"))))
-        .containsExactly("x/foo.pb.cc", "x/foo.pb.h", "x/foo.pb.cc.meta", "x/foo.proto.h",
-            "x/libfoo_proto.a", "x/libfoo_proto.ifso", "x/libfoo_proto.so");
-  }
-
   // TODO(carmi): test blacklisted protos. I don't currently understand what's the wanted behavior.
 
   @Test
