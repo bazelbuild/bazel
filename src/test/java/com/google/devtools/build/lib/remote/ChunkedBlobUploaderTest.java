@@ -18,6 +18,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -117,16 +118,42 @@ public class ChunkedBlobUploaderTest {
               List<Digest> digests = invocation.getArgument(1);
               return immediateFuture(ImmutableSet.copyOf(digests));
             });
-    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), anyBoolean()))
         .thenReturn(immediateVoidFuture());
     when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
-    uploader.uploadChunked(context, blobDigest, file);
+    uploader.uploadChunked(context, blobDigest, file, /* force= */ false);
 
     List<Digest> chunkDigests = digestsCaptor.getValue();
     assertThat(chunkDigests.size()).isGreaterThan(1);
     long totalSize = chunkDigests.stream().mapToLong(Digest::getSizeBytes).sum();
     assertThat(totalSize).isEqualTo(data.length);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void uploadChunked_force_forwardsForceToChunkUploads() throws Exception {
+    Path file = execRoot.getRelative("test_force.txt");
+    byte[] data = new byte[8192];
+    new Random(42).nextBytes(data);
+    writeFile(file, data);
+    Digest blobDigest = DIGEST_UTIL.compute(data);
+
+    ArgumentCaptor<List<Digest>> digestsCaptor = ArgumentCaptor.forClass(List.class);
+    when(grpcCacheClient.findMissingDigests(any(), digestsCaptor.capture()))
+        .thenAnswer(
+            invocation -> {
+              List<Digest> digests = invocation.getArgument(1);
+              return immediateFuture(ImmutableSet.copyOf(digests));
+            });
+    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), eq(true)))
+        .thenReturn(immediateVoidFuture());
+    when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
+
+    uploader.uploadChunked(context, blobDigest, file, /* force= */ true);
+
+    verify(combinedCache, times(digestsCaptor.getValue().size()))
+        .uploadBlob(any(), any(Digest.class), any(Blob.class), eq(true));
   }
 
   @Test
@@ -142,9 +169,10 @@ public class ChunkedBlobUploaderTest {
         .thenReturn(immediateFuture(ImmutableSet.of()));
     when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
-    uploader.uploadChunked(context, blobDigest, file);
+    uploader.uploadChunked(context, blobDigest, file, /* force= */ false);
 
-    verify(combinedCache, never()).uploadBlob(any(), any(Digest.class), any(Blob.class));
+    verify(combinedCache, never())
+        .uploadBlob(any(), any(Digest.class), any(Blob.class), anyBoolean());
     verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), any(), any());
   }
 
@@ -188,7 +216,7 @@ public class ChunkedBlobUploaderTest {
     when(grpcCacheClient.findMissingDigests(any(), any()))
         .thenReturn(immediateFuture(ImmutableSet.copyOf(digestsToReportMissing)));
     Map<Digest, ByteString> actualUploads = new HashMap<>();
-    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), anyBoolean()))
         .thenAnswer(
             invocation -> {
               Digest d = invocation.getArgument(1);
@@ -200,7 +228,7 @@ public class ChunkedBlobUploaderTest {
             });
     when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
-    uploader.uploadChunked(context, blobDigest, file);
+    uploader.uploadChunked(context, blobDigest, file, /* force= */ false);
 
     assertThat(actualUploads.keySet()).isEqualTo(expectedChunkData.keySet());
     for (Map.Entry<Digest, ByteString> entry : expectedChunkData.entrySet()) {
@@ -248,7 +276,7 @@ public class ChunkedBlobUploaderTest {
     CountDownLatch firstWindowRequested = new CountDownLatch(MAX_IN_FLIGHT_CHUNK_UPLOADS);
     CountDownLatch overflowUploadRequested = new CountDownLatch(1);
 
-    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), anyBoolean()))
         .thenAnswer(
             invocation -> {
               Digest digest = invocation.getArgument(1);
@@ -266,7 +294,7 @@ public class ChunkedBlobUploaderTest {
             .unstarted(
                 () -> {
                   try {
-                    uploader.uploadChunked(context, blobDigest, file);
+                    uploader.uploadChunked(context, blobDigest, file, /* force= */ false);
                   } catch (IOException | InterruptedException e) {
                     throw new RuntimeException(e);
                   }
@@ -324,7 +352,7 @@ public class ChunkedBlobUploaderTest {
     SettableFuture<Void> failedUpload = SettableFuture.create();
     SettableFuture<Void> cancelledUpload = SettableFuture.create();
     CountDownLatch uploadsStarted = new CountDownLatch(2);
-    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), anyBoolean()))
         .thenAnswer(
             invocation -> {
               Digest digest = invocation.getArgument(1);
@@ -343,7 +371,7 @@ public class ChunkedBlobUploaderTest {
             .unstarted(
                 () -> {
                   try {
-                    uploader.uploadChunked(context, blobDigest, file);
+                    uploader.uploadChunked(context, blobDigest, file, /* force= */ false);
                   } catch (IOException | InterruptedException e) {
                     throw new RuntimeException(e);
                   }
@@ -382,11 +410,12 @@ public class ChunkedBlobUploaderTest {
 
     SettableFuture<Void> cancelledUpload = SettableFuture.create();
     cancelledUpload.cancel(/* mayInterruptIfRunning= */ true);
-    when(combinedCache.uploadBlob(any(), eq(firstChunkDigest), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), eq(firstChunkDigest), any(Blob.class), anyBoolean()))
         .thenReturn(cancelledUpload);
 
     assertThrows(
-        InterruptedException.class, () -> uploader.uploadChunked(context, blobDigest, file));
+        InterruptedException.class,
+        () -> uploader.uploadChunked(context, blobDigest, file, /* force= */ false));
     verify(grpcCacheClient, never()).spliceBlob(any(), any(), any(), any());
   }
 
@@ -414,7 +443,7 @@ public class ChunkedBlobUploaderTest {
 
     SettableFuture<Void> failedUpload = SettableFuture.create();
     failedUpload.setException(new IOException("upload failed"));
-    when(combinedCache.uploadBlob(any(), eq(chunkDigests.get(0)), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), eq(chunkDigests.get(0)), any(Blob.class), anyBoolean()))
         .thenReturn(failedUpload);
 
     Thread uploadThread =
@@ -422,7 +451,7 @@ public class ChunkedBlobUploaderTest {
             .unstarted(
                 () -> {
                   try {
-                    uploader.uploadChunked(context, blobDigest, file);
+                    uploader.uploadChunked(context, blobDigest, file, /* force= */ false);
                   } catch (IOException | InterruptedException e) {
                     throw new RuntimeException(e);
                   }
@@ -457,7 +486,7 @@ public class ChunkedBlobUploaderTest {
         .thenReturn(new ByteArrayInputStream(data), new ByteArrayInputStream(new byte[0]));
     when(grpcCacheClient.findMissingDigests(any(), any()))
         .thenReturn(immediateFuture(ImmutableSet.of(secondChunkDigest)));
-    when(combinedCache.uploadBlob(any(), eq(secondChunkDigest), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), eq(secondChunkDigest), any(Blob.class), anyBoolean()))
         .thenAnswer(
             invocation -> {
               Blob blob = invocation.getArgument(2);
@@ -468,7 +497,9 @@ public class ChunkedBlobUploaderTest {
             });
 
     IOException e =
-        assertThrows(IOException.class, () -> uploader.uploadChunked(context, blobDigest, file));
+        assertThrows(
+            IOException.class,
+            () -> uploader.uploadChunked(context, blobDigest, file, /* force= */ false));
 
     assertThat(e).hasMessageThat().contains("file was concurrently modified during upload");
     assertThat(e).hasCauseThat().isInstanceOf(EOFException.class);

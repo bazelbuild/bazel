@@ -600,11 +600,17 @@ public class UploadManifest {
     return result.build();
   }
 
-  /** Uploads outputs and action result (if exit code is 0) to the remote and/or disk cache. */
+  /**
+   * Uploads outputs and action result (if exit code is 0) to the remote and/or disk cache.
+   *
+   * @param force whether to upload blobs to the remote cache even if {@code combinedCache} has
+   *     already completed uploads of them, e.g. because they may have been evicted since
+   */
   public ActionResult upload(
       RemoteActionExecutionContext context,
       CombinedCache combinedCache,
-      ExtendedEventHandler reporter)
+      ExtendedEventHandler reporter,
+      boolean force)
       throws IOException, InterruptedException, ExecException {
     ActionExecutionMetadata action = context.getSpawnOwner();
     var allDigests = Sets.union(digestToBlobs.keySet(), digestToFile.keySet()).immutableCopy();
@@ -621,7 +627,7 @@ public class UploadManifest {
       for (var digest : missingDigests) {
         uploadFutures.add(
             decorateUploadFuture(
-                uploadSingleDigest(context, combinedCache, digest),
+                uploadSingleDigest(context, combinedCache, digest, force),
                 reporter,
                 action,
                 Store.CAS,
@@ -650,10 +656,13 @@ public class UploadManifest {
   }
 
   private ListenableFuture<Void> uploadSingleDigest(
-      RemoteActionExecutionContext context, CombinedCache combinedCache, Digest digest) {
+      RemoteActionExecutionContext context,
+      CombinedCache combinedCache,
+      Digest digest,
+      boolean force) {
     Path file = digestToFile.get(digest);
     if (file != null) {
-      return combinedCache.uploadFile(context, digest, file);
+      return combinedCache.uploadFile(context, digest, file, force);
     }
 
     ByteString blob = digestToBlobs.get(digest);
@@ -662,7 +671,7 @@ public class UploadManifest {
           new IOException("FindMissingBlobs call returned an unknown digest: " + digest));
     }
 
-    return combinedCache.uploadBlob(context, digest, blob);
+    return combinedCache.uploadBlob(context, digest, blob::newInput, force);
   }
 
   @CanIgnoreReturnValue

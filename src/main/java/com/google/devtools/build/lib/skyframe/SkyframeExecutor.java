@@ -3102,6 +3102,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.statusReporterRef.set(statusReporter);
   }
 
+  /** Determines whether the given action was rewound during the current build. */
+  public boolean wasActionRewound(ActionAnalysisMetadata action) {
+    return skyframeActionExecutor.wasRewound(action);
+  }
+
   public abstract void detectModifiedOutputFiles(
       ModifiedFileSet modifiedOutputFiles,
       @Nullable Range<Long> lastExecutionTimeRange,
