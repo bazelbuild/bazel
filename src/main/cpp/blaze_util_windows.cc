@@ -488,9 +488,8 @@ static const int MAX_CMDLINE_LENGTH = 32768;
 struct CmdLine {
   WCHAR cmdline[MAX_CMDLINE_LENGTH];
 };
-static std::wstring BuildCommandLine(
-    const blaze_util::Path& exe,
-    const std::vector<std::wstring>& wargs_vector) {
+static void CreateCommandLine(CmdLine* result, const blaze_util::Path& exe,
+                              const std::vector<std::wstring>& wargs_vector) {
   std::wstringstream cmdline;
   string short_exe;
   if (!exe.IsEmpty()) {
@@ -516,12 +515,8 @@ static std::wstring BuildCommandLine(
     }
     cmdline << wa;
   }
-  return cmdline.str();
-}
 
-static void CreateCommandLine(CmdLine* result, const blaze_util::Path& exe,
-                              const std::vector<std::wstring>& wargs_vector) {
-  wstring cmdline_str = BuildCommandLine(exe, wargs_vector);
+  wstring cmdline_str = cmdline.str();
   if (cmdline_str.size() >= MAX_CMDLINE_LENGTH) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "Command line too long (" << cmdline_str.size() << " > "
@@ -814,23 +809,11 @@ void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args,
                       const blaze_util::Path& argfile,
                       bool run_in_user_cgroup) {
-  std::vector<std::wstring> wargs;
-  wargs.reserve(server_jvm_args.size());
-  for (const string& a : server_jvm_args) {
-    std::wstring wa = blaze_util::CstringToWstring(a);
-    std::wstring wesc = bazel::windows::WindowsEscapeArg(wa);
-    wargs.push_back(wesc);
-  }
-
-  if (BuildCommandLine(exe, wargs).size() < MAX_CMDLINE_LENGTH) {
-    ExecuteProgram(exe, wargs);
-  }
-
-  // The command line is too long for CreateProcessW, which happens in batch
-  // mode with a large client environment passed via --client_env. Let the Java
-  // launcher read the arguments from a file instead. The embedded JDK's
-  // java.exe uses UTF-8 as its active code page and thus reads the file as
-  // UTF-8.
+  // The arguments can exceed the command line length limit of CreateProcessW,
+  // for example in batch mode with a large client environment passed via
+  // --client_env. Let the Java launcher read them from a file instead. The
+  // embedded JDK's java.exe uses UTF-8 as its active code page and thus reads
+  // the file as UTF-8.
   string content;
   // Skip the first argument, it is equal to 'exe'.
   for (size_t i = 1; i < server_jvm_args.size(); ++i) {
@@ -851,7 +834,8 @@ void ExecuteServerJvm(const blaze_util::Path& exe,
         << "): " << error;
   }
   int exit_code = RunProgram(
-      exe, {wargs[0], bazel::windows::WindowsEscapeArg(L"@" + wshort_argfile)});
+      exe, {exe.AsNativePath(),
+            bazel::windows::WindowsEscapeArg(L"@" + wshort_argfile)});
   blaze_util::UnlinkPath(argfile);
   exit(exit_code);
 }

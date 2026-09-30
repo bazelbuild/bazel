@@ -166,9 +166,9 @@ std::string GetJavaBinaryUnderJavabase();
 // Start the Bazel server's JVM in the current directory.
 //
 // Note on Windows: 'server_jvm_args' is NOT expected to be escaped for
-// CreateProcessW, and 'run_in_user_cgroup' is ignored. If the command line
-// exceeds the length limit of CreateProcessW, the arguments are passed to the
-// JVM via the argument file 'argfile' instead, which is deleted after the JVM
+// CreateProcessW, and 'run_in_user_cgroup' is ignored. As the arguments can
+// exceed the command line length limit of CreateProcessW, they are passed to
+// the JVM via the argument file 'argfile', which is deleted after the JVM
 // exits. 'argfile' is ignored on other platforms.
 //
 // This function does not return on success.

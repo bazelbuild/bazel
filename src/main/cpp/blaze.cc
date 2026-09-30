@@ -723,7 +723,7 @@ static bool CanRunOutsideWorkspace(const string& command) {
 }
 
 // Returns the path of the file that the server JVM reads its arguments from on
-// Windows if they exceed the command line length limit.
+// Windows.
 static blaze_util::Path GetServerJvmArgFilePath(
     const blaze_util::Path &output_base) {
   return output_base.GetRelative("server_jvm.args");

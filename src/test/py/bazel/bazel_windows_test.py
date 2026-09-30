@@ -184,8 +184,9 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertIn('foo=bar3', result_in_lower_case)
 
   def testBatchModeWithLargeClientEnvironment(self):
-    # In batch mode, the client environment is passed to the server JVM on the
-    # command line, which exceeds the length limit of CreateProcessW here.
+    # In batch mode, the client environment is passed to the server JVM as
+    # arguments, which exceed the command line length limit of CreateProcessW
+    # here.
     env = {
         'LARGE_ENV_1': 'C:\\foo\\ "bar" #baz \\' * 1000,
         'LARGE_ENV_2': 'äöü€ \\"\\\\\n ' * 2000,
