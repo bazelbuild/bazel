@@ -47,6 +47,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 /** Handles --show_result and --experimental_show_artifacts. */
 class BuildResultPrinter {
@@ -82,14 +83,16 @@ class BuildResultPrinter {
             aspects,
             targetRootCauses,
             aspectRootCauses);
-    if (!ok) {
-      if (!request.getOptions(ExecutionOptions.class).getVerboseFailures()) {
+    if (!ok && hasActionFailures(targetRootCauses, aspectRootCauses)) {
+      SandboxOptions sandboxOptions = request.getOptions(SandboxOptions.class);
+      boolean verboseFailures = request.getOptions(ExecutionOptions.class).getVerboseFailures();
+      boolean sandboxDebug = sandboxOptions != null && sandboxOptions.getSandboxDebug();
+      if (!verboseFailures && !sandboxDebug) {
         request
             .getOutErr()
             .printErr("Use --verbose_failures to see the command lines of failed build steps.\n");
       }
-      SandboxOptions sandboxOptions = request.getOptions(SandboxOptions.class);
-      if (sandboxOptions != null && !sandboxOptions.getSandboxDebug()) {
+      if (sandboxOptions != null && !sandboxDebug) {
         request
             .getOutErr()
             .printErr(
@@ -97,6 +100,14 @@ class BuildResultPrinter {
                     + " sandbox build root for debugging\n");
       }
     }
+  }
+
+  private static boolean hasActionFailures(
+      ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses,
+      ImmutableMap<AspectKey, NestedSet<Cause>> aspectRootCauses) {
+    return Stream.concat(targetRootCauses.values().stream(), aspectRootCauses.values().stream())
+        .flatMap(causes -> causes.toList().stream())
+        .anyMatch(ActionFailed.class::isInstance);
   }
 
   /**

@@ -179,6 +179,8 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     String stderr = recOutErr.errAsLatin1();
     assertThat(stderr).doesNotContain("Target //needsdata:needsdata up-to-date:\n");
     assertThat(stderr).contains("Target //needsdata:needsdata failed to build\n");
+    assertThat(stderr)
+        .doesNotContain("Use --verbose_failures to see the command lines of failed build steps.\n");
   }
 
   /**
@@ -366,6 +368,31 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     assertThat(stderr).contains("Target //mix:fail failed to build\n");
     assertThat(stderr).doesNotContain("Target //mix:succ1 up-to-date:\n");
     assertThat(stderr).doesNotContain("Target //mix:succ2 up-to-date:\n");
+  }
+
+  @Test
+  public void testActionFailureShowsVerboseFailuresSuggestion() throws Exception {
+    write("test/BUILD", "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+
+    build(true, GENRULE_ERROR, "//test:fail");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //test:fail failed to build\n");
+    assertThat(stderr)
+        .contains("Use --verbose_failures to see the command lines of failed build steps.\n");
+  }
+
+  @Test
+  public void testSandboxDebugSuppressesVerboseFailuresSuggestion() throws Exception {
+    write("test/BUILD", "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+
+    addOptions("--sandbox_debug");
+    build(true, GENRULE_ERROR, "//test:fail");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //test:fail failed to build\n");
+    assertThat(stderr)
+        .doesNotContain("Use --verbose_failures to see the command lines of failed build steps.\n");
   }
 
   // Concrete implementations of this abstract test:
