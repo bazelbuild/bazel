@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -83,7 +84,13 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           if (action.isFilesetTree()) {
             helper.createFilesetSymlinks(getFilesetMap(action, actionExecutionContext));
           } else {
-            helper.createRunfilesSymlinks(getRunfilesMap(action));
+            helper.createRunfilesSymlinks(
+                getRunfilesMap(action),
+                // The action's metadata provider falls back to expensive lookups for artifacts
+                // that aren't inputs of the action, which must be avoided for the runfiles.
+                action.areRunfilesInputs()
+                    ? actionExecutionContext.getInputMetadataProvider()
+                    : StaticInputMetadataProvider.empty());
           }
           helper.linkManifest();
         }

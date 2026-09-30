@@ -20,7 +20,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -29,6 +31,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.HashMap;
@@ -73,31 +76,67 @@ public final class SymlinkTreeHelper {
     this.workspaceName = workspaceName;
   }
 
-  interface TargetPathFunction<T> {
-    /** Obtains a symlink target path from a T. */
-    PathFragment get(T target) throws IOException;
+  /** The target of a symlink in the tree. */
+  record SymlinkTarget(PathFragment path, SymlinkTargetType type) {}
+
+  interface TargetFunction<T> {
+    /** Obtains a symlink target from a T. */
+    SymlinkTarget get(T value) throws IOException;
   }
 
   /** Creates a symlink tree for a fileset by making VFS calls. */
   public void createFilesetSymlinks(Map<PathFragment, PathFragment> symlinkMap)
       throws ExecException {
-    createSymlinks(symlinkMap, (path) -> path);
+    createSymlinks(symlinkMap, (path) -> new SymlinkTarget(path, SymlinkTargetType.UNSPECIFIED));
   }
 
-  /** Creates a symlink tree for a runfiles by making VFS calls. */
-  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinks) throws ExecException {
-    createSymlinks(
-        symlinks,
-        (artifact) ->
-            artifact.isSymlink()
-                // Unresolved symlinks are created textually.
-                ? artifact.getPath().readSymbolicLink()
-                : artifact.getPath().asFragment());
+  /**
+   * Creates a symlink tree for a runfiles by making VFS calls.
+   *
+   * @param symlinks the runfiles mapping
+   * @param inputMetadataProvider provides metadata for the runfiles, which is used to determine
+   *     the type of a symlink target on file systems that require it; runfiles without metadata
+   *     are linked with an unspecified target type
+   */
+  public void createRunfilesSymlinks(
+      Map<PathFragment, Artifact> symlinks, InputMetadataProvider inputMetadataProvider)
+      throws ExecException {
+    createSymlinks(symlinks, artifact -> getRunfilesTarget(artifact, inputMetadataProvider));
+  }
+
+  private static SymlinkTarget getRunfilesTarget(
+      Artifact artifact, InputMetadataProvider inputMetadataProvider) throws IOException {
+    if (artifact.isSymlink()) {
+      // Unresolved symlinks are created textually.
+      return new SymlinkTarget(
+          artifact.getPath().readSymbolicLink(), SymlinkTargetType.UNSPECIFIED);
+    }
+    return new SymlinkTarget(
+        artifact.getPath().asFragment(), getTargetType(artifact, inputMetadataProvider));
+  }
+
+  private static SymlinkTargetType getTargetType(
+      Artifact artifact, InputMetadataProvider inputMetadataProvider) throws IOException {
+    if (artifact.isTreeArtifact()) {
+      return SymlinkTargetType.DIRECTORY;
+    }
+    // A source artifact may be a directory, which can only be told apart from a file by its
+    // metadata: the target may not exist on disk yet, e.g. if it lies in a repository restored
+    // from the remote repo contents cache or is a remotely cached output.
+    FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(artifact);
+    if (metadata == null) {
+      return SymlinkTargetType.UNSPECIFIED;
+    }
+    return switch (metadata.getType()) {
+      case REGULAR_FILE, SPECIAL_FILE -> SymlinkTargetType.FILE;
+      case DIRECTORY -> SymlinkTargetType.DIRECTORY;
+      case SYMLINK, NONEXISTENT -> SymlinkTargetType.UNSPECIFIED;
+    };
   }
 
   /** Creates a symlink tree. */
-  private <T> void createSymlinks(
-      Map<PathFragment, T> symlinkMap, TargetPathFunction<T> targetPathFn) throws ExecException {
+  private <T> void createSymlinks(Map<PathFragment, T> symlinkMap, TargetFunction<T> targetFn)
+      throws ExecException {
     // Our strategy is to minimize mutating file system operations as much as possible. Ideally, if
     // there is an existing symlink tree with the expected contents, we don't make any changes. Our
     // algorithm goes as follows:
@@ -138,7 +177,7 @@ public final class SymlinkTreeHelper {
         Directory<T> parentDir = root.walk(path.getParentDirectory());
         parentDir.addSymlink(path.getBaseName(), value);
       }
-      root.syncTreeRecursively(symlinkTreeRoot, targetPathFn);
+      root.syncTreeRecursively(symlinkTreeRoot, targetFn);
       createWorkspaceSubdirectory();
     } catch (IOException e) {
       throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
@@ -220,7 +259,7 @@ public final class SymlinkTreeHelper {
       return result;
     }
 
-    void syncTreeRecursively(Path at, TargetPathFunction<T> targetPathFn) throws IOException {
+    void syncTreeRecursively(Path at, TargetFunction<T> targetFn) throws IOException {
       FileStatus stat = at.statIfFound(Symlinks.FOLLOW);
       if (stat == null) {
         at.createDirectoryAndParents();
@@ -250,19 +289,20 @@ public final class SymlinkTreeHelper {
             // TODO(tjgq): Ponder whether this is still necessary to preserve the intentional
             // non-hermeticity of symlink trees under source edits.
           } else {
+            SymlinkTarget target = targetFn.get(value);
             // ensureSymbolicLink will replace a symlink that doesn't have the correct target, but
             // everything else needs to be deleted first.
             if (dirent.getType() != Dirent.Type.SYMLINK) {
               next.deleteTree();
             }
-            FileSystemUtils.ensureSymbolicLink(next, targetPathFn.get(value));
+            FileSystemUtils.ensureSymbolicLink(next, target.path(), target.type());
           }
         } else if (directories.containsKey(basename)) {
           Directory<T> nextDir = directories.remove(basename);
           if (dirent.getType() != Dirent.Type.DIRECTORY) {
             next.deleteTree();
           }
-          nextDir.syncTreeRecursively(at.getChild(basename), targetPathFn);
+          nextDir.syncTreeRecursively(at.getChild(basename), targetFn);
         } else {
           at.getChild(basename).deleteTree();
         }
@@ -274,11 +314,12 @@ public final class SymlinkTreeHelper {
         if (value == null) {
           FileSystemUtils.createEmptyFile(next);
         } else {
-          FileSystemUtils.ensureSymbolicLink(next, targetPathFn.get(value));
+          SymlinkTarget target = targetFn.get(value);
+          FileSystemUtils.ensureSymbolicLink(next, target.path(), target.type());
         }
       }
       for (Map.Entry<String, Directory<T>> entry : directories.entrySet()) {
-        entry.getValue().syncTreeRecursively(at.getChild(entry.getKey()), targetPathFn);
+        entry.getValue().syncTreeRecursively(at.getChild(entry.getKey()), targetFn);
       }
     }
   }

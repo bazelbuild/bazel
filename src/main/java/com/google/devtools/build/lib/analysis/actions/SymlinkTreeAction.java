@@ -164,17 +164,32 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
       @Nullable Artifact repoMappingManifest) {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     inputs.add(inputManifest);
-    // On Windows, we need to know whether the target artifact is a file or a directory in order to
-    // correctly create a symlink or junction to it.
-    if (runfileSymlinksMode == RunfileSymlinksMode.CREATE
-        && runfiles != null
-        && OS.getCurrent() == OS.WINDOWS) {
+    if (areRunfilesInputs(runfileSymlinksMode, runfiles)) {
       inputs.addTransitive(runfiles.getAllArtifacts());
       if (repoMappingManifest != null) {
         inputs.add(repoMappingManifest);
       }
     }
     return inputs.build();
+  }
+
+  /**
+   * Returns whether the runfiles are inputs of this action, in which case their metadata is
+   * available while it executes.
+   *
+   * <p>This is the case on Windows, where the type of each runfile determines whether a symlink or
+   * a junction is created for it. Elsewhere, the runfiles are deliberately not inputs so that the
+   * symlink tree can be created before they have been built.
+   */
+  public boolean areRunfilesInputs() {
+    return areRunfilesInputs(runfileSymlinksMode, runfiles);
+  }
+
+  private static boolean areRunfilesInputs(
+      RunfileSymlinksMode runfileSymlinksMode, @Nullable Runfiles runfiles) {
+    return runfileSymlinksMode == RunfileSymlinksMode.CREATE
+        && runfiles != null
+        && OS.getCurrent() == OS.WINDOWS;
   }
 
   @Override

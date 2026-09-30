@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -1032,7 +1033,11 @@ public class RunCommand implements BlazeCommand {
     }
 
     try {
-      runfilesTreeUpdater.updateRunfiles(ImmutableList.of(runfilesSupport.getRunfilesTree()));
+      // The metadata of the runfiles isn't readily available here, so the type of each symlink
+      // target is left for the file system to determine.
+      runfilesTreeUpdater.updateRunfiles(
+          ImmutableList.of(runfilesSupport.getRunfilesTree()),
+          StaticInputMetadataProvider.empty());
     } catch (ExecException | IOException e) {
       throw new RunfilesException(
           "Failed to create runfiles symlinks: " + e.getMessage(),
