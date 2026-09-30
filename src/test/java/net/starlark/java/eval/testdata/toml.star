@@ -482,6 +482,9 @@ test_dates_reparse()
 
 assert_eq(toml.decode("date = 1979-05-27", decode_date = None), {"date": "1979-05-27"})
 assert_eq(toml.decode("date = 1979-05-27", decode_date = lambda date: date.split("-")), {"date": ["1979", "05", "27"]})
+custom_date = toml.decode("date = 1979-05-27", decode_date = lambda date: struct(custom_date_type = date))["date"]
+assert_eq(type(custom_date), "struct")
+assert_eq(custom_date.custom_date_type, "1979-05-27")
 assert_eq(toml.decode("dates = [1979-05-27, 1980-06-28]", decode_date = lambda date: date[:4]), {"dates": ["1979", "1980"]})
 assert_eq(toml.decode("[event]\ndate = 1979-05-27", decode_date = lambda date: {"iso": date}), {"event": {"date": {"iso": "1979-05-27"}}})
 assert_eq(toml.decode('values = [1, 1979-05-27, "last"]', decode_date = lambda date: None), {"values": [1, None, "last"]})
