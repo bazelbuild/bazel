@@ -15,17 +15,25 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
@@ -75,9 +83,13 @@ public class RegistryFunction implements SkyFunction {
     }
 
     RegistryKey key = (RegistryKey) skyKey.argument();
+    String url = key.url().replace("%workspace%", workspaceRoot.getPathString());
     try {
+      if (!addLocalRegistryTreeDependency(url, env)) {
+        return null;
+      }
       return registryFactory.createRegistry(
-          key.url().replace("%workspace%", workspaceRoot.getPathString()),
+          url,
           lockfileMode,
           lockfile.getRegistryFileHashes(),
           lockfile.getSelectedYankedVersions(),
@@ -90,6 +102,41 @@ public class RegistryFunction implements SkyFunction {
               e,
               "Invalid registry URL: %s",
               key.url()));
+    }
+  }
+
+  /**
+   * Local registry files are read outside of Skyframe, so nothing would otherwise invalidate the
+   * {@link Registry} (and the values computed from its files) when they change. For {@code file://}
+   * registries, this requests the digest of the registry tree purely to add a Skyframe dependency
+   * on it; the value itself is unused.
+   *
+   * @return false if the digest has not been computed yet and the caller must return null
+   */
+  private boolean addLocalRegistryTreeDependency(String url, Environment env)
+      throws URISyntaxException, InterruptedException, RegistryException {
+    URI uri = new URI(url);
+    if (!"file".equals(uri.getScheme())) {
+      return true;
+    }
+    // Unix:    file:///tmp --> /tmp
+    // Windows: file:///C:/tmp --> C:/tmp
+    String path = uri.getPath().substring(OS.getCurrent() == OS.WINDOWS ? 1 : 0);
+    RootedPath registryRoot =
+        RootedPath.toRootedPath(
+            Root.absoluteRoot(workspaceRoot.getFileSystem()), PathFragment.create(path));
+    try {
+      return env.getValueOrThrow(
+              DirectoryTreeDigestValue.key(registryRoot, registryRoot, ImmutableList.of()),
+              IOException.class)
+          != null;
+    } catch (IOException e) {
+      throw new RegistryException(
+          ExternalDepsException.withCauseAndMessage(
+              FailureDetails.ExternalDeps.Code.ERROR_ACCESSING_REGISTRY,
+              e,
+              "Failed to read local registry %s",
+              url));
     }
   }
 
