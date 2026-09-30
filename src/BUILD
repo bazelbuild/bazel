@@ -10,6 +10,7 @@ load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
 load(":package_zip.bzl", "package_zip")
 load(":rule_size_test.bzl", "rule_size_test")
+load(":windows_llvm_alias.bzl", "windows_llvm_alias")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
@@ -371,6 +372,15 @@ genrule(
     "_notools",
     "_nojdk",
 ]]
+
+# Bazel for Windows, cross-compiled with the hermetic LLVM toolchains. Can be
+# built on any host platform.
+windows_llvm_alias(
+    name = "bazel_windows_llvm",
+    actual = ":bazel.exe",
+    # Keep wildcard builds from fetching the LLVM toolchains.
+    tags = ["manual"],
+)
 
 filegroup(
     name = "srcs",
