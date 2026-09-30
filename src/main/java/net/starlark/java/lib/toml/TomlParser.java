@@ -92,6 +92,12 @@ public final class TomlParser implements StarlarkValue {
               + "<li>Table entries whose value is <code>None</code> are omitted. <code>None</code>"
               + " in an array, or any other unsupported value, is an error.\n"
               + "</ul>\n"
+              + "Within each table, entries other than nested tables and arrays of tables appear"
+              + " first. Nested tables use <code>[path]</code> headers; non-empty arrays containing"
+              + " only tables use <code>[[path]]</code> headers. Tables inside other arrays use"
+              + " inline <code>{key = value}</code> syntax, including all their descendants."
+              + " Headers that only introduce nested tables are omitted; empty nested tables and"
+              + " array elements retain their headers.\n"
               + "Dict entries retain their iteration order within each group; struct fields use"
               + " alphabetical order. Grouping means dict key order may change on round trip."
               + " Comments and original TOML formatting are not preserved.",
@@ -224,16 +230,14 @@ public final class TomlParser implements StarlarkValue {
           yield list;
         }
         case String s -> string(s);
-        case Boolean b -> b;
-        case Long l -> StarlarkInt.of(l);
-        case Double d -> StarlarkFloat.of(d);
         // The ISO formatters always include seconds, unlike toString(), so that every date and
         // time is spelled as TOML would spell it.
         case OffsetDateTime t -> date(DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(t));
         case LocalDateTime t -> date(DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(t));
         case LocalDate t -> date(DateTimeFormatter.ISO_LOCAL_DATE.format(t));
         case LocalTime t -> date(DateTimeFormatter.ISO_LOCAL_TIME.format(t));
-        default -> throw new IllegalStateException("unexpected TOML value of " + x.getClass());
+        // All remaining parser values are booleans, longs, or doubles.
+        default -> Starlark.fromJava(x, thread.mutability());
       };
     }
 
