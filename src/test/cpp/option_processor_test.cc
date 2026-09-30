@@ -404,4 +404,50 @@ TEST_F(OptionProcessorTest,
 }
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 
+TEST_F(OptionProcessorTest, QuietSuppressesEmacsTerminalOption) {
+  blaze::SetEnv("EMACS", "t");
+
+  // In normal mode, --emacs is added when running in Emacs.
+  {
+    std::string error;
+    std::unique_ptr<OptionProcessor> processor =
+        std::make_unique<OptionProcessor>(
+            workspace_layout_.get(), std::make_unique<BazelStartupOptions>());
+    ASSERT_EQ(
+        blaze_exit_code::SUCCESS,
+        processor->ParseOptions({"bazel", "--ignore_all_rc_files", "build"},
+                                workspace_, cwd_, &error))
+        << error;
+    bool has_emacs = false;
+    for (const auto& opt : processor->GetParsedBlazercOptions()) {
+      if (opt.option == "--emacs") {
+        has_emacs = true;
+      }
+    }
+    EXPECT_TRUE(has_emacs);
+  }
+
+  // In quiet mode, --emacs is suppressed.
+  {
+    std::string error;
+    std::unique_ptr<OptionProcessor> processor =
+        std::make_unique<OptionProcessor>(
+            workspace_layout_.get(), std::make_unique<BazelStartupOptions>());
+    ASSERT_EQ(blaze_exit_code::SUCCESS,
+              processor->ParseOptions(
+                  {"bazel", "--quiet", "--ignore_all_rc_files", "build"},
+                  workspace_, cwd_, &error))
+        << error;
+    bool has_emacs = false;
+    for (const auto& opt : processor->GetParsedBlazercOptions()) {
+      if (opt.option == "--emacs") {
+        has_emacs = true;
+      }
+    }
+    EXPECT_FALSE(has_emacs);
+  }
+
+  blaze::UnsetEnv("EMACS");
+}
+
 }  // namespace blaze
