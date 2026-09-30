@@ -330,13 +330,8 @@ public final class ActionRewindStrategy {
       throws InterruptedException {
     ImmutableList<ActionInput> lostInputs = lostInputsByDigest.values().asList();
 
-    boolean precise = skyframeActionExecutor.preciseRewindingEnabled();
-
-    Set<ActionInput> lostInputsAndTransitiveOwners = null;
-    if (precise) {
-      lostInputsAndTransitiveOwners = new HashSet<>(lostInputs);
-      lostInputsAndTransitiveOwners.addAll(owners.values());
-    }
+    Set<ActionInput> lostInputsAndTransitiveOwners = new HashSet<>(lostInputs);
+    lostInputsAndTransitiveOwners.addAll(owners.values());
 
     // This graph tracks which Skyframe nodes must be rewound and the dependency relationships
     // between them.
@@ -401,40 +396,28 @@ public final class ActionRewindStrategy {
       return new RewindPlanResult(/* reset= */ null);
     }
 
-    // addNestedSetPathsToRewindGraph, called after this loop, stops its walk when it finds a node
-    // that is already in the rewind graph.
-    // However, because this rewinds all NestedSet chains from a given root, early termination later
-    // on won't matter because all dependent NestedSets are already in the graph.
-    // This may seem excessive, but it is not expected that many NestedSets are actually involved in
-    // this walk, and that this only happens rarely.
-    // TODO(b/395634488): This should be solved in a more elegant way, but a solution is needed to
-    // unblock the simplifications to Fileset (b/394611260)
-    Set<ArtifactNestedSetKey> seenNestedSets = precise ? new HashSet<>() : null;
+    Set<ArtifactNestedSetKey> seenNestedSets = new HashSet<>();
 
     for (var entry : nestedSetsForPropagatingActions.entries()) {
       ActionAndLookupData root = entry.getKey();
       ActionLookupData rootKey = root.lookupData();
       ArtifactNestedSetKey nestedSetKey = entry.getValue();
-      if (precise && root.actionAnalysisMetadata().isAggregator()) {
-        // If precise rewinding is enabled for this action, we only add the paths within the nested
-        // set that transitively lead to a lost artifact. This prevents unnecessarily dirtying all
-        // inputs within the nested set. In the legacy/imprecise case, we add the entire nested set
-        // structure and all its artifacts to the rewind graph.
-        ArtifactNestedSetKey.addNestedSetPathsToRewindGraph(
-            rewindGraph, rootKey, nestedSetKey, lostInputsAndTransitiveOwners, seenNestedSets);
-      } else {
-        // Unreachable when precise == true: The only non-aggregator action that propagates
-        // insensitively and has a non-flat nested set of inputs is a SymlinkTreeAction on Windows,
-        // where it takes all runfiles as inputs. Reaching this branch would require its only
-        // output, the runfiles manifest, to be lost, but the action always runs locally. If this
-        // ever changes and precise/non-precise rewinding can apply to a single rewind graph
-        // simultaneously, both modes would require separate accounting of which nested sets have
-        // been visited.
-        checkState(
-            !precise, "%s unexpectedly triggered a fallback to non-precise rewinding", failedKey);
-        ArtifactNestedSetKey.addEntireNestedSetToRewindGraph(rewindGraph, nestedSetKey);
-        rewindGraph.putEdge(rootKey, nestedSetKey);
-      }
+
+      // The only non-aggregator action that propagates insensitively and has a non-flat nested set
+      // of inputs is a SymlinkTreeAction on Windows, where it takes all runfiles as inputs.
+      // Encountering it here would require its only output, the runfiles manifest, to be lost, but
+      // the action always runs locally. If this ever changes, we would require separate accounting
+      // of which nested sets have been visited.
+      checkState(
+          root.actionAnalysisMetadata().isAggregator(),
+          "Unexpected non-aggregator %s while preparing rewind plan for %s",
+          rootKey,
+          failedKey);
+
+      // We only add the paths within the nested set that transitively lead to a lost artifact. This
+      // prevents unnecessarily dirtying all inputs within the nested set.
+      ArtifactNestedSetKey.addNestedSetPathsToRewindGraph(
+          rewindGraph, rootKey, nestedSetKey, lostInputsAndTransitiveOwners, seenNestedSets);
     }
 
     // This needs to be done after the loop above because addArtifactDepsAndGetNewlyVisitedActions
@@ -787,7 +770,7 @@ public final class ActionRewindStrategy {
       MutableGraph<SkyKey> rewindGraph,
       ImmutableList.Builder<ActionAnalysisMetadata> depsToRewind,
       SetMultimap<ActionAndLookupData, ArtifactNestedSetKey> nestedSetDeps,
-      @Nullable Set<ActionInput> lostInputsAndTransitiveOwners)
+      Set<ActionInput> lostInputsAndTransitiveOwners)
       throws InterruptedException {
     boolean missingDependencies = false;
     var uncheckedActions = new ArrayDeque<ActionAndLookupData>(actionsToCheck.size());
@@ -821,12 +804,10 @@ public final class ActionRewindStrategy {
         depsToRewind.add(additionalAction);
         uncheckedActions.add(new ActionAndLookupData(actionLookupData, additionalAction));
 
-        // If precise rewinding is active, we need to consider all aggregator inputs to a symlink
-        // action as lost. Otherwise we'd need to have a 1:1 mapping of lost artifacts to aggregator
-        // inputs, since the symlink action changes their paths.
-        if (lostInputsAndTransitiveOwners != null
-            && additionalAction.isAggregator()
-            && !action.isAggregator()) {
+        // We need to consider all aggregator inputs to a symlink action as lost. Otherwise we'd
+        // need to have a 1:1 mapping of lost artifacts to aggregator inputs, since the symlink
+        // action changes their paths.
+        if (additionalAction.isAggregator() && !action.isAggregator()) {
           lostInputsAndTransitiveOwners.addAll(additionalAction.getInputs().toList());
         }
       }
@@ -870,9 +851,7 @@ public final class ActionRewindStrategy {
       ArrayList<DerivedArtifact> newlyVisitedArtifacts,
       ArrayList<ActionLookupData> newlyVisitedActions,
       SetMultimap<ActionAndLookupData, ArtifactNestedSetKey> nestedSetDeps,
-      @Nullable Set<ActionInput> lostInputsAndTransitiveOwners) {
-
-    boolean precise = skyframeActionExecutor.preciseRewindingEnabled();
+      Set<ActionInput> lostInputsAndTransitiveOwners) {
     Action action = actionAndLookupData.actionAnalysisMetadata();
     ActionLookupData actionKey = actionAndLookupData.lookupData();
 
@@ -881,8 +860,7 @@ public final class ActionRewindStrategy {
         continue;
       }
 
-      if (precise
-          && action.isAggregator()
+      if (action.isAggregator()
           // Filesets may be nested/composed. Only the outermost Fileset will be in the owners map,
           // but we need to rewind the whole chain to get to the lost input's generating action.
           && !input.isFileset()
@@ -966,9 +944,7 @@ public final class ActionRewindStrategy {
    */
   @Nullable
   private Map<ActionLookupData, ActionAnalysisMetadata> getActionsForLostArtifact(
-      DerivedArtifact lostInput,
-      Environment env,
-      @Nullable Set<ActionInput> lostInputsAndTransitiveOwners)
+      DerivedArtifact lostInput, Environment env, Set<ActionInput> lostInputsAndTransitiveOwners)
       throws InterruptedException {
     ImmutableSet<ActionLookupData> actionExecutionDeps = getActionExecutionDeps(lostInput, env);
     if (actionExecutionDeps == null) {
@@ -984,11 +960,9 @@ public final class ActionRewindStrategy {
         missingAction = true;
         continue;
       }
-      // Keep all actions unless precise rewinding is active (lostInputsAndTransitiveOwners !=
-      // null) and we're working with an action template expansion. In that case, only keep actions
-      // that output at least one lost input.
-      if (lostInputsAndTransitiveOwners == null
-          || !lostInput.isTreeArtifact()
+      // Keep all actions unless we're working with an action template expansion. In that case, only
+      // keep actions that output at least one lost input.
+      if (!lostInput.isTreeArtifact()
           || dep.equals(lostInput.getGeneratingActionKey())
           || actionAnalysisMetadata.getOutputs().stream()
               .anyMatch(lostInputsAndTransitiveOwners::contains)) {
