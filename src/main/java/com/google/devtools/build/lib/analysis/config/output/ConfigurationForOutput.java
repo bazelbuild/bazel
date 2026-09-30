@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 import java.util.Map;
@@ -228,16 +229,18 @@ public class ConfigurationForOutput {
    */
   private static ImmutableSortedMap<String, String> getOrderedNativeOptions(
       FragmentOptions options) {
-    return options.asMap().entrySet().stream()
+    return OptionDefinition.getOptionDefinitions(options.getOptionsClass()).stream()
         // While technically part of CoreOptions, --define is practically a user-definable flag so
         // we include it in the user-defined fragment for clarity. See getOrderedUserDefinedOptions.
         .filter(
-            entry ->
+            definition ->
                 !(options.getOptionsClass().equals(CoreOptions.class)
-                    && entry.getKey().equals("define")))
+                    && definition.getOptionName().equals("define")))
         .collect(
             toImmutableSortedMap(
-                Ordering.natural(), Map.Entry::getKey, e -> String.valueOf(e.getValue())));
+                Ordering.natural(),
+                OptionDefinition::getOptionName,
+                definition -> String.valueOf(definition.getValue(options))));
   }
 
   /**

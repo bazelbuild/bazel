@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.AbstractMap;
@@ -78,7 +79,12 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
 
   private static void fingerprint(Fingerprint fp, OptionsBase options) {
     fp.addString(options.getOptionsClass().getName());
-    addMapToFingerprint(fp, Options.toMap(options), /* valueType= */ _ -> "");
+    var definitions = OptionDefinition.getOptionDefinitions(options.getOptionsClass());
+    fp.addInt(definitions.size());
+    for (var definition : definitions) {
+      fp.addString(definition.getOptionName());
+      addValueToFingerprint(fp, definition.getValue(options), _ -> "");
+    }
   }
 
   /**
@@ -161,11 +167,6 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    */
   public FragmentOptions getNormalized() {
     return this;
-  }
-
-  /** Converts the options to a string-keyed map. */
-  public Map<String, Object> asMap() {
-    return Options.toMap(this);
   }
 
   /**

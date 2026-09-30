@@ -486,7 +486,9 @@ Either remove one of these settings or ensure they match the same value.
       return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
-    Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(canonicalOptionName);
+    Object expectedParsedValue =
+        OptionsParser.getOptionDefinitionByName(optionClass, canonicalOptionName)
+            .getValue(parser.getOptions(optionClass));
     return optionMatches(options, canonicalOptionName, expectedParsedValue);
   }
 
