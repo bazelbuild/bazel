@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.escape.CharEscaperBuilder;
-import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.Option;
@@ -35,71 +34,70 @@ import javax.annotation.Nullable;
 /** Command-line build options for a Blaze module. */
 public abstract class FragmentOptions extends OptionsBase implements Cloneable {
 
-  private static final Escaper ESCAPER =
-      new CharEscaperBuilder().addEscape('\\', "\\\\").addEscape('"', "\\\"").toEscaper();
-
   /**
-   * Memoized digest of {@link #cacheKey()}.
+   * Memoized checksum of these options.
    *
-   * <p>Clones inherit it, which allows most fragments of a transitioned {@link BuildOptions} to
-   * reuse the digest of the original. Changing the value of any option resets it.
+   * <p>Inherited by clones, which allows most fragments of a transitioned {@link BuildOptions} to
+   * reuse the checksum of the original. Changing the value of any option resets it.
    */
-  @Nullable private transient volatile byte[] cacheKeyDigest;
+  @Nullable private transient volatile byte[] cachedChecksum;
 
   @Override
   protected final void onOptionChanged() {
-    cacheKeyDigest = null;
+    cachedChecksum = null;
   }
 
-  /** Returns a string that uniquely identifies the options. */
-  public final String cacheKey() {
-    return getOptionsClass().getName()
-        + "{"
-        + mapToCacheKey(Options.toMap(this), /* valueType= */ null)
-        + "}";
+  /** Adds the options to the fingerprint. */
+  public final void addToFingerprint(Fingerprint fp) {
+    fp.addBytes(checksum());
   }
 
-  /** Returns the digest of {@link #cacheKey()}, memoized until the value of an option changes. */
-  final byte[] cacheKeyDigest() {
-    byte[] digest = cacheKeyDigest;
-    if (digest == null) {
-      digest = new Fingerprint().addString(cacheKey()).digestAndReset();
-      cacheKeyDigest = digest;
+  /** Computes a memoized checksum of the options. */
+  @VisibleForTesting
+  final byte[] checksum() {
+    byte[] checksum = cachedChecksum;
+    if (checksum == null) {
+      var fp = new Fingerprint();
+      fp.addString(getOptionsClass().getName());
+      addMapToFingerprint(fp, Options.toMap(this), /* valueType= */ _ -> "");
+      checksum = fp.digestAndReset();
+      cachedChecksum = checksum;
     }
-    return digest;
+    return checksum;
   }
 
   /**
-   * Returns a string that uniquely identifies the options map.
+   * Adds the given map of option values to the fingerprint by stringifying them.
    *
-   * @param valueType if not null, prefixes each value with the result of applying this function to
-   *     it, which makes the key sensitive to the type of a value in addition to its string
-   *     representation
+   * @param valueType the result of applying this function to each value (and, for collections, each
+   *     element) is also added, which makes the fingerprint sensitive to the type of a value in
+   *     addition to its string representation
    */
-  static String mapToCacheKey(Map<?, ?> optionsMap, @Nullable Function<Object, String> valueType) {
-    StringBuilder result = new StringBuilder();
-    for (Map.Entry<?, ?> entry : optionsMap.entrySet()) {
-      result.append(entry.getKey()).append("=");
+  static void addMapToFingerprint(
+      Fingerprint fp, Map<?, ?> optionsMap, Function<Object, String> valueType) {
+    fp.addInt(optionsMap.size());
+    optionsMap.forEach(
+        (key, value) -> {
+          fp.addString(key.toString());
+          addValueToFingerprint(fp, value, valueType);
+        });
+  }
 
-      Object value = entry.getValue();
-
-      if (value == null) {
-        result.append("NULL");
-      } else {
-        if (valueType != null) {
-          result.append(valueType.apply(value));
-        }
-        // This special case is needed because Collection.toString() prints the same ("[]") for an
-        // empty collection and for a collection with a single empty string.
-        if (value instanceof Collection<?> c && c.isEmpty()) {
-          result.append("EMPTY");
-        } else {
-          result.append('"').append(ESCAPER.escape(value.toString())).append('"');
-        }
-      }
-      result.append(", ");
+  private static void addValueToFingerprint(
+      Fingerprint fp, @Nullable Object value, Function<Object, String> valueType) {
+    if (value == null) {
+      fp.addBoolean(false);
+      return;
     }
-    return result.toString();
+    fp.addBoolean(true);
+    fp.addString(valueType.apply(value));
+    if (value instanceof Collection<?> collection) {
+      fp.addInt(collection.size() + 1);
+      collection.forEach(element -> addValueToFingerprint(fp, element, valueType));
+    } else {
+      fp.addInt(0);
+      fp.addString(value.toString());
+    }
   }
 
   @Override

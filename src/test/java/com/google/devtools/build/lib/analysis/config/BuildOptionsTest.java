@@ -42,6 +42,8 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -202,13 +204,13 @@ public final class BuildOptionsTest {
   public void checksumOfCloneReusesFragmentDigests() throws Exception {
     var options = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo");
     var checksum = options.checksum();
-    var digest = options.get(DummyTestOptions.class).cacheKeyDigest();
+    var digest = options.get(DummyTestOptions.class).checksum();
 
     var clone = options.toBuilder().build();
     var fragment = clone.get(DummyTestOptions.class);
     fragment.setStrOption(fragment.getStrOption());
 
-    assertThat(fragment.cacheKeyDigest()).isSameInstanceAs(digest);
+    assertThat(fragment.checksum()).isSameInstanceAs(digest);
     assertThat(clone.checksum()).isEqualTo(checksum);
   }
 
@@ -502,5 +504,70 @@ public final class BuildOptionsTest {
 
     assertThat(emptySetOptions).isNotEqualTo(emptyStringSetOptions);
     assertThat(emptySetOptions.checksum()).isNotEqualTo(emptyStringSetOptions.checksum());
+  }
+
+  @Test
+  public void listElementTypesAreDifferent() {
+    var label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    var stringListOptions =
+        BuildOptions.builder().addStarlarkOption(label, StarlarkList.immutableOf("1")).build();
+    var intListOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(label, StarlarkList.immutableOf(StarlarkInt.of(1)))
+            .build();
+
+    assertThat(stringListOptions).isNotEqualTo(intListOptions);
+    assertThat(stringListOptions.checksum()).isNotEqualTo(intListOptions.checksum());
+  }
+
+  @Test
+  public void stringListDifferentFromLabelList() {
+    var label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    var stringListOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(label, StarlarkList.immutableOf("//pkg:value"))
+            .build();
+    var labelListOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(
+                label, StarlarkList.immutableOf(Label.parseCanonicalUnchecked("//pkg:value")))
+            .build();
+
+    assertThat(stringListOptions).isNotEqualTo(labelListOptions);
+    assertThat(stringListOptions.checksum()).isNotEqualTo(labelListOptions.checksum());
+  }
+
+  @Test
+  public void listElementBoundariesAreDifferent() {
+    var label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    var oneElementOptions =
+        BuildOptions.builder().addStarlarkOption(label, Lists.newArrayList("a, b")).build();
+    var twoElementOptions =
+        BuildOptions.builder().addStarlarkOption(label, Lists.newArrayList("a", "b")).build();
+
+    assertThat(oneElementOptions).isNotEqualTo(twoElementOptions);
+    assertThat(oneElementOptions.checksum()).isNotEqualTo(twoElementOptions.checksum());
+  }
+
+  @Test
+  public void scopeTypesAreDifferent() {
+    var label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    var universalOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(label, "a")
+            .addScopeType(label, new Scope.ScopeType(Scope.ScopeType.UNIVERSAL))
+            .build();
+    var targetOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(label, "a")
+            .addScopeType(label, new Scope.ScopeType(Scope.ScopeType.TARGET))
+            .build();
+
+    assertThat(universalOptions).isNotEqualTo(targetOptions);
+    assertThat(universalOptions.checksum()).isNotEqualTo(targetOptions.checksum());
   }
 }

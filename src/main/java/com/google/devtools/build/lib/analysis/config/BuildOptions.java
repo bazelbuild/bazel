@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.devtools.build.lib.analysis.config.FragmentOptions.mapToCacheKey;
+import static com.google.devtools.build.lib.analysis.config.FragmentOptions.addMapToFingerprint;
 import static com.google.devtools.build.lib.skyframe.serialization.ImmutableMapCodecs.IMMUTABLE_MAP_CODEC;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 import static java.util.Comparator.naturalOrder;
@@ -186,15 +186,13 @@ public final class BuildOptions implements Cloneable {
           if (fragmentOptionsMap.isEmpty() && starlarkOptionsMap.isEmpty()) {
             checksum = "0".repeat(64); // Make empty build options easy to distinguish.
           } else {
-            Fingerprint fingerprint = new Fingerprint();
-            for (FragmentOptions options : fragmentOptionsMap.values()) {
-              fingerprint.addBytes(options.cacheKeyDigest());
-            }
+            var fp = new Fingerprint();
+            fragmentOptionsMap.forEach((_, options) -> options.addToFingerprint(fp));
             // Starlark types are observable to Starlark code, see b/478938163.
-            fingerprint.addString(mapToCacheKey(starlarkOptionsMap, Starlark::type));
-            fingerprint.addString(mapToCacheKey(scopes, /* valueType= */ null));
-            fingerprint.addString(mapToCacheKey(onLeaveScopeValuesMap, Starlark::type));
-            checksum = fingerprint.hexDigestAndReset();
+            addMapToFingerprint(fp, starlarkOptionsMap, Starlark::type);
+            addMapToFingerprint(fp, scopes, /* valueType= */ _ -> "");
+            addMapToFingerprint(fp, onLeaveScopeValuesMap, Starlark::type);
+            checksum = fp.hexDigestAndReset();
           }
         }
       }
