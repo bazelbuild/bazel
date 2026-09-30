@@ -92,10 +92,10 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
     fp.addBoolean(true);
     fp.addString(valueType.apply(value));
     if (value instanceof Collection<?> collection) {
-      fp.addInt(collection.size() + 1);
+      fp.addInt(collection.size());
       collection.forEach(element -> addValueToFingerprint(fp, element, valueType));
     } else {
-      fp.addInt(0);
+      fp.addInt(-1);
       fp.addString(value.toString());
     }
   }
