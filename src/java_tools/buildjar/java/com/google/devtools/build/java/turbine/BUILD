@@ -134,8 +134,6 @@ native_image(
 # code page. It is built with one, but without the app manifest it will not be
 # able to use UTF-8 for filesystem operations.
 # https://github.com/oracle/graal/issues/10237
-# The manifest is only patched when building on Windows, //src:write_manifest is
-# a no-op on other hosts.
 genrule(
     name = "turbine_direct_graal_with_app_manifest",
     srcs = [

@@ -174,8 +174,6 @@ if [[ "$target_windows" == true ]]; then
   # support of Unicode characters outside the system code page.
   # The JDK currently (as of JDK 23) doesn't support this natively:
   # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
-  # The manifest tools use Windows APIs, so this is a no-op on other hosts.
-  # TODO: Patch the manifest when cross-compiling from a non-Windows host.
   if [[ "$UNAME" =~ msys_nt* ]]; then
     "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
       | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \

@@ -195,10 +195,7 @@ cc_binary(
     visibility = ["//src/java_tools:__subpackages__"],
 )
 
-# Updates the app manifest of a Windows executable. This requires the
-# UpdateResource Windows API, so the tool is a no-op when it runs on a
-# non-Windows host, e.g. when cross-compiling Bazel for Windows.
-# TODO: Patch app manifests when cross-compiling from a non-Windows host.
+# Updates the app manifest of a Windows executable, no-op on other hosts.
 cc_binary(
     name = "write_manifest",
     srcs = ["write_manifest.cc"],
@@ -214,8 +211,6 @@ cc_binary(
 sh_binary(
     name = "minimize_jdk",
     srcs = ["minimize_jdk.sh"],
-    # The manifest tools only run on Windows. Resolved in the exec
-    # configuration since minimize_jdk is only used as a tool.
     data = select({
         "@platforms//os:windows": [
             ":read_manifest",
