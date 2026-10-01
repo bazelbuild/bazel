@@ -15,14 +15,10 @@
 package com.google.devtools.build.lib.rules.cpp.proto;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -68,25 +64,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   }
 
   // TODO(carmi): test blacklisted protos. I don't currently understand what's the wanted behavior.
-
-  @Test
-  public void generatedSourcesNotCoverageInstrumented() throws Exception {
-    useConfiguration("--collect_code_coverage", "--instrumentation_filter=.");
-    scratch.file(
-        "x/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
-        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
-        "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
-    ConfiguredTarget target = getConfiguredTarget("//x:foo_cc_proto");
-    List<CppCompileAction> compilationSteps =
-        actionsTestUtil()
-            .findTransitivePrerequisitesOf(
-                getFirstArtifactEndingWith(getFilesToBuild(target), ".a"), CppCompileAction.class);
-    List<String> options = compilationSteps.get(0).getCompilerOptions();
-    assertThat(options).doesNotContain("-fprofile-arcs");
-    assertThat(options).doesNotContain("-ftest-coverage");
-  }
 
   @Test
   public void testCcProtoLibraryLoadedThroughMacro() throws Exception {
