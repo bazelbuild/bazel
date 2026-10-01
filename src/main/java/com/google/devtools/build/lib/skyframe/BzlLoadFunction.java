@@ -1522,11 +1522,14 @@ public class BzlLoadFunction implements SkyFunction {
         }
       } else {
         // The cache hit may have been populated on behalf of a different BzlLoadValue node with
-        // the same compile key; make sure this node depends on the .bzl file too.
+        // the same compile key; make sure this node depends on the .bzl file (and allowlist file,
+        // if oversized) too.
         var bzlFileKey = key.getBzlFileKey();
         if (bzlFileKey != null) {
           try {
-            if (env.getValueOrThrow(bzlFileKey, IOException.class) == null) {
+            var bzlFileValue = env.getValueOrThrow(bzlFileKey, IOException.class);
+            if (bzlFileValue == null
+                || !BzlCompileFunction.registerAllowlistDepIfOversized(key, bzlFileValue, env)) {
               return null;
             }
           } catch (IOException e) {

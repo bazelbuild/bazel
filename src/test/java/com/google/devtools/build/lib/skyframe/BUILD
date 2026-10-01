@@ -1175,6 +1175,7 @@ java_test(
     timeout = "short",
     srcs = ["BzlCompileFunctionTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_compile_value",

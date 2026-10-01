@@ -3892,6 +3892,34 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("'arguments' got value of type 'string', want 'sequence'");
   }
 
+  @Test
+  public void testOversizedBzlLoadedByTwoPackages_allowlistChangeInvalidatesBoth()
+      throws Exception {
+    scratch.file("tools/allowlist/BUILD");
+    scratch.file("tools/allowlist/allowlist.scl", "ALLOWED = [\"lib/oversized.bzl\"]");
+    setBuildLanguageOptions(
+        "--max_bzl_file_size=1000",
+        "--soft_max_bzl_file_size=500",
+        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl");
+    scratch.file("lib/BUILD");
+    scratch.file("lib/oversized.bzl", "x = '" + "a".repeat(2000) + "'");
+    scratch.file(
+        "oversized_user1/BUILD", "load('//lib:oversized.bzl', 'x')", "filegroup(name = 'fg')");
+    scratch.file(
+        "oversized_user2/BUILD", "load('//lib:oversized.bzl', 'x')", "filegroup(name = 'fg')");
+
+    assertThat(getTarget("//oversized_user1:fg")).isNotNull();
+    assertThat(getTarget("//oversized_user2:fg")).isNotNull();
+
+    // Removing the .bzl from the allowlist must invalidate every package that loads it.
+    scratch.overwriteFile("tools/allowlist/allowlist.scl", "ALLOWED = []");
+    invalidatePackages(/* alsoConfigs= */ false);
+    reporter.removeHandler(failFastHandler);
+    assertThrows(BuildFileContainsErrorsException.class, () -> getTarget("//oversized_user1:fg"));
+    assertThrows(BuildFileContainsErrorsException.class, () -> getTarget("//oversized_user2:fg"));
+    assertContainsEvent("File '//lib:oversized.bzl' size");
+  }
+
   /** Starlark integration test that forces inlining. */
   @RunWith(JUnit4.class)
   public static class StarlarkIntegrationTestsWithInlineCalls extends StarlarkIntegrationTest {
