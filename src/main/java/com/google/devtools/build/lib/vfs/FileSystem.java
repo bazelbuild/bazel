@@ -43,6 +43,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import javax.annotation.Nullable;
 
 /** This interface models a file system. */
@@ -63,7 +64,17 @@ public abstract class FileSystem {
   protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
   public static final String ERR_TOO_MANY_SYMLINKS = " (Too many levels of symbolic links)";
 
-  private static final ThreadLocal<byte[]> digestBuffer = new ThreadLocal<>();
+  private static final int DIGEST_BUFFER_SIZE = 8192;
+
+  /**
+   * A bounded pool of buffers for {@link #getDigest}, indexed by thread ID. Unlike a thread-local,
+   * its memory usage doesn't grow with the number of threads and it is effective on short-lived
+   * virtual threads. If a slot is empty (e.g. due to a collision or a reentrant call), a fresh
+   * buffer is allocated.
+   */
+  private static final AtomicReferenceArray<byte[]> digestBuffers =
+      new AtomicReferenceArray<>(
+          Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4 - 1));
 
   private final DigestHashFunction digestFunction;
 
@@ -360,12 +371,10 @@ public abstract class FileSystem {
    */
   public byte[] getDigest(PathFragment path) throws IOException {
     Hasher hasher = digestFunction.getHashFunction().newHasher();
-    byte[] buffer = digestBuffer.get();
+    int slot = (int) Thread.currentThread().threadId() & (digestBuffers.length() - 1);
+    byte[] buffer = digestBuffers.getAndSet(slot, null);
     if (buffer == null) {
-      buffer = new byte[8192];
-    } else {
-      // Clear while in use so that reentrant calls can't clobber it.
-      digestBuffer.set(null);
+      buffer = new byte[DIGEST_BUFFER_SIZE];
     }
     try (InputStream in = getInputStream(path)) {
       int read;
@@ -373,7 +382,7 @@ public abstract class FileSystem {
         hasher.putBytes(buffer, 0, read);
       }
     } finally {
-      digestBuffer.set(buffer);
+      digestBuffers.compareAndSet(slot, null, buffer);
     }
     return hasher.hash().asBytes();
   }
