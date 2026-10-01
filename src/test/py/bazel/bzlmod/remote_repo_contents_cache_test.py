@@ -2927,6 +2927,95 @@ class RemoteRepoContentsCacheTest(
         stderr,
     )
 
+  def testRepoWithSymlinkLoops(self):
+    if self.IsWindows():
+      self.skipTest('requires symlinks to directories that may not exist')
+    # Symlinks that form loops or point to themselves are reproduced as is,
+    # both when the repo is fully materialized and when a file below a symlink
+    # to its own directory is consumed by an action.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other = use_repo_rule("//:other.bzl", "other")',
+            'other(name = "other", build_file = "@my_repo//:BUILD")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'sub/self/self/data.txt\'])")',
+            '  rctx.file("sub/data.txt", "hello")',
+            '  rctx.symlink("loop_b", "loop_a")',
+            '  rctx.symlink("loop_a", "loop_b")',
+            '  rctx.symlink("through/subdir", "through")',
+            '  rctx.symlink(rctx.path("me"), "me")',
+            '  rctx.symlink("sub", "sub/self")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other.bzl',
+        [
+            'def _other_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            # Resolving the label to a path materializes the whole repo.
+            '  rctx.path(rctx.attr.build_file)',
+            '  return rctx.repo_metadata()',
+            'other = repository_rule(_other_impl, attrs={"build_file": attr.label()})',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:sub/self/self/data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            # The action has to run again after expunging to consume its input.
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+
+    def assertSymlinks():
+      self.assertEqual(os.readlink(os.path.join(repo_dir, 'loop_a')), 'loop_b')
+      self.assertEqual(os.readlink(os.path.join(repo_dir, 'loop_b')), 'loop_a')
+      self.assertEqual(
+          os.readlink(os.path.join(repo_dir, 'through')), 'through/subdir'
+      )
+      # Symlinks are replanted with relative targets before the repo is cached.
+      self.assertEqual(os.readlink(os.path.join(repo_dir, 'me')), 'me')
+      self.assertEqual(
+          os.readlink(os.path.join(repo_dir, 'sub/self')), '../sub'
+      )
+
+    _, _, stderr = self.RunBazel(['build', '//main:use_data', '@other//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    assertSymlinks()
+
+    # After expunging: cached and fully materialized by @other.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    assertSymlinks()
+
+    # After expunging: cached and only partially materialized by the action.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+    self.assertEqual(os.readlink(os.path.join(repo_dir, 'sub/self')), '../sub')
+    self.assertFalse(os.path.lexists(os.path.join(repo_dir, 'loop_a')))
+
 
 if __name__ == '__main__':
   absltest.main()
