@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool.util;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -81,6 +83,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkymeldModule;
+import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestServices;
@@ -720,6 +723,14 @@ public class BazelServer implements TestRule, AutoCloseable {
   }
 
   /**
+   * Returns all {@link ConfiguredTarget}s currently present in the Skyframe graph, including
+   * transitive dependencies.
+   */
+  public ImmutableList<ConfiguredTarget> getAllConfiguredTargets() {
+    return SkyframeExecutorTestUtils.getAllExistingConfiguredTargets(getSkyframeExecutor());
+  }
+
+  /**
    * Returns the {@link ConfiguredTarget} for {@code labelString} using the target configuration
    * from the most recent build, evaluating it in Skyframe if needed.
    *
@@ -736,6 +747,26 @@ public class BazelServer implements TestRule, AutoCloseable {
     return getSkyframeExecutor()
         .getConfiguredTargetForTesting(
             events.reporter(), label, getTargetConfigurationFromLastBuildResult());
+  }
+
+  /**
+   * Returns an already-computed {@link ConfiguredTarget} from the Skyframe graph for {@code target}
+   * using the target configuration from the most recent build, asserting that it exists without
+   * evaluating new Skyframe nodes.
+   */
+  @CanIgnoreReturnValue
+  public ConfiguredTarget getExistingConfiguredTarget(String target)
+      throws InterruptedException, LabelSyntaxException {
+    ConfiguredTarget existingConfiguredTarget =
+        SkyframeExecutorTestUtils.getExistingConfiguredTarget(
+            getSkyframeExecutor(), label(target), getTargetConfigurationFromLastBuildResult());
+    assertWithMessage(target).that(existingConfiguredTarget).isNotNull();
+    return existingConfiguredTarget;
+  }
+
+  /** Returns the {@link ActionGraph} from the current {@link SkyframeExecutor}. */
+  public ActionGraph getActionGraph() {
+    return getSkyframeExecutor().getActionGraph(events.reporter());
   }
 
   /** Access to event collection and assertions. */

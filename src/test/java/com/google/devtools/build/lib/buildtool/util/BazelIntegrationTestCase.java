@@ -15,13 +15,19 @@ package com.google.devtools.build.lib.buildtool.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionGraph;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -148,6 +154,39 @@ public abstract class BazelIntegrationTestCase {
    */
   protected ConfiguredTarget getConfiguredTarget(String label) throws Exception {
     return server().getConfiguredTarget(label);
+  }
+
+  /**
+   * Returns all {@link ConfiguredTarget}s currently present in the Skyframe graph, including
+   * transitive dependencies.
+   */
+  protected ImmutableList<ConfiguredTarget> getAllConfiguredTargets() {
+    return server().getAllConfiguredTargets();
+  }
+
+  /**
+   * Returns an already-computed {@link ConfiguredTarget} from the Skyframe graph for {@code target}
+   * using the target configuration from the most recent build, asserting that it exists without
+   * evaluating new Skyframe nodes.
+   */
+  @CanIgnoreReturnValue
+  protected ConfiguredTarget getExistingConfiguredTarget(String target) throws Exception {
+    return server().getExistingConfiguredTarget(target);
+  }
+
+  /** Returns the files to build for the given {@link TransitiveInfoCollection}. */
+  protected NestedSet<Artifact> getFilesToBuild(TransitiveInfoCollection target) {
+    return target.getProvider(FileProvider.class).getFilesToBuild();
+  }
+
+  /** Reads the contents of {@code artifact} as a Latin-1 string. */
+  protected String readContentAsLatin1String(Artifact artifact) throws IOException {
+    return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
+  }
+
+  /** Returns the {@link ActionGraph} from the current {@link SkyframeExecutor}. */
+  protected ActionGraph getActionGraph() {
+    return server().getActionGraph();
   }
 
   /** Returns the top-level targets analyzed in the most recent build. */
