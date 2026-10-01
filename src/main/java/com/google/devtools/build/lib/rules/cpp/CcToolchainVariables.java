@@ -29,6 +29,7 @@ import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -41,12 +42,13 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesAp
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -405,7 +407,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return null;
     }
 
-    Stack<String> fieldsToAccess = new Stack<>();
+    Deque<String> fieldsToAccess = new ArrayDeque<>();
     String structPath = name;
     VariableValue variable;
 
@@ -419,7 +421,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return null;
     }
 
-    while (!fieldsToAccess.empty()) {
+    while (!fieldsToAccess.isEmpty()) {
       String field = fieldsToAccess.pop();
       variable =
           variable.getFieldValue(
@@ -827,6 +829,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       case NoneType ignored -> null; // null has the same behavior as omitted field
       case Boolean b -> BooleanValue.of(b);
       case String s -> new StringValue(s);
+      case Label label -> new StringValue(label.expandToCommandLine());
       case Artifact artifact -> new ArtifactValue(artifact);
       case PathFragment pathFragment -> new PathFragmentValue(pathFragment);
       case Iterable<?> iterable -> new Sequence(ImmutableList.copyOf(iterable));
@@ -882,6 +885,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
             }
           }
           return new Sequence(expandedIterable.build());
+        }
+        if (fieldValue == null) {
+          return null;
         }
         return asVariableValue(fieldValue);
       } catch (EvalException e) {

@@ -141,14 +141,15 @@ public abstract class SandboxOptions extends OptionsBase {
   @Option(
       name = "sandbox_block_path",
       allowMultiple = true,
+      converter = OptionsUtils.AbsolutePathFragmentConverter.class,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "For sandboxed actions, disallow access to this path.")
-  public abstract List<String> getSandboxBlockPath();
+  public abstract List<PathFragment> getSandboxBlockPath();
 
   /** Sets the list of paths to block in the sandbox. */
-  public abstract void setSandboxBlockPath(List<String> value);
+  public abstract void setSandboxBlockPath(List<PathFragment> value);
 
   @Option(
       name = "sandbox_tmpfs_path",
@@ -165,13 +166,14 @@ public abstract class SandboxOptions extends OptionsBase {
   @Option(
       name = "sandbox_writable_path",
       allowMultiple = true,
+      converter = OptionsUtils.AbsolutePathFragmentConverter.class,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "For sandboxed actions, make an existing directory writable in the sandbox"
               + " (if supported by the sandboxing implementation, ignored otherwise).")
-  public abstract List<String> getSandboxWritablePath();
+  public abstract List<PathFragment> getSandboxWritablePath();
 
   @Option(
       name = "sandbox_add_mount_pair",
@@ -216,7 +218,7 @@ public abstract class SandboxOptions extends OptionsBase {
 
   public ImmutableSet<Path> getInaccessiblePaths(FileSystem fs) {
     List<Path> inaccessiblePaths = new ArrayList<>();
-    for (String path : getSandboxBlockPath()) {
+    for (PathFragment path : getSandboxBlockPath()) {
       Path blockedPath = fs.getPath(path);
       try {
         inaccessiblePaths.add(blockedPath.resolveSymbolicLinks());

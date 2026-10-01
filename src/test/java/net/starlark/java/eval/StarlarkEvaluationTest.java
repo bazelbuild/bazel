@@ -504,6 +504,7 @@ public final class StarlarkEvaluationTest {
 
   // A @StarlarkMethod implementation declared in a non-public class and inherited (not overridden)
   // by a public subclass.
+  @StarlarkBuiltin(name = "NonPublicMethodBase", doc = "")
   abstract static class NonPublicMethodBase implements StarlarkValue {
     @StarlarkMethod(name = "inherited_method", documented = false)
     public String inheritedMethod() {
@@ -2004,6 +2005,7 @@ public final class StarlarkEvaluationTest {
   }
 
   // SimpleStructWithMethods augments SimpleStruct's fields with annotated Java methods.
+  @StarlarkBuiltin(name = "SimpleStructWithMethods", documented = false)
   private static final class SimpleStructWithMethods extends SimpleStruct {
 
     // A function that returns "fromValues".

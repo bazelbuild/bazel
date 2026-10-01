@@ -3,14 +3,14 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:private"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -19,9 +19,9 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

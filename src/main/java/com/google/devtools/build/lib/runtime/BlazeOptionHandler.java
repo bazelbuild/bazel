@@ -177,7 +177,15 @@ public final class BlazeOptionHandler {
       Path doNotBuild =
           workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
 
-      if (doNotBuild.exists()) {
+      boolean doNotBuildExists;
+      try {
+        doNotBuildExists = doNotBuild.exists();
+      } catch (IOException e) {
+        // TODO(tjgq): Propagate this error.
+        doNotBuildExists = false;
+      }
+
+      if (doNotBuildExists) {
         String message = getNotInRealWorkspaceError(doNotBuild);
         eventHandler.handle(Event.error(message));
         return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);

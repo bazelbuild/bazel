@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.util;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
+import javax.annotation.Nullable;
 
 /** Factory method for producing {@link Interrupted}-type {@link FailureDetail} messages. */
 public class InterruptedFailureDetails {
@@ -25,12 +26,13 @@ public class InterruptedFailureDetails {
 
   /**
    * Returns a {@link DetailedExitCode} with {@link ExitCode#INTERRUPTED}, {@link
-   * Interrupted.Code#INTERRUPTED}, and the provided detail message.
+   * Interrupted.Code#INTERRUPTED}, and the provided detail message. If {@code message} is {@code
+   * null}, defaults to {@code "interrupted"}.
    */
-  public static DetailedExitCode detailedExitCode(String message) {
+  public static DetailedExitCode detailedExitCode(@Nullable String message) {
     return DetailedExitCode.of(
         FailureDetail.newBuilder()
-            .setMessage(message)
+            .setMessage(message != null ? message : "interrupted")
             .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
             .build());
   }
@@ -39,26 +41,15 @@ public class InterruptedFailureDetails {
    * Returns an {@link AbruptExitException} with a {@link DetailedExitCode} from {@link
    * #detailedExitCode}.
    */
-  public static AbruptExitException abruptExitException(String message) {
-    return new AbruptExitException(
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
-                .build()));
+  public static AbruptExitException abruptExitException(@Nullable String message) {
+    return new AbruptExitException(detailedExitCode(message));
   }
 
   /**
    * Returns an {@link AbruptExitException} with a {@link DetailedExitCode} from {@link
    * #detailedExitCode} and the provided {@code cause}.
    */
-  public static AbruptExitException abruptExitException(String message, Exception cause) {
-    return new AbruptExitException(
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
-                .build()),
-        cause);
+  public static AbruptExitException abruptExitException(@Nullable String message, Exception cause) {
+    return new AbruptExitException(detailedExitCode(message), cause);
   }
 }

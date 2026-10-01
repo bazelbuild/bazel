@@ -315,8 +315,9 @@ public class TransitiveVisibilityTest extends BuildViewTestCase {
       TransitiveVisibilityProvider provider, String... packages) throws Exception {
     assertThat(provider).isNotNull();
     for (String pkg : packages) {
-      for (TransitiveVisibilityProvider.Requirement decl : provider.getTransitiveVisibility()) {
-        assertThat(decl.getAllowedPackages().targetInAllowlist(pkg)).isTrue();
+      for (TransitiveVisibilityProvider.Requirement requirement :
+          provider.getTransitiveVisibility()) {
+        assertThat(requirement.getAllowedPackages().targetInAllowlist(pkg)).isTrue();
       }
     }
   }

@@ -27,7 +27,12 @@ echo "$PRS" | jq -c '.[]' | while read -r pr; do
   HAS_LABEL=$(echo "$pr" | jq -r '.labels[]?.name' | grep -c "^community-reviewed$" || true)
 
   # Fetch reviews for this PR
-  REVIEWS=$(gh api "repos/bazelbuild/bazel/pulls/$PR_NUMBER/reviews" --jq '.[] | {user: .user.login, state: .state, submitted_at: .submitted_at}' || echo "[]")
+  if ! REVIEWS=$(gh api --paginate "repos/bazelbuild/bazel/pulls/$PR_NUMBER/reviews" --jq '.[] | {user: .user.login, state: .state, submitted_at: .submitted_at}'); then
+    # A later page can fail after gh has already emitted earlier pages. Never
+    # update labels from that incomplete review history.
+    echo "Failed to fetch complete review history for PR #$PR_NUMBER; skipping label update." >&2
+    continue
+  fi
 
   if [[ -z "$REVIEWS" || "$REVIEWS" == "[]" ]]; then
     continue
@@ -35,7 +40,8 @@ echo "$PRS" | jq -c '.[]' | while read -r pr; do
 
   # Filter trusted reviews and get the latest one
   LATEST_TRUSTED_REVIEW=$(echo "$REVIEWS" | jq -c --argjson trusted "$TRUSTED_JSON" '
-    select(.user as $u | $trusted | index($u) != null)
+    select((.user as $u | $trusted | index($u) != null)
+      and (.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED"))
   ' | jq -s 'sort_by(.submitted_at) | last' || echo "null")
 
   if [[ -z "$LATEST_TRUSTED_REVIEW" || "$LATEST_TRUSTED_REVIEW" == "null" ]]; then

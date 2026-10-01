@@ -95,7 +95,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
     List<Label> allRuleDepLabelInstances = new ArrayList<>();
     skyframeExecutor().getEvaluator().getInMemoryGraph().getValues().values().stream()
         .filter(PackageValue.class::isInstance)
-        .flatMap(v -> ((PackageValue) v).getPackage().getTargets().values().stream())
+        .flatMap(v -> ((PackageValue) v).getPackage().getTargets().stream())
         .forEach(
             t -> {
               allPackageTargetsLabelInstances.add(t.getLabel());
@@ -142,9 +142,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
 
     ImmutableSet<Label> targetLabels =
         ((PackageValue) nodeEntry.toValue())
-            .getPackage().getTargets().values().stream()
-                .map(Target::getLabel)
-                .collect(toImmutableSet());
+            .getPackage().getTargets().stream().map(Target::getLabel).collect(toImmutableSet());
 
     nodeEntry.markDirty(DirtyType.DIRTY);
 
@@ -171,9 +169,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
 
     ImmutableSet<Label> targetLabels =
         ((PackageValue) nodeEntry.toValue())
-            .getPackage().getTargets().values().stream()
-                .map(Target::getLabel)
-                .collect(toImmutableSet());
+            .getPackage().getTargets().stream().map(Target::getLabel).collect(toImmutableSet());
 
     nodeEntry.markDirty(DirtyType.DIRTY);
     graph.remove(packageKey);
@@ -213,7 +209,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
 
     Set<Label> targetLabels =
         ((PackageValue) nodeEntry.toValue())
-            .getPackage().getTargets().values().stream()
+            .getPackage().getTargets().stream()
                 .map(Target::getLabel)
                 .collect(toCollection(Sets::newIdentityHashSet));
 

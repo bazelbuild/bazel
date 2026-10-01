@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -78,6 +80,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.grpc.BindableService;
+import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -88,6 +91,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.Assert;
 import org.junit.Before;
@@ -100,6 +106,7 @@ import org.junit.runners.JUnit4;
 public final class RemoteModuleTest {
   private static final String EXECUTION_SERVER_NAME = "execution-server";
   private static final String CACHE_SERVER_NAME = "cache-server";
+  private static final String DOWNLOADER_SERVER_NAME = "downloader-server";
   private static final String OUTPUT_SERVICE_SERVER_NAME = "output-service";
   private static final ServerCapabilities CACHE_ONLY_CAPS =
       ServerCapabilities.newBuilder()
@@ -138,8 +145,15 @@ public final class RemoteModuleTest {
                   .build())
           .build();
 
+  @FunctionalInterface
+  private interface WorkspaceInitializer {
+    void initialize(Scratch scratch) throws IOException;
+  }
+
   private static CommandEnvironment createTestCommandEnvironment(
-      RemoteModule remoteModule, RemoteOptions remoteOptions)
+      RemoteModule remoteModule,
+      RemoteOptions remoteOptions,
+      WorkspaceInitializer workspaceInitializer)
       throws IOException, AbruptExitException {
     CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
     CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
@@ -165,6 +179,8 @@ public final class RemoteModuleTest {
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
+    Path workspacePath = scratch.dir("/workspace");
+    workspaceInitializer.initialize(scratch);
 
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
@@ -173,6 +189,7 @@ public final class RemoteModuleTest {
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
+            .addBlazeService(new CompressionServiceImpl())
             .addBlazeModule(new CredentialModule())
             .addBlazeModule(remoteModule)
             .addBlazeModule(new BlockWaitingModule())
@@ -186,10 +203,7 @@ public final class RemoteModuleTest {
             .build();
 
     BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories,
-            scratch.dir("/workspace"),
-            productName);
+        new BlazeDirectories(serverDirectories, workspacePath, productName);
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
     Command command = BuildCommand.class.getAnnotation(Command.class);
     return workspace.initCommand(
@@ -241,16 +255,105 @@ public final class RemoteModuleTest {
         .build();
   }
 
+  private static RemoteOptions parseRemoteOptions(String... args) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse(args);
+    return parser.getOptions(RemoteOptions.class);
+  }
+
   private RemoteModule remoteModule;
   private RemoteOptions remoteOptions;
+  private Map<String, Map<String, ?>> serviceConfigsByTarget;
+  private List<ManagedChannel> createdChannels;
 
   @Before
   public void initialize() {
+    serviceConfigsByTarget = new HashMap<>();
+    createdChannels = new ArrayList<>();
     remoteModule = new RemoteModule();
     remoteModule.setChannelFactory(
-        (target, proxy, options, interceptors) ->
-            InProcessChannelBuilder.forName(target).directExecutor().build());
+        (target, proxy, options, interceptors, serviceConfig) -> {
+          serviceConfigsByTarget.put(target, serviceConfig);
+          ManagedChannel channel = InProcessChannelBuilder.forName(target).directExecutor().build();
+          createdChannels.add(channel);
+          return channel;
+        });
     remoteOptions = Options.getDefaults(RemoteOptions.class);
+  }
+
+  @Test
+  public void remoteGrpcServiceConfig_passesRemoteTimeoutConfigToChannelFactory() throws Exception {
+    CapabilitiesImpl cacheCapabilitiesImpl = new CapabilitiesImpl(CACHE_ONLY_CAPS);
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, cacheCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      remoteOptions =
+          parseRemoteOptions("--remote_cache=" + CACHE_SERVER_NAME, "--remote_timeout=123s");
+
+      beforeCommand();
+
+      assertThat(
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
+          .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
+      assertThat(serviceConfigsByTarget.get(CACHE_SERVER_NAME))
+          .isEqualTo(RemoteGrpcServiceConfig.create(Duration.ofSeconds(123)));
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void remoteGrpcServiceConfig_passesUserSuppliedJsonFileToChannelFactory()
+      throws Exception {
+    CapabilitiesImpl cacheCapabilitiesImpl = new CapabilitiesImpl(CACHE_ONLY_CAPS);
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, cacheCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      remoteOptions =
+          parseRemoteOptions(
+              "--remote_cache=" + CACHE_SERVER_NAME,
+              "--remote_grpc_service_config=service_config.json");
+
+      beforeCommand(
+          scratch ->
+              scratch.file(
+                  "/workspace/service_config.json",
+                  """
+                  {
+                    "methodConfig": [
+                      {
+                        "name": [{"service": "google.bytestream.ByteStream"}],
+                        "timeout": "3.500s"
+                      }
+                    ]
+                  }
+                  """));
+
+      assertThat(
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
+          .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
+      assertThat(serviceConfigsByTarget.get(CACHE_SERVER_NAME))
+          .containsExactly(
+              "methodConfig",
+              ImmutableList.of(
+                  ImmutableMap.of(
+                      "name",
+                      ImmutableList.of(ImmutableMap.of("service", "google.bytestream.ByteStream")),
+                      "timeout",
+                      "3.500s")));
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
   }
 
   @Test
@@ -634,10 +737,111 @@ public final class RemoteModuleTest {
 
   @CanIgnoreReturnValue
   private CommandEnvironment beforeCommand() throws IOException, AbruptExitException {
-    CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+    return beforeCommand(scratch -> {});
+  }
+
+  @CanIgnoreReturnValue
+  private CommandEnvironment beforeCommand(WorkspaceInitializer workspaceInitializer)
+      throws IOException, AbruptExitException {
+    CommandEnvironment env =
+        createTestCommandEnvironment(remoteModule, remoteOptions, workspaceInitializer);
+    env.getRuntime().getBlazeModule(BlockWaitingModule.class).beforeCommand(env);
     remoteModule.beforeCommand(env);
     env.throwPendingException();
     return env;
+  }
+
+  /** Runs the remote module's after-command cleanup and waits for it to complete. */
+  private void afterCommand(CommandEnvironment env) throws AbruptExitException {
+    remoteModule.afterCommand();
+    env.getRuntime().getBlazeModule(BlockWaitingModule.class).afterCommand();
+  }
+
+  /** Waits for the eagerly created channels of the current command to be connected. */
+  private void awaitChannelsConnected() throws Exception {
+    var combinedCache = remoteModule.getActionContextProvider().getCombinedCache();
+    if (combinedCache != null) {
+      var _ = combinedCache.getRemoteCacheCapabilities();
+    }
+    if (remoteModule.getRemoteDownloader() instanceof GrpcRemoteDownloader downloader) {
+      var _ = downloader.getChannel().withChannelBlocking(ch -> new Object());
+    }
+  }
+
+  @Test
+  public void remoteDownloader_separateEndpoint_channelsAreClosedAfterCommand() throws Exception {
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+    Server downloaderServer = createFakeServer(DOWNLOADER_SERVER_NAME);
+    downloaderServer.start();
+
+    try {
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
+      remoteOptions.setRemoteDownloader(DOWNLOADER_SERVER_NAME);
+
+      var env = beforeCommand();
+      awaitChannelsConnected();
+      assertThat(createdChannels).hasSize(2);
+
+      afterCommand(env);
+
+      for (ManagedChannel channel : createdChannels) {
+        assertThat(channel.isTerminated()).isTrue();
+      }
+    } finally {
+      cacheServer.shutdownNow();
+      downloaderServer.shutdownNow();
+      cacheServer.awaitTermination();
+      downloaderServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void remoteDownloader_sharedEndpoint_channelIsClosedOnceCacheIsReleased()
+      throws Exception {
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+
+    try {
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
+      remoteOptions.setRemoteDownloader(CACHE_SERVER_NAME);
+
+      var env = beforeCommand();
+      awaitChannelsConnected();
+      assertThat(createdChannels).hasSize(1);
+      ManagedChannel channel = createdChannels.get(0);
+
+      // Retain the cache beyond the end of the command, as e.g. the artifact uploader of an
+      // asynchronous BES upload does.
+      var combinedCache = remoteModule.getActionContextProvider().getCombinedCache();
+      combinedCache.retain();
+      afterCommand(env);
+
+      // Closing the downloader must not shut down the channel it shares with the cache.
+      assertThat(channel.isShutdown()).isFalse();
+
+      combinedCache.release();
+
+      assertThat(channel.isTerminated()).isTrue();
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void executorService_withoutBuildRequestOptions_preservesPoolSize() throws Exception {
+    var executor = remoteModule.getExecutorService();
+    int jobs = executor.getCorePoolSize() + 1;
+    executor.setMaximumPoolSize(jobs);
+    executor.setCorePoolSize(jobs);
+    remoteOptions.setDiskCache(PathFragment.EMPTY_FRAGMENT);
+
+    // The test command's options do not include BuildRequestOptions.
+    beforeCommand();
+
+    assertThat(executor.getCorePoolSize()).isEqualTo(jobs);
+    assertThat(executor.getMaximumPoolSize()).isEqualTo(jobs);
   }
 
   @Test
@@ -735,5 +939,65 @@ public final class RemoteModuleTest {
     assertThat(preserved.exists()).isTrue();
     assertThat(preserved.getFileSize()).isGreaterThan(0L);
     assertThat(log.exists()).isTrue();
+  }
+
+  @Test
+  public void testComputeActionExecutionSalt_changesWhenCacheInstanceChanges() throws Exception {
+    RemoteOptions baseOptions =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1");
+    String baseSalt = RemoteModule.computeActionExecutionSalt(baseOptions);
+    assertThat(RemoteModule.computeActionExecutionSalt(null)).isNotNull();
+    assertThat(RemoteModule.computeActionExecutionSalt(baseOptions)).isEqualTo(baseSalt);
+
+    RemoteOptions changedInstanceName =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance2");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedInstanceName)).isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteCache =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache2",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteCache)).isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteExecutor =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec2",
+            "--remote_instance_name=instance1");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteExecutor))
+        .isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteDownloader =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1",
+            "--remote_downloader=grpc://downloader1");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteDownloader))
+        .isNotEqualTo(baseSalt);
+
+    RemoteOptions changedBytestreamPrefix =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1",
+            "--remote_bytestream_uri_prefix=host/instance2");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedBytestreamPrefix))
+        .isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteProxy =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1",
+            "--remote_proxy=unix:/socket2");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteProxy)).isNotEqualTo(baseSalt);
   }
 }

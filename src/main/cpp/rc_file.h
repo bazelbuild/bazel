@@ -15,6 +15,7 @@
 #define BAZEL_SRC_MAIN_CPP_RC_FILE_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 

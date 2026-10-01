@@ -478,7 +478,7 @@ public final class ConfigRuleClasses {
           .add(attr("default_value", STRING).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(
               attr("scope", STRING)
-                  .value("universal")
+                  .value("default")
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(ConfigFeatureFlag.getAllowlistAttribute(env))
           .addAllowlistChecker(ALWAYS_CHECK_ALLOWLIST)

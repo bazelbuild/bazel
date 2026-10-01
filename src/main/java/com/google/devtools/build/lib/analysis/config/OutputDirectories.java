@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -100,17 +99,12 @@ public class OutputDirectories {
 
   private final boolean mergeGenfilesDirectory;
 
-  private final boolean siblingRepositoryLayout;
-
-  private final Path execRoot;
-
   OutputDirectories(
       BlazeDirectories directories,
       CoreOptions options,
       @Nullable PlatformOptions platformOptions,
       String mnemonic,
-      String workspaceName,
-      boolean siblingRepositoryLayout) {
+      String workspaceName) {
     this.directories = directories;
     this.mnemonic = mnemonic;
 
@@ -120,53 +114,31 @@ public class OutputDirectories {
     this.testlogsDirectory = OutputDirectory.TESTLOGS.getRoot(mnemonic, directories, workspaceName);
 
     this.mergeGenfilesDirectory = options.getMergeGenfilesDirectory();
-    this.siblingRepositoryLayout = siblingRepositoryLayout;
-    this.execRoot = directories.getExecRoot(workspaceName);
-  }
-
-  private ArtifactRoot buildDerivedRoot(String nameFragment, RepositoryName repository) {
-    return ArtifactRoot.asDerivedRoot(
-        execRoot,
-        // e.g., execroot/mainRepoName/bazel-out/[repoName/]config/bin
-        // TODO(jungjw): Ideally, we would like to do execroot_base/repoName/bazel-out/config/bin
-        // instead. However, it requires individually symlinking the top-level elements of external
-        // repositories, which is blocked by a Windows symlink issue #8704.
-        repository.isMain() ? RootType.SIBLING_MAIN_OUTPUT : RootType.SIBLING_EXTERNAL_OUTPUT,
-        directories.getRelativeOutputPath(),
-        repository.getName(),
-        mnemonic,
-        nameFragment);
   }
 
   /** Returns the output directory for this build configuration. */
-  ArtifactRoot getOutputDirectory(RepositoryName repositoryName) {
-    return siblingRepositoryLayout ? buildDerivedRoot("", repositoryName) : outputDirectory;
+  ArtifactRoot getOutputDirectory() {
+    return outputDirectory;
   }
 
   /** Returns the bin directory for this build configuration. */
-  ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
-    return siblingRepositoryLayout ? buildDerivedRoot("bin", repositoryName) : binDirectory;
+  ArtifactRoot getBinDirectory() {
+    return binDirectory;
   }
 
   /** Returns the genfiles directory for this build configuration. */
-  ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
-    return mergeGenfilesDirectory
-        ? getBinDirectory(repositoryName)
-        : siblingRepositoryLayout
-            ? buildDerivedRoot("genfiles", repositoryName)
-            : genfilesDirectory;
+  ArtifactRoot getGenfilesDirectory() {
+    return mergeGenfilesDirectory ? getBinDirectory() : genfilesDirectory;
   }
 
   /** Returns the testlogs directory for this build configuration. */
-  ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
-    return siblingRepositoryLayout
-        ? buildDerivedRoot("testlogs", repositoryName)
-        : testlogsDirectory;
+  ArtifactRoot getTestLogsDirectory() {
+    return testlogsDirectory;
   }
 
   /** Returns a relative path to the genfiles directory at execution time. */
-  PathFragment getGenfilesFragment(RepositoryName repositoryName) {
-    return getGenfilesDirectory(repositoryName).getExecPath();
+  PathFragment getGenfilesFragment() {
+    return getGenfilesDirectory().getExecPath();
   }
 
   /**

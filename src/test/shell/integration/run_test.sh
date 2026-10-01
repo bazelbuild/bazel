@@ -648,11 +648,6 @@ EOF
 }
 
 function test_run_under_script_script_path() {
-  if is_windows; then
-    # TODO(https://github.com/bazelbuild/bazel/issues/22148): Fix --run_under
-    # paths under windows.
-    return
-  fi
   add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p "$pkg"
@@ -669,11 +664,15 @@ EOF
 echo "hello there $@"
 EOF
   chmod +x "$pkg/greetings.sh"
-  bazel run --script_path="${TEST_TMPDIR}/script.sh" \
+  local script_ext="sh"
+  if is_windows; then
+    script_ext="bat"
+  fi
+  bazel run --script_path="${TEST_TMPDIR}/script.${script_ext}" \
       --run_under="echo -n 'why ' &&" \
       -- "//$pkg:greetings" friend \
       >"$TEST_log" || fail "expected build to succeed"
-  "${TEST_TMPDIR}/script.sh" >"$TEST_log" || fail "expected run script to succeed"
+  "${TEST_TMPDIR}/script.${script_ext}" >"$TEST_log" || fail "expected run script to succeed"
   expect_log "why hello there friend"
 }
 
@@ -712,13 +711,8 @@ EOF
   # "unset RUNFILES_MANIFEST_FILE" is necessary because the environment
   # variables set by //pkg:greetings are otherwise passed to //pkg:farewell and
   # break its runfiles discovery.
-  if is_windows; then
-    expect_log "hello there friend"
-    expect_log "goodbye buddy"
-  else
-    expect_log "hello there friend && unset RUNFILES_MANIFEST_FILE && .*bin/$pkg/farewell buddy"
-    expect_not_log "goodbye"
-  fi
+  expect_log "hello there friend && unset RUNFILES_MANIFEST_FILE && .*bin/$pkg/farewell${EXE_EXT} buddy"
+  expect_not_log "goodbye"
 }
 
 function test_run_under_command_change_preserves_cache() {

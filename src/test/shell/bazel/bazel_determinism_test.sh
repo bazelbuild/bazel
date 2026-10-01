@@ -77,20 +77,11 @@ function test_determinism()  {
     # Bazel supports this. Characters with a 4-byte UTF-8 encoding would cause
     # Java compilation to fail due to
     # https://bugs.openjdk.org/browse/JDK-8258246.
-    # On Linux, the host needs to provide the C.UTF-8 locale for this to work,
-    # otherwise the DumpPlatformClasspath action will fail.
-    if is_linux && [[ "$(LC_CTYPE=C.UTF-8 locale charmap)" != "UTF-8" ]]; then
-      output_base_1="${TEST_TMPDIR}/out 1"
-    else
-      output_base_1="${TEST_TMPDIR}/ouäöü€t 1"
-    fi
-    # TODO: Remove once rules_python exports runtime_env_toolchain_interpreter.sh
-    # See https://github.com/bazel-contrib/rules_python/pull/3471
+    output_base_1="${TEST_TMPDIR}/ouäöü€t 1"
     bazel \
       --output_base="${output_base_1}" \
       build \
       --extra_toolchains=@rules_python//python:autodetecting_toolchain \
-      --noincompatible_no_implicit_file_export \
       --enable_bzlmod \
       --check_direct_dependencies=error \
       --lockfile_mode=update \
@@ -104,18 +95,13 @@ function test_determinism()  {
     hash_outputs >"${TEST_TMPDIR}/sum1"
 
     # Build Bazel twice.
-    if is_linux && [[ "$(LC_CTYPE=C.UTF-8 locale charmap)" != "UTF-8" ]]; then
-      output_base_2="${TEST_TMPDIR}/out 2"
-    else
-      output_base_2="${TEST_TMPDIR}/ouäöü€t 2"
-    fi
+    output_base_2="${TEST_TMPDIR}/ouäöü€t 2"
     bazel-bin/src/bazel \
       --bazelrc="${TEST_TMPDIR}/bazelrc" \
       --install_base="${TEST_TMPDIR}/install_baseäöü€t 2" \
       --output_base="${output_base_2}" \
       build \
       --extra_toolchains=@rules_python//python:autodetecting_toolchain \
-      --noincompatible_no_implicit_file_export \
       --enable_bzlmod \
       --check_direct_dependencies=error \
       --lockfile_mode=update \

@@ -17,11 +17,12 @@ package net.starlark.java.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Stack;
 
 /** A scanner for Starlark. */
 final class Lexer {
@@ -51,7 +52,7 @@ final class Lexer {
 
   // The stack of enclosing indentation levels in spaces.
   // The first (outermost) element is always zero.
-  private final Stack<Integer> indentStack = new Stack<>();
+  private final Deque<Integer> indentStack = new ArrayDeque<>();
 
   private final ImmutableList.Builder<Comment> comments = ImmutableList.builder();
 

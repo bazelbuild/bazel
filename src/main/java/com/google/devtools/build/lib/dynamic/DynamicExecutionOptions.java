@@ -197,6 +197,19 @@ public abstract class DynamicExecutionOptions extends OptionsBase {
 
   public abstract void setIgnoreLocalSignals(Set<Integer> value);
 
+  @Option(
+      name = "experimental_dynamic_cancel_remote_branch_on_local_win",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      defaultValue = "true",
+      help =
+          "If true, cancels the remote branch when the local branch finishes first in dynamic"
+              + " execution. If false, allows the remote branch to continue running to completion"
+              + " in the background to populate the remote action cache for future builds.")
+  public abstract boolean getCancelRemoteBranchOnLocalWin();
+
+  public abstract void setCancelRemoteBranchOnLocalWin(boolean value);
+
   /** Converts comma-separated lists of signal numbers into a set of signal numbers. */
   public static class SignalListConverter implements Converter<Set<Integer>> {
     @Override

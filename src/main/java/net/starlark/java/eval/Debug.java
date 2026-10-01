@@ -106,7 +106,8 @@ public final class Debug {
    *
    * <p>This function is intended for use only when execution of {@code thread} is stopped, for
    * example at a breakpoint. The resulting DebugFrames should not be retained after execution of
-   * the thread has resumed. Most clients should instead use {@link StarlarkThread#getCallStack}.
+   * the thread has resumed, as the thread reuses them for subsequent calls. Most clients should
+   * instead use {@link StarlarkThread#getCallStack}.
    */
   public static ImmutableList<Frame> getCallStack(StarlarkThread thread) {
     return thread.getDebugCallStack();

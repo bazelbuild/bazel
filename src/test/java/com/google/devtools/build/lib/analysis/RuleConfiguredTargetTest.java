@@ -30,11 +30,13 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
@@ -805,7 +807,9 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
                         BuildOptions.class,
                         BuildOptions.getDefaultBuildOptionsForFragments(
                             ImmutableList.of(CoreOptions.class)))
+                    .put(PlatformConfigurationProvider.class, getPlatformConfigurationProvider())
                     .build()),
+            new CompressionServiceImpl(),
             FingerprintValueService.createForTesting(),
             key -> {
               try {

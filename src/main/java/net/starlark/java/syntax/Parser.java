@@ -469,10 +469,17 @@ final class Parser {
     }
 
     // IDENTIFIER  or  IDENTIFIER = test
+    // A parenthesized identifier parses to the same Identifier node as a bare one,
+    // because (e) is not materialized, so the name of a keyword argument has to be
+    // recognized before the expression is parsed rather than after.
+    boolean bareIdentifier = token.kind == TokenKind.IDENTIFIER;
     expr = parseTest();
     if (expr instanceof Identifier id) {
       // parse a named argument
       if (token.kind == TokenKind.EQUALS) {
+        if (!bareIdentifier) {
+          syntaxError("keyword argument must have form name=expr");
+        }
         nextToken();
         Expression arg = parseTest();
         return new Argument.Keyword(locs, id, arg);

@@ -118,14 +118,19 @@ public final class AnalysisPhaseRunner {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
-        analysisResult =
-            runAnalysisPhase(
-                env,
-                request,
-                targetPatternPhaseValue,
-                buildOptions,
-                remoteAnalysisCachingDependenciesProvider,
-                remoteAnalysisCacheReaderDeps);
+        env.getBuildResultListener().setAnalysisTimer(Stopwatch.createStarted());
+        try {
+          analysisResult =
+              runAnalysisPhase(
+                  env,
+                  request,
+                  targetPatternPhaseValue,
+                  buildOptions,
+                  remoteAnalysisCachingDependenciesProvider,
+                  remoteAnalysisCacheReaderDeps);
+        } finally {
+          env.getBuildResultListener().stopAnalysisTimer();
+        }
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {

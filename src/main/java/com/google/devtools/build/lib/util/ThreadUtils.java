@@ -58,7 +58,7 @@ public class ThreadUtils {
   }
 
   @VisibleForTesting
-  static synchronized void warnAboutSlowInterrupt(
+  public static synchronized void warnAboutSlowInterrupt(
       @Nullable String slowInterruptMessageSuffix, BugReporter bugReporter) {
     logger.atWarning().log("Interrupt took too long. Dumping thread state.");
     AtomicReference<StackTraceAndState> firstTrace = new AtomicReference<>();
@@ -76,10 +76,7 @@ public class ThreadUtils {
               // AbstractQueueVisitor#reallyAwaitTermination) but unless there's a bug, there should
               // still be another thread waiting for interrupt somewhere.
               if (firstTrace.get() == null
-                  && (!stackTraceAndState.trace[0].getClassName().endsWith("misc.Unsafe")
-                      || !stackTraceAndState.trace[0].getMethodName().equals("park"))
-                  && (!stackTraceAndState.trace[0].getClassName().endsWith("java.lang.Object")
-                      || !stackTraceAndState.trace[0].getMethodName().equals("wait"))) {
+                  && !isInterruptibleWaitingOrParked(stackTraceAndState.trace)) {
                 firstTrace.compareAndSet(null, stackTraceAndState);
               }
               logger.atWarning().log(
@@ -114,9 +111,29 @@ public class ThreadUtils {
             Joiner.on(' ')
                 .skipNulls()
                 .join("(Wrapper exception for longest stack trace)", slowInterruptMessageSuffix));
-    inner.setStackTrace(firstTrace.get().trace);
+    StackTraceAndState longestTrace = firstTrace.get();
+    if (longestTrace != null) {
+      inner.setStackTrace(longestTrace.trace);
+    } else {
+      inner.setStackTrace(new StackTraceElement[0]);
+    }
     SlowInterruptException ex = new SlowInterruptException(inner);
     bugReporter.sendBugReport(ex);
+  }
+
+  private static boolean isInterruptibleWaitingOrParked(StackTraceElement[] trace) {
+    if (trace.length == 0) {
+      return false;
+    }
+    StackTraceElement top = trace[0];
+    if (top.getClassName().endsWith("misc.Unsafe") && top.getMethodName().equals("park")) {
+      return true;
+    }
+    if (top.getClassName().endsWith("java.lang.Object")
+        && (top.getMethodName().equals("wait") || top.getMethodName().equals("wait0"))) {
+      return true;
+    }
+    return false;
   }
 
   private static final class SlowInterruptException extends RuntimeException {

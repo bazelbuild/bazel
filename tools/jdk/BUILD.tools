@@ -1,7 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_java//java:defs.bzl", "java_import")
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load(":launcher_flag_alias.bzl", "launcher_flag_alias")
 
 exports_files([
@@ -136,19 +138,38 @@ alias(
     actual = ":proguard_allowlister",
 )
 
-py_binary(
+cc_binary(
     name = "proguard_allowlister",
     srcs = [
-        "proguard_allowlister.py",
+        "proguard_allowlister.cc",
+        "proguard_allowlister_lib.cc",
+        "proguard_allowlister_lib.h",
     ],
 )
 
-py_test(
+cc_library(
+    name = "proguard_allowlister_test_lib",
+    testonly = 1,
+    srcs = [
+        "proguard_allowlister_lib.cc",
+        "proguard_allowlister_lib.h",
+        "proguard_allowlister_test_lib.cc",
+    ],
+    hdrs = ["proguard_allowlister_test_lib.h"],
+    deps = ["@rules_cc//cc/runfiles"],
+)
+
+cc_test(
     name = "proguard_allowlister_test",
-    srcs = ["proguard_allowlister_test.py"],
+    srcs = [
+        "proguard_allowlister_test.cc",
+    ],
     data = ["proguard_allowlister_test_input.pgcfg"],
+    env = {
+        "TEST_INPUT": "$(rlocationpath :proguard_allowlister_test_input.pgcfg)",
+    },
     deps = [
-        ":proguard_allowlister",
+        ":proguard_allowlister_test_lib",
     ],
 )
 
@@ -181,10 +202,10 @@ TARGET_NAMES = [
     for version in (8, 9, 10, 11)
 ] + [
     "toolchain_jdk_%d" % version
-    for version in (14, 15, 16, 17, 21)
+    for version in (14, 15, 16, 17, 21, 25)
 ] + [
      "toolchain_jdk_%d_definition" % version
-     for version in (14, 15, 16, 17, 21)
+     for version in (14, 15, 16, 17, 21, 25)
 ]
 
 [

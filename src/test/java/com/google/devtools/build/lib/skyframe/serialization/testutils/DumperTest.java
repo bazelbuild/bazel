@@ -40,7 +40,7 @@ public final class DumperTest {
 
   @Test
   public void testWeakReference() {
-    Integer referent = 10;
+    Object referent = new Object();
     var ref = new WeakReference<>(referent);
     assertThat(dumpStructure(ref)).isEqualTo("java.lang.ref.WeakReference");
   }

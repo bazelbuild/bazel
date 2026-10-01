@@ -1087,7 +1087,8 @@ providers. That is, <code>[FooInfo, BarInfo]</code> will automatically be conver
                 "The input label string or Label object. If a Label object is passed, it's"
                     + " returned as is.")
       },
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   @StarlarkConstructor
   Label label(Object input, StarlarkThread thread) throws EvalException;
 
@@ -1114,7 +1115,8 @@ providers. That is, <code>[FooInfo, BarInfo]</code> will automatically be conver
             defaultValue = "[]",
             doc = "A list of constraints on the execution platform."),
       },
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   ExecGroupApi execGroup(
       Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
       throws EvalException;

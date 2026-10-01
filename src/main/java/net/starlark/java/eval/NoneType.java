@@ -55,6 +55,11 @@ public final class NoneType implements StarlarkValue, TypeConstructor {
   }
 
   @Override
+  public boolean isAcyclic() {
+    return true;
+  }
+
+  @Override
   public boolean truth() {
     return false;
   }

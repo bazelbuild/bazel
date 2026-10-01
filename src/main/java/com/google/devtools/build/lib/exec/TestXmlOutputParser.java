@@ -52,7 +52,10 @@ public final class TestXmlOutputParser {
     XMLStreamReader parser = null;
 
     try {
-      parser = XMLInputFactory.newInstance().createXMLStreamReader(xmlStream);
+      XMLInputFactory factory = XMLInputFactory.newInstance();
+      factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+      factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+      parser = factory.createXMLStreamReader(xmlStream);
 
       while (true) {
         int event = parser.next();

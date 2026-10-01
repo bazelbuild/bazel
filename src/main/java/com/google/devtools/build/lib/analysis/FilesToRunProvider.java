@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ToolProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -28,7 +29,8 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
 @Immutable
-public class FilesToRunProvider implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
+public class FilesToRunProvider
+    implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact>, ToolProvider {
 
   /** The name of the field in Starlark used to access a {@link FilesToRunProvider}. */
   public static final String STARLARK_NAME = "files_to_run";
@@ -74,6 +76,7 @@ public class FilesToRunProvider implements TransitiveInfoProvider, FilesToRunPro
    * either use {@link #getExecutable()} or {@link #getRunfilesSupport()} if you know what you are
    * doing and it's something very arcane.
    */
+  @Override
   @Deprecated
   public final NestedSet<Artifact> getFilesToRun() {
     return filesToRun;

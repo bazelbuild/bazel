@@ -346,7 +346,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingEnabled= */ false);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             reporter,
@@ -365,7 +366,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             /* captureCorruptedOutputsDir= */ null,
             remoteOutputChecker,
             mock(OutputService.class),
-            Sets.newConcurrentHashSet());
+            Sets.newConcurrentHashSet(),
+            /* wasRewound= */ action -> false);
     client =
         new RemoteSpawnRunner(
             remoteOptions,

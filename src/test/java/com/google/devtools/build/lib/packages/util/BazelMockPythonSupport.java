@@ -96,12 +96,31 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.overwrite(
         "rules_python_workspace/python/private/BUILD",
         "load('@bazel_skylib//rules:common_settings.bzl', 'bool_setting')",
+        "load('@rules_python//python:py_library.bzl', 'py_library')",
         "filegroup(name = 'stage2_bootstrap_template', srcs = ['stage2_bootstrap_template.py'])",
         "filegroup(name = 'zip_main_template', srcs = ['zip_main_template.py'])",
         "filegroup(name = 'bootstrap_template', srcs = ['python_bootstrap_template.txt'])",
         "filegroup(name = 'site_init_template', srcs = ['site_init_template.py'])",
+        "alias(name = 'build_data_writer', actual = select({",
+        "    '@platforms//os:windows': ':build_data_writer.ps1',",
+        "    '//conditions:default': ':build_data_writer.sh',",
+        "}),",
+        "    visibility = ['//visibility:public'])",
+        "filegroup(name = 'uncachable_version_file', srcs = ['uncachable_version_file.txt'],",
+        "    visibility = ['//visibility:public'])",
+        "py_library(name = 'empty', visibility = ['//visibility:public'])",
+        "alias(name = 'debugger_if_target_config', actual = ':empty',",
+        "    visibility = ['//visibility:public'])",
         "bool_setting(name = 'visible_for_testing', build_setting_default = False)");
+    config.create("rules_python_workspace/python/private/uncachable_version_file.txt");
     config.overwrite("rules_python_workspace/python/private/common/BUILD");
+    config.overwrite(
+        "rules_python_workspace/python/private/zipapp/BUILD",
+        "filegroup(",
+        "    name = 'zip_main_template',",
+        "    srcs = ['zip_main_template.py'],",
+        "    visibility = ['//visibility:public'],",
+        ")");
     config.overwrite(
         "rules_python_workspace/python/config_settings/BUILD.bazel",
         "load('@bazel_skylib//rules:common_settings.bzl', 'string_flag', 'bool_flag')",
@@ -114,6 +133,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "string_flag(name = 'precompile_source_retention', build_setting_default = 'auto')",
         "rp_string_flag(name = 'bootstrap_impl', build_setting_default = 'system_python', ",
         "    values = ['system_python'])",
+        "label_flag(name = 'debugger', build_setting_default = '//python/private:empty')",
         "string_flag(name = 'venvs_use_declare_symlink', build_setting_default = 'yes')",
         "string_flag(name = 'precompile_add_to_runfiles', build_setting_default = 'always')",
         "string_flag(name = 'exec_tools_toolchain', build_setting_default = 'yes')",
@@ -144,7 +164,13 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.create("rules_python_internal_workspace/BUILD");
     config.create(
         "rules_python_internal_workspace/rules_python_config.bzl",
-        "config = struct(enable_pystar = True, BuiltinPyInfo = None, BuiltinPyRuntimeInfo = None)");
+        "config = struct(",
+        "    enable_pystar = True,",
+        "    bazel_9_or_later = True,",
+        "    bazel_10_or_later = True,",
+        "    BuiltinPyInfo = None,",
+        "    BuiltinPyRuntimeInfo = None,",
+        ")");
 
     config.create(
         "rules_python_internal_workspace/py_internal.bzl",

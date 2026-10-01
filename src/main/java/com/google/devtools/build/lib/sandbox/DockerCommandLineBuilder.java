@@ -36,8 +36,8 @@ final class DockerCommandLineBuilder {
   private Duration timeout;
   private boolean createNetworkNamespace;
   private UUID uuid;
-  private int uid;
-  private int gid;
+  private long uid;
+  private long gid;
   private String commandId;
   private boolean privileged;
   private List<Map.Entry<String, String>> additionalMounts;
@@ -98,13 +98,13 @@ final class DockerCommandLineBuilder {
   }
 
   @CanIgnoreReturnValue
-  public DockerCommandLineBuilder setUid(int uid) {
+  public DockerCommandLineBuilder setUid(long uid) {
     this.uid = uid;
     return this;
   }
 
   @CanIgnoreReturnValue
-  public DockerCommandLineBuilder setGid(int gid) {
+  public DockerCommandLineBuilder setGid(long gid) {
     this.gid = gid;
     return this;
   }

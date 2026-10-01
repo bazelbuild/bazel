@@ -81,6 +81,22 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
+  public void exec_failingCommand_doesNotEmitSandboxDebugSuggestionInfoEvent() throws Exception {
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
+    Spawn spawn = new SpawnBuilder("false").build();
+    SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
+
+    SpawnResult spawnResult = runner.exec(spawn, policy);
+
+    assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.NON_ZERO_EXIT);
+    assertThat(spawnResult.exitCode()).isEqualTo(1);
+    assertThat(spawnResult.getFailureMessage())
+        .doesNotContain("Use --sandbox_debug to see verbose messages from the sandbox");
+    assertDoesNotContainEvent("Use --sandbox_debug to see verbose messages from the sandbox");
+  }
+
+  @Test
   public void exec_commandWithParamFiles_executesSuccessfully() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
@@ -273,6 +289,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
   private CommandEnvironment createCommandEnvironment() throws Exception {
     CommandEnvironment commandEnvironment = runtimeWrapper.newCommand();
+    events.initExternal(commandEnvironment.getReporter());
     commandEnvironment
         .getLocalResourceManager()
         .setAvailableResources(LocalHostCapacity.getLocalHostCapacity());

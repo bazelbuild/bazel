@@ -142,7 +142,14 @@ public class InMemoryFileSystem extends FileSystem {
    */
   @Override
   public String getFileSystemType(PathFragment path) {
-    return exists(path.getRelative("/proc/mounts")) ? super.getFileSystemType(path) : "inmemoryfs";
+    boolean procMountExists;
+    try {
+      procMountExists = exists(path.getRelative("/proc/mounts"));
+    } catch (IOException e) {
+      // TODO(tjgq): Propagate exception.
+      procMountExists = false;
+    }
+    return procMountExists ? super.getFileSystemType(path) : "inmemoryfs";
   }
 
   /*
@@ -354,15 +361,6 @@ public class InMemoryFileSystem extends FileSystem {
     };
   }
 
-  @Override
-  @Nullable
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    return switch (inodeStatErrno(path, followSymlinks)) {
-      case InMemoryContentInfo inode -> inode;
-      case Errno ignored -> null;
-    };
-  }
-
   /** Version of stat that returns an InodeOrErrno of the input path. */
   @CheckReturnValue
   protected InodeOrErrno inodeStatErrno(PathFragment path, boolean followSymlinks) {
@@ -397,11 +395,6 @@ public class InMemoryFileSystem extends FileSystem {
     // FileSystem.resolveOneLink().
     InMemoryContentInfo status = inodeStat(path, false);
     return status.isSymbolicLink() ? ((InMemoryLinkInfo) status).getLinkContent() : null;
-  }
-
-  @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
-    return statNullable(path, followSymlinks) != null;
   }
 
   @Override
@@ -468,6 +461,14 @@ public class InMemoryFileSystem extends FileSystem {
 
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
+    return createDirectory(path, /* expectedChildCount= */ -1);
+  }
+
+  /**
+   * Like {@link #createDirectory(PathFragment)}, but if the directory is created and {@code
+   * expectedChildCount} is non-negative, presizes its entry map for that number of children.
+   */
+  public boolean createDirectory(PathFragment path, int expectedChildCount) throws IOException {
     if (isRootDirectory(path)) {
       throw Errno.EACCES.exception(path);
     }
@@ -484,7 +485,8 @@ public class InMemoryFileSystem extends FileSystem {
         }
         return false;
       }
-      error = insertChildDirectory(parent, new InMemoryDirectoryInfo(clock), name);
+      error =
+          insertChildDirectory(parent, new InMemoryDirectoryInfo(clock, expectedChildCount), name);
     }
     if (error != null) {
       throw error.exception(path);

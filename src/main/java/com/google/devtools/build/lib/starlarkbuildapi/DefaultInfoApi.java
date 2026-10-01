@@ -62,6 +62,19 @@ public interface DefaultInfoApi extends StructApi {
   Depset getFiles();
 
   @StarlarkMethod(
+      name = "executable",
+      doc =
+          "A <a href='../builtins/File.html'><code>File</code></a> object representing the"
+              + " executable that should be executed to run the target, or <code>None</code> if"
+              + " unset. Should be set only for <a"
+              + " href='../globals/bzl.html#rule.executable'><code>executable</code></a> and <a"
+              + " href='../globals/bzl.html#rule.test'><code>test</code></a> targets.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi getExecutable();
+
+  @StarlarkMethod(
       name = "files_to_run",
       doc =
           "A <a href='../providers/FilesToRunProvider.html'><code>FilesToRunProvider</code></a>"

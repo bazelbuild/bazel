@@ -17,8 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
-import java.util.concurrent.Executor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,7 +29,7 @@ public final class FingerprintValueServiceTest {
   public void fingerprint_isConsistent() {
     FingerprintValueService service =
         new FingerprintValueService(
-            newSingleThreadExecutor(),
+            new SafeExecutorOwner(newSingleThreadExecutor()),
             new InMemoryFingerprintValueStore(),
             new FingerprintValueCache(),
             FingerprintValueService.NONPROD_FINGERPRINTER);
@@ -42,6 +42,33 @@ public final class FingerprintValueServiceTest {
 
     assertThat(testFingerprint).isNotEqualTo(service.fingerprintPlaceholder());
     assertThat(testFingerprint.toBytes().length).isEqualTo(16);
+  }
+
+  @Test
+  public void saltedFingerprint_isConsistentAndDiffers() {
+    FingerprintValueService service =
+        new FingerprintValueService(
+            new SafeExecutorOwner(newSingleThreadExecutor()),
+            new InMemoryFingerprintValueStore(),
+            new FingerprintValueCache(),
+            FingerprintValueService.NONPROD_FINGERPRINTER);
+
+    byte[] testValue = new byte[] {0, 1, 2};
+    PackedFingerprint testFingerprint = service.fingerprint(testValue);
+    PackedFingerprint saltedFingerprint1 = service.fingerprint(testValue, "salt1");
+    PackedFingerprint saltedFingerprint2 = service.fingerprint(testValue, "salt2");
+
+    assertThat(saltedFingerprint1).isNotEqualTo(testFingerprint);
+    assertThat(saltedFingerprint1).isNotEqualTo(saltedFingerprint2);
+    assertThat(saltedFingerprint1.toBytes()).hasLength(16);
+
+    // Deterministic check
+    assertThat(service.fingerprint(testValue, "salt1")).isEqualTo(saltedFingerprint1);
+
+    // Boundary collision resistance check
+    PackedFingerprint fp1 = service.fingerprint(new byte[] {'c'}, "ab");
+    PackedFingerprint fp2 = service.fingerprint(new byte[] {'b', 'c'}, "a");
+    assertThat(fp1).isNotEqualTo(fp2);
   }
 
   @Test
@@ -62,7 +89,7 @@ public final class FingerprintValueServiceTest {
 
     FingerprintValueService service =
         new FingerprintValueService(
-            newSingleThreadExecutor(),
+            new SafeExecutorOwner(newSingleThreadExecutor()),
             store,
             new FingerprintValueCache(),
             FingerprintValueService.NONPROD_FINGERPRINTER);
@@ -76,7 +103,7 @@ public final class FingerprintValueServiceTest {
 
   @Test
   public void executor_passesThrough() {
-    Executor executor = newSingleThreadExecutor();
+    SafeExecutorOwner executor = new SafeExecutorOwner(newSingleThreadExecutor());
     FingerprintValueService service =
         new FingerprintValueService(
             executor,

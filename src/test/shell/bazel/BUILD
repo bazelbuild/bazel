@@ -117,12 +117,36 @@ sh_test(
         "@rules_java//toolchains:current_java_runtime",
     ],
     env = {
-        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",
     },
     toolchains = [
         "@rules_java//toolchains:current_java_runtime",
     ],
 )
+
+[sh_test(
+    name = "bazel_windows_java%s_cross_drive_test" % jdk,
+    size = "large",
+    srcs = ["bazel_windows_java_cross_drive_test.sh"],
+    args = [str(jdk)],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:" + runtime,
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",
+    },
+    toolchains = [
+        "@rules_java//toolchains:" + runtime,
+    ],
+) for (jdk, runtime) in [
+    (8, "jdk_8"),
+    (11, "remote_jdk11"),
+    (17, "remotejdk_17"),
+    (21, "remotejdk_21"),
+    (25, "remotejdk_25"),
+]]
 
 sh_test(
     name = "cpp_darwin_integration_test",
@@ -287,9 +311,9 @@ sh_test(
     ],
 )
 
-JAVA_VERSIONS = ("11", "17", "21")
+JAVA_VERSIONS = ("11", "17", "21", "25")
 
-JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
+JAVA_VERSIONS_COVERAGE = ("11", "17", "21", "25")
 
 [
     sh_test(
@@ -321,6 +345,11 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
     )
     for java_version in JAVA_VERSIONS
 ]
+
+test_suite(
+    name = "bazel_java_toolchain_head_tests",
+    tests = ["bazel_java_test_jdk" + java_version + "_toolchain_head" for java_version in JAVA_VERSIONS],
+)
 
 [
     sh_test(
@@ -460,6 +489,12 @@ sh_test(
     name = "bazel_spawnstats_test",
     srcs = ["bazel_spawnstats_test.sh"],
     data = [":test-deps"],
+    exec_group_compatible_with = {
+        "test": [
+            "//:highcpu_machine",
+            "//:mount_capable",
+        ],
+    },
     tags = ["no_windows"],
 )
 
@@ -1218,11 +1253,18 @@ sh_test(
         "//:bazel-distfile",
         "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:remotejdk_25",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
+    },
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
         "no_presubmit",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:remotejdk_25",
     ],
 )
 
@@ -1239,12 +1281,19 @@ sh_test(
         "//:bazel-distfile-tar",
         "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:remotejdk_25",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
+    },
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
         "no_presubmit",
         "no_windows",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:remotejdk_25",
     ],
 )
 
@@ -1292,6 +1341,17 @@ genquery(
     name = "srcs_list",
     expression = "kind(\"source file\", deps(//:srcs))",
     scope = ["//:srcs"],
+)
+
+sh_test(
+    name = "list_source_repository_test",
+    size = "small",
+    srcs = ["list_source_repository_test.sh"],
+    data = [
+        ":list_source_repository.bzl",
+        ":test-deps",
+    ],
+    tags = ["no_windows"],
 )
 
 sh_test(

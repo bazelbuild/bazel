@@ -36,6 +36,7 @@ do
     case "$i" in
         *.zip) UNPACK="unzip -q" ;;
         *.tar) UNPACK="tar xf" ;;
+        *) echo "unknown archive type: $i" >&2; exit 1 ;;
     esac
     (cd "${PACKAGE_DIR}" && ${UNPACK} "${ARCHIVE}")
 done
@@ -49,6 +50,6 @@ fi
   cd "${PACKAGE_DIR}"
   FILE_LIST="$(mktemp ${TMP_DIR%%/}/bazel-distfile-files.XXXXXXXX)"
   trap "rm -fr \"${FILE_LIST}\"" EXIT
-  find . -type f | sort > "${FILE_LIST}"
+  find . -type f | LC_ALL=C sort > "${FILE_LIST}"
   tar -c -f "${OUTPUT}" ${ID_OPTS} -T "${FILE_LIST}"
 )

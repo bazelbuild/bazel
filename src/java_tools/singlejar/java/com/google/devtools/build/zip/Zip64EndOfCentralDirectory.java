@@ -51,6 +51,7 @@ class Zip64EndOfCentralDirectory {
           "Malformed Zip64 End of Central Directory; does not start with %08x", SIGNATURE));
     }
     file.setZip64(true);
+    file.setCentralDirectorySize(ZipUtil.getUnsignedLong(fixedSizeData, CD_SIZE_OFFSET));
     file.setCentralDirectoryOffset(ZipUtil.getUnsignedLong(fixedSizeData, CD_OFFSET_OFFSET));
     file.setExpectedEntries(ZipUtil.getUnsignedLong(fixedSizeData, TOTAL_ENTRIES_OFFSET));
     return file;

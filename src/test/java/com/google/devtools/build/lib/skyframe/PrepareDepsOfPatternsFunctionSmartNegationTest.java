@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -85,13 +86,14 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, fileSystem);
     skyframeExecutor =
-        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(pkgFactory)
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(new ActionKeyContext())
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
+            .setCompressionService(new CompressionServiceImpl())
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     OptionsParser optionsParser =

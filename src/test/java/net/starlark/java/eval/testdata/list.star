@@ -64,3 +64,17 @@ assert_eq([1, 2, 3] * -1, [])
 assert_eq([1, 2, 3] * 0, [])
 assert_fails(lambda: [1] * (1 << 35), "got 34359738368 for repeat, want value in signed 32-bit range")
 assert_fails(lambda: [1, 2, 3] * (1 << 30), "excessive repeat \\(3 \\* 1073741824 elements\\)")
+
+# membership test and index operators on self-referential values
+self_ref = []
+self_ref.append(self_ref)
+self_ref2 = []
+self_ref2.append(self_ref2)
+assert_fails(lambda: self_ref in self_ref2, "cannot compare self-referential or overly nested data structures \\[...\\] and \\[...\\]")
+assert_fails(lambda: self_ref not in self_ref2, "cannot compare self-referential or overly nested data structures \\[...\\] and \\[...\\]")
+assert_fails(lambda: [self_ref].index(self_ref2), "cannot compare self-referential or overly nested data structures \\[...\\] and \\[...\\]")
+
+# membership test and index operators work if either the key or the container is not self-referential
+assert_eq(self_ref in ["a", ["b", "c"]], False)
+assert_eq([1] in self_ref, False)
+assert_eq([self_ref, 1].index(1), 1)

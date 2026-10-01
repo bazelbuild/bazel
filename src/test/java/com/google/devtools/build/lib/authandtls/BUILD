@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -12,7 +12,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/authandtls/credentialhelper:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -34,11 +34,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:auth",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/auth_kit:credentials",
+        "//third_party/java/grpc:core",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/netty4:transport_native_epoll",
+        "//third_party/java/netty4:transport_native_kqueue",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -47,6 +51,6 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":AuthAndTlsTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )

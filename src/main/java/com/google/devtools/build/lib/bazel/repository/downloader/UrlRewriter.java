@@ -22,10 +22,13 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
+import com.google.common.net.UrlEscapers;
 import com.google.devtools.build.lib.authandtls.Netrc;
 import com.google.devtools.build.lib.authandtls.NetrcCredentials;
 import com.google.devtools.build.lib.authandtls.NetrcParser;
@@ -46,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -63,6 +65,32 @@ import net.starlark.java.syntax.Location;
 public class UrlRewriter {
 
   private static final ImmutableSet<String> REWRITABLE_SCHEMES = ImmutableSet.of("http", "https");
+
+  private static final String DIGITS = "\\d+";
+
+  // Matches tokens in replacement strings: ${urlencode($N)}, urlencode($N), ${N}, $N, or \c
+  private static final Pattern REPLACEMENT_TOKEN_PATTERN =
+      Pattern.compile(
+          Pattern.quote("${urlencode($")
+              + DIGITS
+              + Pattern.quote(")}")
+              + "|"
+              + Pattern.quote("urlencode($")
+              + DIGITS
+              + Pattern.quote(")")
+              + "|"
+              + Pattern.quote("${")
+              + DIGITS
+              + Pattern.quote("}")
+              + "|"
+              + Pattern.quote("$")
+              + DIGITS
+              + "|\\\\.");
+
+  static boolean isValidUrlEncodeSyntax(String replacement) {
+    String stripped = REPLACEMENT_TOKEN_PATTERN.matcher(replacement).replaceAll("");
+    return !stripped.contains("urlencode(");
+  }
 
   private final UrlRewriterConfig config;
 
@@ -86,7 +114,7 @@ public class UrlRewriter {
    */
   public static UrlRewriter getDownloaderUrlRewriter(
       Path workspaceRoot, @Nullable List<PathFragment> configPaths)
-      throws UrlRewriterParseException {
+      throws IOException, UrlRewriterParseException {
     // "empty" UrlRewriter shouldn't alter auth headers
     if (configPaths == null
         || configPaths.isEmpty()
@@ -99,8 +127,12 @@ public class UrlRewriter {
     // investigation suggests that the current working directory isn't the workspace root.
     List<Path> actualConfigPaths = configPaths.stream().map(workspaceRoot::getRelative).toList();
 
-    List<Path> notFoundConfigPaths =
-        actualConfigPaths.stream().filter(Predicate.not(Path::exists)).toList();
+    List<Path> notFoundConfigPaths = new ArrayList<>();
+    for (Path actualConfigPath : actualConfigPaths) {
+      if (!actualConfigPath.exists()) {
+        notFoundConfigPaths.add(actualConfigPath);
+      }
+    }
     if (!notFoundConfigPaths.isEmpty()) {
       throw new UrlRewriterParseException(
           String.format(
@@ -267,7 +299,7 @@ public class UrlRewriter {
         matchMade = true;
 
         for (String replacement : entry.getValue()) {
-          rewrittenUrls.add(matcher.replaceFirst(replacement));
+          rewrittenUrls.add(evaluateReplacement(matcher, replacement));
         }
       }
     }
@@ -280,6 +312,35 @@ public class UrlRewriter {
         .map(urlString -> prefixWithProtocol(urlString, url.getScheme()))
         .map(plainUrl -> RewrittenURL.create(plainUrl, true))
         .collect(toImmutableList());
+  }
+
+  private static String evaluateReplacement(Matcher matcher, String replacement) {
+    Matcher m = REPLACEMENT_TOKEN_PATTERN.matcher(replacement);
+    StringBuilder sb = new StringBuilder();
+    while (m.find()) {
+      String token = m.group();
+      if (token.contains("urlencode")) {
+        int groupIndex = Integer.parseInt(token.replaceAll("\\D+", ""));
+        String val = Strings.nullToEmpty(matcher.group(groupIndex));
+        m.appendReplacement(sb, Matcher.quoteReplacement(escapeUrlPath(val)));
+      } else if (token.startsWith("$")) {
+        int groupIndex = Integer.parseInt(token.replaceAll("\\D+", ""));
+        String val = Strings.nullToEmpty(matcher.group(groupIndex));
+        m.appendReplacement(sb, Matcher.quoteReplacement(val));
+      } else if (token.startsWith("\\")) {
+        String escapedChar = token.substring(1);
+        m.appendReplacement(sb, Matcher.quoteReplacement(escapedChar));
+      }
+    }
+    m.appendTail(sb);
+    return sb.toString();
+  }
+
+  private static String escapeUrlPath(String path) {
+    return Splitter.on('/')
+        .splitToStream(path)
+        .map(UrlEscapers.urlPathSegmentEscaper()::escape)
+        .collect(Collectors.joining("/"));
   }
 
   /** Prefixes url with protocol if not already prefixed by {@link #REWRITABLE_SCHEMES} */
@@ -330,16 +391,16 @@ public class UrlRewriter {
     //  - If netrcFileString is a relative path, it's resolved to an absolute path with the current
     //    working directory.
     Path netrcFile = workingDirectory.getRelative(netrcFileString);
-    if (netrcFile.exists()) {
-      try {
+    try {
+      if (netrcFile.exists()) {
         Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
         return new NetrcCredentials(netrc);
-      } catch (IOException e) {
-        throw new UrlRewriterParseException(
-            "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), location);
+      } else {
+        return null;
       }
-    } else {
-      return null;
+    } catch (IOException e) {
+      throw new UrlRewriterParseException(
+          "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), location);
     }
   }
 

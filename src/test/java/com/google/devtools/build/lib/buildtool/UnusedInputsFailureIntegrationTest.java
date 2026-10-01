@@ -336,7 +336,7 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
     write("foo/consume.sh", "#!/bin/bash", "exit 1").setExecutable(true);
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:example"));
-    assertContainsError("Action foo/consume.out failed");
+    assertContainsError("Action foo/consume.out (from target //foo:example) failed");
 
     write("foo/bad.sh", "#!/bin/bash", "exit 1").setExecutable(true);
     write("foo/consume.sh", "#!/bin/bash", "touch $@").setExecutable(true);
@@ -350,7 +350,7 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
       assertThat(getRootCauseLabels(targetCompleteEvent)).isEmpty();
     } else {
       assertThrows(BuildFailedException.class, () -> buildTarget("//foo:example"));
-      assertContainsError("Action foo/bad.out failed");
+      assertContainsError("Action foo/bad.out (from target //foo:example) failed");
 
       TargetCompleteEvent targetCompleteEvent = Iterables.getOnlyElement(targetCompleteEvents);
       assertThat(getAllReportedArtifacts(targetCompleteEvent)).isEmpty();

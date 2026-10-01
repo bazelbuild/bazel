@@ -42,7 +42,7 @@ public final class BazelPackageLoaderTester {
     try (PackageLoader packageLoader = createPackageLoader(installBase)) {
       for (int i = 1; i < args.length; i++) {
         Package pkg = packageLoader.loadPackage(PackageIdentifier.createInMainRepo(args[i]));
-        pkg.getTargets().values().stream().map(Target::getLabel).forEach(System.out::println);
+        pkg.getTargets().stream().map(Target::getLabel).forEach(System.out::println);
       }
     }
   }

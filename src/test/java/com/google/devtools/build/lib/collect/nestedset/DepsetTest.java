@@ -432,4 +432,32 @@ public final class DepsetTest {
     ev.exec("inner = depset([1])", "outer = depset([1], transitive = [depset(), inner, depset()])");
     assertThat(ev.lookup("outer")).isSameInstanceAs(ev.lookup("inner"));
   }
+
+  @Test
+  public void testDepsetEqualityAndHashCodeDeterministicAcrossInternerState() throws Exception {
+    // b/544770151: Depset equality and hashing must be deterministic regardless of whether the
+    // backing Object[] array was an interning cache hit or miss.
+    Depset d1 = (Depset) ev.eval("depset(['a', 'b'])");
+    Depset d2 = (Depset) ev.eval("depset(['a', 'b'])");
+
+    // Both depsets share the underlying interned children Object[] array.
+    assertThat(d1.getSet().getChildren()).isSameInstanceAs(d2.getSet().getChildren());
+
+    // But they wrap distinct NestedSet instances, so they are not equal.
+    assertThat(d1).isNotEqualTo(d2);
+
+    // Clearing the interner does not affect equality/inequality.
+    NestedSetInterner.clear();
+    Depset d3 = (Depset) ev.eval("depset(['a', 'b'])");
+    assertThat(d3.getSet().getChildren()).isNotSameInstanceAs(d1.getSet().getChildren());
+    assertThat(d1).isNotEqualTo(d3);
+    assertThat(d2).isNotEqualTo(d3);
+
+    // Starlark set deduplication behavior is completely deterministic.
+    ev.exec("s = set()", "s.add(depset(['a', 'b']))", "s.add(depset(['a', 'b']))");
+    assertThat(ev.eval("len(s)")).isEqualTo(StarlarkInt.of(2));
+    NestedSetInterner.clear();
+    ev.exec("s.add(depset(['a', 'b']))");
+    assertThat(ev.eval("len(s)")).isEqualTo(StarlarkInt.of(3));
+  }
 }

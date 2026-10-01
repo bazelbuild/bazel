@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import re
 import subprocess
 import tempfile
@@ -67,15 +68,18 @@ end
 class BazelCompletionWriter(object):
   """Constructs a Fish completion script for Bazel."""
 
-  def __init__(self, bazel, output_user_root):
+  def __init__(self, bazel, workspace, output_user_root):
     """Initializes writer state.
 
     Args:
         bazel: String containing a path to the bazel binary to run.
-        output_user_root: String path to user root directory used for
-          running bazel commands.
+        workspace: String path to an empty workspace directory to run bazel
+          commands in, so that bazel does not pick up an enclosing workspace.
+        output_user_root: String path to user root directory used for running
+          bazel commands. Must not be inside `workspace`.
     """
     self._bazel = bazel
+    self._workspace = workspace
     self._output_user_root = output_user_root
     self._startup_options = self._get_options_from_bazel(
         ('help', 'startup_options'))
@@ -104,10 +108,12 @@ class BazelCompletionWriter(object):
     return subprocess.check_output(
         (
             self._bazel,
+            '--ignore_all_rc_files',
             '--batch',
             '--output_user_root={}'.format(self._output_user_root),
         )
         + tuple(args),
+        cwd=self._workspace,
         universal_newlines=True,
     )
 
@@ -317,8 +323,14 @@ class Arg(object):
 def main(argv):
   """Generates fish completion using provided flags."""
   del argv  # Unused.
-  with tempfile.TemporaryDirectory() as output_user_root:
-    writer = BazelCompletionWriter(FLAGS.bazel, output_user_root)
+  with tempfile.TemporaryDirectory() as tmpdir:
+    workspace = os.path.join(tmpdir, 'workspace')
+    output_user_root = os.path.join(tmpdir, 'root')
+    os.mkdir(workspace)
+    open(os.path.join(workspace, 'MODULE.bazel'), 'w').close()
+    writer = BazelCompletionWriter(
+        os.path.abspath(FLAGS.bazel), workspace, output_user_root
+    )
     with open(FLAGS.output, mode='w') as output:
       writer.write_completion(output)
 

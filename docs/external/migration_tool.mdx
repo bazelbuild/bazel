@@ -70,7 +70,7 @@ Before you begin:
 Once the prerequisites are met, run the following commands to use the migration
 tool:
 
-<pre class="prettyprint lang-shell" style="font-size: 12px;">
+<pre class="prettyprint lang-shell" style={{fontSize: "12px"}}>
 # Clone the Bazel Central Registry repository
 git clone https://github.com/bazelbuild/bazel-central-registry.git
 cd bazel-central-registry
@@ -127,7 +127,7 @@ To see the migration script in action, consider the following scenario when
 Python, Maven and Go dependencies are declared in `WORKSPACE` file.
 
 <details>
-  <summary style="padding: 16px">
+  <summary style={{padding: "16px"}}>
 Click here to see `WORKSPACE` file
   </summary>
 
@@ -267,7 +267,7 @@ Moreover, to demonstrate usage of module extension, custom macro is invoked from
 `WORKSPACE` and it is defined in `my_custom_macro.bzl`.
 
 <details>
-  <summary style="padding: 16px">
+  <summary style={{padding: "16px"}}>
 Click here to see `my_custom_macro.bzl` file
   </summary>
 
@@ -304,27 +304,27 @@ The first step is to follow [How to Use the Migration Tool](#migration-tool-how-
 
 Then, running `migrate2bzlmod -t=//...` outputs:
 
-<pre style="font-size: 12px;">
+<pre style={{fontSize: "12px"}}>
   bazel 7.6.1
 
   Generating ./resolved_deps.py file - It might take a while...
 
-  <span style="color:green;">RESOLVED:</span> <code>rules_java</code> has been introduced as a Bazel module.
-  <span style="color:green;">RESOLVED:</span> <code>bazel_gazelle</code> has been introduced as a Bazel module.
-  <span style="color:green;">RESOLVED:</span> <code>io_bazel_rules_go</code> has been introduced as a Bazel module.
-  <span style="color:green;">RESOLVED:</span> <code>rules_python</code> has been introduced as a Bazel module.
-  <span style="color:orange;">IMPORTANT:</span> 3.11 is used as a default python version. If you need a different version, please change it manually and then rerun the migration tool.
-  <span style="color:green;">RESOLVED:</span> <code>my_python_deps</code> has been introduced as python extension.
-  <span style="color:green;">RESOLVED:</span> <code>org_golang_x_net</code> has been introduced as go extension.
-  <span style="color:green;">RESOLVED:</span> <code>rules_jvm_external</code> has been introduced as a Bazel module.
-  <span style="color:green;">RESOLVED:</span> <code>org.antlr</code> has been introduced as maven extension.
-  <span style="color:green;">RESOLVED:</span> <code>rules_shell</code> has been introduced as a Bazel module.
+  <span style={{color: "green"}}>RESOLVED:</span> <code>rules_java</code> has been introduced as a Bazel module.
+  <span style={{color: "green"}}>RESOLVED:</span> <code>bazel_gazelle</code> has been introduced as a Bazel module.
+  <span style={{color: "green"}}>RESOLVED:</span> <code>io_bazel_rules_go</code> has been introduced as a Bazel module.
+  <span style={{color: "green"}}>RESOLVED:</span> <code>rules_python</code> has been introduced as a Bazel module.
+  <span style={{color: "orange"}}>IMPORTANT:</span> 3.11 is used as a default python version. If you need a different version, please change it manually and then rerun the migration tool.
+  <span style={{color: "green"}}>RESOLVED:</span> <code>my_python_deps</code> has been introduced as python extension.
+  <span style={{color: "green"}}>RESOLVED:</span> <code>org_golang_x_net</code> has been introduced as go extension.
+  <span style={{color: "green"}}>RESOLVED:</span> <code>rules_jvm_external</code> has been introduced as a Bazel module.
+  <span style={{color: "green"}}>RESOLVED:</span> <code>org.antlr</code> has been introduced as maven extension.
+  <span style={{color: "green"}}>RESOLVED:</span> <code>rules_shell</code> has been introduced as a Bazel module.
 
   Congratulations! All external repositories needed for building //... are available with Bzlmod!
-  <span style="color:orange;">IMPORTANT:</span> Fix potential build time issues by running the following command:
-      <span style="font-weight: 700;">bazel build --enable_bzlmod --noenable_workspace //...</span>
+  <span style={{color: "orange"}}>IMPORTANT:</span> Fix potential build time issues by running the following command:
+      <span style={{fontWeight: "700"}}>bazel build --enable_bzlmod --noenable_workspace //...</span>
 
-  <span style="color:orange;">IMPORTANT:</span> <code>For details about the migration process, check `migration_info.md` file.</code>
+  <span style={{color: "orange"}}>IMPORTANT:</span> <code>For details about the migration process, check `migration_info.md` file.</code>
 </pre>
 
 which gives the following important information:
@@ -346,10 +346,10 @@ which gives the following important information:
 This section illustrates the migration of code from the `WORKSPACE` file to
 `MODULE.bazel`.
 
-<div style="display: flex; flex-wrap: wrap; gap: 16px;">
-  <div style="flex: 1; min-width: 300px;">
+<div style={{display: "flex", flexWrap: "wrap", gap: "16px"}}>
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>WORKSPACE - Bazel Module</strong></p>
-    <pre class="prettyprint lang-java" style="font-size: 12px;">
+    <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
 http_archive(
     name = "rules_shell",
     sha256 = "3e114424a5c7e4fd43e0133cc6ecdfe54e45ae8affa14fadd839f29901424043",
@@ -358,20 +358,20 @@ http_archive(
 )
 </pre>
   </div>
-  <div style="flex: 1; min-width: 300px;">
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>MODULE.bazel - Bazel Module</strong></p>
-    <pre class="prettyprint lang-py" style="font-size: 12px;">
+    <pre class="prettyprint lang-py" style={{fontSize: "12px"}}>
 bazel_dep(name = "rules_shell", version = "0.6.1")
 </pre>
   </div>
 </div>
 
-<hr style="height: 1px; background-color: black; border: none;"/>
+<hr style={{height: "1px", backgroundColor: "black", border: "none"}}/>
 
-<div style="display: flex; flex-wrap: wrap; gap: 16px;">
-  <div style="flex: 1; min-width: 300px;">
+<div style={{display: "flex", flexWrap: "wrap", gap: "16px"}}>
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>WORKSPACE - Go Extension</strong></p>
-    <pre class="prettyprint lang-java" style="font-size: 12px;">
+    <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
 http_archive(
     name = "io_bazel_rules_go",
     integrity = "sha256-M6zErg9wUC20uJPJ/B3Xqb+ZjCPn/yxFF3QdQEmpdvg=",
@@ -406,9 +406,9 @@ go_repository(
 )
 </pre>
   </div>
-  <div style="flex: 1; min-width: 300px;">
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>MODULE.bazel - Go Extension</strong></p>
-    <pre class="prettyprint lang-py" style="font-size: 12px;">
+    <pre class="prettyprint lang-py" style={{fontSize: "12px"}}>
 go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
 
@@ -427,12 +427,12 @@ go_deps.gazelle_override(
   </div>
 </div>
 
-<hr style="height: 1px; background-color: black; border: none;"/>
+<hr style={{height: "1px", backgroundColor: "black", border: "none"}}/>
 
-<div style="display: flex; flex-wrap: wrap; gap: 16px;">
-  <div style="flex: 1; min-width: 300px;">
+<div style={{display: "flex", flexWrap: "wrap", gap: "16px"}}>
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>WORKSPACE - Python Extension</strong></p>
-    <pre class="prettyprint lang-java" style="font-size: 12px;">
+    <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
 http_archive(
     name = "rules_python",
     integrity = "sha256-qDdnnxOC8mlowe5vg5x9r5B5qlMSgGmh8oFd7KpjcwQ=",
@@ -459,9 +459,9 @@ python_register_toolchains(
 )
 </pre>
   </div>
-  <div style="flex: 1; min-width: 300px;">
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>MODULE.bazel - Python Extension</strong></p>
-    <pre class="prettyprint lang-py" style="font-size: 12px;">
+    <pre class="prettyprint lang-py" style={{fontSize: "12px"}}>
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "my_python_deps",
@@ -477,12 +477,12 @@ python.toolchain(python_version = "3.11")
   </div>
 </div>
 
-<hr style="height: 1px; background-color: black; border: none;"/>
+<hr style={{height: "1px", backgroundColor: "black", border: "none"}}/>
 
-<div style="display: flex; flex-wrap: wrap; gap: 16px;">
-  <div style="flex: 1; min-width: 300px;">
+<div style={{display: "flex", flexWrap: "wrap", gap: "16px"}}>
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>WORKSPACE - Maven Extension</strong></p>
-    <pre class="prettyprint lang-java" style="font-size: 12px;">
+    <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
 
 RULES_JVM_EXTERNAL_TAG = "4.5"
 RULES_JVM_EXTERNAL_SHA = "b17d7388feb9bfa7f2fa09031b32707df529f26c91ab9e5d909eb1676badd9a6"
@@ -511,9 +511,9 @@ maven_install(
 )
 </pre>
   </div>
-  <div style="flex: 1; min-width: 300px;">
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>MODULE.bazel - Maven Extension</strong></p>
-    <pre class="prettyprint lang-py" style="font-size: 12px;">
+    <pre class="prettyprint lang-py" style={{fontSize: "12px"}}>
 bazel_dep(name = "rules_jvm_external", version = "6.8")
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
@@ -529,12 +529,12 @@ maven.artifact(
   </div>
 </div>
 
-<hr style="height: 1px; background-color: black; border: none;"/>
+<hr style={{height: "1px", backgroundColor: "black", border: "none"}}/>
 
-<div style="display: flex; flex-wrap: wrap; gap: 16px;">
-  <div style="flex: 1; min-width: 300px;">
+<div style={{display: "flex", flexWrap: "wrap", gap: "16px"}}>
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>WORKSPACE - Repo rule</strong></p>
-    <pre class="prettyprint lang-java" style="font-size: 12px;">
+    <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -545,9 +545,9 @@ http_archive(
 )
 </pre>
   </div>
-  <div style="flex: 1; min-width: 300px;">
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>MODULE.bazel - Repo rule</strong></p>
-    <pre class="prettyprint lang-py" style="font-size: 12px;">
+    <pre class="prettyprint lang-py" style={{fontSize: "12px"}}>
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -560,12 +560,12 @@ http_archive(
   </div>
 </div>
 
-<hr style="height: 1px; background-color: black; border: none;"/>
+<hr style={{height: "1px", backgroundColor: "black", border: "none"}}/>
 
-<div style="display: flex; flex-wrap: wrap; gap: 16px;">
-  <div style="flex: 1; min-width: 300px;">
+<div style={{display: "flex", flexWrap: "wrap", gap: "16px"}}>
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>WORKSPACE - Module extension</strong></p>
-    <pre class="prettyprint lang-java" style="font-size: 12px;">
+    <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
 load(":my_custom_macro.bzl", "my_custom_macro")
 
 my_custom_macro(
@@ -573,14 +573,14 @@ my_custom_macro(
 )
 </pre>
   </div>
-  <div style="flex: 1; min-width: 300px;">
+  <div style={{flex: "1", minWidth: "300px"}}>
     <p><strong>MODULE.bazel - Module extension</strong></p>
-    <pre class="prettyprint lang-py" style="font-size: 12px;">
+    <pre class="prettyprint lang-py" style={{fontSize: "12px"}}>
 extension_for_my_custom_macro = use_extension("//:extension_for_my_custom_macro.bzl", "extension_for_my_custom_macro")
 use_repo(extension_for_my_custom_macro, "my_custom_repo")
 </pre>
     <p><strong>extension_for_my_custom_macro.bzl</strong></p>
-    <pre class="prettyprint lang-py" style="font-size: 12px;">
+    <pre class="prettyprint lang-py" style={{fontSize: "12px"}}>
 load("//:my_custom_macro.bzl", "my_custom_macro")
 
 def _extension_for_my_custom_macro_impl(ctx):
@@ -593,7 +593,7 @@ extension_for_my_custom_macro = module_extension(implementation = _extension_for
   </div>
 </div>
 
-<hr style="height: 1px; background-color: black; border: none;"/>
+<hr style={{height: "1px", backgroundColor: "black", border: "none"}}/>
 
 ## Tips with debugging {#migration-tool-tips}
 
@@ -641,7 +641,7 @@ from scratch if it's the first run or if the [`--i` flag](#migration-script-flag
     declared in the `WORKSPACE` file, which is particularly useful for the
     debugging. You can see it as:
 
-    <pre class="prettyprint lang-java" style="font-size: 12px;">
+    <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
     > Click here to see where and how the repo was declared in the WORKSPACE
     file
     </pre>
@@ -650,7 +650,7 @@ from scratch if it's the first run or if the [`--i` flag](#migration-script-flag
     earlier [Migration Example](#migration-tool-example), that would look as:
     1.  Bazel module Dependency - `Migration of rules_python`
 
-        <pre class="prettyprint lang-java" style="font-size: 12px;">
+        <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
         Found perfect name match in BCR: rules_python
         Found partially name matches in BCR: rules_python_gazelle_plugin
 
@@ -663,7 +663,7 @@ from scratch if it's the first run or if the [`--i` flag](#migration-script-flag
       added.
     2.  Python extension - `Migration of my_python_deps`
 
-        <pre class="prettyprint lang-java" style="font-size: 12px;">
+        <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
         pip.parse(
             hub_name = "my_python_deps",
             requirements_lock = "//:requirements_lock.txt",
@@ -674,7 +674,7 @@ from scratch if it's the first run or if the [`--i` flag](#migration-script-flag
 
     3.  Maven extension - `Migration of org.antlr (px_deps):`
 
-        <pre class="prettyprint lang-java" style="font-size: 12px;">
+        <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
         maven.artifact(
             name = "px_deps",
             group = "org.antlr",
@@ -685,7 +685,7 @@ from scratch if it's the first run or if the [`--i` flag](#migration-script-flag
 
     4.  Go extension - `Migration of org_golang_x_net`
 
-        <pre class="prettyprint lang-java" style="font-size: 12px;">
+        <pre class="prettyprint lang-java" style={{fontSize: "12px"}}>
         go_deps.from_file(go_mod = "//:go.mod")
         go_sdk.from_file(go_mod = "//:go.mod")
 

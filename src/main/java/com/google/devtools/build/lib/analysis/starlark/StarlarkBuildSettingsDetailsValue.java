@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.Map;
@@ -129,6 +130,8 @@ public record StarlarkBuildSettingsDetailsValue(
   @AutoCodec
   public record Key(ImmutableSet<Label> buildSettings, ImmutableSet<Label> hostFlags)
       implements SkyKey {
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
+
     public Key {
       requireNonNull(buildSettings, "buildSettings");
       requireNonNull(hostFlags, "hostFlags");
@@ -139,8 +142,14 @@ public record StarlarkBuildSettingsDetailsValue(
       return SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS;
     }
 
+    @AutoCodec.Instantiator
     public static Key create(ImmutableSet<Label> buildSettings, ImmutableSet<Label> hostFlags) {
-      return new Key(buildSettings, hostFlags);
+      return interner.intern(new Key(buildSettings, hostFlags));
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 }

@@ -220,30 +220,25 @@ class LauncherTest(test_base.TestBase):
       self.AssertExitCode(exit_code, 0, stderr)
       self.assertEqual(stdout[0], 'hello batch')
 
-  def _buildPyTargets(self, bazel_bin, binary_suffix):
+  def _buildPyTargets(self, bazel_bin):
     # Verify that the build of our py_binary succeeds.
     self.RunBazel(['build', '//foo:foo'])
 
     # Verify that generated files exist.
-    foo_bin = os.path.join(bazel_bin, 'foo', 'foo%s' % binary_suffix)
+    foo_bin = self.GetTargetExecutable('//foo:foo')
+    runfiles_dir = foo_bin + '.runfiles'
     self.assertTrue(os.path.isfile(foo_bin))
-    self.assertTrue(
-        os.path.isdir(
-            os.path.join(bazel_bin, 'foo/foo%s.runfiles' % binary_suffix)))
+    self.assertTrue(os.path.isdir(runfiles_dir))
 
     # Verify contents of runfiles (manifest).
     if self.IsWindows():
       self.AssertRunfilesManifestContains(
-          os.path.join(
-              bazel_bin, 'foo/foo%s.runfiles/MANIFEST' % binary_suffix
-          ),
+          os.path.join(runfiles_dir, 'MANIFEST'),
           '_main/bar/bar.txt',
       )
     else:
       self.assertTrue(
-          os.path.islink(
-              os.path.join(bazel_bin, 'foo/foo.runfiles/_main/bar/bar.txt')
-          )
+          os.path.islink(os.path.join(runfiles_dir, '_main/bar/bar.txt'))
       )
 
     # Try to run the built py_binary.
@@ -263,18 +258,12 @@ class LauncherTest(test_base.TestBase):
     self.RunBazel(['test', '//foo:test'])
 
   def _buildAndCheckArgumentPassing(self, package, target_name):
-    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
-    bazel_bin = stdout[0]
+    target = '//%s:%s' % (package, target_name)
+    self.RunBazel(['build', target])
 
-    self.RunBazel(['build', '//%s:%s' % (package, target_name)])
-
-    bin_suffix = '.exe' if self.IsWindows() else ''
-    bin1 = os.path.join(bazel_bin, package, '%s%s' % (target_name, bin_suffix))
+    bin1 = self.GetTargetExecutable(target)
     self.assertTrue(os.path.exists(bin1))
-    self.assertTrue(
-        os.path.isdir(
-            os.path.join(bazel_bin, '%s/%s%s.runfiles' % (package, target_name,
-                                                          bin_suffix))))
+    self.assertTrue(os.path.isdir(bin1 + '.runfiles'))
 
     arguments = ['a', 'a b', '"b"', 'C:\\a\\b\\', '"C:\\a b\\c\\"']
     _, stdout, _ = self.RunProgram([bin1] + arguments)
@@ -484,7 +473,7 @@ class LauncherTest(test_base.TestBase):
 
     _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
-    self._buildPyTargets(bazel_bin, '.exe' if self.IsWindows() else '')
+    self._buildPyTargets(bazel_bin)
 
   def testPyBinaryArgumentPassing(self):
     self.AddBazelDep('rules_python')
@@ -521,15 +510,11 @@ class LauncherTest(test_base.TestBase):
     )
     self.ScratchFile('foo/bin.py', ['print("Hello world")'])
 
-    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
-    bazel_bin = stdout[0]
-
     # Verify that the build of our py_binary succeeds.
     self.RunBazel(['build', '//foo:bin'])
 
     # Try to run the built py_binary.
-    binary_suffix = '.exe' if self.IsWindows() else ''
-    foo_bin = os.path.join(bazel_bin, 'foo', 'bin%s' % binary_suffix)
+    foo_bin = self.GetTargetExecutable('//foo:bin')
     args = [r'C:\Invalid.exe' if self.IsWindows() else '/invalid']
     _, stdout, _ = self.RunProgram(args, executable=foo_bin)
     self.assertEqual(stdout[0], 'Hello world')
@@ -660,7 +645,50 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([binary, '--classpath_limit=0', print_cmd])
     self.assertIn('-classpath', stdout)
     classpath = stdout[stdout.index('-classpath') + 1]
-    self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.jar$')
+    self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.(jar|txt)$')
+
+  def testWindowsShBinaryLauncherWithoutRunfilesManifest(self):
+    # Without a runfiles manifest, e.g. in a remotely executed action, the
+    # launcher derives the script's path from its own path, so the script's
+    # path contains backslashes.
+    if not self.IsWindows():
+      return
+    self.AddBazelDep('rules_shell')
+    self.ScratchFile(
+        'bin/BUILD',
+        [
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
+            '  name = "bin_sh",',
+            '  srcs = ["main.sh"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'bin/main.sh',
+        [
+            'echo "helloworld"',
+        ],
+    )
+
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
+    bazel_bin = stdout[0]
+
+    self.RunBazel(['build', '//bin:bin_sh'])
+
+    launcher = self.CopyFile(
+        os.path.join(bazel_bin, 'bin', 'bin_sh.exe'),
+        'nomanifest/bin_sh.exe',
+        executable=True,
+    )
+    self.CopyFile(
+        os.path.join(bazel_bin, 'bin', 'bin_sh'),
+        'nomanifest/bin_sh.exe.runfiles/_main/bin/bin_sh',
+        executable=True,
+    )
+
+    _, stdout, _ = self.RunProgram([launcher])
+    self.assertEqual('helloworld', ''.join(stdout))
 
   def testWindowsNativeLauncherInNonEnglishPath(self):
     if not self.IsWindows():
@@ -767,6 +795,9 @@ class LauncherTest(test_base.TestBase):
 
     exit_code, _, stderr = self.RunBazel(['build', '//bin/...'])
     self.AssertExitCode(exit_code, 0, stderr)
+    py_bin_dir = os.path.dirname(
+        self.GetTargetExecutable('//bin:not_short_bin_py')
+    )
 
     # Create a directory with a path longer than 260
     long_dir_path = './' + '/'.join(
@@ -775,18 +806,26 @@ class LauncherTest(test_base.TestBase):
     # The 'not_short_' prefix ensures that the basenames are not already 8.3
     # short paths. Due to the long directory path, the basename will thus be
     # replaced with a short path such as "not_sh~1.exe" below.
-    for f in [
-        'not_short_bin_java.exe',
-        'not_short_bin_java.exe.runfiles_manifest',
-        'not_short_bin_sh.exe',
-        'not_short_bin_sh',
-        'not_short_bin_sh.exe.runfiles_manifest',
-        'not_short_bin_py.exe',
-        'not_short_bin_py.zip',
-        'not_short_bin_py.exe.runfiles_manifest',
-    ]:
-      self.CopyFile(
-          os.path.join(bazel_bin, 'bin', f), os.path.join(long_dir_path, f))
+    files_to_copy = [
+        (os.path.join(bazel_bin, 'bin', f), f)
+        for f in [
+            'not_short_bin_java.exe',
+            'not_short_bin_java.exe.runfiles_manifest',
+            'not_short_bin_sh.exe',
+            'not_short_bin_sh',
+            'not_short_bin_sh.exe.runfiles_manifest',
+        ]
+    ]
+    files_to_copy.extend([
+        (os.path.join(py_bin_dir, f), f)
+        for f in [
+            'not_short_bin_py.exe',
+            'not_short_bin_py.zip',
+            'not_short_bin_py.exe.runfiles_manifest',
+        ]
+    ])
+    for source, filename in files_to_copy:
+      self.CopyFile(source, os.path.join(long_dir_path, filename))
 
     long_binary_path = os.path.abspath(
         long_dir_path + '/not_short_bin_java.exe'
@@ -876,6 +915,7 @@ class LauncherTest(test_base.TestBase):
     bazel_bin = stdout[0]
 
     self.RunBazel(['build', '//bin/...'])
+    py_binary = self.GetTargetExecutable('//bin:bin_py')
 
     _, stdout, _ = self.RunProgram(
         ['C:\\Invalid'],
@@ -888,9 +928,7 @@ class LauncherTest(test_base.TestBase):
     )
     self.assertEqual('helloworld', ''.join(stdout))
 
-    _, stdout, _ = self.RunProgram(
-        ['C:\\Invalid'], executable=os.path.join(bazel_bin, 'bin', 'bin_py.exe')
-    )
+    _, stdout, _ = self.RunProgram(['C:\\Invalid'], executable=py_binary)
     self.assertEqual('helloworld', ''.join(stdout))
 
   # Regression test for https://github.com/bazelbuild/bazel/issues/29819
@@ -910,11 +948,8 @@ class LauncherTest(test_base.TestBase):
     )
     self.ScratchFile('not_an_installer.py', ['print("hello")'])
 
-    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
-    bazel_bin = stdout[0]
-
     self.RunBazel(['build', '//:not_an_installer'])
-    exe = os.path.join(bazel_bin, 'not_an_installer.exe')
+    exe = self.GetTargetExecutable('//:not_an_installer')
     self.assertTrue(os.path.isfile(exe))
 
     # first, verify the manifest's content

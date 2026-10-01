@@ -862,7 +862,10 @@ public class OptionsParser implements OptionsParsingResult {
 
     asCompleteListOfParsedOptions().stream()
         .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
-        .filter(option -> !option.getCanonicalForm().contains("default_override"))
+        // Exclude the synthetic launcher option --default_override from user options.
+        // We match by option definition name rather than canonical form substring so that
+        // valid user options whose values contain "default_override" are not dropped.
+        .filter(option -> !option.getOptionDefinition().getOptionName().equals("default_override"))
         .forEach(option -> userOptions.put(option.getCanonicalForm(), getFinalExpansion(option)));
     impl.getSkippedOptions().stream()
         .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())

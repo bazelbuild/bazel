@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -354,5 +355,98 @@ public final class RunfilesTest extends FoundationTestCase {
     assertThat(runfiles.getEmptyFilenames())
         .containsExactly(
             PathFragment.create("my-artifact-empty"), PathFragment.create("my-symlink-empty"));
+  }
+
+  @Test
+  public void testGetRunfilesInputsPreferOriginatingTargetConfiguration() throws Exception {
+
+    ArtifactRoot targetConfigRoot =
+        ArtifactRoot.asDerivedRoot(
+            scratch.resolve("/execroot"), ArtifactRoot.RootType.OUTPUT, "bin");
+    ArtifactRoot otherConfigRoot =
+        ArtifactRoot.asDerivedRoot(
+            scratch.resolve("/execroot"), ArtifactRoot.RootType.OUTPUT, "bin-other");
+    ArtifactRoot anotherConfigRoot =
+        ArtifactRoot.asDerivedRoot(
+            scratch.resolve("/execroot"), ArtifactRoot.RootType.OUTPUT, "bin-another");
+
+    Artifact targetConfigArtifact = ActionsTestUtil.createArtifact(targetConfigRoot, "artifact");
+    Artifact otherConfigArtifact = ActionsTestUtil.createArtifact(otherConfigRoot, "artifact");
+    Artifact anotherConfigArtifact = ActionsTestUtil.createArtifact(anotherConfigRoot, "artifact");
+
+    // Case 1: The preferred artifact is added last in the builder
+    Runfiles runfilesLast =
+        new Runfiles.Builder("TESTING")
+            .addArtifact(otherConfigArtifact)
+            .addArtifact(targetConfigArtifact)
+            .build();
+    assertThat(
+            runfilesLast.getRunfilesInputs(
+                warningPrefixConflictReceiver(), /* repoMappingManifest= */ null, targetConfigRoot))
+        .containsEntry(PathFragment.create("TESTING/artifact"), targetConfigArtifact);
+
+    // Case 2: The preferred artifact is added first in the builder
+    Runfiles runfilesFirst =
+        new Runfiles.Builder("TESTING")
+            .addArtifact(targetConfigArtifact)
+            .addArtifact(otherConfigArtifact)
+            .build();
+    assertThat(
+            runfilesFirst.getRunfilesInputs(
+                warningPrefixConflictReceiver(), /* repoMappingManifest= */ null, targetConfigRoot))
+        .containsEntry(PathFragment.create("TESTING/artifact"), targetConfigArtifact);
+
+    // Case 3: Neither artifact has the same artifact root as the originating target, and the last
+    // one should be kept
+    Runfiles runfilesNeither =
+        new Runfiles.Builder("TESTING")
+            .addArtifact(otherConfigArtifact)
+            .addArtifact(anotherConfigArtifact)
+            .build();
+    assertThat(
+            runfilesNeither.getRunfilesInputs(
+                warningPrefixConflictReceiver(), /* repoMappingManifest= */ null, targetConfigRoot))
+        .containsEntry(PathFragment.create("TESTING/artifact"), anotherConfigArtifact);
+  }
+
+  @Test
+  public void testFingerprintPreferOriginatingTargetConfiguration() throws Exception {
+    ArtifactRoot targetConfigRoot =
+        ArtifactRoot.asDerivedRoot(
+            scratch.resolve("/execroot"), ArtifactRoot.RootType.OUTPUT, "bin");
+    ArtifactRoot otherConfigRoot =
+        ArtifactRoot.asDerivedRoot(
+            scratch.resolve("/execroot"), ArtifactRoot.RootType.OUTPUT, "bin-other");
+
+    Artifact targetConfigArtifact = ActionsTestUtil.createArtifact(targetConfigRoot, "artifact");
+    Artifact otherConfigArtifact = ActionsTestUtil.createArtifact(otherConfigRoot, "artifact");
+
+    Runfiles runfiles =
+        new Runfiles.Builder("TESTING")
+            .addArtifact(targetConfigArtifact)
+            .addArtifact(otherConfigArtifact)
+            .build();
+
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    Fingerprint fp1 = new Fingerprint();
+    runfiles.fingerprint(actionKeyContext, fp1, /* digestAbsolutePaths= */ false, targetConfigRoot);
+
+    Fingerprint fp2 = new Fingerprint();
+    runfiles.fingerprint(actionKeyContext, fp2, /* digestAbsolutePaths= */ false, otherConfigRoot);
+
+    Fingerprint fpNull = new Fingerprint();
+    runfiles.fingerprint(actionKeyContext, fpNull, /* digestAbsolutePaths= */ false, null);
+
+    Fingerprint fpDefault = new Fingerprint();
+    runfiles.fingerprint(actionKeyContext, fpDefault, /* digestAbsolutePaths= */ false);
+
+    String fp1Hex = fp1.hexDigestAndReset();
+    String fp2Hex = fp2.hexDigestAndReset();
+    String fpNullHex = fpNull.hexDigestAndReset();
+    String fpDefaultHex = fpDefault.hexDigestAndReset();
+
+    assertThat(fp1Hex).isNotEqualTo(fp2Hex);
+    assertThat(fp1Hex).isNotEqualTo(fpNullHex);
+    assertThat(fpNullHex).isEqualTo(fpDefaultHex);
   }
 }

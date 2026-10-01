@@ -508,6 +508,39 @@ public class UrlRewriterTest {
     assertThat(amended).isEmpty();
   }
 
+  @Test
+  public void shouldSupportUrlEncodeInRewriteRule() throws Exception {
+    String config = "rewrite example.com/(.*) mirror.com/${urlencode($1)}";
+    UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
+
+    ImmutableList<URI> urls =
+        ImmutableList.of(URI.create("https://example.com/foo/bar?baz=1&qux=2"));
+    ImmutableList<URI> amended =
+        munger.amend(urls).stream().map(UrlRewriter.RewrittenURL::url).collect(toImmutableList());
+
+    assertThat(amended).containsExactly(URI.create("https://mirror.com/foo/bar%3Fbaz=1&qux=2"));
+  }
+
+  @Test
+  public void shouldSupportUrlEncodeWithoutBracesInRewriteRule() throws Exception {
+    String config = "rewrite example.com/(.*) mirror.com/urlencode($1)";
+    UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
+
+    ImmutableList<URI> urls = ImmutableList.of(URI.create("https://example.com/foo/bar-baz?qux=1"));
+    ImmutableList<URI> amended =
+        munger.amend(urls).stream().map(UrlRewriter.RewrittenURL::url).collect(toImmutableList());
+
+    assertThat(amended).containsExactly(URI.create("https://mirror.com/foo/bar-baz%3Fqux=1"));
+  }
+
+  @Test
+  public void shouldThrowOnInvalidUrlEncodeSyntax() throws Exception {
+    String config = "rewrite example.com/(.*) mirror.com/urlencode($abc)";
+    assertThrows(
+        UrlRewriterParseException.class,
+        () -> testUrlRewriter("/dev/null", new StringReader(config)));
+  }
+
   private static Credentials parseNetrc(String content)
       throws IOException, UrlRewriterParseException {
     String home = "/home/foo";

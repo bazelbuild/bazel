@@ -18,10 +18,15 @@ import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 /** A factory interface for creating a {@link ManagedChannel}. */
 public interface ChannelFactory {
   ManagedChannel newChannel(
-      String target, String proxy, AuthAndTLSOptions options, List<ClientInterceptor> interceptors)
+      String target,
+      String proxy,
+      AuthAndTLSOptions options,
+      List<ClientInterceptor> interceptors,
+      Map<String, ?> serviceConfig)
       throws IOException;
 }

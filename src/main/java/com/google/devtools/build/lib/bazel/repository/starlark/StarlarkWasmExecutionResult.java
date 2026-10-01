@@ -60,6 +60,11 @@ final class StarlarkWasmExecutionResult implements StarlarkValue {
   }
 
   @Override
+  public boolean isAcyclic() {
+    return true;
+  }
+
+  @Override
   public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<wasm_exec_result return_code=");
     printer.repr(returnCode, semantics);

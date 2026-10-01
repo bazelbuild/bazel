@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
@@ -46,6 +47,7 @@ public final class SkycacheUploadClient {
   private final SelectedEntrySerializer.SerializationStatus writeStatuses;
 
   public SkycacheUploadClient(
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierNodeVersion,
@@ -59,6 +61,7 @@ public final class SkycacheUploadClient {
         new FileDependencySerializer(
             versionGetter,
             graph,
+            compressionService,
             fingerprintValueService,
             fingerprintValueService.getExecutor(),
             /* profileCollector= */ null);
@@ -71,6 +74,7 @@ public final class SkycacheUploadClient {
             graph,
             codecs,
             frontierNodeVersion,
+            compressionService,
             fingerprintValueService,
             fileOpNodes,
             fileDependencySerializer,
@@ -103,7 +107,8 @@ public final class SkycacheUploadClient {
                     .addAll(temporaryDirectDeps.getAllElementsAsIterable())
                     .addAll(newlyRequestedDeps)
                     .build();
-        selectedEntrySerializer.uploadAnalysisEntry(analysisKey, value, deps);
+        selectedEntrySerializer.uploadAnalysisEntry(
+            analysisKey, value, deps, env.getMaxTransitiveSourceVersionSoFar());
       } else {
         // This is an execution-phase entry. We need the deps of its owner, which should be
         // available
@@ -130,7 +135,7 @@ public final class SkycacheUploadClient {
   }
 
   public void waitForCompletion() throws InterruptedException, ExecutionException {
-    writeStatuses.notifyAllStarted();
+    writeStatuses.finishRegistration();
     ImmutableList<Throwable> errors = writeStatuses.get();
     if (errors.isEmpty()) {
       return;

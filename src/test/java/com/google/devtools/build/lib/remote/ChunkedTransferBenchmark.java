@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -26,8 +27,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.chunking.FastCdcChunker;
+import com.google.devtools.build.lib.remote.chunking.FastCdcChunkingConfig;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -78,7 +79,7 @@ public class ChunkedTransferBenchmark {
 
   @Benchmark
   public void uploadChunked(UploadState state) throws Exception {
-    state.uploader.uploadChunked(CONTEXT, state.blobDigest, state.file);
+    state.uploader.uploadChunked(CONTEXT, state.blobDigest, state.file, /* force= */ false);
   }
 
   @State(Scope.Thread)
@@ -141,12 +142,13 @@ public class ChunkedTransferBenchmark {
 
       SplitBlobResponse splitBlobResponse =
           SplitBlobResponse.newBuilder().addAllChunkDigests(chunkDigests).build();
-      when(grpcCacheClient.splitBlob(any(), any(Digest.class)))
+      when(grpcCacheClient.splitBlob(any(), any(Digest.class), any()))
           .thenReturn(Futures.immediateFuture(splitBlobResponse));
 
-      ChunkingConfig chunkingConfig = new ChunkingConfig(chunkSizeBytes, 2, 0);
+      FastCdcChunkingConfig chunkingConfig = new FastCdcChunkingConfig(chunkSizeBytes, 2, 0);
       downloader =
-          new ChunkedBlobDownloader(grpcCacheClient, combinedCache, chunkingConfig, DIGEST_UTIL);
+          new ChunkedBlobDownloader(
+              grpcCacheClient, combinedCache, chunkingConfig, DIGEST_UTIL, new ChunkLocationMap());
     }
 
     @TearDown(Level.Trial)
@@ -197,7 +199,7 @@ public class ChunkedTransferBenchmark {
         out.write(data);
       }
 
-      ChunkingConfig chunkingConfig = new ChunkingConfig(avgChunkSizeBytes, 2, 0);
+      FastCdcChunkingConfig chunkingConfig = new FastCdcChunkingConfig(avgChunkSizeBytes, 2, 0);
       uploader =
           new ChunkedBlobUploader(grpcCacheClient, combinedCache, chunkingConfig, DIGEST_UTIL);
 
@@ -208,9 +210,9 @@ public class ChunkedTransferBenchmark {
 
       when(grpcCacheClient.findMissingDigests(any(), any()))
           .thenReturn(Futures.immediateFuture(ImmutableSet.copyOf(chunkDigests)));
-      when(grpcCacheClient.spliceBlob(any(), any(Digest.class), any()))
+      when(grpcCacheClient.spliceBlob(any(), any(Digest.class), any(), any()))
           .thenReturn(Futures.immediateVoidFuture());
-      when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+      when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), anyBoolean()))
           .thenAnswer(
               invocation ->
                   delayedFuture(null, delayMillis, jitterMillis, latencyJitter, scheduler));

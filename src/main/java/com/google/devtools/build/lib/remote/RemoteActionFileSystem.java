@@ -19,7 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -103,7 +104,7 @@ import javax.annotation.Nullable;
  * sources, such as the same path existing in multiple underlying sources with different type or
  * contents.
  */
-public class RemoteActionFileSystem extends FileSystem implements PathCanonicalizer.Resolver {
+public class RemoteActionFileSystem extends FileSystem {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final InputMetadataProvider inputArtifactData;
@@ -247,10 +248,23 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
-    this.pathCanonicalizer = new PathCanonicalizer(this);
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.localFs = checkNotNull(localFs, "localFs");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
+    this.pathCanonicalizer =
+        new PathCanonicalizer(
+            new PathCanonicalizer.Resolver() {
+              @Override
+              @Nullable
+              public FileStatus statIfFound(PathFragment path) throws IOException {
+                return statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
+              }
+
+              @Override
+              public PathFragment readSymbolicLink(PathFragment path) throws IOException {
+                return readSymbolicLinkInternal(path);
+              }
+            });
   }
 
   @Override
@@ -360,6 +374,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       path = resolveSymbolicLinksForParent(path);
     } catch (FileNotFoundException ignored) {
       // Failure to delete a nonexistent path is not an error.
+      pathCanonicalizer.clearPrefix(originalPath);
       return false;
     }
 
@@ -623,15 +638,6 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   }
 
   @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
-    try {
-      return statIfFound(path, followSymlinks) != null;
-    } catch (IOException e) {
-      return false;
-    }
-  }
-
-  @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     FileStatus stat = statIfFound(path, followSymlinks);
     if (stat == null) {
@@ -647,15 +653,6 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
         path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
 
-  @Nullable
-  @Override
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    try {
-      return statIfFound(path, followSymlinks);
-    } catch (IOException e) {
-      return null;
-    }
-  }
 
   /**
    * Internal stat implementation.
@@ -894,13 +891,21 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   }
 
   private Dirent maybeFollowSymlinkForDirent(
-      PathFragment dirPath, Dirent entry, boolean followSymlinks) {
+      PathFragment dirPath, Dirent entry, boolean followSymlinks) throws IOException {
     if (!followSymlinks || !entry.getType().equals(Dirent.Type.SYMLINK)) {
       return entry;
     }
     PathFragment path = dirPath.getChild(entry.getName());
-    FileStatus st = statNullable(path, /* followSymlinks= */ true);
-    return new Dirent(entry.getName(), direntFromStat(st));
+    Dirent.Type type = Dirent.Type.UNKNOWN;
+    try {
+      FileStatus stat = statIfFound(path, /* followSymlinks= */ true);
+      if (stat != null) {
+        type = direntFromStat(stat);
+      }
+    } catch (FileSymlinkLoopException e) {
+      // Intentionally ignored - report looping symlinks as UNKNOWN.
+    }
+    return new Dirent(entry.getName(), type);
   }
 
   @Override

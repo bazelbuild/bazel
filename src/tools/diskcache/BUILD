@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src:__pkg__"],
 )
 
 java_binary(
@@ -24,6 +24,6 @@ java_binary(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:concurrent",
     ],
 )

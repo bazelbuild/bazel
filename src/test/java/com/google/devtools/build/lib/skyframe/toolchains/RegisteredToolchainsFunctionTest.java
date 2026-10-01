@@ -195,8 +195,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
-            "invalid registered toolchain '//error:not_a_toolchain': "
-                + "target does not provide the DeclaredToolchainInfo provider");
+            "invalid registered toolchain '//error:not_a_toolchain':\n"
+                + "  target does not provide the DeclaredToolchainInfo provider");
   }
 
   // Test confirming that targets with the kind `toolchain rule` will be properly rejected if they
@@ -231,8 +231,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
-            "invalid registered toolchain '//error:not_a_toolchain': "
-                + "target does not provide the DeclaredToolchainInfo provider");
+            "invalid registered toolchain '//error:not_a_toolchain':\n"
+                + "  target does not provide the DeclaredToolchainInfo provider");
   }
 
   // Test exercising an edge case in the current RegisteredToolchainsFunction logic: if a target
@@ -268,8 +268,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
-            "invalid registered toolchain '//error:not_a_toolchain': "
-                + "target does not provide the DeclaredToolchainInfo provider");
+            "invalid registered toolchain '//error:not_a_toolchain':\n"
+                + "  target does not provide the DeclaredToolchainInfo provider");
   }
 
   @Test

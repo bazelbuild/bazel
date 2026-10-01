@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import javax.annotation.Nullable;
 
 /** Implementation of {@link NativePosixFilesService}. */
+@ScOnly
 public final class NativePosixFilesServiceImpl implements NativePosixFilesService {
 
   public NativePosixFilesServiceImpl() {}
@@ -87,4 +89,13 @@ public final class NativePosixFilesServiceImpl implements NativePosixFilesServic
     BugReport.sendNonFatalBugReport(
         new IllegalStateException("Path string does not have a Latin-1 coder: %s".formatted(path)));
   }
+
+  /** Concrete implementation of {@link NativePosixFilesService.Dirent} as a record. */
+  public static record DirentImpl(String name, NativePosixFilesService.Dirent.Type type)
+      implements NativePosixFilesService.Dirent {}
+
+  /** Concrete implementation of {@link NativePosixFilesService.Stat} as a record. */
+  @SuppressWarnings("GoodTime")
+  public static record StatImpl(int mode, long mtime, long ctime, long size, long ino)
+      implements NativePosixFilesService.Stat {}
 }

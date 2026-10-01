@@ -47,6 +47,17 @@ public abstract class StarlarkDebuggerOptions extends OptionsBase {
   public abstract int getDebugServerPort();
 
   @Option(
+      name = "experimental_skylark_debug_server_address",
+      defaultValue = "127.0.0.1",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "The address on which the Starlark debug server will listen for connections,"
+              + " defaults to local loopback.")
+  public abstract String getDebugServerAddress();
+
+  @Option(
       name = "experimental_skylark_debug_verbose_logging",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

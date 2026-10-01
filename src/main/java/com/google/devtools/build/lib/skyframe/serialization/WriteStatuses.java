@@ -14,22 +14,18 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 
 import com.google.common.util.concurrent.AbstractFuture;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.AccumulatingQuiescingFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.Collection;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Container for {@link WriteStatus} and its implementations.
@@ -38,7 +34,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * inner classes, requires all the implementations to be public.
  */
 public class WriteStatuses {
-
 
   /** Returns the stateless, immediately successful write status. */
   public static WriteStatus immediateWriteStatus() {
@@ -80,11 +75,9 @@ public class WriteStatuses {
    *
    * <p>Uses less memory in-flight than {@link Futures#whenAllSucceed} because it does not retain
    * the list of input futures and therefore also releases those futures earlier.
-   *
-   * <p>Preserves all callback edges.
    */
-  private static final class AggregateWriteStatus extends QuiescingFuture<Boolean>
-      implements WriteStatus, FutureCallback<Boolean> {
+  private static final class AggregateWriteStatus
+      extends AccumulatingQuiescingFuture<Boolean, Boolean> implements WriteStatus {
     private volatile boolean wasNovel = false;
 
     private static WriteStatus create(Iterable<WriteStatus> writeStatuses) {
@@ -92,7 +85,7 @@ public class WriteStatuses {
     }
 
     private AggregateWriteStatus() {
-      super(directExecutor());
+      super(safeDirectExecutor());
     }
 
     @Override
@@ -100,42 +93,11 @@ public class WriteStatuses {
       return wasNovel;
     }
 
-    /**
-     * Implementation of {@link FutureCallback<Boolean>}.
-     *
-     * @deprecated only used by {@link #create} for callback processing
-     */
-    @Deprecated
     @Override
-    public void onSuccess(Boolean novel) {
+    protected void accumulateFutureResult(Boolean novel) {
       if (novel) {
         var unused = WAS_NOVEL_HANDLE.compareAndSet(this, false, true);
       }
-      decrement();
-    }
-
-    /**
-     * Implementation of {@link FutureCallback<Boolean>}.
-     *
-     * @deprecated only used by {@link #create} for callback processing
-     */
-    @Deprecated
-    @Override
-    public void onFailure(Throwable t) {
-      if (t instanceof CancellationException) {
-        cancel(/* mayInterruptIfRunning= */ false); // nothing running
-        return;
-      }
-      notifyException(t);
-    }
-
-    private void add(ListenableFuture<Boolean> status) {
-      increment();
-      Futures.addCallback(status, (FutureCallback<Boolean>) this, directExecutor());
-    }
-
-    private void clearPreincrement() {
-      decrement();
     }
 
     private static final VarHandle WAS_NOVEL_HANDLE;
@@ -154,29 +116,39 @@ public class WriteStatuses {
   /**
    * Builder for {@link WriteStatus}.
    *
-   * <p>This builder is thread safe, but {@link #build} should only be called once.
+   * <p>This builder is thread safe, and {@link #build} is idempotent. Neither {@link #add} nor
+   * {@link #addAll} may be called after {@link #build}.
    */
   public static final class WriteStatusBuilder {
     private ListenableFuture<Boolean> first = null;
     private AggregateWriteStatus aggregate = null;
-    private final AtomicBoolean preincrementCleared = new AtomicBoolean(false);
+    private boolean built = false;
 
-    /** Adds a status to the aggregate. */
+    /**
+     * Adds a status to the aggregate.
+     *
+     * @throws IllegalStateException if called after {@link #build}
+     */
     @CanIgnoreReturnValue
     public synchronized WriteStatusBuilder add(ListenableFuture<Boolean> status) {
+      checkState(!built, "cannot add to WriteStatusBuilder after build()");
       if (first == null) {
         first = status;
       } else if (aggregate == null) {
         aggregate = new AggregateWriteStatus();
-        aggregate.add(first);
-        aggregate.add(status);
+        aggregate.addFuture(first, safeDirectExecutor());
+        aggregate.addFuture(status, safeDirectExecutor());
       } else {
-        aggregate.add(status);
+        aggregate.addFuture(status, safeDirectExecutor());
       }
       return this;
     }
 
-    /** Adds all statuses to the aggregate. */
+    /**
+     * Adds all statuses to the aggregate.
+     *
+     * @throws IllegalStateException if called after {@link #build}
+     */
     @CanIgnoreReturnValue
     public synchronized WriteStatusBuilder addAll(
         Iterable<? extends ListenableFuture<Boolean>> statuses) {
@@ -189,24 +161,29 @@ public class WriteStatuses {
     /**
      * Builds and returns the aggregated {@link WriteStatus}.
      *
-     * <p>Should only be called once.
+     * <p>This method is idempotent; subsequent calls return the same {@link WriteStatus}.
      */
     public synchronized WriteStatus build() {
-      checkState(!preincrementCleared.getAndSet(true), "build must only be called once");
       if (first == null) {
+        built = true;
         // Zero dependency statuses.
         return immediateWriteStatus();
       }
       if (aggregate == null) {
+        built = true;
         // One dependency status. Return it, possibly wrapping it with SettableWriteStatus.
         if (first instanceof WriteStatus) {
           return (WriteStatus) first;
         }
         SettableWriteStatus wrapper = new SettableWriteStatus();
         wrapper.completeWithFuture(first);
+        first = wrapper;
         return wrapper;
       }
-      aggregate.clearPreincrement();
+      if (!built) {
+        aggregate.finishRegistration();
+        built = true;
+      }
       return aggregate;
     }
   }
@@ -295,41 +272,10 @@ public class WriteStatuses {
     }
   }
 
-  private static final class ImmediateFailedWriteStatus implements WriteStatus {
-    private final ExecutionException exception;
-
+  private static final class ImmediateFailedWriteStatus extends AbstractFuture<Boolean>
+      implements WriteStatus {
     private ImmediateFailedWriteStatus(Throwable cause) {
-      this.exception = new ExecutionException(cause);
-    }
-
-    @Override
-    public void addListener(Runnable listener, Executor executor) {
-      executor.execute(listener); // Immediately executes listener.
-    }
-
-    @Override
-    public boolean cancel(boolean mayInterruptIfRunning) {
-      return false;
-    }
-
-    @Override
-    public Boolean get() throws ExecutionException {
-      throw exception;
-    }
-
-    @Override
-    public Boolean get(long timeout, TimeUnit unit) throws ExecutionException {
-      return get();
-    }
-
-    @Override
-    public boolean isCancelled() {
-      return false;
-    }
-
-    @Override
-    public boolean isDone() {
-      return true;
+      setException(cause);
     }
   }
 

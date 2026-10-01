@@ -160,8 +160,9 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
             // Based on BuildRequest#getTopLevelArtifactContext.
             new TopLevelArtifactContext(
                 false,
-                false,
-                OutputGroupInfo.determineOutputGroups(outputGroups, ValidationMode.OFF, false)));
+                OutputGroupInfo.determineOutputGroups(outputGroups, ValidationMode.OFF, false),
+                /* failOnUnknownOutputGroups= */ false,
+                /* forRunCommand= */ false));
     env.evaluateQuery(expression, callback);
     return Pattern.compile("\n")
         .splitAsStream(output.toString(UTF_8))

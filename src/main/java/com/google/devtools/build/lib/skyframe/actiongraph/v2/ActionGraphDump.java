@@ -76,6 +76,7 @@ public class ActionGraphDump {
   private final boolean includeFileWriteContents;
   private final AqueryOutputHandler aqueryOutputHandler;
   private final ExtendedEventHandler eventHandler;
+  @Nullable private Set<ActionAnalysisMetadata> reachableActions;
 
   private Map<String, Iterable<String>> paramFileNameToContentMap;
 
@@ -119,6 +120,7 @@ public class ActionGraphDump {
     this.includeFileWriteContents = includeFileWriteContents;
     this.aqueryOutputHandler = aqueryOutputHandler;
     this.eventHandler = eventHandler;
+    this.reachableActions = null;
 
     KnownRuleClassStrings knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
     knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
@@ -128,7 +130,12 @@ public class ActionGraphDump {
     knownTargets = new KnownTargets(aqueryOutputHandler, knownRuleClassStrings);
   }
 
+  public void setReachableActions(@Nullable Set<ActionAnalysisMetadata> reachableActions) {
+    this.reachableActions = reachableActions;
+  }
+
   public ActionKeyContext getActionKeyContext() {
+
     return actionKeyContext;
   }
 
@@ -155,8 +162,8 @@ public class ActionGraphDump {
       getParamFileNameToContentMap().put(paramFileExecPath, fileContent);
     }
 
-    if (actionFilters != null
-        && !AqueryUtils.matchesAqueryFilters(action, actionFilters, includePrunedInputs)) {
+    if (!AqueryUtils.matchesAqueryFilters(
+        action, actionFilters, includePrunedInputs, reachableActions)) {
       return;
     }
 

@@ -14,10 +14,16 @@
 package com.google.devtools.build.lib.remote.merkletree;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.DirectoryNode;
+import build.bazel.remote.execution.v2.FileNode;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,40 +37,54 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.VirtualActionInput;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class MerkleTreeComputerTest {
+  private static final String WORKSPACE_NAME = "_main";
+
   private Path execRoot;
   private ArtifactRoot artifactRoot;
 
@@ -162,7 +182,6 @@ public class MerkleTreeComputerTest {
                         ImmutableSet.of(),
                         /* scrubber= */ null,
                         createSpawnExecutionContext(spawn, delayedMetadataProvider),
-                        RemotePathResolver.createDefault(execRoot),
                         MerkleTreeComputer.BlobPolicy.KEEP);
               } catch (Throwable t) {
                 if (t instanceof InterruptedException) {
@@ -185,7 +204,6 @@ public class MerkleTreeComputerTest {
             ImmutableSet.of(),
             /* scrubber= */ null,
             createSpawnExecutionContext(spawn, fakeFileCache),
-            RemotePathResolver.createDefault(execRoot),
             MerkleTreeComputer.BlobPolicy.KEEP);
   }
 
@@ -203,44 +221,8 @@ public class MerkleTreeComputerTest {
         treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
     fakeFileCache.putTreeArtifact(treeArtifactInput, treeArtifactBuilder.build());
     var spawn = new SpawnBuilder().withInputs(treeArtifactInput).build();
-    var ensureInputsPresentCount = new AtomicInteger();
-    var merkleTreeComputer =
-        createMerkleTreeComputer(
-            new MerkleTreeUploader() {
-              @Override
-              public ListenableFuture<Void> uploadBlob(
-                  RemoteActionExecutionContext context, Digest digest, byte[] data, boolean force) {
-                return immediateVoidFuture();
-              }
-
-              @Override
-              public ListenableFuture<Void> uploadFile(
-                  RemoteActionExecutionContext context,
-                  RemotePathResolver remotePathResolver,
-                  Digest digest,
-                  Path path,
-                  boolean force) {
-                return immediateVoidFuture();
-              }
-
-              @Override
-              public ListenableFuture<Void> uploadVirtualActionInput(
-                  RemoteActionExecutionContext context,
-                  Digest digest,
-                  VirtualActionInput virtualActionInput,
-                  boolean force) {
-                return immediateVoidFuture();
-              }
-
-              @Override
-              public void ensureInputsPresent(
-                  RemoteActionExecutionContext context,
-                  MerkleTree.Uploadable merkleTree,
-                  boolean force,
-                  RemotePathResolver remotePathResolver) {
-                ensureInputsPresentCount.incrementAndGet();
-              }
-            });
+    var uploader = new CountingMerkleTreeUploader();
+    var merkleTreeComputer = createMerkleTreeComputer(uploader);
 
     var treeFileMetadataAccessed = new CountDownLatch(1);
     var treeFileMetadataContinue = new CountDownLatch(1);
@@ -311,7 +293,6 @@ public class MerkleTreeComputerTest {
                         ImmutableSet.of(),
                         /* scrubber= */ null,
                         createSpawnExecutionContext(spawn, delayedMetadataProvider),
-                        RemotePathResolver.createDefault(execRoot),
                         MerkleTreeComputer.BlobPolicy.KEEP);
               } catch (Throwable t) {
                 if (t instanceof InterruptedException) {
@@ -339,7 +320,6 @@ public class MerkleTreeComputerTest {
                           ImmutableSet.of(),
                           /* scrubber= */ null,
                           createSpawnExecutionContext(spawn, fakeFileCache),
-                          RemotePathResolver.createDefault(execRoot),
                           MerkleTreeComputer.BlobPolicy.KEEP);
                 } catch (Throwable t) {
                   if (t instanceof InterruptedException) {
@@ -373,7 +353,98 @@ public class MerkleTreeComputerTest {
     }
 
     // All threads share a single upload of the subtree.
-    assertThat(ensureInputsPresentCount.get()).isEqualTo(1);
+    assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void treeArtifactSubtree_reusedByLaterBuild() throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var treeArtifactInput =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, "dir/subdir/reused_tree_artifact");
+    treeArtifactInput.getPath().createDirectoryAndParents();
+    var treeArtifactBuilder = TreeArtifactValue.newBuilder(treeArtifactInput);
+    var treeFileArtifact = Artifact.TreeFileArtifact.createTreeOutput(treeArtifactInput, "file");
+    FileSystemUtils.writeContentAsLatin1(treeFileArtifact.getPath(), "reused file content");
+    treeArtifactBuilder.putChild(
+        treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
+    fakeFileCache.putTreeArtifact(treeArtifactInput, treeArtifactBuilder.build());
+    var spawn = new SpawnBuilder().withInputs(treeArtifactInput).build();
+    var uploader = new CountingMerkleTreeUploader();
+
+    for (int i = 0; i < 2; i++) {
+      var unused =
+          createMerkleTreeComputer(uploader)
+              .buildForSpawn(
+                  spawn,
+                  ImmutableSet.of(),
+                  /* scrubber= */ null,
+                  createSpawnExecutionContext(spawn, fakeFileCache),
+                  MerkleTreeComputer.BlobPolicy.KEEP);
+    }
+
+    assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void runfilesTreeSubtree_reusedByLaterBuild() throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var runfile = ActionsTestUtil.createArtifact(artifactRoot, "pkg/tool");
+    runfile.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(runfile.getPath(), "tool content");
+    fakeFileCache.put(runfile, FileArtifactValue.createForTesting(runfile));
+    var runfilesTreeArtifact =
+        ActionsTestUtil.createRunfilesArtifact(
+            artifactRoot,
+            artifactRoot.getExecPath().getRelative("pkg/tool.runfiles").getPathString());
+    fakeFileCache.putRunfilesTree(
+        runfilesTreeArtifact,
+        AnalysisTestUtil.createRunfilesTree(
+            runfilesTreeArtifact.getExecPath(),
+            new Runfiles.Builder(TestConstants.WORKSPACE_NAME).addArtifact(runfile).build()));
+    var spawn = new SpawnBuilder().withInputs(runfilesTreeArtifact).build();
+    var uploader = new CountingMerkleTreeUploader();
+
+    for (int i = 0; i < 2; i++) {
+      var unused =
+          createMerkleTreeComputer(uploader)
+              .buildForSpawn(
+                  spawn,
+                  ImmutableSet.of(),
+                  /* scrubber= */ null,
+                  createSpawnExecutionContext(spawn, fakeFileCache),
+                  MerkleTreeComputer.BlobPolicy.KEEP);
+    }
+
+    assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void sourceDirectorySubtree_reusedByLaterBuild() throws Exception {
+    var sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
+    var sourceDirectory =
+        ActionsTestUtil.createArtifactWithExecPath(sourceRoot, PathFragment.create("src_dir"));
+    var sourceDirectoryPath = sourceDirectory.getPath();
+    sourceDirectoryPath.createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(
+        sourceDirectoryPath.getChild("file"), "source directory file content");
+    var fakeFileCache = new FakeActionInputFileCache();
+    fakeFileCache.put(sourceDirectory, FileArtifactValue.createForTesting(sourceDirectoryPath));
+    var spawn = new SpawnBuilder().withInputs(sourceDirectory).build();
+    var uploader = new CountingMerkleTreeUploader();
+
+    for (int i = 0; i < 2; i++) {
+      var unused =
+          createMerkleTreeComputer(uploader)
+              .buildForSpawn(
+                  spawn,
+                  ImmutableSet.of(),
+                  /* scrubber= */ null,
+                  createSpawnExecutionContext(spawn, fakeFileCache),
+                  MerkleTreeComputer.BlobPolicy.KEEP);
+    }
+
+    assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
   }
 
   @Test
@@ -428,8 +499,176 @@ public class MerkleTreeComputerTest {
             ImmutableSet.of(),
             /* scrubber= */ null,
             createSpawnExecutionContext(spawn, cache),
-            RemotePathResolver.createDefault(execRoot),
             MerkleTreeComputer.BlobPolicy.KEEP);
+  }
+
+  /** Relative paths covering the empty path, nesting, siblings and segments sharing a prefix. */
+  private static final class PathProvider extends TestParameterValuesProvider {
+    @Override
+    public ImmutableList<?> provideValues(Context context) {
+      return Stream.of("", "a", "ab", "a/b", "a/bc", "ab/c", "a/b/c", "a/b/d", "b/a")
+          .map(PathFragment::create)
+          .collect(toImmutableList());
+    }
+  }
+
+  @Test
+  public void isParentDirectory_matchesGetParentDirectory(
+      @TestParameter(valuesProvider = PathProvider.class) PathFragment parent,
+      @TestParameter(valuesProvider = PathProvider.class) PathFragment path) {
+    assertThat(MerkleTreeComputer.isParentDirectory(parent, path))
+        .isEqualTo(parent.equals(path.getParentDirectory()));
+  }
+
+  private static final class DirectoryProvider extends TestParameterValuesProvider {
+    @Override
+    public ImmutableList<?> provideValues(Context context) {
+      return ImmutableList.of(
+          "", "a", "ab", "a/b", "a/bc", "ab/c", "a/b/c", "a/b/d", "z", "a/é", "a/ê");
+    }
+  }
+
+  @Test
+  public void buildForSpawn_directoryTransitions(
+      @TestParameter(valuesProvider = DirectoryProvider.class) String firstDirectory,
+      @TestParameter(valuesProvider = DirectoryProvider.class) String secondDirectory)
+      throws Exception {
+    var sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var fakeFileCache = new FakeActionInputFileCache();
+    var spawnBuilder = new SpawnBuilder();
+    var directories = ImmutableList.of(firstDirectory, secondDirectory);
+    for (int i = 0; i < directories.size(); i++) {
+      var execPath =
+          PathFragment.create(unicodeToInternal(directories.get(i))).getRelative("file" + i);
+      var artifact = ActionsTestUtil.createArtifactWithExecPath(sourceRoot, execPath);
+      artifact.getPath().getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "content" + i);
+      fakeFileCache.put(artifact, FileArtifactValue.createForTesting(artifact));
+      spawnBuilder.withInputs(artifact);
+    }
+    var spawn = spawnBuilder.build();
+
+    var merkleTree =
+        (MerkleTree.Uploadable)
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    MerkleTreeComputer.BlobPolicy.KEEP);
+
+    assertThat(merkleTree.inputFiles()).isEqualTo(2);
+    for (int i = 0; i < directories.size(); i++) {
+      String directory = directories.get(i);
+      Directory dir =
+          findDirectory(merkleTree, directory.isEmpty() ? new String[0] : directory.split("/"));
+      assertThat(dir.getFilesList())
+          .contains(
+              FileNode.newBuilder()
+                  .setName("file" + i)
+                  .setDigest(digestUtil.computeAsUtf8("content" + i))
+                  .setIsExecutable(true)
+                  .build());
+      assertThat(dir.getFilesCount()).isEqualTo(firstDirectory.equals(secondDirectory) ? 2 : 1);
+    }
+  }
+
+  @Test
+  public void duplicateTreeArtifactInput_stagedOnce() throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "pkg/gen_src");
+    treeArtifact.getPath().createDirectoryAndParents();
+    var treeArtifactBuilder = TreeArtifactValue.newBuilder(treeArtifact);
+    var treeFileArtifact = Artifact.TreeFileArtifact.createTreeOutput(treeArtifact, "gen.cc");
+    FileSystemUtils.writeContentAsLatin1(treeFileArtifact.getPath(), "int main() {}");
+    treeArtifactBuilder.putChild(
+        treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
+    fakeFileCache.putTreeArtifact(treeArtifact, treeArtifactBuilder.build());
+
+    // The same input can appear in both the mandatory and the discovered input set of an
+    // input-discovering action, which are not deduplicated against each other.
+    var spawn =
+        new SimpleSpawn(
+            new FakeOwner("Mnemonic", "progress message", "//dummy:label"),
+            ImmutableList.of("cmd"),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            SpawnInputs.of(
+                NestedSetBuilder.<ActionInput>create(Order.STABLE_ORDER, treeArtifact),
+                NestedSetBuilder.<ActionInput>create(Order.STABLE_ORDER, treeArtifact),
+                ImmutableList.of()),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(),
+            /* mandatoryOutputs= */ null,
+            ResourceSet.ZERO);
+    var merkleTree =
+        (MerkleTree.Uploadable)
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    MerkleTreeComputer.BlobPolicy.KEEP);
+
+    Directory pkgDir = findDirectory(merkleTree, "outputs", "pkg");
+    assertThat(pkgDir.getDirectoriesList().stream().map(DirectoryNode::getName))
+        .containsExactly("gen_src");
+    assertThat(pkgDir.getFilesList()).isEmpty();
+  }
+
+  private static Directory findDirectory(MerkleTree.Uploadable merkleTree, String... pathSegments)
+      throws Exception {
+    var blobs = merkleTree.blobs();
+    Directory current = Directory.parseFrom((byte[]) blobs.get(merkleTree.digest()));
+    for (String segment : pathSegments) {
+      Digest childDigest =
+          current.getDirectoriesList().stream()
+              .filter(d -> d.getName().equals(segment))
+              .collect(onlyElement())
+              .getDigest();
+      current = Directory.parseFrom((byte[]) blobs.get(childDigest));
+    }
+    return current;
+  }
+
+  /** A {@link MerkleTreeUploader} that only counts calls to {@link #ensureInputsPresent}. */
+  private static final class CountingMerkleTreeUploader implements MerkleTreeUploader {
+    final AtomicInteger ensureInputsPresentCount = new AtomicInteger();
+
+    @Override
+    public ListenableFuture<Void> uploadBlob(
+        RemoteActionExecutionContext context, Digest digest, byte[] data, boolean force) {
+      return immediateVoidFuture();
+    }
+
+    @Override
+    public ListenableFuture<Void> uploadFile(
+        RemoteActionExecutionContext context,
+        Digest digest,
+        Path path,
+        PathFragment execPath,
+        boolean force) {
+      return immediateVoidFuture();
+    }
+
+    @Override
+    public ListenableFuture<Void> uploadDeterministicWriter(
+        RemoteActionExecutionContext context,
+        Digest digest,
+        DeterministicWriter deterministicWriter,
+        boolean force) {
+      return immediateVoidFuture();
+    }
+
+    @Override
+    public void ensureInputsPresent(
+        RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force) {
+      ensureInputsPresentCount.incrementAndGet();
+    }
   }
 
   private MerkleTreeComputer createMerkleTreeComputer(MerkleTreeUploader uploader) {
@@ -438,7 +677,7 @@ public class MerkleTreeComputerTest {
         uploader,
         "buildRequestId",
         "commandId",
-        "_main");
+        WORKSPACE_NAME);
   }
 
   private FakeSpawnExecutionContext createSpawnExecutionContext(

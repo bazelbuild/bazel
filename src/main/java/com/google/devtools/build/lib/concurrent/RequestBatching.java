@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.collect.ImmutableList;
@@ -23,9 +22,10 @@ import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import java.util.concurrent.Executor;
+import java.util.concurrent.CancellationException;
 import javax.annotation.Nullable;
 
 /** Shared API and internal components for request batching. */
@@ -70,6 +70,14 @@ public final class RequestBatching {
      * already been completed will be ignored.
      */
     void acceptFailure(Throwable t);
+
+    /**
+     * Cancels the corresponding request.
+     *
+     * <p>A sink should only be completed once. Subsequent calls to this method after the sink has
+     * already been completed will be ignored.
+     */
+    void cancel();
   }
 
   /**
@@ -99,6 +107,13 @@ public final class RequestBatching {
      */
     Runnable execute(
         List<RequestT> requests, ImmutableList<? extends ResponseSink<RequestT, ResponseT>> sinks);
+
+    /**
+     * Handles rejection of an entire batch before {@link #execute} is invoked (e.g. during executor
+     * shutdown).
+     */
+    void handleRejection(
+        ImmutableList<? extends ResponseSink<RequestT, ResponseT>> sinks, Throwable t);
   }
 
   /**
@@ -108,17 +123,26 @@ public final class RequestBatching {
    */
   public interface FutureSink<ResponseT> {
     void acceptFuture(ListenableFuture<ResponseT> future);
+
+    /** Cancels the corresponding request. */
+    void cancel();
   }
 
   /** Batching strategy when a single batch request returns a response per future request. */
   public interface FutureMultiplexer<RequestT, ResponseT> {
     /** Executes {@code requests} in a batch and populates corresponding {@code responses}. */
     void execute(List<RequestT> requests, ImmutableList<? extends FutureSink<ResponseT>> responses);
+
+    /**
+     * Handles rejection of an entire batch before {@link #execute} is invoked (e.g. during executor
+     * shutdown).
+     */
+    void handleRejection(ImmutableList<? extends FutureSink<ResponseT>> responses, Throwable t);
   }
 
   static <RequestT, ResponseT>
       BatchExecutionStrategy<RequestT, ResponseT> createBatchExecutionStrategy(
-          Multiplexer<RequestT, ResponseT> multiplexer, Executor responseDistributionExecutor) {
+          Multiplexer<RequestT, ResponseT> multiplexer, SafeExecutor responseDistributionExecutor) {
     return new MultiplexerAdapter<>(multiplexer, responseDistributionExecutor);
   }
 
@@ -137,6 +161,8 @@ public final class RequestBatching {
   interface BatchExecutionStrategy<RequestT, ResponseT> {
     ListenableFuture<?> executeBatch(
         List<RequestT> requests, ImmutableList<Operation<RequestT, ResponseT>> operations);
+
+    void handleRejection(ImmutableList<Operation<RequestT, ResponseT>> operations, Throwable t);
   }
 
   static final class Operation<RequestT, ResponseT> extends AbstractFuture<ResponseT>
@@ -175,7 +201,16 @@ public final class RequestBatching {
 
     @Override
     public void acceptFailure(Throwable t) {
+      if (t instanceof CancellationException) {
+        cancel(/* mayInterruptIfRunning= */ false);
+        return;
+      }
       setException(t);
+    }
+
+    @Override
+    public void cancel() {
+      cancel(/* mayInterruptIfRunning= */ false);
     }
 
     @Override
@@ -214,10 +249,10 @@ public final class RequestBatching {
      * thread. If a callback involves significant processing, the client should offload the work to
      * separate threads to prevent delays in processing subsequent responses.
      */
-    private final Executor responseDistributionExecutor;
+    private final SafeExecutor responseDistributionExecutor;
 
     private MultiplexerAdapter(
-        Multiplexer<RequestT, ResponseT> multiplexer, Executor responseDistributionExecutor) {
+        Multiplexer<RequestT, ResponseT> multiplexer, SafeExecutor responseDistributionExecutor) {
       this.multiplexer = multiplexer;
       this.responseDistributionExecutor = responseDistributionExecutor;
     }
@@ -228,7 +263,7 @@ public final class RequestBatching {
       ListenableFuture<List<ResponseT>> futureResponses =
           multiplexer.execute(Lists.transform(operations, Operation::request));
 
-      addCallback(
+      responseDistributionExecutor.addCallback(
           futureResponses,
           new FutureCallback<List<ResponseT>>() {
             @Override
@@ -253,10 +288,17 @@ public final class RequestBatching {
                 operations.get(i).setResponse(responses.get(i));
               }
             }
-          },
-          responseDistributionExecutor);
+          });
 
       return futureResponses;
+    }
+
+    @Override
+    public void handleRejection(
+        ImmutableList<Operation<RequestT, ResponseT>> operations, Throwable t) {
+      for (Operation<RequestT, ResponseT> operation : operations) {
+        operation.cancel();
+      }
     }
   }
 
@@ -274,6 +316,12 @@ public final class RequestBatching {
       Runnable batchCompleteCallback =
           multiplexer.execute(Lists.transform(operations, Operation::request), operations);
       return Futures.whenAllComplete(operations).run(batchCompleteCallback, directExecutor());
+    }
+
+    @Override
+    public void handleRejection(
+        ImmutableList<Operation<RequestT, ResponseT>> operations, Throwable t) {
+      multiplexer.handleRejection(operations, t);
     }
   }
 
@@ -293,6 +341,12 @@ public final class RequestBatching {
         operation.errorIfFutureUnset();
       }
       return Futures.whenAllComplete(operations).run(() -> {}, directExecutor());
+    }
+
+    @Override
+    public void handleRejection(
+        ImmutableList<Operation<RequestT, ResponseT>> operations, Throwable t) {
+      multiplexer.handleRejection(operations, t);
     }
   }
 }

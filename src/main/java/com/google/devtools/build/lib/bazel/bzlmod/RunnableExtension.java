@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -54,7 +55,8 @@ interface RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping,
-      Facts facts)
+      Facts facts,
+      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
       throws InterruptedException, ExternalDepsException;
 
   /* Holds the result data from running a module extension */

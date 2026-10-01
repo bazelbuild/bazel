@@ -19,6 +19,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.cmdline.LabelNameDeduper;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetInterner;
 import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.runtime.MemoryPressureEvent;
@@ -95,9 +96,21 @@ public final class HighWaterMarkLimiter {
           actual, threshold, remainingStat);
     }
 
+    // These caches trade temporary memory for CPU savings. Therefore if we're under memory
+    // pressure, clearing them is definitely a good idea.
     skyframeExecutor.dropUnnecessaryTemporarySkyframeState();
     syscallCache.clear();
+
+    // These caches trade temporary memory for [non-deterministically hopeful!] retained memory
+    // savings. If we're under memory pressure, clearing them could either be a good idea or a bad
+    // idea. If they happen to be currently dominating a lot of memory, then clearing them is
+    // probably good. But if they happen to currently reference a lot of memory retained by popular
+    // objects, then clearing them is bad because it means that future creations of equivalent
+    // objects won't get deduped to the original instance.
+    // TODO(bazel-team): Consider being fancy here and instead removing just the entries for
+    // low-frequency objects.
     NestedSetInterner.clear();
+    LabelNameDeduper.clear();
   }
 
   /** Populate fields about cache drops. */

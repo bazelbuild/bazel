@@ -60,7 +60,7 @@ public record NonFinalizerPackagePiecesValue(
      * The targets in the package pieces, ordered by name. May be incomplete if either
      * nameConflictBetweenPackagePiecesException is non-null or errorKeys is non-empty.
      */
-    ImmutableSortedMap<String, Target> targets,
+    ImmutableList<Target> targets,
     /**
      * The macros in the package pieces, keyed (and ordered) by id. May be incomplete if either
      * nameConflictBetweenPackagePiecesException is non-null or errorKeys is non-empty.

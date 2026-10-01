@@ -98,4 +98,9 @@ function test_collect_skyframe_counts() {
   expect_log 'SkyFunction (PACKAGE).*"package (total)":[0-9.]\+,"package (done)":[0-9.]\+}'
 }
 
+function test_no_negative_timestamps() {
+  helper "" ""
+  ! grep -q '"ts":-' /tmp/profile.log || fail "Found negative timestamps in profile"
+}
+
 run_suite "Integration tests for profiler data."

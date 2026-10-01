@@ -260,6 +260,33 @@ function test_glob_with_subpackage() {
     assert_equals "3" $(wc -l "$TEST_log")
 }
 
+function test_unrelated_glob_change_pruned() {
+    # Adding a file that the glob does not match changes the directory listing and thus dirties the
+    # shared glob, but the glob re-evaluates to the same matches and change-prunes.
+    local -r pkg="${FUNCNAME}"
+    mkdir -p "$pkg/data" || fail "could not create \"$pkg/data\""
+    echo a > "$pkg/data/f0.txt"
+    echo b > "$pkg/data/f1.txt"
+    echo '[filegroup(name = "t%d" % i, srcs = glob(["data/*.txt"])) for i in range(21)]' \
+        > "$pkg/BUILD"
+
+    local -r gc_flag="--experimental_keep_change_prunable_nodes_during_gc"
+    bazel build "$gc_flag" "//$pkg:all" >& "$TEST_log" || fail "Expected initial build to succeed"
+    local before="$(bazel dump --skyframe=count 2>/dev/null \
+        | awk '/^CONFIGURED_TARGET/{print $2}')"
+
+    # Add a file not matched by the glob (dirties the directory listing; the glob change-prunes),
+    # build only one target (orphaning the other 20), then a no-op build to flush the dirty-node
+    # GC's deferred deletions.
+    echo unrelated > "$pkg/data/notes.md"
+    bazel build "$gc_flag" "//$pkg:t0" >& "$TEST_log" || fail "Expected build of t0 to succeed"
+    bazel build "$gc_flag" "//$pkg:t0" >& "$TEST_log" || fail "Expected flush build to succeed"
+    local after="$(bazel dump --skyframe=count 2>/dev/null \
+        | awk '/^CONFIGURED_TARGET/{print $2}')"
+
+    assert_equals "$before" "$after"
+}
+
 function test_glob_with_subpackage2() {
     local -r pkg="${FUNCNAME}"
     mkdir -p "$pkg" || fail "could not create \"$pkg\""

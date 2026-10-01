@@ -14,12 +14,12 @@
 
 """Functions to retrieve the environment to set for Apple actions."""
 
-def apple_host_system_env(xcode_version_info):
+def apple_host_system_env(xcode_version_info: struct) -> dict[str, str]:
     if not xcode_version_info or not xcode_version_info.xcode_version():
         return {}
     return {"XCODE_VERSION_OVERRIDE": str(xcode_version_info.xcode_version())}
 
-def target_apple_env(xcode_version_info, platform):
+def target_apple_env(xcode_version_info: struct, platform: struct) -> dict[str, str]:
     # Make sure we have at least two version components.
     sdk_version = str(xcode_version_info.sdk_version_for_platform(platform))
     if "." not in sdk_version:

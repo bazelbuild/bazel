@@ -14,7 +14,11 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.primitives.Booleans.falseFirst;
+import static java.util.Comparator.comparing;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.causes.ActionFailed;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -23,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.ExitCode;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -33,6 +38,18 @@ import net.starlark.java.syntax.Location;
  */
 @ThreadSafe
 public class ActionExecutionException extends Exception implements DetailedException {
+
+  /**
+   * Ordering function that ranks {@link ActionExecutionException}s by severity, with less severe
+   * exceptions comparing "less than" more severe exceptions.
+   */
+  public static final Ordering<ActionExecutionException> SEVERITY_ORDERING =
+      Ordering.compound(
+          ImmutableList.of(
+              comparing(ActionExecutionException::isCatastrophe, falseFirst()),
+              comparing(
+                  ActionExecutionException::getDetailedExitCode,
+                  DetailedExitCodeComparator.INSTANCE)));
 
   private final ActionAnalysisMetadata action;
   private final NestedSet<Cause> rootCauses;

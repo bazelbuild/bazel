@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.configurationIdMessage;
 import static com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.createDetailedExitCode;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,7 +48,6 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.DependencyException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -67,6 +66,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
@@ -78,26 +78,26 @@ import net.starlark.java.syntax.Location;
  * <p>Used for loading top-level aspects, filtering them based on their required providers, and
  * computing the relationship between top-level aspects.
  *
- * <p>At top level, in {@link com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke
+ * <p>At top level, in {@code com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke
  * two SkyFunctions one after another, so BuildView calls this function to do the work.
  */
 final class ToplevelStarlarkAspectFunction implements SkyFunction {
-  private final BuildViewProvider buildViewProvider;
-  private final RuleClassProvider ruleClassProvider;
+  private final Supplier<StarlarkTransitionCache> starlarkTransitionCacheSupplier;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
   private final boolean storeTransitivePackages;
   // Do not use this field for package retrieval of the base configured target since it will cause
   // incrementality errors because an essential dependency edge would not be registered.
   private final PrerequisitePackageFunction prerequisitePackages;
 
   ToplevelStarlarkAspectFunction(
-      BuildViewProvider buildViewProvider,
-      RuleClassProvider ruleClassProvider,
+      Supplier<StarlarkTransitionCache> starlarkTransitionCacheSupplier,
+      ConfiguredRuleClassProvider ruleClassProvider,
       boolean storeTransitivePackages,
       PrerequisitePackageFunction prerequisitePackages) {
-    this.buildViewProvider = buildViewProvider;
-    this.ruleClassProvider = ruleClassProvider;
+    this.starlarkTransitionCacheSupplier = requireNonNull(starlarkTransitionCacheSupplier);
+    this.ruleClassProvider = requireNonNull(ruleClassProvider);
     this.storeTransitivePackages = storeTransitivePackages;
-    this.prerequisitePackages = prerequisitePackages;
+    this.prerequisitePackages = requireNonNull(prerequisitePackages);
   }
 
   @Nullable
@@ -283,13 +283,8 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
    * Computes configuration of the target by driving the state machine of {@link
    * RuleTransitionApplier}.
    */
-  public void computeConfiguration(
-      Environment env,
-      State state,
-      ConfiguredTargetKey baseConfiguredTargetKey,
-      Target target,
-      ConfiguredRuleClassProvider ruleClassProvider,
-      BuildViewProvider buildViewProvider)
+  private void computeConfiguration(
+      Environment env, State state, ConfiguredTargetKey baseConfiguredTargetKey, Target target)
       throws InterruptedException {
     if (state.myProducer == null) {
       state.myProducer =
@@ -298,7 +293,7 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
                   baseConfiguredTargetKey,
                   ruleClassProvider.getTrimmingTransitionFactory(),
                   ruleClassProvider.getToolchainTaggedTrimmingTransition(),
-                  buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
+                  starlarkTransitionCacheSupplier.get(),
                   target,
                   state));
     }
@@ -319,13 +314,7 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
       return baseConfiguredTargetKey.toBuilder().setConfigurationKey(null).build();
     }
 
-    computeConfiguration(
-        env,
-        state,
-        baseConfiguredTargetKey,
-        target,
-        (ConfiguredRuleClassProvider) ruleClassProvider,
-        buildViewProvider);
+    computeConfiguration(env, state, baseConfiguredTargetKey, target);
 
     if (state.hasError()) {
       ConfiguredValueCreationException exception =
@@ -345,13 +334,12 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
         state.configurationKey, baseConfiguredTargetKey, state.idempotencyState);
   }
 
-  private static class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
-    protected TopLevelStarlarkAspectFunctionException(ActionConflictException cause) {
+  static final class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
+    TopLevelStarlarkAspectFunctionException(ActionConflictException cause) {
       super(cause, Transience.PERSISTENT);
     }
 
-    protected TopLevelStarlarkAspectFunctionException(
-        TopLevelAspectsDetailsBuildFailedException cause) {
+    TopLevelStarlarkAspectFunctionException(TopLevelAspectsDetailsBuildFailedException cause) {
       super(cause, Transience.PERSISTENT);
     }
   }
@@ -387,11 +375,7 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     @Override
     public StateMachine step(Tasks tasks) {
       return new RuleTransitionApplier(
-          target,
-          (TargetAndConfigurationData) this,
-          (RuleTransitionApplier.ResultSink) state,
-          state.storedEvents,
-          /* runAfter= */ DONE);
+          target, this, state, state.storedEvents, /* runAfter= */ DONE);
     }
 
     @Override

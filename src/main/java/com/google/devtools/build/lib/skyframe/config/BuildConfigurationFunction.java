@@ -30,15 +30,12 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /** A builder for {@link BuildConfigurationValue} instances. */
 public final class BuildConfigurationFunction implements SkyFunction {
@@ -57,10 +54,6 @@ public final class BuildConfigurationFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, BuildConfigurationFunctionException {
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
-      return null;
-    }
     BuildConfigurationKey key = (BuildConfigurationKey) skyKey.argument();
 
     BuildOptions targetOptions = key.getOptions();
@@ -79,8 +72,6 @@ public final class BuildConfigurationFunction implements SkyFunction {
           BuildConfigurationValue.create(
               targetOptions,
               baselineOptions.orElse(null),
-              starlarkSemantics.getBool(
-                  BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
               platformCpu,
               // Arguments below this are server-global.
               directories,

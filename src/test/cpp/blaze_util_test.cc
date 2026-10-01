@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
@@ -289,6 +290,11 @@ TEST_F(BlazeUtilTest, TestGetAllUnaryCommandOptionWithIgnoreAfterDevNull) {
                          {"bazel", "build", ":target", "--flag", "/dev/null",
                           "--flag", "value2", "--flag", "value3"},
                          "--flag", "/dev/null"));
+}
+
+TEST_F(BlazeUtilTest, GetUserNameReplacesSlashesAndBackslashes) {
+  SetEnv("USER", "foo/bar\\baz");
+  ASSERT_EQ("foo_bar_baz", GetUserName());
 }
 
 }  // namespace blaze

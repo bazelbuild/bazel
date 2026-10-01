@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
@@ -89,6 +88,7 @@ import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.Version;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -321,6 +321,7 @@ public class BuildViewForTesting {
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target, StoredEventHandler eventHandler)
       throws DependencyResolutionHelpers.Failure,
+          IOException,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,
@@ -357,6 +358,7 @@ public class BuildViewForTesting {
   public RuleContext getRuleContextForTesting(
       ExtendedEventHandler eventHandler, ConfiguredTarget configuredTarget, AnalysisEnvironment env)
       throws DependencyResolutionHelpers.Failure,
+          IOException,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,
@@ -401,7 +403,7 @@ public class BuildViewForTesting {
         .setActionOwnerSymbol(ConfiguredTargetKey.fromConfiguredTarget(configuredTarget))
         .setMutability(Mutability.create("configured target"))
         .setVisibility(VisibilityProvider.PUBLIC_VISIBILITY)
-        .setPrerequisites(ConfiguredTargetFactory.removeToolchainDeps(prerequisiteMap))
+        .setPrerequisites(prerequisiteMap)
         .setConfigConditions(ConfigConditions.EMPTY)
         .setToolchainContexts(resolvedToolchainContext.build())
         .setExecGroupCollectionBuilder(state.execGroupCollectionBuilder)

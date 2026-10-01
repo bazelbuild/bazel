@@ -52,21 +52,37 @@ inline static T swapByteOrder(const T& val) {
 bool readBool(std::istringstream& stream) {
   bool value;
   stream.read(reinterpret_cast<char*>(&value), sizeof(value));
+  if (stream.eof()) {
+    diag_errx(1, "%s:%d: Log4j2Plugins.dat file is malformed", __FILE__,
+              __LINE__);
+  }
   return value;
 }
 
 uint32_t readInt(std::istringstream& stream) {
   uint32_t value;
   stream.read(reinterpret_cast<char*>(&value), sizeof(value));
+  if (stream.eof()) {
+    diag_errx(1, "%s:%d: Log4j2Plugins.dat file is malformed", __FILE__,
+              __LINE__);
+  }
   return swapByteOrder(value);
 }
 
 std::string readUTFString(std::istringstream& stream) {
   uint16_t length;
   stream.read(reinterpret_cast<char*>(&length), sizeof(length));
+  if (stream.eof()) {
+    diag_errx(1, "%s:%d: Log4j2Plugins.dat file is malformed", __FILE__,
+              __LINE__);
+  }
   length = swapByteOrder(length);  // Convert to host byte order
   std::string result(length, '\0');
   stream.read(&result[0], length);
+  if (stream.eof()) {
+    diag_errx(1, "%s:%d: Log4j2Plugins.dat file is malformed", __FILE__,
+              __LINE__);
+  }
   return result;
 }
 

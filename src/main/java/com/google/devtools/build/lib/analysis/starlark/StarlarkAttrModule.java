@@ -67,6 +67,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -186,6 +187,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   /** The object available as the {@code ctx} argument of materializers. */
+  @StarlarkBuiltin(name = "starlark_materializer_context", documented = false)
   private static class StarlarkMaterializerContext implements StarlarkValue {
     private final Label label;
     private final StructImpl attrs;

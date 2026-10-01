@@ -314,7 +314,7 @@ public abstract class Args implements CommandLineArgsApi {
       }
       commandLine.recordArgStart();
       if (argName != null) {
-        commandLine.add(argName);
+        commandLine.addArgName(argName);
       }
       if (value instanceof Depset || value instanceof Sequence) {
         throw Starlark.errorf(

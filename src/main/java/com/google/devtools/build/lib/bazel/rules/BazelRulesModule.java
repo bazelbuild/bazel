@@ -51,6 +51,40 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Deprecated
     @Option(
+        name = "use_target_platform_for_tests",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        deprecationWarning =
+            "This flag is a no-op. Tests select an execution platform matching all constraints of"
+                + " the target platform by default. Make sure that all test target platforms are"
+                + " registered as execution platforms.",
+        help = "Deprecated. No-op.")
+    public abstract boolean getUseTargetPlatformForTests();
+
+    @Deprecated
+    @Option(
+        name = "incompatible_modify_execution_info_additive",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getIncompatibleModifyExecutionInfoAdditive();
+
+    @Deprecated
+    @Option(
+        name = "experimental_platform_in_output_dir",
+        defaultValue = "auto",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated. No-op.")
+    public abstract TriState getPlatformInOutputDir();
+
+    @Deprecated
+    @Option(
         name = "incompatible_use_new_cgroup_implementation",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -58,6 +92,16 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public abstract boolean getUseNewCgroupImplementation();
+
+    @Deprecated
+    @Option(
+        name = "experimental_execution_graph_include_change_pruned_actions",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getIncludeChangePrunedActions();
 
     @Deprecated
     @Option(
@@ -584,6 +628,26 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public abstract boolean getMultiReleaseDeployJars();
+
+    @Deprecated
+    @Option(
+        name = "incompatible_disable_nocopts",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getDisableNoCopts();
+
+    @Deprecated
+    @Option(
+        name = "experimental_cc_implementation_deps",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getExperimentalCcImplementationDeps();
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
@@ -1499,6 +1563,16 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
     public abstract boolean getIncompatibleUseCcConfigureFromRulesCc();
+
+    @Deprecated
+    @Option(
+        name = "experimental_enable_scl_dialect",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getExperimentalEnableSclDialect();
   }
 
   @Override

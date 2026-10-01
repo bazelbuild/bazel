@@ -54,20 +54,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   Boolean apkSigningMethodV4();
 
   @StarlarkMethod(
-      name = "get_dexopts_supported_in_incremental_dexing",
-      structField = true,
-      doc = "",
-      documented = false)
-  ImmutableList<String> getDexoptsSupportedInIncrementalDexing();
-
-  @StarlarkMethod(
-      name = "get_dexopts_supported_in_dex_merger",
-      structField = true,
-      doc = "",
-      documented = false)
-  ImmutableList<String> getDexoptsSupportedInDexMerger();
-
-  @StarlarkMethod(
       name = "get_dexopts_supported_in_dex_sharder",
       structField = true,
       doc = "",
@@ -121,9 +107,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       doc = "",
       documented = false)
   boolean getExportsManifestDefault();
-
-  @StarlarkMethod(name = "manifest_merger", structField = true, doc = "", documented = false)
-  String getManifestMergerValue();
 
   @StarlarkMethod(
       name = "fixed_resource_neverlinking",

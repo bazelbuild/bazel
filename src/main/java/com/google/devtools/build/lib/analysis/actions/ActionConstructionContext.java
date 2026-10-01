@@ -39,6 +39,9 @@ public interface ActionConstructionContext extends ActionRegistry {
   /** Returns the bin directory for constructed actions. */
   ArtifactRoot getBinDirectory();
 
+  /** Returns the genfiles directory for constructed actions. */
+  ArtifactRoot getGenfilesDirectory();
+
   /**
    * Returns the action owner that should be used for the default execution group's execution
    * platform.
@@ -162,6 +165,14 @@ public interface ActionConstructionContext extends ActionRegistry {
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   Artifact getPackageRelativeArtifact(PathFragment relative, ArtifactRoot root);
+
+  /**
+   * Creates an artifact in a directory that is unique to the package that contains the rule, thus
+   * guaranteeing that it never clashes with artifacts created by rules in other packages.
+   */
+  default Artifact getPackageRelativeArtifact(String relative, ArtifactRoot root) {
+    return getPackageRelativeArtifact(PathFragment.create(relative), root);
+  }
 
   /** Returns the {@link PlatformInfo} describing the target's default execution platform. */
   @Nullable

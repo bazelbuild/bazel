@@ -21,6 +21,7 @@ import java.lang.annotation.Annotation;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
@@ -65,10 +66,10 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
   private Messager messager;
 
   // A set containing a TypeElement for each class with a StarlarkMethod.selfCall annotation.
-  private Set<Element> classesWithSelfcall;
+  private Set<TypeElement> classesWithSelfcall;
   // A multimap where keys are class element, and values are the callable method names identified in
   // that class (where "method name" is StarlarkMethod.name).
-  private SetMultimap<Element, String> processedClassMethods;
+  private SetMultimap<TypeElement, String> processedClassMethods;
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -89,28 +90,49 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
     return elements.getTypeElement(canonicalName).asType();
   }
 
-  /** Returns true if any superclass or inherited interface has the given annotation. */
-  private boolean hasAnnotationInHierarchy(
-      TypeElement cls, Class<? extends Annotation> annotClass) {
-    if (cls.getAnnotation(annotClass) != null) {
-      return true;
-    }
+  /**
+   * Applies the callback to each class or interface in the given class's hierarchy, including
+   * itself.
+   */
+  private static void visitHierarchy(TypeElement cls, Consumer<TypeElement> callback) {
+    callback.accept(cls);
     TypeMirror superclass = cls.getSuperclass();
     if (superclass != null && superclass.getKind() == TypeKind.DECLARED) {
-      if (hasAnnotationInHierarchy(
-          (TypeElement) ((DeclaredType) superclass).asElement(), annotClass)) {
-        return true;
-      }
+      visitHierarchy((TypeElement) ((DeclaredType) superclass).asElement(), callback);
     }
     for (TypeMirror iface : cls.getInterfaces()) {
       if (iface != null && iface.getKind() == TypeKind.DECLARED) {
-        if (hasAnnotationInHierarchy(
-            (TypeElement) ((DeclaredType) iface).asElement(), annotClass)) {
-          return true;
-        }
+        visitHierarchy((TypeElement) ((DeclaredType) iface).asElement(), callback);
       }
     }
-    return false;
+  }
+
+  /** Returns true if any superclass or inherited interface has the given annotation. */
+  private boolean hasAnnotationInHierarchy(
+      TypeElement cls, Class<? extends Annotation> annotClass) {
+    boolean[] found = {false};
+    visitHierarchy(
+        cls,
+        c -> {
+          if (c.getAnnotation(annotClass) != null) {
+            found[0] = true;
+          }
+        });
+    return found[0];
+  }
+
+  private static boolean typeElementIsAutoValueGenerated(TypeElement cls) {
+    String name = cls.getSimpleName().toString();
+    if (name.startsWith("AutoOneOf_")) {
+      return true;
+    }
+    // AutoValue generated classes can have leading "$"s added by AutoValue extensions.
+    int firstNonDollar = 0;
+    while (firstNonDollar < name.length() && name.charAt(firstNonDollar) == '$') {
+      firstNonDollar++;
+    }
+    String strippedName = name.substring(firstNonDollar);
+    return strippedName.startsWith("AutoValue_");
   }
 
   @Override
@@ -163,7 +185,21 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       if (annot.name().isEmpty()) {
         errorf(method, "StarlarkMethod.name must be non-empty.");
       }
-      Element cls = method.getEnclosingElement();
+      TypeElement cls = (TypeElement) method.getEnclosingElement();
+      // Don't check AutoValue-generated classes for @StarlarkBuiltin / @StarlarkLibrary, or for
+      // uniqueness of @StarlarkMethod among overridden methods. (The generated classes copy
+      // their method annotations from their parent classes, but not the class annotations, so
+      // they would fail the check. Arguably, we could also skip all method validations in
+      // generated classes since the parent was already checked.)
+      if (!typeElementIsAutoValueGenerated(cls)) {
+        if (cls.getAnnotation(StarlarkBuiltin.class) == null
+            && cls.getAnnotation(StarlarkLibrary.class) == null) {
+          errorf(
+              method,
+              "@StarlarkMethod must appear in a class or interface directly annotated with"
+                  + " @StarlarkBuiltin or @StarlarkLibrary.");
+        }
+      }
       if (!processedClassMethods.put(cls, annot.name())) {
         errorf(method, "Containing class defines more than one method named '%s'.", annot.name());
       }

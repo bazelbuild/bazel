@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 /**
@@ -102,7 +102,7 @@ public class PrintingEventHandler extends AbstractEventHandler
             builder.append(event.getLocation()).append(": ");
           }
           builder.append(event.getMessage()).append("\n");
-          outErr.getErrorStream().write(builder.toString().getBytes(StandardCharsets.UTF_8));
+          outErr.getErrorStream().write(StringUnsafe.getInternalStringBytes(builder.toString()));
           outErr.getErrorStream().flush();
         }
       }

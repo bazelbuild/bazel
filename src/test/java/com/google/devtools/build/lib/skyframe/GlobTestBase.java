@@ -898,6 +898,17 @@ public abstract class GlobTestBase {
           }
         });
 
+    RootedPath inconsistentDirRootedPath =
+        RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("inconsistent"));
+    SkyValue dirListingValue =
+        DirectoryListingStateValue.create(
+            ImmutableList.of(
+                new Dirent("good", Dirent.Type.SYMLINK), new Dirent("bad", Dirent.Type.SYMLINK)));
+    differencer.inject(
+        ImmutableMap.of(
+            DirectoryListingStateValue.key(inconsistentDirRootedPath),
+            Delta.justNew(dirListingValue)));
+
     SkyKey skyKey = createdGlobRelatedSkyKey("inconsistent/*", Globber.Operation.FILES_AND_DIRS);
     EvaluationResult<GlobValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);

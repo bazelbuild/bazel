@@ -75,7 +75,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -183,7 +182,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExternalRepoLabelWorkspaceRoot_subdirRepoLayout() throws Exception {
+  public void testExternalRepoLabelWorkspaceRoot() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel", "bazel_dep(name='r')", "local_path_override(module_name='r', path='/r')");
 
@@ -212,7 +211,76 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExternalRepoLabelWorkspaceRoot_siblingRepoLayout() throws Exception {
+  public void testWorkspaceRootDisabledWithoutDeprecatedLabelApis() throws Exception {
+    setBuildLanguageOptions("--noincompatible_enable_deprecated_label_apis");
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+          return [MyInfo(result = ctx.label.workspace_root)]
+        my_rule = rule(implementation = _impl, attrs = { })
+        """);
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'my_rule')
+        my_rule(name='t')
+        """);
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//test/starlark:t");
+
+    assertContainsEvent("'Label' value has no field or method 'workspace_root'");
+  }
+
+  @Test
+  public void testRepoRootEnabledWithoutDeprecatedLabelApis() throws Exception {
+    setBuildLanguageOptions("--noincompatible_enable_deprecated_label_apis");
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+          return [MyInfo(result = ctx.label.repo_root)]
+        my_rule = rule(implementation = _impl, attrs = { })
+        """);
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'my_rule')
+        my_rule(name='t')
+        """);
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//test/starlark:t");
+    String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  public void testMainRepoLabelRepoRoot() throws Exception {
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+          return [MyInfo(result = ctx.label.repo_root)]
+        my_rule = rule(implementation = _impl, attrs = { })
+        """);
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'my_rule')
+        my_rule(name='t')
+        """);
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//test/starlark:t");
+    String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  public void testExternalRepoLabelRepoRoot() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel", "bazel_dep(name='r')", "local_path_override(module_name='r', path='/r')");
 
@@ -222,7 +290,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         """
         load('@@//myinfo:myinfo.bzl', 'MyInfo')
         def _impl(ctx):
-          return [MyInfo(result = ctx.label.workspace_root)]
+          return [MyInfo(result = ctx.label.repo_root)]
         my_rule = rule(implementation = _impl, attrs = { })
         """);
     scratch.file(
@@ -232,14 +300,11 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         my_rule(name='t')
         """);
 
-    // Required since we have a new WORKSPACE file.
     invalidatePackages(true);
-
-    setBuildLanguageOptions("--experimental_sibling_repository_layout");
 
     ConfiguredTarget myTarget = getConfiguredTarget("@@r+//:t");
     String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result).isEqualTo("../r+");
+    assertThat(result).isEqualTo("external/r+");
   }
 
   @Test
@@ -1668,6 +1733,91 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRuleClassImplicitOutputUnsetOptionalAttributeFailsCleanly() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        def custom_rule_impl(ctx):
+          pass
+
+        custom_rule = rule(
+          implementation = custom_rule_impl,
+          attrs = {'src': attr.label(mandatory = False, allow_single_file = True)},
+          outputs = {'o': '%{src}.css'})
+        """);
+
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule')
+
+        custom_rule(name = 'cr')
+        """);
+
+    getConfiguredTarget("//test/starlark:cr");
+    assertContainsEvent(
+        "For attribute 'o' in outputs: Attribute 'src' has no value (is None or empty)");
+  }
+
+  @Test
+  public void testRuleClassImplicitOutputNonexistentAttributePlaceholderFailsCleanly()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        def custom_rule_impl(ctx):
+          pass
+
+        custom_rule = rule(
+          implementation = custom_rule_impl,
+          outputs = {'o': '%{nonexistent}.css'})
+        """);
+
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule')
+
+        custom_rule(name = 'cr')
+        """);
+
+    getConfiguredTarget("//test/starlark:cr");
+    assertContainsEvent(
+        "For attribute 'o' in outputs: Template placeholder '%{nonexistent}' does not correspond"
+            + " to any attribute");
+  }
+
+  @Test
+  public void testRuleClassImplicitOutputMissingMandatoryAttributeFailsCleanly() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        def custom_rule_impl(ctx):
+          pass
+
+        custom_rule = rule(
+          implementation = custom_rule_impl,
+          attrs = {'src': attr.label(mandatory = True, allow_single_file = True)},
+          outputs = {'o': '%{src}.css'})
+        """);
+
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule')
+
+        custom_rule(name = 'cr')
+        """);
+
+    getConfiguredTarget("//test/starlark:cr");
+    assertContainsEvent("missing value for mandatory attribute 'src'");
+    assertDoesNotContainEvent("Attribute 'src' has no value");
+  }
+
+  @Test
   public void testPrintProviderCollection() throws Exception {
     scratch.file(
         "test/starlark/rules.bzl",
@@ -1747,26 +1897,25 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     NativeInfo defaultInfoInstance = (NativeInfo) getSaved("default_info");
     StarlarkInfo structInstance = (StarlarkInfo) getSaved("struct_instance");
 
-    StarlarkSemantics semantics = getStarlarkSemantics();
-    assertThat(fooInfoProvider.hasInstance(fooInfoInstance, semantics)).isTrue();
-    assertThat(fooInfoProvider.hasInstance(barInfoInstance, semantics)).isFalse();
-    assertThat(fooInfoProvider.hasInstance(defaultInfoInstance, semantics)).isFalse();
-    assertThat(fooInfoProvider.hasInstance(structInstance, semantics)).isFalse();
+    assertThat(fooInfoProvider.hasInstance(fooInfoInstance)).isTrue();
+    assertThat(fooInfoProvider.hasInstance(barInfoInstance)).isFalse();
+    assertThat(fooInfoProvider.hasInstance(defaultInfoInstance)).isFalse();
+    assertThat(fooInfoProvider.hasInstance(structInstance)).isFalse();
 
-    assertThat(barInfoProvider.hasInstance(fooInfoInstance, semantics)).isFalse();
-    assertThat(barInfoProvider.hasInstance(barInfoInstance, semantics)).isTrue();
-    assertThat(barInfoProvider.hasInstance(defaultInfoInstance, semantics)).isFalse();
-    assertThat(barInfoProvider.hasInstance(structInstance, semantics)).isFalse();
+    assertThat(barInfoProvider.hasInstance(fooInfoInstance)).isFalse();
+    assertThat(barInfoProvider.hasInstance(barInfoInstance)).isTrue();
+    assertThat(barInfoProvider.hasInstance(defaultInfoInstance)).isFalse();
+    assertThat(barInfoProvider.hasInstance(structInstance)).isFalse();
 
-    assertThat(defaultInfoProvider.hasInstance(fooInfoInstance, semantics)).isFalse();
-    assertThat(defaultInfoProvider.hasInstance(barInfoInstance, semantics)).isFalse();
-    assertThat(defaultInfoProvider.hasInstance(defaultInfoInstance, semantics)).isTrue();
-    assertThat(defaultInfoProvider.hasInstance(structInstance, semantics)).isFalse();
+    assertThat(defaultInfoProvider.hasInstance(fooInfoInstance)).isFalse();
+    assertThat(defaultInfoProvider.hasInstance(barInfoInstance)).isFalse();
+    assertThat(defaultInfoProvider.hasInstance(defaultInfoInstance)).isTrue();
+    assertThat(defaultInfoProvider.hasInstance(structInstance)).isFalse();
 
-    assertThat(structProvider.hasInstance(fooInfoInstance, semantics)).isFalse();
-    assertThat(structProvider.hasInstance(barInfoInstance, semantics)).isFalse();
-    assertThat(structProvider.hasInstance(defaultInfoInstance, semantics)).isFalse();
-    assertThat(structProvider.hasInstance(structInstance, semantics)).isTrue();
+    assertThat(structProvider.hasInstance(fooInfoInstance)).isFalse();
+    assertThat(structProvider.hasInstance(barInfoInstance)).isFalse();
+    assertThat(structProvider.hasInstance(defaultInfoInstance)).isFalse();
+    assertThat(structProvider.hasInstance(structInstance)).isTrue();
   }
 
   @Test
@@ -3743,6 +3892,34 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("'arguments' got value of type 'string', want 'sequence'");
   }
 
+  @Test
+  public void testOversizedBzlLoadedByTwoPackages_allowlistChangeInvalidatesBoth()
+      throws Exception {
+    scratch.file("tools/allowlist/BUILD");
+    scratch.file("tools/allowlist/allowlist.scl", "ALLOWED = [\"lib/oversized.bzl\"]");
+    setBuildLanguageOptions(
+        "--max_bzl_file_size=1000",
+        "--soft_max_bzl_file_size=500",
+        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl");
+    scratch.file("lib/BUILD");
+    scratch.file("lib/oversized.bzl", "x = '" + "a".repeat(2000) + "'");
+    scratch.file(
+        "oversized_user1/BUILD", "load('//lib:oversized.bzl', 'x')", "filegroup(name = 'fg')");
+    scratch.file(
+        "oversized_user2/BUILD", "load('//lib:oversized.bzl', 'x')", "filegroup(name = 'fg')");
+
+    assertThat(getTarget("//oversized_user1:fg")).isNotNull();
+    assertThat(getTarget("//oversized_user2:fg")).isNotNull();
+
+    // Removing the .bzl from the allowlist must invalidate every package that loads it.
+    scratch.overwriteFile("tools/allowlist/allowlist.scl", "ALLOWED = []");
+    invalidatePackages(/* alsoConfigs= */ false);
+    reporter.removeHandler(failFastHandler);
+    assertThrows(BuildFileContainsErrorsException.class, () -> getTarget("//oversized_user1:fg"));
+    assertThrows(BuildFileContainsErrorsException.class, () -> getTarget("//oversized_user2:fg"));
+    assertContainsEvent("File '//lib:oversized.bzl' size");
+  }
+
   /** Starlark integration test that forces inlining. */
   @RunWith(JUnit4.class)
   public static class StarlarkIntegrationTestsWithInlineCalls extends StarlarkIntegrationTest {
@@ -4033,6 +4210,28 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDeclareFileUplevelReferenceInRootPackage() throws Exception {
+    scratch.file(
+        "test_rule.bzl",
+        """
+        def _my_rule_impl(ctx):
+          ctx.actions.declare_file('../f')
+        my_rule = rule(implementation = _my_rule_impl)
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load(':test_rule.bzl', 'my_rule')
+        my_rule(name = 'target')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//:target")).isNull();
+    assertContainsEvent(
+        "the output artifact '../f' is not under package directory '' for target '//:target'");
+  }
+
+  @Test
   public void testDeclareDirectoryInvalidParent_withSibling() throws Exception {
     scratch.file("test/dep/test_file.txt", "Test file");
 
@@ -4090,6 +4289,51 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent(
         "the output directory '/foo/exe' is not under package directory "
             + "'test/starlark' for target '//test/starlark:target'");
+  }
+
+  @Test
+  public void testDeclareDirectoryUplevelReferenceInRootPackage() throws Exception {
+    scratch.file(
+        "test_rule.bzl",
+        """
+        def _my_rule_impl(ctx):
+          ctx.actions.declare_directory('../f')
+        my_rule = rule(implementation = _my_rule_impl)
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load(':test_rule.bzl', 'my_rule')
+        my_rule(name = 'target')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//:target")).isNull();
+    assertContainsEvent(
+        "the output directory '../f' is not under package directory '' for target '//:target'");
+  }
+
+  @Test
+  public void testDeclareSymlinkUplevelReferenceInRootPackage() throws Exception {
+    scratch.file(
+        "test_rule.bzl",
+        """
+        def _my_rule_impl(ctx):
+          ctx.actions.declare_symlink('../f')
+        my_rule = rule(implementation = _my_rule_impl)
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load(':test_rule.bzl', 'my_rule')
+        my_rule(name = 'target')
+        """);
+    useConfiguration("--allow_unresolved_symlinks");
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//:target")).isNull();
+    assertContainsEvent(
+        "the output symlink '../f' contains uplevel references for target '//:target'");
   }
 
   @Test

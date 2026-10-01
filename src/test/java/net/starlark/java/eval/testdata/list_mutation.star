@@ -98,3 +98,14 @@ foo.clear()
 assert_eq(foo, [])
 
 assert_eq(["a", "b"].clear(), None)
+
+---
+# self-referential list mutation
+self_ref = []
+self_ref.append(self_ref)
+self_ref2 = []
+self_ref2.append(self_ref2)
+
+# remove
+assert_fails(lambda: [self_ref].remove(self_ref2), "cannot compare self-referential or overly nested data structures \\[...\\] and \\[...\\]")
+

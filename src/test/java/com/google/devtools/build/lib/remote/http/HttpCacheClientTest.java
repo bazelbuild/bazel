@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote.http;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -64,6 +64,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandler;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -110,8 +111,11 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.IntFunction;
 import javax.annotation.Nullable;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -450,6 +454,68 @@ public class HttpCacheClientTest {
                       /* force= */ false)));
     } finally {
       testServer.stop(server);
+    }
+  }
+
+  @Test(timeout = 30000)
+  public void uploadsRetryAfterTimeout() throws Exception {
+    ServerChannel server = null;
+    HttpCacheClient blobStore = null;
+    ListeningScheduledExecutorService retryScheduler =
+        MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+    try {
+      UploadRetryHandler handler = new UploadRetryHandler();
+      server = testServer.start(handler);
+
+      RemoteRetrier retrier =
+          new RemoteRetrier(
+              () -> new Retrier.ZeroBackoff(1),
+              HttpCacheClient.HTTP_RESULT_CLASSIFIER,
+              retryScheduler,
+              Retrier.ALLOW_ALL_CALLS);
+      blobStore =
+          createHttpBlobStore(
+              server,
+              /* timeoutSeconds= */ 1,
+              /* remoteVerifyDownloads= */ true,
+              /* creds= */ null,
+              Options.getDefaults(AuthAndTLSOptions.class),
+              Optional.of(retrier));
+      ByteString data = ByteString.copyFromUtf8("File Contents");
+      Digest digest = DIGEST_UTIL.compute(data.toByteArray());
+
+      getFromFuture(
+          blobStore.uploadBlob(remoteActionExecutionContext, digest, data, /* force= */ false));
+      getFromFuture(
+          blobStore.uploadActionResult(
+              remoteActionExecutionContext,
+              new ActionKey(digest),
+              ActionResult.newBuilder().setExitCode(1).build()));
+
+      assertThat(handler.requests.get()).isEqualTo(4);
+    } finally {
+      if (blobStore != null) {
+        blobStore.close();
+      }
+      retryScheduler.shutdownNow();
+      testServer.stop(server);
+    }
+  }
+
+  @Sharable
+  private static final class UploadRetryHandler
+      extends SimpleChannelInboundHandler<FullHttpRequest> {
+    private final AtomicInteger requests = new AtomicInteger();
+
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
+      if (requests.incrementAndGet() % 2 == 1) {
+        return;
+      }
+      FullHttpResponse response =
+          new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+      HttpUtil.setContentLength(response, 0);
+      ctx.writeAndFlush(response);
     }
   }
 
@@ -1066,6 +1132,142 @@ public class HttpCacheClientTest {
       ByteArrayOutputStream out = new ByteArrayOutputStream();
       getFromFuture(blobStore.downloadBlob(remoteActionExecutionContext, DIGEST, out));
       assertThat(out.toString(StandardCharsets.US_ASCII)).isEqualTo("File Contents");
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
+  public void configureSslEngine() throws Exception {
+    SSLEngine engine = SSLContext.getDefault().createSSLEngine();
+
+    HttpCacheClient.configureSslEngine(engine, Options.getDefaults(AuthAndTLSOptions.class));
+
+    assertThat(engine.getUseClientMode()).isTrue();
+    assertThat(engine.getSSLParameters().getEndpointIdentificationAlgorithm()).isEqualTo("HTTPS");
+    assertThat(engine.getNeedClientAuth()).isFalse();
+
+    AuthAndTLSOptions clientAuthOptions =
+        Options.parse(
+                AuthAndTLSOptions.class,
+                "--tls_client_certificate=client.crt",
+                "--tls_client_key=client.key")
+            .getOptions();
+    HttpCacheClient.configureSslEngine(engine, clientAuthOptions);
+
+    assertThat(engine.getNeedClientAuth()).isTrue();
+  }
+  @Test
+  public void isChannelPipelineEmpty_nullFirstContext_returnsTrue() throws Exception {
+    HttpCacheClient client =
+        HttpCacheClient.create(
+            new URI("https://localhost"),
+            /* timeoutSeconds= */ 1,
+            /* remoteMaxConnections= */ 0,
+            /* verifyDownloads= */ true,
+            /* extraHttpHeaders= */ ImmutableList.of(),
+            DIGEST_UTIL,
+            /* retrier= */ mock(RemoteRetrier.class),
+            /* creds= */ null,
+            Options.getDefaults(AuthAndTLSOptions.class));
+
+    ChannelPipeline pipeline = mock(ChannelPipeline.class);
+    when(pipeline.first()).thenReturn(mock(ChannelHandler.class));
+    when(pipeline.firstContext()).thenReturn(null);
+
+    assertThat(client.isChannelPipelineEmpty(pipeline)).isTrue();
+  }
+
+  @Test
+  public void isChannelPipelineEmpty_emptyPipeline_returnsTrue() throws Exception {
+    HttpCacheClient client =
+        HttpCacheClient.create(
+            new URI("https://localhost"),
+            /* timeoutSeconds= */ 1,
+            /* remoteMaxConnections= */ 0,
+            /* verifyDownloads= */ true,
+            /* extraHttpHeaders= */ ImmutableList.of(),
+            DIGEST_UTIL,
+            /* retrier= */ mock(RemoteRetrier.class),
+            /* creds= */ null,
+            Options.getDefaults(AuthAndTLSOptions.class));
+
+    ChannelPipeline pipeline = mock(ChannelPipeline.class);
+    when(pipeline.first()).thenReturn(null);
+    when(pipeline.firstContext()).thenReturn(null);
+
+    assertThat(client.isChannelPipelineEmpty(pipeline)).isTrue();
+  }
+
+  @Test
+  public void isChannelPipelineEmpty_onlySslHandlerWithTls_returnsTrue() throws Exception {
+    HttpCacheClient client =
+        HttpCacheClient.create(
+            new URI("https://localhost"),
+            /* timeoutSeconds= */ 1,
+            /* remoteMaxConnections= */ 0,
+            /* verifyDownloads= */ true,
+            /* extraHttpHeaders= */ ImmutableList.of(),
+            DIGEST_UTIL,
+            /* retrier= */ mock(RemoteRetrier.class),
+            /* creds= */ null,
+            Options.getDefaults(AuthAndTLSOptions.class));
+
+    ChannelHandler sslHandler = mock(ChannelHandler.class);
+    ChannelHandlerContext sslContext = mock(ChannelHandlerContext.class);
+    when(sslContext.name()).thenReturn("ssl-handler");
+
+    ChannelPipeline pipeline = mock(ChannelPipeline.class);
+    when(pipeline.first()).thenReturn(sslHandler);
+    when(pipeline.last()).thenReturn(sslHandler);
+    when(pipeline.firstContext()).thenReturn(sslContext);
+
+    assertThat(client.isChannelPipelineEmpty(pipeline)).isTrue();
+  }
+
+  @Test
+  public void isChannelPipelineEmpty_nonSslHandler_returnsFalse() throws Exception {
+    HttpCacheClient client =
+        HttpCacheClient.create(
+            new URI("http://localhost"),
+            /* timeoutSeconds= */ 1,
+            /* remoteMaxConnections= */ 0,
+            /* verifyDownloads= */ true,
+            /* extraHttpHeaders= */ ImmutableList.of(),
+            DIGEST_UTIL,
+            /* retrier= */ mock(RemoteRetrier.class),
+            /* creds= */ null,
+            Options.getDefaults(AuthAndTLSOptions.class));
+
+    ChannelHandler handler = mock(ChannelHandler.class);
+    ChannelHandlerContext context = mock(ChannelHandlerContext.class);
+    when(context.name()).thenReturn("other-handler");
+
+    ChannelPipeline pipeline = mock(ChannelPipeline.class);
+    when(pipeline.first()).thenReturn(handler);
+    when(pipeline.last()).thenReturn(handler);
+    when(pipeline.firstContext()).thenReturn(context);
+
+    assertThat(client.isChannelPipelineEmpty(pipeline)).isFalse();
+  }
+
+  @Test
+  public void close_shutsDownChannelPoolAndEventLoop() throws Exception {
+    ServerChannel server = null;
+    try {
+      server =
+          testServer.start(
+              new SimpleChannelInboundHandler<FullHttpRequest>() {
+                @Override
+                protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest req) {}
+              });
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, null, authAndTlsOptions);
+
+      blobStore.close();
+
+      blobStore.close(); // closing again should be safe and idempotent
     } finally {
       testServer.stop(server);
     }

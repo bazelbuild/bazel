@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -166,11 +164,7 @@ public class AndroidStarlarkCommon implements StarlarkValue {
             .addPlaceholderTreeArtifactExecPath("--input", inputTree)
             .addPlaceholderTreeArtifactExecPath("--output", outputTree)
             .add("--multidex=given_shard")
-            .addAll(
-                AndroidCommon.mergerDexopts(
-                    ruleContext,
-                    Iterables.filter(
-                        dexopts, Predicates.not(Predicates.equalTo("--minimal-main-dex")))));
+            .addAll(dexopts);
     if (minSdkVersion > 0) {
       commandLine.add("--min_sdk_version", Integer.toString(minSdkVersion));
     }

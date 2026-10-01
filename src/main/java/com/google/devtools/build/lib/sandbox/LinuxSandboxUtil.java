@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -54,20 +55,41 @@ public final class LinuxSandboxUtil {
    */
   public static void validateBindMounts(Map<Path, Path> bindMounts) throws UserExecException {
     for (Map.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
-      final Path source = bindMount.getValue();
-      final Path target = bindMount.getKey();
+      Path source = bindMount.getValue();
+      Path target = bindMount.getKey();
+
+      FileStatus sourceStat;
+      try {
+        sourceStat = source.statIfFound();
+      } catch (IOException e) {
+        throw new UserExecException(
+            SandboxHelpers.createFailureDetail(
+                String.format("Failed to stat mount source '%s': %s", source, e.getMessage()),
+                Code.MOUNT_SOURCE_STAT_ERROR));
+      }
+
+      FileStatus targetStat;
+      try {
+        targetStat = target.statIfFound();
+      } catch (IOException e) {
+        throw new UserExecException(
+            SandboxHelpers.createFailureDetail(
+                String.format("Failed to stat mount target '%s': %s", target, e.getMessage()),
+                Code.MOUNT_TARGET_STAT_ERROR));
+      }
+
       // Mount source should exist in the file system
-      if (!source.exists()) {
+      if (sourceStat == null) {
         throw new UserExecException(
             SandboxHelpers.createFailureDetail(
                 String.format("Mount source '%s' does not exist.", source),
                 Code.MOUNT_SOURCE_DOES_NOT_EXIST));
       }
       // If target exists, but is not of the same type as the source, then we cannot mount it.
-      if (target.exists()) {
-        boolean areBothDirectories = source.isDirectory() && target.isDirectory();
-        boolean isSourceFile = source.isFile() || source.isSymbolicLink();
-        boolean isTargetFile = target.isFile() || target.isSymbolicLink();
+      if (targetStat != null) {
+        boolean areBothDirectories = sourceStat.isDirectory() && targetStat.isDirectory();
+        boolean isSourceFile = sourceStat.isFile() || sourceStat.isSymbolicLink();
+        boolean isTargetFile = targetStat.isFile() || targetStat.isSymbolicLink();
         boolean areBothFiles = isSourceFile && isTargetFile;
         if (!(areBothDirectories || areBothFiles)) {
           // Source and target are not of the same type; we cannot mount it.

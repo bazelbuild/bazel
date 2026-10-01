@@ -27,9 +27,12 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -164,6 +167,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     RepositoryDirectoryValue.FORCE_FETCH.set(
         differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
     RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA.set(
+        differencer, RepositoryOptions.RequireRepoExtensionMetadataMode.FALSE);
   }
 
   protected PackageLookupValue lookupPackage(String packageName) throws InterruptedException {
@@ -230,7 +235,10 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);
       assertThat(packageLookupValue.packageExists()).isFalse();
       assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.DELETED_PACKAGE);
-      assertThat(packageLookupValue.getErrorMsg()).isNotNull();
+      assertThat(packageLookupValue.getErrorMsg())
+          .isEqualTo("Package is considered deleted due to .bazelignore");
+      assertThat(packageLookupValue)
+          .isSameInstanceAs(PackageLookupValue.DELETED_BY_BAZELIGNORE_VALUE);
     }
 
     scratch.overwriteFile(
@@ -243,6 +251,25 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     for (String pkg : pkgs) {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);
       assertThat(packageLookupValue.packageExists()).isTrue();
+    }
+  }
+
+  @Test
+  public void testIgnoredPackage_repoBazel() throws Exception {
+    scratch.file("ignored_repo/subdir/BUILD");
+    scratch.file("ignored_repo/BUILD");
+    scratch.file(
+        LabelConstants.REPO_FILE_NAME.getPathString(), "ignore_directories([\"ignored_repo\"])");
+
+    ImmutableSet<String> pkgs = ImmutableSet.of("ignored_repo/subdir", "ignored_repo");
+    for (String pkg : pkgs) {
+      PackageLookupValue packageLookupValue = lookupPackage(pkg);
+      assertThat(packageLookupValue.packageExists()).isFalse();
+      assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.DELETED_PACKAGE);
+      assertThat(packageLookupValue.getErrorMsg())
+          .isEqualTo("Package is considered deleted due to ignore_directories() in REPO.bazel");
+      assertThat(packageLookupValue)
+          .isSameInstanceAs(PackageLookupValue.DELETED_BY_REPO_BAZEL_VALUE);
     }
   }
 

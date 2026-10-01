@@ -34,12 +34,11 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
-        "//third_party:junit4",
+        "//third_party/java/junit:not-testonly",
     ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**/*.java"]) + ["BUILD"],
-    visibility = ["//src:__subpackages__"],
 )

@@ -17,10 +17,13 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Object with information about C++ rules. Every C++-related target should provide this. */
-public interface CcStarlarkApiProviderApi<FileT extends FileApi> {
+@StarlarkBuiltin(name = "cc_starlark_api_provider", documented = false)
+public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(
       name = "transitive_headers",

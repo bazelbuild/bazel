@@ -13,9 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.core;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkTypeValue;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeContext;
+import net.starlark.java.syntax.Types;
 
 /** Interface for provider objects (constructors for {@link StructApi} objects). */
 @StarlarkBuiltin(
@@ -41,4 +46,79 @@ import net.starlark.java.eval.StarlarkTypeValue;
             + "  </ul>"
             + "Create a new <code>Provider</code> using the "
             + "<a href=\"../globals/bzl.html#provider\">provider</a> function.")
-public interface ProviderApi extends StarlarkTypeValue {}
+public interface ProviderApi extends StarlarkTypeValue {
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return ANY_PROVIDER_TYPE_CONSTRUCTOR;
+  }
+
+  /**
+   * The {@link StarlarkType} of a {@link ProviderApi} value. (In other words, the type of a
+   * provider symbol; as contrasted with the type of Info objects which that provider symbol
+   * constructs.)
+   */
+  public abstract static class ProviderType extends StarlarkType {
+    /** The callable supertype of the provider symbol. */
+    public abstract Types.CallableType asCallableType(TypeContext context);
+
+    /** The type of Info objects constructed by this provider symbol. */
+    public abstract StarlarkType getInfoType(TypeContext context);
+
+    @Override
+    public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
+      return ImmutableList.of(asCallableType(context), Types.TYPE);
+    }
+
+    @Override
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
+      if (t instanceof ProviderType that) {
+        return this.equals(ANY_PROVIDER_TYPE)
+            || that.equals(ANY_PROVIDER_TYPE)
+            || this.equals(that);
+      }
+      return false;
+    }
+  }
+
+  /** A provider type allowing arbitrary calls, and assignable to and from any provider type. */
+  public static final AnyProviderType ANY_PROVIDER_TYPE = new AnyProviderType();
+
+  // Not parameterized; user code should not be able to instantiate custom ProviderType instances
+  // other than as a side effect of creating a new provider symbol by calling `provider()`.
+  public static final TypeConstructor ANY_PROVIDER_TYPE_CONSTRUCTOR =
+      Types.wrapType("Provider", ANY_PROVIDER_TYPE);
+
+  /** A provider type allowing arbitrary calls, and assignable to and from any provider type. */
+  public static final class AnyProviderType extends ProviderType {
+    // (*args, **kwargs) -> struct
+    private static final Types.CallableType anyProviderCallable =
+        Types.simpleCallable(ImmutableList.of(), true, Types.ANY_STRUCT);
+
+    @Override
+    public Types.CallableType asCallableType(TypeContext context) {
+      return anyProviderCallable;
+    }
+
+    @Override
+    public StarlarkType getInfoType(TypeContext context) {
+      return Types.ANY_STRUCT;
+    }
+
+    @Override
+    public String typeRepr() {
+      return "Provider";
+    }
+
+    // singleton
+    private AnyProviderType() {}
+
+    @Override
+    public int hashCode() {
+      return AnyProviderType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof AnyProviderType;
+    }
+  }
+}

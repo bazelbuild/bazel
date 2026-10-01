@@ -14,7 +14,8 @@
 package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -22,6 +23,8 @@ import static org.mockito.Mockito.verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.events.Event.ProcessOutput;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.devtools.build.lib.util.StringEncoding;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -47,22 +50,17 @@ public class EventTest {
 
   @Test
   public void eventMessageEncoding() {
-    String message = "Bazel \u1f33f";
+    String message = StringEncoding.unicodeToInternal("Bazel ἳf");
 
     Event stringEvent = Event.of(EventKind.WARNING, message);
-    Event stringEvent2 = Event.of(EventKind.WARNING, "Bazel \u1f33f");
     assertThat(stringEvent.getMessage()).isEqualTo(message);
-    assertThat(stringEvent.getMessageBytes()).isEqualTo(message.getBytes(UTF_8));
+    assertThat(stringEvent.getMessageBytes()).isEqualTo(message.getBytes(ISO_8859_1));
 
-    Event byteArrayEvent = Event.of(EventKind.WARNING, message.getBytes(UTF_8));
-    Event byteArrayEvent2 = Event.of(EventKind.WARNING, "Bazel \u1f33f".getBytes(UTF_8));
+    Event byteArrayEvent = Event.of(EventKind.WARNING, StringUnsafe.getByteArray(message));
     assertThat(byteArrayEvent.getMessage()).isEqualTo(message);
-    assertThat(byteArrayEvent.getMessageBytes()).isEqualTo(message.getBytes(UTF_8));
+    assertThat(byteArrayEvent.getMessageBytes()).isEqualTo(message.getBytes(ISO_8859_1));
 
-    new EqualsTester()
-        .addEqualityGroup(stringEvent, stringEvent2)
-        .addEqualityGroup(byteArrayEvent, byteArrayEvent2)
-        .testEquals();
+    assertThat(stringEvent).isNotEqualTo(byteArrayEvent);
   }
 
   @Test
@@ -77,7 +75,7 @@ public class EventTest {
 
   @Test
   public void messageReference() throws Exception {
-    byte[] messageBytes = "message".getBytes(UTF_8);
+    byte[] messageBytes = "message".getBytes(US_ASCII);
     Event event = Event.of(EventKind.WARNING, messageBytes);
     assertThat(event.getMessageBytes()).isEqualTo(messageBytes);
   }
@@ -182,9 +180,9 @@ public class EventTest {
   @Test
   public void testWithProcessOutput() throws Exception {
     String stdoutPath = "/stdout";
-    byte[] stdout = "some stdout output".getBytes(UTF_8);
+    byte[] stdout = "some stdout output".getBytes(US_ASCII);
     String stderrPath = "/stderr";
-    byte[] stderr = "some stderr error".getBytes(UTF_8);
+    byte[] stderr = "some stderr error".getBytes(US_ASCII);
 
     ProcessOutput testProcessOutput =
         new ProcessOutput() {

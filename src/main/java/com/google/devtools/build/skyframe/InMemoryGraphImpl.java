@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ForwardingConcurrentMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
@@ -134,9 +133,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       return;
     }
     LabelInterner interner = Label.getLabelInterner();
-
-    ImmutableSortedMap<String, Target> targets = packageoidValue.getPackageoid().getTargets();
-    targets.values().forEach(t -> interner.weakIntern(t.getLabel()));
+    packageoidValue.getPackageoid().getTargets().forEach(t -> interner.weakIntern(t.getLabel()));
   }
 
   @Override
@@ -315,10 +312,17 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
     @Override
     public SkyKey getOrWeakIntern(SkyKey sample) {
+      // Fast path for the common case that the key is already present in the node map. The key of
+      // a present entry is always the canonical instance, so there is no race with createIfAbsent
+      // to guard against. This avoids allocating the array and capturing lambda below.
+      InMemoryNodeEntry existing = nodeMap.get(sample);
+      if (existing != null) {
+        return existing.getKey();
+      }
+
       // Use computeIfAbsent not to mutate the map, but to call weakIntern under synchronization.
       // This ensures that the canonical instance isn't being transferred to the node map
-      // concurrently in createIfAbsent. In the common case that the key is already present in the
-      // node map, this is a lock-free lookup.
+      // concurrently in createIfAbsent.
       SkyKey[] weakInterned = new SkyKey[1];
       InMemoryNodeEntry nodeEntry =
           nodeMap.computeIfAbsent(
@@ -379,9 +383,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       return null;
     }
     checkState(value instanceof PackageoidValue, value);
-    ImmutableSortedMap<String, Target> targets =
-        ((PackageoidValue) value).getPackageoid().getTargets();
-    Target target = targets.get(sample.getName());
+    Target target = ((PackageoidValue) value).getPackageoid().getTargetOrNull(sample.getName());
     return target != null ? target.getLabel() : null;
   }
 

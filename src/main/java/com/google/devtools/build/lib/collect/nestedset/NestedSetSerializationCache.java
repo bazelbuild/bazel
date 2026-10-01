@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.skyframe.serialization.PutOperation;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -47,6 +49,8 @@ import javax.annotation.Nullable;
 class NestedSetSerializationCache {
 
   @VisibleForTesting static final int CANCELLATION_PARALLELISM_THRESHOLD = 1024;
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Fingerprint to array cache.
@@ -82,18 +86,29 @@ class NestedSetSerializationCache {
   /** Cancels pending fetch futures and removes them from this cache. */
   void cancelPendingFetches() {
     var entries = fingerprintToContents.asMap().entrySet();
+    if (entries.isEmpty()) {
+      return;
+    }
     var stream =
         entries.size() > CANCELLATION_PARALLELISM_THRESHOLD
             ? entries.parallelStream()
             : entries.stream();
+    AtomicInteger canceled = new AtomicInteger();
     stream.forEach(
         entry -> {
-          if (entry.getValue() instanceof Future<?> future
-              // Futures may already have been cancelled via propagation.
-              && (future.cancel(/* mayInterruptIfRunning= */ false) || future.isCancelled())) {
-            fingerprintToContents.invalidate(entry.getKey());
+          if (entry.getValue() instanceof Future<?> future) {
+            if (future.cancel(/* mayInterruptIfRunning= */ false)) {
+              canceled.incrementAndGet();
+            }
+            // Futures may already have been cancelled via propagation.
+            if (future.isCancelled()) {
+              fingerprintToContents.invalidate(entry.getKey());
+            }
           }
         });
+    if (canceled.get() > 0) {
+      logger.atInfo().log("Canceled %d pending NestedSet fetch futures", canceled.get());
+    }
   }
 
   /**

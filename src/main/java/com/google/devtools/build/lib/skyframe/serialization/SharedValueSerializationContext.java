@@ -14,19 +14,20 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.FAILURE_REPORTING_CALLBACK;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForSerializationFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.aggregateWriteStatuses;
 
-import com.github.luben.zstd.RecyclingBufferPool;
-import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.QuiescingFutureTask;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatusBuilder;
@@ -36,6 +37,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
@@ -100,6 +102,8 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
   /** Size of serialized shared value after which we will compress the node. */
   public static final int COMPRESSION_THRESHOLD_IN_BYTES = 1024;
 
+  protected final CompressionService compressionService;
+
   final FingerprintValueService fingerprintValueService;
 
   /**
@@ -123,16 +127,23 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
   static SharedValueSerializationContext createForTesting(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService) {
     return create(
-        codecRegistry, dependencies, fingerprintValueService, /* profileCollector= */ null);
+        codecRegistry,
+        dependencies,
+        compressionService,
+        fingerprintValueService,
+        /* profileCollector= */ null);
   }
 
   private SharedValueSerializationContext(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService) {
     super(codecRegistry, dependencies);
+    this.compressionService = compressionService;
     this.fingerprintValueService = fingerprintValueService;
   }
 
@@ -147,13 +158,18 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
   static SerializationResult<ByteString> serializeToResult(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       @Nullable Object subject)
       throws SerializationException {
     var task =
         new SerializationTask(
             create(
-                codecRegistry, dependencies, fingerprintValueService, /* profileCollector= */ null),
+                codecRegistry,
+                dependencies,
+                compressionService,
+                fingerprintValueService,
+                /* profileCollector= */ null),
             subject);
     task.run();
     return waitForSerializationFuture(task);
@@ -162,11 +178,18 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
   static AsyncSerializationTask serializeToResultAsync(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       @Nullable Object subject,
       @Nullable ProfileCollector profileCollector) {
     return new SerializationTask(
-        create(codecRegistry, dependencies, fingerprintValueService, profileCollector), subject);
+        create(
+            codecRegistry,
+            dependencies,
+            compressionService,
+            fingerprintValueService,
+            profileCollector),
+        subject);
   }
 
   /**
@@ -299,8 +322,11 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       // There are no deferred bytes so `childBytes` is complete. Starts the upload.
 
       int uncompressedLength = childBytes.length;
-      childBytes = maybeCompressBytes(childBytes);
-      int childBytesCount = childBytes.length; // Do not hold on to the bytes
+      ChunkedValueSerialization.ChunkingResult chunkingResult =
+          ChunkedValueSerialization.maybeCompressAndChunk(
+              childBytes, compressionService, fingerprintValueService, childWriteStatuses::add);
+      childBytes = chunkingResult.serializedBytes();
+      int childBytesCount = chunkingResult.bytesToUpload();
       if (childRecorder != null && childBytesCount != uncompressedLength) {
         childRecorder.setByteScale((double) childBytesCount / uncompressedLength);
       }
@@ -309,9 +335,11 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       COUNTERS.objectsWaitingForUpload.incrementAndGet();
       COUNTERS.bytesWaitingForUpload.addAndGet(childBytesCount);
 
-      PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
+      PackedFingerprint fingerprint =
+          fingerprintValueService.fingerprint(childBytes, codec.getClass().getName());
       fingerprint.writeTo(codedOut); // Writes only the fingerprint to the stream.
       WriteStatus writeStatus = fingerprintValueService.put(fingerprint, childBytes);
+
       if (childRecorder != null) {
         childRecorder.registerWriteStatus(writeStatus);
       }
@@ -337,36 +365,53 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
             childWriteStatuses,
             childBytes,
             childFuturePuts,
-            childRecorder);
+            childRecorder,
+            codec.getClass().getName());
 
     putOperation.setFuture(upload);
     recordFuturePut(upload, codedOut);
   }
 
-  private static byte[] maybeCompressBytes(byte[] childBytes) {
-    if (childBytes.length > COMPRESSION_THRESHOLD_IN_BYTES) {
-      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      outputStream.write((byte) 1);
-      try (ZstdOutputStream zstdOutputStream =
-          new ZstdOutputStream(outputStream, RecyclingBufferPool.INSTANCE)) {
-        zstdOutputStream.write(childBytes);
-        zstdOutputStream.flush();
-        return outputStream.toByteArray();
-      } catch (IOException e) {
-        BugReporter.defaultInstance().sendBugReport(e);
-        // Falls back onto uncompressed data.
+  /**
+   * Cleans up and reports errors when serialization fails or is cancelled.
+   *
+   * <p>Because the caller will only observe {@code primaryCause} (or cancellation) via the future
+   * and will not receive the {@link SerializationResult} or {@link PutOperation}:
+   *
+   * <ul>
+   *   <li>Reports any write errors from in-flight uploads in {@code childWriteStatuses} that would
+   *       otherwise be ignored by the caller.
+   *   <li>Reports any distinct concurrent {@code secondaryCauses} that would otherwise be silently
+   *       dropped.
+   * </ul>
+   */
+  private static void handleDoneWithError(
+      @Nullable WriteStatusBuilder childWriteStatuses,
+      @Nullable Throwable primaryCause,
+      ImmutableList<Throwable> secondaryCauses) {
+    if (childWriteStatuses != null) {
+      // Reports any write errors from in-flight uploads that would otherwise be ignored by the
+      // caller due to the primary error.
+      Futures.addCallback(childWriteStatuses.build(), FAILURE_REPORTING_CALLBACK, directExecutor());
+    }
+    // Multiple references to a shared failing child in a DAG produce duplicate exception
+    // instances across primaryCause and secondaryCauses. Deduplicates to avoid redundant reports.
+    var seen = new HashSet<Throwable>();
+    if (primaryCause != null) {
+      seen.add(primaryCause);
+    }
+    for (Throwable secondary : secondaryCauses) {
+      if (seen.add(secondary)) {
+        BugReporter.defaultInstance().sendBugReport(secondary);
       }
     }
-    byte[] newChildBytes = new byte[childBytes.length + 1];
-    newChildBytes[0] = (byte) 0;
-    System.arraycopy(childBytes, 0, newChildBytes, 1, childBytes.length);
-    return newChildBytes;
   }
 
-  private static final class UploadOnceFuturePutsResolve extends QuiescingFuture<PutOperation>
+  private final class UploadOnceFuturePutsResolve extends QuiescingFuture<PutOperation>
       implements FuturePutBuffer {
     private final FingerprintValueService fingerprintValueService;
     @Nullable private final ProfileRecorder childRecorder;
+    private final String codecName;
 
     private byte[] childBytes;
     private final WriteStatusBuilder childWriteStatuses;
@@ -376,10 +421,12 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
         List<WriteStatus> childWriteStatuses,
         byte[] childBytes,
         Collection<FuturePut> childFuturePuts,
-        @Nullable ProfileRecorder childRecorder) {
+        @Nullable ProfileRecorder childRecorder,
+        String codecName) {
       super(fingerprintValueService.getExecutor());
       this.fingerprintValueService = fingerprintValueService;
       this.childRecorder = childRecorder;
+      this.codecName = codecName;
       this.childWriteStatuses = new WriteStatusBuilder().addAll(childWriteStatuses);
       this.childBytes = childBytes;
       FuturePutBuffer.register(this, childFuturePuts);
@@ -388,15 +435,18 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       COUNTERS.objectsWaitingForFuturePuts.incrementAndGet();
       COUNTERS.bytesWaitingForFuturePuts.addAndGet(childBytes.length);
 
-      decrement(); // signal ready
+      finishRegistration(); // signal ready
     }
 
     @Override
     protected PutOperation getValue() {
       // All placeholders are filled-in. Starts the upload.
       int uncompressedLength = childBytes.length;
-      byte[] maybeCompressedBytes = maybeCompressBytes(childBytes);
-      int childBytesCount = maybeCompressedBytes.length; // Do not hold on to the array
+      ChunkedValueSerialization.ChunkingResult chunkingResult =
+          ChunkedValueSerialization.maybeCompressAndChunk(
+              childBytes, compressionService, fingerprintValueService, childWriteStatuses::add);
+      byte[] maybeCompressedBytes = chunkingResult.serializedBytes();
+      int childBytesCount = chunkingResult.bytesToUpload();
       if (childRecorder != null && childBytesCount != uncompressedLength) {
         childRecorder.setByteScale((double) childBytesCount / uncompressedLength);
       }
@@ -406,7 +456,8 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       COUNTERS.bytesWaitingForFuturePuts.addAndGet(-childBytes.length);
       COUNTERS.bytesWaitingForUpload.addAndGet(childBytesCount);
 
-      PackedFingerprint fingerprint = fingerprintValueService.fingerprint(maybeCompressedBytes);
+      PackedFingerprint fingerprint =
+          fingerprintValueService.fingerprint(maybeCompressedBytes, codecName);
       WriteStatus writeStatus = fingerprintValueService.put(fingerprint, maybeCompressedBytes);
       if (childRecorder != null) {
         childRecorder.registerWriteStatus(writeStatus);
@@ -425,10 +476,9 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     }
 
     @Override
-    protected final void doneWithError() {
-      // All FuturePuts are done, but some of them had errors. Reports any write errors that would
-      // otherwise be ignored by the caller due to the primary error.
-      Futures.addCallback(childWriteStatuses.build(), FAILURE_REPORTING_CALLBACK, directExecutor());
+    protected final void doneWithError(
+        @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+      handleDoneWithError(childWriteStatuses, primaryCause, secondaryCauses);
     }
 
     @Override
@@ -512,7 +562,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     private WriteStatusBuilder childWriteStatuses;
 
     private SerializationTask(SharedValueSerializationContext context, @Nullable Object subject) {
-      super(directExecutor());
+      super(safeDirectExecutor());
       this.context = context;
       this.subject = subject;
       this.topLevelProfileRecorder = context.getProfileRecorder();
@@ -531,7 +581,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
         try {
           bytes = context.serializeToBytes(subject);
         } catch (SerializationException e) {
-          notifyException(e);
+          recordException(e);
           return;
         }
         ArrayList<FuturePut> futurePuts = context.futurePuts;
@@ -570,11 +620,9 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     }
 
     @Override
-    protected final void doneWithError() {
-      if (childWriteStatuses != null) {
-        Futures.addCallback(
-            childWriteStatuses.build(), FAILURE_REPORTING_CALLBACK, directExecutor());
-      }
+    protected final void doneWithError(
+        @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+      handleDoneWithError(childWriteStatuses, primaryCause, secondaryCauses);
     }
 
     @Override
@@ -674,13 +722,18 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
   private static SharedValueSerializationContext create(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       @Nullable ProfileCollector profileCollector) {
     return profileCollector == null
         ? new SharedValueSerializationContextImpl(
-            codecRegistry, dependencies, fingerprintValueService)
+            codecRegistry, dependencies, compressionService, fingerprintValueService)
         : new SharedValueSerializationProfilingContext(
-            codecRegistry, dependencies, fingerprintValueService, profileCollector);
+            codecRegistry,
+            dependencies,
+            compressionService,
+            fingerprintValueService,
+            profileCollector);
   }
 
   private static final class SharedValueSerializationContextImpl
@@ -688,14 +741,15 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     private SharedValueSerializationContextImpl(
         ObjectCodecRegistry codecRegistry,
         ImmutableClassToInstanceMap<Object> dependencies,
+        CompressionService compressionService,
         FingerprintValueService fingerprintValueService) {
-      super(codecRegistry, dependencies, fingerprintValueService);
+      super(codecRegistry, dependencies, compressionService, fingerprintValueService);
     }
 
     @Override
     public SharedValueSerializationContext getFreshContext() {
       return new SharedValueSerializationContextImpl(
-          getCodecRegistry(), getDependencies(), fingerprintValueService);
+          getCodecRegistry(), getDependencies(), compressionService, fingerprintValueService);
     }
 
     @Override
@@ -712,9 +766,10 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     private SharedValueSerializationProfilingContext(
         ObjectCodecRegistry codecRegistry,
         ImmutableClassToInstanceMap<Object> dependencies,
+        CompressionService compressionService,
         FingerprintValueService fingerprintValueService,
         ProfileCollector profileCollector) {
-      super(codecRegistry, dependencies, fingerprintValueService);
+      super(codecRegistry, dependencies, compressionService, fingerprintValueService);
       this.profileRecorder = new ProfileRecorder(profileCollector);
     }
 
@@ -723,6 +778,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       return new SharedValueSerializationProfilingContext(
           getCodecRegistry(),
           getDependencies(),
+          compressionService,
           fingerprintValueService,
           profileRecorder.getProfileCollector());
     }

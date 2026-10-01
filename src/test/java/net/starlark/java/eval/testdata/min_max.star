@@ -127,3 +127,11 @@ assert_eq(max_call_count, {"m": 1, "a": 1, "x": 1})
 lst = [1, 2, 3]
 assert_fails(lambda: min(lst, key = lambda x: lst.pop()), "list value is temporarily immutable")
 assert_fails(lambda: max(lst, key = lambda x: lst.append(x)), "list value is temporarily immutable")
+
+# min and max of a list with self-referential elements
+self_ref1 = []
+self_ref1.append(self_ref1)
+self_ref2 = []
+self_ref2.append(self_ref2)
+assert_fails(lambda: min([self_ref1, self_ref2]), "cannot compare self-referential or overly nested data structures")
+assert_fails(lambda: max([self_ref1, self_ref2]), "cannot compare self-referential or overly nested data structures")

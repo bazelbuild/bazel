@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -35,6 +36,7 @@ import net.starlark.java.eval.StarlarkThread;
  * configuration of cc_toolchain is different than configuration of the rule depending on it.
  */
 // TODO(b/129045294): Remove once cc_toolchain has target configuration.
+@StarlarkBuiltin(name = "FeatureConfiguration", documented = false)
 public class FeatureConfigurationForStarlark implements FeatureConfigurationApi {
 
   private final FeatureConfiguration featureConfiguration;

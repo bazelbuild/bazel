@@ -11,7 +11,6 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
 )
 
 # This is used as a library outside of Bazel.
@@ -36,6 +35,6 @@ java_library(
     ],
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )

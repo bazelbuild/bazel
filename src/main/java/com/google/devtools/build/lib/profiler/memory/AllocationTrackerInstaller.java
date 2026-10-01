@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.profiler.memory;
 
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.monitoring.runtime.instrumentation.AllocationRecorder;
+import com.google.monitoring.runtime.instrumentation.Sampler;
 
+@ScOnly
 class AllocationTrackerInstaller {
-  static void installAllocationTracker(AllocationTracker tracker) {
-    AllocationRecorder.addSampler(tracker);
+  static void installAllocationTracker(Sampler sampler) {
+    AllocationRecorder.addSampler(sampler);
   }
 }

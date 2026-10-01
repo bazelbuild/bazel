@@ -275,7 +275,7 @@ public abstract class ExecutionOptions extends OptionsBase {
   @Option(
       name = "test_tmpdir",
       defaultValue = "null",
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specifies the base temporary directory for 'bazel test' to use.")
@@ -301,7 +301,9 @@ public abstract class ExecutionOptions extends OptionsBase {
           - `errors` to also print test logs for failed tests,
           - `all` to print summaries and logs for all tests and
           - `streamed` to output logs for all tests in real time (this will force tests to be
-            executed locally one at a time regardless of `--test_strategy` value).
+            executed locally one at a time via `--test_strategy=exclusive`, disabling parallel
+            execution and sharding. For parallel execution of multiple tests, use `errors` or
+            `all`).
           """)
   public abstract TestOutputFormat getTestOutput();
 
@@ -400,6 +402,16 @@ public abstract class ExecutionOptions extends OptionsBase {
           "The size of window during experimental scheduling of action based on CPU load. Make"
               + " sense to define only when flag --experimental_cpu_load_scheduling is enabled.")
   public abstract Duration getExperimentalCpuLoadSchedulingWindowSize();
+
+  @Option(
+      name = "experimental_memory_load_scheduling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Enables the experimental local execution scheduling based on memory load, not estimation"
+              + " of actions one by one.")
+  public abstract boolean getExperimentalMemoryLoadScheduling();
 
   @Option(
       name = "local_test_jobs",

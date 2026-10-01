@@ -14,13 +14,18 @@
 
 package net.starlark.java.syntax;
 
+import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 /**
  * A context for obtaining more detailed information about Starlark types.
  *
- * <p>This is used to inject type information from the {@code eval/} package into the {@code
- * syntax/} package, e.g. the method APIs of {@link StarlarkList}.
+ * <p>This is used to inject potentially StarlarkSemantics-dependent type information from the
+ * {@code eval/} package into the {@code syntax/} package, e.g. the method APIs of {@link
+ * StarlarkList}.
+ *
+ * <p>The canonical ways to obtain a {@link TypeContext} are via {@link
+ * net.starlark.java.eval.StarlarkThread#getTypeContext} or {@link Resolver.Module#getTypeContext}.
  */
 public interface TypeContext {
 
@@ -48,16 +53,22 @@ public interface TypeContext {
   StarlarkType getSetFieldType(String name);
 
   /**
-   * Returns the value type of a {@link Resolver.Scope#PREDECLARED} symbol, or null if there is no
-   * such symbol.
+   * Returns the type of the given field of a {@link net.starlark.java.annot.StarlarkBuiltin}
+   * annotated class (or a subclass of one), or null if the class is not a @StarlarkBuiltin or has
+   * no such field.
    */
   @Nullable
-  StarlarkType getPredeclaredSymbolType(String name);
+  default StarlarkType getStarlarkBuiltinFieldType(Class<?> clazz, String fieldName) {
+    return null;
+  }
 
   /**
-   * Returns the value type of a {@link Resolver.Scope#UNIVERSAL} symbol, or null if there is no
-   * such symbol.
+   * Returns the supertypes of the auto-generated Starlark type associated with the given {@link
+   * net.starlark.java.annot.StarlarkBuiltin} annotated class (or a subclass of one), or null if no
+   * such auto-generated type exists.
    */
   @Nullable
-  StarlarkType getUniversalSymbolType(String name);
+  default ImmutableList<StarlarkType> getStarlarkBuiltinAutoTypeSupertypes(Class<?> clazz) {
+    return null;
+  }
 }

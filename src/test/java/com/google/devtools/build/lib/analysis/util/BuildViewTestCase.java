@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -111,10 +112,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -161,6 +162,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -173,7 +176,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -203,8 +205,10 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.CallUtils;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.TypeContext;
 import org.junit.After;
 import org.junit.Before;
 
@@ -325,7 +329,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       cleanupInterningPools();
     }
     skyframeExecutor =
-        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(pkgFactory)
             .setFileSystem(fileSystem)
             .setDirectories(directories)
@@ -333,6 +337,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
+            .setCompressionService(new CompressionServiceImpl())
             .setDiffAwarenessFactories(diffAwarenessFactories)
             .allowExternalRepositories(allowExternalRepositories())
             .setGlobUnderSingleDep(globUnderSingleDep)
@@ -391,7 +396,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             // aren't present in the cache.
             /* bzlLoadValueCacheSize= */ 2);
     // The builtins should be empty since this was just created but reset it anyway to be sure.
-    inliningBzlLoadFunction.resetInliningCacheAndBuiltinsForTesting();
+    inliningBzlLoadFunction.resetInliningCacheAndBuiltins();
     // This doesn't override the BZL_LOAD -> BzlLoadFunction mapping, but nothing besides
     // PackageFunction should be requesting that key while using the inlining code path.
     ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
@@ -439,6 +444,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected StarlarkSemantics getStarlarkSemantics() {
     return buildLanguageOptions.toStarlarkSemantics();
+  }
+
+  protected TypeContext getTypeContext() {
+    return CallUtils.getBuiltinManager(getStarlarkSemantics());
   }
 
   protected PackageValidator getPackageValidator() {
@@ -495,7 +504,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     assertContainsEvent(expectedError);
   }
 
-  private void setUpSkyframe() {
+  private void setUpSkyframe() throws AbruptExitException {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,
@@ -604,7 +613,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
     if (inliningBzlLoadFunction != null) {
-      inliningBzlLoadFunction.resetInliningCacheAndBuiltinsForTesting();
+      inliningBzlLoadFunction.resetInliningCacheAndBuiltins();
     }
     if (alsoConfigs) {
       try {
@@ -1484,7 +1493,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ActionLookupKey actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
     return getDerivedArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
-        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
+        getConfiguration(owner).getBinDirectory(),
         actionLookupKey);
   }
 
@@ -1524,7 +1533,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact.DerivedArtifact getBinArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
-        targetConfig.getBinDirectory(RepositoryName.MAIN),
+        targetConfig.getBinDirectory(),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
@@ -1599,7 +1608,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getGenfilesArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
-        targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
+        targetConfig.getGenfilesDirectory(),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
@@ -1655,7 +1664,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        getConfiguration(owner).getGenfilesDirectory(owner.getLabel().getRepository()),
+        getConfiguration(owner).getGenfilesDirectory(),
         getOwnerForAspect(owner, creatingAspectFactory, params));
   }
 
@@ -1668,7 +1677,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private Artifact getGenfilesArtifact(
       String packageRelativePath, ArtifactOwner owner, BuildConfigurationValue config) {
     return getPackageRelativeDerivedArtifact(
-        packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
+        packageRelativePath, config.getGenfilesDirectory(), owner);
   }
 
   protected AspectKey getOwnerForAspect(
@@ -1924,6 +1933,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected BuildConfigurationValue getExecConfiguration() {
     return execConfig;
+  }
+
+  protected final PlatformConfigurationProvider getPlatformConfigurationProvider() {
+    Preconditions.checkNotNull(targetConfig);
+    Preconditions.checkNotNull(execConfig);
+    Label topLevelPlatform =
+        targetConfig.getOptions().get(PlatformOptions.class).computeTargetPlatform();
+    return new DefaultPlatformConfigurationProvider(
+        topLevelPlatform, targetConfig.getOptions(), execConfig.getOptions());
   }
 
   private BuildConfigurationValue getConfiguration(String label) {
@@ -2348,8 +2366,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         .isEqualTo(
             String.format(
                 "%s%s.extra_action_dummy",
-                targetConfig.getGenfilesFragment(RepositoryName.MAIN),
-                convertLabelToPath(targetLabel)));
+                targetConfig.getGenfilesFragment(), convertLabelToPath(targetLabel)));
 
     return (PseudoAction<?>) pseudoAction;
   }

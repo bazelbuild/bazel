@@ -159,7 +159,7 @@ def add_origin(ctx, git_repo, remote):
     _git(ctx, git_repo, "remote", "add", "origin", remote)
 
 def fetch(ctx, git_repo):
-    args = ["fetch", "origin", git_repo.fetch_ref]
+    args = ["fetch", "origin"]
 
     sparse_checkout_patterns_or_file = \
         getattr(ctx.attr, "sparse_checkout_patterns", None) or \
@@ -172,6 +172,7 @@ def fetch(ctx, git_repo):
             print("WARNING: Sparse checkout is not supported. Doing a full checkout.")
             sparse_checkout_patterns_or_file = None
 
+    args.extend(["--", git_repo.fetch_ref])
     st = _git_maybe_shallow(ctx, git_repo, *args)
 
     if sparse_checkout_patterns_or_file:
@@ -193,6 +194,7 @@ def fetch(ctx, git_repo):
             git_repo,
             "fetch",
             "origin",
+            "--",
             "refs/heads/*:refs/remotes/origin/*",
             "refs/tags/*:refs/tags/*",
         )

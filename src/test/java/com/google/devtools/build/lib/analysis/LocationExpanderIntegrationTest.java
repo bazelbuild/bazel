@@ -235,39 +235,6 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void otherPathExternalExpansionSiblingRepositoryLayout() throws Exception {
-    scratch.file("expansion/BUILD", "filegroup(name='lib', srcs=['@r//p:foo'])");
-    scratch.appendFile(
-        "MODULE.bazel",
-        "bazel_dep(name = 'r')",
-        "local_path_override(module_name = 'r', path = '/r')");
-
-    // Invalidate WORKSPACE so @r can be resolved.
-    getSkyframeExecutor()
-        .invalidateFilesUnderPathForTesting(
-            reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
-
-    scratch.resolve("/foo/bar").createDirectoryAndParents();
-    scratch.file("/r/MODULE.bazel", "module(name = 'r')");
-    scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
-
-    setBuildLanguageOptions("--experimental_sibling_repository_layout");
-    LocationExpander expander = makeExpander("//expansion:lib");
-    assertThat(expander.expand("foo $(execpath @r//p:foo) bar"))
-        .matches("foo .*-out/r\\+/.*/p/foo\\.txt bar");
-    assertThat(expander.expand("foo $(execpaths @r//p:foo) bar"))
-        .matches("foo .*-out/r\\+/.*/p/foo\\.txt bar");
-    assertThat(expander.expand("foo $(rootpath @r//p:foo) bar"))
-        .matches("foo ../r\\+/p/foo.txt bar");
-    assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar"))
-        .matches("foo ../r\\+/p/foo.txt bar");
-    assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
-        .isEqualTo("foo r+/p/foo.txt bar");
-    assertThat(expander.expand("foo $(rlocationpaths @r//p:foo) bar"))
-        .isEqualTo("foo r+/p/foo.txt bar");
-  }
-
-  @Test
   public void otherPathMultiExpansion() throws Exception {
     scratch.file(
         "expansion/BUILD",

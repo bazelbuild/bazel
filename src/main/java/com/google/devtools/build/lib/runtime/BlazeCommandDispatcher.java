@@ -164,7 +164,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
-      LockingMode lockingMode,
+      Duration blockForLockTimeout,
       UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
@@ -177,7 +177,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         invocationPolicy,
         args,
         outErr,
-        lockingMode,
+        blockForLockTimeout,
         uiVerbosity,
         clientDescription,
         firstContactTimeMillis,
@@ -194,7 +194,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
-      LockingMode lockingMode,
+      Duration blockForLockTimeout,
       UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
@@ -239,30 +239,42 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     // TODO(ulfjack): Add lock acquisition to the profiler.
     synchronized (commandLock) {
       while (currentClientDescription != null) {
-        switch (lockingMode) {
-          case WAIT -> {
-            if (!otherClientDescription.equals(currentClientDescription)) {
-              String serverDescription =
-                  serverPid == UNKNOWN_SERVER_PID ? "" : (" (server_pid=" + serverPid + ")");
-              outErr.printErrLn(
-                  String.format(
-                      "Another command (%s) is running. Waiting for it to complete on the"
-                          + " server%s...",
-                      currentClientDescription, serverDescription));
-              otherClientDescription = currentClientDescription;
-            }
-            commandLock.wait(500);
-          }
-          case ERROR_OUT -> {
+        if (!blockForLockTimeout.isPositive()) {
+          String message =
+              String.format(
+                  "Another command (%s) is running. Exiting immediately.",
+                  currentClientDescription);
+          outErr.printErrLn(message);
+          return createDetailedCommandResult(
+              message, FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
+        }
+        long waitMillis = 500;
+        if (blockForLockTimeout.compareTo(Duration.ofMillis(Long.MAX_VALUE)) < 0) {
+          long timeoutMillis = blockForLockTimeout.toMillis();
+          long elapsedMillis = (BlazeClock.nanoTime() - clockBefore) / 1_000_000L;
+          if (elapsedMillis >= timeoutMillis) {
             String message =
                 String.format(
-                    "Another command (%s) is running. Exiting immediately.",
-                    currentClientDescription);
+                    "Another command (%s) is running. Exiting because --block_for_lock=%dms"
+                        + " timeout expired.",
+                    currentClientDescription, timeoutMillis);
             outErr.printErrLn(message);
             return createDetailedCommandResult(
                 message, FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
           }
+          waitMillis = Math.min(500, timeoutMillis - elapsedMillis);
         }
+        if (!otherClientDescription.equals(currentClientDescription)) {
+          String serverDescription =
+              serverPid == UNKNOWN_SERVER_PID ? "" : (" (server_pid=" + serverPid + ")");
+          outErr.printErrLn(
+              String.format(
+                  "Another command (%s) is running. Waiting for it to complete on the"
+                      + " server%s...",
+                  currentClientDescription, serverDescription));
+          otherClientDescription = currentClientDescription;
+        }
+        commandLock.wait(waitMillis);
 
         multipleAttempts = true;
       }
@@ -341,8 +353,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   /**
    * For testing ONLY. Same as {@link CommandDispatcher#exec(InvocationPolicy, List, OutErr,
-   * LockingMode, String, long, Optional, List, CommandExtensionReporter)} but automatically uses
-   * the current time.
+   * Duration, UiVerbosity, String, long, Optional, Supplier, List, CommandExtensionReporter)} but
+   * automatically uses the current time.
    */
   @VisibleForTesting
   public BlazeCommandResult exec(List<String> args, String clientDescription, OutErr originalOutErr)
@@ -351,7 +363,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         InvocationPolicy.getDefaultInstance(),
         args,
         originalOutErr,
-        LockingMode.ERROR_OUT,
+        Duration.ZERO,
         UiVerbosity.NORMAL,
         clientDescription,
         runtime.getClock().currentTimeMillis(),
@@ -401,21 +413,30 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
     List<String> commandEnvWarnings = new ArrayList<>();
-    CommandEnvironment env =
-        workspace.initCommand(
-            commandAnnotation,
-            options,
-            invocationPolicy,
-            commandEnvWarnings,
-            waitTimeInMs,
-            firstContactTime,
-            idleTaskResultsFromPreviousIdlePeriod,
-            this::setShutdownReason,
-            commandExtensions,
-            commandExtensionReporter,
-            attemptNumber,
-            buildRequestIdOverride,
-            parseResults.configFlagDefinitions());
+    CommandEnvironment env;
+    try {
+      env =
+          workspace.initCommand(
+              commandAnnotation,
+              options,
+              invocationPolicy,
+              commandEnvWarnings,
+              waitTimeInMs,
+              firstContactTime,
+              idleTaskResultsFromPreviousIdlePeriod,
+              this::setShutdownReason,
+              commandExtensions,
+              commandExtensionReporter,
+              attemptNumber,
+              buildRequestIdOverride,
+              parseResults.configFlagDefinitions());
+    } catch (AbruptExitException e) {
+      if (e.getMessage() != null) {
+        outErr.printErrLn("ERROR: " + e.getMessage());
+      }
+      storedEventHandler.handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+    }
 
     if (attemptNumber > 1) {
       outErr.printErrLn("Found transient remote cache error, retrying the build...");
@@ -430,6 +451,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           commandName.equals("query") || commandAnnotation.buildPhase().analyzes();
       tracerEnabled = commandSupportsProfile || commonOptions.getProfilePath() != null;
     }
+    MemoryOptimizations.allowNonDeterministicEfficacy.set(
+        commonOptions.getExperimentalNonDeterministicMemoryOptimizations());
 
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
     // Profiler setup and shutdown must always happen in pairs. Shutdown is currently performed in
@@ -786,7 +809,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         unstructuredServerCommandLineEvent =
             OriginalUnstructuredCommandLineEvent.REDACTED_UNSTRUCTURED_COMMAND_LINE_EVENT;
       } else {
-        unstructuredServerCommandLineEvent = new OriginalUnstructuredCommandLineEvent(args);
+        unstructuredServerCommandLineEvent =
+            new OriginalUnstructuredCommandLineEvent(SafeRequestLogging.redactArguments(args));
       }
       env.getEventBus().post(unstructuredServerCommandLineEvent);
       env.getEventBus().post(originalCommandLineEvent);
@@ -981,8 +1005,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     optionsData = optionsDataCache.get(command);
     Command annotation = command.getClass().getAnnotation(Command.class);
     Path workspacePath = runtime.getWorkspace().getWorkspace();
-    boolean hasModuleDotBazel =
-        workspacePath != null && workspacePath.getRelative("MODULE.bazel").exists();
+    boolean hasModuleDotBazel;
+    try {
+      hasModuleDotBazel =
+          workspacePath != null && workspacePath.getRelative("MODULE.bazel").exists();
+    } catch (IOException e) {
+      // TODO(tjgq): Propagate the error.
+      hasModuleDotBazel = false;
+    }
     OptionsParser parser =
         OptionsParser.builder()
             .optionsData(optionsData)

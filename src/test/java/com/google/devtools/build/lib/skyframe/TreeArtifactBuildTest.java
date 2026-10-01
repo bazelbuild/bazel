@@ -1020,7 +1020,8 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   private static void verifyOutputTree(
-      TreeArtifactValue result, SpecialArtifact parent, String... expectedChildPaths) {
+      TreeArtifactValue result, SpecialArtifact parent, String... expectedChildPaths)
+      throws IOException {
     Preconditions.checkArgument(parent.isTreeArtifact(), parent);
     Set<TreeFileArtifact> expectedChildren =
         Arrays.stream(expectedChildPaths)
@@ -1080,7 +1081,9 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
             actionKeyContext, actions, (ActionLookupKey) skyKey);
-      } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
+      } catch (ActionConflictException
+          | Actions.ArtifactGeneratedByOtherRuleException
+          | Actions.SourceArtifactUsedAsOutputException e) {
         throw new IllegalStateException(e);
       }
       return new ActionTemplateExpansionValue(actions);

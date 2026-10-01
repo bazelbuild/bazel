@@ -82,7 +82,18 @@ public interface NativePosixFilesService extends BlazeService {
   }
 
   /** File metadata, as returned by stat() or lstat(). */
-  public record Stat(int mode, long mtime, long ctime, long size, long ino) {}
+  @SuppressWarnings("GoodTime")
+  public interface Stat {
+    int mode();
+
+    long mtime();
+
+    long ctime();
+
+    long size();
+
+    long ino();
+  }
 
   /**
    * Native wrapper around POSIX stat(2) syscall.
@@ -143,7 +154,11 @@ public interface NativePosixFilesService extends BlazeService {
   Dirent[] readdir(String path) throws NativePosixFilesException;
 
   /** A directory entry and its corresponding type, as returned by readdir(). */
-  public record Dirent(String name, Type type) {
+  public interface Dirent {
+    String name();
+
+    Type type();
+
     /** The type of the directory entry. */
     public static final class Type {
       /** Regular file. */
@@ -207,10 +222,12 @@ public interface NativePosixFilesService extends BlazeService {
    *
    * @param path the file whose extended attribute is to be returned.
    * @param name the name of the extended attribute key.
-   * @return the value of the extended attribute associated with 'path', if any, or null if no such
-   *     attribute is defined (ENODATA).
-   * @throws NativePosixFilesException if the call failed for any other reason.
+   * @return the value of the extended attribute associated with 'path', if any, or null if extended
+   *     attributes are unsupported by the filesystem or if no such extended attribute is defined
+   *     attribute is defined
+   * @throws NativePosixFilesException if the call failed for any other reason
    */
+  @Nullable
   byte[] getxattr(String path, String name) throws NativePosixFilesException;
 
   /**
@@ -218,10 +235,11 @@ public interface NativePosixFilesService extends BlazeService {
    *
    * @param path the file whose extended attribute is to be returned.
    * @param name the name of the extended attribute key.
-   * @return the value of the extended attribute associated with 'path', if any, or null if no such
-   *     attribute is defined (ENODATA).
-   * @throws NativePosixFilesException if the call failed for any other reason.
+   * @return the value of the extended attribute associated with 'path', if any, or null if extended
+   *     attributes are unsupported by the filesystem or if no such extended attribute is defined
+   * @throws NativePosixFilesException if the call failed for any other reason
    */
+  @Nullable
   byte[] lgetxattr(String path, String name) throws NativePosixFilesException;
 
   /**

@@ -35,7 +35,9 @@ import net.starlark.java.eval.Compactable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFloat;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TokenKind;
 
 /**
@@ -71,7 +73,12 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   }
 
   @Override
-  public final Provider getProvider() {
+  public final StarlarkProvider getProvider() {
+    return provider;
+  }
+
+  @Override
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     return provider;
   }
 
@@ -194,6 +201,26 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
       }
     }
     return true;
+  }
+
+  @Override
+  public void checkHashable() throws EvalException {
+    super.checkHashable(); // Verifies that the values are immutable.
+    // Bazel has historically allowed structs of immutable values to be considered hashable even if
+    // those values are not Starlark-hashable by themselves (e.g. frozen lists). This is
+    // inconsistent and arguably wrong, but fixing it would be a breaking change.
+    // Thus, instead of checking whether the values are Starlark-hashable, below we only check
+    // whether they have a usable hashCode() implementation.
+    int n = provider.getFields().size();
+    for (int i = 0; i < n; i++) {
+      @Nullable Object val = getValueAt(i);
+      if (!(val == null || val instanceof NestedSet<?> || Starlark.isAcyclic(val))) {
+        // A self-referential value's hashCode() can cause a stack overflow. Trigger it early; the
+        // StackOverflowError will be caught by Starlark.checkHashable() and rethrown as an
+        // EvalException.
+        var unused = val.hashCode();
+      }
+    }
   }
 
   @Nullable

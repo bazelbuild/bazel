@@ -209,7 +209,7 @@ public final class StarlarkConfigFeatureFlagTransitionFactoryTest extends BuildV
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//foo:top");
-    assertContainsEvent("Error in fail: Rule has failed intentionally.");
+    assertContainsEvent("Error: Rule has failed intentionally.");
   }
 
   @Test

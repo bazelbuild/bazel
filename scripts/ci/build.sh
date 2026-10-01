@@ -64,7 +64,7 @@ fi
 #   exit 1
 # fi
 
-export APT_GPG_KEY_ID=$(gcloud storage cat gs://bazel-trusted-encrypted-secrets/release-key.gpg.id)
+export APT_GPG_KEY_ID=$(gcloud secrets versions access latest --secret="release-key-gpg-id" --project="bazel-public")
 
 # Generate a string from a template and a list of substitutions.
 # The first parameter is the template name and each subsequent parameter
@@ -131,7 +131,7 @@ The binaries and source-code of the bundled OpenJDK can be
 [downloaded from our mirror server](https://mirror.bazel.build/openjdk/index.html).
 
 _Security_: All our binaries are signed with our
-[public key](https://bazel.build/bazel-release.pub.gpg) 3D5919B448457EE0.
+[public key](https://releases.bazel.build/bazel-release.pub.gpg) 3D5919B448457EE0.
 '
 }
 
@@ -150,8 +150,7 @@ function release_to_github() {
 
   if [ -n "${release_name}" ]; then
     local github_token
-    github_token="$(gcloud storage cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
-        gcloud kms decrypt --project bazel-public --location global --keyring buildkite --key github-trusted-token --ciphertext-file - --plaintext-file -)"
+    github_token="$(gcloud secrets versions access latest --secret="github-trusted-token" --project="bazel-public")"
 
     local latest_flag="true"
     local prerelease_flag=""
@@ -270,8 +269,7 @@ function ensure_gpg_secret_key_imported() {
   if ! gpg --list-secret-keys | grep "${APT_GPG_KEY_ID}" > /dev/null; then
     keyfile=$(mktemp --tmpdir)
     chmod 0600 "${keyfile}"
-    gcloud storage cat "gs://bazel-trusted-encrypted-secrets/release-key.gpg.enc" | \
-        gcloud kms decrypt --location "global" --keyring "buildkite" --key "bazel-release-key" --ciphertext-file "-" --plaintext-file "${keyfile}"
+    gcloud secrets versions access latest --secret="bazel-release-key" --project="bazel-public" --out-file="${keyfile}"
     gpg --allow-secret-key-import --import "${keyfile}"
     rm -f "${keyfile}"
   fi

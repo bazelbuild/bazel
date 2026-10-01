@@ -18,14 +18,21 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -52,7 +59,36 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget {
   public PackageGroupConfiguredTarget(
       ActionLookupKey actionLookupKey, TargetContext targetContext, PackageGroup packageGroup) {
     // Package groups are always public (see PackageGroup#getVisibility).
-    this(actionLookupKey, PackageSpecificationProvider.create(targetContext, packageGroup));
+    this(
+        actionLookupKey,
+        PackageSpecificationProvider.create(getPackageSpecifications(targetContext, packageGroup)));
+  }
+
+  private static NestedSet<PackageGroupContents> getPackageSpecifications(
+      TargetContext targetContext, PackageGroup packageGroup) {
+    NestedSetBuilder<PackageGroupContents> builder = NestedSetBuilder.stableOrder();
+    for (Label includeLabel : packageGroup.getIncludes()) {
+      TransitiveInfoCollection include =
+          targetContext.findDirectPrerequisite(
+              includeLabel, Optional.ofNullable(targetContext.getConfiguration()));
+      PackageSpecificationProvider provider =
+          include == null ? null : include.get(PackageSpecificationProvider.PROVIDER);
+      if (provider == null) {
+        targetContext
+            .getAnalysisEnvironment()
+            .getEventHandler()
+            .handle(
+                Event.error(
+                    targetContext.getTarget().getLocation(),
+                    String.format("Label '%s' does not refer to a package group", includeLabel)));
+        continue;
+      }
+
+      builder.addTransitive(provider.getPackageSpecifications());
+    }
+
+    builder.add(packageGroup.getPackageSpecifications());
+    return builder.build();
   }
 
   @VisibleForSerialization

@@ -368,13 +368,40 @@ public final class WriteStatusesTest {
   }
 
   @Test
-  public void writeStatusBuilder_buildTwice_throwsException() throws Exception {
-    var builder = new WriteStatuses.WriteStatusBuilder();
-    builder.add(immediateWriteStatus());
-    var unused = builder.build();
+  public void writeStatusBuilder_buildTwice_isIdempotent() throws Exception {
+    // Zero dependencies
+    var emptyBuilder = new WriteStatuses.WriteStatusBuilder();
+    WriteStatus emptyFirstBuild = emptyBuilder.build();
+    assertThat(emptyBuilder.build()).isSameInstanceAs(emptyFirstBuild);
 
-    IllegalStateException thrown = assertThrows(IllegalStateException.class, builder::build);
-    assertThat(thrown).hasMessageThat().contains("build must only be called once");
+    // One dependency (already WriteStatus)
+    var singleWriteStatusBuilder = new WriteStatuses.WriteStatusBuilder();
+    singleWriteStatusBuilder.add(immediateWriteStatus());
+    WriteStatus singleWriteStatusFirstBuild = singleWriteStatusBuilder.build();
+    assertThat(singleWriteStatusBuilder.build()).isSameInstanceAs(singleWriteStatusFirstBuild);
+
+    // One dependency (wrapped future)
+    var singleFutureBuilder = new WriteStatuses.WriteStatusBuilder();
+    singleFutureBuilder.add(SettableFuture.<Boolean>create());
+    WriteStatus singleFutureFirstBuild = singleFutureBuilder.build();
+    assertThat(singleFutureBuilder.build()).isSameInstanceAs(singleFutureFirstBuild);
+
+    // Multiple dependencies (AggregateWriteStatus)
+    var aggregateBuilder = new WriteStatuses.WriteStatusBuilder();
+    aggregateBuilder.add(new SettableWriteStatus());
+    aggregateBuilder.add(new SettableWriteStatus());
+    WriteStatus aggregateFirstBuild = aggregateBuilder.build();
+    assertThat(aggregateBuilder.build()).isSameInstanceAs(aggregateFirstBuild);
+  }
+
+  @Test
+  public void writeStatusBuilder_addAfterBuild_throwsException() throws Exception {
+    var builder = new WriteStatuses.WriteStatusBuilder();
+    var unused = builder.build();
+    WriteStatus status = immediateWriteStatus();
+    IllegalStateException thrown =
+        assertThrows(IllegalStateException.class, () -> builder.add(status));
+    assertThat(thrown).hasMessageThat().contains("cannot add to WriteStatusBuilder after build()");
   }
 
 

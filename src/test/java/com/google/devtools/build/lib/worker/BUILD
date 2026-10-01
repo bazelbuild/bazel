@@ -3,14 +3,14 @@ load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -27,8 +27,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:gson",
-        "//third_party:guava",
+        "//third_party/java/gson",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -57,20 +58,27 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_spawn_runner",
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
     ],
 )
 
 java_binary(
     name = "ExampleWorker",
     main_class = "com.google.devtools.build.lib.worker.ExampleWorker",
+    visibility = [
+        "//src/test/shell/integration:__pkg__",
+    ],
     runtime_deps = [":ExampleWorker_lib"],
 )
 
 java_binary(
     name = "ExampleWorkerMultiplexer",
     main_class = "com.google.devtools.build.lib.worker.ExampleWorkerMultiplexer",
+    visibility = [
+        "//src/test/shell/integration:__pkg__",
+    ],
     runtime_deps = [":ExampleWorker_lib"],
 )
 
@@ -133,6 +141,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_pool_impl",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_spawn_runner",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",
@@ -143,13 +152,17 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/guava:hash",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -162,7 +175,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":WorkerTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )
 
@@ -172,8 +185,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )

@@ -45,8 +45,7 @@ public class ZstdCompressingInputStream extends FilterInputStream {
   ZstdCompressingInputStream(InputStream in, int size) throws IOException {
     super(in);
     Preconditions.checkArgument(
-        size >= MIN_BUFFER_SIZE,
-        String.format("The buffer size must be at least %d bytes", MIN_BUFFER_SIZE));
+        size >= MIN_BUFFER_SIZE, "The buffer size must be at least %s bytes", MIN_BUFFER_SIZE);
     this.size = size;
     this.pis = new PipedInputStream(size);
     this.zos = new ZstdOutputStreamNoFinalizer(new PipedOutputStream(pis));

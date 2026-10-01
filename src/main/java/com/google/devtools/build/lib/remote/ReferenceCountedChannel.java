@@ -36,6 +36,7 @@ import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Function;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 
 /**
  * A wrapper around a {@link DynamicConnectionPool} exposing {@link Channel} and a reference count.
@@ -74,14 +75,43 @@ public class ReferenceCountedChannel implements ReferenceCounted {
             connectionFactory, connectionFactory.maxConcurrency(), maxConnections);
   }
 
+  /**
+   * Lazily caches the server capabilities retrieved on first access.
+   *
+   * <p>Acquiring a connection from {@link DynamicConnectionPool} to query capabilities on every
+   * {@link #getServerCapabilities()} call causes connection pool exhaustion and contention when
+   * multiple concurrent Skyframe action threads evaluate cache eligibility (e.g. via {@code
+   * CombinedCache.remoteActionCacheSupportsUpdate()}).
+   */
+  @Nullable private volatile ServerCapabilities cachedServerCapabilities;
+
+  /**
+   * Returns the {@link ServerCapabilities} of the remote server.
+   *
+   * <p>Uses double-checked locking to lazily fetch and memoize the capabilities from the underlying
+   * connection pool at most once per channel lifetime, ensuring subsequent calls across threads are
+   * non-blocking volatile reads.
+   */
   public ServerCapabilities getServerCapabilities() throws IOException {
-    try (var s = Profiler.instance().profile("getServerCapabilities")) {
-      return blockingGet(
-          withChannelConnection(ChannelConnectionWithServerCapabilities::getServerCapabilities));
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IOException(e);
+    ServerCapabilities caps = cachedServerCapabilities;
+    if (caps == null) {
+      synchronized (this) {
+        caps = cachedServerCapabilities;
+        if (caps == null) {
+          try (var s = Profiler.instance().profile("getServerCapabilities")) {
+            caps =
+                blockingGet(
+                    withChannelConnection(
+                        ChannelConnectionWithServerCapabilities::getServerCapabilities));
+            cachedServerCapabilities = caps;
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException(e);
+          }
+        }
+      }
     }
+    return caps;
   }
 
   public boolean isShutdown() {

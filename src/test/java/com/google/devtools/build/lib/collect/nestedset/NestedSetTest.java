@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.PackedFingerp
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,13 +31,17 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.protobuf.ByteString;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -174,6 +179,59 @@ public final class NestedSetTest {
   }
 
   @Test
+  public void addAll_rejectsNullElements() {
+    NestedSetBuilder<String> builder1 = NestedSetBuilder.stableOrder();
+    List<String> listWithNull1 = Arrays.asList("a", null);
+    assertThrows(NullPointerException.class, () -> builder1.addAll(listWithNull1));
+
+    NestedSetBuilder<String> builder2 = NestedSetBuilder.stableOrder();
+    List<String> listWithNull2 = Arrays.asList("a", "b", "c", null);
+    assertThrows(NullPointerException.class, () -> builder2.addAll(listWithNull2));
+  }
+
+  @Test
+  public void builder_rejectsObjectArrayAndByteStringElements() {
+    NestedSetBuilder<Object> builder1 = NestedSetBuilder.stableOrder();
+    Object[] objArray = new String[] {"a", "b"};
+    assertThrows(IllegalArgumentException.class, () -> builder1.add(objArray));
+
+    NestedSetBuilder<Object> builder2 = NestedSetBuilder.stableOrder();
+    ByteString byteString = ByteString.copyFromUtf8("abc");
+    assertThrows(IllegalArgumentException.class, () -> builder2.add(byteString));
+
+    NestedSetBuilder<Object> builder3 = NestedSetBuilder.stableOrder();
+    List<Object> listWithObjectArray = Arrays.asList("a", "b", objArray);
+    assertThrows(IllegalArgumentException.class, () -> builder3.addAll(listWithObjectArray));
+
+    NestedSetBuilder<Object> builder4 = NestedSetBuilder.stableOrder().add("a");
+    assertThrows(IllegalArgumentException.class, () -> builder4.add(objArray));
+
+    NestedSetBuilder<Object> builder5 = NestedSetBuilder.stableOrder().add("a");
+    assertThrows(IllegalArgumentException.class, () -> builder5.add(byteString));
+  }
+
+  @Test
+  public void directElements_supportsArrayElements() {
+    byte[] a = new byte[] {1, 2};
+    byte[] b = new byte[] {3, 4};
+
+    NestedSet<byte[]> set = NestedSetBuilder.<byte[]>stableOrder().add(a).add(b).build();
+
+    assertThat(set.toList()).containsExactly(a, b).inOrder();
+  }
+
+  @Test
+  public void directElements_supportsSetElements() {
+    ImmutableSet<String> s1 = ImmutableSet.of("x");
+    ImmutableSet<String> s2 = ImmutableSet.of("y");
+
+    NestedSet<ImmutableSet<String>> set =
+        NestedSetBuilder.<ImmutableSet<String>>stableOrder().add(s1).add(s2).build();
+
+    assertThat(set.toList()).containsExactly(s1, s2).inOrder();
+  }
+
+  @Test
   public void noReuseOfSingleTransitiveSet_orderWouldDiffer() {
     NestedSet<String> set = NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, "b", "a");
     NestedSet<String> built =
@@ -203,16 +261,10 @@ public final class NestedSetTest {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof SetWrapper)) {
-        return false;
-      }
-      try {
-        @SuppressWarnings("unchecked")
-        SetWrapper<E> other = (SetWrapper<E>) o;
+      if (o instanceof SetWrapper<?> other) {
         return set.shallowEquals(other.set);
-      } catch (ClassCastException e) {
-        return false;
       }
+      return false;
     }
   }
 
@@ -451,6 +503,16 @@ public final class NestedSetTest {
   }
 
   @Test
+  public void toListInterruptibly_propagatesSerializationException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(
+            Order.STABLE_ORDER,
+            UNKNOWN_DEPTH,
+            immediateFailedFuture(new SerializationException("test exception")));
+    assertThrows(SerializationException.class, deserializingNestedSet::toListInterruptibly);
+  }
+
+  @Test
   public void toListInterruptibly_propagatesCancellationAsMissingFingerprintValueException() {
     NestedSet<String> deserializingNestedSet =
         NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, immediateCancelledFuture());
@@ -478,6 +540,18 @@ public final class NestedSetTest {
                 new MissingFingerprintValueException(getFingerprintForTesting("fingerprint"))));
     assertThrows(
         MissingFingerprintValueException.class,
+        () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
+  }
+
+  @Test
+  public void toListWithTimeout_propagatesSerializationException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(
+            Order.STABLE_ORDER,
+            UNKNOWN_DEPTH,
+            immediateFailedFuture(new SerializationException("test exception")));
+    assertThrows(
+        SerializationException.class,
         () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
   }
 
@@ -656,36 +730,238 @@ public final class NestedSetTest {
   }
 
   @Test
-  public void interning_nestedSetOfString_isInterned() {
+  public void interning_multiElementNestedSetOfString_childrenArrayIsInterned() {
     NestedSet<String> nestedSetA = nestedSetBuilder("cat", "dog").build();
     NestedSet<String> nestedSetB = nestedSetBuilder("cat", "dog").build();
-    assertThat(nestedSetB).isSameInstanceAs(nestedSetA);
+    assertThat(nestedSetB.getChildren()).isSameInstanceAs(nestedSetA.getChildren());
+    assertThat(nestedSetB).isNotSameInstanceAs(nestedSetA);
     NestedSetInterner.clear();
     NestedSet<String> nestedSetC = nestedSetBuilder("cat", "dog").build();
-    assertThat(nestedSetC).isNotSameInstanceAs(nestedSetA);
+    assertThat(nestedSetC.getChildren()).isNotSameInstanceAs(nestedSetA.getChildren());
   }
 
   @Test
-  public void interning_nestedSetOfInteger_isNotInterned() {
+  public void interning_singletonNestedSetOfString_isNotInterned() {
+    NestedSet<String> singletonA = nestedSetBuilder("cat").build();
+    NestedSet<String> singletonB = nestedSetBuilder("cat").build();
+    assertThat(singletonB).isNotSameInstanceAs(singletonA);
+  }
+
+  @Test
+  public void interning_multiElementNestedSetOfInteger_isNotInterned() {
     NestedSet<Integer> nestedSetA = nestedSetBuilder(1, 2).build();
     NestedSet<Integer> nestedSetB = nestedSetBuilder(1, 2).build();
-    assertThat(nestedSetA).isNotSameInstanceAs(nestedSetB);
+    assertThat(nestedSetA.getChildren()).isNotSameInstanceAs(nestedSetB.getChildren());
   }
 
   @Test
-  public void interning_nestedSetOfArtifact_isInternedByArtifactIdentity() {
-    Artifact firstInstanceArtifactA = ActionsTestUtil.createArtifact(artifactRoot, "a");
-    Artifact secondInstanceArtifactA = ActionsTestUtil.createArtifact(artifactRoot, "a");
-    Artifact artifactB = ActionsTestUtil.createArtifact(artifactRoot, "b");
+  public void
+      interning_multiElementNestedSetOfArtifact_childrenArrayIsInternedByArtifactIdentity() {
+    Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    Artifact a2 = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    Artifact b = ActionsTestUtil.createArtifact(artifactRoot, "b");
 
-    NestedSet<Artifact> firstInstanceNestedSetA = nestedSetBuilder(firstInstanceArtifactA).build();
-    assertThat(nestedSetBuilder(firstInstanceArtifactA).build())
-        .isSameInstanceAs(firstInstanceNestedSetA);
-    assertThat(nestedSetBuilder(secondInstanceArtifactA).build())
-        .isNotSameInstanceAs(firstInstanceNestedSetA);
-    assertThat(nestedSetBuilder(artifactB).build()).isNotSameInstanceAs(firstInstanceNestedSetA);
+    NestedSet<Artifact> a1bFirst = nestedSetBuilder(a1, b).build();
+    NestedSet<Artifact> a1bSecond = nestedSetBuilder(a1, b).build();
+    NestedSet<Artifact> a2b = nestedSetBuilder(a2, b).build();
+    assertThat(a1bSecond.getChildren()).isSameInstanceAs(a1bFirst.getChildren());
+    assertThat(a1bSecond).isNotSameInstanceAs(a1bFirst);
+    assertThat(a2b.getChildren()).isNotSameInstanceAs(a1bFirst.getChildren());
+    assertThat(a2b.toList().getFirst()).isSameInstanceAs(a2);
     NestedSetInterner.clear();
-    assertThat(nestedSetBuilder(firstInstanceArtifactA).build())
-        .isNotSameInstanceAs(firstInstanceNestedSetA);
+    assertThat(nestedSetBuilder(a1, b).build().getChildren())
+        .isNotSameInstanceAs(a1bFirst.getChildren());
+  }
+
+  @Test
+  public void builder_inlineDirectItems_handlesDeduplicationAndPromotion() {
+    // 0 items
+    assertThat(NestedSetBuilder.<String>stableOrder().isEmpty()).isTrue();
+
+    // 1 item + duplicates
+    NestedSetBuilder<String> b1 = NestedSetBuilder.<String>stableOrder().add("x").add("x");
+    assertThat(b1.isEmpty()).isFalse();
+    NestedSet<String> set1 = b1.build();
+    assertThat(set1.toList()).containsExactly("x");
+
+    // 2 items + duplicates
+    NestedSetBuilder<String> b2 =
+        NestedSetBuilder.<String>stableOrder().add("x").add("y").add("x").add("y");
+    NestedSet<String> set2 = b2.build();
+    assertThat(set2.toList()).containsExactly("x", "y").inOrder();
+
+    // 3 items (promotes to CompactHashSet) + duplicates
+    NestedSetBuilder<String> b3 =
+        NestedSetBuilder.<String>stableOrder().add("x").add("y").add("z").add("x").add("z");
+    NestedSet<String> set3 = b3.build();
+    assertThat(set3.toList()).containsExactly("x", "y", "z").inOrder();
+  }
+
+  @Test
+  public void builder_inlineTransitiveSets_handlesDeduplicationAndPromotion() {
+    NestedSet<String> sub1 = NestedSetBuilder.<String>stableOrder().add("a").build();
+    NestedSet<String> sub2 = NestedSetBuilder.<String>stableOrder().add("b").build();
+    NestedSet<String> sub3 = NestedSetBuilder.<String>stableOrder().add("c").build();
+
+    // 1 transitive set + duplicates: should reuse the candidate instance
+    NestedSetBuilder<String> b1 =
+        NestedSetBuilder.<String>stableOrder().addTransitive(sub1).addTransitive(sub1);
+    assertThat(b1.isEmpty()).isFalse();
+    NestedSet<String> set1 = b1.build();
+    assertThat(set1).isSameInstanceAs(sub1);
+
+    // 2 transitive sets + duplicates
+    NestedSetBuilder<String> b2 =
+        NestedSetBuilder.<String>stableOrder()
+            .addTransitive(sub1)
+            .addTransitive(sub2)
+            .addTransitive(sub1);
+    NestedSet<String> set2 = b2.build();
+    assertThat(set2.toList()).containsExactly("a", "b").inOrder();
+
+    // 3 transitive sets (promotes to CompactHashSet) + duplicates
+    NestedSetBuilder<String> b3 =
+        NestedSetBuilder.<String>stableOrder()
+            .addTransitive(sub1)
+            .addTransitive(sub2)
+            .addTransitive(sub3)
+            .addTransitive(sub2);
+    NestedSet<String> set3 = b3.build();
+    assertThat(set3.toList()).containsExactly("a", "b", "c").inOrder();
+  }
+
+  @Test
+  public void builder_directArrayAssembly_preservesOrderAndDeduplicates() {
+    NestedSet<String> linkOrderSet =
+        NestedSetBuilder.<String>linkOrder().add("first").add("second").build();
+    assertThat(linkOrderSet.toList()).containsExactly("first", "second").inOrder();
+
+    NestedSet<String> stableOrderSet =
+        NestedSetBuilder.<String>stableOrder().add("first").add("second").build();
+    assertThat(stableOrderSet.toList()).containsExactly("first", "second").inOrder();
+  }
+
+  @Test
+  public void builder_twoCompoundTransitiveSets_assemblesDirectly() {
+    NestedSet<String> sub1 = NestedSetBuilder.<String>stableOrder().add("a1").add("a2").build();
+    NestedSet<String> sub2 = NestedSetBuilder.<String>stableOrder().add("b1").add("b2").build();
+
+    NestedSet<String> compound =
+        NestedSetBuilder.<String>stableOrder().addTransitive(sub1).addTransitive(sub2).build();
+    assertThat(compound.toList()).containsExactly("a1", "a2", "b1", "b2").inOrder();
+  }
+
+  @Test
+  public void builder_mixedDirectAndTransitive_buildsCorrectly() {
+    NestedSet<String> sub = NestedSetBuilder.<String>stableOrder().add("t1").add("t2").build();
+
+    // In STABLE_ORDER, transitive elements are visited before direct elements
+    NestedSet<String> set =
+        NestedSetBuilder.<String>stableOrder().add("d1").add("d2").addTransitive(sub).build();
+    assertThat(set.toList()).containsExactly("t1", "t2", "d1", "d2").inOrder();
+  }
+
+  @Test
+  public void builder_addAll_normalizesDuplicates() {
+    NestedSet<String> singleUnique =
+        NestedSetBuilder.<String>stableOrder().addAll(ImmutableList.of("a", "a", "a")).build();
+    assertThat(singleUnique.isSingleton()).isTrue();
+    assertThat(singleUnique.toList()).containsExactly("a");
+
+    NestedSet<String> twoUnique =
+        NestedSetBuilder.<String>stableOrder().addAll(ImmutableList.of("a", "b", "a")).build();
+    assertThat(twoUnique.toList()).containsExactly("a", "b").inOrder();
+  }
+
+  @Test
+  public void builder_twoCompoundTransitiveSets_sharingSameInternedArray_collapses() {
+    NestedSet<String> sub1 = NestedSetBuilder.<String>stableOrder().add("x").add("y").build();
+    NestedSet<String> sub2 = NestedSetBuilder.<String>stableOrder().add("x").add("y").build();
+    assertThat(sub1).isNotSameInstanceAs(sub2);
+    assertThat(sub1.getChildren()).isSameInstanceAs(sub2.getChildren());
+
+    NestedSet<String> sameOrder =
+        NestedSetBuilder.<String>stableOrder().addTransitive(sub1).addTransitive(sub2).build();
+    assertThat(sameOrder).isSameInstanceAs(sub1);
+
+    NestedSet<String> subCompile =
+        NestedSetBuilder.<String>compileOrder().add("x").add("y").build();
+    NestedSet<String> matchesSecond =
+        NestedSetBuilder.<String>stableOrder()
+            .addTransitive(subCompile)
+            .addTransitive(sub2)
+            .build();
+    assertThat(matchesSecond).isSameInstanceAs(sub2);
+
+    NestedSet<String> diffOrder =
+        NestedSetBuilder.<String>compileOrder().addTransitive(sub1).addTransitive(sub2).build();
+    assertThat(diffOrder.getOrder()).isEqualTo(Order.COMPILE_ORDER);
+    assertThat(diffOrder.getApproxDepth()).isEqualTo(sub1.getApproxDepth());
+    assertThat(diffOrder.toList()).containsExactly("x", "y").inOrder();
+  }
+
+  @Test
+  public void builder_singleTransitiveAndMatchingDirect_reusesSingletonCandidate() {
+    NestedSet<String> singleton = NestedSetBuilder.create(Order.STABLE_ORDER, "x");
+
+    // Matching direct member + singleton candidate -> candidate reused
+    assertThat(NestedSetBuilder.<String>stableOrder().add("x").addTransitive(singleton).build())
+        .isSameInstanceAs(singleton);
+
+    // Non-matching direct member + singleton candidate -> new set
+    NestedSet<String> notReused =
+        NestedSetBuilder.<String>stableOrder().add("y").addTransitive(singleton).build();
+    assertThat(notReused).isNotSameInstanceAs(singleton);
+    assertThat(notReused.toList()).containsExactly("x", "y").inOrder();
+
+    // Compound candidate + direct member -> new compound set without blocking
+    NestedSet<String> compound = NestedSetBuilder.<String>stableOrder().add("x").add("y").build();
+    NestedSet<String> withCompound =
+        NestedSetBuilder.<String>stableOrder().add("x").addTransitive(compound).build();
+    assertThat(withCompound).isNotSameInstanceAs(compound);
+    assertThat(withCompound.toList()).containsExactly("x", "y").inOrder();
+  }
+
+  @Test
+  public void visitDirectDeps_singleton_visitsLeafOnly() {
+    Artifact a = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    NestedSet<Artifact> set = NestedSetBuilder.create(Order.STABLE_ORDER, a);
+
+    List<Artifact> leaves = new ArrayList<>();
+    List<SkyKey> nonLeaves = new ArrayList<>();
+    ArtifactNestedSetKey.visitDirectDeps(set, leaves::add, nonLeaves::add);
+
+    assertThat(leaves).containsExactly(a);
+    assertThat(nonLeaves).isEmpty();
+  }
+
+  @Test
+  public void visitDirectDeps_empty_visitsNothing() {
+    NestedSet<Artifact> set = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
+    List<Artifact> leaves = new ArrayList<>();
+    List<SkyKey> nonLeaves = new ArrayList<>();
+    ArtifactNestedSetKey.visitDirectDeps(set, leaves::add, nonLeaves::add);
+
+    assertThat(leaves).isEmpty();
+    assertThat(nonLeaves).isEmpty();
+  }
+
+  @Test
+  public void visitDirectDeps_mixedLeavesAndNonLeaves_visitsBothInSinglePass() {
+    Artifact a = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    Artifact b = ActionsTestUtil.createArtifact(artifactRoot, "b");
+    Artifact c = ActionsTestUtil.createArtifact(artifactRoot, "c");
+
+    NestedSet<Artifact> childSet = NestedSetBuilder.create(Order.STABLE_ORDER, b, c);
+    NestedSet<Artifact> parentSet =
+        NestedSet.<Artifact>builder(Order.STABLE_ORDER).add(a).addTransitive(childSet).build();
+
+    List<Artifact> leaves = new ArrayList<>();
+    List<SkyKey> nonLeaves = new ArrayList<>();
+    ArtifactNestedSetKey.visitDirectDeps(parentSet, leaves::add, nonLeaves::add);
+
+    assertThat(leaves).containsExactly(a);
+    assertThat(nonLeaves).containsExactly(ArtifactNestedSetKey.create(childSet));
   }
 }

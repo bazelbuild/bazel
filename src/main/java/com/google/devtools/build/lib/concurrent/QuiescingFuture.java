@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.errorprone.annotations.DoNotCall;
-import java.util.concurrent.Executor;
 
 /**
  * A future that tracks in-flight tasks and completes when the tasks quiesce or an error occurs.
@@ -45,7 +46,7 @@ public abstract class QuiescingFuture<T> extends AbstractQuiescingFuture<T> {
    *
    * @param getValueExecutor runner for running {@link #getValue} or {@link #doneWithError}.
    */
-  public QuiescingFuture(Executor getValueExecutor) {
+  public QuiescingFuture(SafeExecutor getValueExecutor) {
     super(getValueExecutor, /* taskCount= */ 1);
   }
 
@@ -57,19 +58,34 @@ public abstract class QuiescingFuture<T> extends AbstractQuiescingFuture<T> {
    * @param getValueExecutor runner for running {@link #getValue} or {@link #doneWithError}.
    * @param taskCount initial task count, <i>no pre-increment</i> is applied
    */
-  public QuiescingFuture(Executor getValueExecutor, int taskCount) {
+  public QuiescingFuture(SafeExecutor getValueExecutor, int taskCount) {
     super(getValueExecutor, taskCount);
   }
 
   /**
-   * Called when all tasks are complete.
+   * Decrements the task count to offset the pre-increment from construction.
    *
-   * @deprecated only for {@link #decrement}
+   * <p>Must be called after all initial tasks have been registered.
    */
-  @Deprecated
+  public final void finishRegistration() {
+    decrement();
+  }
+
+  /** Called when all tasks are complete. */
   @Override
-  @DoNotCall
+  @DoNotCall("Called only by SafeExecutor via submission from decrement() at quiescence.")
   public final void run() {
     handleQuiescence();
+  }
+
+  @Override
+  @DoNotCall("Only called by SafeExecutor upon rejection.")
+  public final void handleRejection(Throwable t) {
+    Preconditions.checkNotNull(t, "t");
+    try {
+      recordException(t);
+    } finally {
+      handleQuiescence();
+    }
   }
 }

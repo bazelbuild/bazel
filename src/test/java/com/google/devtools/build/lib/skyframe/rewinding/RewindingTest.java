@@ -62,7 +62,6 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   @TestParameter private boolean trackIncrementalState;
   @TestParameter private boolean keepGoing;
   @TestParameter private boolean skymeld;
-  @TestParameter private boolean precise;
 
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
@@ -126,8 +125,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         "--experimental_remote_cache_eviction_retries=0",
         "--track_incremental_state=" + trackIncrementalState,
         "--keep_going=" + keepGoing,
-        "--experimental_merged_skyframe_analysis_execution=" + skymeld,
-        "--experimental_precise_rewinding=" + precise);
+        "--experimental_merged_skyframe_analysis_execution=" + skymeld);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
     runtimeWrapper.registerSubscriber(this);
   }
@@ -199,8 +197,9 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void ineffectiveRewindingResultsInLostInputTooManyTimes() throws Exception {
-    helper.runIneffectiveRewindingResultsInLostInputTooManyTimes();
+  public void ineffectiveRewindingResultsInLostInputTooManyTimes(
+      @TestParameter({"2", "20"}) int maxRepeatedLostInputs) throws Exception {
+    helper.runIneffectiveRewindingResultsInLostInputTooManyTimes(maxRepeatedLostInputs);
     assertOutputForRule2NotCreated();
   }
 
@@ -263,6 +262,28 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   public void treeArtifactRewound_oneFileLost() throws Exception {
     skipIfNotLinux();
     helper.runTreeArtifactRewound_oneFileLost_spawnFailed();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_notConcurrentWithTreeConsumers() throws Exception {
+    helper.runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_fileUnderSubtreeArtifactLost() throws Exception {
+    helper.runActionTemplateExpansionRewound_fileUnderSubtreeArtifactLost();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_fileUnderSubtreeArtifactInRunfilesLost()
+      throws Exception {
+    helper.runActionTemplateExpansionRewound_fileUnderSubtreeArtifactInRunfilesLost();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_siblingActionsReExecuteConcurrently()
+      throws Exception {
+    helper.runActionTemplateExpansionRewound_siblingActionsReExecuteConcurrently();
   }
 
   @Test

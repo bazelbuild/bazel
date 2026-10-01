@@ -135,6 +135,7 @@ public class MethodOptionDefinition extends OptionDefinition {
             optionsBase.getOptionsClass().asSubclass(OptionsBase.class), this::getField);
     try {
       field.set(optionsBase, value);
+      optionsBase.onOptionChanged();
     } catch (ReflectiveOperationException e) {
       throw new IllegalStateException(e);
     }

@@ -440,11 +440,9 @@ function test_add_mount_pair_tmp_source() {
 
 
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $mounted" EXIT
-  echo GOOD > "$mounted/data.txt"
-
   local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $tmp_dir" EXIT
+  trap "rm -fr \"$mounted\" \"$tmp_dir\"" EXIT
+  echo GOOD > "$mounted/data.txt"
   setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
@@ -473,11 +471,9 @@ function test_add_mount_pair_tmp_target() {
 
 
   local source_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $source_dir" EXIT
-  echo BAD > "$source_dir/data.txt"
-
   local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $tmp_dir" EXIT
+  trap "rm -fr \"$source_dir\" \"$tmp_dir\"" EXIT
+  echo BAD > "$source_dir/data.txt"
   setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
@@ -508,11 +504,9 @@ function test_add_mount_pair_tmp_target_and_source() {
 
 
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $mounted" EXIT
-  echo GOOD > "$mounted/data.txt"
-
   local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $tmp_dir" EXIT
+  trap "rm -fr \"$mounted\" \"$tmp_dir\"" EXIT
+  echo GOOD > "$mounted/data.txt"
   setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
@@ -872,6 +866,16 @@ EOF
   bazel build //pkg:copy_files || fail "build failed"
   assert_equals hello "$(cat bazel-bin/pkg/some_file1.json)"
   assert_equals world "$(cat bazel-bin/pkg/some_file2.json)"
+}
+
+function test_sandbox_writable_path_requires_absolute_path() {
+  bazel build --sandbox_writable_path=foo/bar >$TEST_log 2>&1 && fail "Expected failure"
+  expect_log "While parsing option --sandbox_writable_path=foo/bar: Not an absolute path: 'foo/bar'"
+}
+
+function test_sandbox_block_path_requires_absolute_path() {
+  bazel build --sandbox_block_path=foo/bar >$TEST_log 2>&1 && fail "Expected failure"
+  expect_log "While parsing option --sandbox_block_path=foo/bar: Not an absolute path: 'foo/bar'"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

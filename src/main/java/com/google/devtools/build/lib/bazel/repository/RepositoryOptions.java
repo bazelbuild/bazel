@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.DurationConverter;
@@ -291,7 +292,7 @@ public abstract class RepositoryOptions extends OptionsBase {
           This file consists of directives, one per line, that adjust how the
           Bazel downloader acts. The directives are: `allow`, `block`, `rewrite`,
           and `all_blocked_message`. The directives are applied in the order
-          `rewrite, allow, block'.
+          `rewrite, allow, block`.
 
           Comments are allowed and must be on their own line (no trailing comments)
           and preceded by a `#`. Example: `# evil.com is known to host malicious code`
@@ -356,10 +357,10 @@ public abstract class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           """
-          If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in
-          the `MODULE.bazel` of the root module. Note that, those dev dependencies are always
-          ignored in the `MODULE.bazel` if it's not the root module regardless of the value
-          of this flag.
+          If true, Bazel ignores `bazel_dep`, `use_extension`, and `include` declared as
+          `dev_dependency` in the `MODULE.bazel` of the root module. Note that these dev
+          dependencies are always ignored in the `MODULE.bazel` if it is not the root module,
+          regardless of the value of this flag.
           """)
   public abstract boolean getIgnoreDevDependency();
 
@@ -401,6 +402,20 @@ public abstract class RepositoryOptions extends OptionsBase {
   public abstract BazelCompatibilityMode getBazelCompatibilityMode();
 
   @Option(
+      name = "incompatible_require_repo_extension_metadata",
+      defaultValue = "false",
+      converter = RequireRepoExtensionMetadataMode.Converter.class,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Require repository rules and module extensions to return explicit metadata. Valid values"
+              + " are `false` to disable the check, `all` to require metadata everywhere, or `root`"
+              + " to require metadata only for repo rules and extensions defined in the root"
+              + " module.")
+  public abstract RequireRepoExtensionMetadataMode getRequireRepoExtensionMetadata();
+
+  @Option(
       name = "lockfile_mode",
       converter = LockfileMode.Converter.class,
       defaultValue = "update",
@@ -411,8 +426,9 @@ public abstract class RepositoryOptions extends OptionsBase {
               + " use the lockfile and update it if there are changes, `refresh` to additionally"
               + " refresh mutable information (yanked versions and previously missing modules)"
               + " from remote registries from time to time, `error` to use the lockfile but throw"
-              + " an error if it's not up-to-date, or `off` to neither read from or write to the"
-              + " lockfile.")
+              + " an error if needed information is not up-to-date (superfluous entries that the"
+              + " current resolution does not consult are ignored, not reported), or `off` to"
+              + " neither read from or write to the lockfile.")
   public abstract LockfileMode getLockfileMode();
 
   @Option(
@@ -452,6 +468,33 @@ public abstract class RepositoryOptions extends OptionsBase {
     public static class Converter extends EnumConverter<BazelCompatibilityMode> {
       public Converter() {
         super(BazelCompatibilityMode.class, "Bazel compatibility check mode");
+      }
+    }
+  }
+
+  /** An enum for specifying when repo and extension metadata is required. */
+  public enum RequireRepoExtensionMetadataMode {
+    FALSE, // Don't require metadata.
+    ALL, // Require metadata everywhere.
+    ROOT; // Require metadata for repo rules and extensions defined in the root module.
+
+    @Override
+    public String toString() {
+      return switch (this) {
+        case FALSE -> "false";
+        case ALL -> "all";
+        case ROOT -> "root";
+      };
+    }
+
+    /** Converts to {@link RequireRepoExtensionMetadataMode}. */
+    public static class Converter extends BoolOrEnumConverter<RequireRepoExtensionMetadataMode> {
+      public Converter() {
+        super(
+            RequireRepoExtensionMetadataMode.class,
+            "repo extension metadata mode",
+            RequireRepoExtensionMetadataMode.ALL,
+            RequireRepoExtensionMetadataMode.FALSE);
       }
     }
   }

@@ -57,11 +57,10 @@ import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.ToolProvider;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.starlark.Args;
@@ -98,6 +97,7 @@ import net.starlark.java.eval.StarlarkList;
 
 /** An Action representing an arbitrary subprocess to be forked and exec'd. */
 public class SpawnAction extends AbstractAction implements CommandAction {
+
 
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
@@ -808,7 +808,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * source code).
      */
     @CanIgnoreReturnValue
-    public Builder addTool(FilesToRunProvider tool) {
+    public Builder addTool(ToolProvider tool) {
       addTransitiveTools(tool.getFilesToRun());
       return this;
     }
@@ -987,27 +987,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     /**
-     * Sets the executable as a configured target. Automatically adds the files to run to the tools
-     * and inputs and uses the executable of the target as the executable.
+     * Sets the executable as a tool provider. Automatically adds the files to run to the tools and
+     * inputs and uses the executable of the target as the executable.
      *
      * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable}
      * or {@link #setShellCommand}.
      */
     @CanIgnoreReturnValue
-    public Builder setExecutable(TransitiveInfoCollection executable) {
-      FilesToRunProvider provider = checkNotNull(executable.getProvider(FilesToRunProvider.class));
-      return setExecutable(provider);
-    }
-
-    /**
-     * Sets the executable as a configured target. Automatically adds the files to run to the tools
-     * and inputs and uses the executable of the target as the executable.
-     *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable}
-     * or {@link #setShellCommand}.
-     */
-    @CanIgnoreReturnValue
-    public Builder setExecutable(FilesToRunProvider executableProvider) {
+    public Builder setExecutable(ToolProvider executableProvider) {
       Artifact executable =
           checkNotNull(
               executableProvider.getExecutable(), "The target does not have an executable");
@@ -1019,10 +1006,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     /**
      * Sets the executable as a String.
      *
-     * <p><b>Caution</b>: this is an optimisation intended to be used only by {@link
-     * com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory}. It prevents reference
-     * duplication when passing {@link PathFragment} to Starlark as a String and then executing with
-     * it.
+     * <p><b>Caution</b>: this is an optimisation intended to be used only by {@code
+     * StarlarkActionFactory}. It prevents reference duplication when passing {@link PathFragment}
+     * to Starlark as a String and then executing with it.
      *
      * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable}
      * or {@link #setShellCommand}.

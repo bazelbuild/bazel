@@ -67,11 +67,14 @@ class SSLMonitor:
         if not cert:
           raise ValueError(f"No certificate found for {domain}")
 
-        expires_str = cert["notAfter"]
-        # Format: '%b %d %H:%M:%S %Y GMT' (e.g., 'Mar 26 20:13:28 2026 GMT')
-        expires_dt = datetime.datetime.strptime(
-            expires_str, "%b %d %H:%M:%S %Y GMT"
-        ).replace(tzinfo=datetime.timezone.utc)
+        # OpenSSL always emits the notAfter month as a fixed English
+        # abbreviation, but datetime.strptime's %b is LC_TIME-dependent and
+        # would raise on non-English locales. ssl.cert_time_to_seconds parses
+        # it with a hardcoded English table, so it is locale-independent.
+        expires_ts = ssl.cert_time_to_seconds(cert["notAfter"])
+        expires_dt = datetime.datetime.fromtimestamp(
+            expires_ts, datetime.timezone.utc
+        )
 
         delta = expires_dt - datetime.datetime.now(datetime.timezone.utc)
         return delta.days

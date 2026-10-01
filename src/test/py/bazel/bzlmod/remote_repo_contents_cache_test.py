@@ -15,12 +15,10 @@
 # pylint: disable=g-long-ternary
 # pylint: disable=g-bad-todo
 
-import json
 import os
-import re
 import tempfile
 from absl.testing import absltest
-from src.test.py.bazel import test_base
+from src.test.py.bazel.bzlmod import remote_repo_contents_cache_test_base
 
 # Whether repos containing symlinks that point out of the repo can be added to
 # the remote repo contents cache. If False, such repos are refetched instead of
@@ -30,39 +28,9 @@ from src.test.py.bazel import test_base
 CROSS_REPO_SYMLINKS_CACHEABLE = False
 
 
-class RemoteRepoContentsCacheTest(test_base.TestBase):
-
-  def setUp(self):
-    test_base.TestBase.setUp(self)
-    self._worker_port = self.StartRemoteWorker()
-    self.ScratchFile(
-        '.bazelrc',
-        [
-            'startup --experimental_remote_repo_contents_cache',
-            # Only use the remote repo contents cache.
-            'common --repo_contents_cache=',
-            'common --remote_cache=grpc://localhost:' + str(self._worker_port),
-            'common --auth_enabled=false',
-            'common --remote_timeout=3600s',
-            'common --verbose_failures',
-        ],
-    )
-
-  def tearDown(self):
-    test_base.TestBase.tearDown(self)
-    self.StopRemoteWorker()
-
-  def RepoDir(self, repo_name, cwd=None):
-    _, stdout, _ = self.RunBazel(['info', 'output_base'], cwd=cwd)
-    self.assertLen(stdout, 1)
-    output_base = stdout[0].strip()
-
-    _, stdout, _ = self.RunBazel(['mod', 'dump_repo_mapping', ''], cwd=cwd)
-    self.assertLen(stdout, 1)
-    mapping = json.loads(stdout[0])
-    canonical_repo_name = mapping[repo_name]
-
-    return output_base + '/external/' + canonical_repo_name
+class RemoteRepoContentsCacheTest(
+    remote_repo_contents_cache_test_base.RemoteRepoContentsCacheTestBase
+):
 
   def testCachedAfterCleanExpunge(self):
     self.ScratchFile(
@@ -1257,6 +1225,78 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     with open(out) as f:
       self.assertEqual(f.read(), 'hello')
 
+  def testSourceDirectoryWithSymlinkToDirectory_expandedExecutionLog(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/30264:
+    # the expanded execution log walks directory inputs on the overlay file
+    # system and used to crash Bazel on a symlink that resolves to a directory.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'dir\','
+                " srcs=['pkg'], visibility=['//visibility:public'])\")"
+            ),
+            '  rctx.file("pkg/sub/data.txt", "hello")',
+            # A symlink pointing at a sibling directory.
+            '  rctx.symlink("pkg/sub", "pkg/sub_link")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_dir",',
+            '  srcs = ["@my_repo//:dir"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(location @my_repo//:dir)/sub/data.txt > $@",',
+            ')',
+        ],
+    )
+
+    # First build: the repo is fetched to disk and the action executes locally,
+    # seeding the remote cache.
+    _, _, stderr = self.RunBazel(['build', '//main:use_dir'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
+    # After expunging, the repo is served from the in-memory overlay file
+    # system and the action is a remote cache hit, so its inputs are never
+    # staged locally. Logging the expanded execution log still walks the source
+    # directory input on the overlay file system and encounters the symlink
+    # that resolves to a directory.
+    self.RunBazel(['clean', '--expunge'])
+    exec_log = self.Path('exec_log.json')
+    _, _, stderr = self.RunBazel([
+        'build',
+        '//main:use_dir',
+        '--remote_download_outputs=minimal',
+        '--execution_log_json_file=' + exec_log,
+    ])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(exec_log) as f:
+      log = f.read()
+    self.assertIn('pkg/sub/data.txt', log)
+    self.assertIn('main/out.txt', log)
+
   def testRepoSymlinkChainMaterializationIsConsistent(self):
     # Full repo materialization (triggered by another repo accessing my_repo)
     # and lazy action-input materialization (triggered by a local action
@@ -1817,93 +1857,155 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     if CROSS_REPO_SYMLINKS_CACHEABLE:
       self.assertFalse(os.path.exists(os.path.join(my_repo_dir, 'BUILD')))
 
-  def testLostRemoteFile_build(self):
-    # Create a repo with two BUILD files (one in a subpackage), build a target
-    # from one to cause it to be cached, then build that target again after
-    # expunging to verify it is cached.
-    # Then, restart the worker and build a target in the other build file.
+  def testMemoryPressureRestartDuringCachedFetch(self):
+    # Regression test for a cached repo fetch that is interrupted by memory
+    # pressure (Skyframe drops the fetch's WorkerSkyKeyComputeState, which
+    # cancels the worker thread) and restarted within the same command. The
+    # restarted fetch must not lose the native copies of prefetched files
+    # (REPO.bazel and .bzl files) downloaded by the interrupted attempt.
     self.ScratchFile(
         'MODULE.bazel',
         [
             'repo = use_repo_rule("//:repo.bzl", "repo")',
             'repo(name = "my_repo")',
+            'churn = use_repo_rule("//:churn.bzl", "churn")',
+            'churn(name = "churn_repo")',
         ],
     )
-
     self.ScratchFile('BUILD.bazel')
+    # The many sizable .bzl files make the prefetching phase of the cached
+    # fetch long enough that a memory-pressure state drop reliably lands while
+    # some prefetched files have been downloaded and others haven't.
     self.ScratchFile(
         'repo.bzl',
         [
             'def _repo_impl(rctx):',
+            '  rctx.file("REPO.bazel", "# repo boundary\\n")',
+            '  rctx.file("defs.bzl", "x = 1\\n")',
+            '  for i in range(400):',
             (
-                '  rctx.file("BUILD", "filegroup(name=\'root\','
-                " srcs=['root.txt'])\")"
+                '  '
+                '  rctx.file("bulk_%d.bzl" % i,'
+                ' "s = \'%d %s\'\\n" % (i, "a" * 1000000))'
             ),
-            '  rctx.file("root.txt", "root")',
             (
-                '  rctx.file("sub/BUILD", "filegroup(name=\'sub\','
-                " srcs=['sub.txt'])\")"
+                '  rctx.file("BUILD",'
+                " \"load(':defs.bzl', 'x')\\nfilegroup(name='target')\")"
             ),
-            '  rctx.file("sub/sub.txt", "sub")',
             '  print("JUST FETCHED")',
             '  return rctx.repo_metadata(reproducible=True)',
             'repo = repository_rule(_repo_impl)',
         ],
     )
+    # An uncacheable repo whose fetch allocates lots of garbage to trigger
+    # minor GC events. Together with --skyframe_high_water_mark_threshold=0,
+    # each such event drops all SkyKeyComputeStates, cancelling and restarting
+    # the concurrent cached fetch of my_repo.
+    self.ScratchFile(
+        'churn.bzl',
+        [
+            'def _churn_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'churn\')")',
+            '  total = 0',
+            '  for i in range(300):',
+            '    total += len([str(j) for j in range(200000)])',
+            '  print("CHURNED %d" % total)',
+            'churn = repository_rule(_churn_impl)',
+        ],
+    )
 
     repo_dir = self.RepoDir('my_repo')
 
-    # First fetch: not cached
-    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    # Populate the remote repo contents cache and verify that the repo is
+    # served from it afterwards. addToCache uploads the repo contents
+    # synchronously as part of the fetch, so a single build suffices.
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:target'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
-
-    # After expunging: cached
     self.RunBazel(['clean', '--expunge'])
-    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:target'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
-    # Lose all remote files.
-    self.ClearRemoteCache()
-
-    # Build the other target: fails due to the lost input
-    _, _, stderr = self.RunBazel(['build', '@my_repo//sub:sub'])
-    # First restart recovers @my_repo, the next one recovers @platforms.
-    self.assertEqual(
-        2,
-        stderr.count(
-            'Found transient remote cache error, retrying the build...'
-        ),
+    # Fetch from the cache while the concurrent fetch of churn_repo triggers
+    # memory-pressure state drops. The drop budget is bounded: with an
+    # unlimited budget, every fetch attempt of churn_repo would be cancelled
+    # by the GC events it itself causes and the build would never finish, and
+    # a fetch attempt whose remote cache lookup is cancelled mid-flight may
+    # legitimately fall back to a full fetch. Since the timing of GC events is
+    # inherently nondeterministic, retry a few times until a run in which the
+    # cached fetch of my_repo was interrupted and still served from the cache.
+    # A restart is only reported as a transient fetch progress update, which
+    # the UI renders into the progress bar. The bar only lists ongoing fetches
+    # in its long form, which requires cursor control, and only emits every
+    # update without a rate limit. A wide terminal keeps the message on a
+    # single line and thus greppable.
+    restart_message = (
+        'Fetching repository @@%s; fetch interrupted due to memory pressure'
+        % os.path.basename(repo_dir)
     )
-    canonical_repo_name = repo_dir[repo_dir.rfind('/') + 1 :]
-    stderr = '\n'.join(stderr)
-    self.assertRegex(
-        stderr,
-        'external/%s/sub/BUILD with digest .*/.* no longer available in the'
-        ' remote cache'
-        % re.escape(canonical_repo_name),
-    )
-    self.assertIn('JUST FETCHED', stderr)
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
-    # After expunging again: cached
-    self.RunBazel(['clean', '--expunge'])
-    _, _, stderr = self.RunBazel(['build', '@my_repo//sub:sub'])
-    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
+    def assert_repo_file(name, expected):
+      path = os.path.join(repo_dir, name)
+      self.assertTrue(os.path.exists(path), '%s is missing' % name)
+      with open(path, 'r') as f:
+        actual = f.read()
+      if actual != expected:
+        # Don't include the full contents in the message, they can be large.
+        self.fail(
+            '%s is corrupt: expected %d bytes, got %d bytes starting with %r'
+            % (name, len(expected), len(actual), actual[:100])
+        )
+
+    for attempt in range(5):
+      self.RunBazel(['clean', '--expunge'])
+      # The drop budget is shared by all fetches in the build below and is used
+      # up by whichever of them allocates first, so an unrelated repo can
+      # exhaust it before my_repo is even fetched. On Windows, test_base
+      # registers a Python toolchain from rules_python, whose fetch reliably
+      # does so. Fetching it without a remote cache materializes it on disk, so
+      # that the build below finds it up to date instead of having to inject it
+      # from the remote repo contents cache into the memory of its own server.
+      self.RunBazel(['fetch', '--repo=@@rules_python+', '--remote_cache='])
+      exit_code, _, stderr = self.RunBazel(
+          [
+              # A small heap makes minor GC events frequent under allocation
+              # pressure.
+              '--host_jvm_args=-Xmx512m',
+              'build',
+              '--skyframe_high_water_mark_threshold=0',
+              '--skyframe_high_water_mark_minor_gc_drops_per_invocation=8',
+              '--skyframe_high_water_mark_full_gc_drops_per_invocation=8',
+              '--curses=yes',
+              '--color=no',
+              '--show_progress_rate_limit=0',
+              '--terminal_columns=500',
+              '@my_repo//:target',
+              '@churn_repo//:churn',
+          ],
+          allow_failure=True,
+      )
+      stderr = '\n'.join(stderr)
+      # An interrupted fetch must never corrupt the repo, in particular not
+      # lose or truncate the native copies of prefetched files.
+      self.assertEqual(exit_code, 0, stderr)
+      assert_repo_file('REPO.bazel', '# repo boundary\n')
+      assert_repo_file('defs.bzl', 'x = 1\n')
+      for i in (0, 399):
+        assert_repo_file(
+            'bulk_%d.bzl' % i, "s = '%d %s'\n" % (i, 'a' * 1000000)
+        )
+      interrupted = restart_message in stderr
+      refetched = 'JUST FETCHED' in stderr
+      print(
+          'poison attempt %d: interrupted=%s refetched=%s'
+          % (attempt, interrupted, refetched)
+      )
+      if interrupted and not refetched:
+        break
+    else:
+      self.fail(
+          'the cached fetch of my_repo was never both interrupted by a'
+          ' memory-pressure compute state drop and served from the cache'
+      )
 
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
@@ -2149,8 +2251,8 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     # contents cache hit, the repo is injected into the overlay file system but
     # not materialized on disk. Reads of .bzl (and REPO.bazel) files are
     # redirected to the native file system on the assumption that they were
-    # prefetched during injection, but symlinks are not prefetched, only their
-    # target if they match the name pattern.
+    # prefetched during injection, but symlinks are never prefetched
+    # themselves, only the regular file they resolve to.
     if self.IsWindows():
       self.ScratchFile(
           '.bazelrc',
@@ -2194,6 +2296,58 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'helper.bzl')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'real_helper.bzl')))
+
+  def testBzlSymlinkToNonBzlFileLoadedByBuildFile(self):
+    # Like testBzlSymlinkLoadedByBuildFile, but the symlink target's own name
+    # does not mark it for prefetching. Whether a read is served from the
+    # native file system is decided by the path it is made through, so the
+    # target has to be prefetched anyway.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", """',
+            'load(":helper.bzl", "the_name")',
+            'filegroup(name = the_name)',
+            '""")',
+            '  rctx.file("real_helper.txt", \'the_name = "haha"\')',
+            '  rctx.symlink("real_helper.txt", "helper.bzl")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.islink(os.path.join(repo_dir, 'helper.bzl')))
+
+    # After expunging: cached. The repo is injected but not materialized; the
+    # symlink target must have been prefetched even though it isn't named like
+    # a file that is loaded.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'helper.bzl')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'real_helper.txt')))
 
   def testBzlSymlinkToOtherRepoLoadedByBuildFile(self):
     # Regression test for
@@ -2264,23 +2418,62 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       self.assertTrue(os.path.islink(os.path.join(repo_dir, 'helper.bzl')))
 
   def testRun(self):
+    ext = '.bat' if self.IsWindows() else '.sh'
+    script_content = (
+        '@echo hello from my_bin'
+        if self.IsWindows()
+        else '#!/bin/sh\necho hello from my_bin'
+    )
+    declare_exe = f'  exe = ctx.actions.declare_file(ctx.label.name + "{ext}")'
+    write_exe = f"  ctx.actions.write(exe, '''{script_content}"
+
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "buildozer", version = "8.5.1")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("my_binary.bzl", """',
+            'def _my_binary_impl(ctx):',
+            declare_exe,
+            write_exe,
+            "''', is_executable=True)",
+            '  return [DefaultInfo(executable = exe)]',
+            'my_binary = rule(',
+            '  implementation = _my_binary_impl,',
+            '  executable = True,',
+            ')',
+            '""")',
+            '  rctx.file("BUILD", """',
+            'load(":my_binary.bzl", "my_binary")',
+            'my_binary(name = "my_bin")',
+            '""")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
         ],
     )
 
+    repo_dir = self.RepoDir('my_repo')
+
     # First fetch: not cached
-    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
-    self.assertIn('buildozer version: 8.5.1', '\n'.join(stdout))
+    _, stdout, stderr = self.RunBazel(['run', '@my_repo//:my_bin'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from my_bin', '\n'.join(stdout))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
     # After expunging: cached
     self.RunBazel(['clean', '--expunge'])
-    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
-    self.assertIn('buildozer version: 8.5.1', '\n'.join(stdout))
-    repo_dir = self.RepoDir('buildozer')
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'MODULE.bazel')))
+    _, stdout, stderr = self.RunBazel(['run', '@my_repo//:my_bin'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from my_bin', '\n'.join(stdout))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
   def testReverseDependencyDirection(self):
     # Set up two repos that retain their predeclared input hashes across two
@@ -2437,6 +2630,102 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     # via its contents proxy, so my_repo is neither invalidated nor refetched.
     _, _, stderr = self.RunBazel(['build', '//main:use_data'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testMaterializedFileIsNotTreatedAsDirtied(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/31006.
+    # Materializing a repo restored from the remote repo contents cache makes
+    # Bazel serve its files from disk instead of from memory, but this
+    # difference in representation should not result in Skyframe invalidation.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", data_file = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("defs.bzl", "DATA = \'data\'")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            # Reading my_repo's data.txt forces full materialization of my_repo.
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            (
+                '  rctx.file("data_copy.txt",'
+                ' rctx.read(rctx.path(rctx.attr.data_file)))'
+            ),
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"data_file": attr.label()})'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'load("@my_repo//:defs.bzl", "DATA")',
+            'genrule(',
+            '  name = "use_" + DATA,',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+
+    # Cold build: fetch my_repo and upload it to the remote repo contents cache.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Restore my_repo from the cache into the overlay. Its package and .bzl
+    # file are loaded from memory.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    # The lockfile is updated at the end of the first command after an expunge,
+    # which invalidates the repo definitions in the next command. Let that
+    # settle in a command that verifies all of the target's nodes so that the
+    # following commands only observe the effect of materialization.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertIn(
+        'Analyzed target //main:use_data (0 packages loaded, 0 targets'
+        ' configured).',
+        stderr,
+    )
+
+    # Fully materialize my_repo onto the local disk by fetching @other, which
+    # reads one of its files.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '@other//:haha'])
+    self.assertIn('Materializing remote repo', '\n'.join(stderr))
+
+    # Nothing has changed for //main:use_data, so nothing is reloaded or
+    # analyzed again.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertNotIn('will be fetched again', stderr)
+    self.assertIn(
+        'Analyzed target //main:use_data (0 packages loaded, 0 targets'
+        ' configured).',
+        stderr,
+    )
 
 
 if __name__ == '__main__':

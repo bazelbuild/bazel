@@ -16,6 +16,8 @@
 #include <libkern/OSThermalNotification.h>
 #include <notify.h>
 
+#include <cstdint>
+
 #include "src/main/cpp/util/logging.h"
 #include "src/main/native/darwin/util.h"
 #include "src/main/native/unix_jni.h"
@@ -78,7 +80,9 @@ void portable_start_thermal_monitoring() {
     int status =
         notify_register_dispatch(kOSThermalNotificationPressureLevelName,
                                  &gThermalNotifyToken, queue, handler);
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
 
     // This is registered solely so we can test the system from end-to-end.
     // Using the Apple notification requires admin access.
@@ -86,7 +90,9 @@ void portable_start_thermal_monitoring() {
     status =
         notify_register_dispatch("com.google.bazel.test.thermalpressurelevel",
                                  &testToken, queue, handler);
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
     BAZEL_LOG(INFO) << "thermal monitoring registered";
   });
 }

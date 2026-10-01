@@ -25,6 +25,7 @@ SKYFRAME_OBJECT_SRCS = [
 
 VERSION_SRCS = [
     "NodeVersion.java",
+    "NodeVersionGetter.java",
     "Version.java",
 ]
 

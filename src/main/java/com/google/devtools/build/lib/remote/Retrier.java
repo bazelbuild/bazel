@@ -106,11 +106,22 @@ public class Retrier {
     /** Returns the current {@link State} of the circuit breaker. */
     State state();
 
-    /** Called after an execution failed. */
-    void recordFailure();
+    /**
+     * Called after an execution failed.
+     *
+     * @param observedState the {@link State} returned by {@link #state()} when this call was
+     *     dispatched, so the breaker can attribute the outcome (in particular, distinguish a {@link
+     *     State#TRIAL_CALL} probe from an ordinary call).
+     */
+    void recordFailure(State observedState);
 
-    /** Called after an execution succeeded. */
-    void recordSuccess();
+    /**
+     * Called after an execution succeeded.
+     *
+     * @param observedState the {@link State} returned by {@link #state()} when this call was
+     *     dispatched (see {@link #recordFailure(State)}).
+     */
+    void recordSuccess(State observedState);
 
     /**
      * Returns a human-readable description of the breaker's current failure statistics (for example
@@ -167,10 +178,10 @@ public class Retrier {
         }
 
         @Override
-        public void recordFailure() {}
+        public void recordFailure(State observedState) {}
 
         @Override
-        public void recordSuccess() {}
+        public void recordSuccess(State observedState) {}
 
         @Override
         public String failureDetails() {
@@ -318,16 +329,16 @@ public class Retrier {
           throw new InterruptedException();
         }
         T r = callWithContext(call, backoff, rpcId);
-        circuitBreaker.recordSuccess();
+        circuitBreaker.recordSuccess(circuitState);
         return r;
       } catch (InterruptedException e) {
         throw e;
       } catch (Exception e) {
         Result r = resultClassifier.test(e);
         if (r.equals(Result.SUCCESS)) {
-          circuitBreaker.recordSuccess();
+          circuitBreaker.recordSuccess(circuitState);
         } else {
-          circuitBreaker.recordFailure();
+          circuitBreaker.recordFailure(circuitState);
         }
         if (!r.equals(Result.TRANSIENT_FAILURE) || Objects.equals(circuitState, State.TRIAL_CALL)) {
           throw e;
@@ -399,7 +410,7 @@ public class Retrier {
           Futures.transformAsync(
               callWithContext(call, backoff, rpcId),
               (f) -> {
-                circuitBreaker.recordSuccess();
+                circuitBreaker.recordSuccess(circuitState);
                 return immediateFuture(f);
               },
               directExecutor());
@@ -421,7 +432,7 @@ public class Retrier {
       @Nullable String rpcId) {
     Result r = resultClassifier.test(t);
     if (r.equals(Result.TRANSIENT_FAILURE)) {
-      circuitBreaker.recordFailure();
+      circuitBreaker.recordFailure(circuitState);
       if (circuitState.equals(State.TRIAL_CALL)) {
         return immediateFailedFuture(t);
       }
@@ -440,9 +451,9 @@ public class Retrier {
       }
     } else {
       if (r.equals(Result.SUCCESS)) {
-        circuitBreaker.recordSuccess();
+        circuitBreaker.recordSuccess(circuitState);
       } else {
-        circuitBreaker.recordFailure();
+        circuitBreaker.recordFailure(circuitState);
       }
       return immediateFailedFuture(t);
     }

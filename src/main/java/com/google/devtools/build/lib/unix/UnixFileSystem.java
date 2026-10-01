@@ -77,7 +77,16 @@ public class UnixFileSystem extends DiskBackedFileSystem {
   public PathFragment resolveOneLink(PathFragment path) throws IOException {
     // Beware, this seemingly simple code belies the complex specification of
     // FileSystem.resolveOneLink().
-    return stat(path, false).isSymbolicLink() ? readSymbolicLink(path) : null;
+    String name = path.toString();
+    long startTime = Profiler.instance().nanoTimeMaybe();
+    var comp = Blocker.begin();
+    try {
+      String result = run(() -> nativePosixFilesService.readlink(name));
+      return result != null ? PathFragment.create(result) : null;
+    } finally {
+      Blocker.end(comp);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);
+    }
   }
 
   /** Converts from {@link NativePosixFilesService.Dirent.Type} to {@link Dirent.Type}. */
@@ -139,34 +148,6 @@ public class UnixFileSystem extends DiskBackedFileSystem {
       Blocker.end(comp);
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
     }
-  }
-
-  // Like stat(), but returns null instead of throwing.
-  // This is a performance optimization in the case where clients
-  // catch and don't re-throw.
-  @Override
-  @Nullable
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    String name = path.getPathString();
-    long startTime = Profiler.instance().nanoTimeMaybe();
-    var comp = Blocker.begin();
-    try {
-      NativePosixFilesService.Stat stat =
-          followSymlinks
-              ? nativePosixFilesService.stat(name, StatErrorHandling.NEVER_THROW)
-              : nativePosixFilesService.lstat(name, StatErrorHandling.NEVER_THROW);
-      return stat != null ? new UnixFileStatus(stat) : null;
-    } catch (NativePosixFilesException e) {
-      throw new IllegalStateException("unexpected exception", e);
-    } finally {
-      Blocker.end(comp);
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
-    }
-  }
-
-  @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
-    return statNullable(path, followSymlinks) != null;
   }
 
   /**

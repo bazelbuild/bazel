@@ -19,11 +19,28 @@ See https://github.com/bazelbuild/bazel/discussions/19213.
 # TODO: Remove when get_current_os_name is no longer needed
 load("@_builtins//:common/python/py_internal.bzl", "py_internal")
 
+type _Setting = dict[str, Any]
+
+type _FragmentCustomLogic = Callable[[_Setting], _Setting]
+
+type _Fragment = struct[{
+    "inputs": list[str],
+    "outputs": list[str],
+    "propagate": list[str],
+    "custom_logic": _FragmentCustomLogic,
+}]
+
+type _Fragments = dict[str, _Fragment]
+
 # The fragments that make up Bazel's exec transition. The fragment() calls in
 # this file fill out this map.
-bazel_fragments = {}
+bazel_fragments: _Fragments = {}
 
-def fragment(propagate = [], inputs = [], outputs = [], func = lambda setting: {}):
+def fragment(
+        propagate: list[str] = [],
+        inputs: list[str] = [],
+        outputs: list[str] = [],
+        func: _FragmentCustomLogic = lambda setting: {}) -> _Fragment:
     """Adds exec transition logic for a group of related flags.
 
     Args:
@@ -42,7 +59,15 @@ def fragment(propagate = [], inputs = [], outputs = [], func = lambda setting: {
         custom_logic = func,
     )
 
-def exec_transition(fragments):
+type _ExecTransitionImpl = Callable[[_Setting, Any], _Setting]
+
+type _ExecTransition = struct[{
+    "implementation": _ExecTransitionImpl,
+    "inputs": list[str],
+    "outputs": list[str],
+}]
+
+def exec_transition(fragments: _Fragments) -> _ExecTransition:
     """Returns the data for creating an exec transition from a set of fragments.
 
     Ideally this would create and return the transition itself. Instead, callers
@@ -72,7 +97,7 @@ def exec_transition(fragments):
         outputs = inputs_and_outputs.outputs,
     )
 
-def _get_inputs_and_outputs(fragments):
+def _get_inputs_and_outputs(fragments: _Fragments) -> struct[{"inputs": list[str], "outputs": list[str]}]:
     """Returns the (inputs, outputs) for a collection of fragments.
     """
     inputs = []
@@ -82,7 +107,7 @@ def _get_inputs_and_outputs(fragments):
         outputs.extend(fragment.outputs)
     return struct(inputs = inputs, outputs = outputs)
 
-def _exec_transition_impl(fragments):
+def _exec_transition_impl(fragments: _Fragments) -> _ExecTransitionImpl:
     """Returns an exec transition impl function from a set of fragments.
 
     Args:
@@ -91,8 +116,8 @@ def _exec_transition_impl(fragments):
     """
 
     # buildifier: disable=unused-variable
-    def _impl(settings, attr):
-        ans = {}
+    def _impl(settings: dict[str, Any], attr: struct) -> dict[str, Any]:
+        ans: dict[str, Any] = {}
         for fragment in fragments.values():
             for option in fragment.propagate:
                 ans[option] = settings[option]
@@ -116,10 +141,7 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
         "//command_line_option:desugar_for_android",
         "//command_line_option:desugar_java8_libs",
         "//command_line_option:experimental_incremental_dexing_after_proguard",
-        "//command_line_option:dexopts_supported_in_incremental_dexing",
-        "//command_line_option:dexopts_supported_in_dexmerger",
         "//command_line_option:dexopts_supported_in_dexsharder",
-        "//command_line_option:android_manifest_merger",
         "//command_line_option:android_manifest_merger_order",
         "//command_line_option:internal_persistent_busybox_tools",
         "//command_line_option:internal_persistent_multiplex_busybox_tools",
@@ -179,7 +201,7 @@ bazel_fragments["ConfigFeatureFlagOptions"] = fragment(
     },
 )
 
-def _core_options(settings):
+def _core_options(settings: _Setting) -> _Setting:
     return {
         "//command_line_option:compilation_mode": settings["//command_line_option:host_compilation_mode"],
         "//command_line_option:is exec configuration": True,
@@ -196,9 +218,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:enable_runfiles",
         "//command_line_option:enforce_constraints",
         "//command_line_option:incompatible_merge_genfiles_directory",
-        "//command_line_option:experimental_platform_in_output_dir",
         "//command_line_option:host_cpu",
-        "//command_line_option:incompatible_modify_execution_info_additive",
         "//command_line_option:include_config_fragments_provider",
         "//command_line_option:experimental_debug_selects_always_succeed",
         "//command_line_option:incompatible_check_testonly_for_output_files",
@@ -230,6 +250,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:incompatible_filegroup_runfiles_for_data",
         "//command_line_option:incompatible_bep_cpu_from_platform",
         "//command_line_option:incompatible_limit_platforms_in_output_dir_to",
+        "//command_line_option:incompatible_prefer_depending_configuration_runfiles",
     ],
     inputs = ["//command_line_option:features"],
     outputs = [
@@ -256,13 +277,11 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:host_grte_top",
         "//command_line_option:host_linkopt",
         "//command_line_option:experimental_link_static_libraries_once",
-        "//command_line_option:experimental_cc_implementation_deps",
         "//command_line_option:experimental_cpp_modules",
         "//command_line_option:start_end_lib",
         "//command_line_option:experimental_inmemory_dotd_files",
         "//command_line_option:incompatible_remove_legacy_whole_archive",
         "//command_line_option:incompatible_dont_enable_host_nonhost_crosstool_features",
-        "//command_line_option:incompatible_disable_nocopts",
         "//command_line_option:strict_system_includes",
         "//command_line_option:experimental_use_cpp_compile_action_args_params_file",
         "//command_line_option:cc_include_scanning",
@@ -295,8 +314,8 @@ bazel_fragments["CppOptions"] = fragment(
     },
 )
 
-def _java_options(settings):
-    ans = {}
+def _java_options(settings: _Setting) -> _Setting:
+    ans: dict[str, Any] = {}
     if settings["//command_line_option:host_jvmopt"] == []:
         ans["//command_line_option:jvmopt"] = ["-XX:ErrorFile=/dev/stderr"]
     else:

@@ -15,16 +15,18 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
@@ -72,10 +75,12 @@ public class RemoteAnalysisCacheDeps
   private final boolean emitUploadedEvents;
 
   private final ListenableFuture<ObjectCodecs> objectCodecs;
+  private final CompressionService compressionService;
   @Nullable private final ListenableFuture<FingerprintValueService> fingerprintValueServiceFuture;
   private final LazyResolver<FingerprintValueService> fingerprintValueService;
   private final LazyResolver<? extends RemoteAnalysisCacheClient> analysisCacheClient;
   private final LazyResolver<? extends RemoteAnalysisMetadataWriter> metadataWriter;
+  private final SkycacheChannelStateAdvisor channelStateAdvisor;
 
   // Volatile because double-checked locking is used in the getter
   @Nullable private volatile SkyValueRetriever skyValueRetriever;
@@ -101,6 +106,7 @@ public class RemoteAnalysisCacheDeps
       RemoteAnalysisCachingServicesSupplier servicesSupplier,
       RemoteAnalysisCachingEventListener listener,
       ListenableFuture<ObjectCodecs> objectCodecs,
+      CompressionService compressionService,
       FrontierNodeVersion frontierNodeVersion,
       Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
       String serializedFrontierProfile,
@@ -109,7 +115,8 @@ public class RemoteAnalysisCacheDeps
       Fingerprinter fingerprinterForAnalysisCaching,
       InMemoryGraph graph,
       EventBus eventBus,
-      LongVersionGetter versionGetter) {
+      LongVersionGetter versionGetter,
+      SafeExecutor commandExecutor) {
     this.mode = mode;
     this.bailOutOnMissingFingerprint = bailOutOnMissingFingerprint;
     this.skycacheAnalysisOnly = skycacheAnalysisOnly;
@@ -124,6 +131,8 @@ public class RemoteAnalysisCacheDeps
 
     this.frontierNodeVersion = frontierNodeVersion;
 
+    this.compressionService = compressionService;
+
     this.fingerprintValueServiceFuture =
         servicesSupplier.getFingerprintValueStore() == null
             ? null
@@ -131,12 +140,7 @@ public class RemoteAnalysisCacheDeps
                 servicesSupplier.getFingerprintValueStore(),
                 store ->
                     new FingerprintValueService(
-                        // This pool is surfaced via FingerprintValueService.getExecutor and is only
-                        // used for pure deserialization CPU work.
-                        //
-                        // TODO: b/390533627 - consider if a different executor should be used for
-                        // better isolation.
-                        commonPool(),
+                        commandExecutor,
                         store,
                         new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
                         fingerprinterForAnalysisCaching),
@@ -147,6 +151,7 @@ public class RemoteAnalysisCacheDeps
         new LazyResolver<>(servicesSupplier.getAnalysisCacheClient(), "analysis cache client");
     this.metadataWriter =
         new LazyResolver<>(servicesSupplier.getMetadataWriter(), "metadata writer");
+    this.channelStateAdvisor = servicesSupplier.getChannelStateAdvisor();
 
     this.graph = graph;
     this.eventBus = eventBus;
@@ -165,10 +170,12 @@ public class RemoteAnalysisCacheDeps
     this.objectCodecs = null;
     this.listener = null;
     this.frontierNodeVersion = null;
+    this.compressionService = null;
     this.fingerprintValueServiceFuture = null;
     this.fingerprintValueService = new LazyResolver<>(null, "");
     this.analysisCacheClient = new LazyResolver<>(null, "");
     this.metadataWriter = new LazyResolver<>(null, "");
+    this.channelStateAdvisor = SkycacheChannelStateAdvisor.DISABLED;
 
     this.graph = null;
     this.eventBus = null;
@@ -230,6 +237,13 @@ public class RemoteAnalysisCacheDeps
     } catch (ExecutionException e) {
       throw new IllegalStateException("Failed to initialize ObjectCodecs", e);
     }
+  }
+
+  @Nullable
+  @Override
+  public CompressionService getCompressionService() {
+    checkEnabled();
+    return compressionService;
   }
 
   @Nullable
@@ -303,7 +317,13 @@ public class RemoteAnalysisCacheDeps
     synchronized (this) {
       if (skyValueRetriever == null) {
         skyValueRetriever =
-            new SkyValueRetriever(fingerprintValueService, codecs, frontierNodeVersion, fileOp);
+            new SkyValueRetriever(
+                compressionService,
+                fingerprintValueService,
+                codecs,
+                frontierNodeVersion,
+                fileOp,
+                channelStateAdvisor);
       }
       return skyValueRetriever;
     }
@@ -328,6 +348,7 @@ public class RemoteAnalysisCacheDeps
       if (skycacheUploadClient == null) {
         skycacheUploadClient =
             new SkycacheUploadClient(
+                compressionService,
                 fingerprintValueService,
                 codecs,
                 frontierNodeVersion,
@@ -357,15 +378,21 @@ public class RemoteAnalysisCacheDeps
   }
 
   @Override
-  public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
+  public void recordRetrievalResult(
+      RetrievalResult retrievalResult,
+      SkyKey key,
+      ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
     checkEnabled();
-    listener.recordRetrievalResult(retrievalResult, key);
+    listener.recordRetrievalResult(retrievalResult, key, phaseDurationMicros);
   }
 
   @Override
-  public void recordSerializationException(SerializationException e, SkyKey key) {
+  public void recordSerializationException(
+      SerializationException e,
+      SkyKey key,
+      ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
     checkEnabled();
-    listener.recordSerializationException(e, key);
+    listener.recordSerializationException(e, key, phaseDurationMicros);
   }
 
   @Override

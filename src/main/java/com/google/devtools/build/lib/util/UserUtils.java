@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
 
 import com.google.common.base.Strings;
+import javax.annotation.Nullable;
 
 /**
  * User information utility methods.
@@ -27,15 +28,23 @@ public final class UserUtils {
     // prohibit instantiation
   }
 
+  // Replace slashes and backslashes with underscores so that usernames like
+  // "DOMAIN\\user" or "foo/bar" do not cause issues in paths or environment variables.
+  // See https://github.com/bazelbuild/bazel/issues/20289
+  @Nullable
+  static String sanitizeUserName(@Nullable String userName) {
+    return userName != null ? userName.replace('\\', '_').replace('/', '_') : null;
+  }
+
   private static class Holder {
-    static final String userName = USER_NAME.value();
+    static final String USER_NAME_SANITIZED = sanitizeUserName(USER_NAME.value());
   }
 
   /**
    * Returns the user name as provided by system property 'user.name'.
    */
   public static String getUserName() {
-    return Holder.userName;
+    return Holder.USER_NAME_SANITIZED;
   }
 
   /**

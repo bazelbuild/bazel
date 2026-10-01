@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.FastCdc2020Params;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
+import build.bazel.remote.execution.v2.RepMaxCdcParams;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.google.devtools.build.lib.remote.ApiVersion;
@@ -69,6 +70,11 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
                     FastCdc2020Params.newBuilder()
                         .setAvgChunkSizeBytes(512 * 1024)
                         .setSeed(0)
+                        .build())
+                .setRepMaxCdcParams(
+                    RepMaxCdcParams.newBuilder()
+                        .setMinChunkSizeBytes(256 * 1024)
+                        .setHorizonSizeBytes(8 * 256 * 1024)
                         .build())
                 .build());
     if (execEnabled) {

@@ -184,8 +184,10 @@ int MappedOutputFile::Close(size_t size) {
         << blaze_util::GetLastErrorString();
   }
 
-  if (!SetFilePointer(impl_->file_, size, NULL, FILE_BEGIN)) {
-    BAZEL_DIE(255) << "MappedOutputFile::Close: SetFilePointer failed: "
+  LARGE_INTEGER distance_to_move;
+  distance_to_move.QuadPart = size;
+  if (!SetFilePointerEx(impl_->file_, distance_to_move, NULL, FILE_BEGIN)) {
+    BAZEL_DIE(255) << "MappedOutputFile::Close: SetFilePointerEx failed: "
                    << blaze_util::GetLastErrorString();
   }
 

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -52,7 +53,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
 
   @Before
   public final void createTransformer() throws Exception {
-    parser = skyframeExecutor.newTargetPatternPreloader();
+    parser = new SkyframeTargetPatternEvaluator(skyframeExecutor);
     transformer = new CompileOneDependencyTransformer(getPackageManager());
   }
 
