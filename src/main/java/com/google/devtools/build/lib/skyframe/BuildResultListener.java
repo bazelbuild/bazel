@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
@@ -111,27 +113,27 @@ public class BuildResultListener {
   }
 
   public ImmutableSet<ConfiguredTarget> getAnalyzedTargets() {
-    return ImmutableSet.copyOf(analyzedTargets);
+    return ImmutableSortedSet.copyOf(ConfiguredTarget.ORDERING, analyzedTargets);
   }
 
   public ImmutableSet<ConfiguredTarget> getAnalyzedTests() {
-    return ImmutableSet.copyOf(analyzedTests);
+    return ImmutableSortedSet.copyOf(ConfiguredTarget.ORDERING, analyzedTests);
   }
 
   public ImmutableMap<AspectKey, ConfiguredAspect> getAnalyzedAspects() {
-    return ImmutableMap.copyOf(analyzedAspects);
+    return ImmutableSortedMap.copyOf(analyzedAspects, AspectKey.ORDERING);
   }
 
   public ImmutableSet<ConfiguredTarget> getSkippedTargets() {
-    return ImmutableSet.copyOf(skippedTargets);
+    return ImmutableSortedSet.copyOf(ConfiguredTarget.ORDERING, skippedTargets);
   }
 
   public ImmutableSet<ConfiguredTargetKey> getBuiltTargets() {
-    return ImmutableSet.copyOf(builtTargets);
+    return ImmutableSortedSet.copyOf(ConfiguredTargetKey.ORDERING, builtTargets);
   }
 
   public ImmutableSet<AspectKey> getBuiltAspects() {
-    return ImmutableSet.copyOf(builtAspects);
+    return ImmutableSortedSet.copyOf(AspectKey.ORDERING, builtAspects);
   }
 
   @Subscribe
