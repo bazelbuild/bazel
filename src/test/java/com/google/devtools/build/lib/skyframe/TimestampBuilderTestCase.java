@@ -272,7 +272,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         new ActionRewindStrategy(
                             skyframeActionExecutor,
                             BugReporter.defaultInstance(),
-                            () -> RemoteAnalysisCacheDeps.createDisabled()),
+                            () -> RemoteAnalysisCacheDeps.createDisabled(),
+                            /* repoFileSystem= */ null),
                         skyframeActionExecutor,
                         evaluatorRef::get,
                         directories,

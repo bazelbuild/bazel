@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -334,6 +335,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
         return null;
       }
       digestWriter.writeMarkerFile(result.recordedInputValues());
+      if (repoRoot.getFileSystem() instanceof RewindableRepoFileSystem repoFileSystem) {
+        repoFileSystem.repoRefetched(repositoryName);
+      }
       if (result.reproducible() == Reproducibility.YES && !repoDefinition.repoRule().local()) {
         // This repo may be eligible for the local and remote repo contents cache.
         // Replant symlinks before caching to convert absolute symlinks relative if possible, which
