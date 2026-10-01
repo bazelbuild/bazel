@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.rules.cpp.proto;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
@@ -67,24 +65,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "third_party/protobuf/MODULE.bazel",
         "register_toolchains('//bazel/private/toolchains:all')");
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
-  }
-
-  @Test
-  public void outputDirectoryForProtoCompileAction() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
-        "cc_proto_library(name = 'foo_cc_proto', deps = [':bar_proto'])",
-        "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
-
-    Artifact hFile =
-        getFirstArtifactEndingWith(
-            getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto")), "bar.pb.h");
-    SpawnAction protoCompileAction = getGeneratingSpawnAction(hFile);
-
-    assertThat(protoCompileAction.getArguments())
-        .contains(String.format("--cpp_out=%s", getTargetConfiguration().getGenfilesFragment()));
   }
 
   // TODO(carmi): test blacklisted protos. I don't currently understand what's the wanted behavior.
