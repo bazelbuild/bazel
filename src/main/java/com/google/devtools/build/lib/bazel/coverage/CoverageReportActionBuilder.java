@@ -121,9 +121,8 @@ public final class CoverageReportActionBuilder {
     public ActionResult execute(ActionExecutionContext ctx)
         throws ActionExecutionException, InterruptedException {
       // The resources are fixed because this action borrows an arbitrary tested target's
-      // ActionOwner (see ACTION_OWNER_COMPARATOR): its exec properties describe that test rather
-      // than this report merge, so charging their `resources:` entries would tie the report's
-      // scheduling to whichever target happened to sort largest.
+      // ActionOwner, which describes the test resource usage rather than that of a coverage report
+      // generation.
       Spawn spawn =
           new BaseSpawn(
               command,
