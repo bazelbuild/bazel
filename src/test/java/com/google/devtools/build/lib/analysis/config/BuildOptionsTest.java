@@ -32,6 +32,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
@@ -52,6 +53,60 @@ import org.junit.runner.RunWith;
  */
 @RunWith(TestParameterInjector.class)
 public final class BuildOptionsTest {
+
+  @OptionsClass
+  public abstract static class BaseCacheKeyOptions extends OptionsBase {
+    @Option(
+        name = "host",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "localhost")
+    public abstract String getHost();
+
+    public abstract void setHost(String host);
+
+    @Option(
+        name = "port",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "80")
+    public abstract int getPort();
+  }
+
+  @OptionsClass
+  public abstract static class CacheKeyOptions extends BaseCacheKeyOptions {
+    @Option(
+        name = "items",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        allowMultiple = true)
+    public abstract List<String> getItems();
+
+    public abstract void setItems(List<String> items);
+
+    @Option(
+        name = "special",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getSpecial();
+  }
+
+  @Test
+  public void optionsCacheKeyEncoding() {
+    CacheKeyOptions options = Options.getDefaults(CacheKeyOptions.class);
+    options.setHost("a\"b\\c");
+    assertThat(BuildOptions.optionsToCacheKey(options))
+        .isEqualTo(
+            CacheKeyOptions.class.getName()
+                + "{host=\"a\\\"b\\\\c\", items=EMPTY, port=\"80\", special=NULL, }");
+    options.setItems(List.of(""));
+    assertThat(BuildOptions.optionsToCacheKey(options))
+        .isEqualTo(
+            CacheKeyOptions.class.getName()
+                + "{host=\"a\\\"b\\\\c\", items=\"[]\", port=\"80\", special=NULL, }");
+  }
 
   /** Extra options for this test. */
   @OptionsClass
