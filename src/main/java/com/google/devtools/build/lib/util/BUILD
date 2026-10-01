@@ -355,7 +355,10 @@ java_library(
         "DeterministicWriter.java",
         "DeterministicWriterInputStream.java",
     ],
-    deps = ["//third_party/java/protobuf"],
+    deps = [
+        "//third_party/java/guava:io",
+        "//third_party/java/protobuf",
+    ],
 )
 
 java_library(
