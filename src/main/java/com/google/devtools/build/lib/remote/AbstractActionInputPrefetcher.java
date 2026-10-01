@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -494,15 +495,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         return toListenableFuture(plantSymlinks);
       }
 
-      if (!symlinks.isEmpty()) {
-        // Symlink may track the parent of a TreeFileArtifact, so the parent relative path has to be
-        // translated relative to it.
-        var parentRelativePath = inputPath.relativeTo(symlinks.getFirst().linkPath());
-        inputPath =
-            inputPath
-                .getFileSystem()
-                .getPath(
-                    symlinks.getLast().resolveOne().asFragment().getRelative(parentRelativePath));
+      for (var symlink : symlinks) {
+        // A symlink may be located at an ancestor of the path, e.g. at the root of the tree
+        // artifact that a TreeFileArtifact belongs to or at a directory of an external repo, so the
+        // part of the path below it has to be translated relative to its target.
+        inputPath = symlink.resolveOne().getRelative(inputPath.relativeTo(symlink.linkPath()));
       }
 
       @Nullable Path treeRootPath = maybeGetTreeRoot(input, metadataSupplier);
@@ -595,19 +592,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         && !inputPath.startsWith(execRoot)) {
       // A path in an external repo, e.g. a source artifact consumed by an action or a file
       // prefetched during the materialization of an external repo. It may be (part of) a chain of
-      // symlinks created by the repo rule, which has to be reproduced verbatim on disk.
+      // symlinks created by the repo rule, which has to be reproduced verbatim on disk. This
+      // includes symlinks at the directories above it, as these would otherwise be created as
+      // regular directories and thus no longer match the contents of the repo.
       var symlinkChain = ImmutableList.<Symlink>builder();
-      FileStatus stat;
       Path currentPath = inputPath;
+      Path symlinkPath;
       var maxAttempt = 32;
-      while ((stat = currentPath.statIfFound(Symlinks.NOFOLLOW)) != null && stat.isSymbolicLink()) {
+      while ((symlinkPath = getFirstSymlinkOnPath(currentPath)) != null) {
         if (maxAttempt-- == 0) {
           throw new FileSymlinkLoopException(
               inputPath.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
         }
-        var symlink = new Symlink(currentPath, currentPath.readSymbolicLink());
+        var symlink = new Symlink(symlinkPath, symlinkPath.readSymbolicLink());
         symlinkChain.add(symlink);
-        currentPath = symlink.resolveOne();
+        currentPath = symlink.resolveOne().getRelative(currentPath.relativeTo(symlinkPath));
       }
       return symlinkChain.build();
     }
@@ -616,6 +615,39 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return ImmutableList.of();
     }
     return ImmutableList.of(new Symlink(inputPath, resolvedPath));
+  }
+
+  /**
+   * Returns the topmost symlink among the given path and its ancestors, or null if none of them is
+   * a symlink.
+   */
+  @Nullable
+  private static Path getFirstSymlinkOnPath(Path path) throws IOException {
+    Path parent = path.getParentDirectory();
+    if (parent != null) {
+      Path resolvedParent;
+      try {
+        resolvedParent = parent.resolveSymbolicLinks();
+      } catch (IOException e) {
+        // The parent doesn't exist or is reached through a dangling symlink or a symlink loop,
+        // which are reproduced verbatim.
+        resolvedParent = parent;
+      }
+      // Only ancestors that aren't also ancestors of the resolved parent can be symlinks.
+      var ancestors = new ArrayDeque<Path>();
+      for (Path ancestor = parent;
+          ancestor != null && !resolvedParent.startsWith(ancestor);
+          ancestor = ancestor.getParentDirectory()) {
+        ancestors.push(ancestor);
+      }
+      for (Path ancestor : ancestors) {
+        if (ancestor.isSymbolicLink()) {
+          return ancestor;
+        }
+      }
+    }
+    FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
+    return stat != null && stat.isSymbolicLink() ? path : null;
   }
 
   private static Path resolveOneSymlink(Path path, @Nullable PathFragment targetPathFragment)
