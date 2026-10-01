@@ -346,4 +346,111 @@ function test_input_discovery_unused_change_after_shutdown() {
   assert_action_cached "${stamp1}"
 }
 
+# Tests that unused inputs are actually absent from the execution sandbox.
+# The action script checks that b.input does NOT exist and fails if it does,
+# proving that pre-execution input discovery removed it from the sandbox.
+function test_input_discovery_removes_from_sandbox() {
+  cat > pkg/check_sandbox.sh << 'SANDBOXEOF'
+#!/bin/sh
+set -eu
+output_file="$1"
+shift
+# Arguments: expect_present... -- expect_absent...
+mode="present"
+for arg in "$@"; do
+  if [ "${arg}" = "--" ]; then
+    mode="absent"
+    continue
+  fi
+  if [ "${mode}" = "present" ]; then
+    if [ ! -f "${arg}" ]; then
+      echo "FAIL: ${arg} should be in sandbox but is missing" >&2
+      exit 1
+    fi
+  else
+    if [ -f "${arg}" ]; then
+      resolved=$(readlink -f "${arg}" 2>/dev/null || echo "${arg}")
+      echo "FAIL: ${arg} should not be in sandbox but exists at ${resolved}" >&2
+      exit 1
+    fi
+  fi
+done
+echo "ok" > "${output_file}"
+SANDBOXEOF
+  chmod +x pkg/check_sandbox.sh
+
+  # Rule that passes the unused input paths as arguments so the script
+  # can verify they are absent from the sandbox.
+  cat > pkg/check_sandbox_rule.bzl << 'EOF'
+def _check_sandbox_impl(ctx):
+    inputs = ctx.attr.inputs.files
+    output = ctx.outputs.out
+    unused_inputs_list = ctx.file.unused_inputs_list
+    # Arguments: output expect_present... -- expect_absent...
+    arguments = [output.path]
+    for f in ctx.files.expect_present:
+        arguments.append(f.path)
+    arguments.append("--")
+    for f in ctx.files.expect_absent:
+        arguments.append(f.path)
+    all_inputs = depset([unused_inputs_list], transitive = [inputs])
+    ctx.actions.run(
+        inputs = all_inputs,
+        outputs = [output],
+        arguments = arguments,
+        executable = ctx.executable.executable,
+        unused_inputs_list = unused_inputs_list,
+    )
+
+check_sandbox_rule = rule(
+    attrs = {
+        "inputs": attr.label(),
+        "executable": attr.label(executable = True, cfg = "exec"),
+        "out": attr.output(),
+        "unused_inputs_list": attr.label(allow_single_file = True),
+        "expect_present": attr.label_list(allow_files = True),
+        "expect_absent": attr.label_list(allow_files = True),
+    },
+    implementation = _check_sandbox_impl,
+)
+EOF
+
+  cat > pkg/BUILD << 'EOF'
+load(":produce_unused_list.bzl", "produce_unused_list")
+load(":check_sandbox_rule.bzl", "check_sandbox_rule")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+filegroup(
+    name = "all_inputs",
+    srcs = glob(["*.input"]),
+)
+
+produce_unused_list(
+    name = "unused_list",
+    unused_inputs = ["b.input"],
+    unused_list = "unused.list",
+)
+
+sh_binary(
+    name = "check_sandbox",
+    srcs = ["check_sandbox.sh"],
+)
+
+check_sandbox_rule(
+    name = "output",
+    out = "output.out",
+    executable = ":check_sandbox",
+    inputs = ":all_inputs",
+    unused_inputs_list = ":unused.list",
+    expect_present = ["a.input", "c.input"],
+    expect_absent = ["b.input"],
+)
+EOF
+
+  bazel build --spawn_strategy=sandboxed //pkg:output || fail "build failed — b.input was present in sandbox"
+  local content
+  content=$(cat "${PRODUCT_NAME}-bin/pkg/output.out")
+  assert_equals "ok" "${content}"
+}
+
 run_suite "Tests Starlark input discovery with unused_inputs_list as input"
