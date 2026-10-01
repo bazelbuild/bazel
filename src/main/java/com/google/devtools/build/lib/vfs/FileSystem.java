@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.common.hash.Hasher;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.io.File;
@@ -67,14 +66,18 @@ public abstract class FileSystem {
   private static final int DIGEST_BUFFER_SIZE = 8192;
 
   /**
-   * A bounded pool of buffers for {@link #getDigest}, indexed by thread ID. Unlike a thread-local,
-   * its memory usage doesn't grow with the number of threads and it is effective on short-lived
-   * virtual threads. If a slot is empty (e.g. due to a collision or a reentrant call), a fresh
-   * buffer is allocated.
+   * A bounded pool of buffers for {@link #getDigest}, meant to reduce allocations while also
+   * supporting virtual threads.
    */
   private static final AtomicReferenceArray<byte[]> digestBuffers =
       new AtomicReferenceArray<>(
           Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4 - 1));
+
+  static {
+    for (int i = 0; i < digestBuffers.length(); i++) {
+      digestBuffers.set(i, new byte[DIGEST_BUFFER_SIZE]);
+    }
+  }
 
   private final DigestHashFunction digestFunction;
 
@@ -370,19 +373,21 @@ public abstract class FileSystem {
    * @throws IOException if the digest could not be computed for any reason
    */
   public byte[] getDigest(PathFragment path) throws IOException {
-    Hasher hasher = digestFunction.getHashFunction().newHasher();
+    var hasher = digestFunction.getHashFunction().newHasher();
     int slot = (int) Thread.currentThread().threadId() & (digestBuffers.length() - 1);
-    byte[] buffer = digestBuffers.getAndSet(slot, null);
-    if (buffer == null) {
-      buffer = new byte[DIGEST_BUFFER_SIZE];
-    }
-    try (InputStream in = getInputStream(path)) {
+    // Only reuse the buffers created during initialization to avoid promoting newly allocated
+    // buffers to the old gen.
+    byte[] pooled = digestBuffers.getAndSet(slot, null);
+    byte[] buffer = pooled != null ? pooled : new byte[DIGEST_BUFFER_SIZE];
+    try (var in = getInputStream(path)) {
       int read;
       while ((read = in.read(buffer)) != -1) {
         hasher.putBytes(buffer, 0, read);
       }
     } finally {
-      digestBuffers.compareAndSet(slot, null, buffer);
+      if (pooled != null) {
+        digestBuffers.set(slot, pooled);
+      }
     }
     return hasher.hash().asBytes();
   }
