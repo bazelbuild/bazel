@@ -1913,6 +1913,82 @@ class RemoteRepoContentsCacheTest(
   ):
     self.doTestInputBelowSymlinkedDirectories('use_source_directory')
 
+  def testMaterializationReproducesSymlinkLoops(self):
+    # Symlinks that form a loop are reproduced verbatim when the repo is
+    # materialized, just like dangling symlinks.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            (
+                'other_repo_rule ='
+                ' use_repo_rule("//:other_repo.bzl", "other_repo_rule")'
+            ),
+            'other_repo_rule(name = "other", build_file = "@my_repo//:BUILD")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  rctx.file("real/file.txt", "file")',
+            '  rctx.symlink("loop_b", "loop_a")',
+            '  rctx.symlink("loop_a", "loop_b")',
+            '  rctx.symlink("loop/subdir", "loop")',
+            '  rctx.symlink("self", "self")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            # Resolving my_repo's BUILD to a path forces full materialization of
+            # my_repo.
+            '  rctx.read(rctx.path(rctx.attr.build_file))',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo_rule = repository_rule(_other_repo_impl,'
+                ' attrs={"build_file": attr.label()})'
+            ),
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: my_repo is a remote cache hit and fully materialized
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(os.path.join(repo_dir, 'real/file.txt')) as f:
+      self.assertEqual(f.read(), 'file')
+    for link, link_target in [
+        ('loop_a', 'loop_b'),
+        ('loop_b', 'loop_a'),
+        ('loop', 'loop/subdir'),
+        ('self', 'self'),
+    ]:
+      self.assertTrue(os.path.islink(os.path.join(repo_dir, link)), link)
+      if not self.IsWindows():
+        self.assertEqual(os.readlink(os.path.join(repo_dir, link)), link_target)
+
   def testRepoWithSymlinkChainIntoMainRepoIsNotCached(self):
     # A repo containing a symlink chain that ends with a symlink pointing at a
     # file in the main repo must not be added to the remote repo contents
