@@ -50,14 +50,12 @@ public class DigestUtils {
   private static final class CachedDigest {
     private final long nodeId;
     private final long changeTime;
-    private final long lastModifiedTime;
     private final long size;
     private final byte[] digest;
 
     private CachedDigest(FileStatus status, byte[] digest) throws IOException {
       this.nodeId = status.getNodeId();
       this.changeTime = status.getLastChangeTime();
-      this.lastModifiedTime = status.getLastModifiedTime();
       this.size = status.getSize();
       this.digest = digest;
     }
@@ -66,7 +64,6 @@ public class DigestUtils {
     private boolean matches(FileStatus status) throws IOException {
       return nodeId == status.getNodeId()
           && changeTime == status.getLastChangeTime()
-          && lastModifiedTime == status.getLastModifiedTime()
           && size == status.getSize();
     }
   }
