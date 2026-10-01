@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -68,6 +67,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -233,8 +233,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Symlink {
       checkNotNull(linkPath, "linkPath");
       checkNotNull(targetPath, "targetPath");
-      checkArgument(
-          !linkPath.asFragment().equals(targetPath), "linkPath and targetPath must differ");
     }
 
     Path resolveOne() throws IOException {
@@ -487,7 +485,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       var symlinks = getSymlinks(input, inputPath, metadata, metadataSupplier);
       // On Windows, the type of symlink depends on the target file and the target may have to
       // exist, so we plant symlinks in reverse order and only after any download has completed.
-      var plantSymlinks = concat(Lists.transform(symlinks.reverse(), this::plantSymlink));
+      // A symlink is found repeatedly if the path passes through it more than once. It is planted
+      // before every symlink that was found earlier, as their targets may pass through it.
+      var plantSymlinks =
+          concat(
+              Lists.transform(
+                  ImmutableSet.copyOf(symlinks.reverse()).asList(), this::plantSymlink));
 
       if (!canDownloadFile(inputPath, metadata)) {
         // If the artifact is a declared ("unresolved") symlink, it can't be "downloaded", but the
@@ -598,9 +601,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       var symlinkChain = ImmutableList.<Symlink>builder();
       Path currentPath = inputPath;
       Path symlinkPath;
+      var seenPaths = new HashSet<Path>();
       var maxAttempt = 32;
       while ((symlinkPath = getFirstSymlinkOnPath(currentPath)) != null) {
-        if (maxAttempt-- == 0) {
+        if (!seenPaths.add(currentPath) || maxAttempt-- == 0) {
+          if (metadata.getType() == FileStateType.SYMLINK) {
+            // A symlink that leads into a symlink loop, which is reproduced verbatim just like a
+            // dangling symlink.
+            break;
+          }
           throw new FileSymlinkLoopException(
               inputPath.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
         }
@@ -631,17 +640,23 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       } catch (IOException e) {
         // The parent doesn't exist or is reached through a dangling symlink or a symlink loop,
         // which are reproduced verbatim.
-        resolvedParent = parent;
+        resolvedParent = null;
       }
-      // Only ancestors that aren't also ancestors of the resolved parent can be symlinks.
+      // Only ancestors that aren't also ancestors of the resolved parent can be symlinks. If the
+      // parent can't be resolved, any ancestor can be one.
       var ancestors = new ArrayDeque<Path>();
       for (Path ancestor = parent;
-          ancestor != null && !resolvedParent.startsWith(ancestor);
+          ancestor != null && (resolvedParent == null || !resolvedParent.startsWith(ancestor));
           ancestor = ancestor.getParentDirectory()) {
         ancestors.push(ancestor);
       }
       for (Path ancestor : ancestors) {
-        if (ancestor.isSymbolicLink()) {
+        // This can't run into a symlink loop itself as none of the ancestors above is a symlink.
+        FileStatus stat = ancestor.statIfFound(Symlinks.NOFOLLOW);
+        if (stat == null) {
+          return null;
+        }
+        if (stat.isSymbolicLink()) {
           return ancestor;
         }
       }

@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -93,6 +94,7 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.InOrder;
 
 /** Base test class for {@link AbstractActionInputPrefetcher} implementations. */
 public abstract class ActionInputPrefetcherTestBase {
@@ -634,6 +636,51 @@ public abstract class ActionInputPrefetcherTestBase {
     // The file that was made available concurrently is neither deleted nor written to.
     verify(fs, never()).delete(path.asFragment());
     verify(fs, times(1)).getOutputStream(eq(path.asFragment()), anyBoolean(), anyBoolean());
+  }
+
+  @Test
+  public void prefetchFiles_externalRepoFile_symlinksPlantedAfterTheirTargets() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Path repo = fs.getPath("/external/repo");
+    repo.getRelative("real/subdir").createDirectoryAndParents();
+    Path alias = repo.getChild("alias");
+    alias.createSymbolicLink(PathFragment.create("real"));
+    Path self = repo.getChild("self");
+    self.createSymbolicLink(PathFragment.create("."));
+    Path indirect = repo.getChild("indirect");
+    indirect.createSymbolicLink(PathFragment.create("self/alias/subdir"));
+    // The path passes through `self`, then through `indirect`, whose target passes through `self`
+    // again, and finally through `alias`.
+    ActionInput input =
+        ActionInputHelper.fromPath(repo.getRelative("self/indirect/file").asFragment());
+    byte[] contents = "hello world".getBytes(UTF_8);
+    HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
+    metadata.put(
+        input,
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            hashCode.asBytes(),
+            contents.length,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false));
+    cas.put(hashCode, contents);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+    clearInvocations(fs);
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    assertThat(FileSystemUtils.readContent(repo.getRelative("real/subdir/file"), UTF_8))
+        .isEqualTo("hello world");
+    // Every symlink is planted once and only after the symlinks its target passes through, as the
+    // target has to exist on some platforms.
+    InOrder inOrder = inOrder(fs);
+    inOrder.verify(fs).createSymbolicLink(eq(alias.asFragment()), any(), any());
+    inOrder.verify(fs).createSymbolicLink(eq(self.asFragment()), any(), any());
+    inOrder.verify(fs).createSymbolicLink(eq(indirect.asFragment()), any(), any());
+    verify(fs, times(3)).createSymbolicLink(any(), any(), any());
   }
 
   @Test
