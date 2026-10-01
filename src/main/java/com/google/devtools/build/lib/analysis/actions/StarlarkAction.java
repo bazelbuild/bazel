@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -232,6 +233,7 @@ public class StarlarkAction extends SpawnAction {
 
     private final Optional<Artifact> unusedInputsList;
     private final Optional<Action> shadowedAction;
+    private final boolean unusedInputsListIsInput;
     private boolean inputsDiscovered = false;
     private boolean prunedInputs = false;
 
@@ -271,6 +273,8 @@ public class StarlarkAction extends SpawnAction {
               : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
+      this.unusedInputsListIsInput =
+          unusedInputsList.isPresent() && inputs.toList().contains(unusedInputsList.get());
     }
 
     @AutoCodec.Instantiator
@@ -311,13 +315,24 @@ public class StarlarkAction extends SpawnAction {
               : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
+      this.unusedInputsListIsInput =
+          unusedInputsList.isPresent()
+              && allStarlarkActionInputs.toList().contains(unusedInputsList.get());
     }
 
     @Override
     public NestedSet<Artifact> getSchedulingDependencies() {
-      return shadowedAction.isPresent()
-          ? shadowedAction.get().getSchedulingDependencies()
-          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      if (!shadowedAction.isPresent() && !unusedInputsListIsInput) {
+        return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      }
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+      if (shadowedAction.isPresent()) {
+        builder.addTransitive(shadowedAction.get().getSchedulingDependencies());
+      }
+      if (unusedInputsListIsInput) {
+        builder.add(unusedInputsList.get());
+      }
+      return builder.build();
     }
 
     @Override
@@ -392,8 +407,43 @@ public class StarlarkAction extends SpawnAction {
       }
       // Otherwise, we need to "re-discover" all the original inputs: the unused ones that were
       // removed might now be needed.
-      updateInputs(allStarlarkActionInputs);
-      return allStarlarkActionInputs;
+      NestedSet<Artifact> inputsToUse = allStarlarkActionInputs;
+
+      // If the unused_inputs_list is also an action input (produced by a prior action), read it
+      // to trim inputs before execution, avoiding the need to materialize unused inputs.
+      if (unusedInputsListIsInput) {
+        ImmutableSet<String> unusedPaths =
+            readUnusedInputsSet(actionExecutionContext, unusedInputsList.get());
+        if (!unusedPaths.isEmpty()) {
+          NestedSetBuilder<Artifact> trimmed = NestedSetBuilder.stableOrder();
+          for (Artifact input : allStarlarkActionInputs.toList()) {
+            if (!unusedPaths.contains(input.getExecPathString())) {
+              trimmed.add(input);
+            }
+          }
+          inputsToUse = trimmed.build();
+          prunedInputs = true;
+        }
+      }
+
+      updateInputs(inputsToUse);
+      return inputsToUse;
+    }
+
+    private static ImmutableSet<String> readUnusedInputsSet(
+        ActionExecutionContext actionExecutionContext, Artifact unusedInputsListArtifact) {
+      try {
+        return FileSystemUtils.readLinesAsLatin1(
+                actionExecutionContext.getPathResolver().toPath(unusedInputsListArtifact))
+            .stream()
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .collect(ImmutableSet.toImmutableSet());
+      } catch (IOException e) {
+        // File not readable (e.g., first build, remote execution without bytes).
+        // Fall back to using all inputs.
+        return ImmutableSet.of();
+      }
     }
 
     private InputStream getUnusedInputListInputStream(
@@ -470,7 +520,7 @@ public class StarlarkAction extends SpawnAction {
             createFailureDetail("Unused inputs read failure", Code.UNUSED_INPUT_LIST_READ_FAILURE));
       }
 
-      prunedInputs = sawUnusedInput;
+      prunedInputs = prunedInputs || sawUnusedInput;
       if (sawUnusedInput) {
         updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
       }
