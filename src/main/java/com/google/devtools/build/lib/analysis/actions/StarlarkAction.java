@@ -274,7 +274,12 @@ public class StarlarkAction extends SpawnAction {
               : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
-      this.pathMapper = PathMappers.create(this, outputPathsMode, true);
+      this.pathMapper =
+          PathMappers.create(
+              this,
+              outputPathsMode,
+              /* isStarlarkAction= */ true,
+              /* inputMetadataProvider= */ null);
     }
 
     @AutoCodec.Instantiator
@@ -315,7 +320,12 @@ public class StarlarkAction extends SpawnAction {
               : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
-      this.pathMapper = PathMappers.create(this, outputPathsMode, true);
+      this.pathMapper =
+          PathMappers.create(
+              this,
+              outputPathsMode,
+              /* isStarlarkAction= */ true,
+              /* inputMetadataProvider= */ null);
     }
 
     private boolean isUnusedInputsListAnInput() {
