@@ -103,6 +103,20 @@ public final class RemoteAnalysisCacheFactory {
           RemoteAnalysisCacheManager.createDisabled(), disabledDeps, disabledDeps);
     }
 
+    if (options.getSkycacheAnalysisOnly()
+        && !env.getSkyframeExecutor().supportsSkycacheAnalysisOnly()) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      "Skycache analysis-only mode (--experimental_skycache_analysis_only) is not"
+                          + " supported by the current Skyframe executor.")
+                  .setRemoteAnalysisCaching(
+                      RemoteAnalysisCaching.newBuilder()
+                          .setCode(RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS))
+                  .build()));
+    }
+
     if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
       throw new AbruptExitException(
           DetailedExitCode.of(

@@ -1036,6 +1036,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return Version.minimal();
   }
 
+  /**
+   * Returns whether the executor supports analysis-only caching (skipping execution nodes).
+   *
+   * <p>Overridden by subclasses that support this mode. Defaults to {@code false}.
+   */
+  public boolean supportsSkycacheAnalysisOnly() {
+    return false;
+  }
+
   protected SkyFunction newActionExecutionFunction() {
     return new ActionExecutionFunction(
         actionRewindStrategy,
