@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -23,16 +25,26 @@ import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
+import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.exec.TestPolicy;
+import com.google.devtools.build.lib.runtime.commands.InfoCommand;
+import com.google.devtools.build.lib.runtime.commands.RunCommand;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -41,10 +53,13 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import org.junit.Test;
 
 /** Base class for integration tests for BwoB. */
@@ -55,7 +70,15 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected abstract void setDownloadAll();
 
+  protected void setDownloadMinimal() {
+    addOptions("--remote_download_outputs=minimal");
+  }
+
   protected abstract void enableActionRewinding();
+
+  protected void disableActionRewinding() {
+    addOptions("--norewind_lost_inputs");
+  }
 
   protected abstract void assertOutputEquals(Path path, String expectedContent) throws Exception;
 
@@ -201,6 +224,137 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Assert: out/foo.txt is re-downloaded
     assertThat(actionEventCollector.getActionExecutedEvents()).hasSize(1);
     assertValidOutputFile("out/foo.txt", "foo\n");
+  }
+
+  @Test
+  public void downloadToplevel_outputDeletedAfterUnrelatedBuild_toplevelOutputIsRestored()
+      throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  outs = ['out/bar.txt'],",
+        "  cmd = 'echo bar > $@',",
+        ")");
+
+    // The default minimal build leaves out/foo.txt represented only by remote metadata. The
+    // subsequent toplevel build materializes it via the completion function without reexecuting
+    // the generating action, so the metadata tracked for it in Skyframe remains remote.
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+    setDownloadToplevel();
+    buildTarget("//:foo");
+    waitDownloads();
+    assertValidOutputFile("out/foo.txt", "foo\n");
+
+    // An intervening build of an unrelated target discards the previous invocation's record of
+    // which outputs it wanted locally.
+    buildTarget("//:bar");
+    waitDownloads();
+    assertValidOutputFile("out/bar.txt", "bar\n");
+
+    // Delete the top-level output of the earlier build and request it again.
+    getOutputPath("out/foo.txt").delete();
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertValidOutputFile("out/foo.txt", "foo\n");
+  }
+
+  @Test
+  public void downloadToplevel_formerToplevelOutputDeleted_restoreAttemptedOnlyOnce()
+      throws Exception {
+    if (!hasAccessToRemoteOutputs()) {
+      return;
+    }
+
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+
+    // Materialize out/foo.txt via the completion function so that the metadata tracked for it in
+    // Skyframe remains remote, then build a target for which it is merely an intermediate output.
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+    setDownloadToplevel();
+    buildTarget("//:foo");
+    waitDownloads();
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    buildTarget("//:foobar");
+    waitDownloads();
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+
+    getOutputPath("out/foo.txt").delete();
+
+    // The first incremental build reevaluates the generating action so that the current download
+    // policy can decide whether to restore the file, but doesn't materialize it as it is no
+    // longer a top-level output.
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+    waitDownloads();
+    assertOutputDoesNotExist("out/foo.txt");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(1);
+
+    // Subsequent incremental builds trust the still-missing output and evaluate nothing.
+    actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+    waitDownloads();
+    assertOutputDoesNotExist("out/foo.txt");
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadToplevel_afterDownloadAllBuild_deletedToplevelOutputIsRestored()
+      throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+
+    setDownloadAll();
+    buildTarget("//:foobar");
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+
+    // Delete both a top-level and an intermediate output, then build with a narrower download
+    // policy.
+    getOutputPath("out/foo.txt").delete();
+    getOutputPath("out/foobar.txt").delete();
+
+    setDownloadToplevel();
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    // The top-level output must be restored; the intermediate output is not needed locally.
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertOutputDoesNotExist("out/foo.txt");
   }
 
   @Test
@@ -1378,6 +1532,132 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadToplevel_afterInfoWithDownloadAll_doesNotReevaluateRemoteOutputs()
+      throws Exception {
+    if (!hasAccessToRemoteOutputs()) {
+      return;
+    }
+
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+
+    // Leave both outputs represented only by remote metadata.
+    buildTarget("//:foobar");
+    assertOutputsDoNotExist("//:foo");
+    assertOutputsDoNotExist("//:foobar");
+
+    // Install a previous checker with download-all, without running a build or materializing any
+    // outputs.
+    setDownloadAll();
+    addOptions("workspace");
+    runtimeWrapper.newCommand(InfoCommand.class);
+    runtimeWrapper.executeCustomCommand();
+
+    setDownloadToplevel();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertOutputDoesNotExist("out/foo.txt");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadToplevel_afterDownloadAllBuildOfAnotherTarget_doesNotReexecuteActions()
+      throws Exception {
+    writeAppWithLibs();
+    setDownloadToplevel();
+    buildTarget("//:app");
+    assertValidOutputFile("out/app.txt", "lib0\nlib1\nlib2\n");
+    assertOutputsDoNotExist("//:lib0");
+    assertOutputsDoNotExist("//:lib1");
+    assertOutputsDoNotExist("//:lib2");
+
+    // Build an unrelated target with a broader download policy, as e.g. an IDE project generator
+    // does, then run an incremental build without changes.
+    setDownloadAll();
+    buildTarget("//:tool");
+    setDownloadToplevel();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:app");
+
+    // The intermediate outputs are still trusted, so their actions hit the action cache instead of
+    // being re-executed remotely.
+    assertOutputsDoNotExist("//:lib0");
+    assertOutputsDoNotExist("//:lib1");
+    assertOutputsDoNotExist("//:lib2");
+    assertValidOutputFile("out/app.txt", "lib0\nlib1\nlib2\n");
+    if (hasAccessToRemoteOutputs()) {
+      assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+    } else {
+      assertThat(
+              actionEventCollector.getActionExecutedEvents().stream()
+                  .map(e -> e.getAction().getOwner().getLabel().toString()))
+          .containsNoneOf("//:lib0", "//:lib1", "//:lib2");
+    }
+  }
+
+  @Test
+  public void downloadToplevel_afterDownloadAllBuildOfAnotherTarget_onlyModifiedActionsRerun()
+      throws Exception {
+    writeAppWithLibs();
+    setDownloadToplevel();
+    buildTarget("//:app");
+    assertValidOutputFile("out/app.txt", "lib0\nlib1\nlib2\n");
+    setDownloadAll();
+    buildTarget("//:tool");
+
+    setDownloadToplevel();
+    write("lib0.in", "modified");
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:app");
+
+    // Only the actions depending on the modified source are re-executed.
+    assertOutputsDoNotExist("//:lib1");
+    assertOutputsDoNotExist("//:lib2");
+    assertValidOutputFile("out/app.txt", "modified\nlib1\nlib2\n");
+    assertThat(actionEventCollector.getActionExecutedEvents()).hasSize(2);
+  }
+
+  @Test
+  public void downloadMinimal_afterDownloadAllBuildOfAnotherTarget_doesNotReexecuteActions()
+      throws Exception {
+    writeAppWithLibs();
+    buildTarget("//:app");
+    assertOutputsDoNotExist("//:app");
+    assertOutputsDoNotExist("//:lib0");
+
+    // Build an unrelated target with a broader download policy, then run an incremental build
+    // without changes.
+    setDownloadAll();
+    buildTarget("//:tool");
+    setDownloadMinimal();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:app");
+
+    // Nothing is downloaded and no action is re-executed.
+    assertOutputsDoNotExist("//:app");
+    assertOutputsDoNotExist("//:lib0");
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+  }
+
+  @Test
   public void incrementalBuild_fileOutputIsPrefetched_noRuns() throws Exception {
     // We need to download the intermediate output
     if (!hasAccessToRemoteOutputs()) {
@@ -1479,6 +1759,17 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     return result.buildOrThrow();
   }
 
+  protected FileArtifactValue getMetadata(Artifact output) throws Exception {
+    var evaluator = getRuntimeWrapper().getSkyframeExecutor().getEvaluator();
+    var value = evaluator.getExistingValue(Artifact.key(output));
+    if (value instanceof ActionExecutionValue actionExecutionValue) {
+      return actionExecutionValue.getAllFileValues().get(output);
+    } else if (value instanceof TreeArtifactValue treeArtifactValue) {
+      return treeArtifactValue.getChildValues().get(output);
+    }
+    return null;
+  }
+
   protected ImmutableMap<Artifact, TreeArtifactValue> getTreeMetadata(String target)
       throws Exception {
     var result = ImmutableMap.<Artifact, TreeArtifactValue>builder();
@@ -1492,17 +1783,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
       }
     }
     return result.buildOrThrow();
-  }
-
-  protected FileArtifactValue getMetadata(Artifact output) throws Exception {
-    var evaluator = getRuntimeWrapper().getSkyframeExecutor().getEvaluator();
-    var value = evaluator.getExistingValue(Artifact.key(output));
-    if (value instanceof ActionExecutionValue actionExecutionValue) {
-      return actionExecutionValue.getAllFileValues().get(output);
-    } else if (value instanceof TreeArtifactValue treeArtifactValue) {
-      return treeArtifactValue.getChildValues().get(output);
-    }
-    return null;
   }
 
   @Test
@@ -1551,7 +1831,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingInputFile_incrementalBuildCanContinue()
+  public void remoteCacheEvictBlobs_whenPrefetchingInputFile(@TestParameter boolean actionRewinding)
       throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
@@ -1591,11 +1871,17 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // trigger build error
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    // Build failed because of remote cache eviction
-    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
 
     // Act: Do an incremental build without "clean" or "shutdown"
     buildTarget("//a:bar");
@@ -1605,7 +1891,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingInputTree_incrementalBuildCanContinue()
+  public void remoteCacheEvictBlobs_whenPrefetchingInputTree(@TestParameter boolean actionRewinding)
       throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
@@ -1646,11 +1932,17 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // trigger build error
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    // Build failed because of remote cache eviction
-    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
 
     // Act: Do an incremental build without "clean" or "shutdown"
     buildTarget("//a:bar");
@@ -1833,6 +2125,111 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertOnlyOutputRemoteContent("//:gen2", "shared.txt", "shared content");
   }
 
+  @Test
+  public void runAfterBuild_keepsCompletionsOfPreviousBuild() throws Exception {
+    writeFooAndBar();
+    var completionStats = new SkyframeEvaluationCollector(SkyFunctions.TARGET_COMPLETION);
+    getRuntimeWrapper().registerSubscriber(completionStats);
+
+    buildTarget("//:foo", "//:bar");
+    waitDownloads();
+
+    assertOutputsDoNotExist("//:foo");
+    assertOutputsDoNotExist("//:bar");
+    assertThat(completionStats.recomputed()).isEqualTo(2);
+
+    // Only the build phase of the run command is exercised here; it is the same one that the build
+    // command goes through, except for the command name recorded in the request.
+    runtimeWrapper.newCustomCommandWithExtensions(
+        new RunCommand(TestPolicy.EMPTY_POLICY),
+        /* extensions= */ ImmutableList.of(),
+        /* ignoreUserOptions= */ true);
+    buildTarget("//:foo");
+    waitDownloads();
+
+    // The run command always needs the outputs of the target it runs, so its completion is
+    // evaluated anew under a key of its own...
+    assertValidOutputFile("foo.txt", "foo\n");
+    assertOutputsDoNotExist("//:bar");
+    assertThat(completionStats.recomputed()).isEqualTo(1);
+    // ...while the completions of the preceding build are left in place.
+    assertThat(targetCompletions())
+        .containsExactly("//:foo (build)", "//:bar (build)", "//:foo (run)");
+
+    buildTarget("//:foo", "//:bar");
+    waitDownloads();
+
+    // Since nothing was invalidated, returning to the build command leaves no completion work.
+    assertThat(completionStats.recomputed()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadOutputsModeChange_discardsCompletionsOfPreviousBuild() throws Exception {
+    writeFooAndBar();
+    var completionStats = new SkyframeEvaluationCollector(SkyFunctions.TARGET_COMPLETION);
+    getRuntimeWrapper().registerSubscriber(completionStats);
+
+    buildTarget("//:foo", "//:bar");
+    // Add the new option here because waitDownloads below will internally create a new command
+    // which will parse the new option.
+    setDownloadToplevel();
+    waitDownloads();
+
+    assertThat(completionStats.recomputed()).isEqualTo(2);
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    // A change to the outputs mode may affect any target, so all completions are discarded and
+    // only the one requested by this build is recomputed...
+    assertValidOutputFile("foo.txt", "foo\n");
+    assertThat(completionStats.recomputed()).isEqualTo(1);
+    assertThat(targetCompletions()).containsExactly("//:foo (build)");
+
+    buildTarget("//:foo", "//:bar");
+    waitDownloads();
+
+    // ...leaving //:bar to be completed again by the next build.
+    assertThat(completionStats.recomputed()).isEqualTo(1);
+  }
+
+  private void writeFooAndBar() throws IOException {
+    write(
+        "BUILD",
+        """
+        genrule(
+            name = "foo",
+            outs = ["foo.txt"],
+            cmd = "echo foo > $@",
+        )
+
+        genrule(
+            name = "bar",
+            outs = ["bar.txt"],
+            cmd = "echo bar > $@",
+        )
+        """);
+  }
+
+  /**
+   * Describes every target completion node in the Skyframe graph by the label it completes and the
+   * command mode of its {@link com.google.devtools.build.lib.analysis.TopLevelArtifactContext}.
+   *
+   * <p>Nodes that are merely dirty are still reported; only deleted ones are missing.
+   */
+  private ImmutableSet<String> targetCompletions() {
+    return getSkyframeExecutor().getEvaluator().getValues().keySet().stream()
+        .filter(key -> key.functionName().equals(SkyFunctions.TARGET_COMPLETION))
+        .map(TargetCompletionKey.class::cast)
+        .map(
+            key ->
+                "%s (%s)"
+                    .formatted(
+                        key.actionLookupKey().getLabel(),
+                        key.topLevelArtifactContext().forRunCommand() ? "run" : "build"))
+        .collect(toImmutableSet());
+  }
+
   protected void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(
@@ -1850,7 +2247,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     return getTargetConfiguration().getBinDir().getRoot().getRelative(binRelativePath);
   }
 
-  protected void assertOutputDoesNotExist(String binRelativePath) {
+  protected void assertOutputDoesNotExist(String binRelativePath) throws IOException {
     Path output = getOutputPath(binRelativePath);
     assertThat(output.exists()).isFalse();
   }
@@ -1960,6 +2357,53 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         """);
   }
 
+  protected void writeAppWithLibs() throws IOException {
+    write("lib0.in", "lib0");
+    write("lib1.in", "lib1");
+    write("lib2.in", "lib2");
+    write(
+        "BUILD",
+        """
+        genrule(
+            name = "lib0",
+            srcs = ["lib0.in"],
+            outs = ["out/lib0.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "lib1",
+            srcs = ["lib1.in"],
+            outs = ["out/lib1.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "lib2",
+            srcs = ["lib2.in"],
+            outs = ["out/lib2.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "app",
+            srcs = [
+                ":lib0",
+                ":lib1",
+                ":lib2",
+            ],
+            outs = ["out/app.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "tool",
+            outs = ["out/tool.txt"],
+            cmd = "echo tool > $@",
+        )
+        """);
+  }
+
   protected void writeCopyAspectRule(boolean aggregate) throws IOException {
     var lines = ImmutableList.<String>builder();
     lines.add(
@@ -1998,6 +2442,33 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     write("rules.bzl", lines.build().toArray(new String[0]));
   }
 
+  /** Records how much of a single {@link SkyFunctionName} the last command made Skyframe redo. */
+  protected static class SkyframeEvaluationCollector {
+    private final SkyFunctionName functionName;
+    private int recomputed;
+
+    public SkyframeEvaluationCollector(SkyFunctionName functionName) {
+      this.functionName = functionName;
+    }
+
+    @Subscribe
+    public void onSkyframeGraphStats(SkyframeGraphStatsEvent event) {
+      var stats = event.getEvaluationStats();
+      recomputed =
+          stats.built().getOrDefault(functionName, 0)
+              + stats.cleaned().getOrDefault(functionName, 0);
+    }
+
+    /**
+     * Returns how many nodes of the function the last command had to compute, whether they ended up
+     * with a new value or were found to be unchanged. Nodes that Skyframe never had to look at are
+     * not counted.
+     */
+    public int recomputed() {
+      return recomputed;
+    }
+  }
+
   protected static class ActionEventCollector {
     private final List<ActionExecutedEvent> actionExecutedEvents = new ArrayList<>();
     private final List<CachedActionEvent> cachedActionEvents = new ArrayList<>();
@@ -2028,6 +2499,612 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     public List<CachedActionEvent> getCachedActionEvents() {
       return cachedActionEvents;
     }
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingInput(@TestParameter boolean actionRewinding)
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    setDownloadAll();
+    buildTarget("//a:bar");
+    waitDownloads();
+    var bytes = readContent(getOutputPath("a/foo.out"));
+    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Act: Evict blobs from remote cache and do an incremental build
+    evictAllBlobs();
+    write("a/bar.in", "updated bar");
+    addOptions("--strategy_regexp=.*bar=local");
+
+    if (actionRewinding) {
+      // Assert: the lost input's generating action is rewound and the build succeeds
+      enableActionRewinding();
+      buildTarget("//a:bar");
+      assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+    } else {
+      // Assert: the build fails with exit code 39
+      disableActionRewinding();
+      var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
+      assertThat(error).hasMessageThat().contains("a/foo.out");
+      assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
+      assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+    }
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingSymlinkedInput(
+      @TestParameter boolean actionRewinding) throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    writeSymlinkRule();
+    write(
+        "a/BUILD",
+        """
+        load("//:symlink.bzl", "symlink")
+
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        symlink(
+            name = "symlinked_foo",
+            target_artifact = ":foo.out",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                ":symlinked_foo",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    setDownloadAll();
+    buildTarget("//a:bar");
+    waitDownloads();
+    var bytes = readContent(getOutputPath("a/foo.out"));
+    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
+    getOnlyElement(getArtifacts("//a:symlinked_foo")).getPath().delete();
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+    assertOutputsDoNotExist("//a:symlinked_foo");
+
+    // Act: Evict blobs from remote cache and do an incremental build
+    evictAllBlobs();
+    write("a/bar.in", "updated bar");
+    addOptions("--strategy_regexp=.*bar=local");
+
+    if (actionRewinding) {
+      // Assert: the lost input's generating action is rewound and the build succeeds
+      enableActionRewinding();
+      buildTarget("//a:bar");
+      assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+    } else {
+      // Assert: the build fails with exit code 39
+      disableActionRewinding();
+      var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
+      assertThat(error).hasMessageThat().contains("a/symlinked_foo");
+      assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
+      assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+    }
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenUploadingInput(@TestParameter boolean actionRewinding)
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    setDownloadAll();
+    buildTarget("//a:bar");
+    waitDownloads();
+    var bytes = readContent(getOutputPath("a/foo.out"));
+    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Act: Evict blobs from remote cache and do an incremental build
+    evictAllBlobs();
+    write("a/bar.in", "updated bar");
+
+    if (actionRewinding) {
+      // Assert: the lost input's generating action is rewound and the build succeeds
+      enableActionRewinding();
+      buildTarget("//a:bar");
+      assertOutputsDoNotExist("//a:bar");
+      assertOnlyOutputRemoteContent("//a:bar", "bar.out", "foo\nupdated bar\n");
+    } else {
+      // Assert: the build fails with exit code 39
+      disableActionRewinding();
+      addOptions("--strategy_regexp=.*bar=local");
+      var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
+      assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
+      assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+    }
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenUploadingInputFile(@TestParameter boolean actionRewinding)
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    write("a/bar.in", "updated bar");
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      addOptions("--strategy_regexp=.*bar=local");
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
+
+    // Act: Do an incremental build without "clean" or "shutdown"
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenUploadingInputTree(@TestParameter boolean actionRewinding)
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo.out",
+            content_map = {"file-inside": "hello world"},
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+        )
+        """);
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").deleteTreesBelow();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    write("a/bar.in", "updated bar");
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      addOptions("--strategy_regexp=.*bar=local");
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
+
+    // Act: Do an incremental build without "clean" or "shutdown"
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenTopLevelRequested_succeedsWithActionRewinding()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo.out",
+            content_map = {"file-inside": "hello world"},
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+        )
+        """);
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar", "//a:foo.out");
+    getOutputPath("a/foo.out").deleteTreesBelow();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, bar.out and foo.out aren't downloaded
+    buildTarget("//a:bar", "//a:foo.out");
+    assertOutputDoesNotExist("a/bar.out");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+
+    // Act: Do an incremental build without "clean" or "shutdown" after clearing the cache and
+    // switching to download toplevel
+    evictAllBlobs();
+    setDownloadToplevel();
+    enableActionRewinding();
+    buildTarget("//a:bar", "//a:foo.out");
+
+    // Assert: all outputs were downloaded
+    assertValidOutputFile("a/bar.out", "file-inside\nbar\n");
+    assertValidOutputFile("a/foo.out/file-inside", "hello world");
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenRunfilesRequested_succeedsWithActionRewinding()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "native_binary.bzl",
+        """
+        def _native_binary_impl(ctx):
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    transitive = [target[DefaultInfo].files for target in ctx.attr.data],
+                ),
+            )
+            runfiles = runfiles.merge_all(
+                [target[DefaultInfo].default_runfiles for target in ctx.attr.data],
+            )
+            executable = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.symlink(
+                output = executable,
+                target_file = ctx.file.executable,
+            )
+            return [
+                DefaultInfo(
+                    executable = executable,
+                    runfiles = runfiles,
+                ),
+            ]
+
+        native_binary = rule(
+            implementation = _native_binary_impl,
+            attrs = {
+                "executable": attr.label(allow_single_file = True),
+                "data": attr.label_list(),
+            },
+            executable = True,
+        )
+        """);
+    write(
+        "a/BUILD",
+        """
+        load("//:native_binary.bzl", "native_binary")
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo.out",
+            content_map = {"file-inside": "hello world"},
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+        )
+
+        native_binary(
+            name = "bin",
+            executable = "bin.sh",
+            data = [
+                ":foo.out",
+                ":bar",
+            ],
+        )
+        """);
+    write("a/bar.in", "bar");
+    write("a/bin.sh");
+
+    // Populate remote cache
+    buildTarget("//a:bin");
+    getOutputPath("a/foo.out").deleteTreesBelow();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, runfiles aren't downloaded
+    buildTarget("//a:bin");
+    assertThat(getOutputPath("a/bin.runfiles").isDirectory()).isTrue();
+    assertOutputDoesNotExist("a/bar.out");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+
+    // Act: Do an incremental build without "clean" or "shutdown" after clearing the cache and
+    // switching to download toplevel
+    evictAllBlobs();
+    setDownloadToplevel();
+    enableActionRewinding();
+    buildTarget("//a:bin");
+
+    // Assert: all runfiles were downloaded
+    assertValidOutputFile("a/bar.out", "file-inside\nbar\n");
+    assertValidOutputFile("a/foo.out/file-inside", "hello world");
+  }
+
+  @Test
+  public void actionRewinding_concurrentConsumersOfRewoundAction() throws Exception {
+    enableActionRewinding();
+
+    // Arrange: Prepare workspace where action 'foo' generates two outputs:
+    // 'foo1.out' (consumed by bar1) and 'foo2.out' (consumed concurrently by bar2).
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "foo",
+            outs = [
+                "foo1.out",
+                "foo2.out",
+            ],
+            cmd = "seq 1 500 > $(location foo1.out); seq 1 500 > $(location foo2.out)",
+        )
+
+        genrule(
+            name = "bar1",
+            srcs = ["foo1.out"],
+            outs = ["bar1.out"],
+            cmd = "cat $(location foo1.out) > $@",
+        )
+
+        genrule(
+            name = "bar2",
+            srcs = [
+                "foo2.out",
+                "bar2.in",
+            ],
+            outs = ["bar2.out"],
+            cmd = "while [ ! -f a/bar2.marker ]; do cat $(location foo2.out) > /dev/null || exit 1; sleep 0.02; done; cat $(location foo2.out) $(location bar2.in) > $@",
+        )
+        """);
+    write("a/bar2.in", "bar2");
+
+    // Clean build: build foo remotely so intermediate outputs foo1.out and foo2.out are in CAS
+    buildTarget("//a:foo");
+    assertOutputDoesNotExist("a/foo1.out");
+    assertOutputDoesNotExist("a/foo2.out");
+
+    // Act: Run bar1 and bar2 concurrently.
+    // When bar2 starts executing (and prefetches foo2.out), evict blobs from CAS.
+    // bar1 starts after eviction, sees foo1.out missing from CAS, and triggers action rewinding
+    // for foo.
+    // When foo is rewound, foo's preparation deletes foo2.out from disk while bar2 is reading it.
+    // Without synchronization, bar2 fails on missing foo2.out.
+    addOptions("--strategy_regexp=.*bar=local", "--jobs=4");
+
+    CountDownLatch bar2Started = new CountDownLatch(1);
+    CountDownLatch evictionFinished = new CountDownLatch(1);
+    CountDownLatch bar1Rewound = new CountDownLatch(1);
+    Path markerPath = getWorkspace().getRelative("a/bar2.marker");
+
+    runtimeWrapper.registerSubscriber(
+        new Object() {
+          @Subscribe
+          @AllowConcurrentEvents
+          public void actionStarted(ActionStartedEvent event) {
+            String label = event.getAction().getOwner().getLabel().toString();
+            if (label.equals("//a:bar1")) {
+              try {
+                // Ensure bar2 has started and eviction has completed before bar1 attempts
+                // prefetching
+                bar2Started.await();
+                evictionFinished.await();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+              }
+            }
+          }
+
+          @Subscribe
+          @AllowConcurrentEvents
+          public void actionRunning(RunningActionEvent event) {
+            String label = event.getActionMetadata().getOwner().getLabel().toString();
+            if (label.equals("//a:bar2")) {
+              bar2Started.countDown();
+            }
+          }
+
+          @Subscribe
+          @AllowConcurrentEvents
+          public void actionRewound(ActionRewoundEvent event) {
+            if (event
+                .getFailedRewoundAction()
+                .getOwner()
+                .getLabel()
+                .toString()
+                .equals("//a:bar1")) {
+              bar1Rewound.countDown();
+              try {
+                FileSystemUtils.createEmptyFile(markerPath);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            }
+          }
+        });
+
+    new Thread(
+            () -> {
+              try {
+                bar2Started.await();
+                evictAllBlobs();
+                evictionFinished.countDown();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .start();
+
+    try {
+      buildTarget("//a:bar1", "//a:bar2");
+    } finally {
+      // Assert test preconditions: ensure eviction completed, bar2 was actively running,
+      // and action rewinding was legitimately triggered for bar1.
+      assertThat(evictionFinished.getCount()).isEqualTo(0);
+      assertThat(bar2Started.getCount()).isEqualTo(0);
+      assertThat(bar1Rewound.getCount()).isEqualTo(0);
+    }
+    waitDownloads();
+
+    // Assert: Both targets succeed
+    assertThat(getOutputPath("a/bar1.out").exists()).isTrue();
+    assertThat(getOutputPath("a/bar2.out").exists()).isTrue();
   }
 
   protected void restartServer() throws Exception {

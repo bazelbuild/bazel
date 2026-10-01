@@ -113,7 +113,7 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void testPutAndGet() {
+  public void testPutAndGet() throws Exception {
     String key = "key";
     putKey(key);
     ActionCache.Entry readentry = cache.get(key);
@@ -123,7 +123,7 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void testPutAndRemove() {
+  public void testPutAndRemove() throws Exception {
     String key = "key";
     putKey(key);
     cache.remove(key);

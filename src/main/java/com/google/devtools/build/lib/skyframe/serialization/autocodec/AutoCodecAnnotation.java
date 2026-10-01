@@ -31,6 +31,7 @@ record AutoCodecAnnotation(
     boolean checkClassExplicitlyAllowed,
     ImmutableList<? extends TypeMirror> explicitlyAllowClass,
     Optional<TypeMirror> deserializedInterface,
+    boolean internDeserialized,
     boolean autoRegister,
     MemoizationEquality memoizationEquality) {
   static AutoCodecAnnotation of(AutoCodec annotation, ProcessingEnvironment env) {
@@ -38,6 +39,7 @@ record AutoCodecAnnotation(
         annotation.checkClassExplicitlyAllowed(),
         getExplicitlyAllowClass(annotation, env),
         getDeserializedInterface(annotation, env),
+        annotation.internDeserialized(),
         annotation.autoRegister(),
         annotation.memoizationEquality());
   }

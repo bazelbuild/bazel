@@ -2383,6 +2383,7 @@ EOF
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
+      --norewind_lost_inputs \
       --experimental_remote_cache_eviction_retries=1 \
       //a:bar >& $TEST_log || fail "Failed to build"
 
@@ -2450,6 +2451,7 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_local_fallback \
       --remote_download_minimal \
+      --norewind_lost_inputs \
       --experimental_remote_cache_eviction_retries=1 \
       //a:bar >& $TEST_log || fail "Failed to build"
 
@@ -2504,6 +2506,7 @@ EOF
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_toplevel \
+      --norewind_lost_inputs \
       --experimental_remote_cache_eviction_retries=1 \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -2595,6 +2598,7 @@ EOF
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
+      --norewind_lost_inputs \
       --experimental_remote_cache_eviction_retries=1 \
       //a:bin >& $TEST_log || fail "Failed to build"
 
@@ -2662,6 +2666,7 @@ EOF
       --invocation_id=91648f28-6081-4af7-9374-cdfd3cd36ef2 \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
+      --norewind_lost_inputs \
       --experimental_remote_cache_eviction_retries=1 \
       --build_event_text_file=bes.txt \
       //a:bar >& $TEST_log || fail "Failed to build"
@@ -2732,6 +2737,7 @@ EOF
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
+      --norewind_lost_inputs \
       --experimental_remote_cache_eviction_retries=1 \
       --remote_grpc_log=grpc.log \
       //a:bar >& $TEST_log || fail "Failed to build"

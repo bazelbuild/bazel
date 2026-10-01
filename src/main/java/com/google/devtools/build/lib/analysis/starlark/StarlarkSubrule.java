@@ -71,7 +71,7 @@ import net.starlark.java.syntax.Location;
  * of subrules. The latter is only used for validating that a rule invoking a subrule declared that
  * subrule as a dependency.
  */
-public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, StarlarkSubruleApi {
+public class StarlarkSubrule implements StarlarkExportable, StarlarkSubruleApi {
   // TODO(hvd) this class is a WIP, will be implemented over many commits
 
   private final StarlarkFunction implementation;

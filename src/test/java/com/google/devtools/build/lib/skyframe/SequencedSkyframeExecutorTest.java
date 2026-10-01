@@ -749,9 +749,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         skyframeExecutor.getConfiguredTargetAndDataForTesting(
             reporter, Label.parseCanonical("@//conflict:x"), getTargetConfiguration());
     assertThat(conflict).isNotNull();
-    ArtifactRoot root =
-        getTargetConfiguration()
-            .getBinDirectory(conflict.getConfiguredTarget().getLabel().getRepository());
+    ArtifactRoot root = getTargetConfiguration().getBinDirectory();
 
     Action oldAction =
         getGeneratingAction(
@@ -2031,7 +2029,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       ActionAnalysisMetadata generatingAction, ActionLookupKey actionLookupKey)
       throws ActionConflictException,
           InterruptedException,
-          Actions.ArtifactGeneratedByOtherRuleException {
+          Actions.ArtifactGeneratedByOtherRuleException,
+          Actions.SourceArtifactUsedAsOutputException {
     ImmutableList<ActionAnalysisMetadata> actions = ImmutableList.of(generatingAction);
     Actions.assignOwnersAndThrowIfConflict(new ActionKeyContext(), actions, actionLookupKey);
     return new BasicActionLookupValue(actions);
@@ -2282,11 +2281,12 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       null,
                       new TopLevelArtifactContext(
                           /* runTestsExclusively= */ false,
-                          false,
                           OutputGroupInfo.determineOutputGroups(
                               ImmutableList.of(),
                               OutputGroupInfo.ValidationMode.OUTPUT_GROUP,
-                              /* shouldRunTests= */ false)),
+                              /* shouldRunTests= */ false),
+                          /* failOnUnknownOutputGroups= */ false,
+                          /* forRunCommand= */ false),
                       OutputChecker.TRUST_LOCAL_ONLY));
       // The catastrophic exception should be propagated into the BuildFailedException whether or
       // not --keep_going is set.
@@ -2821,7 +2821,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Action inputDiscoveringAction =
         new DummyAction(NestedSetBuilder.create(Order.STABLE_ORDER, sourceInput), topOutput) {
           @Override
-          public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
+          public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+              throws ActionExecutionException {
             skyframeExecutor
                 .getActionExecutionStatusReporterForTesting()
                 .showCurrentlyExecutingActions("during scanning ");

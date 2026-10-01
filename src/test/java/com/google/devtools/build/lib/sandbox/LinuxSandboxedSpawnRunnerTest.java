@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.TreeDeleter;
@@ -82,7 +81,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void exec_failingCommand_emitsSandboxDebugSuggestionInfoEvent() throws Exception {
+  public void exec_failingCommand_doesNotEmitSandboxDebugSuggestionInfoEvent() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Spawn spawn = new SpawnBuilder("false").build();
@@ -94,8 +93,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(spawnResult.exitCode()).isEqualTo(1);
     assertThat(spawnResult.getFailureMessage())
         .doesNotContain("Use --sandbox_debug to see verbose messages from the sandbox");
-    assertContainsEvent(
-        EventKind.INFO, "Use --sandbox_debug to see verbose messages from the sandbox");
+    assertDoesNotContainEvent("Use --sandbox_debug to see verbose messages from the sandbox");
   }
 
   @Test

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -23,6 +25,8 @@ import com.google.devtools.build.lib.util.Either;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
 
 /** The provider returned from materializer rules to materialize dependencies. */
 @Immutable
@@ -44,9 +48,16 @@ public final class MaterializedDepsInfo extends NativeInfo implements Materializ
    * The dependencies to be materialized. These may be ConfiguredTarget or DormantDependency
    * objects.
    */
-  @Override
   public ImmutableList<Either<ConfiguredTarget, DormantDependency>> getDeps() {
     return deps;
+  }
+
+  @Override
+  public Sequence<StarlarkValue> getDepsForStarlark() {
+    // Either.class is not a StarlarkValue, so we must emit a list of the underlying values (which
+    // necessarily requires making a copy of the list).
+    return StarlarkList.immutableCopyOf(
+        deps.stream().map(either -> either.map(x -> x, x -> x)).collect(toImmutableList()));
   }
 
   @Override
@@ -63,7 +74,7 @@ public final class MaterializedDepsInfo extends NativeInfo implements Materializ
     }
 
     @Override
-    public MaterializedDepsInfoApi materializedDepsInfo(Sequence<?> dependencies)
+    public MaterializedDepsInfo materializedDepsInfo(Sequence<?> dependencies)
         throws EvalException {
 
       ImmutableList.Builder<Either<ConfiguredTarget, DormantDependency>> depsBuilder =

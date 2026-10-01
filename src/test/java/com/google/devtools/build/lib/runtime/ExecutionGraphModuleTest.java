@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -49,7 +50,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MockAction;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollectio
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -504,6 +505,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
       @TestParameter FailingOutputStreamFactory failingOutputStream) {
     ActionDumpWriter writer =
         new ActionDumpWriter(
+            new CompressionServiceImpl(),
             BugReporter.defaultInstance(),
             new EventBus(),
             /* localLockFreeOutputEnabled= */ false,
@@ -546,6 +548,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
       DependencyInfo depType) {
     ActionDumpWriter writer =
         new ActionDumpWriter(
+            new CompressionServiceImpl(),
             bugReporter,
             eventBus,
             localLockFreeOutputEnabled,

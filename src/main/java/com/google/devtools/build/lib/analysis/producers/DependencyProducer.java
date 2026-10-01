@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.Packageoid;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.Alias;
@@ -366,7 +367,8 @@ final class DependencyProducer
     }
 
     if (DependencyKind.isAttribute(kind)) {
-      if (kind.getOwningAspect() == null) {
+      if (kind.getOwningAspect() == null
+          && !kind.getAttribute().getName().equals(RuleClass.ASPECT_HINTS_ATTR)) {
         return true;
       }
     }

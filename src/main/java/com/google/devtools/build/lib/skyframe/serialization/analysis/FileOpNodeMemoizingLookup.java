@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmp
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue;
+import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -274,6 +275,8 @@ public final class FileOpNodeMemoizingLookup {
           // obtain target information. They are cleaned up later using reference counting
           // after all selected targets that require them are uploaded.
           && !(key instanceof PackageIdentifier pkgId && referencedPackages.contains(pkgId))
+          && !key.equals(BaselineOptionsFunction.BASELINE_CONFIGURATION.getKey())
+          && !key.equals(BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.getKey())
           && !selectedKeys.contains(key)) {
         graph.removeIfDone(key);
       }

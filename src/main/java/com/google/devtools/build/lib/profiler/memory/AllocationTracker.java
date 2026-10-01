@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.profiler.memory;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
@@ -24,8 +23,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
+import com.google.devtools.build.lib.profiler.memory.AllocationTrackerService.AllocationSampler;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.monitoring.runtime.instrumentation.Sampler;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
 import com.google.perftools.profiles.ProfileProto.Profile;
@@ -33,9 +32,11 @@ import com.google.perftools.profiles.ProfileProto.Sample;
 import com.google.perftools.profiles.ProfileProto.ValueType;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
@@ -47,7 +48,7 @@ import net.starlark.java.syntax.Location;
 /** Tracks allocations for memory reporting. */
 @ConditionallyThreadCompatible
 @SuppressWarnings("ThreadLocalUsage") // the AllocationTracker is effectively a global
-public final class AllocationTracker implements Sampler, Debug.ThreadHook {
+public final class AllocationTracker implements AllocationSampler, Debug.ThreadHook {
 
   // A mapping from Java thread to StarlarkThread.
   // Used to effect a hidden StarlarkThread parameter to sampleAllocation.
@@ -62,6 +63,16 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
   @Override
   public void onPopLast(StarlarkThread thread) {
     starlarkThread.remove();
+    LongValue bytesValue = currentSampleBytes.get();
+    if (bytesValue.deferred && sameThread(bytesValue.deferredThread, thread)) {
+      bytesValue.reset();
+    }
+  }
+
+  // StarlarkThread.equals throws UnsupportedOperationException, so reference equality is required.
+  @SuppressWarnings("ReferenceEquality")
+  private static boolean sameThread(@Nullable StarlarkThread a, @Nullable StarlarkThread b) {
+    return a == b;
   }
 
   private static class AllocationSample {
@@ -101,14 +112,49 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
   private boolean enabled = true;
 
   /**
-   * Cheap wrapper class for a long. Avoids having to do two thread-local lookups per allocation.
+   * Cheap wrapper class for per-thread sampling state. Avoids having to do multiple thread-local
+   * lookups per allocation.
    */
-  private static final class LongValue {
+  private final class LongValue {
     long value;
+    long nextSample = getNextSample();
+    boolean deferred;
+    @Nullable StarlarkThread deferredThread;
+    @Nullable RuleClass deferredRuleClass;
+    @Nullable AspectClass deferredAspectClass;
+
+    void defer(
+        long bytes,
+        @Nullable StarlarkThread thread,
+        @Nullable RuleClass ruleClass,
+        @Nullable AspectClass aspectClass) {
+      this.value = bytes;
+      this.deferred = true;
+      this.deferredThread = thread;
+      this.deferredRuleClass = ruleClass;
+      this.deferredAspectClass = aspectClass;
+    }
+
+    boolean isSameContext(
+        @Nullable StarlarkThread thread,
+        @Nullable RuleClass ruleClass,
+        @Nullable AspectClass aspectClass) {
+      return sameThread(this.deferredThread, thread)
+          && Objects.equals(this.deferredRuleClass, ruleClass)
+          && Objects.equals(this.deferredAspectClass, aspectClass);
+    }
+
+    void reset() {
+      this.value = 0;
+      this.nextSample = getNextSample();
+      this.deferred = false;
+      this.deferredThread = null;
+      this.deferredRuleClass = null;
+      this.deferredAspectClass = null;
+    }
   }
 
   private final ThreadLocal<LongValue> currentSampleBytes = ThreadLocal.withInitial(LongValue::new);
-  private final ThreadLocal<Long> nextSampleBytes = ThreadLocal.withInitial(this::getNextSample);
   private final Random random = new Random();
 
   AllocationTracker(int samplePeriod, int variance) {
@@ -133,6 +179,40 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
     }
 
     @Nullable StarlarkThread thread = starlarkThread.get();
+    RuleClass ruleClass = CurrentRuleTracker.getRule();
+    AspectClass aspectClass = CurrentRuleTracker.getAspect();
+
+    // If we start getting stack overflows here, it's because the memory sampling
+    // implementation has changed to call back into the sampling method immediately on
+    // every allocation. Since thread locals can allocate, this can in this case lead
+    // to infinite recursion. This method will then need to be rewritten to not
+    // allocate, or at least not allocate to obtain its sample counters.
+    LongValue bytesValue = currentSampleBytes.get();
+
+    // Fast-path: should we bother sampling?
+    if (thread == null && ruleClass == null && aspectClass == null) {
+      if (bytesValue.deferred) {
+        bytesValue.reset();
+      }
+      return;
+    }
+
+    if (bytesValue.deferred && !bytesValue.isSameContext(thread, ruleClass, aspectClass)) {
+      bytesValue.reset();
+    }
+    long bytes = bytesValue.value + size;
+    if (bytes < bytesValue.nextSample) {
+      bytesValue.value = bytes;
+      return;
+    }
+
+    // Since we use a cache with weak keys, we can't store value objects.
+    // Defer the sample to the next identity object allocation on this thread
+    // so that the accumulated bytes (including value objects) are still accounted for.
+    if (isValueClass(newObj.getClass())) {
+      bytesValue.defer(bytes, thread, ruleClass, aspectClass);
+      return;
+    }
 
     // Calling Debug.getCallStack is a dubious operation here.
     // First it allocates memory, which breaks the Sampler contract.
@@ -145,11 +225,8 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
     ImmutableList<Debug.Frame> callstack =
         thread != null ? Debug.getCallStack(thread) : ImmutableList.of();
 
-    RuleClass ruleClass = CurrentRuleTracker.getRule();
-    AspectClass aspectClass = CurrentRuleTracker.getAspect();
-
-    // Should we bother sampling?
     if (callstack.isEmpty() && ruleClass == null && aspectClass == null) {
+      bytesValue.reset();
       return;
     }
 
@@ -167,22 +244,10 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
           new Frame(
               fn.getName(),
               fr.getLocation(),
-              fn instanceof RuleFunction ? (RuleFunction) fn : null));
+              fn instanceof RuleFunction ruleFunction ? ruleFunction : null));
     }
 
-    // If we start getting stack overflows here, it's because the memory sampling
-    // implementation has changed to call back into the sampling method immediately on
-    // every allocation. Since thread locals can allocate, this can in this case lead
-    // to infinite recursion. This method will then need to be rewritten to not
-    // allocate, or at least not allocate to obtain its sample counters.
-    LongValue bytesValue = currentSampleBytes.get();
-    long bytes = bytesValue.value + size;
-    if (bytes < nextSampleBytes.get()) {
-      bytesValue.value = bytes;
-      return;
-    }
-    bytesValue.value = 0;
-    nextSampleBytes.set(getNextSample());
+    bytesValue.reset();
     allocations.put(newObj, new AllocationSample(ruleClass, aspectClass, frames.build(), bytes));
   }
 
@@ -225,12 +290,12 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
         return false;
       }
       RuleBytes ruleBytes = (RuleBytes) o;
-      return bytes == ruleBytes.bytes && Objects.equal(name, ruleBytes.name);
+      return bytes == ruleBytes.bytes && Objects.equals(name, ruleBytes.name);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(name, bytes);
+      return Objects.hash(name, bytes);
     }
   }
 
@@ -393,5 +458,62 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
             return index++;
           });
     }
+  }
+
+  @Nullable private static final Method IS_VALUE_METHOD = getIsValueMethod();
+
+  @Nullable
+  private static Method getIsValueMethod() {
+    try {
+      return Class.class.getMethod("isValue");
+    } catch (NoSuchMethodException e) {
+      return null;
+    }
+  }
+
+  private static boolean isValueClass(Class<?> aClass) {
+    if (IS_VALUE_METHOD != null) {
+      try {
+        if ((boolean) IS_VALUE_METHOD.invoke(aClass)) {
+          return true;
+        }
+      } catch (ReflectiveOperationException e) {
+        // Fall through to JEP 401 class name switch.
+      }
+    }
+    // This list contains the non-abstract classes from
+    // https://openjdk.org/jeps/401#Value-classes-in-the-Java-Platform
+    return switch (aClass.getName()) {
+      case "java.lang.Integer",
+          "java.lang.Long",
+          "java.lang.Float",
+          "java.lang.Double",
+          "java.lang.Byte",
+          "java.lang.Short",
+          "java.lang.Character",
+          "java.lang.Boolean",
+          "java.util.Optional",
+          "java.util.OptionalInt",
+          "java.util.OptionalLong",
+          "java.util.OptionalDouble",
+          "java.time.LocalDate",
+          "java.time.LocalTime",
+          "java.time.LocalDateTime",
+          "java.time.ZonedDateTime",
+          "java.time.OffsetTime",
+          "java.time.OffsetDateTime",
+          "java.time.Duration",
+          "java.time.Instant",
+          "java.time.Period",
+          "java.time.Year",
+          "java.time.YearMonth",
+          "java.time.MonthDay",
+          "java.time.chrono.MinguoDate",
+          "java.time.chrono.HijrahDate",
+          "java.time.chrono.JapaneseDate",
+          "java.time.chrono.ThaiBuddhistDate" ->
+          true;
+      default -> false;
+    };
   }
 }

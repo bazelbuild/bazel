@@ -17,12 +17,13 @@
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
 _ALLOWLIST = [
+    ("", "bazel_internal/test_rules"),
     ("", "third_party/bazel_rules/rules_java"),
     ("", "javatests/com/google/devtools/grok/kythe/analyzers/build/testdata/pkg"),
     ("rules_java", ""),
 ]
 
-def _internal_exports():
+def _internal_exports() -> struct:
     _builtins.internal.cc_internal.check_private_api(allowlist = _ALLOWLIST)
     return struct(
         create_compilation_action = _java_common_internal.create_compilation_action,

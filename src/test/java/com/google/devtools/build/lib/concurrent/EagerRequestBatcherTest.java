@@ -26,13 +26,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.RequestBatching.CallbackMultiplexer;
 import com.google.devtools.build.lib.concurrent.RequestBatching.FutureMultiplexer;
+import com.google.devtools.build.lib.concurrent.RequestBatching.FutureSink;
 import com.google.devtools.build.lib.concurrent.RequestBatching.Multiplexer;
 import com.google.devtools.build.lib.concurrent.RequestBatching.Operation;
+import com.google.devtools.build.lib.concurrent.RequestBatching.ResponseSink;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -314,12 +317,25 @@ public final class EagerRequestBatcherTest {
   public void callbackMultiplexer_integration() throws Exception {
     var events = new LinkedBlockingQueue<String>();
     CallbackMultiplexer<Request, Response> callbackMultiplexer =
-        (requests, sinks) -> {
-          events.add("execute");
-          for (int i = 0; i < requests.size(); i++) {
-            sinks.get(i).acceptResponse(new Response(requests.get(i).x()));
+        new CallbackMultiplexer<>() {
+          @Override
+          public Runnable execute(
+              List<Request> requests,
+              ImmutableList<? extends ResponseSink<Request, Response>> sinks) {
+            events.add("execute");
+            for (int i = 0; i < requests.size(); i++) {
+              sinks.get(i).acceptResponse(new Response(requests.get(i).x()));
+            }
+            return () -> events.add("cleanup");
           }
-          return () -> events.add("cleanup");
+
+          @Override
+          public void handleRejection(
+              ImmutableList<? extends ResponseSink<Request, Response>> sinks, Throwable t) {
+            for (ResponseSink<?, ?> sink : sinks) {
+              sink.cancel();
+            }
+          }
         };
 
     var batcher =
@@ -336,11 +352,67 @@ public final class EagerRequestBatcherTest {
   }
 
   @Test
+  public void callbackMultiplexer_executorRejection_invokesHandleRejection() throws Exception {
+    var pool = Executors.newSingleThreadExecutor();
+    var safeExecutor = new SafeExecutorOwner(pool);
+    var rejectionHandled = new AtomicBoolean(false);
+
+    CallbackMultiplexer<Request, Response> callbackMultiplexer =
+        new CallbackMultiplexer<>() {
+          @Override
+          public Runnable execute(
+              List<Request> requests,
+              ImmutableList<? extends ResponseSink<Request, Response>> sinks) {
+            return () -> {};
+          }
+
+          @Override
+          public void handleRejection(
+              ImmutableList<? extends ResponseSink<Request, Response>> sinks, Throwable t) {
+            rejectionHandled.set(true);
+            for (ResponseSink<?, ?> sink : sinks) {
+              sink.cancel();
+            }
+          }
+        };
+
+    var batcher =
+        EagerRequestBatcher.<Request, Response>createWithCallbackMultiplexer(
+            callbackMultiplexer,
+            /* maxBatchSize= */ 2,
+            /* targetConcurrentRequests= */ 1,
+            safeExecutor);
+
+    try {
+      safeExecutor.shutdownNow();
+
+      ListenableFuture<Response> r1 = batcher.submit(new Request(1));
+      assertThat(safeExecutor.awaitTermination(Duration.ofSeconds(5))).isTrue();
+      assertThat(r1.isCancelled()).isTrue();
+      assertThat(rejectionHandled.get()).isTrue();
+    } finally {
+      pool.shutdown();
+    }
+  }
+
+  @Test
   public void futureMultiplexer_integration() throws Exception {
     FutureMultiplexer<Request, Response> futureMultiplexer =
-        (requests, sinks) -> {
-          for (int i = 0; i < requests.size(); i++) {
-            sinks.get(i).acceptFuture(immediateFuture(new Response(requests.get(i).x())));
+        new FutureMultiplexer<>() {
+          @Override
+          public void execute(
+              List<Request> requests, ImmutableList<? extends FutureSink<Response>> sinks) {
+            for (int i = 0; i < requests.size(); i++) {
+              sinks.get(i).acceptFuture(immediateFuture(new Response(requests.get(i).x())));
+            }
+          }
+
+          @Override
+          public void handleRejection(
+              ImmutableList<? extends FutureSink<Response>> sinks, Throwable t) {
+            for (FutureSink<?> sink : sinks) {
+              sink.cancel();
+            }
           }
         };
 
@@ -355,7 +427,46 @@ public final class EagerRequestBatcherTest {
     assertThat(r1.get()).isEqualTo(new Response(1));
   }
 
+  @Test
+  public void futureMultiplexer_executorRejection_invokesHandleRejection() throws Exception {
+    var pool = Executors.newSingleThreadExecutor();
+    var safeExecutor = new SafeExecutorOwner(pool);
+    var rejectionHandled = new AtomicBoolean(false);
 
+    FutureMultiplexer<Request, Response> futureMultiplexer =
+        new FutureMultiplexer<>() {
+          @Override
+          public void execute(
+              List<Request> requests, ImmutableList<? extends FutureSink<Response>> sinks) {}
+
+          @Override
+          public void handleRejection(
+              ImmutableList<? extends FutureSink<Response>> sinks, Throwable t) {
+            rejectionHandled.set(true);
+            for (FutureSink<?> sink : sinks) {
+              sink.cancel();
+            }
+          }
+        };
+
+    var batcher =
+        EagerRequestBatcher.<Request, Response>createWithFutureMultiplexer(
+            futureMultiplexer,
+            /* maxBatchSize= */ 2,
+            /* targetConcurrentRequests= */ 1,
+            safeExecutor);
+
+    try {
+      safeExecutor.shutdownNow();
+
+      ListenableFuture<Response> r1 = batcher.submit(new Request(1));
+      assertThat(safeExecutor.awaitTermination(Duration.ofSeconds(5))).isTrue();
+      assertThat(r1.isCancelled()).isTrue();
+      assertThat(rejectionHandled.get()).isTrue();
+    } finally {
+      pool.shutdown();
+    }
+  }
 
   @Test
   public void parameterValidation() {

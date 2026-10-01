@@ -15,6 +15,9 @@
 package com.google.devtools.build.lib.skyframe.toolchains;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -240,7 +244,135 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     debugPrinter.reportResolvedToolchains(
         resolvedToolchainLabels, targetPlatform.label(), toolchainType.toolchainType());
 
-    return SingleToolchainResolutionValue.create(toolchainTypeInfo, resolvedToolchainLabels);
+    String resolutionDiagnostic = null;
+    if (resolvedToolchainLabels.isEmpty()) {
+      resolutionDiagnostic =
+          computeResolutionDiagnostic(
+              toolchainType,
+              filteredToolchains,
+              targetPlatform,
+              availableExecutionPlatformKeys,
+              platforms);
+    }
+
+    return SingleToolchainResolutionValue.create(
+        toolchainTypeInfo, resolvedToolchainLabels, resolutionDiagnostic);
+  }
+
+  @Nullable
+  private static String computeResolutionDiagnostic(
+      ToolchainTypeRequirement toolchainType,
+      ImmutableList<DeclaredToolchainInfo> filteredToolchains,
+      PlatformInfo targetPlatform,
+      List<ConfiguredTargetKey> availableExecutionPlatformKeys,
+      Map<ConfiguredTargetKey, PlatformInfo> platforms) {
+    if (filteredToolchains.isEmpty()) {
+      return null;
+    }
+
+    DeclaredToolchainInfo closest = null;
+    int minDistance = Integer.MAX_VALUE;
+    ImmutableSet<ConstraintSettingInfo> closestTargetMismatches = ImmutableSet.of();
+
+    for (DeclaredToolchainInfo toolchain : filteredToolchains) {
+      ImmutableSet<ConstraintSettingInfo> mismatches =
+          toolchain.hasTargetToExecConstraints()
+              ? ImmutableSet.of()
+              : toolchain.targetConstraints().diff(targetPlatform.constraints()).stream()
+                  .filter(toolchain.targetConstraints()::hasWithoutDefault)
+                  .collect(toImmutableSet());
+      if (mismatches.size() < minDistance) {
+        minDistance = mismatches.size();
+        closest = toolchain;
+        closestTargetMismatches = mismatches;
+        if (minDistance == 0) {
+          break;
+        }
+      }
+    }
+
+    if (closest == null) {
+      return null;
+    }
+
+    StringBuilder message = new StringBuilder();
+    message.append(String.format("    Closest candidate: %s\n", closest.targetLabel()));
+    if (minDistance > 0) {
+      message.append("    Target constraints mismatch:\n");
+      message.append(
+          formatConstraintMismatches(
+              closestTargetMismatches, closest.targetConstraints(), targetPlatform.constraints()));
+    } else {
+      ImmutableSet<ConfiguredTargetKey> distinctExecutionPlatformKeys =
+          ImmutableSet.copyOf(availableExecutionPlatformKeys);
+      if (distinctExecutionPlatformKeys.isEmpty()) {
+        message.append(
+            "    Execution constraints mismatch:\n      - No execution platform is configured");
+      } else if (distinctExecutionPlatformKeys.size() == 1) {
+        ConfiguredTargetKey epKey = distinctExecutionPlatformKeys.iterator().next();
+        PlatformInfo executionPlatform = platforms.get(epKey);
+        if (executionPlatform == null) {
+          message.append(
+              "    Execution constraints mismatch:\n"
+                  + "      - No compatible execution platform found");
+        } else if (executionPlatform.checkToolchainTypes()
+            && !executionPlatform
+                .allowedToolchainTypes()
+                .contains(toolchainType.toolchainType())) {
+          message.append(
+              String.format(
+                  "    Execution constraints mismatch for platform %s:\n"
+                      + "      - Platform disallows toolchain type %s",
+                  executionPlatform.label(), toolchainType.toolchainType()));
+        } else {
+          ConstraintCollection execConstraints =
+              closest.hasTargetToExecConstraints()
+                  ? targetPlatform.constraints()
+                  : closest.execConstraints();
+          ImmutableSet<ConstraintSettingInfo> execMismatches =
+              execConstraints.diff(executionPlatform.constraints()).stream()
+                  .filter(execConstraints::hasWithoutDefault)
+                  .collect(toImmutableSet());
+          message.append(
+              String.format(
+                  "    Execution constraints mismatch for platform %s:\n",
+                  executionPlatform.label()));
+          if (execMismatches.isEmpty()) {
+            message.append("      - Incompatible with platform");
+          } else {
+            message.append(
+                formatConstraintMismatches(
+                    execMismatches, execConstraints, executionPlatform.constraints()));
+          }
+        }
+      } else {
+        message.append(
+            String.format(
+                "    Execution constraints mismatch:\n"
+                    + "      - Incompatible with all %d execution platform(s)",
+                distinctExecutionPlatformKeys.size()));
+      }
+    }
+    return message.toString();
+  }
+
+  private static String formatConstraintMismatches(
+      ImmutableSet<ConstraintSettingInfo> mismatches,
+      ConstraintCollection requiredConstraints,
+      ConstraintCollection platformConstraints) {
+    return mismatches.stream()
+        .sorted(comparing(ConstraintSettingInfo::label))
+        .map(
+            setting -> {
+              ConstraintValueInfo required = requiredConstraints.get(setting);
+              ConstraintValueInfo provided = platformConstraints.get(setting);
+              return String.format(
+                  "      - %s: requires %s (platform has %s)",
+                  setting.label(),
+                  required != null ? required.label() : "[none]",
+                  provided != null ? provided.label() : "[none]");
+            })
+        .collect(joining("\n"));
   }
 
   /**

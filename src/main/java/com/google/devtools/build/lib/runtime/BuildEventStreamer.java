@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
@@ -28,6 +29,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -448,6 +450,32 @@ public class BuildEventStreamer {
     }
   }
 
+  @GuardedBy("this")
+  private ListenableFuture<Void> quiescenceFuture = null;
+
+  /**
+   * Returns a future that completes when all registered {@link BuildEventTransport}s have
+   * {@linkplain BuildEventTransport#getQuiescenceFuture quiesced}.
+   *
+   * <p>Unlike {@link #close}, this does not close or half-close the streamer or its transports;
+   * subsequent events can still be posted.
+   *
+   * <p>At most one quiescence check is supported. If called more than once, returns the existing
+   * future created on the first call.
+   */
+  public synchronized ListenableFuture<Void> getQuiescenceFuture() {
+    if (quiescenceFuture != null) {
+      return quiescenceFuture;
+    }
+    ImmutableList.Builder<ListenableFuture<Void>> futures =
+        ImmutableList.builderWithExpectedSize(transports.size());
+    for (BuildEventTransport transport : transports) {
+      futures.add(transport.getQuiescenceFuture());
+    }
+    quiescenceFuture = Futures.whenAllComplete(futures.build()).call(() -> null, directExecutor());
+    return quiescenceFuture;
+  }
+
   public synchronized boolean isClosed() {
     return closed;
   }
@@ -487,6 +515,29 @@ public class BuildEventStreamer {
       halfCloseFuturesMapBuilder.put(transport, transport.getHalfCloseFuture());
     }
     halfCloseFuturesMap = halfCloseFuturesMapBuilder.buildOrThrow();
+    clearRetainedEventState();
+  }
+
+  /**
+   * Releases retained {@link BuildEventId} data structures when the build event stream has closed
+   * or completed, freeing memory occupied by announced and posted event graphs.
+   */
+  @VisibleForTesting
+  synchronized void clearRetainedEventState() {
+    if (announcedEvents != null) {
+      announcedEvents.clear();
+    }
+    postedEvents.clear();
+    configurationsPosted.clear();
+    pendingEvents.clear();
+  }
+
+  @VisibleForTesting
+  synchronized boolean hasRetainedEventState() {
+    return (announcedEvents != null && !announcedEvents.isEmpty())
+        || !postedEvents.isEmpty()
+        || !configurationsPosted.isEmpty()
+        || !pendingEvents.isEmpty();
   }
 
   private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<?> set) {

@@ -121,9 +121,9 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
     // subtype that is not semantically meaningful to the user. These problems are probably best
     // solved by merging this class into the BuildType-land equivalent, with normalization that
     // removes subtype distinctions by copying into standard attribute types.
-    return Objects.equal(dictionary, that.dictionary)
-        && Objects.equal(type, that.type)
-        && Objects.equal(noMatchError, that.noMatchError);
+    return java.util.Objects.equals(dictionary, that.dictionary)
+        && java.util.Objects.equals(type, that.type)
+        && java.util.Objects.equals(noMatchError, that.noMatchError);
   }
 
   @Override
@@ -171,9 +171,11 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
     public abstract StarlarkType getValueType();
 
     @Override
-    public final String toString() {
+    public final String typeRepr() {
       StarlarkType valueType = getValueType();
-      return valueType.equals(Types.ANY) ? "select" : String.format("select[%s]", valueType);
+      return valueType.equals(Types.ANY)
+          ? "select"
+          : String.format("select[%s]", valueType.typeRepr());
     }
 
     @Override
@@ -206,6 +208,12 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
       ArrayList<StarlarkType> resultTypes = new ArrayList<>();
       for (StarlarkType thisValueType : thisValueTypes) {
         for (StarlarkType thatValueType : thatValueTypes) {
+          if (Types.NUMERIC.getTypes().contains(thisValueType)
+              && Types.NUMERIC.getTypes().contains(thatValueType)
+              && !thisValueType.equals(thatValueType)) {
+            // SelectorList dynamically disallows adding ints to floats.
+            return null;
+          }
           StarlarkType lhsValueType = thisLeft ? thisValueType : thatValueType;
           StarlarkType rhsValueType = thisLeft ? thatValueType : thisValueType;
           StarlarkType result =

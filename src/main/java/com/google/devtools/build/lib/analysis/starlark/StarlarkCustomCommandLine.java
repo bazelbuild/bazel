@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -62,8 +64,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -132,8 +134,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
   private static final Joiner FIELD_JOINER = Joiner.on(": ").skipNulls();
-
-  private static final AtomicBoolean interningEnabled = new AtomicBoolean(true);
 
   // Used to distinguish command line arguments that are potentially subject to special default
   // stringification (such as Artifacts when path mapped or Labels when not main repo labels) from
@@ -351,43 +351,94 @@ public class StarlarkCustomCommandLine extends CommandLine {
         originalValues = arguments.subList(argi, argi + count);
         argi += count;
       }
-      List<Object> expandedValues =
-          maybeExpandDirectories(inputMetadataProvider, originalValues, pathMapper);
       List<Object /* String | DerivedArtifact */> values;
-      if (mapEach != null) {
-        values = new ArrayList<>(expandedValues.size());
-        applyMapEach(
-            mapEach,
-            expandedValues,
-            values::add,
-            location,
-            inputMetadataProvider,
-            pathMapper,
-            starlarkSemantics);
-      } else {
-        int count = expandedValues.size();
-        values = new ArrayList<>(expandedValues.size());
-        for (int i = 0; i < count; ++i) {
-          values.add(expandToCommandLine(expandedValues.get(i), mainRepoMapping));
-        }
-      }
-      // It's safe to uniquify at this stage, any transformations after this
-      // will ensure continued uniqueness of the values
-      if (uniquify) {
-        int count = values.size();
-        HashSet<String> seen = Sets.newHashSetWithExpectedSize(count);
-        int addIndex = 0;
-        for (int i = 0; i < count; ++i) {
-          Object /* String | DerivedArtifact */ val = values.get(i);
-          // If the path mapper is a no-op, an artifact behaves just like its (trivially mapped)
-          // exec path string. If the path mapper is not a no-op, mapped paths are always distinct
-          // from unmapped paths. We can thus uniquify based on the mapped exec path string in each
-          // case.
-          if (seen.add(maybePathMap(val, pathMapper))) {
-            values.set(addIndex++, val);
+      if (uniquify
+          && mapEach == null
+          && expandDirectories
+          && inputMetadataProvider != null
+          && hasDirectory(originalValues)) {
+        // Fast path for uniquifying expanded directories (see b/557333408):
+        // Children of a TreeArtifact are guaranteed unique within that tree, and distinct
+        // TreeArtifacts occupy disjoint directory paths. Thus, we deduplicate at the parent
+        // TreeArtifact level to avoid storing all of the child path-mapped strings in `seen`,
+        // which can explode memory (see b/557333408).
+        Set<Artifact> seenTreeArtifacts = new HashSet<>();
+        values = new ArrayList<>(originalValues.size());
+        HashSet<String> seen = Sets.newHashSetWithExpectedSize(originalValues.size());
+        for (Object object : originalValues) {
+          if (isDirectory(object)) {
+            Artifact artifact = (Artifact) object;
+            if (artifact.isTreeArtifact()) {
+              if (seen.add(pathMapper.getMappedExecPathString((DerivedArtifact) artifact))) {
+                expandTreeArtifact(inputMetadataProvider, artifact, values, seen, pathMapper);
+                seenTreeArtifacts.add(artifact);
+              }
+            } else if (artifact.isFileset()) {
+              List<Object> filesetValues = new ArrayList<>();
+              expandFileset(
+                  inputMetadataProvider,
+                  artifact,
+                  filesetValues,
+                  pathMapper,
+                  seen,
+                  seenTreeArtifacts);
+              for (Object filesetValue : filesetValues) {
+                Object val = expandToCommandLine(filesetValue, mainRepoMapping);
+                if (seen.add(maybePathMap(val, pathMapper))) {
+                  values.add(val);
+                }
+              }
+            } else {
+              throw new AssertionError("Unknown artifact type.");
+            }
+          } else if (!(object instanceof Artifact artifact
+              && isChildOfSeenTreeArtifact(artifact, seenTreeArtifacts))) {
+            Object val = expandToCommandLine(object, mainRepoMapping);
+            if (seen.add(maybePathMap(val, pathMapper))) {
+              values.add(val);
+            }
           }
         }
-        values = values.subList(0, addIndex);
+      } else {
+        List<Object> expandedValues =
+            maybeExpandDirectories(inputMetadataProvider, originalValues, pathMapper);
+        if (mapEach != null) {
+          values = new ArrayList<>(expandedValues.size());
+          applyMapEach(
+              mapEach,
+              expandedValues,
+              values::add,
+              location,
+              inputMetadataProvider,
+              pathMapper,
+              starlarkSemantics,
+              expandDirectories);
+        } else {
+          int count = expandedValues.size();
+          values = new ArrayList<>(expandedValues.size());
+          for (int i = 0; i < count; ++i) {
+            values.add(expandToCommandLine(expandedValues.get(i), mainRepoMapping));
+          }
+        }
+        // It's safe to uniquify at this stage, any transformations after this
+        // will ensure continued uniqueness of the values
+        if (uniquify) {
+          int count = values.size();
+          HashSet<String> seen = Sets.newHashSetWithExpectedSize(count);
+          int addIndex = 0;
+          for (int i = 0; i < count; ++i) {
+            Object /* String | DerivedArtifact */ val = values.get(i);
+            // If the path mapper is a no-op, an artifact behaves just like its (trivially mapped)
+            // exec path string. If the path mapper is not a no-op, mapped paths are always distinct
+            // from unmapped paths. We can thus uniquify based on the mapped exec path string in
+            // each
+            // case.
+            if (seen.add(maybePathMap(val, pathMapper))) {
+              values.set(addIndex++, val);
+            }
+          }
+          values = values.subList(0, addIndex);
+        }
       }
       boolean isEmptyAndShouldOmit = omitIfEmpty && values.isEmpty();
       if (argName != null && !isEmptyAndShouldOmit) {
@@ -444,6 +495,51 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return object instanceof Artifact artifact && artifact.isDirectory();
     }
 
+    private static void expandTreeArtifact(
+        InputMetadataProvider inputMetadataProvider,
+        Artifact artifact,
+        List<Object> targetList,
+        @Nullable Set<String> seen,
+        PathMapper pathMapper)
+        throws CommandLineExpansionException {
+      TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
+      if (treeArtifactValue == null) {
+        throw new CommandLineExpansionException(
+            String.format(
+                "Failed to expand directory %s. Either add the directory as an input of the"
+                    + " action or set 'expand_directories = False' in the 'add_all' or"
+                    + " 'add_joined' call to have the path of the directory added to the"
+                    + " command line instead of its contents.",
+                Starlark.repr(artifact, StarlarkSemantics.DEFAULT)));
+      }
+      if (seen == null) {
+        targetList.addAll(treeArtifactValue.getChildren());
+        return;
+      }
+      for (TreeFileArtifact child : treeArtifactValue.getChildren()) {
+        if (!seen.contains(pathMapper.getMappedExecPathString(child))) {
+          targetList.add(child);
+        }
+      }
+    }
+
+    private static boolean isChildOfSeenTreeArtifact(
+        Artifact artifact, Set<Artifact> seenTreeArtifacts) {
+      if (seenTreeArtifacts.isEmpty() || !artifact.hasParent()) {
+        return false;
+      }
+      SpecialArtifact parent = artifact.getParent();
+      // Loop to handle subtree artifacts, even though in practice subtrees can only have one
+      // ancestor tree.
+      while (parent != null) {
+        if (seenTreeArtifacts.contains(parent)) {
+          return true;
+        }
+        parent = parent.getParent();
+      }
+      return false;
+    }
+
     private static List<Object> expandDirectories(
         InputMetadataProvider inputMetadataProvider,
         List<Object> originalValues,
@@ -454,19 +550,16 @@ public class StarlarkCustomCommandLine extends CommandLine {
         if (isDirectory(object)) {
           Artifact artifact = (Artifact) object;
           if (artifact.isTreeArtifact()) {
-            TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
-            if (treeArtifactValue == null) {
-              throw new CommandLineExpansionException(
-                  String.format(
-                      "Failed to expand directory %s. Either add the directory as an input of the"
-                          + " action or set 'expand_directories = False' in the 'add_all' or"
-                          + " 'add_joined' call to have the path of the directory added to the"
-                          + " command line instead of its contents.",
-                      Starlark.repr(artifact, StarlarkSemantics.DEFAULT)));
-            }
-            expandedValues.addAll(treeArtifactValue.getChildren());
+            expandTreeArtifact(
+                inputMetadataProvider, artifact, expandedValues, /* seen= */ null, pathMapper);
           } else if (artifact.isFileset()) {
-            expandFileset(inputMetadataProvider, artifact, expandedValues, pathMapper);
+            expandFileset(
+                inputMetadataProvider,
+                artifact,
+                expandedValues,
+                pathMapper,
+                /* seen= */ null,
+                /* seenTreeArtifacts= */ null);
           } else {
             throw new AssertionError("Unknown artifact type.");
           }
@@ -481,7 +574,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
         InputMetadataProvider inputMetadataProvider,
         Artifact fileset,
         List<Object> expandedValues,
-        PathMapper pathMapper)
+        PathMapper pathMapper,
+        @Nullable Set<String> seen,
+        @Nullable Set<Artifact> seenTreeArtifacts)
         throws CommandLineExpansionException {
       FilesetOutputTree filesetOutput = inputMetadataProvider.getFileset(fileset);
       if (filesetOutput == null) {
@@ -492,6 +587,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
       PathFragment mappedExecPath = pathMapper.map(fileset.getExecPath());
       for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+        Artifact target = link.target();
+        if (seenTreeArtifacts != null
+            && (isChildOfSeenTreeArtifact(target, seenTreeArtifacts)
+                || (seen != null
+                    && target.hasParent()
+                    && !seen.add(pathMapper.getMappedExecPathString((DerivedArtifact) target))))) {
+          continue;
+        }
         expandedValues.add(
             new FilesetSymlinkFile(fileset, mappedExecPath.getRelative(link.name())));
       }
@@ -536,7 +639,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   expandDirectories || wantsDirectoryExpander(mapEach)
                       ? inputMetadataProvider
                       : null,
-                  outputPathsMode);
+                  outputPathsMode,
+                  expandDirectories);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
           } finally {
@@ -568,12 +672,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
         argi += count;
         if (mapEach != null) {
           // TODO(b/160181927): If inputMetadataProvider == null (happens in the analysis phase)
-          // but expandDirectories is true, we run the map_each function on directory values without
-          // actually expanding them. This differs from the real evaluation behavior. This means
-          // that we can erroneously produce the same digest for two command lines that differ only
-          // in their directory expansion. Fortunately, this is only a problem for shared action
-          // conflict checking/aquery result, since at execution time we have an input metadata
-          // provider.
+          // but expandDirectories is true, we emit the directory path without running map_each.
+          // This differs from the real evaluation behavior. This means that we can erroneously
+          // produce the same digest for two command lines that differ only in their directory
+          // expansion. Fortunately, this is only a problem for shared action conflict checking/
+          // aquery result, since at execution time we have an input metadata provider.
           applyMapEach(
               mapEach,
               maybeExpandedValues,
@@ -581,7 +684,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
               location,
               inputMetadataProvider,
               PathMapper.forActionKey(outputPathsMode),
-              starlarkSemantics);
+              starlarkSemantics,
+              expandDirectories);
         } else {
           for (Object value : maybeExpandedValues) {
             addSingleObjectToFingerprint(fingerprint, value, mainRepoMapping);
@@ -1194,7 +1298,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       Location loc,
       @Nullable InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
-      StarlarkSemantics starlarkSemantics)
+      StarlarkSemantics starlarkSemantics,
+      boolean expandDirectories)
       throws CommandLineExpansionException, InterruptedException {
     try (Mutability mu = Mutability.create("map_each")) {
       // This computation produces only a String list, which doesn't require reference semantics,
@@ -1217,8 +1322,18 @@ public class StarlarkCustomCommandLine extends CommandLine {
         }
         args.add(expander); // This will remain constant each iteration
       }
+      boolean bypassDirectoryArtifacts = expandDirectories && inputMetadataProvider == null;
       for (int i = 0; i < count; ++i) {
-        args.set(0, originalValues.get(i));
+        Object item = originalValues.get(i);
+        if (bypassDirectoryArtifacts && VectorArg.isDirectory(item)) {
+          // If inputMetadataProvider == null (e.g. during aquery or analysis-phase fingerprinting)
+          // but expandDirectories is true, directory contents cannot be expanded yet. Avoid
+          // calling map_each on the unexpanded directory artifact (which expects child files) and
+          // emit the mapped directory exec path directly.
+          consumer.accept(pathMapper.getMappedExecPathString((Artifact) item));
+          continue;
+        }
+        args.set(0, item);
         Object ret = Starlark.call(thread, mapFn, args, /* kwargs= */ ImmutableMap.of());
         if (ret instanceof String string) {
           consumer.accept(string);
@@ -1266,6 +1381,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private final boolean hasInputMetadataProvider;
 
     private final CoreOptions.OutputPathsMode outputPathsMode;
+    private final boolean expandDirectories;
 
     @Nullable private InputMetadataProvider inputMetadataProvider;
 
@@ -1274,13 +1390,15 @@ public class StarlarkCustomCommandLine extends CommandLine {
         Location location,
         StarlarkSemantics starlarkSemantics,
         @Nullable InputMetadataProvider inputMetadataProvider,
-        CoreOptions.OutputPathsMode outputPathsMode) {
+        CoreOptions.OutputPathsMode outputPathsMode,
+        boolean expandDirectories) {
       this.mapFn = mapFn;
       this.location = location;
       this.starlarkSemantics = starlarkSemantics;
       this.hasInputMetadataProvider = inputMetadataProvider != null;
       this.inputMetadataProvider = inputMetadataProvider;
       this.outputPathsMode = outputPathsMode;
+      this.expandDirectories = expandDirectories;
     }
 
     @Override
@@ -1294,11 +1412,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
           location,
           inputMetadataProvider,
           PathMapper.forActionKey(outputPathsMode),
-          starlarkSemantics);
+          starlarkSemantics,
+          expandDirectories);
     }
 
     private List<Object> maybeExpandDirectory(Object object) throws CommandLineExpansionException {
-      if (inputMetadataProvider == null || !VectorArg.isDirectory(object)) {
+      if (!expandDirectories || inputMetadataProvider == null || !VectorArg.isDirectory(object)) {
         return ImmutableList.of(object);
       }
 
@@ -1310,6 +1429,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Override
     public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
       if (!(obj instanceof CommandLineItemMapEachAdaptor other)) {
         return false;
       }
@@ -1321,7 +1443,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // provided, it will be the same.
       return mapFn == other.mapFn
           && hasInputMetadataProvider == other.hasInputMetadataProvider
-          && outputPathsMode == other.outputPathsMode;
+          && outputPathsMode == other.outputPathsMode
+          && expandDirectories == other.expandDirectories;
     }
 
     @Override
@@ -1332,7 +1455,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return outputPathsMode.hashCode()
           + 31
               * (Boolean.hashCode(hasInputMetadataProvider)
-                  + 31 * (System.identityHashCode(mapFn) + 1));
+                  + 31
+                      * (Boolean.hashCode(expandDirectories)
+                          + 31 * (System.identityHashCode(mapFn) + 1)));
     }
 
     @Override

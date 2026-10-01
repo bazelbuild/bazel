@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubco
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -290,7 +291,8 @@ public final class ModCommand implements BlazeCommand {
         keys.add(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY);
       }
       EvaluationResult<SkyValue> evaluationResult =
-          skyframeExecutor.prepareAndGet(keys.build(), evaluationContext);
+          skyframeExecutor.evaluate(
+              keys.build(), /* keepGoing= */ true, threadsOption.getThreads(), env.getReporter());
 
       if (evaluationResult.hasError()) {
         var cycleInfo = evaluationResult.getError().getCycleInfo();
@@ -408,7 +410,6 @@ public final class ModCommand implements BlazeCommand {
 
     AugmentedModule baseModule =
         Objects.requireNonNull(moduleInspector.depGraph().get(baseModuleKey));
-    RepositoryMapping baseModuleMapping = depGraphValue.getFullRepoMapping(baseModuleKey);
     try {
       switch (subcommand) {
         case GRAPH -> {
@@ -419,6 +420,25 @@ public final class ModCommand implements BlazeCommand {
           }
         }
         case SHOW_REPO -> {
+          var mappingKey =
+              RepositoryMappingValue.key(
+                  depGraphValue.getCanonicalRepoNameLookup().inverse().get(baseModuleKey));
+          EvaluationResult<RepositoryMappingValue> result =
+              skyframeExecutor.evaluate(
+                  ImmutableList.of(mappingKey),
+                  /* keepGoing= */ false,
+                  threadsOption.getThreads(),
+                  env.getReporter());
+          if (result.hasError()) {
+            Exception e = result.getError().getException();
+            return reportAndCreateFailureResult(
+                env,
+                e != null
+                    ? e.getMessage()
+                    : "Unexpected error during repository mapping evaluation.",
+                Code.INVALID_ARGUMENTS);
+          }
+          var baseModuleMapping = result.get(mappingKey).repositoryMapping();
           argsAsRepos =
               getReposToShow(modOptions, moduleInspector, depGraphValue, baseModuleMapping, args);
         }
@@ -471,6 +491,11 @@ public final class ModCommand implements BlazeCommand {
       }
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
+    } catch (InterruptedException e) {
+      String errorMessage = "mod command interrupted: " + e.getMessage();
+      env.getReporter().handle(Event.error(errorMessage));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(errorMessage));
     }
     /* Extract and check the --from and --extension_usages argument */
     ImmutableSet<ModuleKey> fromKeys;
@@ -603,7 +628,12 @@ public final class ModCommand implements BlazeCommand {
         case DEPS -> modExecutor.graph(argsAsModules);
         case PATH -> modExecutor.path(fromKeys, argsAsModules);
         case ALL_PATHS, EXPLAIN -> modExecutor.allPaths(fromKeys, argsAsModules);
-        case SHOW_REPO -> modExecutor.showRepo(targetRepoDefinitions);
+        case SHOW_REPO ->
+            modExecutor.showRepo(
+                targetRepoDefinitions,
+                env.getDirectories()
+                    .getOutputBase()
+                    .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
         case SHOW_EXTENSION -> modExecutor.showExtension(argsAsExtensions, usageKeys);
         default -> throw new IllegalStateException("Unexpected subcommand: " + subcommand);
       }

@@ -74,7 +74,9 @@ public final class BuildOptionDetails {
         Object value = optionDefinition.getValue(options);
         map.put(
             optionDefinition.getOptionName(),
-            new OptionDetails(options.getOptionsClass(), value, optionDefinition.allowsMultiple()));
+            optionDefinition.allowsMultiple()
+                ? new MultiValueOptionDetails(options.getOptionsClass(), value)
+                : new OptionDetails(options.getOptionsClass(), value));
       }
     }
     return new BuildOptionDetails(
@@ -83,13 +85,11 @@ public final class BuildOptionDetails {
         ImmutableMap.copyOf(starlarkOptions));
   }
 
-  private static final class OptionDetails {
+  private static class OptionDetails {
 
-    private OptionDetails(
-        Class<? extends FragmentOptions> optionsClass, Object value, boolean allowsMultiple) {
+    private OptionDetails(Class<? extends FragmentOptions> optionsClass, Object value) {
       this.optionsClass = optionsClass;
       this.value = value;
-      this.allowsMultiple = allowsMultiple;
     }
 
     /** The {@link FragmentOptions} class that defines this option. */
@@ -97,9 +97,13 @@ public final class BuildOptionDetails {
 
     /** The value of the given option (either explicitly defined or default). May be null. */
     @Nullable private final Object value;
+  }
 
-    /** Whether or not this option supports multiple values. */
-    private final boolean allowsMultiple;
+  // A subtype avoids the padded boolean field in each option snapshot.
+  private static final class MultiValueOptionDetails extends OptionDetails {
+    private MultiValueOptionDetails(Class<? extends FragmentOptions> optionsClass, Object value) {
+      super(optionsClass, value);
+    }
   }
 
   /**
@@ -183,7 +187,7 @@ public final class BuildOptionDetails {
    */
   public boolean allowsMultipleValues(String optionName) {
     OptionDetails optionDetails = nativeOptionsMap.get(optionName);
-    return optionDetails != null && optionDetails.allowsMultiple;
+    return optionDetails instanceof MultiValueOptionDetails;
   }
 
   public boolean isNonConfigurable(String optionName) {

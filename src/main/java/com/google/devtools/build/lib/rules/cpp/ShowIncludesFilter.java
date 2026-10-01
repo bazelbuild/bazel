@@ -95,10 +95,8 @@ public class ShowIncludesFilter {
             .collect(toImmutableList());
     private final String sourceFileName;
     private boolean sawPotentialUnsupportedShowIncludesLine;
-    // Grab everything under the execroot base so that external repository header files are covered
-    // in the sibling repository layout.
-    private static final Pattern EXECROOT_BASE_HEADER_PATTERN =
-        Pattern.compile(".*execroot\\\\(?<headerPath>.*)");
+    private static final Pattern EXECROOT_HEADER_PATTERN =
+        Pattern.compile(".*execroot\\\\[^\\\\]*\\\\(?<headerPath>.*)");
     // Match a line of the form "fooo: bar:   C:\some\path\file.h". As this is relatively generic,
     // we require the line to include an absolute path with drive letter. If remote workers rewrite
     // the path to a relative one, we won't match it, but it is unlikely that such setups use an
@@ -122,13 +120,9 @@ public class ShowIncludesFilter {
         for (String prefix : SHOW_INCLUDES_PREFIXES) {
           if (line.startsWith(prefix)) {
             line = line.substring(prefix.length()).trim();
-            Matcher m = EXECROOT_BASE_HEADER_PATTERN.matcher(line);
+            Matcher m = EXECROOT_HEADER_PATTERN.matcher(line);
             if (m.matches()) {
-              // Prefix the matched header path with "..\". This way, external repo header paths are
-              // resolved to "<execroot>\..\<repo name>\<path>", and main repo file paths are
-              // resolved to "<execroot>\..\<main repo>\<path>", which is nicely normalized to
-              // "<execroot>\<path>".
-              line = "..\\" + m.group("headerPath");
+              line = m.group("headerPath");
             }
             dependencies.add(line);
             prefixMatched = true;

@@ -1470,8 +1470,16 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('foo_deps.txt', ['@bar//:output.txt'])
     self.ScratchFile('bar_deps.txt')
 
+    # The test harness disables the repo contents cache, which this test is
+    # about. Use a private one outside of the workspace.
+    repo_contents_cache = '--repo_contents_cache=' + os.path.join(
+        self._temp, 'repo_contents_cache'
+    )
+
     # First fetch: not cached
-    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    _, _, stderr = self.RunBazel(
+        ['build', repo_contents_cache, '@foo//:output.txt']
+    )
     self.assertIn('JUST FETCHED: bar', '\n'.join(stderr))
     self.assertIn('JUST FETCHED: foo', '\n'.join(stderr))
 
@@ -1479,7 +1487,7 @@ class BazelModuleTest(test_base.TestBase):
     self.RunBazel(['clean', '--expunge'])
     self.ScratchFile('foo_deps.txt')
     self.ScratchFile('bar_deps.txt', ['@foo//:output.txt'])
-    self.RunBazel(['build', '@foo//:output.txt'])
+    self.RunBazel(['build', repo_contents_cache, '@foo//:output.txt'])
 
 
 if __name__ == '__main__':

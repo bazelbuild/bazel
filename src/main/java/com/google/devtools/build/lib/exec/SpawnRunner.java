@@ -257,18 +257,14 @@ public interface SpawnRunner {
     FileOutErr getFileOutErr();
 
     /**
-     * Returns a sorted map from input paths to action inputs.
+     * Returns a map from execroot-relative input paths to action inputs, sorted by {@link
+     * PathFragment#HIERARCHICAL_COMPARATOR}.
      *
      * <p>Resolves cases where a single input of the {@link Spawn} gives rise to multiple files in
      * the input tree, for example, tree artifacts, runfiles trees and {@code Fileset} input
      * manifests.
-     *
-     * <p>{@code baseDirectory} is prepended to every path in the input key. This is useful if the
-     * mapping is used in a context where the directory relative to which the keys are interpreted
-     * is not the same as the execroot.
      */
-    SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly);
+    SortedMap<PathFragment, ActionInput> getInputMapping(boolean willAccessRepeatedly);
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);
@@ -323,9 +319,7 @@ public interface SpawnRunner {
             .prefetchFiles(
                 spawn.getResourceOwner(),
                 spawn,
-                () ->
-                    getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
-                        .values(),
+                () -> getInputMapping(/* willAccessRepeatedly= */ true).values(),
                 getInputMetadataProvider(),
                 Priority.MEDIUM,
                 Reason.INPUTS);
@@ -409,8 +403,10 @@ public interface SpawnRunner {
    *     entries
    * @param treeDeleter scheduler for tree deletions
    * @throws IOException if there are problems deleting the entries
+   * @throws InterruptedException if the cleanup is interrupted
    */
-  default void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {}
+  default void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {}
 
   /**
    * Returns a {@link SpawnResult.Builder} prepopulated with the runner name and the spawn digest.

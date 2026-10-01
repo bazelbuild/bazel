@@ -53,7 +53,10 @@ public final class NetworkMetricsCollector {
 
   @Nullable
   public SystemNetworkUsages collectSystemNetworkUsages(
-      double deltaNanos, SystemNetworkStatsService systemNetworkStatsService) {
+      double deltaNanos, @Nullable SystemNetworkStatsService systemNetworkStatsService) {
+    if (systemNetworkStatsService == null) {
+      return null;
+    }
     if (loopbackInterfaceNames == null) {
       try {
         loopbackInterfaceNames = getLoopbackInterfaceNames();

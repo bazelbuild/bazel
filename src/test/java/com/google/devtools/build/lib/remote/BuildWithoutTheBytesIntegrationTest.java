@@ -18,11 +18,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
@@ -33,16 +36,20 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
+import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -54,7 +61,24 @@ import org.junit.runner.RunWith;
 public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesIntegrationTestBase {
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
+  private final RewindingTestsHelper rewindingTestsHelper =
+      new RewindingTestsHelper(this, new ActionEventRecorder());
+
+  private static void assertRewoundActions(List<SkyKey> rewoundKeys, String... expectedLabels) {
+    assertThat(
+            rewoundKeys.stream()
+                .filter(key -> key instanceof ActionLookupData)
+                .map(
+                    key ->
+                        ((ActionLookupData) key)
+                            .getActionLookupKey()
+                            .getLabel()
+                            .getCanonicalForm()))
+        .containsExactlyElementsIn(ImmutableList.copyOf(expectedLabels));
+  }
+
   @TestParameter public boolean useDiskCache;
+  private Path diskCacheDir;
 
   @Override
   protected ImmutableList<Class<? extends OptionsBase>> getStartupOptionClasses() {
@@ -89,7 +113,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     }
 
     if (useDiskCache) {
-      addOptions("--disk_cache=" + UUID.randomUUID());
+      diskCacheDir = getWorkspace().getRelative(UUID.randomUUID().toString());
+      addOptions("--disk_cache=" + diskCacheDir.getPathString());
     }
   }
 
@@ -142,8 +167,15 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   @Override
   protected void evictAllBlobs() throws Exception {
     worker.reset();
-    if (useDiskCache) {
-      addOptions("--disk_cache=" + UUID.randomUUID());
+    if (useDiskCache && diskCacheDir != null) {
+      Path casDir = diskCacheDir.getRelative("cas");
+      if (casDir.exists()) {
+        casDir.deleteTreesBelow();
+      }
+      Path acDir = diskCacheDir.getRelative("ac");
+      if (acDir.exists()) {
+        acDir.deleteTreesBelow();
+      }
     }
   }
 
@@ -426,641 +458,9 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingInput_exitWithCode39() throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write(
-        "a/BUILD",
-        """
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-            tags = ["no-remote-exec"],
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    var bytes = readContent(getOutputPath("a/foo.out"));
-    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-
-    // Act: Evict blobs from remote cache and do an incremental build
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-
-    // Assert: Exit code is 39
-    assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
-    assertThat(error).hasMessageThat().contains("a/foo.out");
-    assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
-    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingInput_succeedsWithActionRewinding()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write(
-        "a/BUILD",
-        """
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-            tags = ["no-remote-exec"],
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-
-    // Act: Evict blobs from remote cache and do an incremental build
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    enableActionRewinding();
-    buildTarget("//a:bar");
-
-    // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingSymlinkedInput_exitWithCode39()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    writeSymlinkRule();
-    write(
-        "a/BUILD",
-        """
-        load("//:symlink.bzl", "symlink")
-
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        symlink(
-            name = "symlinked_foo",
-            target_artifact = ":foo.out",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                ":symlinked_foo",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-            tags = ["no-remote-exec"],
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    var bytes = readContent(getOutputPath("a/foo.out"));
-    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
-    getOnlyElement(getArtifacts("//a:symlinked_foo")).getPath().delete();
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-    assertOutputsDoNotExist("//a:symlinked_foo");
-
-    // Act: Evict blobs from remote cache and do an incremental build
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-
-    // Assert: Exit code is 39
-    assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
-    assertThat(error).hasMessageThat().contains("a/symlinked_foo");
-    assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
-    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingSymlinkedInput_succeedsWithActionRewinding()
-      throws Exception {
-    writeSymlinkRule();
-    write(
-        "a/BUILD",
-        """
-        load("//:symlink.bzl", "symlink")
-
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        symlink(
-            name = "symlinked_foo",
-            target_artifact = ":foo.out",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                ":symlinked_foo",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-            tags = ["no-remote-exec"],
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    getOnlyElement(getArtifacts("//a:symlinked_foo")).getPath().delete();
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-    assertOutputsDoNotExist("//a:symlinked_foo");
-
-    // Act: Evict blobs from remote cache and do an incremental build
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    enableActionRewinding();
-    buildTarget("//a:bar");
-
-    // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenUploadingInput_exitWithCode39() throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write(
-        "a/BUILD",
-        """
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    setDownloadAll();
-    buildTarget("//a:bar");
-    waitDownloads();
-    var bytes = readContent(getOutputPath("a/foo.out"));
-    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-
-    // Act: Evict blobs from remote cache and do an incremental build
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-
-    // Assert: Exit code is 39
-    assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
-    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenUploadingInput_succeedsWithActionRewinding()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write(
-        "a/BUILD",
-        """
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    setDownloadAll();
-    buildTarget("//a:bar");
-    waitDownloads();
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-
-    // Act: Evict blobs from remote cache and do an incremental build
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    enableActionRewinding();
-    buildTarget("//a:bar");
-
-    // Assert: target was successfully built
-    assertOutputsDoNotExist("//a:bar");
-    assertOnlyOutputRemoteContent("//a:bar", "bar.out", "foo\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenUploadingInputFile_incrementalBuildCanContinue()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write(
-        "a/BUILD",
-        """
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    setDownloadToplevel();
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-
-    // Evict blobs from remote cache
-    evictAllBlobs();
-
-    // trigger build error
-    write("a/bar.in", "updated bar");
-    // Build failed because of remote cache eviction
-    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-
-    // Act: Do an incremental build without "clean" or "shutdown"
-    buildTarget("//a:bar");
-    waitDownloads();
-
-    // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenUploadingInputTree_incrementalBuildCanContinue()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write("BUILD");
-    writeOutputDirRule();
-    write(
-        "a/BUILD",
-        """
-        load("//:output_dir.bzl", "output_dir")
-
-        output_dir(
-            name = "foo.out",
-            content_map = {"file-inside": "hello world"},
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
-        )
-        """);
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    getOutputPath("a/foo.out").deleteTreesBelow();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    setDownloadToplevel();
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out/file-inside");
-
-    // Evict blobs from remote cache
-    evictAllBlobs();
-
-    // trigger build error
-    write("a/bar.in", "updated bar");
-    // Build failed because of remote cache eviction
-    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-
-    // Act: Do an incremental build without "clean" or "shutdown"
-    buildTarget("//a:bar");
-    waitDownloads();
-
-    // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenUploadingInputTree_succeedsWithActionRewinding()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write("BUILD");
-    writeOutputDirRule();
-    write(
-        "a/BUILD",
-        """
-        load("//:output_dir.bzl", "output_dir")
-
-        output_dir(
-            name = "foo.out",
-            content_map = {"file-inside": "hello world"},
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
-        )
-        """);
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    getOutputPath("a/foo.out").deleteTreesBelow();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    setDownloadToplevel();
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out/file-inside");
-
-    // Act: Do an incremental build without "clean" or "shutdown" after clearing the cache
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    enableActionRewinding();
-    buildTarget("//a:bar");
-
-    // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenTopLevelRequested_succeedsWithActionRewinding()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write("BUILD");
-    writeOutputDirRule();
-    write(
-        "a/BUILD",
-        """
-        load("//:output_dir.bzl", "output_dir")
-
-        output_dir(
-            name = "foo.out",
-            content_map = {"file-inside": "hello world"},
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
-        )
-        """);
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar", "//a:foo.out");
-    getOutputPath("a/foo.out").deleteTreesBelow();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, bar.out and foo.out aren't downloaded
-    buildTarget("//a:bar", "//a:foo.out");
-    assertOutputDoesNotExist("a/bar.out");
-    assertOutputDoesNotExist("a/foo.out/file-inside");
-
-    // Act: Do an incremental build without "clean" or "shutdown" after clearing the cache and
-    // switching to download toplevel
-    evictAllBlobs();
-    setDownloadToplevel();
-    enableActionRewinding();
-    buildTarget("//a:bar", "//a:foo.out");
-
-    // Assert: all outputs were downloaded
-    assertValidOutputFile("a/bar.out", "file-inside\nbar\n");
-    assertValidOutputFile("a/foo.out/file-inside", "hello world");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenRunfilesRequested_succeedsWithActionRewinding()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write("BUILD");
-    writeOutputDirRule();
-    write(
-        "native_binary.bzl",
-        """
-        def _native_binary_impl(ctx):
-            runfiles = ctx.runfiles(
-                transitive_files = depset(
-                    transitive = [target[DefaultInfo].files for target in ctx.attr.data],
-                ),
-            )
-            runfiles = runfiles.merge_all(
-                [target[DefaultInfo].default_runfiles for target in ctx.attr.data],
-            )
-            executable = ctx.actions.declare_file(ctx.label.name)
-            ctx.actions.symlink(
-                output = executable,
-                target_file = ctx.file.executable,
-            )
-            return [
-                DefaultInfo(
-                    executable = executable,
-                    runfiles = runfiles,
-                ),
-            ]
-
-        native_binary = rule(
-            implementation = _native_binary_impl,
-            attrs = {
-                "executable": attr.label(allow_single_file = True),
-                "data": attr.label_list(),
-            },
-            executable = True,
-        )
-        """);
-    write(
-        "a/BUILD",
-        """
-        load("//:native_binary.bzl", "native_binary")
-        load("//:output_dir.bzl", "output_dir")
-
-        output_dir(
-            name = "foo.out",
-            content_map = {"file-inside": "hello world"},
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
-        )
-
-        native_binary(
-            name = "bin",
-            executable = "bin.sh",
-            data = [
-                ":foo.out",
-                ":bar",
-            ],
-        )
-        """);
-    write("a/bar.in", "bar");
-    write("a/bin.sh");
-
-    // Populate remote cache
-    buildTarget("//a:bin");
-    getOutputPath("a/foo.out").deleteTreesBelow();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, runfiles aren't downloaded
-    buildTarget("//a:bin");
-    assertThat(getOutputPath("a/bin.runfiles").isDirectory()).isTrue();
-    assertOutputDoesNotExist("a/bar.out");
-    assertOutputDoesNotExist("a/foo.out/file-inside");
-
-    // Act: Do an incremental build without "clean" or "shutdown" after clearing the cache and
-    // switching to download toplevel
-    evictAllBlobs();
-    setDownloadToplevel();
-    enableActionRewinding();
-    buildTarget("//a:bin");
-
-    // Assert: all runfiles were downloaded
-    assertValidOutputFile("a/bar.out", "file-inside\nbar\n");
-    assertValidOutputFile("a/foo.out/file-inside", "hello world");
-  }
-
-  @Test
   public void leaseExtension() throws Exception {
+    // The lease service is only used when action rewinding is disabled.
+    disableActionRewinding();
     // Test that Bazel will extend the leases for remote output by sending FindMissingBlobs calls
     // periodically to remote server. The test assumes remote server will set mtime of referenced
     // blobs to `now`.
@@ -1153,6 +553,345 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       buildTarget("//a:bar");
 
       assertValidOutputFile("a/bar.out", "foobar2\n");
+    }
+  }
+
+  @Test
+  public void actionRewinding_chainedLostInputsWithStaleActionCacheEntries_recovers(
+      @TestParameter boolean actionCacheIntegrityCheck, @TestParameter boolean invocationRetries)
+      throws Exception {
+    // A rewound action that itself observes a lost input must rewind that input's producer too.
+    // Each rewound action must skip its stale cache entry to avoid repeatedly losing the same
+    // input.
+    var chainWorker =
+        IntegrationTestUtils.createWorker(
+            "--action_cache_integrity_check=" + actionCacheIntegrityCheck);
+    try (var ignored = chainWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + chainWorker.getPort());
+      enableActionRewinding();
+      // Action rewinding takes precedence, even if whole-invocation retries are also enabled.
+      addOptions("--experimental_remote_cache_eviction_retries=" + (invocationRetries ? 5 : 0));
+      write(
+          "a/BUILD",
+          """
+          genrule(
+              name = "foo",
+              srcs = [],
+              outs = ["foo.out"],
+              cmd = "echo -n foo > $@",
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [":foo"],
+              outs = ["bar.out"],
+              cmd = "cat $(location :foo) > $@ && echo -n bar >> $@",
+          )
+
+          genrule(
+              name = "baz",
+              srcs = [
+                  ":bar",
+                  "baz.in",
+              ],
+              outs = ["baz.out"],
+              cmd = "cat $(location :bar) $(location baz.in) > $@",
+          )
+          """);
+      write("a/baz.in", "baz");
+
+      buildTarget("//a:baz");
+
+      // Delete the blobs backing foo.out and bar.out from the CAS while keeping all action cache
+      // entries. Rewinding //a:bar to regenerate bar.out then discovers that foo.out is lost too.
+      chainWorker.evictBlob("foo".getBytes(UTF_8));
+      chainWorker.evictBlob("foobar".getBytes(UTF_8));
+      if (useDiskCache) {
+        // Prevent the disk cache from restoring the deleted blobs.
+        addOptions("--disk_cache=" + UUID.randomUUID());
+      }
+
+      // Invalidate only //a:baz so that its execution discovers the lost input and rewinds //a:bar,
+      // which in turn discovers the other lost input and rewinds //a:foo.
+      write("a/baz.in", "baz2");
+      setDownloadToplevel();
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+      buildTarget("//a:baz");
+
+      assertValidOutputFile("a/baz.out", "foobarbaz2\n");
+      // Cache lookup is bypassed for each rewound action. Otherwise //a:baz would discover bar.out
+      // lost again and rewind //a:bar once more.
+      assertRewoundActions(rewoundKeys, "//a:bar", "//a:foo");
+    }
+  }
+
+  @Test
+  public void actionRewinding_cacheOnlyLocalExecution_skipsStaleCacheEntry(
+      @TestParameter boolean uploadLocalResults) throws Exception {
+    // Exercise cache-only local execution after clean(), including recovery without uploads.
+    var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = unverifiedWorker.start()) {
+      addOptions(
+          "--remote_executor=", "--remote_cache=grpc://localhost:" + unverifiedWorker.getPort());
+      enableActionRewinding();
+      write(
+          "a/BUILD",
+          """
+          genrule(
+              name = "foo",
+              srcs = [],
+              outs = ["foo.out"],
+              cmd = "echo -n foo > $@",
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [
+                  ":foo.out",
+                  "bar.in",
+              ],
+              outs = ["bar.out"],
+              cmd = "cat $(location :foo.out) $(location bar.in) > $@",
+          )
+          """);
+      write("a/bar.in", "one");
+
+      buildTarget("//a:bar");
+
+      // Delete foo.out locally.
+      clean();
+      // Delete foo.out remotely, but keep the AC for foo.
+      unverifiedWorker.evictBlob("foo".getBytes(UTF_8));
+      // Invalidate //a:bar, so its execution finds foo.out lost and rewinds //a:foo.
+      write("a/bar.in", "two");
+      setDownloadToplevel();
+      if (useDiskCache) {
+        // Prevent the disk cache from restoring the deleted blobs.
+        addOptions("--disk_cache=" + UUID.randomUUID());
+      }
+      addOptions("--remote_upload_local_results=" + uploadLocalResults);
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+
+      buildTarget("//a:bar");
+
+      assertRewoundActions(rewoundKeys, "//a:foo");
+      assertValidOutputFile("a/bar.out", "footwo\n");
+      assertThat(unverifiedWorker.hasCasBlob("foo".getBytes(UTF_8))).isEqualTo(uploadLocalResults);
+    }
+  }
+
+  @Test
+  public void actionRewinding_unrelatedFailure_reusesRepairedCacheEntry() throws Exception {
+    // After rewinding and an unrelated build failure, restoring the lost blob should let the next
+    // build accept the cache entry again.
+    assumeFalse(useDiskCache);
+    var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = unverifiedWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + unverifiedWorker.getPort());
+      enableActionRewinding();
+      write(
+          "a/BUILD",
+          """
+          genrule(
+              name = "bar",
+              srcs = [],
+              outs = ["bar.out"],
+              cmd = "echo -n bar > $@",
+          )
+
+          genrule(
+              name = "consumer",
+              srcs = [
+                  ":bar.out",
+                  "consumer.in",
+              ],
+              outs = ["consumer.out"],
+              cmd = "cat $(location :bar.out) $(location consumer.in) > $@",
+          )
+
+          genrule(
+              name = "fail",
+              srcs = [":consumer.out"],
+              outs = ["fail.out"],
+              cmd = "exit 1",
+          )
+          """);
+      write("a/consumer.in", "one");
+
+      buildTarget("//a:consumer");
+
+      // Delete the blob backing bar.out, keeping //a:bar's action cache entry.
+      byte[] barContents = "bar".getBytes(UTF_8);
+      unverifiedWorker.evictBlob(barContents);
+
+      // Invalidate only //a:consumer, so its execution finds bar.out lost and rewinds //a:bar.
+      write("a/consumer.in", "two");
+      setDownloadToplevel();
+      addOptions(
+          "--strategy_regexp=.*=standalone",
+          "--notrack_incremental_state",
+          "--remote_upload_local_results=false");
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:fail"));
+      assertRewoundActions(rewoundKeys, "//a:bar");
+
+      // Put the blob back, as another build writing the same output would.
+      Path restoredBlob = getFileSystem().getPath(unverifiedWorker.getCasBlobPath(barContents));
+      restoredBlob.getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.writeContent(restoredBlob, barContents);
+
+      // Delete the locally regenerated outputs and change //a:consumer's input, so the next build
+      // must re-evaluate and cannot reuse local state, forcing //a:bar's entry to be looked up.
+      getOutputPath("a/bar.out").delete();
+      getOutputPath("a/consumer.out").delete();
+      write("a/consumer.in", "three");
+      ActionEventRecorder actionEventRecorder = new ActionEventRecorder();
+      getRuntimeWrapper().registerSubscriber(actionEventRecorder);
+      buildTarget("//a:consumer");
+      assertThat(
+              actionEventRecorder.getActionResultReceivedEvents().stream()
+                  .filter(
+                      event ->
+                          !event.getActionResult().spawnResults().isEmpty()
+                              && event.getActionResult().spawnResults().stream()
+                                  .allMatch(SpawnResult::isCacheHit))
+                  .map(event -> event.getAction().getOwner().getLabel().getCanonicalForm()))
+          .containsExactly("//a:bar");
+      assertValidOutputFile("a/consumer.out", "barthree\n");
+    }
+  }
+
+  @Test
+  public void actionRewinding_localExecution_bustsStaleCacheEntry(
+      @TestParameter boolean actionCacheIntegrityCheck, @TestParameter boolean uploadLocalResults)
+      throws Exception {
+    // A rewound action that is executed locally rather than remotely must bypass its stale action
+    // result independently of whether that result is served by the cache. A cache that checks the
+    // integrity of action results doesn't serve it at all.
+    var cacheWorker =
+        IntegrationTestUtils.createWorker(
+            "--action_cache_integrity_check=" + actionCacheIntegrityCheck);
+    try (var ignored = cacheWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + cacheWorker.getPort());
+      enableActionRewinding();
+      write(
+          "a/BUILD",
+          """
+          genrule(
+              name = "foo",
+              srcs = [],
+              outs = ["foo.out"],
+              cmd = "echo -n foo > $@",
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [
+                  ":foo.out",
+                  "bar.in",
+              ],
+              outs = ["bar.out"],
+              cmd = "cat $(location :foo.out) $(location bar.in) > $@",
+          )
+          """);
+      write("a/bar.in", "one");
+
+      // Execute remotely without downloading outputs, so that foo.out only exists in the CAS.
+      buildTarget("//a:bar");
+
+      // Delete the blob backing foo.out from the CAS while keeping all action cache entries.
+      cacheWorker.evictBlob("foo".getBytes(UTF_8));
+      if (useDiskCache) {
+        // Prevent the disk cache from restoring the deleted blob.
+        addOptions("--disk_cache=" + UUID.randomUUID());
+      }
+      // Execute locally from now on. Not by unsetting --remote_executor, as that would invalidate
+      // //a:foo and thus have it executed instead of rewound.
+      addOptions(
+          "--strategy_regexp=.*=local", "--remote_upload_local_results=" + uploadLocalResults);
+      // Invalidate only //a:bar so that its execution discovers the lost input and rewinds //a:foo.
+      write("a/bar.in", "two");
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+      buildTarget("//a:bar");
+
+      assertRewoundActions(rewoundKeys, "//a:foo");
+      assertValidOutputFile("a/bar.out", "footwo\n");
+      assertThat(cacheWorker.hasCasBlob("foo".getBytes(UTF_8))).isEqualTo(uploadLocalResults);
+    }
+  }
+
+  @Test
+  public void actionRewinding_localExecution_reuploadsBlobUploadedEarlierInBuild()
+      throws Exception {
+    // A rewound action that is executed locally may regenerate a blob that the same build has
+    // already uploaded before it was evicted. Its upload must not be deduplicated against the
+    // earlier one, or the refreshed action result would still reference a missing blob.
+    // With a disk cache, :bar would fetch foo.out from the copy uploaded by :same instead of
+    // discovering it lost.
+    assumeFalse(useDiskCache);
+    var cacheWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = cacheWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + cacheWorker.getPort());
+      enableActionRewinding();
+      byte[] fooContents = "foo".getBytes(UTF_8);
+      write(
+          "a/BUILD",
+          """
+          genrule(
+              name = "foo",
+              srcs = [],
+              outs = ["foo.out"],
+              cmd = "echo -n foo > $@",
+          )
+
+          # Produces the same blob as foo.out.
+          genrule(
+              name = "same",
+              srcs = [],
+              outs = ["same.out"],
+              cmd = "echo -n foo > $@",
+          )
+
+          # Evicts that blob from the CAS after :same has uploaded it.
+          genrule(
+              name = "evict",
+              srcs = [":same.out"],
+              outs = ["evict.out"],
+              cmd = "rm -f '%s' && touch $@",
+              tags = ["no-cache"],
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [
+                  ":foo.out",
+                  ":evict.out",
+              ],
+              outs = ["bar.out"],
+              cmd = "cat $(location :foo.out) > $@",
+          )
+          """
+              .formatted(cacheWorker.getCasBlobPath(fooContents)));
+
+      // Execute remotely without downloading outputs, so that foo.out only exists in the CAS.
+      buildTarget("//a:foo");
+
+      // Delete the blob backing foo.out from the CAS while keeping //a:foo's action cache entry, so
+      // that :same has to upload it again.
+      cacheWorker.evictBlob(fooContents);
+      // Execute locally from now on. Not by unsetting --remote_executor, as that would invalidate
+      // //a:foo and thus have it executed instead of rewound. Upload synchronously so that :evict
+      // only runs after :same has uploaded its output.
+      addOptions("--strategy_regexp=.*=local", "--noremote_cache_async");
+      setDownloadToplevel();
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+      // :bar discovers foo.out lost after :evict has deleted it and rewinds //a:foo, which
+      // regenerates the blob locally.
+      buildTarget("//a:bar");
+
+      assertRewoundActions(rewoundKeys, "//a:foo");
+      assertValidOutputFile("a/bar.out", "foo");
+      assertThat(cacheWorker.hasCasBlob(fooContents)).isTrue();
     }
   }
 
@@ -1331,7 +1070,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteFilesExpiredBetweenBuilds_buildRewound() throws Exception {
+  public void remoteFilesExpiredBetweenBuilds(@TestParameter boolean actionRewinding)
+      throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -1373,14 +1113,20 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // Act: Do an incremental build, which is expected to fail with the exit code
-    // that, in a non-integration test setup, would retry the invocation
-    // automatically. Then simulate the retry.
+    // Act: Do an incremental build.
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-    assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
-        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+    if (actionRewinding) {
+      // The expired input's generating action is rewound within the same build.
+      enableActionRewinding();
+    } else {
+      // The build fails with the exit code that, in a non-integration test setup, would retry
+      // the invocation automatically. Simulate the retry.
+      disableActionRewinding();
+      var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
+          .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+    }
 
     buildTarget("//a:bar");
     waitDownloads();
@@ -1390,7 +1136,67 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteTreeFilesExpiredBetweenBuilds_buildRewound() throws Exception {
+  public void actionRewinding_lostTree(@TestParameter boolean localExecution) throws Exception {
+    // Verify that a lost tree can be rewound, both the Tree message itself and its children.
+    //
+    // When Bazel processes an ActionResult that it accepts, it fetches any referenced Tree
+    // message, so a lost tree digest is detected and handled at that point.
+    //
+    // Parameterized over local and remote execution because RemoteSpawnRunner and
+    // RemoteSpawnCache handle BulkTransferException from lookupCache differently: only remote
+    // execution failed before this fix. No point in the disk cache parameterization.
+    assumeFalse(useDiskCache);
+    var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = unverifiedWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + unverifiedWorker.getPort());
+      setDownloadToplevel();
+      writeOutputDirRule();
+      write("BUILD");
+      write(
+          "a/BUILD",
+          """
+          load("//:output_dir.bzl", "output_dir")
+
+          output_dir(
+              name = "foo.out",
+              content_map = {"file-inside": "hello world"},
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [
+                  "foo.out",
+                  "bar.in",
+              ],
+              outs = ["bar.out"],
+              cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+          )
+          """);
+      write("a/bar.in", "bar");
+
+      buildTarget("//a:bar");
+
+      // Wipe remote CAS, including the tree message describing foo.out, but keep all AC entries.
+      unverifiedWorker.evictAllCasBlobs();
+
+      // Invalidate only //a:bar, so its execution finds foo.out lost and rewinds //a:foo.out.
+      write("a/bar.in", "updated bar");
+      if (localExecution) {
+        addOptions("--strategy_regexp=.*=local");
+      }
+      enableActionRewinding();
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+
+      buildTarget("//a:bar");
+
+      assertRewoundActions(rewoundKeys, "//a:foo.out");
+      assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
+    }
+  }
+
+  @Test
+  public void remoteTreeFilesExpiredBetweenBuilds(@TestParameter boolean actionRewinding)
+      throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
     writeOutputDirRule();
@@ -1433,14 +1239,20 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // Act: Do an incremental build, which is expected to fail with the exit code
-    // that, in a non-integration test setup, would retry the invocation
-    // automatically. Then simulate the retry.
+    // Act: Do an incremental build.
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-    assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
-        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+    if (actionRewinding) {
+      // The expired input's generating action is rewound within the same build.
+      enableActionRewinding();
+    } else {
+      // The build fails with the exit code that, in a non-integration test setup, would retry
+      // the invocation automatically. Simulate the retry.
+      disableActionRewinding();
+      var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
+          .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+    }
 
     buildTarget("//a:bar");
     waitDownloads();

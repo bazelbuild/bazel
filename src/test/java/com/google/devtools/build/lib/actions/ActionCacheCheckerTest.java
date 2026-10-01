@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifact
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -49,12 +48,16 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MissDetailsBui
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -824,7 +827,8 @@ public final class ActionCacheCheckerTest {
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     verify(outputChecker)
-        .shouldTrustMetadata(argThat(arg -> arg.getExecPathString().endsWith("bin/dummy")), any());
+        .shouldTrustCachedMetadata(
+            argThat(arg -> arg.getExecPathString().endsWith("bin/dummy")), any());
     // Not cached since local file changed
     runAction(
         action,
@@ -882,7 +886,7 @@ public final class ActionCacheCheckerTest {
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
     OutputChecker outputChecker = mock(OutputChecker.class);
-    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(false);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any())).thenReturn(false);
 
     runAction(
         action,
@@ -1171,7 +1175,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
     writeIsoLatin1(output.getPath().getRelative("file2"), "modified_local");
     var outputChecker = mock(OutputChecker.class);
-    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any())).thenReturn(true);
     var token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
@@ -1185,9 +1189,11 @@ public final class ActionCacheCheckerTest {
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     verify(outputChecker)
-        .shouldTrustMetadata(argThat(arg -> arg.getExecPathString().endsWith("file1")), any());
+        .shouldTrustCachedMetadata(
+            argThat(arg -> arg.getExecPathString().endsWith("file1")), any());
     verify(outputChecker)
-        .shouldTrustMetadata(argThat(arg -> arg.getExecPathString().endsWith("file2")), any());
+        .shouldTrustCachedMetadata(
+            argThat(arg -> arg.getExecPathString().endsWith("file2")), any());
     // Not cached since local file changed
     runAction(
         action,
@@ -1244,7 +1250,7 @@ public final class ActionCacheCheckerTest {
     writeIsoLatin1(ArchivedTreeArtifact.createForTree(output).getPath(), "modified");
 
     var outputChecker = mock(OutputChecker.class);
-    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any())).thenReturn(true);
     var token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
@@ -1257,7 +1263,7 @@ public final class ActionCacheCheckerTest {
             /* actionExecutionSalt= */ "",
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
-    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any())).thenReturn(true);
     // Not cached since local file changed
     runAction(
         action,
@@ -1621,7 +1627,7 @@ public final class ActionCacheCheckerTest {
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
     OutputChecker outputChecker = mock(OutputChecker.class);
-    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(false);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any())).thenReturn(false);
 
     runAction(
         action,
@@ -1783,6 +1789,253 @@ public final class ActionCacheCheckerTest {
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+  }
+
+  /**
+   * {@code ActionCache.Entry.Builder} digests input and output metadata into separate maps and
+   * combines the two results, rather than digesting one combined map. That rewrite is only
+   * digest-preserving because {@link MetadataDigestUtils#fromMetadata} is an unordered sum whose
+   * empty value is an additive identity, so pin that property here: if it ever stops holding, every
+   * entry in every existing on-disk action cache silently stops matching and all users get a
+   * one-time full rebuild (which would require bumping {@code
+   * CompactPersistentActionCache.VERSION}).
+   */
+  @Test
+  public void metadataDigest_splitIntoInputsAndOutputs_matchesSingleCombinedMap() {
+    ImmutableMap<String, FileArtifactValue> outputs =
+        ImmutableMap.of(
+            "bin/out1", createRemoteMetadata("out1_content"),
+            "bin/out2", createRemoteMetadata("out2_content"));
+    ImmutableMap<String, FileArtifactValue> inputs =
+        ImmutableMap.of(
+            "bin/in1", createRemoteMetadata("in1_content"),
+            "bin/in2", createRemoteMetadata("in2_content"));
+    ImmutableMap<String, FileArtifactValue> noneAtAll = ImmutableMap.of();
+
+    // All four emptiness permutations: an empty map digests to a single zero byte rather than a
+    // full-length digest, so the combination has to absorb it as an identity.
+    assertThat(splitDigest(outputs, inputs)).isEqualTo(combinedDigest(outputs, inputs));
+    assertThat(splitDigest(noneAtAll, inputs)).isEqualTo(combinedDigest(noneAtAll, inputs));
+    assertThat(splitDigest(outputs, noneAtAll)).isEqualTo(combinedDigest(outputs, noneAtAll));
+    assertThat(splitDigest(noneAtAll, noneAtAll)).isEqualTo(combinedDigest(noneAtAll, noneAtAll));
+  }
+
+  /** Digests outputs and inputs separately and combines them, as {@code Entry.Builder} does. */
+  private static byte[] splitDigest(
+      Map<String, FileArtifactValue> outputs, Map<String, FileArtifactValue> inputs) {
+    byte[] outputDigest = MetadataDigestUtils.fromMetadata(outputs);
+    byte[] inputDigest = MetadataDigestUtils.fromMetadata(inputs);
+    return outputDigest.length >= inputDigest.length
+        ? DigestUtils.combineUnordered(outputDigest, inputDigest)
+        : DigestUtils.combineUnordered(inputDigest, outputDigest);
+  }
+
+  /** Digests outputs and inputs as one map, the way the action cache did before they were split. */
+  private static byte[] combinedDigest(
+      Map<String, FileArtifactValue> outputs, Map<String, FileArtifactValue> inputs) {
+    Map<String, FileArtifactValue> combined = new HashMap<>();
+    combined.putAll(outputs);
+    combined.putAll(inputs);
+    return MetadataDigestUtils.fromMetadata(combined);
+  }
+
+  private static ActionCache.Entry.Builder entryBuilder() {
+    return new ActionCache.Entry.Builder(
+        "key",
+        /* discoversInputs= */ false,
+        ImmutableMap.of(),
+        "salt",
+        OutputPermissions.READONLY,
+        /* useArchivedTreeArtifacts= */ false);
+  }
+
+  /**
+   * Writing an entry from a precomputed input digest (what happens when the cache check already
+   * hashed the inputs) must produce the same entry digest as adding the input files directly.
+   */
+  @Test
+  public void setInputDigest_matchesAddingInputFilesDirectly() throws Exception {
+    Artifact output1 = createArtifact(artifactRoot, "bin/out1");
+    Artifact output2 = createArtifact(artifactRoot, "bin/out2");
+    Artifact input1 = createArtifact(artifactRoot, "bin/in1");
+    Artifact input2 = createArtifact(artifactRoot, "bin/in2");
+    FileArtifactValue outMeta1 = createRemoteMetadata("out1_content");
+    FileArtifactValue outMeta2 = createRemoteMetadata("out2_content");
+    FileArtifactValue inMeta1 = createRemoteMetadata("in1_content");
+    FileArtifactValue inMeta2 = createRemoteMetadata("in2_content");
+
+    ActionCache.Entry.Builder direct = entryBuilder();
+    direct.addOutputFile(output1, outMeta1);
+    direct.addOutputFile(output2, outMeta2);
+    direct.addInputFile(input1, inMeta1);
+    direct.addInputFile(input2, inMeta2);
+
+    ActionCache.Entry.Builder inputsOnly = entryBuilder();
+    inputsOnly.addInputFile(input1, inMeta1);
+    inputsOnly.addInputFile(input2, inMeta2);
+
+    ActionCache.Entry.Builder precomputed = entryBuilder();
+    precomputed.addOutputFile(output1, outMeta1);
+    precomputed.addOutputFile(output2, outMeta2);
+    precomputed.setInputDigest(inputsOnly.getInputDigest());
+
+    assertThat(precomputed.build().getDigest()).isEqualTo(direct.build().getDigest());
+  }
+
+  @Test
+  public void setInputDigest_noOutputs_matchesAddingInputFilesDirectly() throws Exception {
+    Artifact input = createArtifact(artifactRoot, "bin/in1");
+    FileArtifactValue inMeta = createRemoteMetadata("in1_content");
+
+    ActionCache.Entry.Builder direct = entryBuilder();
+    direct.addInputFile(input, inMeta);
+
+    ActionCache.Entry.Builder inputsOnly = entryBuilder();
+    inputsOnly.addInputFile(input, inMeta);
+
+    ActionCache.Entry.Builder precomputed = entryBuilder();
+    precomputed.setInputDigest(inputsOnly.getInputDigest());
+
+    assertThat(precomputed.build().getDigest()).isEqualTo(direct.build().getDigest());
+  }
+
+  /**
+   * An empty metadata map digests to a single byte rather than a full-length digest, so an action
+   * with no inputs exercises the branch where the input digest is the shorter of the two.
+   */
+  @Test
+  public void setInputDigest_noInputs_matchesAddingNoInputFiles() throws Exception {
+    Artifact output = createArtifact(artifactRoot, "bin/out1");
+    FileArtifactValue outMeta = createRemoteMetadata("out1_content");
+
+    ActionCache.Entry.Builder direct = entryBuilder();
+    direct.addOutputFile(output, outMeta);
+
+    ActionCache.Entry.Builder precomputed = entryBuilder();
+    precomputed.addOutputFile(output, outMeta);
+    precomputed.setInputDigest(entryBuilder().getInputDigest());
+
+    assertThat(precomputed.build().getDigest()).isEqualTo(direct.build().getDigest());
+  }
+
+  @Test
+  public void setInputDigest_noInputsOrOutputs_matchesEmptyBuilder() {
+    ActionCache.Entry.Builder precomputed = entryBuilder();
+    precomputed.setInputDigest(entryBuilder().getInputDigest());
+
+    assertThat(precomputed.build().getDigest()).isEqualTo(entryBuilder().build().getDigest());
+  }
+
+  /**
+   * The input digest travels from the cache check through {@link ActionCacheChecker.Token} into the
+   * builder that writes the entry. Since {@code DigestUtils.combineUnordered} clobbers one of its
+   * arguments, building must leave the caller's array alone and must stay repeatable.
+   */
+  @Test
+  public void setInputDigest_buildLeavesCallerArrayIntact() throws Exception {
+    Artifact output = createArtifact(artifactRoot, "bin/out1");
+    Artifact input = createArtifact(artifactRoot, "bin/in1");
+
+    ActionCache.Entry.Builder inputsOnly = entryBuilder();
+    inputsOnly.addInputFile(input, createRemoteMetadata("in1_content"));
+    byte[] inputDigest = inputsOnly.getInputDigest();
+    byte[] expected = inputDigest.clone();
+
+    ActionCache.Entry.Builder builder = entryBuilder();
+    builder.addOutputFile(output, createRemoteMetadata("out1_content"));
+    builder.setInputDigest(inputDigest);
+
+    byte[] firstDigest = builder.build().getDigest();
+    assertThat(inputDigest).isEqualTo(expected);
+    assertThat(builder.build().getDigest()).isEqualTo(firstDigest);
+    assertThat(inputDigest).isEqualTo(expected);
+  }
+
+  @Test
+  public void testRebuildWithInputDigestOptimization_producesBitIdenticalCacheEntry()
+      throws Exception {
+    Artifact input = createArtifact(artifactRoot, "bin/input");
+    Artifact output = createArtifact(artifactRoot, "bin/output");
+    writeContentAsLatin1(input.getPath(), "initial_input");
+    writeContentAsLatin1(output.getPath(), "initial_output");
+
+    Action action = new NullAction(ImmutableList.of(input), output);
+
+    // Initial execution: miss (not cached) -> cached via clean-build fallback
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    ActionCache.Entry entryV1 = cache.get(output.getExecPathString());
+    assertThat(entryV1).isNotNull();
+
+    // Immediate rerun: hit
+    runAction(action);
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    // Modify input: cache miss (digest mismatch), token.inputDigest populated during isUpToDate
+    writeContentAsLatin1(input.getPath(), "modified_input");
+    runAction(action);
+    assertStatistics(
+        1,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+    ActionCache.Entry entryV2 = cache.get(output.getExecPathString());
+    assertThat(entryV2).isNotNull();
+    assertThat(entryV2.getDigest()).isNotEqualTo(entryV1.getDigest());
+
+    // Next rerun: immediate hit on entry created with token.inputDigest
+    runAction(action);
+    assertStatistics(
+        2,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+  }
+
+  /**
+   * Actions that discover inputs must not use the input digest stashed on the token: their
+   * discovered exec paths have to be recorded individually so they can be resolved on the next
+   * build. Asserting on those paths is what distinguishes the fallback branch, which records them,
+   * from the precomputed-digest branch, which does not.
+   */
+  @Test
+  public void updateActionCache_discoversInputs_recordsDiscoveredInputPaths() throws Exception {
+    Artifact mandatoryInput = createArtifact(artifactRoot, "bin/mandatory");
+    Artifact discoveredInput = createArtifact(artifactRoot, "bin/discovered");
+    Artifact output = createArtifact(artifactRoot, "bin/discovers_output");
+
+    writeContentAsLatin1(mandatoryInput.getPath(), "mandatory");
+    writeContentAsLatin1(discoveredInput.getPath(), "discovered");
+    writeContentAsLatin1(output.getPath(), "output");
+
+    Action action =
+        new NullAction(ImmutableList.of(mandatoryInput, discoveredInput), output) {
+          @Override
+          public boolean discoversInputs() {
+            return true;
+          }
+
+          @Override
+          protected boolean inputsDiscovered() {
+            return true;
+          }
+
+          @Override
+          public NestedSet<Artifact> getMandatoryInputs() {
+            return NestedSetBuilder.create(Order.STABLE_ORDER, mandatoryInput);
+          }
+        };
+
+    runAction(action);
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.discoversInputs()).isTrue();
+    // Mandatory inputs are derivable from the action itself and are deliberately not stored.
+    assertThat(entry.getDiscoveredInputPaths())
+        .containsExactly(discoveredInput.getExecPathString());
   }
 
   // TODO(tjgq): Add tests for cached tree artifacts with a materialization path. They should take

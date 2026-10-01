@@ -15,10 +15,10 @@
 """Utilities for resolving items for the Apple toolchain (such as common tool
 flags, and paths)."""
 
-def _sdk_dir():
+def _sdk_dir() -> str:
     return "__BAZEL_XCODE_SDKROOT__"
 
-def _developer_dir():
+def _developer_dir() -> str:
     return "__BAZEL_XCODE_DEVELOPER_DIR__"
 
 apple_toolchain = struct(

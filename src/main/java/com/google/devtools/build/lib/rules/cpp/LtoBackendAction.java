@@ -38,9 +38,12 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.LtoAction;
 import com.google.devtools.build.lib.server.FailureDetails.LtoAction.Code;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -219,7 +222,18 @@ public final class LtoBackendAction extends SpawnAction {
           String.format(
               "error reading imports file %s: %s",
               actionExecutionContext.getInputPath(imports), e.getMessage());
-      DetailedExitCode code = createDetailedExitCode(message, Code.IMPORTS_READ_IO_EXCEPTION);
+      DetailedExitCode code;
+      if (e instanceof CacheNotFoundException
+          || BulkTransferException.allCausedByCacheNotFoundException(e)) {
+        code =
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(message)
+                    .setSpawn(Spawn.newBuilder().setCode(Spawn.Code.REMOTE_CACHE_EVICTED))
+                    .build());
+      } else {
+        code = createDetailedExitCode(message, Code.IMPORTS_READ_IO_EXCEPTION);
+      }
       throw new ActionExecutionException(message, e, this, false, code);
     }
 

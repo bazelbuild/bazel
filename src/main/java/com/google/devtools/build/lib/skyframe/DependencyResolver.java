@@ -103,10 +103,10 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 
 /**
- * Helper logic for {@link ConfiguredTargetFunction} and {@link AspectFunction}: performs the
+ * Helper logic for {@code ConfiguredTargetFunction} and {@code AspectFunction}: performs the
  * analysis phase through computation of prerequisites.
  *
- * <p>For the {@link ConfiguredTargetFunction} this includes:
+ * <p>For the {@code ConfiguredTargetFunction} this includes:
  *
  * <ul>
  *   <li>getting this target's {@link Target} and {@link BuildConfigurationValue}
@@ -114,7 +114,7 @@ import net.starlark.java.syntax.Location;
  *       evaluate all rule attributes with {@code select()} and determine exact dependencies
  *   <li>figuring out which toolchains this target needs
  *   <li>getting the {@link ConfiguredTargetValue}s of this target's prerequisites (through
- *       recursive calls to {@link ConfiguredTargetFunction}
+ *       recursive calls to {@code ConfiguredTargetFunction}
  * </ul>
  *
  * <p>Figuring out which toolchains are needed and computing the {@link ConfigConditions} is
@@ -126,9 +126,9 @@ import net.starlark.java.syntax.Location;
  *
  * <p>This class also provides getters for the above data for subsequent analysis logic to use.
  *
- * <p>See {@link ConfiguredTargetFunction} for more review on analysis implementation.
+ * <p>See {@code ConfiguredTargetFunction} for more review on analysis implementation.
  *
- * <p>{@link AspectFunction} shares the logic computing a target's prerequisites via the {@link
+ * <p>{@code AspectFunction} shares the logic computing a target's prerequisites via the {@link
  * DependencyResolver#computeDependencies}.
  */
 public final class DependencyResolver {

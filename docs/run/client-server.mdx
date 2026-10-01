@@ -38,6 +38,24 @@ to ensure that you don't accumulate a lot of idle servers; you can do this by
 explicitly shutting them down when you're finished with them, or by specifying
 a short timeout period.
 
+### Managing memory pressure across multiple workspaces
+
+Because each distinct workspace uses its own output base, working across multiple
+repositories starts a dedicated Bazel server for each workspace. Even when idle,
+each server process retains in-memory caches (such as the Skyframe dependency graph
+and package representations) to keep subsequent incremental builds fast.
+
+If your machine experiences memory pressure due to multiple idle servers, you can
+configure global protection in your user-level `~/.bazelrc`:
+
+*   **Shut down automatically on low RAM:** Add `startup --shutdown_on_low_sys_mem`
+    to instruct servers idle for more than 5 minutes to exit when host RAM becomes
+    critically low (supported on Linux and macOS).
+*   **Reduce idle timeout:** Lower `startup --max_idle_secs=1800` (e.g. 30 minutes
+    instead of the 3-hour default) so unused servers terminate earlier.
+*   **Explicit shutdown:** Run `bazel shutdown` in workspaces you are done with.
+
+
 The name of a Bazel server process appears in the output of `ps x` or `ps -e f`
 as <code>bazel(<i>dirname</i>)</code>, where _dirname_ is the basename of the
 directory enclosing the root of your workspace directory. For example:

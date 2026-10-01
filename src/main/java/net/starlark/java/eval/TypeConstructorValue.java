@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.TypeContext;
+import net.starlark.java.syntax.Types;
 
 /**
  * A {@link StarlarkValue} wrapping a {@link TypeConstructor}. This is used as the runtime value of
@@ -28,8 +29,6 @@ import net.starlark.java.syntax.TypeContext;
  * BuiltinFunction.BuiltinTypeFunction}.
  */
 public final class TypeConstructorValue implements StarlarkTypeValue, TypeConstructor {
-  public static final StarlarkType TYPE = new Type();
-
   private final TypeConstructor typeConstructor;
   private final StarlarkType nullaryType;
 
@@ -54,7 +53,7 @@ public final class TypeConstructorValue implements StarlarkTypeValue, TypeConstr
 
   @Override
   public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
-    return TYPE;
+    return Types.TYPE;
   }
 
   @Override
@@ -67,26 +66,5 @@ public final class TypeConstructorValue implements StarlarkTypeValue, TypeConstr
   public boolean hasInstance(Object value, StarlarkSemantics semantics, TypeContext typeContext) {
     return StarlarkType.assignableFrom(
         nullaryType, Starlark.getStarlarkType(value, semantics), typeContext);
-  }
-
-  /** The type of {@link StarlarkTypeConstructorValue}-s. */
-  private static final class Type extends StarlarkType {
-    // Singleton.
-    private Type() {}
-
-    @Override
-    public String toString() {
-      return "Type";
-    }
-
-    @Override
-    public int hashCode() {
-      return Type.class.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return obj instanceof Type;
-    }
   }
 }

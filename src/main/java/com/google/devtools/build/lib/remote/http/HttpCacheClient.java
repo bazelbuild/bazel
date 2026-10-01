@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.google.auth.Credentials;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
@@ -30,6 +31,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -51,12 +54,12 @@ import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.kqueue.KQueueDomainSocketChannel;
 import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.pool.SimpleChannelPool;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.unix.DomainSocketAddress;
+import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpContentDecompressor;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -84,6 +87,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
+import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
@@ -129,11 +133,45 @@ public final class HttpCacheClient extends RemoteCacheClient {
 
   public static final String AC_PREFIX = "ac/";
   public static final String CAS_PREFIX = "cas/";
+  public static final ResultClassifier HTTP_RESULT_CLASSIFIER =
+      e ->
+          switch (e) {
+            case ClosedChannelException ignored -> Result.TRANSIENT_FAILURE;
+            case DownloadTimeoutException ignored -> Result.TRANSIENT_FAILURE;
+            case UploadTimeoutException ignored -> Result.TRANSIENT_FAILURE;
+            case HttpException httpException -> {
+              int status = httpException.response().status().code();
+              if (status == HttpResponseStatus.NOT_FOUND.code()) {
+                yield Result.SUCCESS;
+              }
+              yield status == HttpResponseStatus.REQUEST_TIMEOUT.code()
+                      || status == HttpResponseStatus.TOO_MANY_REQUESTS.code()
+                      || status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
+                      || status == HttpResponseStatus.BAD_GATEWAY.code()
+                      || status == HttpResponseStatus.SERVICE_UNAVAILABLE.code()
+                      || status == HttpResponseStatus.GATEWAY_TIMEOUT.code()
+                  ? Result.TRANSIENT_FAILURE
+                  : Result.PERMANENT_FAILURE;
+            }
+            case IOException ioException -> {
+              String msg = Ascii.toLowerCase(ioException.getMessage());
+              yield msg.contains("connection reset") || msg.contains("operation timed out")
+                  ? Result.TRANSIENT_FAILURE
+                  : Result.PERMANENT_FAILURE;
+            }
+            // Workaround for a netty bug: https://github.com/netty/netty/issues/11815. Remove this
+            // once it is fixed in the upstream.
+            case DecoderException decoder
+                when decoder.getMessage().endsWith("functions:OPENSSL_internal:BAD_DECRYPT") ->
+                Result.TRANSIENT_FAILURE;
+            case null, default -> Result.PERMANENT_FAILURE;
+          };
+
   private static final Pattern INVALID_TOKEN_ERROR =
       Pattern.compile("\\s*error\\s*=\\s*\"?invalid_token\"?");
 
   private final EventLoopGroup eventLoop;
-  private final ChannelPool channelPool;
+  private final SimpleChannelPool channelPool;
   private final URI uri;
   private final int timeoutSeconds;
   private final ImmutableList<Entry<String, String>> extraHttpHeaders;
@@ -751,11 +789,13 @@ public final class HttpCacheClient extends RemoteCacheClient {
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ByteString serialized = actionResult.toByteString();
-    return uploadAsync(
-        actionKey.digest().getHash(),
-        serialized.size(),
-        serialized.newInput(),
-        /* casUpload= */ false);
+    return retrier.executeAsync(
+        () ->
+            uploadAsync(
+                actionKey.digest().getHash(),
+                serialized.size(),
+                serialized.newInput(),
+                /* casUpload= */ false));
   }
 
   /**
@@ -775,20 +815,18 @@ public final class HttpCacheClient extends RemoteCacheClient {
       // Clear interrupted status to prevent failure to close, indicated with #14787
       boolean wasInterrupted = Thread.interrupted();
       try {
-        channelPool.close();
-      } catch (RuntimeException e) {
-        if (e.getCause() instanceof InterruptedException) {
-          Thread.currentThread().interrupt();
-        } else {
-          throw e;
-        }
+        channelPool.closeAsync().await(5, TimeUnit.SECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       } finally {
-        if (wasInterrupted) {
-          Thread.currentThread().interrupt();
+        try {
+          eventLoop.shutdownGracefully(0, 5, TimeUnit.SECONDS);
+        } finally {
+          if (wasInterrupted) {
+            Thread.currentThread().interrupt();
+          }
         }
       }
-
-      eventLoop.shutdownGracefully();
     }
   }
 

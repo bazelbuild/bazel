@@ -74,13 +74,13 @@ import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -245,7 +245,6 @@ public final class SkyframeActionExecutor {
   private boolean finalizeActions;
   private boolean rewindingEnabled;
   private int maxRepeatedLostInputs;
-  private boolean preciseRewindingEnabled;
   @Nullable private Label bustActionCachesTarget;
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
@@ -347,7 +346,6 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.getFinalizeActions();
     this.rewindingEnabled = buildRequestOptions.getRewindLostInputs();
-    this.preciseRewindingEnabled = buildRequestOptions.getExperimentalPreciseRewinding();
     this.maxRepeatedLostInputs = buildRequestOptions.getMaxRepeatedLostInputs();
     this.bustActionCachesTarget = buildRequestOptions.getBustActionCachesTarget();
     this.invocationRetriesEnabled =
@@ -442,10 +440,6 @@ public final class SkyframeActionExecutor {
     return rewindingEnabled;
   }
 
-  public boolean preciseRewindingEnabled() {
-    return preciseRewindingEnabled;
-  }
-
   /**
    * Returns the maximum number of times the same input (or top-level output) may be lost by the
    * same action before rewinding gives up and fails the build. Configured by {@code
@@ -526,7 +520,10 @@ public final class SkyframeActionExecutor {
 
   /** Determines whether the given action was rewound during the current build. */
   public boolean wasRewound(ActionAnalysisMetadata action) {
-    return rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+    Artifact primaryOutput = action.getPrimaryOutput();
+    // Only GrepIncludesAction (from include scanning) has a null primary output.
+    return primaryOutput != null
+        && rewoundActions.contains(new OwnerlessArtifactWrapper(primaryOutput));
   }
 
   /**
@@ -585,7 +582,16 @@ public final class SkyframeActionExecutor {
     if (state != null) {
       // If an action failed from lost inputs during input discovery then it won't have a state to
       // obsolete.
-      state.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
+      ActionStepOrResult priorState =
+          state.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
+      if (priorState instanceof ActionRunner runner) {
+        try {
+          runner.actionExecutionContext.close();
+        } catch (IOException e) {
+          logger.atWarning().withCause(e).log(
+              "Failed to close ActionExecutionContext for %s", failedAction.prettyPrint());
+        }
+      }
     }
     if (!actionFileSystemType().inMemoryFileSystem()) {
       outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(failedAction.getOutputs());
@@ -687,6 +693,13 @@ public final class SkyframeActionExecutor {
       result = activeAction.getResultOrDependOnFuture(env, actionLookupData, action, callback);
     } catch (ActionExecutionException e) {
       finalException = e;
+    }
+
+    // Do not close the context for lost input exceptions. It will be done by prepareForRewinding
+    // after a rewind plan is in place. This avoids closing the context prematurely in case a
+    // skyframe restart is necessary to prepare the rewind plan.
+    if (finalException instanceof LostInputsActionExecutionException) {
+      throw finalException;
     }
 
     if (result != null || finalException != null) {
@@ -1145,8 +1158,9 @@ public final class SkyframeActionExecutor {
           }
           env.getListener().post(event);
           var rewoundActionSynchronizer = outputService.getRewoundActionSynchronizer();
+          boolean wasRewound = wasRewound(action);
           try (SilentCloseable outerLock =
-              rewoundActionSynchronizer.enterActionPreparation(action, wasRewound(action))) {
+              rewoundActionSynchronizer.enterActionPreparation(action, wasRewound)) {
             if (actionFileSystemType().shouldDoEagerActionPrep()) {
               try (SilentCloseable d =
                   Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
@@ -1181,7 +1195,7 @@ public final class SkyframeActionExecutor {
 
             try (SilentCloseable innerLock =
                 rewoundActionSynchronizer.enterActionExecution(
-                    action, actionExecutionContext.getInputMetadataProvider())) {
+                    action, wasRewound, actionExecutionContext.getInputMetadataProvider())) {
               return executeAction(env.getListener(), action);
             }
           }
@@ -1699,8 +1713,13 @@ public final class SkyframeActionExecutor {
                           "declared output '%s' is not a symlink", output.prettyPrint())));
             } else {
               // Are all other exceptions caught due to missing files?
-              reportMissingOutputFile(
-                  action, output, reporter, output.getPath().isSymbolicLink(), e);
+              boolean isSymlink = false;
+              try {
+                isSymlink = output.getPath().isSymbolicLink();
+              } catch (IOException ignored) {
+                // Ignore, since it's just for informational purposes.
+              }
+              reportMissingOutputFile(action, output, reporter, isSymlink, e);
             }
           }
         }

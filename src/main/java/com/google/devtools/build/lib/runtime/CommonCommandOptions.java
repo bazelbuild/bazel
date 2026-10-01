@@ -112,7 +112,8 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract boolean getAlwaysProfileSlowOperations();
 
   @Option(
-      name = "experimental_install_base_gc_max_age",
+      name = "install_base_gc_max_age",
+      oldName = "experimental_install_base_gc_max_age",
       defaultValue = "30d",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
@@ -126,33 +127,36 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract void setInstallBaseGcMaxAge(Duration value);
 
   @Option(
-      name = "experimental_action_cache_gc_idle_delay",
+      name = "action_cache_gc_idle_delay",
+      oldName = "experimental_action_cache_gc_idle_delay",
       defaultValue = "5m",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = DurationConverter.class,
       help =
           "How long the server must remain idle before a garbage collection of the action cache is"
-              + " attempted. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+              + " attempted. Ineffectual unless --action_cache_gc_max_age is nonzero.")
   public abstract Duration getActionCacheGcIdleDelay();
 
   public abstract void setActionCacheGcIdleDelay(Duration value);
 
   @Option(
-      name = "experimental_action_cache_gc_threshold",
+      name = "action_cache_gc_threshold",
+      oldName = "experimental_action_cache_gc_threshold",
       defaultValue = "10",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = PercentageConverter.class,
       help =
           "The percentage of stale action cache entries required for garbage collection to be"
-              + " triggered. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+              + " triggered. Ineffectual unless --action_cache_gc_max_age is nonzero.")
   public abstract int getActionCacheGcThreshold();
 
   public abstract void setActionCacheGcThreshold(int value);
 
   @Option(
-      name = "experimental_action_cache_gc_max_age",
+      name = "action_cache_gc_max_age",
+      oldName = "experimental_action_cache_gc_max_age",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
@@ -161,8 +165,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
           "If set to a nonzero value, the action cache will be periodically garbage collected to"
               + " remove entries older than this age. Garbage collection occurs in the background"
               + " once the server has become idle, as determined by the"
-              + " --experimental_action_cache_gc_idle_delay and"
-              + " --experimental_action_cache_gc_threshold flags.")
+              + " --action_cache_gc_idle_delay and --action_cache_gc_threshold flags.")
   public abstract Duration getActionCacheGcMaxAge();
 
   public abstract void setActionCacheGcMaxAge(Duration value);
@@ -277,10 +280,15 @@ public abstract class CommonCommandOptions extends OptionsBase {
       name = "build_request_id",
       defaultValue = "",
       converter = PrefixedUUIDConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      help = "Unique string identifier for the build being run.")
+      help =
+          """
+          Unique string identifier that groups together a set of invocations that are conceptually
+          part of the same overall build request. The value is sent over the BES transport envelope
+          (as `StreamId.build_id`) and remote execution protocol (as
+          `RequestMetadata.correlated_invocations_id`).
+          """)
   public abstract String getBuildRequestId();
 
   @Option(
@@ -344,8 +352,8 @@ public abstract class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
-          "Includes the extra \"out\" attribute in action events that contains the exec path "
-              + "to the action's primary output.")
+          "Includes the extra \"out\" attribute in action and critical-path events that contains"
+              + " the exec path to the action's primary output.")
   public abstract boolean getIncludePrimaryOutput();
 
   @Option(
@@ -353,7 +361,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Includes target label in action events' JSON profile data.")
+      help = "Includes target label in action and critical-path events' JSON profile data.")
   public abstract boolean getProfileIncludeTargetLabel();
 
   @Option(
@@ -361,7 +369,9 @@ public abstract class CommonCommandOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Includes target configuration hash in action events' JSON profile data.")
+      help =
+          "Includes target configuration hash in action and critical-path events' JSON profile"
+              + " data.")
   public abstract boolean getProfileIncludeTargetConfiguration();
 
   @Option(

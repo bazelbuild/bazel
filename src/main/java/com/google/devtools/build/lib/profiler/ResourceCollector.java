@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skybridge.ScOnly;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -84,25 +85,36 @@ public class ResourceCollector {
       Duration startTime = stopwatch.elapsed();
       Duration previousElapsed = stopwatch.elapsed();
       profilingStarted = true;
-      while (!stopCollection) {
-        try {
-          Thread.sleep(COLLECT_SLEEP_INTERVAL.toMillis());
-        } catch (InterruptedException e) {
-          return;
-        }
-        Duration nextElapsed = stopwatch.elapsed();
-        double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
-        Duration finalPreviousElapsed = previousElapsed;
-        synchronized (ResourceCollector.this) {
-          for (var collector : collectors) {
-            collector.collect(
-                deltaNanos,
-                (type, value) ->
-                    addRange(type, startTime, finalPreviousElapsed, nextElapsed, value));
+      try {
+        while (!stopCollection) {
+          try {
+            Thread.sleep(COLLECT_SLEEP_INTERVAL.toMillis());
+          } catch (InterruptedException e) {
+            break;
           }
+          previousElapsed = collectOnce(startTime, previousElapsed);
         }
-        previousElapsed = nextElapsed;
+      } finally {
+        collectOnce(startTime, previousElapsed);
       }
+    }
+
+    @CanIgnoreReturnValue
+    private Duration collectOnce(Duration startTime, Duration previousElapsed) {
+      Duration nextElapsed = stopwatch.elapsed();
+      double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
+      if (deltaNanos <= 0) {
+        return previousElapsed;
+      }
+      Duration finalPreviousElapsed = previousElapsed;
+      synchronized (ResourceCollector.this) {
+        for (var collector : collectors) {
+          collector.collect(
+              deltaNanos,
+              (type, value) -> addRange(type, startTime, finalPreviousElapsed, nextElapsed, value));
+        }
+      }
+      return nextElapsed;
     }
   }
 

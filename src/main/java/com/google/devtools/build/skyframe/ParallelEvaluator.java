@@ -38,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctio
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -132,10 +133,11 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
 
   @ThreadCompatible
   private <T extends SkyValue> EvaluationResult<T> doMutatingEvaluation(
-      ImmutableSet<SkyKey> skyKeys) throws InterruptedException {
+      ImmutableSet<SkyKey> skyKeys, BitSet doneBeforeEvaluation) throws InterruptedException {
     injectErrorTransienceValue();
     try {
       NodeBatch batch = graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys);
+      int index = 0;
       for (SkyKey skyKey : skyKeys) {
         NodeEntry entry = batch.get(skyKey);
         // This must be equivalent to the code in AbstractParallelEvaluator.Evaluate#enqueueChild,
@@ -145,13 +147,19 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             evaluatorContext.getVisitor().enqueueEvaluation(skyKey, null);
             break;
           case DONE:
-            informProgressReceiverThatValueIsDone(skyKey, entry);
+            // Scheduling above starts concurrent evaluation, so a key that is a dependency of an
+            // earlier key may have become done while this loop was running. Avoid reporting it
+            // twice.
+            if (doneBeforeEvaluation.get(index)) {
+              informProgressReceiverThatValueIsDone(skyKey, entry);
+            }
             break;
           case ALREADY_EVALUATING:
             break;
           default:
             throw new IllegalStateException(entry + " for " + skyKey + " in unknown state");
         }
+        index++;
       }
     } catch (InterruptedException ie) {
       // When multiple keys are being evaluated, it's possible that a key may get queued before
@@ -637,19 +645,21 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       throws InterruptedException {
     ImmutableSet<SkyKey> skyKeySet = ImmutableSet.copyOf(skyKeys);
 
+    NodeBatch batch =
+        evaluatorContext.getGraph().getBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeySet);
+    BitSet doneBeforeEvaluation = new BitSet(skyKeySet.size());
+    int index = 0;
+    for (SkyKey skyKey : skyKeySet) {
+      if (isDoneForBuild(batch.get(skyKey))) {
+        doneBeforeEvaluation.set(index);
+      }
+      index++;
+    }
+
     // Optimization: if all required node values are already present in the cache, return them
     // directly without launching the heavy machinery, spawning threads, etc.
     // Inform progressReceiver that these nodes are done to be consistent with the main code path.
-    boolean allAreDone = true;
-    NodeBatch batch =
-        evaluatorContext.getGraph().getBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeySet);
-    for (SkyKey key : skyKeySet) {
-      if (!isDoneForBuild(batch.get(key))) {
-        allAreDone = false;
-        break;
-      }
-    }
-    if (allAreDone) {
+    if (doneBeforeEvaluation.cardinality() == skyKeySet.size()) {
       for (SkyKey skyKey : skyKeySet) {
         informProgressReceiverThatValueIsDone(skyKey, batch.get(skyKey));
       }
@@ -684,7 +694,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         () -> evaluatorContext.stateCache().invalidateAll());
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.SKYFRAME_EVAL, "Parallel Evaluator evaluation")) {
-      return doMutatingEvaluation(skyKeySet);
+      return doMutatingEvaluation(skyKeySet, doneBeforeEvaluation);
     } finally {
       unnecessaryTemporaryStateDropperReceiver.onEvaluationFinished();
     }

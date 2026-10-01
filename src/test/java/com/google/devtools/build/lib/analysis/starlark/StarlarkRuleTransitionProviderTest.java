@@ -1360,14 +1360,10 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  @TestParameters({
-    "{"
-        + "returnLine: 'return []',"
-        + "returnLine: 'return {}',"
-        + "returnLine: 'return None',"
-        + "returnLine: 'pass',"
-        + "}"
-  })
+  @TestParameters("{returnLine: 'return []'}")
+  @TestParameters("{returnLine: 'return {}'}")
+  @TestParameters("{returnLine: 'return None'}")
+  @TestParameters("{returnLine: 'pass'}")
   public void noopReturnValues(String returnLine) throws Exception {
     scratch.file(
         "test/transitions.bzl",

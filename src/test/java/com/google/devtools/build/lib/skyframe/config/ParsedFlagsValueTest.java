@@ -19,8 +19,10 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsTest;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -247,6 +249,40 @@ public final class ParsedFlagsValueTest {
 
   // TODO: https://github.com/bazelbuild/bazel/issues/22453 - Add a test of an accumulating flag
   // with previous values when that works correctly.
+
+  @Test
+  public void mergeWith_overridePlatformCpuName_accumulatesAndDeduplicates() throws Exception {
+    ImmutableSet<Class<? extends FragmentOptions>> optionsClasses =
+        ImmutableSet.of(CoreOptions.class);
+    BuildOptions original =
+        BuildOptions.of(optionsClasses, "--override_platform_cpu_name=//test_platforms:other=foo");
+
+    NativeAndStarlarkFlags flags =
+        NativeAndStarlarkFlags.builder()
+            .optionsClasses(optionsClasses)
+            .nativeFlags(
+                ImmutableList.of(
+                    "--override_platform_cpu_name=//test_platforms:other=fo2",
+                    "--override_platform_cpu_name=//test_platforms:diff=blah"))
+            .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
+
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
+
+    assertThat(modified.get(CoreOptions.class).getOverridePlatformCpuName())
+        .containsExactly(
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test_platforms:other"), "fo2"),
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test_platforms:diff"), "blah"))
+        .inOrder();
+
+    // Verify that applying the same platform setting a second time does not duplicate entries.
+    BuildOptions modifiedAgain = parsedFlags.mergeWith(modified).getOptions();
+    assertThat(modifiedAgain.get(CoreOptions.class).getOverridePlatformCpuName())
+        .containsExactly(
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test_platforms:other"), "fo2"),
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test_platforms:diff"), "blah"))
+        .inOrder();
+  }
 
   @Test
   public void mergeWith_starlark() throws Exception {

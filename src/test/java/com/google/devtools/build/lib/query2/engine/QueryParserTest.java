@@ -304,4 +304,44 @@ public final class QueryParserTest {
         StringEncoding.unicodeToInternal("//:äöüÄÖÜß🌱"),
         StringEncoding.unicodeToInternal("//:äöüÄÖÜß🌱"));
   }
+
+  @Test
+  public void testBoundVariableInWordArgumentFails() throws Exception {
+    checkParseFails(
+        "let x = //foo in filter($x, //bar)",
+        "variable '$x' cannot be used as an argument to function 'filter'; "
+            + "variable references are only allowed in expression arguments");
+    checkParseFails(
+        "let x = //foo in kind($x, //bar)",
+        "variable '$x' cannot be used as an argument to function 'kind'; "
+            + "variable references are only allowed in expression arguments");
+    checkParseFails(
+        "let x = //foo in attr(tags, $x, //bar)",
+        "variable '$x' cannot be used as an argument to function 'attr'; "
+            + "variable references are only allowed in expression arguments");
+    checkParseFails(
+        "let x = //foo in labels($x, //bar)",
+        "variable '$x' cannot be used as an argument to function 'labels'; "
+            + "variable references are only allowed in expression arguments");
+    checkParseFails(
+        "let x = //foo in let y = //bar in filter($x, $y)",
+        "variable '$x' cannot be used as an argument to function 'filter'; "
+            + "variable references are only allowed in expression arguments");
+    checkParseFails(
+        "let x = //foo in (let x = //bar in //baz) union filter($x, //qux)",
+        "variable '$x' cannot be used as an argument to function 'filter'; "
+            + "variable references are only allowed in expression arguments");
+
+    // Non-violating expressions:
+    // Regex ending in $ parses without error.
+    checkPrettyPrint("let x = //foo in filter('jar$', $x)", "let x = //foo in filter(jar$, $x)");
+    // Unbound variable reference in word argument parses as literal word.
+    checkPrettyPrint("filter('$unbound', //bar)", "filter($unbound, //bar)");
+    // Out-of-scope variable reference in word argument parses as literal word.
+    checkPrettyPrint(
+        "(let x = //foo in //bar union filter('$x', //baz))",
+        "(let x = //foo in //bar) union filter($x, //baz)");
+    // Variable is not yet in scope in varExpr.
+    checkPrettyPrint("let x = filter('$x', //bar) in //baz", "let x = filter($x, //bar) in //baz");
+  }
 }

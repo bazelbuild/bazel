@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -95,6 +94,7 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -102,7 +102,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -154,10 +153,11 @@ public class RuleContext extends TargetContext
     public abstract boolean packageUnderPrototypes(PackageIdentifier packageIdentifier);
 
     /**
-     * Returns whether the given package is allowed to depend on prototype packages. (If the given
-     * package is itself an experimental or prototype package, this method's result is ignored.)
+     * Returns whether the given package is allowed to load Starlark files from prototype packages
+     * or depend on targets in prototype packages. (If the given package is itself an experimental
+     * or prototype package, this method's result is ignored.)
      */
-    default boolean mayDependOnPrototypes(PackageIdentifier packageIdentifier) {
+    default boolean hasHardCodedException(PackageIdentifier packageIdentifier) {
       return false;
     }
   }
@@ -230,7 +230,7 @@ public class RuleContext extends TargetContext
         builder.env,
         builder.target.getAssociatedRule(),
         builder.configuration,
-        getDirectPrerequisites(builder.prerequisiteMap),
+        getDirectPrerequisitesWithoutToolchainDeps(builder.prerequisiteMap),
         builder.visibility,
         builder.transitiveVisibilityImposedByThisPackage);
     this.rule = builder.target.getAssociatedRule();
@@ -287,10 +287,14 @@ public class RuleContext extends TargetContext
         FeatureSet.merge(pkg, rule), getConfiguration().getDefaultFeatures());
   }
 
-  private static ImmutableSet<ConfiguredTargetAndData> getDirectPrerequisites(
+  /**
+   * Returns the direct (non-attribute) prerequisites for validation, excluding toolchain
+   * dependencies which are managed separately via {@link #toolchainContexts}.
+   */
+  private static ImmutableSet<ConfiguredTargetAndData> getDirectPrerequisitesWithoutToolchainDeps(
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap) {
     return prerequisiteMap.entries().stream()
-        .filter(e -> e.getKey().getAttribute() == null)
+        .filter(e -> e.getKey().getAttribute() == null && !DependencyKind.isToolchain(e.getKey()))
         .map(e -> e.getValue())
         .collect(toImmutableSet());
   }
@@ -329,23 +333,23 @@ public class RuleContext extends TargetContext
 
   @Override
   public ArtifactRoot getBinDirectory() {
-    return getConfiguration().getBinDirectory(getLabel().getRepository());
+    return getConfiguration().getBinDirectory();
   }
 
   public ArtifactRoot getGenfilesDirectory() {
-    return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
+    return getConfiguration().getGenfilesDirectory();
   }
 
   public ArtifactRoot getTestLogsDirectory() {
-    return getConfiguration().getTestLogsDirectory(getLabel().getRepository());
+    return getConfiguration().getTestLogsDirectory();
   }
 
   public PathFragment getBinFragment() {
-    return getConfiguration().getBinFragment(getLabel().getRepository());
+    return getConfiguration().getBinFragment();
   }
 
   public PathFragment getGenfilesFragment() {
-    return getConfiguration().getGenfilesFragment(getLabel().getRepository());
+    return getConfiguration().getGenfilesFragment();
   }
 
   public Rule getRule() {
@@ -382,13 +386,6 @@ public class RuleContext extends TargetContext
   @Nullable
   public Aspect getMainAspect() {
     return null;
-  }
-
-  /**
-   * Returns a rule class name suitable for log messages, including an aspect name if applicable.
-   */
-  public String getRuleClassNameForLogging() {
-    return ruleClassNameForLogging;
   }
 
   /** Returns the workspace name for the rule. */
@@ -659,8 +656,8 @@ public class RuleContext extends TargetContext
   @Override
   public ArtifactRoot getBinOrGenfilesDirectory() {
     return rule.outputsToBindir()
-        ? getConfiguration().getBinDirectory(getLabel().getRepository())
-        : getConfiguration().getGenfilesDirectory(getLabel().getRepository());
+        ? getConfiguration().getBinDirectory()
+        : getConfiguration().getGenfilesDirectory();
   }
 
   /**
@@ -672,8 +669,7 @@ public class RuleContext extends TargetContext
   }
 
   public Artifact getBinArtifact(PathFragment relative) {
-    return getPackageRelativeArtifact(
-        relative, getConfiguration().getBinDirectory(getLabel().getRepository()));
+    return getPackageRelativeArtifact(relative, getConfiguration().getBinDirectory());
   }
 
   /**
@@ -685,8 +681,7 @@ public class RuleContext extends TargetContext
   }
 
   public Artifact getGenfilesArtifact(PathFragment relative) {
-    return getPackageRelativeArtifact(
-        relative, getConfiguration().getGenfilesDirectory(getLabel().getRepository()));
+    return getPackageRelativeArtifact(relative, getConfiguration().getGenfilesDirectory());
   }
 
   @Override
@@ -710,9 +705,7 @@ public class RuleContext extends TargetContext
 
   @Override
   public PathFragment getPackageDirectory() {
-    return getLabel()
-        .getPackageIdentifier()
-        .getPackagePath(getConfiguration().isSiblingRepositoryLayout());
+    return getLabel().getPackageIdentifier().getPackagePath();
   }
 
   /**
@@ -1262,8 +1255,7 @@ public class RuleContext extends TargetContext
    */
   @Override
   public PathFragment getUniqueDirectory(PathFragment fragment) {
-    return AnalysisUtils.getUniqueDirectory(
-        getLabel(), fragment, getConfiguration().isSiblingRepositoryLayout());
+    return AnalysisUtils.getUniqueDirectory(getLabel(), fragment);
   }
 
   /**
@@ -1353,7 +1345,7 @@ public class RuleContext extends TargetContext
   @Override
   public Artifact.DerivedArtifact getRelatedArtifact(PathFragment pathFragment, String extension) {
     PathFragment file = FileSystemUtils.replaceExtension(pathFragment, extension);
-    return getDerivedArtifact(file, getConfiguration().getBinDirectory(getLabel().getRepository()));
+    return getDerivedArtifact(file, getConfiguration().getBinDirectory());
   }
 
   /** Returns true if the target for this context is a test target. */
@@ -1410,6 +1402,7 @@ public class RuleContext extends TargetContext
     private final ImmutableList<Aspect> aspects;
     private final BuildConfigurationValue configuration;
     private final RuleErrorConsumer reporter;
+    private final String ruleClassNameForLogging;
     private ConfiguredRuleClassProvider ruleClassProvider;
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ActionLookupKey actionOwnerSymbol;
@@ -1447,12 +1440,13 @@ public class RuleContext extends TargetContext
       this.target = Preconditions.checkNotNull(target);
       this.aspects = Preconditions.checkNotNull(aspects);
       this.configuration = Preconditions.checkNotNull(configuration);
+      this.ruleClassNameForLogging = computeRuleClassNameForLogging(target, aspects);
       if (configuration.allowAnalysisFailures()) {
         reporter = new SuppressingErrorReporter();
       } else {
         reporter =
             new ErrorReporter(
-                env, target.getAssociatedRule(), configuration, getRuleClassNameForLogging());
+                env, target.getAssociatedRule(), configuration, ruleClassNameForLogging);
       }
     }
 
@@ -1464,16 +1458,17 @@ public class RuleContext extends TargetContext
      * within attribute checking.
      */
     @VisibleForTesting
-    public RuleContext unsafeBuild() throws InvalidExecGroupException {
+    public RuleContext unsafeBuild() throws IOException, InvalidExecGroupException {
       return build(false);
     }
 
     @VisibleForTesting
-    public RuleContext build() throws InvalidExecGroupException {
+    public RuleContext build() throws IOException, InvalidExecGroupException {
       return build(true);
     }
 
-    private RuleContext build(boolean attributeChecks) throws InvalidExecGroupException {
+    private RuleContext build(boolean attributeChecks)
+        throws IOException, InvalidExecGroupException {
       Preconditions.checkNotNull(ruleClassProvider);
       Preconditions.checkNotNull(configurationFragmentPolicy);
       Preconditions.checkNotNull(actionOwnerSymbol);
@@ -1591,6 +1586,9 @@ public class RuleContext extends TargetContext
     /**
      * Sets the prerequisites and checks their visibility. It also generates appropriate error or
      * warning messages and sets the error flag as appropriate.
+     *
+     * <p>Toolchain dependencies in {@code prerequisiteMap} are ignored; toolchains are provided via
+     * {@link #setToolchainContexts} instead.
      */
     @CanIgnoreReturnValue
     public Builder setPrerequisites(
@@ -1690,9 +1688,10 @@ public class RuleContext extends TargetContext
      * Filter only attribute-based prerequisites, validate them and return them in a map from {@link
      * DependencyKind} to list of configured targets.
      */
-    private ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> createTargetMap() {
+    private ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> createTargetMap()
+        throws IOException {
       ImmutableListMultimap.Builder<DependencyKind, ConfiguredTargetAndData> mapBuilder =
-          ImmutableListMultimap.builder();
+          ImmutableListMultimap.builderWithExpectedKeys(prerequisiteMap.keySet().size());
 
       for (Map.Entry<DependencyKind, Collection<ConfiguredTargetAndData>> entry :
           prerequisiteMap.asMap().entrySet()) {
@@ -1828,7 +1827,7 @@ public class RuleContext extends TargetContext
     }
 
     private void validateDirectPrerequisiteType(
-        ConfiguredTargetAndData prerequisite, Attribute attribute) {
+        ConfiguredTargetAndData prerequisite, Attribute attribute) throws IOException {
 
       if (prerequisite.isMaterializerRule()) {
         // Materializer rules pass along other targets, so don't check their providers.
@@ -1890,14 +1889,23 @@ public class RuleContext extends TargetContext
      * Returns a rule class name suitable for log messages, including an aspect name if applicable.
      */
     String getRuleClassNameForLogging() {
-      if (aspects.isEmpty()) {
-        return target.getAssociatedRule().getRuleClass();
-      }
+      return ruleClassNameForLogging;
+    }
 
-      return Joiner.on(",")
-              .join(aspects.stream().map(Aspect::getDescriptor).collect(Collectors.toList()))
-          + " aspect on "
-          + target.getAssociatedRule().getRuleClass();
+    private static String computeRuleClassNameForLogging(
+        Target target, ImmutableList<Aspect> aspects) {
+      String ruleClass = target.getAssociatedRule().getRuleClass();
+      if (aspects.isEmpty()) {
+        return ruleClass;
+      }
+      StringBuilder sb = new StringBuilder();
+      for (int i = 0; i < aspects.size(); i++) {
+        if (i > 0) {
+          sb.append(',');
+        }
+        sb.append(aspects.get(i).getDescriptor());
+      }
+      return sb.append(" aspect on ").append(ruleClass).toString();
     }
 
     RuleErrorConsumer getErrorConsumer() {
@@ -1910,7 +1918,7 @@ public class RuleContext extends TargetContext
 
     @Nullable
     Aspect getMainAspect() {
-      return Streams.findLast(aspects.stream()).orElse(null);
+      return Iterables.getLast(aspects, null);
     }
 
     ImmutableList<Aspect> getAspects() {
@@ -2084,7 +2092,7 @@ public class RuleContext extends TargetContext
      * validated as part of {@link #createTargetMap}.
      */
     private void validateExtraPrerequisites(
-        boolean attributeChecks, ConfiguredAttributeMapper attributes) {
+        boolean attributeChecks, ConfiguredAttributeMapper attributes) throws IOException {
       // These checks can fail when ConfigConditions.EMPTY are empty, resulting in noMatchError
       // accessing attributes without a default condition.
       // ConfigConditions.EMPTY is always true for non-rules:
@@ -2147,7 +2155,7 @@ public class RuleContext extends TargetContext
     }
 
     private void validateDirectPrerequisite(
-        Attribute attribute, ConfiguredTargetAndData prerequisite) {
+        Attribute attribute, ConfiguredTargetAndData prerequisite) throws IOException {
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       if (attribute.performPrereqValidatorCheck()) {

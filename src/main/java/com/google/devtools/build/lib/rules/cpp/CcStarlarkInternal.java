@@ -1128,7 +1128,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "fn")})
   public void checkToplevel(StarlarkFunction fn) throws EvalException {
-    if (fn.getModule().getGlobal(fn.getName()) != fn) {
+    if (!Objects.equals(fn.getModule().getGlobal(fn.getName()), fn)) {
       throw Starlark.errorf("Passed function must be top-level functions.");
     }
   }
@@ -1185,7 +1185,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     return ruleContext.getDerivedArtifact(
         objectFile.getRootRelativePath().getParentDirectory().getRelative(outputName),
-        ruleContext.getConfiguration().getBinDirectory(ruleContext.getLabel().getRepository()));
+        ruleContext.getConfiguration().getBinDirectory());
   }
 
   @StarlarkMethod(

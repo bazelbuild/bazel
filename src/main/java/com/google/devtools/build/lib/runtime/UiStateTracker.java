@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.primitives.Booleans.trueFirst;
 import static java.util.Comparator.comparing;
+import static java.util.Comparator.comparingLong;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Comparators;
@@ -447,8 +448,8 @@ class UiStateTracker {
   }
 
   void loadingStarted(LoadingPhaseStartedEvent event) {
-    status = null;
     packageProgressReceiver = event.getPackageProgressReceiver();
+    status = packageProgressReceiver != null ? null : "Loading";
   }
 
   void configurationStarted(ConfigurationPhaseStartedEvent event) {
@@ -837,10 +838,11 @@ class UiStateTracker {
     long nanoRuntime = nanoTime - actionState.nanoStartTime;
     long runtimeSeconds = nanoRuntime / NANOS_PER_SECOND;
     String strategy = null;
-    ActionPhase phase = actionState.getPhase();
-    if (phase.equals(ActionPhase.CACHING) || phase.equals(ActionPhase.RUNNING)) {
+    if (actionState.getStrategyBitmap() != 0) {
       strategy = strategyIds.formatNames(actionState.getStrategyBitmap());
-    } else {
+    }
+    ActionPhase phase = actionState.getPhase();
+    if (!phase.equals(ActionPhase.CACHING) && !phase.equals(ActionPhase.RUNNING)) {
       String status = phase.describe();
       if (status == null) {
         status = NO_STATUS;
@@ -857,7 +859,7 @@ class UiStateTracker {
       postfix = "; " + runtimeSeconds + "s";
     }
     if (strategy != null) {
-      postfix += " " + strategy;
+      postfix += " (" + strategy + ")";
     }
 
     String message = action.getProgressMessage(mainRepositoryMapping);
@@ -1192,7 +1194,7 @@ class UiStateTracker {
       throws IOException {
     ArrayList<Map.Entry<String, DownloadData>> runningDownloadsSnapshot =
         new ArrayList<>(runningDownloads.entrySet());
-    runningDownloadsSnapshot.sort(comparing(entry -> entry.getValue().nanoStartTime()));
+    runningDownloadsSnapshot.sort(comparingLong(entry -> entry.getValue().nanoStartTime()));
     int count = 0;
     long nanoTime = clock.nanoTime();
     int downloadCount = runningDownloadsSnapshot.size();
@@ -1398,15 +1400,26 @@ class UiStateTracker {
         terminalWriter.failStatus();
       }
       terminalWriter.append(status + ":").normal().append(" " + additionalMessage);
-      if (packageProgressReceiver != null) {
-        Pair<String, String> progress = packageProgressReceiver.progressState();
-        terminalWriter.append(" (" + progress.getFirst());
+      if (packageProgressReceiver != null || analysisProgressReceiver != null) {
+        terminalWriter.append(" (");
+        boolean first = true;
+        if (packageProgressReceiver != null) {
+          Pair<String, String> progress = packageProgressReceiver.progressState();
+          terminalWriter.append(progress.getFirst());
+          first = false;
+        }
         if (analysisProgressReceiver != null) {
-          terminalWriter.append(", " + analysisProgressReceiver.getProgressString());
+          if (!first) {
+            terminalWriter.append(", ");
+          }
+          terminalWriter.append(analysisProgressReceiver.getProgressString());
         }
         terminalWriter.append(")");
-        if (!progress.getSecond().isEmpty() && !shortVersion) {
-          terminalWriter.newline().append("    " + progress.getSecond());
+        if (packageProgressReceiver != null) {
+          Pair<String, String> progress = packageProgressReceiver.progressState();
+          if (!progress.getSecond().isEmpty() && !shortVersion) {
+            terminalWriter.newline().append("    " + progress.getSecond());
+          }
         }
       }
       if (!shortVersion) {

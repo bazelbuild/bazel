@@ -305,8 +305,13 @@ public final class OptionsClassProcessor extends AbstractProcessor {
                 }
 
                 %4$s
+                // Setting the identical value doesn't need to be reported as a change.
+                @SuppressWarnings({"ReferenceEquality", "OptionalEquality", "StringEquality"})
                 public void set%3$s(%1$s %2$s) {
-                  this.%2$s = %2$s;
+                  if (this.%2$s != %2$s) {
+                    this.%2$s = %2$s;
+                    onOptionChanged();
+                  }
                 }
               """,
               option.fieldType,

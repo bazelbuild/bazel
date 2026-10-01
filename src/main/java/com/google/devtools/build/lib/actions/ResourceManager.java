@@ -248,10 +248,14 @@ public class ResourceManager implements ResourceEstimator {
 
   // Enables experimental action scheduling using CPU load of a machine.
   private boolean cpuLoadScheduling;
+  // Enables experimental action scheduling using memory load of a machine.
+  private boolean memoryLoadScheduling;
   // The size of window for running actions.
   private Duration windowSize = Duration.ofSeconds(5);
   // Estimation of CPU usage by actions started during the window.
   private double windowEstimationCpu;
+  // Estimation of memory usage by actions started during the window.
+  private double windowEstimationMemory;
   // Set of request ids which resource acquiring started during the window.
   private final Set<Integer> windowRequestIds = new HashSet<>();
   // Executor for periodic window update.
@@ -263,10 +267,14 @@ public class ResourceManager implements ResourceEstimator {
   // Collects the information about the load of a machine.
   private MachineLoadProvider machineLoadProvider;
 
-  public void initializeCpuLoadFunctionality(
-      MachineLoadProvider machineLoadProvider, boolean cpuLoadScheduling, Duration windowSize) {
+  public void initializeLoadFunctionality(
+      MachineLoadProvider machineLoadProvider,
+      boolean cpuLoadScheduling,
+      boolean memoryLoadScheduling,
+      Duration windowSize) {
     this.machineLoadProvider = machineLoadProvider;
     this.cpuLoadScheduling = cpuLoadScheduling;
+    this.memoryLoadScheduling = memoryLoadScheduling;
     this.windowSize = windowSize;
   }
 
@@ -289,6 +297,7 @@ public class ResourceManager implements ResourceEstimator {
   synchronized void windowUpdate() throws IOException, InterruptedException {
     windowRequestIds.clear();
     windowEstimationCpu = 0.0;
+    windowEstimationMemory = 0.0;
     processAllWaitingRequests();
   }
 
@@ -315,6 +324,7 @@ public class ResourceManager implements ResourceEstimator {
 
     windowRequestIds.clear();
     windowEstimationCpu = 0.0;
+    windowEstimationMemory = 0.0;
     runningActions = 0;
   }
 
@@ -330,12 +340,12 @@ public class ResourceManager implements ResourceEstimator {
     logger.atInfo().log("Set available resources: %s", resources);
   }
 
-  public synchronized void scheduleCpuLoadWindowUpdate() {
+  public synchronized void scheduleLoadWindowUpdate() {
     if (windowUpdateFuture != null) {
       windowUpdateFuture.cancel(true);
     }
 
-    if (cpuLoadScheduling) {
+    if (cpuLoadScheduling || memoryLoadScheduling) {
       windowUpdateFuture =
           windowUpdateExecutor.scheduleAtFixedRate(
               new WindowUpdateRunner("window-update"), 0, windowSize.toMillis(), MILLISECONDS);
@@ -436,6 +446,7 @@ public class ResourceManager implements ResourceEstimator {
 
     windowRequestIds.add(request.getId());
     windowEstimationCpu += resources.getResources().getOrDefault(ResourceSet.CPU, 0.0);
+    windowEstimationMemory += resources.getResources().getOrDefault(ResourceSet.MEMORY, 0.0);
     usedLocalTestCount += resources.getLocalTestCount();
     if (resources.getWorkerKey() != null) {
       return this.workerPool.borrowWorker(resources.getWorkerKey());
@@ -565,6 +576,7 @@ public class ResourceManager implements ResourceEstimator {
 
     if (windowRequestIds.remove(request.getId())) {
       windowEstimationCpu -= resources.getResources().getOrDefault(ResourceSet.CPU, 0.0);
+      windowEstimationMemory -= resources.getResources().getOrDefault(ResourceSet.MEMORY, 0.0);
     }
     runningActions--;
 
@@ -643,18 +655,17 @@ public class ResourceManager implements ResourceEstimator {
     }
   }
 
-  private boolean isAvailable(double available, double used, double requested) {
+  private boolean isAvailable(
+      double available, double trackedUsage, double effectiveUsage, double requested) {
     // Resources are considered available if any one of the conditions below is true:
     // 1) If resource is not requested at all, it is available.
-    // 2) If resource is not used at the moment and the flag
+    // 2) If resource is not tracked as used at the moment and the flag
     // "allow_one_action_on_resource_unavailable" is enabled, it is considered to be
-    // available regardless of how much is requested. This is necessary to
-    // ensure that at any given time, at least one thread is able to acquire
-    // resources even if it requests more than available.
-    // 3) If used resource amount is less than total available resource amount.
+    // available regardless of how much is requested.
+    // 3) If effective resource usage and the requested amount fit within the available amount.
     return requested == 0
-        || (allowOneActionOnResourceUnavailable && used == 0)
-        || used + requested <= available;
+        || (allowOneActionOnResourceUnavailable && trackedUsage == 0)
+        || effectiveUsage + requested <= available;
   }
 
   // Method will return true if all requested resources are considered to be available.
@@ -677,7 +688,11 @@ public class ResourceManager implements ResourceEstimator {
     }
 
     int availableLocalTestCount = availableResources.getLocalTestCount();
-    if (!isAvailable(availableLocalTestCount, usedLocalTestCount, resources.getLocalTestCount())) {
+    if (!isAvailable(
+        availableLocalTestCount,
+        usedLocalTestCount,
+        usedLocalTestCount,
+        resources.getLocalTestCount())) {
       return false;
     }
 
@@ -686,6 +701,12 @@ public class ResourceManager implements ResourceEstimator {
 
       if (key.equals(ResourceSet.CPU)) {
         if (!isCpuAvailable(resource)) {
+          return false;
+        }
+        continue;
+      }
+      if (key.equals(ResourceSet.MEMORY)) {
+        if (!isMemoryAvailable(resource)) {
           return false;
         }
         continue;
@@ -699,7 +720,7 @@ public class ResourceManager implements ResourceEstimator {
           resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
       double used = usedResources.getOrDefault(key, 0.0);
       double available = availableResources.get(key);
-      if (!isAvailable(available, used, requested)) {
+      if (!isAvailable(available, used, used, requested)) {
         return false;
       }
     }
@@ -715,16 +736,38 @@ public class ResourceManager implements ResourceEstimator {
     double used = usedResources.getOrDefault(key, 0.0);
 
     if (cpuLoadScheduling) {
-      double currentUsage = machineLoadProvider.getCurrentCpuUsage();
-      double windowEstimation = windowEstimationCpu;
-      // Don't allow to run more than x3 of number cores actions simultaneously.
-      if (runningActions >= MAX_ACTIONS_PER_CPU * availableResources.get(ResourceSet.CPU)) {
+      // Allow the first action past the cap when no local action is running.
+      if (runningActions != 0 && runningActions >= MAX_ACTIONS_PER_CPU * available) {
         return false;
       }
-      return isAvailable(available, windowEstimation + currentUsage, requested);
+      return isAvailable(
+          available,
+          used,
+          windowEstimationCpu + machineLoadProvider.getCurrentCpuUsage(),
+          requested);
     }
 
-    return isAvailable(available, used, requested);
+    return isAvailable(available, used, used, requested);
+  }
+
+  synchronized boolean isMemoryAvailable(Map.Entry<String, Double> resource) {
+    String key = resource.getKey();
+
+    double requested =
+        resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
+    double available = availableResources.get(key);
+    double used = usedResources.getOrDefault(key, 0.0);
+
+    if (memoryLoadScheduling) {
+      double currentUsage = machineLoadProvider.getCurrentMemoryUsageMb();
+      if (currentUsage < 0) {
+        return isAvailable(available, used, used, requested);
+      }
+      double windowEstimation = windowEstimationMemory;
+      return isAvailable(available, used, windowEstimation + currentUsage, requested);
+    }
+
+    return isAvailable(available, used, used, requested);
   }
 
   @VisibleForTesting

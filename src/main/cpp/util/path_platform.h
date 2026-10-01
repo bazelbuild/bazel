@@ -15,6 +15,7 @@
 #define BAZEL_SRC_MAIN_CPP_UTIL_PATH_PLATFORM_H_
 
 #include <string>
+#include <utility>
 
 namespace blaze_util {
 

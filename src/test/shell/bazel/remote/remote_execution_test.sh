@@ -313,7 +313,10 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "[0-9] processes: [0-9] internal, 2 remote\\."
+  # The exact number of actions depends on the toolchain in use (e.g. the Xcode
+  # toolchain from apple_support runs additional actions to set up its module
+  # maps), so only check that no action fell back to local execution.
+  expect_log "[0-9]* processes: [0-9]* internal, [0-9]* remote\\."
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
@@ -2244,13 +2247,6 @@ function test_empty_tree_artifact_as_inputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_sibling_repository_layout \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
 }
 
 function test_empty_tree_artifact_as_inputs_remote_cache() {
@@ -2315,15 +2311,6 @@ function test_create_tree_artifact_outputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
-  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
-  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_sibling_repository_layout \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 }
@@ -3062,16 +3049,6 @@ function test_external_cc_test() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
-function test_external_cc_test_sibling_repository_layout() {
-  setup_external_cc_test
-
-  bazel test \
-      --test_output=errors \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_sibling_repository_layout \
-      @other_repo//test >& $TEST_log || fail "Test should pass"
-}
-
 function do_test_unresolved_symlink() {
   local -r strategy=$1
   local -r link_target=$2
@@ -3162,7 +3139,7 @@ function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "apple_support", version = "2.5.2")
+bazel_dep(name = "apple_support", version = "2.8.4")
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
@@ -3238,28 +3215,10 @@ function test_cc_binary_tool_with_dynamic_deps() {
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
-function test_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  setup_cc_binary_tool_with_dynamic_deps .
-
-  bazel build \
-      --experimental_sibling_repository_layout \
-      --remote_executor=grpc://localhost:${worker_port} \
-      //pkg:rule >& $TEST_log || fail "Build should succeed"
-}
-
 function test_external_cc_binary_tool_with_dynamic_deps() {
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
-      --remote_executor=grpc://localhost:${worker_port} \
-      @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
-}
-
-function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  setup_cc_binary_tool_with_dynamic_deps other_repo
-
-  bazel build \
-      --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }

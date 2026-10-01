@@ -132,8 +132,9 @@ public final class FetchCommand implements BlazeCommand {
         result = fetchAll(env, threadsOption, fetchOptions.getConfigure());
       }
     } catch (InterruptedException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Fetch interrupted: " + e.getMessage());
+      String message =
+          e.getMessage() != null ? "Fetch interrupted: " + e.getMessage() : "Fetch interrupted";
+      return createFailedBlazeCommandResult(env.getReporter(), message);
     }
 
     env.getEventBus()
@@ -181,9 +182,12 @@ public final class FetchCommand implements BlazeCommand {
                 ImmutableSet.of(BazelFetchAllValue.key(configureEnabled)), evaluationContext);
     if (evaluationResult.hasError()) {
       Exception e = evaluationResult.getError().getException();
+      String message =
+          (e != null && e.getMessage() != null)
+              ? e.getMessage()
+              : "Unexpected error during fetching all external deps.";
       return createFailedBlazeCommandResult(
-          env.getReporter(),
-          e != null ? e.getMessage() : "Unexpected error during fetching all external deps.");
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, message);
     }
 
     env.getReporter().handle(Event.info("All external dependencies fetched successfully."));
@@ -200,7 +204,10 @@ public final class FetchCommand implements BlazeCommand {
       return createFailedBlazeCommandResult(
           env.getReporter(), "Invalid repo name: " + e.getMessage(), e.getDetailedExitCode());
     } catch (RepositoryFetcherException e) {
-      return createFailedBlazeCommandResult(env.getReporter(), e.getMessage());
+      String message =
+          e.getMessage() != null ? e.getMessage() : "Unexpected error during repository fetching.";
+      return createFailedBlazeCommandResult(
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, message);
     }
 
     String notFoundRepos =
@@ -213,7 +220,9 @@ public final class FetchCommand implements BlazeCommand {
             .collect(joining("; "));
     if (!notFoundRepos.isEmpty()) {
       return createFailedBlazeCommandResult(
-          env.getReporter(), "Fetching some repos failed with errors: " + notFoundRepos);
+          env.getReporter(),
+          Code.QUERY_EVALUATION_ERROR,
+          "Fetching some repos failed with errors: " + notFoundRepos);
     }
     env.getReporter().handle(Event.info("All requested repos fetched successfully."));
     return BlazeCommandResult.success();

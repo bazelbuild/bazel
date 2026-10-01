@@ -23,10 +23,19 @@ import net.starlark.java.eval.EvalException;
 // Documentation can be found at ctx.fragments
 @Immutable
 public class FragmentCollection implements FragmentCollectionApi {
-  private final RuleContext ruleContext;
 
-  public FragmentCollection(RuleContext ruleContext) {
-    this.ruleContext = ruleContext;
+  /** Supplier of configuration fragments for {@link FragmentCollection}. */
+  public interface FragmentSupplier {
+    @Nullable
+    Object getStarlarkFragment(String name) throws EvalException;
+
+    ImmutableCollection<String> getStarlarkFragmentNames();
+  }
+
+  private final FragmentSupplier fragmentSupplier;
+
+  public FragmentCollection(FragmentSupplier fragmentSupplier) {
+    this.fragmentSupplier = fragmentSupplier;
   }
 
   @Override
@@ -37,12 +46,12 @@ public class FragmentCollection implements FragmentCollectionApi {
   @Override
   @Nullable
   public Object getValue(String name) throws EvalException {
-    return ruleContext.getStarlarkFragment(name);
+    return fragmentSupplier.getStarlarkFragment(name);
   }
 
   @Override
   public ImmutableCollection<String> getFieldNames() {
-    return ruleContext.getStarlarkFragmentNames();
+    return fragmentSupplier.getStarlarkFragmentNames();
   }
 
   @Override

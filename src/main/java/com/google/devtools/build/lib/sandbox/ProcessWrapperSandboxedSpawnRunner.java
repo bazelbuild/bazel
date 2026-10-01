@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 
@@ -32,7 +31,8 @@ import java.time.Duration;
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   public static boolean isSupported(CommandEnvironment cmdEnv) {
-    return OS.isPosixCompatible() && ProcessWrapper.fromCommandEnvironment(cmdEnv) != null;
+    return OS.getCurrent().isPosixCompatible()
+        && ProcessWrapper.fromCommandEnvironment(cmdEnv) != null;
   }
 
   private final ProcessWrapper processWrapper;
@@ -88,8 +88,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
 
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            execRoot);
+            context.getInputMapping(/* willAccessRepeatedly= */ true), execRoot);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     return new SymlinkedSandboxedSpawn(

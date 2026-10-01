@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.ConnectException;
 import java.net.SocketException;
 import java.net.URI;
 import java.net.UnknownHostException;
@@ -52,7 +53,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 
 /**
@@ -133,14 +133,9 @@ public class DownloadManager {
       Path output,
       Map<String, String> clientEnv,
       String context,
-      Phaser downloadPhaser,
       boolean mayHardlink) {
     return executorService.submit(
         () -> {
-          if (downloadPhaser.register() != 0) {
-            // Not in download phase, must already have been cancelled.
-            throw new InterruptedException();
-          }
           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
             return downloadInExecutor(
                 originalUrls,
@@ -153,8 +148,6 @@ public class DownloadManager {
                 clientEnv,
                 context,
                 mayHardlink);
-          } finally {
-            downloadPhaser.arrive();
           }
         });
   }
@@ -388,8 +381,10 @@ public class DownloadManager {
   }
 
   private boolean isRetryableException(Throwable e) {
+    // HttpConnector already retries connection attempts. Retrying a final ConnectException here
+    // repeats its entire backoff sequence.
     return e instanceof ContentLengthMismatchException
-        || e instanceof SocketException
+        || (e instanceof SocketException && !(e instanceof ConnectException))
         || e instanceof UnknownHostException;
   }
 

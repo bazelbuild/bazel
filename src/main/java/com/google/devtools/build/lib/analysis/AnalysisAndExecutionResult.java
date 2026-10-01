@@ -25,7 +25,7 @@ import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
- * Return value for {@link com.google.devtools.build.lib.buildtool.AnalysisAndExecutionPhaseRunner}.
+ * Return value for {@code com.google.devtools.build.lib.buildtool.AnalysisAndExecutionPhaseRunner}.
  * This is meant to be the drop-in replacement for AnalysisResult later on. This is part of
  * https://github.com/bazelbuild/bazel/issues/14057. Internal: b/147350683.
  */

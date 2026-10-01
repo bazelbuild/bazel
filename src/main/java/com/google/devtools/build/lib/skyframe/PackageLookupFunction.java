@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories.IgnoredReason;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -115,8 +116,12 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     PathFragment packageFragment = packageKey.getPackageFragment();
-    if (ignoredPatternsValue.asIgnoredSubdirectories().matchingEntry(packageFragment) != null) {
-      return PackageLookupValue.DELETED_PACKAGE_VALUE;
+    IgnoredReason reason =
+        ignoredPatternsValue.asIgnoredSubdirectories().matchingEntryReason(packageFragment);
+    if (reason != null) {
+      return reason == IgnoredReason.BAZELIGNORE
+          ? PackageLookupValue.DELETED_BY_BAZELIGNORE_VALUE
+          : PackageLookupValue.DELETED_BY_REPO_BAZEL_VALUE;
     }
 
     return findPackageByBuildFile(env, pkgLocator, packageKey);
@@ -370,8 +375,12 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     PathFragment packageFragment = id.getPackageFragment();
-    if (ignoredPatternsValue.asIgnoredSubdirectories().matchingEntry(packageFragment) != null) {
-      return PackageLookupValue.DELETED_PACKAGE_VALUE;
+    IgnoredReason reason =
+        ignoredPatternsValue.asIgnoredSubdirectories().matchingEntryReason(packageFragment);
+    if (reason != null) {
+      return reason == IgnoredReason.BAZELIGNORE
+          ? PackageLookupValue.DELETED_BY_BAZELIGNORE_VALUE
+          : PackageLookupValue.DELETED_BY_REPO_BAZEL_VALUE;
     }
 
     Root root = ((Success) repositoryValue).root();

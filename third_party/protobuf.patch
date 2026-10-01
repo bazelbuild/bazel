@@ -1,5 +1,5 @@
 diff --git a/MODULE.bazel b/MODULE.bazel
-index a490e51b27..d5b3e174b7 100644
+index 8c224dbb35..6ecff93efa 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
 @@ -40,7 +40,7 @@ bazel_dep(name = "rules_kotlin", version = "2.3.20")
@@ -11,7 +11,7 @@ index a490e51b27..d5b3e174b7 100644
  
  bazel_dep(name = "rules_ruby", version = "0.20.1", dev_dependency = True)
  
-@@ -194,7 +194,7 @@ rust.toolchain(
+@@ -193,7 +193,7 @@ rust.toolchain(
      versions = ["1.85.0"],
  )
  
@@ -34,10 +34,10 @@ index 393fab95d6..9012b01649 100644
      scope = "universal",  # propagate from host to exec configuration
      visibility = ["//bazel/toolchains:__pkg__"],
 diff --git a/java/core/BUILD.bazel b/java/core/BUILD.bazel
-index 4cbd4732c1..2e789054c8 100644
+index 0502c5489f..e777afd309 100644
 --- a/java/core/BUILD.bazel
 +++ b/java/core/BUILD.bazel
-@@ -183,10 +183,7 @@ protobuf_java_export(
+@@ -178,10 +178,7 @@ protobuf_java_export(
  protobuf_java_library(
      name = "lite_runtime_only",
      srcs = LITE_SRCS,
@@ -50,7 +50,7 @@ index 4cbd4732c1..2e789054c8 100644
  
  proto_library(
 diff --git a/src/google/protobuf/compiler/java/full/message.cc b/src/google/protobuf/compiler/java/full/message.cc
-index 819f20a44b..e3f7b82701 100644
+index 1b73773a0c..9a78eee880 100644
 --- a/src/google/protobuf/compiler/java/full/message.cc
 +++ b/src/google/protobuf/compiler/java/full/message.cc
 @@ -875,32 +875,26 @@ void ImmutableMessageGenerator::GenerateIsInitialized(io::Printer* printer) {
@@ -104,10 +104,10 @@ index 819f20a44b..e3f7b82701 100644
        "@java.lang.Override\n"
        "public final boolean isInitialized() {\n");
 diff --git a/upb/BUILD b/upb/BUILD
-index 4ce905cbbf..d8e701c131 100644
+index b33477efda..b93fb2c9be 100644
 --- a/upb/BUILD
 +++ b/upb/BUILD
-@@ -125,6 +125,26 @@ cc_library(
+@@ -149,6 +149,26 @@ cc_library(
      visibility = ["//hpb/bazel:__pkg__"],
  )
  
@@ -168,7 +168,7 @@ index 61f70a8561..b625db3eea 100644
          files = _generate_upb_protos(
              ctx,
 diff --git a/upb/bazel/private/upb_proto_library_internal/cc_library_func.bzl b/upb/bazel/private/upb_proto_library_internal/cc_library_func.bzl
-index 47fc5a1cc2..90db085061 100644
+index 39cfb1e3f5..9e45276e38 100644
 --- a/upb/bazel/private/upb_proto_library_internal/cc_library_func.bzl
 +++ b/upb/bazel/private/upb_proto_library_internal/cc_library_func.bzl
 @@ -1,11 +1,11 @@
@@ -183,9 +183,9 @@ index 47fc5a1cc2..90db085061 100644
 -    return use_cpp_toolchain()
 +    return use_cc_toolchain()
  
- def cc_library_func(ctx, name, hdrs, srcs, copts, dep_ccinfos, includes = [], alwayslink = False):
+ def cc_library_func(ctx, name, hdrs, srcs, copts, dep_ccinfos, includes = [], alwayslink = False, **kwargs):
      """Like cc_library(), but callable from rules.
-@@ -25,7 +25,7 @@ def cc_library_func(ctx, name, hdrs, srcs, copts, dep_ccinfos, includes = [], al
+@@ -27,7 +27,7 @@ def cc_library_func(ctx, name, hdrs, srcs, copts, dep_ccinfos, includes = [], al
  
      compilation_contexts = [info.compilation_context for info in dep_ccinfos]
      linking_contexts = [info.linking_context for info in dep_ccinfos]
@@ -234,7 +234,7 @@ index 77f168ef28..0a3e159807 100644
      },
      implementation = _upb_proto_reflection_library_aspect_impl,
 diff --git a/upb_generator/minitable/generator.cc b/upb_generator/minitable/generator.cc
-index 54f8490ce4..801c58a8b2 100644
+index c074e724e1..f0cc162127 100644
 --- a/upb_generator/minitable/generator.cc
 +++ b/upb_generator/minitable/generator.cc
 @@ -297,7 +297,7 @@ void WriteExtension(const DefPoolPair& pools, upb::FieldDefPtr ext,

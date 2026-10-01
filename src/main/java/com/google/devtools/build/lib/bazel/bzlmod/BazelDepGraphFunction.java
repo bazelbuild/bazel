@@ -107,7 +107,7 @@ public class BazelDepGraphFunction implements SkyFunction {
       LabelConverter labelConverter =
           new LabelConverter(
               PackageIdentifier.create(repoMapping.contextRepo(), PathFragment.EMPTY_FRAGMENT),
-              module.getRepoMappingWithBazelDepsOnly(moduleKeyToRepositoryNames));
+              repoMapping);
       for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
         ModuleExtensionId moduleExtensionId;
         try {

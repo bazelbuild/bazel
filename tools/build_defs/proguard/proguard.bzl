@@ -20,11 +20,19 @@
 
 """Apply proguard rules to a JAR file."""
 
+load("@rules_java//java:defs.bzl", "java_common")
+
 def _proguard_jar_impl(ctx):
-    inputs = ctx.files.srcs + ctx.files.deps + [ctx.file.proguard_spec]
+    java_runtime = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+    inputs = ctx.files.srcs + ctx.files.deps + [
+        ctx.file.proguard_spec,
+        ctx.file._proguard,
+    ]
     output = ctx.outputs.out
 
     args = ctx.actions.args()
+    args.add("--java_executable", java_runtime.java_executable_exec_path)
+    args.add("--proguard_jar", ctx.file._proguard)
     args.add_joined("--srcs", ctx.files.srcs, join_with = ",")
     args.add_joined("--deps", ctx.files.deps, join_with = ",")
     args.add("--proguard_spec", ctx.file.proguard_spec)
@@ -37,6 +45,7 @@ def _proguard_jar_impl(ctx):
         outputs = [output],
         executable = ctx.executable._wrapper,
         arguments = [args],
+        tools = java_runtime.files,
     )
 
     return DefaultInfo(files = depset([output]))
@@ -48,6 +57,16 @@ proguard_jar = rule(
         "deps": attr.label_list(),
         "proguard_spec": attr.label(allow_single_file = True),
         "out": attr.output(),
+        "_java_runtime": attr.label(
+            cfg = "exec",
+            default = "@bazel_tools//tools/jdk:current_java_runtime",
+            providers = [java_common.JavaRuntimeInfo],
+        ),
+        "_proguard": attr.label(
+            allow_single_file = True,
+            cfg = "exec",
+            default = ":proguard_private_deploy.jar",
+        ),
         "_wrapper": attr.label(
             cfg = "exec",
             default = ":wrapper_private",

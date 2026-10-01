@@ -72,13 +72,21 @@ bool IsArg(const std::string& arg);
 // legitimate uses, and if not, remove it.
 std::string AbsolutePathFromFlag(const std::string& value);
 
+// Reason for awaiting server process termination.
+enum class TerminationReason {
+  kUnspecified,
+  kShutdownRequest,
+  kKillSignal,
+};
+
 // Wait to see if the server process terminates. Checks the server's status
 // immediately, and repeats the check every 100ms until approximately
 // wait_seconds elapses or the server process terminates. Returns true if a
 // check sees that the server process terminated. Logs to stderr after 5, 10,
 // and 30 seconds if the wait lasts that long.
-bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
-                                   unsigned int wait_seconds);
+bool AwaitServerProcessTermination(
+    int pid, const blaze_util::Path& output_base, unsigned int wait_seconds,
+    TerminationReason reason = TerminationReason::kUnspecified);
 
 // The number of seconds the client will wait for the server process to
 // terminate itself after the client receives the final response from a command

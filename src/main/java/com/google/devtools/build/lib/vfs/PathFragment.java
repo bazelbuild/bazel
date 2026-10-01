@@ -83,25 +83,14 @@ public abstract sealed class PathFragment
   //  https://learn.microsoft.com/en-us/windows/wsl/case-sensitivity
   public static final Comparator<PathFragment> HIERARCHICAL_COMPARATOR =
       (p1, p2) -> {
-        // Bazel's Strings contain raw UTF-8 bytes (see StringEncoding), which can be compared
-        // byte-by-byte.
-        var b1 = StringUnsafe.getInternalStringBytes(p1.getPathString());
-        var b2 = StringUnsafe.getInternalStringBytes(p2.getPathString());
-        // This is based on String.compareTo for the case of two Latin-1 coders.
-        int k = Arrays.mismatch(b1, b2);
-        if (k == -1) {
-          return 0;
+        int k = p1.getCommonPrefixLength(p2);
+        String s1 = p1.normalizedPath;
+        String s2 = p2.normalizedPath;
+        if (k == s1.length() || k == s2.length()) {
+          return Integer.compare(s1.length(), s2.length());
         }
-        if (k >= b1.length) {
-          // b1 is a prefix of b2.
-          return -1;
-        }
-        if (k >= b2.length) {
-          // b2 is a prefix of b1.
-          return 1;
-        }
-        byte c1 = b1[k];
-        byte c2 = b2[k];
+        char c1 = s1.charAt(k);
+        char c2 = s2.charAt(k);
         if (c1 == '/') {
           // Sort a/b/c before a/b-c.
           return -1;
@@ -110,7 +99,7 @@ public abstract sealed class PathFragment
           // Sort a/b-c after a/b/c.
           return 1;
         }
-        return Byte.compareUnsigned(c1, c2);
+        return Character.compare(c1, c2);
       };
 
   private static final char ADDITIONAL_SEPARATOR_CHAR = OS.additionalSeparator();
@@ -174,6 +163,32 @@ public abstract sealed class PathFragment
 
   public String getPathString() {
     return normalizedPath;
+  }
+
+  /**
+   * Returns the length of the case-sensitive common prefix of the two path strings.
+   *
+   * <p>The result is an index into {@link #getPathString()}, which uses Bazel's internal encoding.
+   * It may fall within a path segment or a multi-byte UTF-8 sequence. For example, the common
+   * prefix of {@code foo/bar} and {@code foo/baz} has length 6.
+   *
+   * <p>This operation does not allocate.
+   */
+  @SuppressWarnings("ReferenceEquality")
+  public int getCommonPrefixLength(PathFragment other) {
+    if (normalizedPath == other.normalizedPath) {
+      return normalizedPath.length();
+    }
+    if (normalizedPath.isEmpty() || other.normalizedPath.isEmpty()) {
+      return 0;
+    }
+    // Bazel's Strings contain raw UTF-8 bytes (see StringEncoding), which can be compared
+    // byte-by-byte. Arrays.mismatch uses a JVM intrinsic to compare multiple bytes at a time.
+    int mismatch =
+        Arrays.mismatch(
+            StringUnsafe.getInternalStringBytes(normalizedPath),
+            StringUnsafe.getInternalStringBytes(other.normalizedPath));
+    return mismatch == -1 ? normalizedPath.length() : mismatch;
   }
 
   public final boolean isEmpty() {

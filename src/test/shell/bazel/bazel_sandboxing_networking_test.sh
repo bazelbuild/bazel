@@ -85,8 +85,106 @@ genrule(
       + "port=\$\$(head -n 1 port.txt); "
       + "curl -fo \$@ localhost:\$\$port; "
       + "kill \$\$pid",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "bind-ipv4",
+  outs = [ "bind-ipv4.txt" ],
+  cmd = "python3 $python_server --bind_address=127.0.0.1 always $(pwd)/file_to_serve >bind-ipv4-port.txt & "
+      + "pid=\$\$!; "
+      + "while ! grep started bind-ipv4-port.txt; do sleep 1; done; "
+      + "port=\$\$(head -n 1 bind-ipv4-port.txt); "
+      + "curl -fo \$@ 127.0.0.1:\$\$port; "
+      + "kill \$\$pid",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "bind-ipv6",
+  outs = [ "bind-ipv6.txt" ],
+  cmd = "python3 $python_server --bind_address=::1 always $(pwd)/file_to_serve >bind-ipv6-port.txt & "
+      + "pid=\$\$!; "
+      + "while ! grep started bind-ipv6-port.txt; do sleep 1; done; "
+      + "port=\$\$(head -n 1 bind-ipv6-port.txt); "
+      + "curl -g -fo \$@ 'http://[::1]:'\$\$port; "
+      + "kill \$\$pid",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "bind-localhost",
+  outs = [ "bind-localhost.txt" ],
+  cmd = "python3 $python_server --bind_address=localhost always $(pwd)/file_to_serve >bind-localhost-port.txt & "
+      + "pid=\$\$!; "
+      + "while ! grep started bind-localhost-port.txt; do sleep 1; done; "
+      + "port=\$\$(head -n 1 bind-localhost-port.txt); "
+      + "curl -fo \$@ localhost:\$\$port; "
+      + "kill \$\$pid",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "bind-unix-socket",
+  outs = [ "bind-unix-socket.txt" ],
+  # The socket is bound at a relative path to stay below the sun_path length
+  # limit, which the absolute path of the sandboxed execroot can exceed.
+  cmd = "python3 $python_server --unix_socket=server.sock always $(pwd)/file_to_serve & "
+      + "pid=\$\$!; "
+      + "while ! [ -S server.sock ]; do sleep 1; done; "
+      + "curl --unix-socket server.sock -fo \$@ irrelevant-url; "
+      + "kill \$\$pid",
+  tags = [ ${tags} ],
 )
 EOF
+
+  # A non-loopback address of this machine allows validating that the sandbox
+  # blocks all network access beyond loopback - the same boundary that keeps
+  # out the Internet - without requiring actual Internet connectivity in the
+  # test environment: the server behind nc_port listens on the wildcard
+  # address and is thus also reachable via this address, but only if the
+  # sandbox does not block non-loopback traffic.
+  non_loopback_ip="$(python3 -c 'import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+try:
+  s.connect(("10.255.255.255", 1))
+  print(s.getsockname()[0])
+except OSError:
+  pass')"
+  if [[ "${non_loopback_ip}" == 127.* ]]; then
+    non_loopback_ip=
+  fi
+
+  if [[ -n "${non_loopback_ip}" ]]; then
+    cat <<EOF >>pkg/BUILD
+genrule(
+  name = "non-loopback",
+  outs = [ "non-loopback.txt" ],
+  cmd = "curl --connect-timeout 5 -fo \$@ ${non_loopback_ip}:${nc_port}",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "bind-non-loopback",
+  outs = [ "bind-non-loopback.txt" ],
+  # Unlike the loopback binds above, this bind can legitimately fail - a network
+  # namespace has no such address - so stop waiting once the server is gone and
+  # cap the wait, rather than hanging until the test times out.
+  cmd = "python3 $python_server --bind_address=${non_loopback_ip} always $(pwd)/file_to_serve >bind-non-loopback-port.txt & "
+      + "pid=\$\$!; "
+      + "for _ in \$\$(seq 1 30); do "
+      + "grep -q started bind-non-loopback-port.txt && break; "
+      + "kill -0 \$\$pid 2>/dev/null || break; sleep 1; done; "
+      + "port=\$\$(head -n 1 bind-non-loopback-port.txt); "
+      + "curl -fo \$@ ${non_loopback_ip}:\$\$port; "
+      + "kill \$\$pid",
+  tags = [ ${tags} ],
+)
+EOF
+  else
+    echo "Not registering tests for non-loopback network sandboxing;" \
+      "could not determine a non-loopback address of this machine"
+  fi
 
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     local hostname="${REMOTE_NETWORK_ADDRESS%:*}"
@@ -155,12 +253,43 @@ function check_network_not_ok() {
     || fail "'${target}' produced output but was expected to fail"
 }
 
+# Checks that the given target, which must have been created by a previous call
+# to setup_network_tests and which uses a non-loopback address of this machine,
+# behaves as expected in a scenario in which the sandbox blocks networking.
+#
+# The macOS sandbox cannot express "loopback only": the host part of an SBPL
+# "ip" filter may only be "*" or "localhost", and "localhost" matches every
+# address assigned to the local machine rather than just 127.0.0.1 and ::1.
+# Blocked spawns can therefore still reach this machine through its non-loopback
+# addresses. The linux-sandbox instead runs the spawn in a network namespace
+# that only has a loopback interface, so the address does not exist there at
+# all. Neither sandbox lets a blocked spawn reach any *other* host, which is
+# what the remote-ip and remote-name checks verify when REMOTE_NETWORK_ADDRESS
+# is set.
+function check_non_loopback_blocked() {
+  local target="${1}"; shift
+
+  if is_linux; then
+    check_network_not_ok "${target}" "${@}"
+  else
+    check_network_ok "${target}" "${@}"
+  fi
+}
+
 function test_sandbox_network_access() {
   setup_network_tests '"some-tag"'
 
   check_network_ok localhost
   check_network_ok unix-socket
   check_network_ok loopback
+  check_network_ok bind-ipv4
+  check_network_ok bind-ipv6
+  check_network_ok bind-localhost
+  check_network_ok bind-unix-socket
+  if [[ -n "${non_loopback_ip}" ]]; then
+    check_network_ok non-loopback
+    check_network_ok bind-non-loopback
+  fi
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip
     check_network_ok remote-name
@@ -171,8 +300,9 @@ function test_sandbox_block_network_access() {
   setup_network_tests '"some-tag"'
 
   if is_linux; then
-    # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
-    # within the network namespace... but that doesn't seem to be the case.
+    # The server behind nc_port runs outside the sandbox and is thus not
+    # reachable from the linux-sandbox's network namespace. Connectivity within
+    # the namespace itself does work, as the loopback check below shows.
     check_network_not_ok localhost --experimental_sandbox_default_allow_network=false
   else
     check_network_ok localhost --experimental_sandbox_default_allow_network=false
@@ -180,6 +310,14 @@ function test_sandbox_block_network_access() {
 
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=false
   check_network_ok loopback --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-ipv4 --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-ipv6 --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-localhost --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-unix-socket --experimental_sandbox_default_allow_network=false
+  if [[ -n "${non_loopback_ip}" ]]; then
+    check_non_loopback_blocked non-loopback --experimental_sandbox_default_allow_network=false
+    check_non_loopback_blocked bind-non-loopback --experimental_sandbox_default_allow_network=false
+  fi
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_not_ok remote-ip --experimental_sandbox_default_allow_network=false
     check_network_not_ok remote-name --experimental_sandbox_default_allow_network=false
@@ -196,6 +334,14 @@ EOF
   check_network_ok localhost
   check_network_ok unix-socket
   check_network_ok loopback
+  check_network_ok bind-ipv4
+  check_network_ok bind-ipv6
+  check_network_ok bind-localhost
+  check_network_ok bind-unix-socket
+  if [[ -n "${non_loopback_ip}" ]]; then
+    check_network_ok non-loopback
+    check_network_ok bind-non-loopback
+  fi
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip
     check_network_ok remote-name
@@ -208,6 +354,14 @@ function test_sandbox_network_access_with_requires_network() {
   check_network_ok localhost --experimental_sandbox_default_allow_network=false
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=false
   check_network_ok loopback --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-ipv4 --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-ipv6 --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-localhost --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-unix-socket --experimental_sandbox_default_allow_network=false
+  if [[ -n "${non_loopback_ip}" ]]; then
+    check_network_ok non-loopback --experimental_sandbox_default_allow_network=false
+    check_network_ok bind-non-loopback --experimental_sandbox_default_allow_network=false
+  fi
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip --experimental_sandbox_default_allow_network=false
     check_network_ok remote-name --experimental_sandbox_default_allow_network=false
@@ -218,14 +372,23 @@ function test_sandbox_network_access_with_block_network() {
   setup_network_tests '"block-network"'
 
   if is_linux; then
-    # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
-    # within the network namespace... but that doesn't seem to be the case.
+    # The server behind nc_port runs outside the sandbox and is thus not
+    # reachable from the linux-sandbox's network namespace. Connectivity within
+    # the namespace itself does work, as the loopback check below shows.
     check_network_not_ok localhost --experimental_sandbox_default_allow_network=true
   else
     check_network_ok localhost --experimental_sandbox_default_allow_network=true
   fi
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=true
   check_network_ok loopback --experimental_sandbox_default_allow_network=true
+  check_network_ok bind-ipv4 --experimental_sandbox_default_allow_network=true
+  check_network_ok bind-ipv6 --experimental_sandbox_default_allow_network=true
+  check_network_ok bind-localhost --experimental_sandbox_default_allow_network=true
+  check_network_ok bind-unix-socket --experimental_sandbox_default_allow_network=true
+  if [[ -n "${non_loopback_ip}" ]]; then
+    check_non_loopback_blocked non-loopback --experimental_sandbox_default_allow_network=true
+    check_non_loopback_blocked bind-non-loopback --experimental_sandbox_default_allow_network=true
+  fi
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_not_ok remote-ip --experimental_sandbox_default_allow_network=true
     check_network_not_ok remote-name --experimental_sandbox_default_allow_network=true
@@ -266,16 +429,14 @@ EOF
     || fail "test should have passed"
 }
 
-function test_hostname_inside_sandbox_is_localhost_when_using_sandbox_fake_hostname_flag() {
-  if ! is_linux; then
-    echo "Skipping test: fake hostnames not supported in this system" 1>&2
-    return 0
-  fi
-
+# --sandbox_fake_hostname is only implemented by the linux-sandbox. Everywhere
+# else the flag is silently accepted and does nothing, so compare against the
+# hostname that the very same test observes without the flag.
+function test_sandbox_fake_hostname_flag() {
   add_rules_java "MODULE.bazel"
   setup_javatest_support
   mkdir -p src/test/java/com/example
-  cat > src/test/java/com/example/HostNameIsLocalhostTest.java <<'EOF'
+  cat > src/test/java/com/example/FakeHostNameTest.java <<'EOF'
 package com.example;
 
 import static org.junit.Assert.*;
@@ -284,25 +445,45 @@ import org.junit.Test;
 import java.net.*;
 import java.io.*;
 
-public class HostNameIsLocalhostTest {
+public class FakeHostNameTest {
   @Test
-  public void testHostNameIsLocalhost() throws Exception {
+  public void testGetHostName() throws Exception {
     // This will throw an exception, if the local hostname cannot be resolved via DNS.
-    assertEquals("localhost", InetAddress.getLocalHost().getHostName());
+    String hostName = InetAddress.getLocalHost().getHostName();
+    assertNotNull(hostName);
+    System.out.println("HOSTNAME=[" + hostName + "]");
   }
 }
 EOF
   cat > src/test/java/com/example/BUILD <<'EOF'
 load("@rules_java//java:java_test.bzl", "java_test")
 java_test(
-  name = "HostNameIsLocalhostTest",
-  srcs = ["HostNameIsLocalhostTest.java"],
+  name = "FakeHostNameTest",
+  srcs = ["FakeHostNameTest.java"],
   deps = ['//third_party:junit4'],
 )
 EOF
 
-  bazel test --sandbox_fake_hostname --test_output=streamed src/test/java/com/example:HostNameIsLocalhostTest &> $TEST_log \
-    || fail "test should have passed"
+  # Both runs must actually execute the test, not replay a cached result.
+  bazel test --nocache_test_results --test_output=streamed \
+    src/test/java/com/example:FakeHostNameTest &> $TEST_log \
+    || fail "test should have passed without --sandbox_fake_hostname"
+  local real_hostname
+  real_hostname="$(sed -n 's/.*HOSTNAME=\[\([^]]*\)\].*/\1/p' $TEST_log | head -n 1)"
+  [[ -n "${real_hostname}" ]] \
+    || fail "could not determine the hostname seen inside the sandbox"
+
+  bazel test --sandbox_fake_hostname --nocache_test_results --test_output=streamed \
+    src/test/java/com/example:FakeHostNameTest &> $TEST_log \
+    || fail "test should have passed with --sandbox_fake_hostname"
+  local faked_hostname
+  faked_hostname="$(sed -n 's/.*HOSTNAME=\[\([^]]*\)\].*/\1/p' $TEST_log | head -n 1)"
+
+  if is_linux; then
+    assert_equals "localhost" "${faked_hostname}"
+  else
+    assert_equals "${real_hostname}" "${faked_hostname}"
+  fi
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

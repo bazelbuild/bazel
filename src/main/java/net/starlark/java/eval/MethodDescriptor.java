@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.stream;
 
@@ -72,6 +73,7 @@ final class MethodDescriptor {
     ERROR_ON_NULL, // any Starlark value; null -> error
     STARLARK_INT_OF_INT, // Java int -> StarlarkInt
     FROM_JAVA, // Starlark.fromJava conversion (List, Map, various Numbers, null perhaps)
+    DOES_NOT_RETURN, // any return value -> error
   }
 
   private final HowToHandleReturn howToHandleReturn;
@@ -89,6 +91,7 @@ final class MethodDescriptor {
       boolean extraKeywords,
       boolean selfCall,
       boolean allowReturnNones,
+      boolean doesNotReturn,
       boolean useStarlarkThread,
       boolean useStarlarkSemantics,
       boolean isTypeConstructor) {
@@ -109,7 +112,9 @@ final class MethodDescriptor {
     this.typeConstructorProxy = isTypeConstructor ? method.getReturnType() : null;
 
     Class<?> ret = method.getReturnType();
-    if (ret == void.class || ret == boolean.class) {
+    if (doesNotReturn) {
+      howToHandleReturn = HowToHandleReturn.DOES_NOT_RETURN;
+    } else if (ret == void.class || ret == boolean.class) {
       // * `void` function returns `null`
       // * `boolean` function never returns `null`
       // We could have specialized enum variant, but null check is cheap.
@@ -147,7 +152,8 @@ final class MethodDescriptor {
             structField,
             extraPositionals,
             extraKeywords,
-            allowReturnNones);
+            allowReturnNones,
+            doesNotReturn);
   }
 
   private StarlarkType buildStarlarkType(
@@ -157,8 +163,13 @@ final class MethodDescriptor {
       boolean structField,
       boolean extraPositionals,
       boolean extraKeywords,
-      boolean allowReturnNones) {
+      boolean allowReturnNones,
+      boolean doesNotReturn) {
     if (structField) {
+      checkArgument(
+          !doesNotReturn,
+          "In method '%s': structField=true is incompatible with doesNotReturn",
+          method.getName());
       StarlarkType returnType = starlarkTypeFromJava(method.getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
@@ -206,7 +217,9 @@ final class MethodDescriptor {
       }
     }
     StarlarkType returnType;
-    if (method.getReturnType() == Object.class) {
+    if (doesNotReturn) {
+      returnType = Types.NEVER;
+    } else if (method.getReturnType() == Object.class) {
       returnType = Types.ANY;
     } else {
       returnType = starlarkTypeFromJava(method.getGenericReturnType());
@@ -359,6 +372,7 @@ final class MethodDescriptor {
         !annotation.extraKeywords().name().isEmpty(),
         annotation.selfCall(),
         annotation.allowReturnNones(),
+        annotation.doesNotReturn(),
         annotation.useStarlarkThread(),
         annotation.useStarlarkSemantics(),
         annotation.isTypeConstructor());
@@ -449,6 +463,12 @@ final class MethodDescriptor {
           throw methodInvocationReturnedNull(args);
         }
         return Starlark.fromJava(result, mu);
+      case DOES_NOT_RETURN:
+        throw new IllegalStateException(
+            String.format(
+                "Method invocation %s%s returned '%s' but the method is annotated with"
+                    + " doesNotReturn=true",
+                getName(), Tuple.of(args), result));
     }
     throw new IllegalStateException("unreachable: " + howToHandleReturn);
   }

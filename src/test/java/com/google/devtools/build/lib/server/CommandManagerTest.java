@@ -40,17 +40,22 @@ public class CommandManagerTest {
     CommandManager underTest =
         new CommandManager(/*doIdleServerTasks=*/ false, "slow interrupt message suffix");
     assertThat(underTest.isEmpty()).isTrue();
+    assertThat(underTest.getCommandCounter()).isEqualTo(0);
     try (RunningCommand firstCommand = underTest.createCommand()) {
       assertThat(underTest.isEmpty()).isFalse();
+      assertThat(underTest.getCommandCounter()).isEqualTo(1);
       assertThat(isValidUuid(firstCommand.getId())).isTrue();
       try (RunningCommand secondCommand = underTest.createCommand()) {
         assertThat(underTest.isEmpty()).isFalse();
+        assertThat(underTest.getCommandCounter()).isEqualTo(2);
         assertThat(isValidUuid(secondCommand.getId())).isTrue();
         assertThat(firstCommand.getId()).isNotEqualTo(secondCommand.getId());
       }
       assertThat(underTest.isEmpty()).isFalse();
+      assertThat(underTest.getCommandCounter()).isEqualTo(2);
     }
     assertThat(underTest.isEmpty()).isTrue();
+    assertThat(underTest.getCommandCounter()).isEqualTo(2);
   }
 
   @Test

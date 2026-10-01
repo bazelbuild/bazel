@@ -13,10 +13,12 @@ java_library(
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:io",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -46,5 +48,5 @@ java_test(
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/java_tools/singlejar:singlejar_package_group"],
 )

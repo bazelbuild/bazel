@@ -154,4 +154,21 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
                 .collect(toImmutableList()))
         .contains("//q:tc");
   }
+
+  @Test
+  public void testConfigFunction() throws Exception {
+    writeFile(
+        "test/BUILD",
+        "genrule(name='my_gen', srcs=['foo.java'], outs=['foo.out'], cmd='cp $< $@')");
+
+    Set<ConfiguredTargetValue> result = eval("config(//test:my_gen, target)");
+    assertThat(result).hasSize(1);
+    assertThat(result.iterator().next().getConfiguredTarget().getLabel().toString())
+        .isEqualTo("//test:my_gen");
+
+    Set<ConfiguredTargetValue> nullResult = eval("config(//test:foo.java, null)");
+    assertThat(nullResult).hasSize(1);
+    assertThat(nullResult.iterator().next().getConfiguredTarget().getLabel().toString())
+        .isEqualTo("//test:foo.java");
+  }
 }

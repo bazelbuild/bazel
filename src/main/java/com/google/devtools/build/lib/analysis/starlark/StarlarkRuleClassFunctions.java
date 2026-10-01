@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -382,7 +383,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   @Override
   public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
-    StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
+    StarlarkProvider.Builder builder =
+        StarlarkProvider.builder(
+            thread.getCallerLocation(), thread.getSemantics(), thread.getTypeContext());
     Starlark.toJavaOptional(doc, String.class)
         .map(Starlark::trimDocString)
         .ifPresent(builder::setDocumentation);
@@ -879,6 +882,25 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
     }
 
+    if (thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS)) {
+      Optional<Label> allowlist = ruleDefinitionEnvironment.getNoExplicitMnemonicAllowlist();
+      if (allowlist.isPresent() && !builder.contains("$allowlist_no_explicit_mnemonic")) {
+        // the allowlist already exists if this is an extended rule
+        Attribute.Builder<Label> allowlistAttr =
+            attr("$allowlist_no_explicit_mnemonic", LABEL)
+                .cfg(NoConfigTransition.getFactory())
+                .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+                .value(allowlist.get());
+        if (dependencyResolutionRule) {
+          allowlistAttr
+              .setPropertyFlag("FOR_DEPENDENCY_RESOLUTION")
+              .nonconfigurable("On a rule used in dependency resolution");
+        }
+        builder.add(allowlistAttr);
+      }
+    }
     if (isMaterializerRule) {
       builder.addAllowlistChecker(MATERIALIZER_RULE_ALLOWLIST_CHECKER);
       if (!builder.contains("$allowlist_materializer_rule")) {
@@ -2000,10 +2022,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     @Override
     public boolean isExported() {
-      if (identityToken instanceof Symbol<?> symbol) {
-        return symbol.isGlobal();
-      }
-      return true; // it's an AnalysisTestKey
+      return ruleClass != null;
     }
 
     @Override

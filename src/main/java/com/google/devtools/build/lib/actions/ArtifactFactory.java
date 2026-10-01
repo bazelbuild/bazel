@@ -46,7 +46,6 @@ public class ArtifactFactory implements ArtifactResolver {
   private final Path execRootParent;
   private final Path externalSourceBase;
   private final PathFragment derivedPathPrefix;
-  private boolean siblingRepositoryLayout = false;
 
   /** Cache of source artifacts. */
   private final SourceArtifactCache sourceArtifactCache = new SourceArtifactCache();
@@ -259,10 +258,6 @@ public class ArtifactFactory implements ArtifactResolver {
     sourceArtifactCache.clear();
   }
 
-  public void setSiblingRepositoryLayout(boolean siblingRepositoryLayout) {
-    this.siblingRepositoryLayout = siblingRepositoryLayout;
-  }
-
   /**
    * Set the set of known packages and their corresponding source artifact roots. Must be called
    * exactly once after construction or clear().
@@ -470,19 +465,9 @@ public class ArtifactFactory implements ArtifactResolver {
     }
   }
 
-  private boolean isDefinitelyNotSourceExecPath(PathFragment execPath) {
+  private static boolean isDefinitelyNotSourceExecPath(PathFragment execPath) {
     // Source exec paths cannot escape the source root.
-    if (siblingRepositoryLayout) {
-      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
-      // the subfragment from index 1 onwards.
-      if (execPath.subFragment(1).containsUplevelReferences()) {
-        return true;
-      }
-    } else if (execPath.containsUplevelReferences()) {
-      return true;
-    }
-
-    return false;
+    return execPath.containsUplevelReferences();
   }
 
   /**
@@ -547,8 +532,7 @@ public class ArtifactFactory implements ArtifactResolver {
       return null;
     }
 
-    Pair<RepositoryName, PathFragment> repo =
-        RepositoryName.fromPathFragment(dir, siblingRepositoryLayout);
+    Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(dir);
     if (repo != null) {
       repositoryName = repo.getFirst();
       dir = repo.getSecond();
@@ -661,8 +645,7 @@ public class ArtifactFactory implements ArtifactResolver {
     Preconditions.checkState(
         !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
 
-    Pair<RepositoryName, PathFragment> repo =
-        RepositoryName.fromPathFragment(execPath, siblingRepositoryLayout);
+    Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(execPath);
     RepositoryName repositoryName = RepositoryName.MAIN;
     PathFragment repositoryRelativePath = execPath;
     if (repo != null) {

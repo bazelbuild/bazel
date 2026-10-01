@@ -44,7 +44,7 @@ objects defined in ObjcProvider that identify a category of transitive
 information to be communicated between targets in a dependency chain.
 
 Native objc/ios rules export ObjcProvider instances, which are made available
-to Starlark dependants:
+to Starlark dependents:
 
 ```
 def __impl(ctx):

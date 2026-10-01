@@ -62,7 +62,9 @@ public interface CoverageReportActionFactory {
       try {
         Actions.assignOwnersAndThrowIfConflict(
             actionKeyContext, actions, CoverageReportValue.COVERAGE_REPORT_KEY);
-      } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
+      } catch (ActionConflictException
+          | Actions.ArtifactGeneratedByOtherRuleException
+          | Actions.SourceArtifactUsedAsOutputException e) {
         throw new IllegalStateException(e);
       }
     }

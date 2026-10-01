@@ -62,6 +62,7 @@
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -157,7 +158,8 @@ static void handler(int signum) {
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
               SignalHandler::Get().GetServerProcessInfo()->server_pid_,
-              SignalHandler::Get().GetOutputBase());
+              SignalHandler::Get().GetOutputBase(),
+              /*from_signal_handler=*/true);
         }
         _exit(1);
       }
@@ -342,6 +344,7 @@ ATTRIBUTE_NORETURN static void ExecuteProgram(const blaze_util::Path& exe,
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args,
+                      const blaze_util::Path& argfile,
                       const bool run_in_user_cgroup) {
   ExecuteProgram(exe, server_jvm_args, run_in_user_cgroup);
 }
@@ -692,7 +695,8 @@ static void WriteOwnerInformation(int fd) {
 std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
                                                   const blaze_util::Path& path,
                                                   LockMode mode,
-                                                  bool batch_mode, bool block) {
+                                                  bool batch_mode,
+                                                  absl::Duration timeout) {
   const uint64_t start_time = GetMillisecondsMonotonic();
   bool multiple_attempts = false;
   string owner;
@@ -734,26 +738,41 @@ std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
     // Someone else holds the lock. Obtain the identity of the current lock
     // owner and print it out.
     string new_owner = ReadOwnerInformation(fd, name);
-    if (new_owner != owner) {
+    const bool owner_changed = (new_owner != owner);
+    if (owner_changed) {
       owner = new_owner;
       BAZEL_LOG(USER) << "Another command holds the " << name << " lock: \n"
                       << owner;
-      if (block) {
-        BAZEL_LOG(USER) << "Waiting for it to complete...";
-        fflush(stderr);
-      }
     }
 
-    if (!block) {
+    if (timeout <= absl::ZeroDuration()) {
       BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
           << "Exiting because the " << name
           << " lock is held and --noblock_for_lock was given.";
     }
 
-    multiple_attempts = true;
+    int sleep_ms = 500;
+    if (timeout != absl::InfiniteDuration()) {
+      const uint64_t elapsed = GetMillisecondsMonotonic() - start_time;
+      const uint64_t timeout_ms = absl::ToInt64Milliseconds(timeout);
+      if (elapsed >= timeout_ms) {
+        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+            << "Exiting because the " << name
+            << " lock is held and --block_for_lock=" << timeout_ms
+            << "ms timeout expired.";
+      }
+      sleep_ms =
+          static_cast<int>(std::min<uint64_t>(500ULL, timeout_ms - elapsed));
+    }
 
+    if (owner_changed) {
+      BAZEL_LOG(USER) << "Waiting for it to complete...";
+      fflush(stderr);
+    }
+
+    multiple_attempts = true;
     close(fd);
-    TrySleep(500);
+    TrySleep(sleep_ms);
   }
 }
 
@@ -761,19 +780,35 @@ void ReleaseLock(LockHandle lock_handle) {
   close(static_cast<int>(lock_handle));
 }
 
-bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler) {
   // Kill the process and make sure it's dead before proceeding.
   errno = 0;
   if (killpg(pid, SIGKILL) == -1) {
+    if (errno == ESRCH || from_signal_handler) {
+      return false;
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Attempted to kill stale server process (pid=" << pid
         << ") using SIGKILL: " << GetLastErrorString();
   }
+  if (from_signal_handler) {
+    // In signal handler context, avoid non-async-signal-safe calls
+    // (AwaitServerProcessTermination, VerifyServerProcess, heap allocations,
+    // BAZEL_DIE).
+    return true;
+  }
   if (!AwaitServerProcessTermination(pid, output_base,
-                                     kPostKillGracePeriodSeconds)) {
+                                     kPostKillGracePeriodSeconds,
+                                     TerminationReason::kKillSignal)) {
+    string diagnosis = GetProcessTerminationDiagnosis(pid);
+    if (!diagnosis.empty()) {
+      diagnosis = " Diagnosis: " + diagnosis;
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Attempted to kill stale server process (pid=" << pid
-        << ") using SIGKILL, but it did not die in a timely fashion.";
+        << ") using SIGKILL, but it did not die in a timely fashion."
+        << diagnosis;
   }
   return true;
 }

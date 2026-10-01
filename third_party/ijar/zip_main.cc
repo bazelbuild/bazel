@@ -239,14 +239,15 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
     printf("%c %o %s\n", isdir ? 'd' : 'f', perm, path);
   }
 
-  u1 *buffer = builder->NewFile(path, stat_to_zipattr(file_stat));
   if (isdir || file_stat.total_size == 0) {
+    builder->NewFile(path, stat_to_zipattr(file_stat));
     builder->FinishFile(0);
   } else {
-    if (!read_file(file, buffer, file_stat.total_size)) {
+    if (builder->AddFile(path, file, stat_to_zipattr(file_stat), compress,
+                         true) < 0) {
+      fprintf(stderr, "%s\n", builder->GetError());
       return -1;
     }
-    builder->FinishFile(file_stat.total_size, compress, true);
   }
   return 0;
 }

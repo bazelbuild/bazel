@@ -39,6 +39,18 @@ public class InterruptedFailureDetailsTest {
   }
 
   @Test
+  public void detailedExitCode_nullMessage_defaultsToInterrupted() {
+    DetailedExitCode detailedExitCode = InterruptedFailureDetails.detailedExitCode(null);
+    assertThat(detailedExitCode)
+        .isEqualTo(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage("interrupted")
+                    .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
+                    .build()));
+  }
+
+  @Test
   public void abruptExitException() {
     AbruptExitException abruptExitException =
         InterruptedFailureDetails.abruptExitException("myMessage");
@@ -49,14 +61,35 @@ public class InterruptedFailureDetailsTest {
   }
 
   @Test
+  public void abruptExitException_nullMessage_defaultsToInterrupted() {
+    AbruptExitException abruptExitException = InterruptedFailureDetails.abruptExitException(null);
+    assertThat(abruptExitException).hasMessageThat().isEqualTo("interrupted");
+    assertThat(abruptExitException.getExitCode()).isEqualTo(ExitCode.INTERRUPTED);
+    assertThat(abruptExitException.getDetailedExitCode())
+        .isEqualTo(InterruptedFailureDetails.detailedExitCode("interrupted"));
+  }
+
+  @Test
   public void abruptExitExceptionWithCause() {
     Exception cause = new Exception();
     AbruptExitException abruptExitException =
         InterruptedFailureDetails.abruptExitException("myMessage", cause);
     assertThat(abruptExitException).hasMessageThat().isEqualTo("myMessage");
-    assertThat(abruptExitException).hasCauseThat().isSameInstanceAs(cause);
+    assertThat(abruptExitException.getCause()).isSameInstanceAs(cause);
     assertThat(abruptExitException.getExitCode()).isEqualTo(ExitCode.INTERRUPTED);
     assertThat(abruptExitException.getDetailedExitCode())
         .isEqualTo(InterruptedFailureDetails.detailedExitCode("myMessage"));
+  }
+
+  @Test
+  public void abruptExitExceptionWithCause_nullMessage_defaultsToInterrupted() {
+    Exception cause = new Exception();
+    AbruptExitException abruptExitException =
+        InterruptedFailureDetails.abruptExitException(null, cause);
+    assertThat(abruptExitException).hasMessageThat().isEqualTo("interrupted");
+    assertThat(abruptExitException.getCause()).isSameInstanceAs(cause);
+    assertThat(abruptExitException.getExitCode()).isEqualTo(ExitCode.INTERRUPTED);
+    assertThat(abruptExitException.getDetailedExitCode())
+        .isEqualTo(InterruptedFailureDetails.detailedExitCode("interrupted"));
   }
 }

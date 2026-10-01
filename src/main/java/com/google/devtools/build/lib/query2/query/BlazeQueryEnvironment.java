@@ -188,10 +188,16 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
     Set<PackageIdentifier> packages = CompactHashSet.create();
     for (Target target : targets) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       packages.add(target.getLabel().getPackageIdentifier());
     }
 
     for (Target target : targets) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       // This triggers node creation in the Digraph; getOrCreate(X) returns X.
       getOrCreate(target);
 
@@ -205,6 +211,9 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         }
       } else if (target instanceof Rule rule) {
         for (Label label : rule.getSortedLabels(dependencyFilter)) {
+          if (Thread.interrupted()) {
+            throw new InterruptedException();
+          }
           if (!packages.contains(label.getPackageIdentifier())) {
             continue; // don't cause additional package loading
           }

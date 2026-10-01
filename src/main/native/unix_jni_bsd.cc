@@ -35,6 +35,7 @@
 #include <sys/sysctl.h>
 #include <sys/types.h>
 
+#include <cstdint>
 #include <string>
 
 #include "src/main/native/unix_jni.h"
@@ -73,7 +74,8 @@ ssize_t portable_getxattr(const char *path, const char *name, void *value,
 #if defined(HAVE_EXTATTR)
   ssize_t result =
       extattr_get_file(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
-  *attr_not_found = (errno == ENOATTR);
+  *attr_not_found =
+      (errno == ENOATTR || errno == ENOTSUP || errno == EOPNOTSUPP);
   return result;
 #else
   *attr_not_found = true;
@@ -86,7 +88,8 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 #if defined(HAVE_EXTATTR)
   ssize_t result =
       extattr_get_link(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
-  *attr_not_found = (errno == ENOATTR);
+  *attr_not_found =
+      (errno == ENOATTR || errno == ENOTSUP || errno == EOPNOTSUPP);
   return result;
 #else
   *attr_not_found = true;

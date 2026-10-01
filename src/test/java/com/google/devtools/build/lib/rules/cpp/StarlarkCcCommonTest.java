@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -5601,7 +5600,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
   }
 
@@ -5652,7 +5651,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
   }
 
@@ -6097,10 +6096,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=1", "linking_contexts=dep_linking_contexts");
     assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6110,10 +6106,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=0", "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6123,10 +6116,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--stamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
     assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6136,10 +6126,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6149,10 +6136,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--stamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }

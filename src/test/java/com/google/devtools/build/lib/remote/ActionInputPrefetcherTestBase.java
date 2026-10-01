@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.MetadataSupplier;
@@ -306,9 +307,29 @@ public abstract class ActionInputPrefetcherTestBase {
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
     verify(prefetcher, never())
-        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
+        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
+  }
+
+  @Test
+  public void prefetchFiles_fileExists_recordsContentsProxy()
+      throws IOException, ExecException, InterruptedException {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("file", "hello world", metadata, cas);
+    FileSystemUtils.writeContent(a.getPath(), "hello world".getBytes(UTF_8));
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+    assertThat(metadata.get(a).getContentsProxy()).isNull();
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    // The already present file was verified to be up to date by digest and its contents proxy was
+    // recorded to make future modification checks cheaper.
+    assertThat(metadata.get(a).getContentsProxy())
+        .isEqualTo(FileContentsProxy.create(a.getPath().stat()));
   }
 
   @Test
@@ -324,7 +345,7 @@ public abstract class ActionInputPrefetcherTestBase {
         prefetcher.prefetchFilesInterruptibly(
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
-    verify(prefetcher).doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
+    verify(prefetcher).doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world remote");
@@ -379,7 +400,7 @@ public abstract class ActionInputPrefetcherTestBase {
     // still in place, but doesn't download it again as it is intact.
     verify(fs).statIfFound(a.getPath().asFragment(), /* followSymlinks= */ true);
     verify(prefetcher, times(1))
-        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
+        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any(), any());
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
   }
 
@@ -1167,7 +1188,7 @@ public abstract class ActionInputPrefetcherTestBase {
     doAnswer(
             invocation -> {
               Path path = invocation.getArgument(3);
-              FileArtifactValue metadata = invocation.getArgument(4);
+              FileArtifactValue metadata = invocation.getArgument(5);
               byte[] content = cas.get(HashCode.fromBytes(metadata.getDigest()));
               if (content == null) {
                 return Futures.immediateFailedFuture(new IOException("Not found"));
@@ -1176,7 +1197,7 @@ public abstract class ActionInputPrefetcherTestBase {
               return resultSupplier.get();
             })
         .when(prefetcher)
-        .doDownloadFile(any(), any(), any(), any(), any(), any(), any());
+        .doDownloadFile(any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {

@@ -369,7 +369,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         \t\tmy_macro = macro(implementation = _impl)
         \tFile "/workspace/pkg/my_macro.bzl", line 3, column 9, in _impl
         \t\tfail("fail fail fail")
-        Error in fail: fail fail fail\
+        Error: fail fail fail\
         """);
   }
 
@@ -510,7 +510,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         \t\tfail_macro = macro(implementation = _impl)
         \tFile "/workspace/pkg/fail_macro.bzl", line 3, column 9, in _impl
         \t\tfail("fail fail fail")
-        Error in fail: fail fail fail\
+        Error: fail fail fail\
         """,
         "cannot compute package piece for finalizer macro //pkg:finalize defined by"
             + " //pkg:my_finalizer.bzl%my_finalizer");

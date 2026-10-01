@@ -43,8 +43,13 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
       - "//..."
+    test_flags:
+      - "--config=ci-linux"
+    test_targets:
+      - "//src/test/shell/bazel:bazel_java_toolchain_head_tests"
     include_json_profile:
       - build
+      - test
   fedora39:
     shell_commands:
       - rm -rf $HOME/bazeltest

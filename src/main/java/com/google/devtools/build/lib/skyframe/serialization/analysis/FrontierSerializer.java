@@ -18,8 +18,6 @@ import static com.google.common.util.concurrent.Uninterruptibles.getUninterrupti
 import static com.google.devtools.build.lib.skyframe.serialization.ErrorMessageHelper.getErrorMessage;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.ACTIVE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.getVersionGetterForTesting;
-import static com.google.devtools.build.lib.util.TestType.isInTest;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -41,6 +39,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -137,6 +136,9 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
+    CompressionService compressionService =
+        serializationDependenciesProvider.getCompressionService();
+
     FingerprintValueService fingerprintValueService =
         serializationDependenciesProvider.getFingerprintValueService();
     if (fingerprintValueService == null) {
@@ -154,13 +156,7 @@ public final class FrontierSerializer {
     var profileCollector = profilePath.isEmpty() ? null : new ProfileCollector();
     var serializationStats = new SelectedEntrySerializer.SerializationStats();
 
-    if (versionGetter == null) {
-      if (isInTest()) {
-        versionGetter = getVersionGetterForTesting();
-      } else {
-        throw new NullPointerException("missing versionGetter");
-      }
-    }
+    requireNonNull(versionGetter, "missing versionGetter");
 
     boolean shouldDiscardMemory = !keepStateAfterBuild;
     if (shouldDiscardMemory) {
@@ -200,6 +196,7 @@ public final class FrontierSerializer {
             codecs,
             frontierVersion,
             selectedKeys,
+            compressionService,
             fingerprintValueService,
             fileInvalidationWriter,
             shouldDiscardMemory,

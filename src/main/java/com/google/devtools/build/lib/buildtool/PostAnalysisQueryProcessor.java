@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -182,8 +181,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
           IOException,
           QueryRuntimeHelperException,
           OptionsParsingException {
-    WalkableGraph walkableGraph =
-        SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
+    WalkableGraph walkableGraph = env.getSkyframeExecutor().getWalkableGraph();
     ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations =
         getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraph);
 

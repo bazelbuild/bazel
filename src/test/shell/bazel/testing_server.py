@@ -17,6 +17,7 @@
 # pylint: disable=g-import-not-at-top,g-importing-member
 import argparse
 import base64
+import errno
 import json
 
 try:
@@ -134,6 +135,7 @@ class Handler(BaseHTTPRequestHandler):
 def main(argv):
   parser = argparse.ArgumentParser()
   parser.add_argument('--unix_socket', action='store')
+  parser.add_argument('--bind_address', action='store')
   parser.add_argument('--dump_headers', action='store')
 
   parser.add_argument('mode', type=str, nargs='?')
@@ -165,13 +167,24 @@ def main(argv):
     while port is None:
       try:
         port = random.randrange(32760, 59760)
-        if socket.has_dualstack_ipv6():
+        if args.bind_address:
+          if ':' in args.bind_address:
+            httpd = TCPServerV6((args.bind_address, port), Handler)
+          else:
+            httpd = TCPServer((args.bind_address, port), Handler)
+        elif socket.has_dualstack_ipv6():
           httpd = TCPServerDualStack(('::', port), Handler)
         elif socket.has_ipv6:
           httpd = TCPServerV6(('::', port), Handler)
         else:
           httpd = TCPServer(('', port), Handler)
-      except socket.error:
+      except socket.error as e:
+        # A port collision is the only bind failure worth retrying with a
+        # different port. Retrying a permanent failure - e.g. the requested
+        # address not existing in this network namespace - would loop forever
+        # and hang the caller waiting for the 'started' line below.
+        if e.errno != errno.EADDRINUSE:
+          raise
         port = None
     sys.stdout.write('%d\nstarted\n' % (port,))
     sys.stdout.flush()

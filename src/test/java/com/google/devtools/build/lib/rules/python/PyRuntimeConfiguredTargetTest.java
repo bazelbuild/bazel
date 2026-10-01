@@ -35,14 +35,15 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void nonhermeticRuntime() throws Exception {
     scratch.file(
-        "pkg/BUILD",
+        "tools/python/pkg/BUILD",
         getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = '/system/interpreter',",
         "    python_version = 'PY3',",
         ")");
-    PyRuntimeInfo info = PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime"));
+    PyRuntimeInfo info =
+        PyRuntimeInfo.fromTarget(getConfiguredTarget("//tools/python/pkg:myruntime"));
 
     assertThat(info.getInterpreterPathString()).isEqualTo("/system/interpreter");
     assertThat(info.getInterpreter()).isNull();
@@ -54,7 +55,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   public void cannotUseBothInterpreterAndPath() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
-        "pkg/BUILD",
+        "tools/python/pkg/BUILD",
         getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
@@ -62,7 +63,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         "    interpreter_path = '/system/interpreter',",
         "    python_version = 'PY3',",
         ")");
-    getConfiguredTarget("//pkg:myruntime");
+    getConfiguredTarget("//tools/python/pkg:myruntime");
 
     assertContainsEvent(
         "exactly one of the 'interpreter' or 'interpreter_path' attributes must be specified");
@@ -72,13 +73,13 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   public void mustUseEitherInterpreterOrPath() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
-        "pkg/BUILD", //
+        "tools/python/pkg/BUILD", //
         getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    python_version = 'PY3',",
         ")");
-    getConfiguredTarget("//pkg:myruntime");
+    getConfiguredTarget("//tools/python/pkg:myruntime");
 
     assertContainsEvent(
         "exactly one of the 'interpreter' or 'interpreter_path' attributes must be specified");
@@ -88,14 +89,14 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   public void interpreterPathMustBeAbsolute() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
-        "pkg/BUILD",
+        "tools/python/pkg/BUILD",
         getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = 'some/relative/path',",
         "    python_version = 'PY3',",
         ")");
-    getConfiguredTarget("//pkg:myruntime");
+    getConfiguredTarget("//tools/python/pkg:myruntime");
 
     assertContainsEvent("must be an absolute path");
   }
@@ -104,7 +105,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   public void cannotSpecifyFilesForNonhermeticRuntime() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
-        "pkg/BUILD",
+        "tools/python/pkg/BUILD",
         getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
@@ -112,7 +113,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         "    interpreter_path = '/system/interpreter',",
         "    python_version = 'PY3',",
         ")");
-    getConfiguredTarget("//pkg:myruntime");
+    getConfiguredTarget("//tools/python/pkg:myruntime");
 
     assertContainsEvent("if 'interpreter_path' is given then 'files' must be empty");
   }
@@ -121,14 +122,14 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   public void badPythonVersionAttribute() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
-        "pkg/BUILD",
+        "tools/python/pkg/BUILD",
         getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = '/system/interpreter',",
         "    python_version = 'not a Python version',",
         ")");
-    getConfiguredTarget("//pkg:myruntime");
+    getConfiguredTarget("//tools/python/pkg:myruntime");
 
     assertContainsEvent("invalid value in 'python_version' attribute");
   }

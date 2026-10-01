@@ -353,6 +353,31 @@ However, aquery operates on the pre-execution, post-analysis action graph, and h
 like separate actions whose output Artifacts have the exact same `execPath`. As a result,
 equivalent Artifacts appear duplicated.
 
+### Tree artifacts are not expanded {#tree-artifacts-not-expanded}
+
+The contents of a [tree artifact](/rules/lib/builtins/actions#declare_directory) are
+only known once the action generating it has executed. Since aquery operates on the
+pre-execution, post-analysis action graph, it cannot expand a tree artifact into the
+individual files it contains.
+
+A tree artifact therefore appears as a single entry holding the path of the directory,
+both in an action's inputs and in its command line. This is why the command line reported
+by aquery can differ from the parameter file written during the build: the latter is
+produced at execution time, when the contents of the directory are known. For example, a
+C++ link action may report
+
+```
+-Wl,--start-lib \
+bazel-out/k8-fastbuild/bin/pkg/_objs/lib/lib_cc \
+-Wl,--end-lib
+```
+
+where the parameter file on disk lists each `.o` file inside `lib_cc` individually.
+
+To tell a directory apart from a regular file, check the `is_tree_artifact` field on the
+`Artifact` message in any of the proto output formats. In `--output=text`, tree artifacts
+are suffixed with `(TreeArtifact)`.
+
 The list of aquery issues/planned features can be found on
 [GitHub](https://github.com/bazelbuild/bazel/labels/team-Performance).
 

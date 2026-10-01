@@ -558,6 +558,7 @@ public final class Crosstool {
                     + TestConstants.TOOLS_REPOSITORY
                     + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain')",
                 "toolchain_type(name = 'toolchain_type')",
+                "toolchain_type(name = 'cc_runtimes_toolchain_type')",
                 "toolchain_type(name = 'test_runner_toolchain_type')",
                 "cc_toolchain_alias(name = 'current_cc_toolchain')",
                 "cc_toolchain_alias(",

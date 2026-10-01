@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
@@ -174,14 +175,14 @@ public class PlatformLookupUtil {
 
   /** Exception used when a platform label is not a valid platform. */
   public static final class InvalidPlatformException extends ToolchainException {
-    private static final String DEFAULT_ERROR = "does not provide PlatformInfo";
-
     public InvalidPlatformException(Label label) {
-      super(formatError(label, DEFAULT_ERROR));
+      super(
+          String.format(
+              "Target %s was referenced as a platform, but does not provide PlatformInfo", label));
     }
 
     public InvalidPlatformException(Label label, ConfiguredValueCreationException e) {
-      super(formatError(label, DEFAULT_ERROR), e);
+      super(formatError(label, e.getMessage()), e);
     }
 
     public InvalidPlatformException(NoSuchThingException e) {
@@ -190,7 +191,7 @@ public class PlatformLookupUtil {
     }
 
     public InvalidPlatformException(Label label, ActionConflictException e) {
-      super(formatError(label, DEFAULT_ERROR), e);
+      super(formatError(label, e.getMessage()), e);
     }
 
     @Override
@@ -199,7 +200,8 @@ public class PlatformLookupUtil {
     }
 
     private static String formatError(Label label, String error) {
-      return String.format("Target %s was referenced as a platform, but %s", label, error);
+      return StringUtil.formatNested(
+          String.format("Target %s was referenced as a platform", label), error);
     }
   }
 }

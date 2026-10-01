@@ -55,7 +55,7 @@ public class CommandFailureUtilsTest {
             "local");
     assertThat(message)
         .isEqualTo(
-            "sh failed: error executing Mnemonic command (from target //foo:bar) "
+            "sh failed: error executing Mnemonic command (from target //foo:bar [cfg12345]) "
                 + "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42'");
   }
 
@@ -86,7 +86,7 @@ public class CommandFailureUtilsTest {
     assertThat(message)
         .isEqualTo(
             """
-            sh failed: error executing Mnemonic command (from target //foo:bar)\s
+            sh failed: error executing Mnemonic command (from target //foo:bar [cfg12345])\s
               (exec env - \\
                 FOO=foo \\
                 PATH=/usr/bin:/bin:/sbin \\
@@ -126,12 +126,11 @@ public class CommandFailureUtilsTest {
             "local");
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing Mnemonic command (from target //foo:bar) "
-                + "some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
-                + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
-                + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
-                + "arg27 arg28 arg29 arg30 arg31 "
-                + "... (remaining 8 arguments skipped)");
+            "some_command failed: error executing Mnemonic command (from target //foo:bar"
+                + " [cfg12345]) some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*'"
+                + " arg10 arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20 arg21 arg22"
+                + " arg23 arg24 arg25 arg26 arg27 arg28 arg29 arg30 arg31 ... (remaining 8"
+                + " arguments skipped)");
   }
 
   @Test
@@ -164,7 +163,7 @@ public class CommandFailureUtilsTest {
     assertThat(message)
         .isEqualTo(
             """
-            some_command failed: error executing Mnemonic command (from target //foo:bar)\s
+            some_command failed: error executing Mnemonic command (from target //foo:bar [cfg12345])\s
               (cd /my/working/directory && \\
               exec env - \\
                 FOO=foo \\
@@ -205,11 +204,11 @@ public class CommandFailureUtilsTest {
             "local");
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing Mnemonic command (from target //foo:bar)"
-                + " some_command arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 arg11 arg12"
-                + " arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20 arg21 arg22 arg23 arg24 arg25"
-                + " arg26 arg27 arg28 arg29 arg30 arg31 arg32 arg33 ... (remaining 1 argument"
-                + " skipped)");
+            "some_command failed: error executing Mnemonic command (from target //foo:bar"
+                + " [cfg12345]) some_command arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10"
+                + " arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20 arg21 arg22 arg23"
+                + " arg24 arg25 arg26 arg27 arg28 arg29 arg30 arg31 arg32 arg33 ... (remaining 1"
+                + " argument skipped)");
   }
 
   @Test
@@ -263,5 +262,27 @@ public class CommandFailureUtilsTest {
             # Execution platform: //platform:exec
             # Runner: remote\
             """);
+  }
+
+  @Test
+  public void describeCommandFailure_nullConfigurationChecksum() throws Exception {
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
+    String[] args = new String[] {"/bin/sh", "-c", "echo error; exit 1"};
+    Map<String, String> env = new LinkedHashMap<>();
+    String message =
+        CommandFailureUtils.describeCommandFailure(
+            false,
+            "Mnemonic",
+            Arrays.asList(args),
+            env,
+            null,
+            null,
+            "target " + target,
+            null,
+            "local");
+    assertThat(message)
+        .isEqualTo(
+            "sh failed: error executing Mnemonic command (from target //foo:bar) /bin/sh -c"
+                + " 'echo error; exit 1'");
   }
 }

@@ -191,7 +191,8 @@ class TestWrapperTest(test_base.TestBase):
         executable=True)
 
     self.ScratchFile(
-        'foo/annot_test.py', [
+        'foo/annot_test.py',
+        [
             'import os',
             'root = os.environ.get("TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR")',
             'dir1 = os.path.join(root, "out1")',
@@ -204,12 +205,19 @@ class TestWrapperTest(test_base.TestBase):
             '  f.write("Hello b")',
             'with open(os.path.join(root, "c.part"), "wt") as f:',
             '  f.write("Hello c")',
+            'with open(os.path.join(root, "a.pb"), "wb") as f:',
+            '  f.write(b"\\x03\\x0a\\x01\\x00")',
+            'with open(os.path.join(root, "c.pb"), "wb") as f:',
+            '  f.write(b"\\x03\\x0a\\x01\\xff")',
             'with open(os.path.join(dir1, "d.part"), "wt") as f:',
             '  f.write("Hello d")',
+            'with open(os.path.join(dir1, "d.pb"), "wb") as f:',
+            '  f.write(b"\\x03\\x0a\\x01\\x7f")',
             'with open(os.path.join(dir2, "e.part"), "wt") as f:',
             '  f.write("Hello e")',
         ],
-        executable=True)
+        executable=True,
+    )
 
     self.ScratchFile(
         'foo/xml_test.py', [
@@ -525,8 +533,7 @@ class TestWrapperTest(test_base.TestBase):
         actual)
 
   def _AssertUndeclaredOutputs(self, flags):
-    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
-    bazel_testlogs = bazel_testlogs[0]
+    bazel_testlogs = self.GetTargetTestlogs('//foo:undecl_test', flags)
 
     self.RunBazel(
         [
@@ -582,8 +589,7 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(mf_content)
 
   def _AssertUndeclaredOutputsAnnotations(self, flags):
-    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
-    bazel_testlogs = bazel_testlogs[0]
+    bazel_testlogs = self.GetTargetTestlogs('//foo:annot_test', flags)
 
     self.RunBazel(
         [
@@ -604,9 +610,13 @@ class TestWrapperTest(test_base.TestBase):
 
     self.assertListEqual(annot_content, ['Hello aHello c'])
 
+    undecl_annot_pb = undecl_annot + '.pb'
+    self.assertTrue(os.path.exists(undecl_annot_pb))
+    with open(undecl_annot_pb, 'rb') as f:
+      self.assertEqual(f.read(), b'\x03\x0a\x01\x00\x03\x0a\x01\xff')
+
   def _AssertXmlGeneration(self, flags):
-    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
-    bazel_testlogs = bazel_testlogs[0]
+    bazel_testlogs = self.GetTargetTestlogs('//foo:xml_test', flags)
 
     self.RunBazel(
         [
@@ -653,8 +663,7 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(xml_contents)
 
   def _AssertXmlGeneratedByTestIsRetained(self, flags):
-    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
-    bazel_testlogs = bazel_testlogs[0]
+    bazel_testlogs = self.GetTargetTestlogs('//foo:xml2_test', flags)
 
     self.RunBazel(
         [
@@ -704,29 +713,16 @@ class TestWrapperTest(test_base.TestBase):
     self.ScratchFile('x.py')
     self.ScratchFile('a/x.py')
 
-    for layout in [
-        '--experimental_sibling_repository_layout',
-        '--noexperimental_sibling_repository_layout',
-    ]:
-      for target in ['//:x', '@a//:x']:
-        exit_code, _, stderr = self.RunBazel([
-            'test',
-            '-t-',
-            '--shell_executable=',
-            '--test_output=errors',
-            '--verbose_failures',
-            layout,
-            target,
-        ])
-        self.AssertExitCode(
-            exit_code,
-            0,
-            [
-                'layout=%s' % layout,
-                'target=%s' % target,
-            ]
-            + stderr,
-        )
+    for target in ['//:x', '@a//:x']:
+      exit_code, _, stderr = self.RunBazel([
+          'test',
+          '-t-',
+          '--shell_executable=',
+          '--test_output=errors',
+          '--verbose_failures',
+          target,
+      ])
+      self.AssertExitCode(exit_code, 0, ['target=%s' % target] + stderr)
 
   def _AssertAddCurrentDirectoryToPathTest(self, flags):
     self.RunBazel(
@@ -734,6 +730,21 @@ class TestWrapperTest(test_base.TestBase):
             'test',
             '//foo:add_cur_dir_to_path_test',
             '--test_output=all',
+        ]
+        + flags
+    )
+
+  def _AssertEmptyEnv(self, flags):
+    # Test that empty environment variables (such as --action_env=PATH= or
+    # --test_env=USER=) do not cause the Windows test wrapper to fail.
+    # See https://github.com/bazelbuild/bazel/issues/15364
+    self.RunBazel(
+        [
+            'test',
+            '//foo:passing_test',
+            '-t-',
+            '--action_env=PATH=',
+            '--test_env=USER=',
         ]
         + flags
     )
@@ -755,6 +766,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertXmlGeneration(flags)
     self._AssertXmlGeneratedByTestIsRetained(flags)
     self._AssertAddCurrentDirectoryToPathTest(flags)
+    self._AssertEmptyEnv(flags)
 
   # Test that chdir'ing into a runfiles directory longer than MAX_PATH works.
   # See https://github.com/bazelbuild/bazel/issues/30609

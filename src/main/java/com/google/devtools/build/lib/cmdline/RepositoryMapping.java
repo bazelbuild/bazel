@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.cmdline;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import net.starlark.java.spelling.SpellChecker;
 
@@ -65,8 +65,8 @@ public class RepositoryMapping {
   public boolean equals(Object o) {
     return this == o
         || (o instanceof RepositoryMapping that
-            && Objects.equal(entries, that.entries)
-            && Objects.equal(contextRepo, that.contextRepo));
+            && Objects.equals(entries, that.entries)
+            && Objects.equals(contextRepo, that.contextRepo));
   }
 
   @Override

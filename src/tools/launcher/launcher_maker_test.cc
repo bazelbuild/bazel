@@ -13,6 +13,8 @@
 // limitations under the License.
 #include <windows.h>
 
+#include <string>
+
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/tools/launcher/util/data_parser.h"

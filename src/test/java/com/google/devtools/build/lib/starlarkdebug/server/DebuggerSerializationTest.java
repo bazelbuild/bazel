@@ -31,6 +31,8 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import org.junit.Test;
@@ -254,7 +256,63 @@ public final class DebuggerSerializationTest {
     public boolean invalid() {
       throw new IllegalArgumentException();
     }
+  }
 
+  @Test
+  public void testLargeDepsetElementTruncation() {
+    NestedSetBuilder<StarlarkInt> builder = NestedSetBuilder.stableOrder();
+    for (int i = 0; i < 1500; i++) {
+      builder.add(StarlarkInt.of(i));
+    }
+    Depset set = Depset.of(StarlarkInt.class, builder.build());
+
+    Value value = getValueProto("large_depset", set);
+
+    assertThat(value.getType()).isEqualTo("depset");
+    assertThat(value.getDescription()).startsWith("depset([");
+    assertThat(value.getDescription()).endsWith(", ...])");
+    assertThat(value.getDescription()).contains("999");
+    // Only first DebuggerSerialization#MAX_DESCRIPTION_ELEMENTS (1000) are shown.
+    assertThat(value.getDescription()).doesNotContain("1000");
+  }
+
+  @Test
+  public void testLargeDepsetCharTruncation() {
+    NestedSetBuilder<String> builder = NestedSetBuilder.stableOrder();
+    for (int i = 0; i < 50; i++) {
+      builder.add(("item" + i).repeat(50));
+    }
+    Depset set = Depset.of(String.class, builder.build());
+
+    Value value = getValueProto("large_depset", set);
+
+    assertThat(value.getType()).isEqualTo("depset");
+    assertThat(value.getDescription()).startsWith("depset([");
+    assertThat(value.getDescription()).endsWith("...");
+    assertThat(value.getDescription()).hasLength(DebuggerSerialization.MAX_DESCRIPTION_CHARS + 3);
+  }
+
+  @Test
+  public void testDeepNestingTruncation() {
+    Object current = StarlarkInt.of(42);
+    for (int i = 0; i < 15; i++) {
+      current = StarlarkList.of(null, current);
+    }
+
+    Value value = getValueProto("deep", current);
+
+    assertThat(value.getDescription()).contains("...");
+    assertThat(value.getDescription()).doesNotContain("42");
+  }
+
+  @Test
+  public void testLongStringTruncation() {
+    String longString = "a".repeat(15_000);
+
+    Value value = getValueProto("long_string", longString);
+
+    assertThat(value.getDescription()).hasLength(DebuggerSerialization.MAX_DESCRIPTION_CHARS + 3);
+    assertThat(value.getDescription()).endsWith("...");
   }
 
   private static void assertTypeAndDescription(Object object, Value value) {

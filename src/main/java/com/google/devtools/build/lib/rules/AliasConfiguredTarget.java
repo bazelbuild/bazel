@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -246,6 +247,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(
         "<alias target " + actionLookupKey.getLabel() + " of " + actual.getLabel() + ">");
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getLabel(), getConfigurationKey());
   }
 
   @Override

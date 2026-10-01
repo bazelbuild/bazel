@@ -50,7 +50,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         outputs,
         /* mandatoryOutputs= */ null,
-        () ->
+        (os, inputsSize) ->
             action.getTestProperties().getLocalResourceUsage(action.getOwner().getLabel(), false));
   }
 

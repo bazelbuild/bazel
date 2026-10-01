@@ -71,6 +71,8 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
    * If the rule producing this info object is marked 'executable' or 'test', this is an artifact
    * representing the file that should be executed to run the target. This is null otherwise.
    */
+  @Nullable
+  @Override
   public abstract Artifact getExecutable();
 
   @Override
@@ -184,9 +186,11 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
       return null;
     }
 
+    @Nullable
     @Override
     public Artifact getExecutable() {
-      return target.getProvider(FilesToRunProvider.class).getExecutable();
+      FilesToRunProvider filesToRun = getFilesToRun();
+      return filesToRun == null ? null : filesToRun.getExecutable();
     }
   }
 

@@ -54,6 +54,8 @@ std::string ToString(const T& value) {
 
 namespace devtools_ijar {
 
+bool verbose = false;
+
 // See Table 4.4 in JVM 17 Spec.
 enum CONSTANT {
   CONSTANT_Class = 7,
@@ -118,17 +120,7 @@ static std::vector<Constant *> const_pool_out;  // output constant_pool
 static std::set<std::string> used_class_names;
 static Constant *class_name;
 static std::unordered_set<std::string> unknown_attributes;
-
-// Returns the Constant object, given an index into the input constant pool.
-// Note: constant(0) == NULL; this invariant is exploited by the
-// InnerClassesAttribute, inter alia.
-inline Constant *constant(int idx) {
-  if (idx < 0 || (unsigned)idx >= const_pool_in.size()) {
-    fprintf(stderr, "Illegal constant pool index: %d\n", idx);
-    abort();
-  }
-  return const_pool_in[idx];
-}
+static bool parse_error = false;
 
 /**********************************************************************
  *                                                                    *
@@ -186,12 +178,37 @@ struct Constant {
   u1 tag_;
 };
 
+struct DummyConstant : Constant {
+  DummyConstant() : Constant(CONSTANT_Utf8) {}
+  std::string Display() override { return ""; }
+  void Write(u1 *& /*p*/) override {}
+  void Keep() override {}
+};
+
+static DummyConstant dummy_constant;
+
+// Returns the Constant object, given an index into the input constant pool.
+// Note: constant(0, /*allow_zero=*/true) == NULL; this invariant is exploited
+// by InnerClassesAttribute, EnclosingMethodAttribute,
+// MethodParametersAttribute, and super_class.
+inline Constant *constant(int idx, bool allow_zero = false) {
+  if (idx == 0 && allow_zero) {
+    return NULL;
+  }
+  if (idx <= 0 || static_cast<size_t>(idx) >= const_pool_in.size() ||
+      const_pool_in[idx] == NULL) {
+    parse_error = true;
+    return &dummy_constant;
+  }
+  return const_pool_in[idx];
+}
+
 // Extracts class names from a signature and puts them into the global
 // variable used_class_names.
 //
 // desc: the descriptor class names should be extracted from.
 // p: the position where the extraction should tart.
-void ExtractClassNames(const std::string& desc, size_t* p);
+void ExtractClassNames(const std::string& desc, size_t* p, size_t depth = 0);
 
 // See sec.4.4.1 of JVM spec.
 struct Constant_Class : Constant
@@ -450,7 +467,7 @@ struct Attribute {
   virtual void ExtractClassNames() {}
   virtual bool KeepForCompile() const { return false; }
 
-  void WriteProlog(u1 *&p, u2 length) {
+  void WriteProlog(u1 *&p, u4 length) {
     put_u2be(p, attribute_name_->slot());
     put_u4be(p, length);
   }
@@ -462,7 +479,7 @@ struct HasAttrs {
   std::vector<Attribute*> attributes;
 
   void WriteAttrs(u1 *&p);
-  void ReadAttrs(const u1 *&p);
+  void ReadAttrs(Reader &r);
 
   virtual ~HasAttrs() {
     for (const auto *attribute : attributes) {
@@ -480,12 +497,12 @@ struct HasAttrs {
 // See sec.4.7.5 of JVM spec.
 struct ExceptionsAttribute : Attribute {
 
-  static ExceptionsAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static ExceptionsAttribute* Read(Reader &r, Constant *attribute_name) {
     ExceptionsAttribute *attr = new ExceptionsAttribute;
     attr->attribute_name_ = attribute_name;
-    u2 number_of_exceptions = get_u2be(p);
-    for (int ii = 0; ii < number_of_exceptions; ++ii) {
-      attr->exceptions_.push_back(constant(get_u2be(p)));
+    u2 number_of_exceptions = r.get_u2be();
+    for (int ii = 0; ii < number_of_exceptions && r.ok; ++ii) {
+      attr->exceptions_.push_back(constant(r.get_u2be()));
     }
     return attr;
   }
@@ -517,17 +534,17 @@ struct InnerClassesAttribute : Attribute {
     }
   }
 
-  static InnerClassesAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static InnerClassesAttribute* Read(Reader &r, Constant *attribute_name) {
     InnerClassesAttribute *attr = new InnerClassesAttribute;
     attr->attribute_name_ = attribute_name;
 
-    u2 number_of_classes = get_u2be(p);
-    for (int ii = 0; ii < number_of_classes; ++ii) {
+    u2 number_of_classes = r.get_u2be();
+    for (int ii = 0; ii < number_of_classes && r.ok; ++ii) {
       Entry *entry = new Entry;
-      entry->inner_class_info = constant(get_u2be(p));
-      entry->outer_class_info = constant(get_u2be(p));
-      entry->inner_name = constant(get_u2be(p));
-      entry->inner_class_access_flags = get_u2be(p);
+      entry->inner_class_info = constant(r.get_u2be());
+      entry->outer_class_info = constant(r.get_u2be(), /*allow_zero=*/true);
+      entry->inner_name = constant(r.get_u2be(), /*allow_zero=*/true);
+      entry->inner_class_access_flags = r.get_u2be();
 
       attr->entries_.push_back(entry);
     }
@@ -602,12 +619,12 @@ struct InnerClassesAttribute : Attribute {
 // of generics (see b/9070939).
 struct EnclosingMethodAttribute : Attribute {
 
-  static EnclosingMethodAttribute* Read(const u1 *&p,
+  static EnclosingMethodAttribute* Read(Reader &r,
                                         Constant *attribute_name) {
     EnclosingMethodAttribute *attr = new EnclosingMethodAttribute;
     attr->attribute_name_ = attribute_name;
-    attr->class_ = constant(get_u2be(p));
-    attr->method_ = constant(get_u2be(p));
+    attr->class_ = constant(r.get_u2be());
+    attr->method_ = constant(r.get_u2be(), /*allow_zero=*/true);
     return attr;
   }
 
@@ -627,7 +644,7 @@ struct ElementValue {
   virtual ~ElementValue() {}
   virtual void Write(u1 *&p) = 0;
   virtual void ExtractClassNames() {}
-  static ElementValue* Read(const u1 *&p);
+  static ElementValue* Read(Reader &r, int depth = 0);
   u1 tag_;
   u4 length_;
 };
@@ -637,9 +654,9 @@ struct BaseTypeElementValue : ElementValue {
     put_u1(p, tag_);
     put_u2be(p, const_value_->slot());
   }
-  static BaseTypeElementValue *Read(const u1 *&p) {
+  static BaseTypeElementValue *Read(Reader &r) {
     BaseTypeElementValue *value = new BaseTypeElementValue;
-    value->const_value_ = constant(get_u2be(p));
+    value->const_value_ = constant(r.get_u2be());
     return value;
   }
   Constant *const_value_;
@@ -651,10 +668,10 @@ struct EnumTypeElementValue : ElementValue {
     put_u2be(p, type_name_->slot());
     put_u2be(p, const_name_->slot());
   }
-  static EnumTypeElementValue *Read(const u1 *&p) {
+  static EnumTypeElementValue *Read(Reader &r) {
     EnumTypeElementValue *value = new EnumTypeElementValue;
-    value->type_name_ = constant(get_u2be(p));
-    value->const_name_ = constant(get_u2be(p));
+    value->type_name_ = constant(r.get_u2be());
+    value->const_name_ = constant(r.get_u2be());
     return value;
   }
   Constant *type_name_;
@@ -672,9 +689,9 @@ struct ClassTypeElementValue : ElementValue {
     devtools_ijar::ExtractClassNames(class_info_->Display(), &idx);
   }
 
-  static ClassTypeElementValue *Read(const u1 *&p) {
+  static ClassTypeElementValue *Read(Reader &r) {
     ClassTypeElementValue *value = new ClassTypeElementValue;
-    value->class_info_ = constant(get_u2be(p));
+    value->class_info_ = constant(r.get_u2be());
     return value;
   }
   Constant *class_info_;
@@ -700,11 +717,11 @@ struct ArrayTypeElementValue : ElementValue {
       value->Write(p);
     }
   }
-  static ArrayTypeElementValue *Read(const u1 *&p) {
+  static ArrayTypeElementValue *Read(Reader &r, int depth) {
     ArrayTypeElementValue *value = new ArrayTypeElementValue;
-    u2 num_values = get_u2be(p);
-    for (int ii = 0; ii < num_values; ++ii) {
-      value->values_.push_back(ElementValue::Read(p));
+    u2 num_values = r.get_u2be();
+    for (int ii = 0; ii < num_values && r.ok; ++ii) {
+      value->values_.push_back(ElementValue::Read(r, depth + 1));
     }
     return value;
   }
@@ -734,14 +751,19 @@ struct Annotation {
       element_value_pairs_[ii]->element_value_->Write(p);
     }
   }
-  static Annotation *Read(const u1 *&p) {
+  static Annotation *Read(Reader &r, int depth = 0) {
     Annotation *value = new Annotation;
-    value->type_ = constant(get_u2be(p));
-    u2 num_element_value_pairs = get_u2be(p);
-    for (int ii = 0; ii < num_element_value_pairs; ++ii) {
+    if (depth > 64) {
+      r.ok = false;
+      value->type_ = &dummy_constant;
+      return value;
+    }
+    value->type_ = constant(r.get_u2be());
+    u2 num_element_value_pairs = r.get_u2be();
+    for (int ii = 0; ii < num_element_value_pairs && r.ok; ++ii) {
       ElementValuePair *pair = new ElementValuePair;
-      pair->element_name_ = constant(get_u2be(p));
-      pair->element_value_ = ElementValue::Read(p);
+      pair->element_name_ = constant(r.get_u2be());
+      pair->element_value_ = ElementValue::Read(r, depth + 1);
       value->element_value_pairs_.push_back(pair);
     }
     return value;
@@ -802,12 +824,12 @@ struct TypeAnnotation {
     annotation_->Write(p);
   }
 
-  static TypeAnnotation *Read(const u1 *&p) {
+  static TypeAnnotation *Read(Reader &r) {
     TypeAnnotation *value = new TypeAnnotation;
-    value->target_type_ = get_u1(p);
-    value->target_info_ = ReadTargetInfo(p, value->target_type_);
-    value->type_path_ = TypePath::Read(p);
-    value->annotation_ = Annotation::Read(p);
+    value->target_type_ = r.get_u1();
+    value->target_info_ = ReadTargetInfo(r, value->target_type_);
+    value->type_path_ = TypePath::Read(r);
+    value->annotation_ = Annotation::Read(r);
     return value;
   }
 
@@ -820,9 +842,9 @@ struct TypeAnnotation {
     void Write(u1 *&p) {
       put_u1(p, type_parameter_index_);
     }
-    static TypeParameterTargetInfo *Read(const u1 *&p) {
+    static TypeParameterTargetInfo *Read(Reader &r) {
       TypeParameterTargetInfo *value = new TypeParameterTargetInfo;
-      value->type_parameter_index_ = get_u1(p);
+      value->type_parameter_index_ = r.get_u1();
       return value;
     }
     u1 type_parameter_index_;
@@ -832,9 +854,9 @@ struct TypeAnnotation {
     void Write(u1 *&p) {
       put_u2be(p, supertype_index_);
     }
-    static ClassExtendsInfo *Read(const u1 *&p) {
+    static ClassExtendsInfo *Read(Reader &r) {
       ClassExtendsInfo *value = new ClassExtendsInfo;
-      value->supertype_index_ = get_u2be(p);
+      value->supertype_index_ = r.get_u2be();
       return value;
     }
     u2 supertype_index_;
@@ -845,10 +867,10 @@ struct TypeAnnotation {
       put_u1(p, type_parameter_index_);
       put_u1(p, bound_index_);
     }
-    static TypeParameterBoundInfo *Read(const u1 *&p) {
+    static TypeParameterBoundInfo *Read(Reader &r) {
       TypeParameterBoundInfo *value = new TypeParameterBoundInfo;
-      value->type_parameter_index_ = get_u1(p);
-      value->bound_index_ = get_u1(p);
+      value->type_parameter_index_ = r.get_u1();
+      value->bound_index_ = r.get_u1();
       return value;
     }
     u1 type_parameter_index_;
@@ -857,16 +879,16 @@ struct TypeAnnotation {
 
   struct EmptyInfo : TargetInfo {
     void Write(u1 *& /*p*/) {}
-    static EmptyInfo *Read(const u1 *& /*p*/) { return new EmptyInfo; }
+    static EmptyInfo *Read(Reader & /*r*/) { return new EmptyInfo; }
   };
 
   struct MethodFormalParameterInfo : TargetInfo {
     void Write(u1 *&p) {
       put_u1(p, method_formal_parameter_index_);
     }
-    static MethodFormalParameterInfo *Read(const u1 *&p) {
+    static MethodFormalParameterInfo *Read(Reader &r) {
       MethodFormalParameterInfo *value = new MethodFormalParameterInfo;
-      value->method_formal_parameter_index_ = get_u1(p);
+      value->method_formal_parameter_index_ = r.get_u1();
       return value;
     }
     u1 method_formal_parameter_index_;
@@ -876,36 +898,35 @@ struct TypeAnnotation {
     void Write(u1 *&p) {
       put_u2be(p, throws_type_index_);
     }
-    static ThrowsTypeInfo *Read(const u1 *&p) {
+    static ThrowsTypeInfo *Read(Reader &r) {
       ThrowsTypeInfo *value = new ThrowsTypeInfo;
-      value->throws_type_index_ = get_u2be(p);
+      value->throws_type_index_ = r.get_u2be();
       return value;
     }
     u2 throws_type_index_;
   };
 
-  static TargetInfo *ReadTargetInfo(const u1 *&p, u1 target_type) {
+  static TargetInfo *ReadTargetInfo(Reader &r, u1 target_type) {
     switch (target_type) {
       case CLASS_TYPE_PARAMETER:
       case METHOD_TYPE_PARAMETER:
-        return TypeParameterTargetInfo::Read(p);
+        return TypeParameterTargetInfo::Read(r);
       case CLASS_EXTENDS:
-        return ClassExtendsInfo::Read(p);
+        return ClassExtendsInfo::Read(r);
       case CLASS_TYPE_PARAMETER_BOUND:
       case METHOD_TYPE_PARAMETER_BOUND:
-        return TypeParameterBoundInfo::Read(p);
+        return TypeParameterBoundInfo::Read(r);
       case FIELD:
       case METHOD_RETURN:
       case METHOD_RECEIVER:
         return new EmptyInfo;
       case METHOD_FORMAL_PARAMETER:
-        return MethodFormalParameterInfo::Read(p);
+        return MethodFormalParameterInfo::Read(r);
       case THROWS:
-        return ThrowsTypeInfo::Read(p);
+        return ThrowsTypeInfo::Read(r);
       default:
-        fprintf(stderr, "Illegal type annotation target type: %d\n",
-                target_type);
-        abort();
+        r.ok = false;
+        return new EmptyInfo;
     }
   }
 
@@ -917,13 +938,13 @@ struct TypeAnnotation {
         put_u1(p, entry.type_argument_index_);
       }
     }
-    static TypePath *Read(const u1 *&p) {
+    static TypePath *Read(Reader &r) {
       TypePath *value = new TypePath;
-      u1 path_length = get_u1(p);
-      for (int ii = 0; ii < path_length; ++ii) {
+      u1 path_length = r.get_u1();
+      for (int ii = 0; ii < path_length && r.ok; ++ii) {
         TypePathEntry entry;
-        entry.type_path_kind_ = get_u1(p);
-        entry.type_argument_index_ = get_u1(p);
+        entry.type_path_kind_ = r.get_u1();
+        entry.type_argument_index_ = r.get_u1();
         value->path_.push_back(entry);
       }
       return value;
@@ -951,35 +972,42 @@ struct AnnotationTypeElementValue : ElementValue {
     put_u1(p, tag_);
     annotation_->Write(p);
   }
-  static AnnotationTypeElementValue *Read(const u1 *&p) {
+  static AnnotationTypeElementValue *Read(Reader &r, int depth) {
     AnnotationTypeElementValue *value = new AnnotationTypeElementValue;
-    value->annotation_ = Annotation::Read(p);
+    value->annotation_ = Annotation::Read(r, depth + 1);
     return value;
   }
 
   Annotation *annotation_;
 };
 
-ElementValue* ElementValue::Read(const u1 *&p) {
-  const u1* start = p;
+ElementValue* ElementValue::Read(Reader &r, int depth) {
+  const u1* start = r.p;
   ElementValue *result;
-  u1 tag = get_u1(p);
-  if (tag != 0 && strchr("BCDFIJSZs", (char) tag) != NULL) {
-    result = BaseTypeElementValue::Read(p);
+  u1 tag = r.get_u1();
+  if (depth > 64) {
+    r.ok = false;
+    BaseTypeElementValue *dummy = new BaseTypeElementValue;
+    dummy->const_value_ = &dummy_constant;
+    result = dummy;
+  } else if (tag != 0 && strchr("BCDFIJSZs", (char) tag) != NULL) {
+    result = BaseTypeElementValue::Read(r);
   } else if ((char) tag == 'e') {
-    result = EnumTypeElementValue::Read(p);
+    result = EnumTypeElementValue::Read(r);
   } else if ((char) tag == 'c') {
-    result = ClassTypeElementValue::Read(p);
+    result = ClassTypeElementValue::Read(r);
   } else if ((char) tag == '[') {
-    result = ArrayTypeElementValue::Read(p);
+    result = ArrayTypeElementValue::Read(r, depth);
   } else if ((char) tag == '@') {
-    result = AnnotationTypeElementValue::Read(p);
+    result = AnnotationTypeElementValue::Read(r, depth);
   } else {
-    fprintf(stderr, "Illegal element_value::tag: %d\n", tag);
-    abort();
+    r.ok = false;
+    BaseTypeElementValue *dummy = new BaseTypeElementValue;
+    dummy->const_value_ = &dummy_constant;
+    result = dummy;
   }
   result->tag_ = tag;
-  result->length_ = p - start;
+  result->length_ = r.p - start;
   return result;
 }
 
@@ -991,11 +1019,11 @@ struct AnnotationDefaultAttribute : Attribute {
     delete default_value_;
   }
 
-  static AnnotationDefaultAttribute* Read(const u1 *&p,
+  static AnnotationDefaultAttribute* Read(Reader &r,
                                           Constant *attribute_name) {
     AnnotationDefaultAttribute *attr = new AnnotationDefaultAttribute;
     attr->attribute_name_ = attribute_name;
-    attr->default_value_ = ElementValue::Read(p);
+    attr->default_value_ = ElementValue::Read(r);
     return attr;
   }
 
@@ -1016,10 +1044,10 @@ struct AnnotationDefaultAttribute : Attribute {
 // compile-time constant propagation.
 struct ConstantValueAttribute : Attribute {
 
-  static ConstantValueAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static ConstantValueAttribute* Read(Reader &r, Constant *attribute_name) {
     ConstantValueAttribute *attr = new ConstantValueAttribute;
     attr->attribute_name_ = attribute_name;
-    attr->constantvalue_ = constant(get_u2be(p));
+    attr->constantvalue_ = constant(r.get_u2be());
     return attr;
   }
 
@@ -1036,10 +1064,10 @@ struct ConstantValueAttribute : Attribute {
 // compiler for type-checking of generics.
 struct SignatureAttribute : Attribute {
 
-  static SignatureAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static SignatureAttribute* Read(Reader &r, Constant *attribute_name) {
     SignatureAttribute *attr = new SignatureAttribute;
     attr->attribute_name_ = attribute_name;
-    attr->signature_  = constant(get_u2be(p));
+    attr->signature_ = constant(r.get_u2be());
     return attr;
   }
 
@@ -1060,7 +1088,7 @@ struct SignatureAttribute : Attribute {
 // We preserve Deprecated attributes because they are required by the
 // compiler to generate warning messages.
 struct DeprecatedAttribute : Attribute {
-  static DeprecatedAttribute *Read(const u1 *& /*p*/,
+  static DeprecatedAttribute *Read(Reader & /*r*/,
                                    Constant *attribute_name) {
     DeprecatedAttribute *attr = new DeprecatedAttribute;
     attr->attribute_name_ = attribute_name;
@@ -1083,12 +1111,12 @@ struct AnnotationsAttribute : Attribute {
     }
   }
 
-  static AnnotationsAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static AnnotationsAttribute* Read(Reader &r, Constant *attribute_name) {
     AnnotationsAttribute *attr = new AnnotationsAttribute;
     attr->attribute_name_ = attribute_name;
-    u2 num_annotations = get_u2be(p);
-    for (int ii = 0; ii < num_annotations; ++ii) {
-      Annotation *annotation = Annotation::Read(p);
+    u2 num_annotations = r.get_u2be();
+    for (int ii = 0; ii < num_annotations && r.ok; ++ii) {
+      Annotation *annotation = Annotation::Read(r);
       attr->annotations_.push_back(annotation);
     }
     return attr;
@@ -1127,17 +1155,24 @@ struct AnnotationsAttribute : Attribute {
 //
 // We preserve all annotations.
 struct ParameterAnnotationsAttribute : Attribute {
+  virtual ~ParameterAnnotationsAttribute() {
+    for (size_t i = 0; i < parameter_annotations_.size(); i++) {
+      for (size_t j = 0; j < parameter_annotations_[i].size(); j++) {
+        delete parameter_annotations_[i][j];
+      }
+    }
+  }
 
-  static ParameterAnnotationsAttribute* Read(const u1 *&p,
+  static ParameterAnnotationsAttribute* Read(Reader &r,
                                              Constant *attribute_name) {
     ParameterAnnotationsAttribute *attr = new ParameterAnnotationsAttribute;
     attr->attribute_name_ = attribute_name;
-    u1 num_parameters = get_u1(p);
-    for (int ii = 0; ii < num_parameters; ++ii) {
+    u1 num_parameters = r.get_u1();
+    for (int ii = 0; ii < num_parameters && r.ok; ++ii) {
       std::vector<Annotation*> annotations;
-      u2 num_annotations = get_u2be(p);
-      for (int ii = 0; ii < num_annotations; ++ii) {
-        Annotation *annotation = Annotation::Read(p);
+      u2 num_annotations = r.get_u2be();
+      for (int jj = 0; jj < num_annotations && r.ok; ++jj) {
+        Annotation *annotation = Annotation::Read(r);
         annotations.push_back(annotation);
       }
       attr->parameter_annotations_.push_back(annotations);
@@ -1174,13 +1209,19 @@ struct ParameterAnnotationsAttribute : Attribute {
 // See sec.4.7.20 of Java 8 JVM spec. Includes RuntimeVisibleTypeAnnotations
 // and RuntimeInvisibleTypeAnnotations.
 struct TypeAnnotationsAttribute : Attribute {
-  static TypeAnnotationsAttribute *Read(const u1 *&p, Constant *attribute_name,
+  virtual ~TypeAnnotationsAttribute() {
+    for (size_t i = 0; i < type_annotations_.size(); i++) {
+      delete type_annotations_[i];
+    }
+  }
+
+  static TypeAnnotationsAttribute *Read(Reader &r, Constant *attribute_name,
                                         u4 /*attribute_length*/) {
     auto attr = new TypeAnnotationsAttribute;
     attr->attribute_name_ = attribute_name;
-    u2 num_annotations = get_u2be(p);
-    for (int ii = 0; ii < num_annotations; ++ii) {
-      TypeAnnotation *annotation = TypeAnnotation::Read(p);
+    u2 num_annotations = r.get_u2be();
+    for (int ii = 0; ii < num_annotations && r.ok; ++ii) {
+      TypeAnnotation *annotation = TypeAnnotation::Read(r);
       attr->type_annotations_.push_back(annotation);
     }
     return attr;
@@ -1207,16 +1248,22 @@ struct TypeAnnotationsAttribute : Attribute {
 
 // See JVMS §4.7.24
 struct MethodParametersAttribute : Attribute {
-  static MethodParametersAttribute *Read(const u1 *&p, Constant *attribute_name,
+  virtual ~MethodParametersAttribute() {
+    for (size_t i = 0; i < parameters_.size(); i++) {
+      delete parameters_[i];
+    }
+  }
+
+  static MethodParametersAttribute *Read(Reader &r, Constant *attribute_name,
                                          u4 /*attribute_length*/) {
     auto attr = new MethodParametersAttribute;
     attr->attribute_name_ = attribute_name;
-    u1 parameters_count = get_u1(p);
-    for (int ii = 0; ii < parameters_count; ++ii) {
+    u1 parameters_count = r.get_u1();
+    for (int ii = 0; ii < parameters_count && r.ok; ++ii) {
       MethodParameter* parameter = new MethodParameter;
-      int name_id = get_u2be(p);
-      parameter->name_ = name_id == 0 ? NULL : constant(name_id);
-      parameter->access_flags_ = get_u2be(p);
+      int name_id = r.get_u2be();
+      parameter->name_ = constant(name_id, /*allow_zero=*/true);
+      parameter->access_flags_ = r.get_u2be();
       attr->parameters_.push_back(parameter);
     }
     return attr;
@@ -1243,11 +1290,11 @@ struct MethodParametersAttribute : Attribute {
 
 // See JVMS §4.7.28
 struct NestHostAttribute : Attribute {
-  static NestHostAttribute *Read(const u1 *&p, Constant *attribute_name,
+  static NestHostAttribute *Read(Reader &r, Constant *attribute_name,
                                  u4 /*attribute_length*/) {
     auto attr = new NestHostAttribute;
     attr->attribute_name_ = attribute_name;
-    attr->host_class_index_ = constant(get_u2be(p));
+    attr->host_class_index_ = constant(r.get_u2be());
     return attr;
   }
 
@@ -1261,13 +1308,13 @@ struct NestHostAttribute : Attribute {
 
 // See JVMS §4.7.29
 struct NestMembersAttribute : Attribute {
-  static NestMembersAttribute *Read(const u1 *&p, Constant *attribute_name,
+  static NestMembersAttribute *Read(Reader &r, Constant *attribute_name,
                                     u4 /*attribute_length*/) {
     auto attr = new NestMembersAttribute;
     attr->attribute_name_ = attribute_name;
-    u2 number_of_classes = get_u2be(p);
-    for (int ii = 0; ii < number_of_classes; ++ii) {
-      attr->classes_.push_back(constant(get_u2be(p)));
+    u2 number_of_classes = r.get_u2be();
+    for (int ii = 0; ii < number_of_classes && r.ok; ++ii) {
+      attr->classes_.push_back(constant(r.get_u2be()));
     }
     return attr;
   }
@@ -1297,29 +1344,30 @@ struct NestMembersAttribute : Attribute {
 
 // See JVMS §4.7.30
 struct RecordAttribute : Attribute {
-  static RecordAttribute *Read(const u1 *&p, Constant *attribute_name,
-                                    u4 attribute_length) {
+  virtual ~RecordAttribute() {
+    for (size_t i = 0; i < components_.size(); ++i) {
+      delete components_[i];
+    }
+  }
+
+  static RecordAttribute *Read(Reader &r, Constant *attribute_name) {
     auto attr = new RecordAttribute;
     attr->attribute_name_ = attribute_name;
-    attr->attribute_length_ = attribute_length;
-    u2 components_length = get_u2be(p);
-    for (int i = 0; i < components_length; ++i) {
-      attr->components_.push_back(RecordComponentInfo::Read(p));
+    u2 components_length = r.get_u2be();
+    for (int i = 0; i < components_length && r.ok; ++i) {
+      attr->components_.push_back(RecordComponentInfo::Read(r));
     }
     return attr;
   }
 
   void Write(u1 *&p) {
-    u1 *tmp = new u1[attribute_length_];
-    u1 *start = tmp;
-    put_u2be(tmp, components_.size());
+    WriteProlog(p, -1);
+    u1 *payload_start = p - 4;
+    put_u2be(p, components_.size());
     for (size_t i = 0; i < components_.size(); ++i) {
-      components_[i]->Write(tmp);
+      components_[i]->Write(p);
     }
-    u2 length = tmp - start;
-    WriteProlog(p, length);
-    memcpy(p, start, length);
-    p += length;
+    put_u4be(payload_start, p - 4 - payload_start);  // backpatch length
   }
 
   struct RecordComponentInfo : HasAttrs {
@@ -1328,11 +1376,11 @@ struct RecordAttribute : Attribute {
       put_u2be(p, descriptor_->slot());
       WriteAttrs(p);
     }
-    static RecordComponentInfo *Read(const u1 *&p) {
+    static RecordComponentInfo *Read(Reader &r) {
       RecordComponentInfo *value = new RecordComponentInfo;
-      value->name_ = constant(get_u2be(p));
-      value->descriptor_ = constant(get_u2be(p));
-      value->ReadAttrs(p);
+      value->name_ = constant(r.get_u2be());
+      value->descriptor_ = constant(r.get_u2be());
+      value->ReadAttrs(r);
       return value;
     }
 
@@ -1340,19 +1388,18 @@ struct RecordAttribute : Attribute {
     Constant *descriptor_;
   };
 
-  u4 attribute_length_;
   std::vector<RecordComponentInfo *> components_;
 };
 
 // See JVMS §4.7.31
 struct PermittedSubclassesAttribute : Attribute {
-  static PermittedSubclassesAttribute *Read(const u1 *&p,
+  static PermittedSubclassesAttribute *Read(Reader &r,
                                             Constant *attribute_name) {
     PermittedSubclassesAttribute *attr = new PermittedSubclassesAttribute;
     attr->attribute_name_ = attribute_name;
-    u2 number_of_exceptions = get_u2be(p);
-    for (int ii = 0; ii < number_of_exceptions; ++ii) {
-      attr->permitted_subclasses_.push_back(constant(get_u2be(p)));
+    u2 number_of_exceptions = r.get_u2be();
+    for (int ii = 0; ii < number_of_exceptions && r.ok; ++ii) {
+      attr->permitted_subclasses_.push_back(constant(r.get_u2be()));
     }
     return attr;
   }
@@ -1369,13 +1416,12 @@ struct PermittedSubclassesAttribute : Attribute {
 };
 
 struct GeneralAttribute : Attribute {
-  static GeneralAttribute* Read(const u1 *&p, Constant *attribute_name,
+  static GeneralAttribute* Read(Reader &r, Constant *attribute_name,
                                 u4 attribute_length) {
     auto attr = new GeneralAttribute;
     attr->attribute_name_ = attribute_name;
     attr->attribute_length_ = attribute_length;
-    attr->attribute_content_ = p;
-    p += attribute_length;
+    attr->attribute_content_ = r.get_bytes(attribute_length);
     return attr;
   }
 
@@ -1401,12 +1447,12 @@ struct Member : HasAttrs {
   Constant *name;
   Constant *descriptor;
 
-  static Member* Read(const u1 *&p) {
+  static Member* Read(Reader &r) {
     Member *m = new Member;
-    m->access_flags = get_u2be(p);
-    m->name = constant(get_u2be(p));
-    m->descriptor = constant(get_u2be(p));
-    m->ReadAttrs(p);
+    m->access_flags = r.get_u2be();
+    m->name = constant(r.get_u2be());
+    m->descriptor = constant(r.get_u2be());
+    m->ReadAttrs(r);
     return m;
   }
 
@@ -1450,7 +1496,7 @@ struct ClassFile : HasAttrs {
 
   void WriteClass(u1 *&p);
 
-  bool ReadConstantPool(const u1 *&p);
+  bool ReadConstantPool(Reader &r);
 
   bool KeepForCompile();
 
@@ -1521,11 +1567,15 @@ struct ClassFile : HasAttrs {
 
 };
 
-void HasAttrs::ReadAttrs(const u1 *&p) {
-  u2 attributes_count = get_u2be(p);
-  for (int ii = 0; ii < attributes_count; ii++) {
-    Constant *attribute_name = constant(get_u2be(p));
-    u4 attribute_length = get_u4be(p);
+void HasAttrs::ReadAttrs(Reader &r) {
+  u2 attributes_count = r.get_u2be();
+  for (int ii = 0; ii < attributes_count && r.ok; ii++) {
+    Constant *attribute_name = constant(r.get_u2be());
+    u4 attribute_length = r.get_u4be();
+    Reader attr_r = r.slice(attribute_length);
+    if (!attr_r.ok) {
+      break;
+    }
 
     std::string attr_name = attribute_name->Display();
     if (attr_name == "SourceFile" ||
@@ -1537,55 +1587,57 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
         attr_name == "Synthetic" ||
         attr_name == "BootstrapMethods" ||
         attr_name == "SourceDebugExtension") {
-      p += attribute_length; // drop these attributes
+      // drop these attributes (attr_r already sliced attribute_length from r)
     } else if (attr_name == "Exceptions") {
-      attributes.push_back(ExceptionsAttribute::Read(p, attribute_name));
+      attributes.push_back(ExceptionsAttribute::Read(attr_r, attribute_name));
     } else if (attr_name == "Signature") {
-      attributes.push_back(SignatureAttribute::Read(p, attribute_name));
+      attributes.push_back(SignatureAttribute::Read(attr_r, attribute_name));
     } else if (attr_name == "Deprecated") {
-      attributes.push_back(DeprecatedAttribute::Read(p, attribute_name));
+      attributes.push_back(DeprecatedAttribute::Read(attr_r, attribute_name));
     } else if (attr_name == "EnclosingMethod") {
-      attributes.push_back(EnclosingMethodAttribute::Read(p, attribute_name));
+      attributes.push_back(
+          EnclosingMethodAttribute::Read(attr_r, attribute_name));
     } else if (attr_name == "InnerClasses") {
       // TODO(bazel-team): omit private inner classes
-      attributes.push_back(InnerClassesAttribute::Read(p, attribute_name));
+      attributes.push_back(InnerClassesAttribute::Read(attr_r, attribute_name));
     } else if (attr_name == "AnnotationDefault") {
-      attributes.push_back(AnnotationDefaultAttribute::Read(p, attribute_name));
+      attributes.push_back(
+          AnnotationDefaultAttribute::Read(attr_r, attribute_name));
     } else if (attr_name == "ConstantValue") {
-      attributes.push_back(ConstantValueAttribute::Read(p, attribute_name));
+      attributes.push_back(
+          ConstantValueAttribute::Read(attr_r, attribute_name));
     } else if (attr_name == "RuntimeVisibleAnnotations" ||
                attr_name == "RuntimeInvisibleAnnotations") {
-      attributes.push_back(AnnotationsAttribute::Read(p, attribute_name));
+      attributes.push_back(AnnotationsAttribute::Read(attr_r, attribute_name));
     } else if (attr_name == "RuntimeVisibleParameterAnnotations" ||
                attr_name == "RuntimeInvisibleParameterAnnotations") {
       attributes.push_back(
-          ParameterAnnotationsAttribute::Read(p, attribute_name));
+          ParameterAnnotationsAttribute::Read(attr_r, attribute_name));
     } else if (attr_name == "Scala" || attr_name == "ScalaSig" ||
                attr_name == "ScalaInlineInfo" || attr_name == "TASTY" ||
                attr_name == "TurbineTransitiveJar") {
       // These are opaque blobs, so can be handled with a general
       // attribute handler
-      attributes.push_back(GeneralAttribute::Read(p, attribute_name,
-                                                  attribute_length));
+      attributes.push_back(
+          GeneralAttribute::Read(attr_r, attribute_name, attribute_length));
     } else if (attr_name == "RuntimeVisibleTypeAnnotations" ||
                attr_name == "RuntimeInvisibleTypeAnnotations") {
-      attributes.push_back(TypeAnnotationsAttribute::Read(p, attribute_name,
-                                                          attribute_length));
+      attributes.push_back(TypeAnnotationsAttribute::Read(
+          attr_r, attribute_name, attribute_length));
     } else if (attr_name == "MethodParameters") {
-      attributes.push_back(
-          MethodParametersAttribute::Read(p, attribute_name, attribute_length));
+      attributes.push_back(MethodParametersAttribute::Read(
+          attr_r, attribute_name, attribute_length));
     } else if (attr_name == "NestHost") {
       attributes.push_back(
-          NestHostAttribute::Read(p, attribute_name, attribute_length));
+          NestHostAttribute::Read(attr_r, attribute_name, attribute_length));
     } else if (attr_name == "NestMembers") {
       attributes.push_back(
-          NestMembersAttribute::Read(p, attribute_name, attribute_length));
+          NestMembersAttribute::Read(attr_r, attribute_name, attribute_length));
     } else if (attr_name == "Record") {
-      attributes.push_back(
-          RecordAttribute::Read(p, attribute_name, attribute_length));
+      attributes.push_back(RecordAttribute::Read(attr_r, attribute_name));
     } else if (attr_name == "PermittedSubclasses") {
       attributes.push_back(
-          PermittedSubclassesAttribute::Read(p, attribute_name));
+          PermittedSubclassesAttribute::Read(attr_r, attribute_name));
     } else {
       // Skip over unknown attributes with a warning.  The JVM spec
       // says this is ok, so long as we handle the mandatory attributes.
@@ -1599,7 +1651,10 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
                   attr_name.c_str());
         }
       }
-      p += attribute_length;
+    }
+    if (!attr_r.ok) {
+      r.ok = false;
+      break;
     }
   }
 }
@@ -1620,15 +1675,26 @@ void HasAttrs::WriteAttrs(u1 *&p) {
   put_u2be(p_size, n_written_attrs);
 }
 
+static bool HasTag(u2 idx, u1 tag) {
+  return idx > 0 && idx < const_pool_in.size() &&
+         const_pool_in[idx] != NULL && const_pool_in[idx]->tag_ == tag;
+}
+
 // See sec.4.4 of JVM spec.
-bool ClassFile::ReadConstantPool(const u1 *&p) {
+bool ClassFile::ReadConstantPool(Reader &r) {
 
   const_pool_in.clear();
   const_pool_in.push_back(NULL); // dummy first item
 
-  u2 cp_count = get_u2be(p);
-  for (int ii = 1; ii < cp_count; ++ii) {
-    u1 tag = get_u1(p);
+  u2 cp_count = r.get_u2be();
+  if (!r.ok || cp_count == 0) {
+    return false;
+  }
+  for (int ii = 1; ii < cp_count && r.ok; ++ii) {
+    u1 tag = r.get_u1();
+    if (!r.ok) {
+      return false;
+    }
 
     if (devtools_ijar::verbose) {
       fprintf(stderr, "cp[%d/%d] = tag %d\n", ii, cp_count, tag);
@@ -1636,51 +1702,58 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
 
     switch(tag) {
       case CONSTANT_Class: {
-        u2 name_index = get_u2be(p);
+        u2 name_index = r.get_u2be();
         const_pool_in.push_back(new Constant_Class(name_index));
         break;
       }
       case CONSTANT_FieldRef:
       case CONSTANT_Methodref:
       case CONSTANT_Interfacemethodref: {
-        u2 class_index = get_u2be(p);
-        u2 nti = get_u2be(p);
+        u2 class_index = r.get_u2be();
+        u2 nti = r.get_u2be();
         const_pool_in.push_back(new Constant_FMIref(tag, class_index, nti));
         break;
       }
       case CONSTANT_String: {
-        u2 string_index = get_u2be(p);
+        u2 string_index = r.get_u2be();
         const_pool_in.push_back(new Constant_String(string_index));
         break;
       }
       case CONSTANT_NameAndType: {
-        u2 name_index = get_u2be(p);
-        u2 descriptor_index = get_u2be(p);
+        u2 name_index = r.get_u2be();
+        u2 descriptor_index = r.get_u2be();
         const_pool_in.push_back(
             new Constant_NameAndType(name_index, descriptor_index));
         break;
       }
       case CONSTANT_Utf8: {
-        u2 length = get_u2be(p);
+        u2 utf8_length = r.get_u2be();
+        const u1 *utf8 = r.get_bytes(utf8_length);
+        if (utf8 == nullptr) {
+          return false;
+        }
         if (devtools_ijar::verbose) {
           fprintf(stderr, "Utf8: \"%s\" (%d)\n",
-                  std::string((const char*) p, length).c_str(), length);
+                  std::string((const char*) utf8, utf8_length).c_str(),
+                  utf8_length);
         }
 
-        const_pool_in.push_back(new Constant_Utf8(length, p));
-        p += length;
+        const_pool_in.push_back(new Constant_Utf8(utf8_length, utf8));
         break;
       }
       case CONSTANT_Integer:
       case CONSTANT_Float: {
-        u4 bytes = get_u4be(p);
+        u4 bytes = r.get_u4be();
         const_pool_in.push_back(new Constant_IntegerOrFloat(tag, bytes));
         break;
       }
       case CONSTANT_Long:
       case CONSTANT_Double: {
-        u4 high_bytes = get_u4be(p);
-        u4 low_bytes = get_u4be(p);
+        if (ii + 1 >= cp_count) {
+          return false;
+        }
+        u4 high_bytes = r.get_u4be();
+        u4 low_bytes = r.get_u4be();
         const_pool_in.push_back(
             new Constant_LongOrDouble(tag, high_bytes, low_bytes));
         // Longs and doubles occupy two constant pool slots.
@@ -1691,27 +1764,27 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
         break;
       }
       case CONSTANT_MethodHandle: {
-        u1 reference_kind = get_u1(p);
-        u2 reference_index = get_u2be(p);
+        u1 reference_kind = r.get_u1();
+        u2 reference_index = r.get_u2be();
         const_pool_in.push_back(
             new Constant_MethodHandle(reference_kind, reference_index));
         break;
       }
       case CONSTANT_MethodType: {
-        u2 descriptor_index = get_u2be(p);
+        u2 descriptor_index = r.get_u2be();
         const_pool_in.push_back(new Constant_MethodType(descriptor_index));
         break;
       }
       case CONSTANT_Dynamic: {
-        u2 bootstrap_method_attr = get_u2be(p);
-        u2 name_name_type_index = get_u2be(p);
+        u2 bootstrap_method_attr = r.get_u2be();
+        u2 name_name_type_index = r.get_u2be();
         const_pool_in.push_back(
             new Constant_Dynamic(bootstrap_method_attr, name_name_type_index));
         break;
       }
       case CONSTANT_InvokeDynamic: {
-        u2 bootstrap_method_attr = get_u2be(p);
-        u2 name_name_type_index = get_u2be(p);
+        u2 bootstrap_method_attr = r.get_u2be();
+        u2 name_name_type_index = r.get_u2be();
         const_pool_in.push_back(new Constant_InvokeDynamic(
             bootstrap_method_attr, name_name_type_index));
         break;
@@ -1721,6 +1794,81 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
                 tag);
         return false;
       }
+    }
+  }
+
+  if (!r.ok) {
+    return false;
+  }
+
+  // Verify constant pool internal references form a valid DAG of expected tags.
+  // This prevents out-of-bounds/NULL dereferences and infinite recursion in
+  // Display() and Keep() on cyclic constant pool entries.
+  for (size_t ii = 1; ii < const_pool_in.size(); ++ii) {
+    Constant *c = const_pool_in[ii];
+    if (c == NULL) continue;
+    switch (c->tag_) {
+      case CONSTANT_Class:
+        if (!HasTag(static_cast<Constant_Class *>(c)->name_index_,
+                    CONSTANT_Utf8)) {
+          return false;
+        }
+        break;
+      case CONSTANT_String:
+        if (!HasTag(static_cast<Constant_String *>(c)->string_index_,
+                    CONSTANT_Utf8)) {
+          return false;
+        }
+        break;
+      case CONSTANT_MethodType:
+        if (!HasTag(static_cast<Constant_MethodType *>(c)->descriptor_index_,
+                    CONSTANT_Utf8)) {
+          return false;
+        }
+        break;
+      case CONSTANT_NameAndType: {
+        auto *nat = static_cast<Constant_NameAndType *>(c);
+        if (!HasTag(nat->name_index_, CONSTANT_Utf8) ||
+            !HasTag(nat->descr_index_, CONSTANT_Utf8)) {
+          return false;
+        }
+        break;
+      }
+      case CONSTANT_FieldRef:
+      case CONSTANT_Methodref:
+      case CONSTANT_Interfacemethodref: {
+        auto *fmi = static_cast<Constant_FMIref *>(c);
+        if (!HasTag(fmi->class_index_, CONSTANT_Class) ||
+            !HasTag(fmi->name_type_index_, CONSTANT_NameAndType)) {
+          return false;
+        }
+        break;
+      }
+      case CONSTANT_Dynamic: {
+        auto *dyn = static_cast<Constant_Dynamic *>(c);
+        if (!HasTag(dyn->name_and_type_index_, CONSTANT_NameAndType)) {
+          return false;
+        }
+        break;
+      }
+      case CONSTANT_InvokeDynamic: {
+        auto *idyn = static_cast<Constant_InvokeDynamic *>(c);
+        if (!HasTag(idyn->name_and_type_index_, CONSTANT_NameAndType)) {
+          return false;
+        }
+        break;
+      }
+      case CONSTANT_MethodHandle: {
+        auto *mh = static_cast<Constant_MethodHandle *>(c);
+        if (!HasTag(mh->reference_index_, CONSTANT_FieldRef) &&
+            !HasTag(mh->reference_index_, CONSTANT_Methodref) &&
+            !HasTag(mh->reference_index_, CONSTANT_Interfacemethodref)) {
+          return false;
+        }
+        break;
+      }
+      default:
+        break;
     }
   }
 
@@ -1755,57 +1903,63 @@ bool ClassFile::KeepForCompile() {
 }
 
 static ClassFile *ReadClass(const void *classdata, size_t length) {
-  const u1 *p = (u1*) classdata;
+  Reader r(static_cast<const u1*>(classdata), length);
+  parse_error = false;
 
   ClassFile *clazz = new ClassFile;
 
   clazz->length = length;
 
-  clazz->magic = get_u4be(p);
-  if (clazz->magic != 0xCAFEBABE) {
-    fprintf(stderr, "Bad magic %" PRIx32 "\n", clazz->magic);
-    abort();
+  clazz->magic = r.get_u4be();
+  if (!r.ok || clazz->magic != 0xCAFEBABE) {
+    delete clazz;
+    return NULL;
   }
-  clazz->major = get_u2be(p);
-  clazz->minor = get_u2be(p);
+  clazz->major = r.get_u2be();
+  clazz->minor = r.get_u2be();
 
-  if (!clazz->ReadConstantPool(p)) {
+  if (!clazz->ReadConstantPool(r)) {
     delete clazz;
     return NULL;
   }
 
-  clazz->access_flags = get_u2be(p);
-  clazz->this_class = constant(get_u2be(p));
+  clazz->access_flags = r.get_u2be();
+  clazz->this_class = constant(r.get_u2be());
   class_name = clazz->this_class;
 
-  u2 super_class_id = get_u2be(p);
-  clazz->super_class = super_class_id == 0 ? NULL : constant(super_class_id);
+  u2 super_class_id = r.get_u2be();
+  clazz->super_class = constant(super_class_id, /*allow_zero=*/true);
 
-  u2 interfaces_count = get_u2be(p);
-  for (int ii = 0; ii < interfaces_count; ++ii) {
-    clazz->interfaces.push_back(constant(get_u2be(p)));
+  u2 interfaces_count = r.get_u2be();
+  for (int ii = 0; ii < interfaces_count && r.ok; ++ii) {
+    clazz->interfaces.push_back(constant(r.get_u2be()));
   }
 
-  u2 fields_count = get_u2be(p);
-  for (int ii = 0; ii < fields_count; ++ii) {
-    Member *field = Member::Read(p);
+  u2 fields_count = r.get_u2be();
+  for (int ii = 0; ii < fields_count && r.ok; ++ii) {
+    Member *field = Member::Read(r);
 
     if ((field->access_flags & ACC_PRIVATE) == ACC_PRIVATE) {
       // drop private fields
+      delete field;
       continue;
     }
     clazz->fields.push_back(field);
   }
 
-  u2 methods_count = get_u2be(p);
-  for (int ii = 0; ii < methods_count; ++ii) {
-    Member *method = Member::Read(p);
+  u2 methods_count = r.get_u2be();
+  for (int ii = 0; ii < methods_count && r.ok; ++ii) {
+    Member *method = Member::Read(r);
 
     // drop class initializers
-    if (method->name->Display() == "<clinit>") continue;
+    if (method->name->Display() == "<clinit>") {
+      delete method;
+      continue;
+    }
 
     if ((method->access_flags & ACC_PRIVATE) == ACC_PRIVATE) {
       // drop private methods
+      delete method;
       continue;
     }
     if ((method->access_flags & (ACC_SYNTHETIC | ACC_BRIDGE | ACC_PUBLIC |
@@ -1813,12 +1967,18 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
       // drop package-private non-bridge synthetic methods, e.g. synthetic
       // constructors used to instantiate private nested classes within their
       // declaring compilation unit
+      delete method;
       continue;
     }
     clazz->methods.push_back(method);
   }
 
-  clazz->ReadAttrs(p);
+  clazz->ReadAttrs(r);
+
+  if (!r.ok || parse_error) {
+    delete clazz;
+    return NULL;
+  }
 
   return clazz;
 }
@@ -1828,14 +1988,14 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
 // this works just as well as in plain ASCII.
 static const char *SIGNATURE_NON_IDENTIFIER_CHARS = ".;[<>:";
 
-void Expect(const std::string& desc, size_t* p, char expected) {
-  if (desc[*p] != expected) {
-    fprintf(stderr, "Expected '%c' in '%s' at %zd in signature\n",
-            expected, desc.substr(*p).c_str(), *p);
-    exit(1);
+static bool Expect(const std::string& desc, size_t* p, char expected) {
+  if (*p >= desc.size() || desc[*p] != expected) {
+    *p = desc.size();
+    return false;
   }
 
   *p += 1;
+  return true;
 }
 
 // These functions form a crude recursive descent parser for descriptors and
@@ -1843,46 +2003,71 @@ void Expect(const std::string& desc, size_t* p, char expected) {
 //
 // This parser is a bit more liberal than the spec, but this should be fine,
 // because it accepts all valid class files and croaks only on invalid ones.
-void ParseFromClassTypeSignature(const std::string& desc, size_t* p);
-void ParseSimpleClassTypeSignature(const std::string& desc, size_t* p);
-void ParseClassTypeSignatureSuffix(const std::string& desc, size_t* p);
-void ParseIdentifier(const std::string& desc, size_t* p);
-void ParseTypeArgumentsOpt(const std::string& desc, size_t* p);
-void ParseMethodDescriptor(const std::string& desc, size_t* p);
+static const size_t kMaxSignatureDepth = 64;
 
-void ParseClassTypeSignature(const std::string& desc, size_t* p) {
+static void ParseSimpleClassTypeSignature(const std::string& desc, size_t* p,
+                                          size_t depth);
+static void ParseClassTypeSignatureSuffix(const std::string& desc, size_t* p,
+                                          size_t depth);
+static void ParseIdentifier(const std::string& desc, size_t* p);
+static void ParseTypeArgumentsOpt(const std::string& desc, size_t* p,
+                                  size_t depth);
+static void ParseMethodDescriptor(const std::string& desc, size_t* p,
+                                  size_t depth);
+static void ParseFormalTypeParameters(const std::string& desc, size_t* p,
+                                      size_t depth);
+
+static void ParseClassTypeSignature(const std::string& desc, size_t* p,
+                                    size_t depth) {
+  if (depth > kMaxSignatureDepth) {
+    *p = desc.size();
+    return;
+  }
   Expect(desc, p, 'L');
-  ParseSimpleClassTypeSignature(desc, p);
-  ParseClassTypeSignatureSuffix(desc, p);
+  ParseSimpleClassTypeSignature(desc, p, depth + 1);
+  ParseClassTypeSignatureSuffix(desc, p, depth + 1);
   Expect(desc, p, ';');
 }
 
-void ParseSimpleClassTypeSignature(const std::string& desc, size_t* p) {
+static void ParseSimpleClassTypeSignature(const std::string& desc, size_t* p,
+                                          size_t depth) {
   ParseIdentifier(desc, p);
-  ParseTypeArgumentsOpt(desc, p);
+  ParseTypeArgumentsOpt(desc, p, depth + 1);
 }
 
-void ParseClassTypeSignatureSuffix(const std::string& desc, size_t* p) {
-  while (desc[*p] == '.') {
+static void ParseClassTypeSignatureSuffix(const std::string& desc, size_t* p,
+                                          size_t depth) {
+  while (*p < desc.size() && desc[*p] == '.') {
     *p += 1;
-    ParseSimpleClassTypeSignature(desc, p);
+    ParseSimpleClassTypeSignature(desc, p, depth + 1);
   }
 }
 
-void ParseIdentifier(const std::string& desc, size_t* p) {
+static void ParseIdentifier(const std::string& desc, size_t* p) {
+  if (*p >= desc.size()) {
+    return;
+  }
   size_t next = desc.find_first_of(SIGNATURE_NON_IDENTIFIER_CHARS, *p);
+  if (next == std::string::npos) {
+    next = desc.size();
+  }
   std::string id = desc.substr(*p, next - *p);
   used_class_names.insert(id);
   *p = next;
 }
 
-void ParseTypeArgumentsOpt(const std::string& desc, size_t* p) {
-  if (desc[*p] != '<') {
+static void ParseTypeArgumentsOpt(const std::string& desc, size_t* p,
+                                  size_t depth) {
+  if (*p >= desc.size() || desc[*p] != '<') {
+    return;
+  }
+  if (depth > kMaxSignatureDepth) {
+    *p = desc.size();
     return;
   }
 
   *p += 1;
-  while (desc[*p] != '>') {
+  while (*p < desc.size() && desc[*p] != '>') {
     switch (desc[*p]) {
       case '*':
         *p += 1;
@@ -1891,60 +2076,76 @@ void ParseTypeArgumentsOpt(const std::string& desc, size_t* p) {
       case '+':
       case '-':
         *p += 1;
-        ExtractClassNames(desc, p);
+        ExtractClassNames(desc, p, depth + 1);
         break;
 
       default:
-        ExtractClassNames(desc, p);
+        ExtractClassNames(desc, p, depth + 1);
         break;
     }
   }
 
-  *p += 1;
+  if (*p < desc.size()) {
+    *p += 1;
+  }
 }
 
-void ParseMethodDescriptor(const std::string& desc, size_t* p) {
+static void ParseMethodDescriptor(const std::string& desc, size_t* p,
+                                  size_t depth) {
+  if (depth > kMaxSignatureDepth) {
+    *p = desc.size();
+    return;
+  }
   Expect(desc, p, '(');
-  while (desc[*p] != ')') {
-    ExtractClassNames(desc, p);
+  while (*p < desc.size() && desc[*p] != ')') {
+    ExtractClassNames(desc, p, depth + 1);
   }
 
   Expect(desc, p, ')');
-  ExtractClassNames(desc, p);
+  ExtractClassNames(desc, p, depth + 1);
 }
 
-void ParseFormalTypeParameters(const std::string& desc, size_t* p) {
+static void ParseFormalTypeParameters(const std::string& desc, size_t* p,
+                                      size_t depth) {
+  if (depth > kMaxSignatureDepth) {
+    *p = desc.size();
+    return;
+  }
   Expect(desc, p, '<');
-  while (desc[*p] != '>') {
+  while (*p < desc.size() && desc[*p] != '>') {
     ParseIdentifier(desc, p);
     Expect(desc, p, ':');
-    if (desc[*p] != ':' && desc[*p] != '>') {
-      ExtractClassNames(desc, p);
+    if (*p < desc.size() && desc[*p] != ':' && desc[*p] != '>') {
+      ExtractClassNames(desc, p, depth + 1);
     }
 
-    while (desc[*p] == ':') {
+    while (*p < desc.size() && desc[*p] == ':') {
       Expect(desc, p, ':');
-      ExtractClassNames(desc, p);
+      ExtractClassNames(desc, p, depth + 1);
     }
   }
 
   Expect(desc, p, '>');
 }
 
-void ExtractClassNames(const std::string& desc, size_t* p) {
+void ExtractClassNames(const std::string& desc, size_t* p, size_t depth) {
+  if (*p >= desc.size() || depth > kMaxSignatureDepth) {
+    *p = desc.size();
+    return;
+  }
   switch (desc[*p]) {
     case '<':
-      ParseFormalTypeParameters(desc, p);
-      ExtractClassNames(desc, p);
+      ParseFormalTypeParameters(desc, p, depth + 1);
+      ExtractClassNames(desc, p, depth + 1);
       break;
 
     case 'L':
-      ParseClassTypeSignature(desc, p);
+      ParseClassTypeSignature(desc, p, depth + 1);
       break;
 
     case '[':
       *p += 1;
-      ExtractClassNames(desc, p);
+      ExtractClassNames(desc, p, depth + 1);
       break;
 
     case 'T':
@@ -1954,7 +2155,7 @@ void ExtractClassNames(const std::string& desc, size_t* p) {
       break;
 
     case '(':
-      ParseMethodDescriptor(desc, p);
+      ParseMethodDescriptor(desc, p, depth + 1);
       break;
 
     case 'B':
@@ -1970,7 +2171,8 @@ void ExtractClassNames(const std::string& desc, size_t* p) {
       break;
 
     default:
-      fprintf(stderr, "Invalid signature %s\n", desc.substr(*p).c_str());
+      *p = desc.size();
+      break;
   }
 }
 
@@ -2012,9 +2214,8 @@ bool StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length) {
     // fail if called prior to this.
     const_pool_out.push_back(NULL);
     clazz->WriteClass(classdata_out);
-
-    delete clazz;
   }
+  delete clazz;
 
   // Now clean up all the mess we left behind.
 

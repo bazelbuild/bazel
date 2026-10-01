@@ -45,6 +45,7 @@ cc_test(
     ],
     deps = [
         ":duplicate_class_collector",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -70,6 +71,7 @@ cc_test(
         ":duplicate_class_collector",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )

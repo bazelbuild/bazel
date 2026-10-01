@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -25,7 +26,7 @@ public final class BashCommandConstructor implements CommandConstructor {
   private final PathFragment shellPath;
   private final String scriptNameSuffix;
 
-  BashCommandConstructor(PathFragment shellPath, String scriptNameSuffix) {
+  public BashCommandConstructor(PathFragment shellPath, String scriptNameSuffix) {
     this.shellPath = shellPath;
     this.scriptNameSuffix = scriptNameSuffix;
   }
@@ -41,10 +42,11 @@ public final class BashCommandConstructor implements CommandConstructor {
   }
 
   @Override
-  public Artifact commandAsScript(RuleContext ruleContext, String command) {
-    String scriptFileName = ruleContext.getTarget().getName() + scriptNameSuffix;
+  public Artifact commandAsScript(
+      ActionConstructionContext context, String targetName, String command) {
+    String scriptFileName = targetName + scriptNameSuffix;
     String scriptFileContents = "#!/bin/bash\n" + command;
     return FileWriteAction.createFile(
-        ruleContext, scriptFileName, scriptFileContents, /*executable=*/ true);
+        context, scriptFileName, scriptFileContents, /* executable= */ true);
   }
 }
