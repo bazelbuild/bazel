@@ -414,6 +414,10 @@ function test_input_discovery_unused_change_after_shutdown() {
 # The action script checks that b.input does NOT exist and fails if it does,
 # proving that pre-execution input discovery removed it from the sandbox.
 function test_input_discovery_removes_from_sandbox() {
+  if is_windows; then
+    # Sandboxing is not available on Windows.
+    return 0
+  fi
   cat > pkg/BUILD << 'EOF'
 load(":produce_unused_list.bzl", "produce_unused_list")
 load(":check_sandbox_rule.bzl", "check_sandbox_rule")
@@ -458,6 +462,10 @@ EOF
 # writes mapped paths (since it sees mapped paths at execution time), and
 # discoverInputs must match against those mapped paths.
 function test_input_discovery_with_path_mapping() {
+  if is_windows; then
+    # Sandboxing is not available on Windows.
+    return 0
+  fi
   # A rule that generates a derived file by copying a source file.
   cat > pkg/generate.bzl << 'EOF'
 def _generate_impl(ctx):
