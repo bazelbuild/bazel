@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -35,6 +36,7 @@ import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
@@ -47,9 +49,13 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -203,6 +209,50 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             eq(Priority.CRITICAL),
             eq(Reason.INPUTS));
     verifyNoMoreInteractions(inputFetcher);
+  }
+
+  @Test
+  public void getInputStream_lostFileOfExternalRepo_recordedAsLostInput() throws Exception {
+    ArtifactRoot repoRoot =
+        ArtifactRoot.asExternalSourceRoot(Root.fromPath(fs.getPath("/output_base/external/repo")));
+    Artifact input =
+        new Artifact.SourceArtifact(
+            repoRoot, PathFragment.create("external/repo/file"), /* owner= */ () -> null);
+    PathFragment path = input.getPath().asFragment();
+    Action action = new NullAction(ImmutableList.of(input), ActionsTestUtil.DUMMY_ARTIFACT);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    actionFs.updateContext(action);
+    // The file is not known to the action file system by this path and is thus read through the
+    // underlying file system, which serves the contents of the repo from the remote cache.
+    doThrow(
+            new LostRemoteRepoFileException(
+                "lost", new IOException(), RepositoryName.createUnvalidated("repo"), "digest/3"))
+        .when(fs)
+        .getInputStream(path);
+
+    assertThrows(LostRemoteRepoFileException.class, () -> actionFs.getInputStream(path));
+
+    LostInputsActionExecutionException e =
+        assertThrows(
+            LostInputsActionExecutionException.class, () -> actionFs.checkForLostInputs(action));
+    assertThat(e.getLostInputs()).containsExactly("digest/3", input);
+  }
+
+  @Test
+  public void getInputStream_lostFileOfExternalRepo_notAnInput_notRecorded() throws Exception {
+    PathFragment path = PathFragment.create("/output_base/external/repo/file");
+    Action action = new NullAction();
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    actionFs.updateContext(action);
+    doThrow(
+            new LostRemoteRepoFileException(
+                "lost", new IOException(), RepositoryName.createUnvalidated("repo"), "digest/3"))
+        .when(fs)
+        .getInputStream(path);
+
+    assertThrows(LostRemoteRepoFileException.class, () -> actionFs.getInputStream(path));
+
+    actionFs.checkForLostInputs(action);
   }
 
   @Test

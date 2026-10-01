@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunctionWithMultipleGlobDep
 import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.skyframe.RepoPackageArgsFunction.RepoPackageArgsValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
@@ -80,6 +81,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -367,15 +369,33 @@ public abstract class PackageFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws PackageFunctionException, InterruptedException {
-    PackageIdentifier packageId;
-    @Nullable PackagePieceIdentifier.ForBuildFile packagePieceId;
-    if (key.argument() instanceof PackageIdentifier id) {
-      packagePieceId = null;
-      packageId = id;
-    } else {
-      packagePieceId = (PackagePieceIdentifier.ForBuildFile) key.argument();
-      packageId = packagePieceId.getPackageIdentifier();
+    try {
+      return computeInternal(key, env);
+    } catch (PackageFunctionException e) {
+      Reset reset = RepoRewinding.resetForLostRepoFile(key, packageIdOf(key), e);
+      if (reset != null) {
+        return reset;
+      }
+      throw e;
     }
+  }
+
+  private static PackageIdentifier packageIdOf(SkyKey key) {
+    return switch (key.argument()) {
+      case PackageIdentifier packageId -> packageId;
+      case PackagePieceIdentifier.ForBuildFile packagePieceId ->
+          packagePieceId.getPackageIdentifier();
+      default -> throw new IllegalArgumentException("Unexpected key: " + key);
+    };
+  }
+
+  @Nullable
+  private SkyValue computeInternal(SkyKey key, Environment env)
+      throws PackageFunctionException, InterruptedException {
+    PackageIdentifier packageId = packageIdOf(key);
+    @Nullable
+    PackagePieceIdentifier.ForBuildFile packagePieceId =
+        key.argument() instanceof PackagePieceIdentifier.ForBuildFile id ? id : null;
     if (packageId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       throw PackageFunctionException.builder()
           .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)

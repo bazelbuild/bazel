@@ -101,6 +101,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:block_waiting_module",
         "//src/main/java/com/google/devtools/build/lib/runtime:memory_pressure_module",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_important_output_handler_module",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_remote_repo_file_exception",
         "//src/main/java/com/google/devtools/build/lib/vfs",

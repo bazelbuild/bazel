@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.MemoryPressureModule;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
@@ -46,9 +47,12 @@ import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -679,6 +683,48 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     actionEventRecorder.assertTotalLostInputCountsFromStats(ImmutableList.of(1));
   }
 
+  @Test
+  public void lostBuildFileDuringLoading_repoRewound() throws Exception {
+    writeRepoRule();
+    write("repo/content_a.txt", "old_a");
+    appendToModuleFile(
+        "my_repo = use_repo_rule('//repo:repo.bzl', 'my_repo')",
+        "my_repo(name = 'repo_a', content_file = 'content_a.txt')");
+    write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "consume",
+            srcs = ["@repo_a//:src.txt"],
+            outs = ["out.txt"],
+            cmd = "cp $< $@",
+        )
+        """);
+
+    buildTarget("//test:consume");
+    assertContents("old_a", "//test:consume");
+
+    // @repo_a's BUILD file is lost, which surfaces while loading the package rather than in a repo
+    // rule or an action.
+    write("repo/content_a.txt", "new_a");
+    RepositoryName repoA = canonicalRepoName("repo_a");
+    rewindableFs.loseOnNextRead(repoA.getName() + "/BUILD");
+    getSkyframeExecutor()
+        .getEvaluator()
+        .delete(
+            k ->
+                k.functionName().equals(SkyFunctions.PACKAGE)
+                    || k.functionName().equals(SkyFunctions.PACKAGE_LOOKUP));
+
+    List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
+    buildTarget("//test:consume");
+
+    assertThat(rewindableFs.lostRepoFiles).isNotEmpty();
+    assertThat(rewoundKeys).contains(RepositoryDirectoryValue.key(repoA));
+    assertContents("new_a", "//test:consume");
+  }
+
+  /** Returns the canonical name of the repo with the given apparent name in the main repo. */
   private RepositoryName canonicalRepoName(String apparentName) throws IOException {
     Path externalDir = getOutputBase().getRelative("external");
     for (Path child : externalDir.getDirectoryEntries()) {
@@ -708,12 +754,49 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
    */
   private static final class RewindableRepoFileSystemForTesting extends DelegateFileSystem
       implements RewindableRepoFileSystem {
-    final List<RepositoryName> lostRepos = Collections.synchronizedList(new ArrayList<>());
+    private static final String LOST_BLOB_DIGEST = "0".repeat(64) + "/1";
+
     private final String outputBaseName;
+    final List<RepositoryName> lostRepos = Collections.synchronizedList(new ArrayList<>());
+    final List<PathFragment> lostRepoFiles = Collections.synchronizedList(new ArrayList<>());
+    private final Set<String> pathsToLoseOnce = ConcurrentHashMap.newKeySet();
 
     RewindableRepoFileSystemForTesting(FileSystem delegateFs, String outputBaseName) {
       super(delegateFs);
       this.outputBaseName = outputBaseName;
+    }
+
+    /**
+     * Makes the next read of the given repo-relative file fail as if the remote cache had lost its
+     * contents. This is how a lost file surfaces during loading, where only the file's metadata has
+     * been injected and reading its contents is what reaches the cache.
+     */
+    void loseOnNextRead(String repoRelativePath) {
+      pathsToLoseOnce.add(repoRelativePath);
+    }
+
+    @Override
+    public InputStream getInputStream(PathFragment path) throws IOException {
+      PathFragment externalDir = externalDirOf(path);
+      if (externalDir != null && !pathsToLoseOnce.isEmpty()) {
+        String repoName = path.getSegment(externalDir.segmentCount());
+        String repoRelativePath = path.relativeTo(externalDir).getPathString();
+        if (pathsToLoseOnce.remove(repoRelativePath)) {
+          lostRepoFiles.add(path);
+          // A repo with lost files is fetched again, which actually runs the repo rule.
+          var unused =
+              getPath(
+                      externalDir.getChild(
+                          RepositoryName.createUnvalidated(repoName).getMarkerFileName()))
+                  .delete();
+          throw new LostRemoteRepoFileException(
+              "%s is no longer available in the remote cache".formatted(path),
+              new IOException("missing blob"),
+              RepositoryName.createUnvalidated(repoName),
+              LOST_BLOB_DIGEST);
+        }
+      }
+      return super.getInputStream(path);
     }
 
     @Override
