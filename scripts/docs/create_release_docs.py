@@ -23,7 +23,7 @@ import zipfile
 
 from absl import app
 from absl import flags
-
+from scripts.docs import mdx_fixes
 from scripts.docs import rewriter
 
 FLAGS = flags.FLAGS
@@ -123,8 +123,11 @@ def try_extract(archive_path, output_dir):
   _, ext = os.path.splitext(archive_path)
   open_func = _ARCHIVE_FUNCTIONS.get(ext)
   if not open_func:
-    raise ValueError("File {}: Invalid file extension '{}'. Allowed: {}".format(
-        archive_path, ext, _ARCHIVE_FUNCTIONS.keys.join(", ")))
+    raise ValueError(
+        "File {}: Invalid file extension '{}'. Allowed: {}".format(
+            archive_path, ext, _ARCHIVE_FUNCTIONS.keys.join(", ")
+        )
+    )
 
   with open_func(archive_path, "r") as archive:
     archive.extractall(output_dir)
@@ -150,7 +153,7 @@ def build_archive(version, root_dir, toc_path, output_path, release_dir):
     for root, _, files in os.walk(root_dir):
       for f in files:
         src = os.path.join(root, f)
-        dest = src[len(root_dir) + 1:]
+        dest = src[len(root_dir) + 1 :]
         rel_path = os.path.relpath(src, release_dir)
 
         if src != toc_path and rewriter.can_rewrite(src):
@@ -173,7 +176,19 @@ def get_versioned_content(path, rel_path, version):
   with open(path, "rt", encoding="utf-8") as f:
     content = f.read()
 
-  return rewriter.rewrite_links(path, content, rel_path, version)
+  # Generated docs are processed by docs2mdx, which already called
+  # mdx_fixes.apply().
+  fixed_content = content if is_generated(path) else mdx_fixes.apply(content)
+  return rewriter.rewrite_links(path, fixed_content, rel_path, version)
+
+
+def is_generated(path):
+  """Returns whether the given file is part of the generated documentation."""
+  return (
+      "/reference/be/" in path
+      or "command-line-reference" in path
+      or "/rules/lib/" in path
+  )
 
 
 def main(unused_argv):
