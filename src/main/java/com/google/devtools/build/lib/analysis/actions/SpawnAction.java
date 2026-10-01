@@ -365,12 +365,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Map<String, String> clientEnv,
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
-    PathMapper pathMapper =
-        PathMappers.create(
-            this,
-            outputPathsMode,
-            this instanceof StarlarkAction,
-            actionExecutionContext.getInputMetadataProvider());
+    PathMapper pathMapper = createPathMapper(actionExecutionContext);
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
             actionExecutionContext.getInputMetadataProvider(),
@@ -386,6 +381,15 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         expandedCommandLines.getParamFiles(),
         reportOutputs,
         pathMapper);
+  }
+
+  /** Creates a mapper for the current inputs during input discovery or spawn creation. */
+  protected final PathMapper createPathMapper(ActionExecutionContext actionExecutionContext) {
+    return PathMappers.create(
+        this,
+        outputPathsMode,
+        this instanceof StarlarkAction,
+        actionExecutionContext.getInputMetadataProvider());
   }
 
   @ForOverride
