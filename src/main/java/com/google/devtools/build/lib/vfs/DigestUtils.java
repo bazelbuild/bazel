@@ -80,7 +80,7 @@ public class DigestUtils {
    */
   private record DigestCache(Cache<PathFragment, CachedDigest> cache, StatsCounter stats) {
     private static DigestCache create(long maximumSize) {
-      ConcurrentStatsCounter stats = new ConcurrentStatsCounter();
+      var stats = new ConcurrentStatsCounter();
       return new DigestCache(
           Caffeine.newBuilder().maximumSize(maximumSize).recordStats(() -> stats).build(), stats);
     }
