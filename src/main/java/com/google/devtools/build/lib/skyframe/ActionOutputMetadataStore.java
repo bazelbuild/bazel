@@ -498,11 +498,23 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       // possible to hit the digest cache - we probably already computed the digest for the
       // target during previous action execution.
       // The case of an unresolved symlink has been handled above, so realPath() is never null.
-      path = checkNotNull(statAndValue.realPath(), statAndValue);
-      stat = null;
+      Path target = checkNotNull(statAndValue.realPath(), statAndValue);
+      // A target under the exec root, such as another output, is keyed by its exec path so that
+      // the lookup can hit the entry made for the target itself.
+      PathFragment pathFragment = path.asFragment();
+      PathFragment execRoot =
+          pathFragment.subFragment(
+              0, pathFragment.segmentCount() - artifact.getExecPath().segmentCount());
+      PathFragment targetFragment = target.asFragment();
+      PathFragment targetKey =
+          targetFragment.startsWith(execRoot)
+              ? targetFragment.relativeTo(execRoot)
+              : targetFragment;
+      return FileArtifactValue.createFromInjectedDigest(
+          value, DigestUtils.manuallyComputeDigest(targetKey, target, /* status= */ null));
     }
     return FileArtifactValue.createFromInjectedDigest(
-        value, DigestUtils.manuallyComputeDigest(path, stat));
+        value, DigestUtils.manuallyComputeDigest(artifact.getExecPath(), path, stat));
   }
 
   /**

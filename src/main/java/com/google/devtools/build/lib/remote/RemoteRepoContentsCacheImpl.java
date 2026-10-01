@@ -200,7 +200,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           uploadIntermediateActionResults(context, predeclaredInputHash, recordedInputValues);
       var action = buildAction(finalHash);
       var actionKey = new ActionKey(cache.digestUtil().compute(action));
-      var remotePathResolver = new RepoRemotePathResolver(fetchedRepoMarkerFile, fetchedRepoDir);
+      var remotePathResolver =
+          new RepoRemotePathResolver(repoName, fetchedRepoMarkerFile, fetchedRepoDir);
       var unused =
           UploadManifest.create(
                   cache.getRemoteCacheCapabilities(),
@@ -599,7 +600,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     return verboseFailures ? Throwables.getStackTraceAsString(e) : e.getMessage();
   }
 
-  private record RepoRemotePathResolver(Path fetchedRepoMarkerFile, Path fetchedRepoDir)
+  private record RepoRemotePathResolver(
+      RepositoryName repoName, Path fetchedRepoMarkerFile, Path fetchedRepoDir)
       implements RemotePathResolver {
 
     @Override
@@ -626,7 +628,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
 
     @Override
     public PathFragment localPathToExecPath(PathFragment localPath) {
-      throw new UnsupportedOperationException("Not used");
+      // The marker file is outside the exec root and thus identified by its absolute path.
+      if (localPath.equals(fetchedRepoMarkerFile.asFragment())) {
+        return localPath;
+      }
+      return repoName.getExecPath().getRelative(localPath.relativeTo(fetchedRepoDir.asFragment()));
     }
   }
 }
