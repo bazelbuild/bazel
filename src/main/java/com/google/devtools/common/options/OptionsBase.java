@@ -59,4 +59,10 @@ public abstract class OptionsBase {
   public Class<? extends OptionsBase> getOptionsClass() {
     return getClass();
   }
+
+  /**
+   * Called after the value of an option has been changed, either via its setter or via {@link
+   * OptionDefinition#setValue}.
+   */
+  public void onOptionChanged() {}
 }
