@@ -40,6 +40,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -198,23 +199,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       // TODO: Consider uploading asynchronously.
       var finalHash =
           uploadIntermediateActionResults(context, predeclaredInputHash, recordedInputValues);
-      var action = buildAction(finalHash);
-      var actionKey = new ActionKey(digestUtil.compute(action));
-      var remotePathResolver = new RepoRemotePathResolver(fetchedRepoMarkerFile, fetchedRepoDir);
       var unused =
-          UploadManifest.create(
-                  cache.getRemoteCacheCapabilities(),
-                  digestUtil,
-                  remotePathResolver,
-                  actionKey,
-                  action,
-                  COMMAND,
-                  ImmutableList.of(fetchedRepoMarkerFile, fetchedRepoDir),
-                  /* outErr= */ null,
-                  /* exitCode= */ 0,
-                  /* startTime= */ Instant.now(),
-                  /* wallTimeInMs= */ 0,
-                  /* preserveExecutableBit= */ true)
+          createUploadManifest(fetchedRepoDir, fetchedRepoMarkerFile, finalHash)
               .upload(context, cache, reporter, /* force= */ false);
     } catch (ExecException | IOException e) {
       reporter.handle(
@@ -222,6 +208,97 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
               "Failed to upload repo contents to remote cache for repo %s: %s"
                   .formatted(repoName, maybeGetStackTrace(e))));
     }
+  }
+
+  private UploadManifest createUploadManifest(
+      Path fetchedRepoDir, Path fetchedRepoMarkerFile, String finalHash)
+      throws ExecException, IOException, InterruptedException {
+    var action = buildAction(finalHash);
+    return UploadManifest.create(
+        cache.getRemoteCacheCapabilities(),
+        digestUtil,
+        new RepoRemotePathResolver(fetchedRepoMarkerFile, fetchedRepoDir),
+        new ActionKey(digestUtil.compute(action)),
+        action,
+        COMMAND,
+        ImmutableList.of(fetchedRepoMarkerFile, fetchedRepoDir),
+        /* outErr= */ null,
+        /* exitCode= */ 0,
+        /* startTime= */ Instant.now(),
+        /* wallTimeInMs= */ 0,
+        /* preserveExecutableBit= */ true);
+  }
+
+  @Override
+  public boolean hasLostFiles(RepositoryName repoName, Path repoDir) {
+    return repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs
+        && remoteFs.hasLostFiles(repoName);
+  }
+
+  @Override
+  public void restoreLostFiles(
+      RepositoryName repoName,
+      Path repoDir,
+      Path fetchedRepoDir,
+      Path fetchedRepoMarkerFile,
+      String predeclaredInputHash,
+      ExtendedEventHandler reporter)
+      throws IOException, InterruptedException {
+    var remoteFs = (RemoteExternalOverlayFileSystem) repoDir.getFileSystem();
+    var cachedRootDigest = remoteFs.getInjectedRootDigest(repoName);
+    if (cachedRootDigest == null) {
+      // The cached contents are no longer in use, so there is nothing to restore.
+      return;
+    }
+    var recordedInputValues =
+        DigestWriter.readMarkerFile(
+                FileSystemUtils.readContent(fetchedRepoMarkerFile, ISO_8859_1),
+                predeclaredInputHash)
+            .orElseThrow(
+                () ->
+                    new IOException(
+                        "invalid marker file for fetched repo %s".formatted(repoName)));
+    var finalHash = predeclaredInputHash;
+    for (var recordedInputValue : recordedInputValues) {
+      finalHash = rollForwardHash(finalHash, recordedInputValue);
+    }
+
+    // Only the cached contents can restore the repo, see materializeFrom.
+    UploadManifest manifest;
+    Digest fetchedRootDigest;
+    try {
+      manifest = createUploadManifest(fetchedRepoDir, fetchedRepoMarkerFile, finalHash);
+      var treeDigest =
+          Iterables.getOnlyElement(manifest.getActionResult().getOutputDirectoriesList())
+              .getTreeDigest();
+      fetchedRootDigest = manifest.getRootDirectoryDigest(treeDigest);
+    } catch (ExecException e) {
+      throw new IOException(e.getMessage(), e);
+    }
+    if (!fetchedRootDigest.equals(cachedRootDigest)) {
+      throw new NonReproducibleRepoException(
+          repoName, remoteFs.describeFirstDifference(repoName, fetchedRepoDir));
+    }
+
+    // Upload the files while they are still at the location recorded in the manifest, which also
+    // repairs the cache entry for others.
+    var context = buildContext(repoName, CacheOp.UPLOAD);
+    if (context.getWriteCachePolicy().allowRemoteCache()) {
+      try {
+        var unusedHash =
+            uploadIntermediateActionResults(context, predeclaredInputHash, recordedInputValues);
+        // This server may have uploaded the lost files itself, in which case their uploads must
+        // not be skipped as already completed.
+        var unusedResult = manifest.upload(context, cache, reporter, /* force= */ true);
+      } catch (ExecException | IOException e) {
+        reporter.handle(
+            Event.warn(
+                "Failed to upload repo contents to remote cache for repo %s: %s"
+                    .formatted(repoName, maybeGetStackTrace(e))));
+      }
+    }
+
+    remoteFs.materializeFrom(repoName, fetchedRepoDir, reporter);
   }
 
   @Override

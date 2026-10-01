@@ -75,6 +75,11 @@ public class DigestWriter {
 
   void writeMarkerFile(List<RepoRecordedInput.WithValue> recordedInputValues)
       throws RepositoryFunctionException {
+    writeMarkerFile(markerPath, recordedInputValues);
+  }
+
+  void writeMarkerFile(Path markerPath, List<RepoRecordedInput.WithValue> recordedInputValues)
+      throws RepositoryFunctionException {
     StringBuilder builder = new StringBuilder();
     builder.append(predeclaredInputHash).append('\n');
     for (var recordedInputValue : recordedInputValues) {

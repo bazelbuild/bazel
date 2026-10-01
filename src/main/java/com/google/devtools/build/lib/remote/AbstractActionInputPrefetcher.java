@@ -914,6 +914,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   // that shares this input, so it must not be replaced.
                   return Completable.complete();
                 }
+                if (!symlink.linkPath().asFragment().startsWith(execRoot.asFragment())) {
+                  // Whatever is in place in an external repo may be in use and is never replaced.
+                  throw e;
+                }
                 // Delete the link path if it already exists. This is the case for tree artifacts,
                 // whose root directory is created before the action runs.
                 if (!linkPath.delete()) {
@@ -924,6 +928,33 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               return Completable.complete();
             }),
         forceRefetch(linkPath));
+  }
+
+  /**
+   * Moves a local file with the given metadata to the given path in an external repo unless the
+   * path already holds that file, e.g. because it has been downloaded before.
+   *
+   * <p>The file keeps its permissions: it may be a hard link to a file outside the repo, which a
+   * repo rule can create, and its permissions are then also those of that file.
+   */
+  public void installFile(Path source, Path path, FileArtifactValue metadata) throws IOException {
+    Path finalPath = path.forHostFileSystem();
+    // A file can have been downloaded as a symlink to a local copy of the remote cache, which can
+    // lose the file just like the cache. Such a symlink can't provide the file and is replaced.
+    boolean isSymlink = finalPath.isSymbolicLink();
+    if (isSymlink || finalPath.exists(Symlinks.NOFOLLOW)) {
+      if (!shouldDownloadFile(finalPath, metadata)) {
+        // The file may be in use and thus has to be left alone.
+        return;
+      }
+      if (!isSymlink) {
+        throw new IOException(
+            "%s exists, but doesn't have the expected contents".formatted(finalPath));
+      }
+    }
+    checkNotNull(finalPath.getParentDirectory()).createDirectoryAndParents();
+    moveIntoRepo(source, finalPath, metadata);
+    metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
   }
 
   /**

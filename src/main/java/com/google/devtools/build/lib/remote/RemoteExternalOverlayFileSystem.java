@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
@@ -29,6 +30,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -74,6 +77,8 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -93,12 +98,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   private final FileSystem nativeFs;
   private final RemoteExternalFileSystem externalFs;
   private final TaskDeduplicator<String, Void, Void> materializations = new TaskDeduplicator<>();
-  // The names of the repos whose contents have been fully materialized to nativeFs.
-  private final Set<String> materializedRepos = ConcurrentHashMap.newKeySet();
-  // As long as a repo name appears as a key in this map, the repo contents are available in
-  // externalFs.
-  private final ConcurrentHashMap<String, String> markerFileContents = new ConcurrentHashMap<>();
-  private final Set<String> reposWithLostFiles = ConcurrentHashMap.newKeySet();
+  // The states of the repos that have been retrieved from the remote cache, by repo name. A repo
+  // without a state is served from nativeFs and is not known to have lost any files. All changes of
+  // the state of a repo are atomic.
+  private final ConcurrentHashMap<String, RepoState> repoStates = new ConcurrentHashMap<>();
 
   // Per-build information that is set in beforeCommand and cleared in afterCommand.
   @Nullable private CombinedCache cache;
@@ -109,6 +112,30 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   @Nullable private MemoizingEvaluator evaluator;
   @Nullable private Duration remoteCacheTtl;
   @Nullable private ListeningExecutorService materializationExecutor;
+
+  /**
+   * A repo whose contents have been injected into externalFs.
+   *
+   * @param markerFile the contents of the marker file to write when the repo is materialized
+   * @param rootDigest the digest of the root directory of the injected contents
+   */
+  private record InjectedRepo(String markerFile, Digest rootDigest) {}
+
+  private sealed interface RepoState {}
+
+  /**
+   * The repo is served from externalFs.
+   *
+   * @param hasLostFiles whether the remote cache has lost files of the repo, which then have to be
+   *     restored via {@link #materializeFrom}
+   */
+  private record InMemory(InjectedRepo contents, boolean hasLostFiles) implements RepoState {}
+
+  /**
+   * The repo has been fully materialized to nativeFs and is served from there. Its contents remain
+   * available in externalFs until the end of the command for those who are still reading them.
+   */
+  private record Materialized(InjectedRepo contents) implements RepoState {}
 
   public RemoteExternalOverlayFileSystem(PathFragment externalDirectory, FileSystem nativeFs) {
     super(nativeFs.getDigestFunction());
@@ -167,26 +194,53 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     this.commandId = null;
     this.remoteCacheTtl = null;
     this.materializationExecutor = null;
-    // Clean up the in-memory contents of materialized repos to save memory, or those that need to
-    // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
-    // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
-    // refetching is not atomic.
-    materializedRepos.forEach(this::evictInMemoryRepo);
-    reposWithLostFiles.forEach(this::evictInMemoryRepo);
-    invalidateRepoDirectories(evaluator, reposWithLostFiles);
-    reposWithLostFiles.clear();
+    var reposToRefetch = new HashSet<String>();
+    for (String repoName : ImmutableSet.copyOf(repoStates.keySet())) {
+      repoStates.computeIfPresent(
+          repoName,
+          (unused, state) ->
+              switch (state) {
+                case Materialized materialized -> evict(repoName, materialized);
+                // A repo with lost files that is still served from memory has not been restored
+                // during this command. Drop its contents and invalidate its fetch so that the next
+                // command fetches it again.
+                case InMemory inMemory when inMemory.hasLostFiles() -> {
+                  reposToRefetch.add(repoName);
+                  yield evict(repoName, inMemory);
+                }
+                default -> state;
+              });
+    }
+    invalidateRepoDirectories(evaluator, reposToRefetch);
     this.evaluator = null;
   }
 
-  /** Removes the contents of the given repo from the in-memory overlay file system. */
   private void evictInMemoryRepo(String repoName) {
+    repoStates.computeIfPresent(repoName, (unused, state) -> evict(repoName, state));
+  }
+
+  @Nullable
+  private RepoState evict(String repoName, RepoState state) {
     try {
       externalFs.deleteTree(externalDirectory.getChild(repoName));
     } catch (IOException e) {
       throw new IllegalStateException("In-memory file system is not expected to throw", e);
     }
-    materializedRepos.remove(repoName);
-    markerFileContents.remove(repoName);
+    return withoutContents(state);
+  }
+
+  @Nullable
+  private static RepoState withoutContents(RepoState state) {
+    return null;
+  }
+
+  @Nullable
+  private InjectedRepo getInjectedRepo(String repoName) {
+    return switch (repoStates.get(repoName)) {
+      case InMemory inMemory -> inMemory.contents();
+      case Materialized materialized -> materialized.contents();
+      case null -> null;
+    };
   }
 
   /** Invalidates the {@link SkyFunctions#REPOSITORY_DIRECTORY} nodes of the given repos. */
@@ -208,8 +262,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   public boolean injectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
       throws IOException, InterruptedException {
     var repoDir = externalDirectory.getChild(repo.getName());
+    evictInMemoryRepo(repo.getName());
     deleteTree(repoDir);
-    materializedRepos.remove(repo.getName());
     var unused = delete(externalDirectory.getChild(repo.getMarkerFileName()));
     var childMap =
         remoteContents.getChildrenList().stream()
@@ -244,8 +298,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // directory.
     nativeFs.createDirectoryAndParents(repoDir);
     // Keep the marker file contents in memory so that it can be written out when the repo is
-    // materialized. This doubles as a presence marker for the in-memory repo contents.
-    markerFileContents.put(repo.getName(), markerFile);
+    // materialized.
+    repoStates.put(
+        repo.getName(),
+        new InMemory(
+            new InjectedRepo(markerFile, cache.digestUtil.compute(remoteContents.getRoot())),
+            /* hasLostFiles= */ false));
     return true;
   }
 
@@ -393,8 +451,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   @Override
   public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
-    if (!markerFileContents.containsKey(repo.getName())) {
-      // The repo has not been injected into the in-memory file system.
+    if (!isServedFromMemory(repo.getName())) {
+      // The repo has not been injected into the in-memory file system or has already been
+      // materialized.
       return;
     }
     var unused =
@@ -405,31 +464,210 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
                 /* canJoin= */ unusedAttributes -> true,
                 () -> {
                   // Another caller may have finished since the presence check above.
-                  if (!markerFileContents.containsKey(repo.getName())) {
+                  if (!isServedFromMemory(repo.getName())) {
                     return immediateVoidFuture();
                   }
                   return materializationExecutor.submit(
                       () -> {
-                        doMaterialize(repo, reporter);
+                        doMaterialize(repo, reporter, /* filesInPlace= */ false);
                         return null;
                       });
                 }));
   }
 
-  private void doMaterialize(RepositoryName repo, ExtendedEventHandler reporter)
+  /**
+   * @param filesInPlace whether all regular files of the repo are already present on the native
+   *     file system. They are then not prefetched, which would join any download of a lost file
+   *     that is still in flight and fail along with it.
+   */
+  private void doMaterialize(
+      RepositoryName repo, ExtendedEventHandler reporter, boolean filesInPlace)
       throws IOException, InterruptedException {
+    var injectedRepo = getInjectedRepo(repo.getName());
+    if (injectedRepo == null) {
+      return;
+    }
     reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
-    materializeSubtree(externalDirectory.getChild(repo.getName()));
-    materializedRepos.add(repo.getName());
+    materializeSubtree(externalDirectory.getChild(repo.getName()), filesInPlace);
 
-    // After the repo has been copied, atomically materialize the marker file. This ensures that the
-    // repo doesn't have to be refetched after the next server restart.
+    // The repo may be materialized multiple times concurrently, so every attempt writes to its own
+    // temporary file, whose name doesn't include that of the repo as it could become too long.
     var markerFile = nativeFs.getPath(externalDirectory.getChild(repo.getMarkerFileName()));
     var markerFileSibling =
-        nativeFs.getPath(externalDirectory.getChild(repo.getMarkerFileName() + ".tmp"));
-    FileSystemUtils.writeContentAsLatin1(
-        markerFileSibling, markerFileContents.remove(repo.getName()));
-    markerFileSibling.renameTo(markerFile);
+        nativeFs.getPath(
+            externalDirectory.getChild("@%s.marker.tmp".formatted(UUID.randomUUID())));
+    try {
+      FileSystemUtils.writeContentAsLatin1(markerFileSibling, injectedRepo.markerFile());
+      markerFileSibling.renameTo(markerFile);
+    } catch (IOException e) {
+      try {
+        var unused = markerFileSibling.delete();
+      } catch (IOException e2) {
+        e.addSuppressed(e2);
+      }
+      throw e;
+    }
+    // Only serve the repo from the native file system once it is complete there, including its
+    // marker file, which keeps a later fetch of the repo from replacing its contents.
+    repoStates.computeIfPresent(
+        repo.getName(),
+        (unused, state) ->
+            state instanceof InMemory inMemory ? new Materialized(inMemory.contents()) : state);
+  }
+
+  /**
+   * Records that the remote cache has lost a file of the given repo, which can only be restored
+   * while the repo is served from memory. If the repo has been materialized in the meantime, the
+   * file is available on disk.
+   */
+  private void markLostRepoFile(RepositoryName repo) {
+    repoStates.computeIfPresent(
+        repo.getName(),
+        (unused, state) ->
+            state instanceof InMemory inMemory
+                ? new InMemory(inMemory.contents(), /* hasLostFiles= */ true)
+                : state);
+  }
+
+  private boolean isServedFromMemory(String repoName) {
+    return repoStates.get(repoName) instanceof InMemory;
+  }
+
+  /**
+   * Returns whether the remote cache has lost files of the given repo while its contents are served
+   * from memory, which requires them to be restored via {@link #materializeFrom}.
+   */
+  public boolean hasLostFiles(RepositoryName repo) {
+    return repoStates.get(repo.getName()) instanceof InMemory inMemory && inMemory.hasLostFiles();
+  }
+
+  /**
+   * Returns the digest of the root directory of the contents of the given repo that have been
+   * retrieved from the remote cache, or null if there are none.
+   */
+  @Nullable
+  public Digest getInjectedRootDigest(RepositoryName repo) {
+    var injectedRepo = getInjectedRepo(repo.getName());
+    return injectedRepo != null ? injectedRepo.rootDigest() : null;
+  }
+
+  /**
+   * Materializes the given repo to the native file system, taking the contents of its files from
+   * the given directory rather than the remote cache.
+   *
+   * <p>The directory must have the same contents as the repo, which the caller has to verify by
+   * comparing the digest of its root with {@link #getInjectedRootDigest}. Its files are moved into
+   * the repo unless they are already present there, so that files that others may be reading are
+   * left alone. Does nothing if the repo has been materialized in the meantime.
+   */
+  public void materializeFrom(RepositoryName repo, Path contents, ExtendedEventHandler reporter)
+      throws IOException, InterruptedException {
+    if (!isServedFromMemory(repo.getName())) {
+      return;
+    }
+    installFiles(
+        nativeFs.getPath(contents.asFragment()), externalDirectory.getChild(repo.getName()));
+    doMaterialize(repo, reporter, /* filesInPlace= */ true);
+  }
+
+  private void installFiles(Path sourceDir, PathFragment targetDir) throws IOException {
+    // Moving a file out of a directory requires the directory to be writable, which a repo rule
+    // doesn't have to leave it as.
+    sourceDir.setWritable(true);
+    for (var dirent : sourceDir.readdir(Symlinks.NOFOLLOW)) {
+      var source = sourceDir.getChild(dirent.getName());
+      var target = targetDir.getChild(dirent.getName());
+      switch (dirent.getType()) {
+        case FILE ->
+            inputPrefetcher.installFile(source, getPath(target), externalFs.getMetadata(target));
+        case DIRECTORY -> installFiles(source, target);
+        default -> {}
+      }
+    }
+  }
+
+  /**
+   * Describes the first difference between the contents of the given repo that have been retrieved
+   * from the remote cache and those of the given directory.
+   */
+  public String describeFirstDifference(RepositoryName repo, Path contents) throws IOException {
+    var difference =
+        findFirstDifference(
+            externalFs.getPath(externalDirectory.getChild(repo.getName())),
+            nativeFs.getPath(contents.asFragment()),
+            PathFragment.EMPTY_FRAGMENT);
+    return difference != null ? difference : "no difference found";
+  }
+
+  @Nullable
+  private static String findFirstDifference(
+      Path cachedDir, Path fetchedDir, PathFragment relativePath) throws IOException {
+    var cachedEntries = new TreeMap<String, Dirent.Type>();
+    for (var dirent : cachedDir.readdir(Symlinks.NOFOLLOW)) {
+      cachedEntries.put(dirent.getName(), dirent.getType());
+    }
+    var fetchedEntries = new TreeMap<String, Dirent.Type>();
+    for (var dirent : fetchedDir.readdir(Symlinks.NOFOLLOW)) {
+      fetchedEntries.put(dirent.getName(), dirent.getType());
+    }
+    for (var name : Sets.union(cachedEntries.keySet(), fetchedEntries.keySet())) {
+      var path = relativePath.getChild(name);
+      var cachedType = cachedEntries.get(name);
+      var fetchedType = fetchedEntries.get(name);
+      if (cachedType == null) {
+        return "%s only exists in the fetched contents".formatted(path);
+      }
+      if (fetchedType == null) {
+        return "%s only exists in the cached contents".formatted(path);
+      }
+      if (cachedType != fetchedType) {
+        return "%s is a %s in the cached contents, but a %s in the fetched contents"
+            .formatted(path, describe(cachedType), describe(fetchedType));
+      }
+      var cached = cachedDir.getChild(name);
+      var fetched = fetchedDir.getChild(name);
+      String difference =
+          switch (cachedType) {
+            case DIRECTORY -> findFirstDifference(cached, fetched, path);
+            case SYMLINK -> {
+              var cachedTarget = cached.readSymbolicLink();
+              var fetchedTarget = fetched.readSymbolicLink();
+              yield cachedTarget.equals(fetchedTarget)
+                  ? null
+                  : "%s points to %s in the cached contents, but to %s in the fetched contents"
+                      .formatted(path, cachedTarget, fetchedTarget);
+            }
+            case FILE -> {
+              var cachedDigest = HashCode.fromBytes(cached.getDigest());
+              var fetchedDigest = HashCode.fromBytes(fetched.getDigest());
+              if (!cachedDigest.equals(fetchedDigest)) {
+                yield "%s has digest %s in the cached contents, but %s in the fetched contents"
+                    .formatted(path, cachedDigest, fetchedDigest);
+              }
+              yield cached.isExecutable() == fetched.isExecutable()
+                  ? null
+                  : "%s is %s in the cached contents, but %s in the fetched contents"
+                      .formatted(
+                          path,
+                          cached.isExecutable() ? "executable" : "not executable",
+                          fetched.isExecutable() ? "executable" : "not executable");
+            }
+            default -> null;
+          };
+      if (difference != null) {
+        return difference;
+      }
+    }
+    return null;
+  }
+
+  private static String describe(Dirent.Type type) {
+    return switch (type) {
+      case DIRECTORY -> "directory";
+      case SYMLINK -> "symlink";
+      case FILE -> "file";
+      case UNKNOWN -> "special file";
+    };
   }
 
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
@@ -455,7 +693,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    */
   public void notifyNoCacheAvailable(MemoizingEvaluator evaluator) {
     checkState(materializationExecutor == null, "must not be called when active");
-    var reposToDiscard = ImmutableSet.copyOf(markerFileContents.keySet());
+    var reposToDiscard = ImmutableSet.copyOf(repoStates.keySet());
     reposToDiscard.forEach(this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposToDiscard);
   }
@@ -473,10 +711,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     if (fsForPath(path) != externalFs) {
       return;
     }
-    materializeSubtree(path);
+    materializeSubtree(path, /* filesInPlace= */ false);
   }
 
-  private void materializeSubtree(PathFragment path) throws IOException, InterruptedException {
+  private void materializeSubtree(PathFragment path, boolean filesInPlace)
+      throws IOException, InterruptedException {
     var files = new LinkedHashSet<PathFragment>();
     var symlinks = new LinkedHashSet<PathFragment>();
     // The path or any of the directories above it may be a symlink. Reproduce these symlinks on the
@@ -491,7 +730,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       }
     }
     collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
-    prefetch(files);
+    if (!filesInPlace) {
+      prefetch(files);
+    }
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
     // target.
     prefetch(symlinks);
@@ -577,9 +818,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   private FileSystem fsForPath(PathFragment path) {
     if (path.startsWith(externalDirectory) && !path.equals(externalDirectory)) {
       String repoName = path.getSegment(externalDirectorySegmentCount);
-      var hasBeenInjected = markerFileContents.containsKey(repoName);
-      var hasBeenMaterialized = materializedRepos.contains(repoName);
-      if (hasBeenInjected && !hasBeenMaterialized) {
+      if (isServedFromMemory(repoName)) {
         // The repo may have been deleted due to refetching. Clean up in-memory state if that is the
         // case.
         boolean exists;
@@ -592,8 +831,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
         if (exists) {
           return externalFs;
         }
-        materializedRepos.remove(repoName);
-        markerFileContents.remove(repoName);
+        repoStates.computeIfPresent(
+            repoName,
+            (unused, state) -> state instanceof InMemory ? withoutContents(state) : state);
       }
       // Fall back to the native file system if the repo has been materialized, deleted, or never
       // injected.
@@ -913,7 +1153,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
         throw new InterruptedIOException("interrupted while waiting for remote file transfer");
       } catch (BulkTransferException e) {
         if (e.allCausedByCacheNotFoundException()) {
-          reposWithLostFiles.add(relativePath.getSegment(0));
+          markLostRepoFile(RepositoryName.createUnvalidated(relativePath.getSegment(0)));
           throw new DetailedIOException(
               "%s/%s with digest %s is no longer available in the remote cache"
                   .formatted(
