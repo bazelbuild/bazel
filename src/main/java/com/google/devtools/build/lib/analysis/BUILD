@@ -8,6 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/constraints:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
@@ -80,10 +81,6 @@ java_library(
         "test/TestTargetProperties.java",
     ],
     exports = [
-        ":actions/action_construction_context",
-        ":actions/shell_command",
-        ":actions/spawn_action",
-        ":actions/symlink_tree_action",
         ":alias_provider",
         ":analysis_environment",
         ":analysis_failure_event",
@@ -113,20 +110,12 @@ java_library(
         ":test/instrumented_file_manifest_action",
         ":test/test_tags_provider",
         ":transitive_visibility_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:action_construction_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:shell_command",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:spawn_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:symlink_tree_action",
     ],
     deps = [
-        ":actions/abstract_file_write_action",
-        ":actions/action_construction_context",
-        ":actions/buildinfo_file_write_action",
-        ":actions/file_write_action",
-        ":actions/lazy_write_nested_set_of_tuple_action",
-        ":actions/parameter_file_write_action",
-        ":actions/path_mappers",
-        ":actions/spawn_action",
-        ":actions/substitution",
-        ":actions/symlink_action",
-        ":actions/symlink_tree_action",
-        ":actions/template_expansion_action",
         ":actions_provider",
         ":alias_provider",
         ":analysis_environment",
@@ -211,6 +200,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_info",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:abstract_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:action_construction_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:buildinfo_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:lazy_write_nested_set_of_tuple_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:parameter_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:path_mappers",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:spawn_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:substitution",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:symlink_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:symlink_tree_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:common_options",
@@ -578,9 +579,9 @@ java_library(
         "WindowsPowershellCommandConstructor.java",
     ],
     deps = [
-        ":actions/action_construction_context",
-        ":actions/file_write_action",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:action_construction_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:file_write_action",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party/java/guava:collect",
     ],
@@ -905,9 +906,9 @@ java_library(
     name = "pseudo_action",
     srcs = ["PseudoAction.java"],
     deps = [
-        ":actions/action_construction_context",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:action_construction_context",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
@@ -921,37 +922,14 @@ java_library(
 )
 
 java_library(
-    name = "actions/buildinfo_file_write_action",
-    srcs = ["actions/BuildInfoFileWriteAction.java"],
-    deps = [
-        ":actions/substitution",
-        ":actions/template",
-        ":actions/template_expansion_action",
-        ":workspace_status_action",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
     name = "repo_mapping_manifest_action",
     srcs = ["RepoMappingManifestAction.java"],
     deps = [
-        ":actions/abstract_file_write_action",
         ":symlink_entry",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -1370,374 +1348,9 @@ java_library(
     ],
 )
 
-# Targets for analysis/actions/*.java. Kept in analysis/BUILD because SpawnAction and StarlarkAction
-# depend on RuleContext and are part of the core analysis cycle (:analysis_core).
-java_library(
-    name = "actions/abstract_file_write_action",
-    srcs = ["actions/AbstractFileWriteAction.java"],
-    deps = [
-        ":actions/file_write_action_context",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/binary_file_write_action",
-    srcs = ["actions/BinaryFileWriteAction.java"],
-    deps = [
-        ":actions/abstract_file_write_action",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//third_party/java/guava:annotations",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:io",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/compression",
-    srcs = ["actions/Compression.java"],
-)
-
-java_library(
-    name = "actions/custom_command_line",
-    srcs = ["actions/CustomCommandLine.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party/java/auto:auto_value",
-        "//third_party/java/guava:annotations",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/file_write_action",
-    srcs = ["actions/FileWriteAction.java"],
-    deps = [
-        ":actions/abstract_file_write_action",
-        ":actions/action_construction_context",
-        ":actions/compression",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:io",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/file_write_action_context",
-    srcs = ["actions/FileWriteActionContext.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
-        "//third_party/java/guava:collect",
-    ],
-)
-
-java_library(
-    name = "actions/lazy_write_nested_set_of_tuple_action",
-    srcs = ["actions/LazyWriteNestedSetOfTupleAction.java"],
-    deps = [
-        ":actions/abstract_file_write_action",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/lazy_write_paths_file_action",
-    srcs = ["actions/LazyWritePathsFileAction.java"],
-    deps = [
-        ":actions/abstract_file_write_action",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/parameter_file_write_action",
-    srcs = ["actions/ParameterFileWriteAction.java"],
-    deps = [
-        ":actions/abstract_file_write_action",
-        ":actions/path_mappers",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
-        "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party/java/guava:annotations",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/guava:io",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/path_mappers",
-    srcs = [
-        "actions/PathMappers.java",
-        "actions/StrippingPathMapper.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party/java/guava:annotations",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/spawn_action",
-    srcs = [
-        "actions/SpawnAction.java",
-        "actions/StarlarkAction.java",
-    ],
-    deps = [
-        ":actions/action_construction_context",
-        ":actions/custom_command_line",
-        ":actions/path_mappers",
-        ":actions/shell_command",
-        ":starlark/args",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/actions:param_file_info",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_exec_exception",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
-        "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/protobuf:extra_actions_base_java_proto",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party/java/error_prone:annotations",
-        "//third_party/java/guava:annotations",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-        "//third_party/java/protobuf",
-    ],
-)
-
-java_library(
-    name = "actions/spawn_action_template",
-    srcs = ["actions/SpawnActionTemplate.java"],
-    deps = [
-        ":actions/custom_command_line",
-        ":actions/spawn_action",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party/java/error_prone:annotations",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/substitution",
-    srcs = ["actions/Substitution.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party/java/guava:annotations",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/symlink_action",
-    srcs = ["actions/SymlinkAction.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context",
-        "//src/main/java/com/google/devtools/build/lib/unix:unix_mode",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/symlink_tree_action",
-    srcs = [
-        "actions/SymlinkTreeAction.java",
-        "actions/SymlinkTreeActionContext.java",
-    ],
-    deps = [
-        ":runfiles",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party/java/guava:annotations",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/template",
-    srcs = ["actions/Template.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party/java/guava:annotations",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
+alias(
     name = "template_expansion_exception",
-    srcs = ["actions/TemplateExpansionException.java"],
-    deps = [
-        "//src/main/java/net/starlark/java/eval",
-    ],
-)
-
-java_library(
-    name = "actions/template_expansion_action",
-    srcs = [
-        "actions/LocalTemplateExpansionStrategy.java",
-        "actions/TemplateExpansionAction.java",
-        "actions/TemplateExpansionContext.java",
-    ],
-    exports = [
-        ":template_expansion_exception",
-    ],
-    deps = [
-        ":actions/file_write_action_context",
-        ":actions/substitution",
-        ":actions/template",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party/java/auto:auto_value",
-        "//third_party/java/guava:annotations",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
+    actual = "//src/main/java/com/google/devtools/build/lib/analysis/actions:template_expansion_exception",
 )
 
 # Targets for analysis/extra/*.java.
@@ -1745,9 +1358,9 @@ java_library(
     name = "extra/extra_action",
     srcs = ["extra/ExtraAction.java"],
     deps = [
-        ":actions/spawn_action",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:spawn_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
@@ -1764,10 +1377,10 @@ java_library(
     name = "extra/extra_action_info_file_write_action",
     srcs = ["extra/ExtraActionInfoFileWriteAction.java"],
     deps = [
-        ":actions/abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
@@ -1809,7 +1422,7 @@ java_library(
     name = "starlark/template_dict",
     srcs = ["starlark/TemplateDict.java"],
     deps = [
-        ":actions/substitution",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:substitution",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
@@ -2046,10 +1659,10 @@ java_library(
     name = "test/analysis_test_action_builder",
     srcs = ["test/AnalysisTestActionBuilder.java"],
     deps = [
-        ":actions/action_construction_context",
-        ":actions/file_write_action",
         ":test/analysis_test_result_info",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:action_construction_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:file_write_action",
         "//third_party/java/guava:base",
     ],
 )
@@ -2067,9 +1680,9 @@ java_library(
     name = "test/baseline_coverage_action",
     srcs = ["test/BaselineCoverageAction.java"],
     deps = [
-        ":actions/abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -2143,9 +1756,9 @@ java_library(
     name = "test/instrumented_file_manifest_action",
     srcs = ["test/InstrumentedFileManifestAction.java"],
     deps = [
-        ":actions/abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -2420,18 +2033,6 @@ java_library(
 )
 
 java_library(
-    name = "actions/shell_command",
-    srcs = ["actions/ShellCommand.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-    ],
-)
-
-java_library(
     name = "starlark/composed_transition_materializer",
     srcs = ["starlark/ComposedTransitionMaterializer.java"],
     deps = [
@@ -2490,9 +2091,9 @@ java_library(
     name = "starlark/unresolved_symlink_action",
     srcs = ["starlark/UnresolvedSymlinkAction.java"],
     deps = [
-        ":actions/symlink_action",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:symlink_action",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -2564,22 +2165,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/constraints:constraint_constants",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "actions/action_construction_context",
-    srcs = ["actions/ActionConstructionContext.java"],
-    deps = [
-        ":analysis_environment",
-        ":rule_error_consumer",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party/java/jsr305_annotations",
     ],
