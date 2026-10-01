@@ -43,6 +43,11 @@ FILES = [
     deps = [":" + s + "_java_proto"],
 ) for s in FILES]
 
+py_proto_library(
+    name = "bazel_flags_py_proto",
+    deps = [":bazel_flags_proto"],
+)
+
 proto_library(
     name = "build_proto",
     srcs = ["build.proto"],
