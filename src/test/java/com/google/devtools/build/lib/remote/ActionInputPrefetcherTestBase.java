@@ -24,8 +24,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -44,6 +47,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -441,6 +445,195 @@ public abstract class ActionInputPrefetcherTestBase {
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath(), fs.getPath(resolvedPath));
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
+  }
+
+  @Test
+  public void prefetchFiles_symlinkInPlace_notReplaced() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    PathFragment resolvedPath = artifactRoot.getRoot().asPath().getChild("target").asFragment();
+    Artifact a = createRemoteArtifact("file", "hello world", resolvedPath, metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(a.getPath().readSymbolicLink()).isEqualTo(resolvedPath);
+
+    reset(fs);
+    prefetcher.invalidateDownloads(ImmutableList.of(a.getExecPath()));
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    // The second prefetch finds the symlink in place and leaves it alone. Replacing it would make
+    // it disappear for a moment, which a concurrent reader of the symlink could observe.
+    verify(fs, never()).delete(a.getPath().asFragment());
+    assertThat(a.getPath().readSymbolicLink()).isEqualTo(resolvedPath);
+    assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
+  }
+
+  @Test
+  public void prefetchFiles_symlinkInPlace_replacedByCopyWithoutNativeSymlinks()
+      throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Path target = artifactRoot.getRoot().asPath().getChild("target");
+    Artifact a = createRemoteArtifact("file", "hello world", target.asFragment(), metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+    emulateFileSystemWithoutNativeSymlinks();
+    // The action that creates the symlink doesn't wait for its target to be downloaded.
+    a.getPath().createSymbolicLink(target);
+    assertThat(a.getPath().isSymbolicLink()).isTrue();
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    // The junction doesn't resolve to a file and thus can't be left in place.
+    assertThat(a.getPath().isSymbolicLink()).isFalse();
+    assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
+    assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("hello world");
+  }
+
+  @Test
+  public void prefetchFiles_symlinkToDirectoryInPlace_notReplacedWithoutNativeSymlinks()
+      throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    PathFragment resolvedPath = artifactRoot.getRoot().asPath().getChild("target").asFragment();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifact(
+            "dir",
+            /* localContentMap= */ ImmutableMap.of(),
+            /* remoteContentMap= */ ImmutableMap.of("file", "hello world"),
+            resolvedPath,
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+    emulateFileSystemWithoutNativeSymlinks();
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, children, metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(tree.getPath().readSymbolicLink()).isEqualTo(resolvedPath);
+
+    clearInvocations(fs);
+    prefetcher.invalidateDownloads(ImmutableList.of(tree.getExecPath()));
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, children, metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    // The junction resolves to the directory and may be in use, so it is left in place.
+    verify(fs, never()).delete(tree.getPath().asFragment());
+    assertThat(tree.getPath().readSymbolicLink()).isEqualTo(resolvedPath);
+    assertThat(FileSystemUtils.readContent(children.get(0).getPath(), UTF_8))
+        .isEqualTo("hello world");
+  }
+
+  /**
+   * Makes the file system behave like one without native support for symlinks, such as the one on
+   * Windows by default: a symlink to an existing file is created as a copy of it, any other symlink
+   * as a junction, which only resolves to a directory.
+   */
+  private void emulateFileSystemWithoutNativeSymlinks() throws IOException {
+    doReturn(false).when(fs).supportsSymbolicLinksNatively(any());
+    doAnswer(
+            invocation -> {
+              Path linkPath = fs.getPath(invocation.<PathFragment>getArgument(0));
+              Path targetPath =
+                  linkPath.getParentDirectory().getRelative(invocation.<PathFragment>getArgument(1));
+              if (!targetPath.isFile()) {
+                return invocation.callRealMethod();
+              }
+              if (linkPath.exists(Symlinks.NOFOLLOW)) {
+                throw new IOException(linkPath + " (File exists)");
+              }
+              FileSystemUtils.copyFile(targetPath, linkPath);
+              return null;
+            })
+        .when(fs)
+        .createSymbolicLink(any(), any(), any());
+  }
+
+  @Test
+  public void prefetchFiles_externalRepoFile_notModifiedInPlace() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Path path = fs.getPath("/external/repo/file");
+    path.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(path, UTF_8, "stale contents");
+    ActionInput input = ActionInputHelper.fromPath(path.asFragment());
+    byte[] contents = "hello world".getBytes(UTF_8);
+    HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
+    metadata.put(
+        input,
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            hashCode.asBytes(),
+            contents.length,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false));
+    cas.put(hashCode, contents);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+    doAnswer(
+            invocation -> {
+              throw new IOException("failed to rename");
+            })
+        .when(fs)
+        .renameTo(any(), eq(path.asFragment()));
+
+    assertThrows(
+        IOException.class,
+        () ->
+            wait(
+                prefetcher.prefetchFilesInterruptibly(
+                    action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS)));
+
+    // The file may be read concurrently and is thus only ever replaced as a whole.
+    assertThat(FileSystemUtils.readContent(path, UTF_8)).isEqualTo("stale contents");
+  }
+
+  @Test
+  public void prefetchFiles_externalRepoFile_madeAvailableConcurrently() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Path path = fs.getPath("/external/repo/file");
+    path.getParentDirectory().createDirectoryAndParents();
+    ActionInput input = ActionInputHelper.fromPath(path.asFragment());
+    byte[] contents = "hello world".getBytes(UTF_8);
+    HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
+    metadata.put(
+        input,
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            hashCode.asBytes(),
+            contents.length,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false));
+    cas.put(hashCode, contents);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+    doAnswer(
+            invocation -> {
+              // The file is made available by someone else and can't be replaced, e.g. because it
+              // is already in use on a platform that doesn't allow that.
+              FileSystemUtils.writeContent(path, UTF_8, "hello world");
+              throw new IOException("failed to rename");
+            })
+        .when(fs)
+        .renameTo(any(), eq(path.asFragment()));
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    assertThat(FileSystemUtils.readContent(path, UTF_8)).isEqualTo("hello world");
+    assertThat(tempPathGenerator.getTempDir().getDirectoryEntries()).isEmpty();
+    // The file that was made available concurrently is neither deleted nor written to.
+    verify(fs, never()).delete(path.asFragment());
+    verify(fs, times(1)).getOutputStream(eq(path.asFragment()), anyBoolean(), anyBoolean());
   }
 
   @Test
