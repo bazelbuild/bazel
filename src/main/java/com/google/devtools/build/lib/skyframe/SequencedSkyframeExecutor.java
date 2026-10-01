@@ -253,7 +253,10 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
       super.dirtied(skyKey, dirtyType);
-      if (skyKey instanceof FileKey) {
+      // Rewinding dirties file nodes to recover files that the remote repo contents cache has
+      // lost. That is not a change to a source file, and it happens during the execution phase,
+      // by which point the changed files have already been drained.
+      if (skyKey instanceof FileKey && dirtyType != DirtyType.REWIND) {
         incrementalBuildMonitor.reportInvalidatedFileValue();
       }
     }
