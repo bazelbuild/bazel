@@ -13,13 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -126,19 +125,15 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       Collection<Artifact> runfiles,
       ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    ImmutableList<Artifact> files =
-        runfiles.stream()
-            .filter(
-                artifact ->
-                    artifact != null
-                        && !artifact.isTreeArtifact()
-                        && !artifact.isSymlink()
-                        && !artifact.isFileset()
-                        && !artifact.isRunfilesTree())
-            .collect(toImmutableList());
-    if (files.isEmpty()) {
-      return;
-    }
+    var files =
+        Iterables.filter(
+            runfiles,
+            artifact ->
+                artifact != null
+                    && !artifact.isTreeArtifact()
+                    && !artifact.isSymlink()
+                    && !artifact.isFileset()
+                    && !artifact.isRunfilesTree());
     ListenableFuture<Void> prefetch =
         actionExecutionContext
             .getActionInputPrefetcher()
@@ -154,8 +149,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       if (cause instanceof IOException ioException) {
-        throw new EnvironmentalExecException(
-            ioException, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
+        throw new EnvironmentalExecException(ioException, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
       }
       if (cause instanceof InterruptedException) {
         throw new InterruptedException(cause.getMessage());
