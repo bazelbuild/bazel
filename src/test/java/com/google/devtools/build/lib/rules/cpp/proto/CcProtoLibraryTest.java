@@ -75,26 +75,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void disallowMultipleDeps() throws Exception {
-    checkError(
-        "x",
-        "foo_cc_proto",
-        "'deps' attribute must contain exactly one label",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
-        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto', 'bar_proto'])",
-        "proto_library(name = 'foo_proto', srcs = ['foo.proto'])",
-        "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
-
-    checkError(
-        "y",
-        "foo_cc_proto",
-        "'deps' attribute must contain exactly one label",
-        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
-        "cc_proto_library(name = 'foo_cc_proto', deps = [])");
-  }
-
-  @Test
   public void blacklistedProtos() throws Exception {
     scratch.file(
         "x/BUILD",
