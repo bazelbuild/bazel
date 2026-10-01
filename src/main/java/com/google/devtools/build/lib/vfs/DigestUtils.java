@@ -41,11 +41,11 @@ public class DigestUtils {
    *
    * <p>The cache holds one such value per file. A lookup only uses the digest if the file's current
    * metadata still matches, which is derived from many properties of the file metadata in an
-   * attempt to detect most file changes; otherwise the digest is recomputed and the value replaced.
+   * attempt to detect most file changes.
    *
    * <p>The metadata lives in the value rather than the key so that a file that changes does not
    * leave a stale entry behind. The change time only moves forward, so a file's old metadata can
-   * never be observed again and such an entry could never hit; it would only take up capacity.
+   * never be observed again.
    */
   private static final class CachedDigest {
     private final long nodeId;
