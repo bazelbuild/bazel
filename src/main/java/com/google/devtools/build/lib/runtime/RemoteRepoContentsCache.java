@@ -45,4 +45,46 @@ public interface RemoteRepoContentsCache {
       String predeclaredInputHash,
       SkyFunction.Environment env)
       throws IOException, InterruptedException;
+
+  /**
+   * Returns whether the given repository has been retrieved from the remote cache, which has since
+   * lost the contents of some of its files.
+   *
+   * <p>Such a repository has to be fetched into a different directory and passed to {@link
+   * #restoreLostFiles} rather than fetched in place, as its remaining contents may be in use.
+   */
+  boolean hasLostFiles(RepositoryName repoName, Path repoDir);
+
+  /**
+   * Restores the files of a repository that the remote cache has lost from a fresh fetch of the
+   * repository into a different directory, which is consumed in the process.
+   *
+   * @throws NonReproducibleRepoException if the fetched contents differ from those that have been
+   *     retrieved from the remote cache
+   */
+  void restoreLostFiles(
+      RepositoryName repoName,
+      Path repoDir,
+      Path fetchedRepoDir,
+      Path fetchedRepoMarkerFile,
+      String predeclaredInputHash,
+      ExtendedEventHandler reporter)
+      throws IOException, InterruptedException;
+
+  /**
+   * Thrown if a repository whose repo rule declared it as reproducible turned out to have different
+   * contents when it was fetched again.
+   */
+  final class NonReproducibleRepoException extends IOException {
+    /**
+     * @param difference describes how the contents differ
+     */
+    public NonReproducibleRepoException(RepositoryName repoName, String difference) {
+      super(
+          ("the repo rule declares the contents of repository %s to be reproducible, but fetching"
+                  + " it again to restore files lost by the remote cache resulted in different"
+                  + " contents: %s")
+              .formatted(repoName, difference));
+    }
+  }
 }

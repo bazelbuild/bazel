@@ -158,7 +158,10 @@ public class RepositoryUtils {
           }
           continue;
         }
-        if (!target.startsWith(externalRepoRoot.asFragment())) {
+        // The repo may have been fetched into a directory that isn't located under the external
+        // root, so check for symlinks into the repo itself first.
+        boolean targetInRepo = target.startsWith(repoDir.asFragment());
+        if (!targetInRepo && !target.startsWith(externalRepoRoot.asFragment())) {
           // This symlink doesn't point into any Bazel repo, including the main repo, and thus its
           // target isn't managed by Bazel. We assume such symlinks are portable across machines
           // on which the repo is relevant (e.g. /lib/ld-linux.so* or /usr/bin/ld)
@@ -166,7 +169,7 @@ public class RepositoryUtils {
           continue;
         }
         PathFragment newTarget;
-        if (target.startsWith(repoDir.asFragment())) {
+        if (targetInRepo) {
           // Same-repo symlink: replant relative within the repo. This is always safe regardless
           // of where the repo is physically located.
           PathFragment targetRelativeToRepo = target.relativeTo(repoDir.asFragment());

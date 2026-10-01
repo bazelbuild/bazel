@@ -28,6 +28,7 @@ import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.protobuf.ExtensionRegistryLite;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -784,6 +786,26 @@ public class UploadManifestTest {
     when(dir.getChild(linkName)).thenReturn(link);
 
     return dir;
+  }
+
+  @Test
+  public void getRootDirectoryDigest() throws Exception {
+    Path dir = execRoot.getRelative("dir");
+    dir.getRelative("subdir").createDirectoryAndParents();
+    FileSystemUtils.writeContent(dir.getRelative("subdir/file"), new byte[] {1, 2, 3});
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            ActionResult.newBuilder(),
+            /* allowAbsoluteSymlinks= */ false,
+            /* preserveExecutableBit= */ true);
+    um.addFiles(ImmutableList.of(dir));
+
+    Digest treeDigest =
+        Iterables.getOnlyElement(um.getActionResult().getOutputDirectoriesList()).getTreeDigest();
+    Tree tree = Tree.parseFrom(um.getBlob(treeDigest), ExtensionRegistryLite.getEmptyRegistry());
+    assertThat(um.getRootDirectoryDigest(treeDigest)).isEqualTo(digestUtil.compute(tree.getRoot()));
   }
 
   @Test

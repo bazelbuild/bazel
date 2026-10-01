@@ -101,6 +101,8 @@ public class UploadManifest {
   private final boolean preserveExecutableBit;
   private final ConcurrentHashMap<Digest, Path> digestToFile = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Digest, ByteString> digestToBlobs = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Digest, Digest> treeDigestToRootDigest =
+      new ConcurrentHashMap<>();
   @Nullable private ActionKey actionKey;
   private Digest stderrDigest = null;
   private Digest stdoutDigest = null;
@@ -432,7 +434,7 @@ public class UploadManifest {
      * Returns a {@link Tree} message in wire format describing the directory contents, obeying the
      * requirements of the {@code OutputDirectory.is_topologically_sorted} field.
      */
-    ByteString build() throws ExecException, IOException, InterruptedException {
+    DirectoryTree build() throws ExecException, IOException, InterruptedException {
       // Collect directory entries (subdirectories, files, symlinks) in parallel.
       // This is a major speedup for large tree artifacts with hundreds of thousands of files.
       execute(() -> visit(rootDir, Dirent.Type.DIRECTORY));
@@ -464,7 +466,6 @@ public class UploadManifest {
               .setDigest(dirToDigest.get(subdir));
         }
         ByteString dirBlob = builder.build().toByteString();
-
         dirToDigest.put(dir, digestUtil.compute(dirBlob));
         dirBlobs.add(dirBlob);
       }
@@ -483,7 +484,7 @@ public class UploadManifest {
       }
       codedOutputStream.flush();
 
-      return out.toByteString();
+      return new DirectoryTree(out.toByteString(), checkNotNull(dirToDigest.get(rootDir)));
     }
 
     // REAPI strings cannot represent arbitrary POSIX bytes. A replacement character would
@@ -585,9 +586,13 @@ public class UploadManifest {
   private static final int TREE_CHILDREN_FIELD_NUMBER =
       Tree.getDescriptor().findFieldByName("children").getNumber();
 
+  private record DirectoryTree(ByteString treeBlob, Digest rootDigest) {}
+
   private void addDirectory(Path dir) throws ExecException, IOException, InterruptedException {
-    ByteString treeBlob = new DirectoryBuilder(dir).build();
+    DirectoryTree tree = new DirectoryBuilder(dir).build();
+    ByteString treeBlob = tree.treeBlob();
     Digest treeDigest = digestUtil.compute(treeBlob);
+    treeDigestToRootDigest.put(treeDigest, tree.rootDigest());
 
     result
         .addOutputDirectoriesBuilder()
@@ -626,9 +631,21 @@ public class UploadManifest {
     throw new UserExecException(failureDetail);
   }
 
-  @VisibleForTesting
   ActionResult getActionResult() {
     return result.build();
+  }
+
+  /**
+   * @param treeDigest the tree digest of an output directory of this manifest
+   */
+  Digest getRootDirectoryDigest(Digest treeDigest) {
+    return checkNotNull(treeDigestToRootDigest.get(treeDigest), treeDigest);
+  }
+
+  /** Returns the blob with the given digest that this manifest uploads from memory. */
+  @VisibleForTesting
+  ByteString getBlob(Digest digest) {
+    return checkNotNull(digestToBlobs.get(digest), digest);
   }
 
   /**
