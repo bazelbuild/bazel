@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -161,18 +160,14 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
 
     // verify that the Scope is fully resolved for //test_flags:foo and //test_flags:bar
-    var unused =
-        assertThat(
-            buildOptionsScopeValue
-                .getFullyResolvedScopes()
-                .equals(
-                    ImmutableMap.of(
-                        Label.parseCanonical("//test_flags:foo"),
-                        new Scope(
-                            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-                            new Scope.ScopeDefinition(ImmutableSet.of("//my_project/"))),
-                        Label.parseCanonical("//test_flags:bar"),
-                        new Scope(new Scope.ScopeType(Scope.ScopeType.UNIVERSAL), null))));
+    assertThat(buildOptionsScopeValue.getFullyResolvedScopes())
+        .containsExactly(
+            Label.parseCanonical("//test_flags:foo"),
+            new Scope(
+                new Scope.ScopeType(Scope.ScopeType.PROJECT),
+                new Scope.ScopeDefinition(ImmutableSet.of("//my_project/"))),
+            Label.parseCanonical("//test_flags:bar"),
+            new Scope(new Scope.ScopeType(Scope.ScopeType.UNIVERSAL), null));
 
     // verify that the BuildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes() has the
     // correct ScopeType map for all flags.
@@ -214,14 +209,10 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
         BuildOptionsScopeValue.Key.create(buildOptionsWithoutScopes, scopedFlags);
 
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
-    var unused =
-        assertThat(
-            buildOptionsScopeValue
-                .getFullyResolvedScopes()
-                .equals(
-                    ImmutableMap.of(
-                        Label.parseCanonical("//test_flags:foo"),
-                        new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null))));
+    assertThat(buildOptionsScopeValue.getFullyResolvedScopes())
+        .containsExactly(
+            Label.parseCanonical("//test_flags:foo"),
+            new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null));
   }
 
   private BuildOptionsScopeValue executeFunction(BuildOptionsScopeValue.Key key) throws Exception {
