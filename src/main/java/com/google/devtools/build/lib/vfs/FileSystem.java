@@ -63,19 +63,23 @@ public abstract class FileSystem {
   protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
   public static final String ERR_TOO_MANY_SYMLINKS = " (Too many levels of symbolic links)";
 
-  private static final int DIGEST_BUFFER_SIZE = 8192;
+  // Avoid eager initialization of digestBuffers if no FileSystem implementation ever calls the
+  // default implementation of getDigest.
+  private static final class DigestBuffersHolder {
+    private static final int DIGEST_BUFFER_SIZE = 8192;
 
-  /**
-   * A bounded pool of buffers for {@link #getDigest}, meant to reduce allocations while also
-   * supporting virtual threads.
-   */
-  private static final AtomicReferenceArray<byte[]> digestBuffers =
-      new AtomicReferenceArray<>(
-          Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4 - 1));
+    /**
+     * A bounded pool of buffers for {@link #getDigest}, meant to reduce allocations while also
+     * supporting virtual threads.
+     */
+    static final AtomicReferenceArray<byte[]> digestBuffers =
+        new AtomicReferenceArray<>(
+            Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4 - 1));
 
-  static {
-    for (int i = 0; i < digestBuffers.length(); i++) {
-      digestBuffers.set(i, new byte[DIGEST_BUFFER_SIZE]);
+    static {
+      for (int i = 0; i < digestBuffers.length(); i++) {
+        digestBuffers.set(i, new byte[DIGEST_BUFFER_SIZE]);
+      }
     }
   }
 
@@ -374,11 +378,12 @@ public abstract class FileSystem {
    */
   public byte[] getDigest(PathFragment path) throws IOException {
     var hasher = digestFunction.getHashFunction().newHasher();
-    int slot = (int) Thread.currentThread().threadId() & (digestBuffers.length() - 1);
+    int slot =
+        (int) Thread.currentThread().threadId() & (DigestBuffersHolder.digestBuffers.length() - 1);
     // Only reuse the buffers created during initialization to avoid promoting newly allocated
     // buffers to the old gen.
-    byte[] pooled = digestBuffers.getAndSet(slot, null);
-    byte[] buffer = pooled != null ? pooled : new byte[DIGEST_BUFFER_SIZE];
+    byte[] pooled = DigestBuffersHolder.digestBuffers.getAndSet(slot, null);
+    byte[] buffer = pooled != null ? pooled : new byte[DigestBuffersHolder.DIGEST_BUFFER_SIZE];
     try (var in = getInputStream(path)) {
       int read;
       while ((read = in.read(buffer)) != -1) {
@@ -386,7 +391,7 @@ public abstract class FileSystem {
       }
     } finally {
       if (pooled != null) {
-        digestBuffers.set(slot, pooled);
+        DigestBuffersHolder.digestBuffers.set(slot, pooled);
       }
     }
     return hasher.hash().asBytes();
