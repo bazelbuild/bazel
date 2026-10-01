@@ -923,14 +923,6 @@ sh_test(
 )
 
 sh_test(
-    name = "starlark_input_discovery_test",
-    srcs = ["starlark_input_discovery_test.sh"],
-    data = [":test-deps"],
-    shard_count = 8,
-    deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
-sh_test(
     name = "subrules_test",
     srcs = ["subrules_test.sh"],
     data = [

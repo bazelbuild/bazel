@@ -431,11 +431,15 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             positional = false,
             doc =
                 "File containing list of inputs unused by the action. "
-                    + ""
-                    + "<p>The content of this file (generally one of the outputs of the action) "
-                    + "corresponds to  the list of input files that were not used during the whole "
-                    + "action execution. Any change in those files must not affect in any way the "
-                    + "outputs of the action."),
+                    + "<p>When this file is an output of the action, it is read after execution. "
+                    + "When it is included in the action's inputs, it is read before execution to "
+                    + "remove unused inputs from the spawn inputs (including the sandbox and remote "
+                    + "execution inputs) and the action cache key. Unused inputs are still built "
+                    + "before the action runs on a clean build. The list itself remains an input, "
+                    + "even if it names itself. "
+                    + "<p>Each line must contain an input's execution path as seen by the consuming "
+                    + "action, including path mapping when enabled for that action. Any change in "
+                    + "the listed inputs must not affect the outputs of the action."),
         @Param(
             name = "executable",
             allowedTypes = {
