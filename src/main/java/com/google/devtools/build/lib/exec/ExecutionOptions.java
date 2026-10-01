@@ -442,7 +442,10 @@ public abstract class ExecutionOptions extends OptionsBase {
               + "metadata instead of recomputing the digests from disk every time they are needed. "
               + "Setting this to 0 ensures correctness because not all file changes can be noted "
               + "from file metadata. When not 0, the number indicates the size of the cache as the "
-              + "number of file digests to be cached.")
+              + "number of file digests to be cached. The cache holds one entry per file, costing "
+              + "roughly a hundred bytes of heap each, so the cache is most effective when it can "
+              + "hold the digests of all files a build has to digest, such as every output file "
+              + "that is checked for up-to-dateness when the action graph is re-evaluated.")
   public abstract long getCacheSizeForComputedFileDigests();
 
   @Option(

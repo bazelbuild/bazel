@@ -27,12 +27,14 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -120,8 +122,30 @@ public class DigestUtil {
    * @param status a recently obtained file status, if available
    */
   public Digest compute(Path path, FileStatus status) throws IOException {
+    return compute(path.asFragment(), path, status);
+  }
+
+  /**
+   * Computes a digest for the file of an action input, read at {@code path}, using the digest cache
+   * under the input's exec path.
+   */
+  public Digest compute(ActionInput input, Path path) throws IOException {
+    return compute(input.getExecPath(), path, path.stat());
+  }
+
+  /**
+   * Computes a digest for a file.
+   *
+   * @param digestCacheKey the key under which {@link DigestUtils} caches the file's digest: the
+   *     exec path of an action input, or the absolute path of any other file
+   * @param path the file path
+   * @param status a recently obtained file status, if available
+   */
+  public Digest compute(PathFragment digestCacheKey, Path path, FileStatus status)
+      throws IOException {
     return buildDigest(
-        DigestUtils.getDigestWithManualFallback(path, xattrProvider, status), status.getSize());
+        DigestUtils.getDigestWithManualFallback(digestCacheKey, path, xattrProvider, status),
+        status.getSize());
   }
 
   public static Digest compute(DeterministicWriter input, HashFunction hashFunction)

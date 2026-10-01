@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -498,11 +499,30 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       // possible to hit the digest cache - we probably already computed the digest for the
       // target during previous action execution.
       // The case of an unresolved symlink has been handled above, so realPath() is never null.
-      path = checkNotNull(statAndValue.realPath(), statAndValue);
-      stat = null;
+      Path target = checkNotNull(statAndValue.realPath(), statAndValue);
+      return FileArtifactValue.createFromInjectedDigest(
+          value,
+          DigestUtils.manuallyComputeDigest(
+              digestCacheKeyForSymlinkTarget(artifact, path, target), target, /* status= */ null));
     }
     return FileArtifactValue.createFromInjectedDigest(
-        value, DigestUtils.manuallyComputeDigest(path, stat));
+        value, ActionInputHelper.manuallyComputeDigest(artifact, path, stat));
+  }
+
+  /**
+   * Returns the key under which {@link DigestUtils} caches the digest of the target of a symlink
+   * output, so that the lookup can hit an entry made for the target itself: its exec path if it is
+   * under the exec root (another output, or a source file reached through the exec root), else its
+   * absolute path.
+   */
+  private static PathFragment digestCacheKeyForSymlinkTarget(
+      Artifact symlink, Path symlinkPath, Path targetPath) {
+    PathFragment symlinkFragment = symlinkPath.asFragment();
+    PathFragment execRoot =
+        symlinkFragment.subFragment(
+            0, symlinkFragment.segmentCount() - symlink.getExecPath().segmentCount());
+    PathFragment target = targetPath.asFragment();
+    return target.startsWith(execRoot) ? target.relativeTo(execRoot) : target;
   }
 
   /**

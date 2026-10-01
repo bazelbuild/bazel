@@ -245,7 +245,7 @@ public class UploadManifest {
         continue;
       }
       if (statNoFollow.isFile() && !statNoFollow.isSpecialFile()) {
-        Digest digest = digestUtil.compute(file, statNoFollow);
+        Digest digest = digestUtil.compute(digestCacheKey(file), file, statNoFollow);
         addFile(digest, file, statNoFollow);
         continue;
       }
@@ -273,7 +273,7 @@ public class UploadManifest {
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
           if (target.isAbsolute()) {
             // Symlink to file uploaded as a file.
-            addFile(digestUtil.compute(file, statFollow), file, statNoFollow);
+            addFile(digestUtil.compute(digestCacheKey(file), file, statFollow), file, statNoFollow);
           } else {
             // Symlink to file uploaded as a symlink.
             addFileSymbolicLink(file, target);
@@ -341,6 +341,15 @@ public class UploadManifest {
             .build();
     result.addOutputDirectorySymlinks(outputSymlink);
     result.addOutputSymlinks(outputSymlink);
+  }
+
+  /**
+   * Returns the key under which {@code DigestUtils} caches the digest of an output file: its exec
+   * path, under which the file's metadata is also computed once the action completes, so that one
+   * of the two lookups hits.
+   */
+  private PathFragment digestCacheKey(Path file) {
+    return remotePathResolver.localPathToExecPath(file.asFragment());
   }
 
   private void addFile(Digest digest, Path file, FileStatus statNoFollow) {
@@ -524,7 +533,7 @@ public class UploadManifest {
     private void visitAsFile(Path path) throws IOException {
       Path parentPath = path.getParentDirectory();
       FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
-      Digest digest = digestUtil.compute(path);
+      Digest digest = digestUtil.compute(digestCacheKey(path), path, path.stat());
       FileNode node =
           FileNode.newBuilder()
               .setName(internalToUnicode(path.getBaseName()))

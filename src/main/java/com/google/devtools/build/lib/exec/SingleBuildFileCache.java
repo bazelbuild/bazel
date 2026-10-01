@@ -91,6 +91,7 @@ public class SingleBuildFileCache implements InputMetadataProvider {
               try {
                 metadata =
                     FileArtifactValue.createFromStat(
+                        input,
                         path,
                         // TODO(b/199940216): should we use syscallCache here since caching anyway?
                         path.stat(Symlinks.FOLLOW),

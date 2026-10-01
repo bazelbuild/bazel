@@ -114,9 +114,11 @@ java_library(
     srcs = ["DigestUtil.java"],
     deps = [
         ":digest_output_stream",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
         "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",

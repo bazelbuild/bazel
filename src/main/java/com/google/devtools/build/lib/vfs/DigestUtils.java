@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
@@ -31,6 +33,21 @@ import javax.annotation.Nullable;
  * the {@link #configureCache(long)} function, but note that enabling this cache might have an
  * impact on correctness because not all changes to files can be purely detected from their
  * metadata.
+ *
+ * <p>The cache identifies a file by a {@link PathFragment}: the exec path of an action input (see
+ * {@code ActionInput#getExecPath}), or the absolute path of a file that is only known by its {@link
+ * Path}. The two kinds cannot collide since one is relative and the other absolute. Every consumer
+ * that digests the file of an action input must key it by its exec path for their lookups to share
+ * an entry, and should do so even when the file is read through another path, such as on an action
+ * filesystem. The exec path is retained by the artifact for as long as the build refers to it, so
+ * such a key costs the cache nothing, whereas an absolute path has to be built and retained for the
+ * entry alone.
+ *
+ * <p>Callers that have an action input should use {@code ActionInputHelper}, {@code
+ * FileArtifactValue} or {@code DigestUtil}, which derive the key from the input. The overloads
+ * taking a key directly are for the few callers that only have the path, and they verify that the
+ * path ends with the key, which holds for every exec path since a path is always its root followed
+ * by its exec path.
  */
 public class DigestUtils {
   // Typical size for a digest byte array.
@@ -49,13 +66,13 @@ public class DigestUtils {
     /**
      * Constructs a new cache key.
      *
-     * @param path path to the file
+     * @param path the key identifying the file, see the class documentation
      * @param status file status data from which to obtain the cache key properties
      * @throws IOException if reading the file status data fails
      */
-    private CacheKey(Path path, FileStatus status) throws IOException {
+    private CacheKey(PathFragment path, FileStatus status) throws IOException {
       this(
-          path.asFragment(),
+          path,
           status.getNodeId(),
           status.getLastChangeTime(),
           status.getLastModifiedTime(),
@@ -69,9 +86,8 @@ public class DigestUtils {
    * <p>This is null when the cache is disabled.
    *
    * <p>Note that we do not use a {@link com.github.benmanes.caffeine.cache.LoadingCache} because
-   * our keys represent the paths as strings, not as {@link Path} instances. As a result, the
-   * loading function cannot actually compute the digests of the files so we have to handle this
-   * externally.
+   * our keys only identify the files and are not {@link Path} instances. As a result, the loading
+   * function cannot actually compute the digests of the files so we have to handle this externally.
    */
   private static Cache<CacheKey, byte[]> globalCache = null;
 
@@ -124,30 +140,58 @@ public class DigestUtils {
    * <p>If {@link Path#getFastDigest} has already been attempted and was not available, call {@link
    * #manuallyComputeDigest} to skip an additional attempt to obtain the fast digest.
    *
-   * @param path the file path
+   * @param path the file path, which is also the key under which the file is cached
    * @param status a recently obtained file status, if available. Used to skip a stat.
    */
   public static byte[] getDigestWithManualFallback(
       Path path, XattrProvider xattrProvider, @Nullable FileStatus status) throws IOException {
+    return getDigestWithManualFallback(path.asFragment(), path, xattrProvider, status);
+  }
+
+  /**
+   * Same as {@link #getDigestWithManualFallback(Path, XattrProvider, FileStatus)}, with the file
+   * cached under {@code cacheKey} rather than under its path.
+   *
+   * @param cacheKey the key under which the file is cached, see the class documentation
+   * @param path the file path to stat and read
+   */
+  public static byte[] getDigestWithManualFallback(
+      PathFragment cacheKey, Path path, XattrProvider xattrProvider, @Nullable FileStatus status)
+      throws IOException {
     byte[] digest = xattrProvider.getFastDigest(path);
-    return digest != null ? digest : manuallyComputeDigest(path, status);
+    return digest != null ? digest : manuallyComputeDigest(cacheKey, path, status);
   }
 
   /**
    * Calculates a digest manually (i.e., assuming that a fast digest can't obtained).
    *
-   * @param path the file path
+   * @param path the file path, which is also the key under which the file is cached
    * @param status a recently obtained file status, if available. Used to skip a stat.
    */
   public static byte[] manuallyComputeDigest(Path path, @Nullable FileStatus status)
       throws IOException {
+    return manuallyComputeDigest(path.asFragment(), path, status);
+  }
+
+  /**
+   * Same as {@link #manuallyComputeDigest(Path, FileStatus)}, with the file cached under {@code
+   * cacheKey} rather than under its path.
+   *
+   * @param cacheKey the key under which the file is cached, see the class documentation
+   * @param path the file path to stat and read
+   * @param status a recently obtained file status, if available. Used to skip a stat.
+   */
+  public static byte[] manuallyComputeDigest(
+      PathFragment cacheKey, Path path, @Nullable FileStatus status) throws IOException {
+    checkArgument(
+        identifies(cacheKey, path), "digest cache key %s does not identify %s", cacheKey, path);
     byte[] digest;
 
     // Attempt a cache lookup if the cache is enabled.
     Cache<CacheKey, byte[]> cache = globalCache;
     CacheKey key = null;
     if (cache != null) {
-      key = new CacheKey(path, status != null ? status : path.stat());
+      key = new CacheKey(cacheKey, status != null ? status : path.stat());
       digest = cache.getIfPresent(key);
       if (digest != null) {
         return digest;
@@ -161,6 +205,16 @@ public class DigestUtils {
       cache.put(key, digest);
     }
     return digest;
+  }
+
+  /**
+   * Returns whether {@code cacheKey} can identify the file at {@code path}: it is the path itself,
+   * or an exec path the path ends with.
+   */
+  private static boolean identifies(PathFragment cacheKey, Path path) {
+    return cacheKey.isAbsolute()
+        ? cacheKey.equals(path.asFragment())
+        : path.asFragment().endsWith(cacheKey);
   }
 
   /**
