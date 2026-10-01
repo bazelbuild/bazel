@@ -39,7 +39,9 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -225,6 +227,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               lockfileFacts,
               requireRepoExtensionMetadataMode);
     } catch (ExternalDepsException e) {
+      // The extension aborts at the first lost repo file, so this repeats once per affected repo.
+      Reset reset = RepoRewinding.resetForLostRepoFile(skyKey, e);
+      if (reset != null) {
+        return reset;
+      }
       throw new SingleExtensionEvalFunctionException(e);
     }
     if (moduleExtensionResult == null) {

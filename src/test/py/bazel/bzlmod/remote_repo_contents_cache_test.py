@@ -1407,8 +1407,9 @@ class RemoteRepoContentsCacheTest(
         'other_repo.bzl',
         [
             'def _other_repo_impl(rctx):',
-            # Reading my_repo's BUILD forces full materialization of my_repo.
-            '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+            # Resolving my_repo's BUILD to a path forces full materialization
+            # of my_repo.
+            '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
             # other is not reproducible, so it is always fetched and re-triggers
             # materialization of my_repo from the cache.
             '  return rctx.repo_metadata()',
@@ -1545,8 +1546,9 @@ class RemoteRepoContentsCacheTest(
         'other_repo.bzl',
         [
             'def _other_repo_impl(rctx):',
-            # Reading my_repo's BUILD forces full materialization of my_repo.
-            '  rctx.read(rctx.attr.build_file)',
+            # Resolving my_repo's BUILD to a path forces full materialization
+            # of my_repo.
+            '  rctx.path(rctx.attr.build_file)',
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
             '  return rctx.repo_metadata()',
             (
@@ -1788,7 +1790,9 @@ class RemoteRepoContentsCacheTest(
             # Materialize dep_repo before my_repo so that the external symlink
             # target exists when my_repo is materialized.
             '  rctx.watch(rctx.attr.dep_file)',
-            '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+            # Resolving my_repo's BUILD to a path forces full materialization
+            # of my_repo.
+            '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
             '  return rctx.repo_metadata()',
             (
                 'other_repo_rule = repository_rule(_other_repo_impl,'
@@ -1931,7 +1935,7 @@ class RemoteRepoContentsCacheTest(
         [
             'def _materializer_impl(rctx):',
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
-            '  rctx.read(rctx.attr.dep_file)',
+            '  rctx.read(rctx.path(rctx.attr.dep_file))',
             '  return rctx.repo_metadata()',
             (
                 'materializer_rule = repository_rule(_materializer_impl,'
@@ -2267,9 +2271,10 @@ class RemoteRepoContentsCacheTest(
       # symlink target exists when my_repo is materialized.
       other_repo_lines.append('  rctx.watch(rctx.attr.dep_file)')
     other_repo_lines.extend([
-        '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
-        # other_repo is not reproducible, so it is always fetched
-        # and triggers materialization of my_repo.
+        # Resolving my_repo's BUILD to a path forces full materialization of
+        # my_repo. other_repo is not reproducible, so it is always fetched and
+        # triggers the materialization.
+        '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
         '  return rctx.repo_metadata()',
         (
             'other_repo_rule = repository_rule(_other_repo_impl,'
@@ -3015,6 +3020,53 @@ class RemoteRepoContentsCacheTest(
       self.assertEqual(f.read(), 'hello')
     self.assertEqual(os.readlink(os.path.join(repo_dir, 'sub/self')), '../sub')
     self.assertFalse(os.path.lexists(os.path.join(repo_dir, 'loop_a')))
+
+
+  def testReadOfLabelDoesNotMaterializeRepo(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'reader = use_repo_rule("//:repo.bzl", "reader")',
+            'reader(name = "reader", data = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  rctx.file("other.txt", "other")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+            'def _reader_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'copy.txt\'])")',
+            '  rctx.file("copy.txt", rctx.read(rctx.attr.data))',
+            'reader = repository_rule(',
+            '  _reader_impl,',
+            '  attrs = {"data": attr.label()},',
+            ')',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+    reader_dir = self.RepoDir('reader')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached. Reading a file of the repo through its label
+    # doesn't require the other files of the repo.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@reader//:copy.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(reader_dir, 'copy.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'other.txt')))
 
 
 if __name__ == '__main__':
