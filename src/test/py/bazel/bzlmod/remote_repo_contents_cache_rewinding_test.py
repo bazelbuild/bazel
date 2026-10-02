@@ -663,6 +663,74 @@ class RemoteRepoContentsCacheRewindingTest(
     with open(self.Path('bazel-bin/main/out.txt')) as f:
       self.assertEqual(f.read(), 'hello')
 
+  def testLostRemoteFile_runWithSourceDirectoryInRunfiles(self):
+    if self.IsWindows():
+      self.skipTest('requires a shell script')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'dir\'])")',
+            '  rctx.file("dir/data.txt", "hello from a source directory")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/launcher.bzl',
+        [
+            'def _launcher_impl(ctx):',
+            '  exe = ctx.actions.declare_file(ctx.label.name + ".sh")',
+            '  ctx.actions.write(',
+            '    exe,',
+            '    "#!/bin/sh\\ncat \\"$0.runfiles/data/data.txt\\"\\n",',
+            '    is_executable = True,',
+            '  )',
+            '  return [DefaultInfo(',
+            '    executable = exe,',
+            '    runfiles = ctx.runfiles(root_symlinks = {"data": ctx.file.src}),',
+            '  )]',
+            'launcher = rule(',
+            '  implementation = _launcher_impl,',
+            '  attrs = {"src": attr.label(allow_single_file = True)},',
+            '  executable = True,',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'load("//main:launcher.bzl", "launcher")',
+            'launcher(name = "launcher", src = "@my_repo//:dir")',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:launcher'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:launcher'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The file below the source directory is only downloaded for the runfiles
+    # of the binary that is run, which is when its loss is noticed.
+    self.DeleteCasEntry(b'hello from a source directory')
+    _, stdout, stderr = self.RunBazel(
+        ['run', '--rewind_lost_inputs', '//main:launcher']
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('retrying the build', stderr)
+    self.assertIn('hello from a source directory', '\n'.join(stdout))
+
   def testLostRemoteFile_templateExpansion(self):
     # A template is read by Bazel itself rather than by a process it spawns, so
     # its loss is noticed while reading it rather than while staging inputs.
