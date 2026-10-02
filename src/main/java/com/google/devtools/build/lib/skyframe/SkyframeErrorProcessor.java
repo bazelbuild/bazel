@@ -942,7 +942,10 @@ public final class SkyframeErrorProcessor {
     if (cause instanceof ActionExecutionException actionExecutionCause) {
       String message = cause.getMessage();
       if (actionExecutionCause.getAction() != null) {
-        message = actionExecutionCause.getAction().describe() + " failed: " + message;
+        message =
+            actionExecutionCause.getAction().describe()
+                + " failed"
+                + (message == null ? "" : ": " + message);
       }
       // Sometimes ActionExecutionExceptions are caused by Actions with no owner.
       if (actionExecutionCause.getLocation() != null) {

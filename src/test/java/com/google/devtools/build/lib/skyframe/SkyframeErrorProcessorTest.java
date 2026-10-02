@@ -2480,16 +2480,15 @@ public class SkyframeErrorProcessorTest {
     assertThat(bugReporter.nonFatalBugReports).hasSize(2);
   }
 
-  // TODO(b/561978611): Remove this behavior. The rethrown message reads "TestAction failed: null".
   @Test
   public void noKeepGoing_actionExecutionErrorWithNoMessage_errorIsMarkedAlreadyShown() {
     // Pins the !showError() branch of rethrow(). The base showError() is getMessage() != null, so
     // with a plain ActionExecutionException the only way to reach it is a null message; the
     // subclass AlreadyReportedActionExecutionException hard-codes false instead, see
-    // noKeepGoing_alreadyReportedActionExecutionError_errorIsMarkedAlreadyShown. Wart: the
-    // rethrown message is *not* null - it comes out as "TestAction failed: null" - which is what
-    // makes isErrorAlreadyShown() prove the showError() branch rather than BuildFailedException's
-    // own null-message shortcut.
+    // noKeepGoing_alreadyReportedActionExecutionError_errorIsMarkedAlreadyShown. Because the
+    // action description is still prepended ("TestAction failed"), the rethrown message is
+    // non-null, so isErrorAlreadyShown() proves the !showError() flag rather than
+    // BuildFailedException's own null-message shortcut.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
     DetailedExitCode exitCode =
         executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
@@ -2510,7 +2509,7 @@ public class SkyframeErrorProcessorTest {
                     /* keepGoing= */ false,
                     /* includeExecutionPhase= */ true));
 
-    assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed: null");
+    assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed");
     assertThat(thrown.isErrorAlreadyShown()).isTrue();
   }
 
@@ -2519,8 +2518,6 @@ public class SkyframeErrorProcessorTest {
     // The production-realistic route into the same branch: SkyframeActionExecutor and
     // ActionExecutionFunction wrap failures they have already reported in
     // AlreadyReportedActionExecutionException, the one showError() override in the codebase.
-    // Unlike the null-message case above, the message survives intact, so this pins the
-    // errorAlreadyShown mapping without also depending on the "TestAction failed: null" wart.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
     DetailedExitCode exitCode =
         executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
