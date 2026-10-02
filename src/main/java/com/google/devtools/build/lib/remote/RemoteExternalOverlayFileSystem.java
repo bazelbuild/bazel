@@ -652,9 +652,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // The REPO.bazel and .bazelignore files, if present, are dependencies of any package and will
     // thus have to be fetched anyway. Prefetching them also ensures that their loss from the remote
     // cache results in a cache miss rather than a build failure.
+    // MODULE.bazel and the files it includes are read from the repo of a module with a non-registry
+    // override.
+    String baseName = path.getBaseName();
     return path.getFileExtension().equals("bzl")
-        || path.getBaseName().equals("REPO.bazel")
-        || path.getBaseName().equals(".bazelignore");
+        || baseName.equals("REPO.bazel")
+        || baseName.equals(".bazelignore")
+        || baseName.equals("MODULE.bazel")
+        || baseName.endsWith(".MODULE.bazel");
   }
 
   @Override
