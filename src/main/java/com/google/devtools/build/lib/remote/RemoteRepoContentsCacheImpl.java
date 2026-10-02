@@ -41,6 +41,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -235,6 +236,26 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         && remoteFs.hasLostFiles(repoName);
   }
 
+  private static ImmutableSet<String> getRecordedInputs(String markerFile) {
+    return ImmutableSet.copyOf(Splitter.on('\n').omitEmptyStrings().split(markerFile));
+  }
+
+  private static String describeFirstDifferentInput(
+      ImmutableSet<String> cachedInputs, ImmutableSet<String> fetchedInputs) {
+    String onlyFetched = Iterables.getFirst(Sets.difference(fetchedInputs, cachedInputs), null);
+    String onlyCached = Iterables.getFirst(Sets.difference(cachedInputs, fetchedInputs), null);
+    if (onlyCached == null) {
+      return "the fetch recorded '%s', which hasn't been recorded for the cached contents"
+          .formatted(onlyFetched);
+    }
+    if (onlyFetched == null) {
+      return "the fetch didn't record '%s', which has been recorded for the cached contents"
+          .formatted(onlyCached);
+    }
+    return "the fetch recorded '%s', but not '%s', which has been recorded for the cached contents"
+        .formatted(onlyFetched, onlyCached);
+  }
+
   @Override
   public void restoreLostFiles(
       RepositoryName repoName,
@@ -246,14 +267,14 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       throws IOException, InterruptedException {
     var remoteFs = (RemoteExternalOverlayFileSystem) repoDir.getFileSystem();
     var cachedRootDigest = remoteFs.getInjectedRootDigest(repoName);
-    if (cachedRootDigest == null) {
+    var cachedMarkerFile = remoteFs.getInjectedMarkerFile(repoName);
+    if (cachedRootDigest == null || cachedMarkerFile == null) {
       // The cached contents are no longer in use, so there is nothing to restore.
       return;
     }
+    var fetchedMarkerFile = FileSystemUtils.readContent(fetchedRepoMarkerFile, ISO_8859_1);
     var recordedInputValues =
-        DigestWriter.readMarkerFile(
-                FileSystemUtils.readContent(fetchedRepoMarkerFile, ISO_8859_1),
-                predeclaredInputHash)
+        DigestWriter.readMarkerFile(fetchedMarkerFile, predeclaredInputHash)
             .orElseThrow(
                 () ->
                     new IOException(
@@ -278,6 +299,15 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!fetchedRootDigest.equals(cachedRootDigest)) {
       throw new NonReproducibleRepoException(
           repoName, remoteFs.describeFirstDifference(repoName, fetchedRepoDir));
+    }
+    // Equal contents can come with different recorded inputs, e.g. if the repo rule watches a path
+    // relative to its directory, which is the staging directory now. The order in which the inputs
+    // have been recorded doesn't matter.
+    var cachedInputs = getRecordedInputs(cachedMarkerFile);
+    var fetchedInputs = getRecordedInputs(fetchedMarkerFile);
+    if (!fetchedInputs.equals(cachedInputs)) {
+      throw new NonReproducibleRepoException(
+          repoName, describeFirstDifferentInput(cachedInputs, fetchedInputs));
     }
 
     remoteFs.materializeFrom(repoName, fetchedRepoDir, reporter);

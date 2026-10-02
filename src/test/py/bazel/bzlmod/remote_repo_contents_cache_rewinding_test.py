@@ -609,6 +609,149 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertNotIn('retrying the build', stderr)
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
 
+  def testLostRemoteFile_actionInput_inputRelativeToRepoDirectory(self):
+    # The repo rule watches a file of another repo through a path relative to
+    # the directory of its own repo, which refers to a different file when the
+    # repo is fetched into another directory.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'anchor = use_repo_rule("//:repo.bzl", "anchor")',
+            'anchor(name = "anchor")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo", anchor = "@anchor//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _anchor_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "anchor")',
+            'anchor = repository_rule(_anchor_impl)',
+            'def _repo_impl(rctx):',
+            '  rctx.read(rctx.attr.anchor, watch = "no")',
+            '  rctx.watch("../" + rctx.attr.anchor.repo_name + "/data.txt")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(',
+            '  _repo_impl,',
+            '  attrs = {"anchor": attr.label()},',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(SRCS) > $@",',
+            ')',
+        ],
+    )
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached, with the contents of data.txt staying remote.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The lost action input can only be restored together with the inputs that
+    # have been recorded for the cached contents. Fetching the repo again into
+    # another directory records a different input, which is reported as an
+    # error.
+    self.DeleteCasEntry(b'hello')
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//main:use_data'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 1, stderr)
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertRegex(
+        stderr,
+        r'the repo rule declares the contents of repository @@\+repo\+my_repo'
+        r' to be reproducible, but fetching it again to restore files lost by'
+        r' the remote cache resulted in different contents: the fetch recorded'
+        r" 'FILE:.*/data\.txt ENOENT', but not"
+        r" 'FILE:@@\+anchor\+anchor//data\.txt [0-9a-f]+', which has been"
+        r' recorded for the cached contents',
+    )
+    self.assertNotIn('retrying the build', stderr)
+
+    # The next build fetches the repo from scratch.
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
+  def testLostRemoteFile_actionInput_inputsRecordedInDifferentOrder(self):
+    # The repo rule records the same inputs when the repo is fetched again,
+    # but in a different order, which doesn't keep its files from being
+    # restored.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile('a.txt')
+    self.ScratchFile('b.txt')
+    self.ScratchFile('order.txt', ['a.txt b.txt'])
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  order = rctx.read(',
+            '    rctx.workspace_root.get_child("order.txt"), watch = "no")',
+            '  for name in order.strip().split(" "):',
+            '    rctx.watch(rctx.workspace_root.get_child(name))',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(SRCS) > $@",',
+            ')',
+        ],
+    )
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached, with the contents of data.txt staying remote.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    self.ScratchFile('order.txt', ['b.txt a.txt'])
+    self.DeleteCasEntry(b'hello')
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('retrying the build', stderr)
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
   def testLostRemoteFile_actionInput_inReadOnlyDirectory(self):
     if self.IsWindows():
       self.skipTest('requires chmod')

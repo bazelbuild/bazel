@@ -625,6 +625,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   /**
+   * Returns the contents of the marker file of the given repo that have been retrieved from the
+   * remote cache, or null if there are none.
+   */
+  @Nullable
+  public String getInjectedMarkerFile(RepositoryName repo) {
+    var injectedRepo = getInjectedRepo(repo.getName());
+    return injectedRepo != null ? injectedRepo.markerFile() : null;
+  }
+
+  /**
    * Materializes the given repo to the native file system, taking the contents of its files from
    * the given directory rather than the remote cache.
    *
