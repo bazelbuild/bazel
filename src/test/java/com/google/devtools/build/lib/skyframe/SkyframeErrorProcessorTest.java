@@ -2539,55 +2539,52 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown.isErrorAlreadyShown()).isTrue();
   }
 
-  // TODO(b/561978611): Remove this behavior. rethrow dereferences the action's owner
-  // unconditionally, so the getAction() null check guards nothing.
   @Test
-  public void noKeepGoing_actionExecutionErrorWithOwnerlessAction_throwsNullPointerException() {
-    // Latent bug, pinned on purpose: rethrow() guards on getAction() != null and its comment
-    // claims to handle "Actions with no owner", but it then calls getLocation() unconditionally,
-    // which dereferences action.getOwner(). An action with a null owner passes the guard, gets its
-    // description prepended, and then NPEs.
+  public void noKeepGoing_actionExecutionErrorWithOwnerlessAction_omitsLocationFromMessage() {
+    // An ActionExecutionException whose action has a null owner has no location: rethrow() still
+    // prepends the action description, without a location prefix.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
     ActionAnalysisMetadata ownerlessAction = mock(ActionAnalysisMetadata.class);
     when(ownerlessAction.describe()).thenReturn("TestAction");
     when(ownerlessAction.getOwner()).thenReturn(null);
+    DetailedExitCode exitCode =
+        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
     ActionExecutionException cause =
         new ActionExecutionException(
-            "action failed",
-            ownerlessAction,
-            /* catastrophe= */ false,
-            executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE));
+            "action failed", ownerlessAction, /* catastrophe= */ false, exitCode);
 
-    EvaluationResult<SkyValue> result = resultOf(key, errorInfo(cause));
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                processErrors(
+                    resultOf(key, errorInfo(cause)),
+                    /* keepGoing= */ false,
+                    /* includeExecutionPhase= */ true));
 
-    assertThrows(
-        NullPointerException.class,
-        () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
+    assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed: action failed");
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(exitCode);
   }
 
-  // TODO(b/561978611): Remove this behavior. rethrow dereferences the action's owner
-  // unconditionally, so the getAction() null check guards nothing.
   @Test
-  public void noKeepGoing_actionExecutionErrorWithNoAction_throwsNullPointerException() {
-    // The same latent bug, other flavour: getLocation() also dereferences a *null* action, so the
-    // getAction() != null guard protects nothing. This flavour is only reachable through rethrow()
-    // with --nokeep_going: every other use of the null-action actionExecutionException helper is
-    // --keep_going (rethrow is never called), and
-    // noKeepGoing_testExecExceptionNestedInActionExecutionException_isRethrown escapes earlier via
-    // the nested TestExecException.
+  public void noKeepGoing_actionExecutionErrorWithNoAction_keepsCauseMessageAsIs() {
+    // An ActionExecutionException with a null action has neither an action description nor a
+    // location, so rethrow() leaves the exception's own message untouched.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
+    DetailedExitCode exitCode =
+        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
 
-    EvaluationResult<SkyValue> result =
-        resultOf(
-            key,
-            errorInfo(
-                actionExecutionException(
-                    "action failed",
-                    executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE))));
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                processErrors(
+                    resultOf(key, errorInfo(actionExecutionException("action failed", exitCode))),
+                    /* keepGoing= */ false,
+                    /* includeExecutionPhase= */ true));
 
-    assertThrows(
-        NullPointerException.class,
-        () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
+    assertThat(thrown).hasMessageThat().isEqualTo("action failed");
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(exitCode);
   }
 
   @Test
@@ -3075,9 +3072,7 @@ public class SkyframeErrorProcessorTest {
   }
 
   /**
-   * Same, but with a non-null action. {@code --nokeep_going} needs one: {@link
-   * SkyframeErrorProcessor#rethrow} unconditionally calls {@link
-   * ActionExecutionException#getLocation}, which dereferences the action.
+   * Same, but with a non-null action whose description is {@code "TestAction"}.
    *
    * <p>The action's owner has a null label, which keeps the exception's root causes empty (an owner
    * with a label would make the constructor dereference the action's primary output too).
