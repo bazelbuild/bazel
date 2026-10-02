@@ -164,8 +164,9 @@ public sealed class RemoteConfiguredTargetValue
               "tried to serialize a cleared ConfiguredTargetValue? %s",
               obj);
       context.serialize(configuredTarget, codedOut);
-      if (obj instanceof RemoteConfiguredTargetValue value) {
-        context.serialize(value.targetData, codedOut);
+      TargetData targetData = obj.getTargetData();
+      if (targetData != null) {
+        context.serialize(targetData, codedOut);
         return;
       }
 

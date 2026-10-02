@@ -246,8 +246,13 @@ EOF
   GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
     //foo:print_coverage_env &> $TEST_log || true
   expect_log "cc_code_coverage_script: .*collect_cc_coverage.sh"
-  expect_log "llvm_cov: /from/env"
   expect_log "coverage_gcov_path: /from/env"
+  if ! is_darwin; then
+    # The Xcode toolchain provided by apple_support only honors GCOV, it
+    # doesn't declare an llvm-cov tool path, so LLVM_COV isn't part of the
+    # coverage environment on macOS.
+    expect_log "llvm_cov: /from/env"
+  fi
 
   GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
     --test_env=COVERAGE_GCOV_PATH=from_test_env \
@@ -1265,7 +1270,7 @@ EOF
   expect_log "cannot set env variable TEST_NAME=foo because TEST_NAME is reserved"
 }
 
-function test_run_from_external_repo_sibling_repository_layout() {
+function test_run_from_external_repo() {
   cat <<EOF > MODULE.bazel
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
@@ -1286,10 +1291,10 @@ py_test(
 EOF
   touch a/x.py
 
-  bazel test --experimental_sibling_repository_layout @a//:x &> $TEST_log \
+  bazel test @a//:x &> $TEST_log \
       || fail "expected success"
 
-  cp $(testlogs_dir +local_repository+a)/x/test.xml $TEST_log
+  cp bazel-testlogs/external/+local_repository+a/x/test.xml $TEST_log
   expect_log "<testsuite name=\"+local_repository+a/x\""
   expect_log "<testcase name=\"+local_repository+a/x\""
 }

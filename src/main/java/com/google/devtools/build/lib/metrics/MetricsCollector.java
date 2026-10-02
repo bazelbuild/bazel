@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.LocationPrinter;
 import com.google.devtools.build.lib.runtime.SpawnStats;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
@@ -713,6 +714,16 @@ class MetricsCollector {
     Duration cpuTime = Profiler.instance().getServerProcessCpuTime();
     if (cpuTime != null) {
       timingMetrics.setCpuTimeInMs(cpuTime.toMillis());
+    }
+    BuildResultListener buildResultListener = env.getBuildResultListener();
+    if (buildResultListener != null) {
+      if (timingMetrics.getAnalysisPhaseTimeInMs() == 0) {
+        timingMetrics.setAnalysisPhaseTimeInMs(buildResultListener.getAnalysisPhaseTimeInMillis());
+      }
+      if (timingMetrics.getExecutionPhaseTimeInMs() == 0) {
+        timingMetrics.setExecutionPhaseTimeInMs(
+            buildResultListener.getExecutionPhaseTimeInMillis());
+      }
     }
     return timingMetrics.build();
   }

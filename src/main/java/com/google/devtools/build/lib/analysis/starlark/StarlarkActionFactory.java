@@ -14,10 +14,8 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
@@ -34,9 +32,11 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
-import com.google.devtools.build.lib.analysis.actions.StarlarkMapActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -87,6 +86,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -148,10 +148,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (Starlark.NONE.equals(sibling)) {
       fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
-      PathFragment original =
-          ((Artifact) sibling)
-              .getOutputDirRelativePath(
-                  getSemantics().getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+      PathFragment original = ((Artifact) sibling).getOutputDirRelativePath();
       fragment = original.replaceName(filename);
     }
 
@@ -173,10 +170,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (Starlark.NONE.equals(sibling)) {
       fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
-      PathFragment original =
-          ((Artifact) sibling)
-              .getOutputDirRelativePath(
-                  getSemantics().getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+      PathFragment original = ((Artifact) sibling).getOutputDirRelativePath();
       fragment = original.replaceName(filename);
     }
 
@@ -211,10 +205,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (Starlark.NONE.equals(sibling)) {
       rootRelativePath = ruleContext.getPackageDirectory().getRelative(filename);
     } else {
-      PathFragment original =
-          ((Artifact) sibling)
-              .getOutputDirRelativePath(
-                  getSemantics().getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+      PathFragment original = ((Artifact) sibling).getOutputDirRelativePath();
       rootRelativePath = original.replaceName(filename);
     }
 
@@ -253,7 +244,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                     .getBytes(StandardCharsets.UTF_8)),
             ruleContext.getActionOwner(),
             inputSet,
-            ImmutableList.of(PseudoAction.getDummyOutput(ruleContext)),
+            ImmutableList.of(PseudoAction.getDummyOutput(ruleContext, ruleContext.getLabel())),
             mnemonic,
             SPAWN_INFO,
             SpawnInfo.newBuilder().build());
@@ -293,7 +284,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     String progressMessage =
         (progressMessageUnchecked != Starlark.NONE)
             ? (String) progressMessageUnchecked
-            : "Creating symlink %{output}";
+            : UnresolvedSymlinkAction.DEFAULT_PROGRESS_MESSAGE;
 
     Action action;
     if (targetFile != Starlark.NONE) {
@@ -388,10 +379,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               ruleContext, (Artifact) output, (String) content, isExecutable, mnemonic);
     } else if (content instanceof Args args) {
       var unmodifiedExecutionRequirements =
-          TargetUtils.getFilteredExecutionInfo(
-              executionRequirementsUnchecked,
-              ruleContext.getRule(),
-              getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+          getExecutionInfo(executionRequirementsUnchecked, ruleContext);
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
@@ -428,7 +416,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
-      Object toolchainUnchecked)
+      Object toolchainUnchecked,
+      Object stdoutUnchecked)
       throws EvalException, InterruptedException {
     context.checkMutable("actions.run");
     execGroupUnchecked = context.maybeOverrideExecGroup(execGroupUnchecked);
@@ -479,6 +468,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         shadowedActionUnchecked,
         resourceSetUnchecked,
         toolchainUnchecked,
+        stdoutUnchecked,
         builder);
   }
 
@@ -692,6 +682,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         shadowedActionUnchecked,
         resourceSetUnchecked,
         toolchainUnchecked,
+        /* stdoutUnchecked= */ Starlark.NONE,
         builder);
   }
 
@@ -744,6 +735,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
       Object toolchainUnchecked,
+      Object stdoutUnchecked,
       StarlarkAction.Builder builder)
       throws EvalException {
     if (inputs instanceof Sequence) {
@@ -753,10 +745,35 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     List<Artifact> outputArtifacts = Sequence.cast(outputs, Artifact.class, "outputs");
-    if (outputArtifacts.isEmpty()) {
-      throw Starlark.errorf("param 'outputs' may not be empty");
+
+    Artifact stdoutOutput = null;
+    if (stdoutUnchecked != Starlark.NONE) {
+      var artifact = (Artifact) stdoutUnchecked;
+      if (artifact.isSourceArtifact()) {
+        throw Starlark.errorf("param 'stdout' may not be a source file");
+      }
+      if (artifact.isTreeArtifact()) {
+        throw Starlark.errorf("param 'stdout' may not be a declared directory");
+      }
+      if (artifact.isSymlink()) {
+        throw Starlark.errorf("param 'stdout' may not be a declared symlink");
+      }
+      if (outputArtifacts.contains(artifact)) {
+        throw Starlark.errorf(
+            "file '%s' passed to 'stdout' may not also be listed in 'outputs'",
+            artifact.getExecPathString());
+      }
+      stdoutOutput = artifact;
+    }
+
+    if (outputArtifacts.isEmpty() && stdoutOutput == null) {
+      throw Starlark.errorf("param 'outputs' may not be empty while 'stdout' is not set");
     }
     builder.addOutputs(outputArtifacts);
+    if (stdoutOutput != null) {
+      builder.addOutput(stdoutOutput);
+      builder.setStdoutOutput(stdoutOutput);
+    }
 
     if (unusedInputsList != Starlark.NONE) {
       if (unusedInputsList instanceof Artifact artifact) {
@@ -819,7 +836,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     if (mnemonicUnchecked == Starlark.NONE
         && getSemantics()
-            .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS)) {
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS)
+        && !(Allowlist.hasAllowlist(getRuleContext(), "no_explicit_mnemonic")
+            && Allowlist.isAvailableBasedOnRuleLocation(
+                getRuleContext(), "no_explicit_mnemonic"))) {
       throw Starlark.errorf("actions.run and actions.run_shell require an explicit mnemonic.");
     }
 
@@ -845,10 +865,17 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     ImmutableMap<String, String> executionInfo =
-        TargetUtils.getFilteredExecutionInfo(
-            executionRequirementsUnchecked,
-            ruleContext.getRule(),
-            getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+        getExecutionInfo(executionRequirementsUnchecked, ruleContext);
+
+    // A persistent worker communicates via stdout, so we cannot capture it.
+    if (stdoutOutput != null
+        && (Spawns.supportsWorkers(executionInfo)
+            || Spawns.supportsMultiplexWorkers(executionInfo))) {
+      throw Starlark.errorf(
+          "parameter 'stdout' of actions.run is incompatible with worker execution (the"
+              + " '%s' or '%s' execution requirement)",
+          ExecutionRequirements.SUPPORTS_WORKERS, ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS);
+    }
     builder.setExecutionInfo(executionInfo);
 
     String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
@@ -1007,14 +1034,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       if (!(o instanceof StarlarkActionResourceSetBuilder that)) {
         return false;
       }
-      return Objects.equal(fn, that.fn)
-          && Objects.equal(mnemonic, that.mnemonic)
-          && Objects.equal(semantics, that.semantics);
+      return Objects.equals(fn, that.fn)
+          && Objects.equals(mnemonic, that.mnemonic)
+          && Objects.equals(semantics, that.semantics);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(fn, mnemonic, semantics);
+      return Objects.hash(fn, mnemonic, semantics);
     }
   }
 
@@ -1157,12 +1184,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         ruleContext
             .getConfiguration()
             .modifiedExecutionInfo(
-                TargetUtils.getFilteredExecutionInfo(
-                    executionRequirementsUnchecked,
-                    ruleContext.getRule(),
-                    getSemantics()
-                        .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION)),
-                mnemonic);
+                getExecutionInfo(executionRequirementsUnchecked, ruleContext), mnemonic);
     executionInfo =
         ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
             .putAll(executionInfo)
@@ -1201,6 +1223,15 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             .setExecutionInfo(executionInfo)
             .setOutputPathsMode(PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
 
+    // Verify whether declare_subdirectory is available for this target. The allowlist may match
+    // either the target's package or the .bzl file defining the rule class.
+    boolean isSubdirectoryAllowed =
+        Allowlist.hasAllowlist(ruleContext, "subdirectory")
+            && (Allowlist.isAvailable(ruleContext, "subdirectory")
+                || (ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel()
+                        != null
+                    && Allowlist.isAvailableBasedOnRuleLocation(ruleContext, "subdirectory")));
+
     StarlarkMapActionTemplate template =
         new StarlarkMapActionTemplate(
             getRuleContext().getActionOwner(execGroup),
@@ -1233,7 +1264,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             mnemonic,
             implementation,
             thread.getSemantics(),
-            ruleContext.getSymbolGenerator());
+            ruleContext.getSymbolGenerator(),
+            isSubdirectoryAllowed);
     registerAction(template);
   }
 
@@ -1309,6 +1341,25 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   private InterruptibleSupplier<RepositoryMapping> getMainRepoMappingSupplier() {
     return context.getRuleContext().getAnalysisEnvironment()::getMainRepoMapping;
+  }
+
+  private ImmutableMap<String, String> getExecutionInfo(
+      Object executionRequirementsUnchecked, RuleContext ruleContext) throws EvalException {
+    if (executionRequirementsUnchecked != null && executionRequirementsUnchecked != Starlark.NONE) {
+      Dict<?, ?> dict =
+          Dict.noneableCast(
+              executionRequirementsUnchecked, String.class, String.class, "execution_requirements");
+      if (dict.containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING)) {
+        throw Starlark.errorf(
+            "execution requirement '%s' cannot be set directly; it can only be enabled via"
+                + " --modify_execution_info",
+            ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING);
+      }
+    }
+    return TargetUtils.getFilteredExecutionInfo(
+        executionRequirementsUnchecked,
+        ruleContext.getRule(),
+        getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
   }
 
   /** The analysis context for {@code Starlark} actions */

@@ -112,15 +112,6 @@ public final class Expander {
     return new Expander(ruleContext, newTemplateContext, labelMap, lookedUpVariables);
   }
 
-  /**
-   * Expands the given value string, tokenizes it, and then adds it to the given list. The attribute
-   * name is only used for error reporting.
-   */
-  public void tokenizeAndExpandMakeVars(List<String> result, String attributeName, String value)
-      throws InterruptedException {
-    expandValue(result, attributeName, value, /* shouldTokenize */ true);
-  }
-
   /** Expands make variables and $(location) tags in value, and optionally tokenizes the result. */
   private void expandValue(
       List<String> tokens, String attributeName, String value, boolean shouldTokenize) {
@@ -215,26 +206,6 @@ public final class Expander {
   public ImmutableList<String> tokenized(String attrName, List<String> values)
       throws InterruptedException {
     return expandAndTokenizeList(attrName, values, /* shouldTokenize */ true);
-  }
-
-  /**
-   * If the string consists of a single variable, returns the expansion of that variable. Otherwise,
-   * returns null. Syntax errors are reported.
-   *
-   * @param attrName the name of the attribute from which "expression" comes; used for error
-   *     reporting.
-   * @param expression the string to expand.
-   * @return the expansion of "expression", or null.
-   */
-  @Nullable
-  public String expandSingleMakeVariable(String attrName, String expression)
-      throws InterruptedException {
-    try {
-      return TemplateExpander.expandSingleVariable(expression, templateContext);
-    } catch (ExpansionException e) {
-      ruleContext.attributeError(attrName, e.getMessage());
-      return expression;
-    }
   }
 
   /**

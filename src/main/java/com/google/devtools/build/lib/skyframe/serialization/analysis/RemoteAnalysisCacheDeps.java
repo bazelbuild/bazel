@@ -25,6 +25,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -74,6 +75,7 @@ public class RemoteAnalysisCacheDeps
   private final boolean emitUploadedEvents;
 
   private final ListenableFuture<ObjectCodecs> objectCodecs;
+  private final CompressionService compressionService;
   @Nullable private final ListenableFuture<FingerprintValueService> fingerprintValueServiceFuture;
   private final LazyResolver<FingerprintValueService> fingerprintValueService;
   private final LazyResolver<? extends RemoteAnalysisCacheClient> analysisCacheClient;
@@ -104,6 +106,7 @@ public class RemoteAnalysisCacheDeps
       RemoteAnalysisCachingServicesSupplier servicesSupplier,
       RemoteAnalysisCachingEventListener listener,
       ListenableFuture<ObjectCodecs> objectCodecs,
+      CompressionService compressionService,
       FrontierNodeVersion frontierNodeVersion,
       Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
       String serializedFrontierProfile,
@@ -127,6 +130,8 @@ public class RemoteAnalysisCacheDeps
     this.listener = listener;
 
     this.frontierNodeVersion = frontierNodeVersion;
+
+    this.compressionService = compressionService;
 
     this.fingerprintValueServiceFuture =
         servicesSupplier.getFingerprintValueStore() == null
@@ -165,6 +170,7 @@ public class RemoteAnalysisCacheDeps
     this.objectCodecs = null;
     this.listener = null;
     this.frontierNodeVersion = null;
+    this.compressionService = null;
     this.fingerprintValueServiceFuture = null;
     this.fingerprintValueService = new LazyResolver<>(null, "");
     this.analysisCacheClient = new LazyResolver<>(null, "");
@@ -231,6 +237,13 @@ public class RemoteAnalysisCacheDeps
     } catch (ExecutionException e) {
       throw new IllegalStateException("Failed to initialize ObjectCodecs", e);
     }
+  }
+
+  @Nullable
+  @Override
+  public CompressionService getCompressionService() {
+    checkEnabled();
+    return compressionService;
   }
 
   @Nullable
@@ -305,7 +318,12 @@ public class RemoteAnalysisCacheDeps
       if (skyValueRetriever == null) {
         skyValueRetriever =
             new SkyValueRetriever(
-                fingerprintValueService, codecs, frontierNodeVersion, fileOp, channelStateAdvisor);
+                compressionService,
+                fingerprintValueService,
+                codecs,
+                frontierNodeVersion,
+                fileOp,
+                channelStateAdvisor);
       }
       return skyValueRetriever;
     }
@@ -330,6 +348,7 @@ public class RemoteAnalysisCacheDeps
       if (skycacheUploadClient == null) {
         skycacheUploadClient =
             new SkycacheUploadClient(
+                compressionService,
                 fingerprintValueService,
                 codecs,
                 frontierNodeVersion,

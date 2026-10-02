@@ -26,6 +26,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -60,7 +61,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.ReleaseReplaceableBuil
 import com.google.devtools.build.lib.buildtool.buildevent.StartingAqueryDumpAfterBuildEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.UpdateOptionsEvent;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
@@ -84,9 +84,11 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.ExecRootEvent;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -131,6 +133,7 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -234,11 +237,11 @@ public class BuildTool {
           AbruptExitException,
           InvalidConfigurationException,
           TestExecException,
-          LabelSyntaxException,
           ExitException,
           PostExecutionDumpException,
           RepositoryMappingResolutionException,
           OptionsParsingException {
+    maybeSetStopOnFirstFailure(request, result);
     try (SilentCloseable c = Profiler.instance().profile("validateOptions")) {
       validateOptions(request);
     }
@@ -361,6 +364,7 @@ public class BuildTool {
                     // build in BlazeCommandDispatcher.
                     /* replaceable= */ false));
         env.getEventBus().post(new UpdateOptionsEvent(optionsParser));
+        maybeSetStopOnFirstFailure(optionsParser, result);
       } else {
         // No PROJECT.scl flag updates. Release the original CanonicalCommandLineEvent for posting.
         env.getEventBus()
@@ -985,6 +989,51 @@ public class BuildTool {
     Throwable crash = null;
     DetailedExitCode detailedExitCode = null;
     try {
+      detailedExitCode =
+          processRequestHandleCheckedExceptions(
+              request, result, validator, options, targetsForProjectResolution, postBuildCallback);
+    } catch (Throwable throwable) {
+      crash = throwable;
+      detailedExitCode = CrashFailureDetails.detailedExitCodeForThrowable(crash);
+      Throwables.throwIfUnchecked(throwable);
+      // This point should not be reached. Unchecked exceptions have just been thrown by
+      // Throwables.throwIfUnchecked(), and all checked exceptions should be caught in
+      // processRequestHandleCheckedExceptions.
+      IllegalStateException illegalStateException =
+          new IllegalStateException(
+              "This checked exception should have been handled by"
+                  + " processRequestHandleCheckedExceptions()",
+              throwable);
+      // crash must be an unchecked exception because in the finally block it is passed to
+      // stopRequest() which accepts only Error or RuntimeException.
+      crash = illegalStateException;
+      throw illegalStateException;
+    } finally {
+      if (detailedExitCode == null) {
+        detailedExitCode =
+            CrashFailureDetails.detailedExitCodeForThrowable(
+                new IllegalStateException("Unspecified DetailedExitCode"));
+      }
+      try (SilentCloseable c = Profiler.instance().profile("stopRequest")) {
+        stopRequest(result, crash, detailedExitCode);
+      }
+    }
+
+    return result;
+  }
+
+  private DetailedExitCode processRequestHandleCheckedExceptions(
+      BuildRequest request,
+      BuildResult result,
+      TargetValidator validator,
+      OptionsParsingResult options,
+      List<String> targetsForProjectResolution,
+      PostBuildCallback postBuildCallback) {
+    // Don't add any throws here. The purpose of this method is to catch all checked exceptions
+    // so that the catch-all `catch (Throwable throwable)` in `processRequest` only gets to handle
+    // unchecked exceptions.
+    DetailedExitCode detailedExitCode;
+    try {
       try (SilentCloseable c = Profiler.instance().profile("buildTargets")) {
         // This OptionsParsingResult is essentially a wrapper around the OptionsParser in
         // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/runtime/BlazeCommandDispatcher.java#L341. Casting it back to
@@ -1032,8 +1081,8 @@ public class BuildTool {
       AbruptExitException environmentPendingAbruptExitException = env.getPendingException();
       if (detailedExitCode == null && environmentPendingAbruptExitException != null) {
         detailedExitCode = environmentPendingAbruptExitException.getDetailedExitCode();
-        // Report the exception from the environment - the exception we're handling here is just an
-        // interruption.
+        // Report the exception from the environment - the exception we're handling here is just
+        // an interruption.
         reportExceptionError(environmentPendingAbruptExitException);
       }
       if (detailedExitCode == null) {
@@ -1084,23 +1133,21 @@ public class BuildTool {
                           .build())
                   .build());
       reportExceptionError(e);
-    } catch (Throwable throwable) {
-      crash = throwable;
-      detailedExitCode = CrashFailureDetails.detailedExitCodeForThrowable(crash);
-      Throwables.throwIfUnchecked(throwable);
-      throw new IllegalStateException(throwable);
-    } finally {
-      if (detailedExitCode == null) {
-        detailedExitCode =
-            CrashFailureDetails.detailedExitCodeForThrowable(
-                new IllegalStateException("Unspecified DetailedExitCode"));
-      }
-      try (SilentCloseable c = Profiler.instance().profile("stopRequest")) {
-        stopRequest(result, crash, detailedExitCode);
-      }
+    } catch (OptionsParsingException e) {
+      detailedExitCode =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(Strings.nullToEmpty(e.getMessage()))
+                  .setCommand(
+                      FailureDetails.Command.newBuilder()
+                          .setCode(FailureDetails.Command.Code.OPTIONS_PARSE_FAILURE))
+                  .build());
+      reportExceptionError(e);
     }
-
-    return result;
+    // Don't add a `catch (Throwable throwable)` or similar here. The purpose of this method is to
+    // check at compile time that all checked exceptions are handled here so that the catch-all
+    // `catch (Throwable throwable)` in `processRequest` only gets to handle unchecked exceptions.
+    return detailedExitCode;
   }
 
   private void reportRemoteAnalysisServiceStats(
@@ -1215,14 +1262,14 @@ public class BuildTool {
     }
   }
 
-  private static void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {
-    if (shouldStopOnFailure(request)) {
-      result.setStopOnFirstFailure(true);
-    }
+  private static void maybeSetStopOnFirstFailure(
+      OptionsProvider optionsProvider, BuildResult result) {
+    result.setStopOnFirstFailure(shouldStopOnFailure(optionsProvider));
   }
 
-  private static boolean shouldStopOnFailure(BuildRequest request) {
-    return !(request.getKeepGoing() && request.getExecutionOptions().getTestKeepGoing());
+  private static boolean shouldStopOnFailure(OptionsProvider optionsProvider) {
+    return !(optionsProvider.getOptions(KeepGoingOption.class).getKeepGoing()
+        && optionsProvider.getOptions(ExecutionOptions.class).getTestKeepGoing());
   }
 
   /** Initializes the output filter to the value given with {@code --output_filter}. */
@@ -1380,6 +1427,7 @@ public class BuildTool {
                             .setCode(RemoteAnalysisCaching.Code.UPLOAD_FAILED))
                     .build()));
       }
+      tryWriteSkycacheMetadata(serializationDependenciesProvider);
       return;
     }
 

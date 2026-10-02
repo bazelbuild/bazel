@@ -20,6 +20,8 @@ load(":common/objc/apple_toolchain.bzl", "apple_toolchain")
 load(":common/objc/objc_info.bzl", "ObjcInfo")
 load(":common/xcode/providers.bzl", "XcodeVersionInfo")
 
+_: Any  # Enable type checking.
+
 native_apple_common = _builtins.internal.apple_common
 
 apple_common = struct(

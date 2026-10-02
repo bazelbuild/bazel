@@ -201,6 +201,31 @@ public final class IgnoredSubdirectories {
     return true;
   }
 
+  /** Reason why a directory is ignored. */
+  public enum IgnoredReason {
+    BAZELIGNORE,
+    REPO_BAZEL,
+  }
+
+  /** Returns the reason why a given directory is ignored or {@code null} if none. */
+  @Nullable
+  public IgnoredReason matchingEntryReason(PathFragment directory) {
+    for (PathFragment prefix : prefixes) {
+      if (directory.startsWith(prefix)) {
+        return IgnoredReason.BAZELIGNORE;
+      }
+    }
+
+    String[] segmentArray = Iterables.toArray(directory.segments(), String.class);
+    for (int i = 0; i < patterns.size(); i++) {
+      if (UnixGlob.matchesPrefix(splitPatterns.get(i), segmentArray)) {
+        return IgnoredReason.REPO_BAZEL;
+      }
+    }
+
+    return null;
+  }
+
   /** Returns the entry that matches a given directory or {@code null} if none. */
   @Nullable
   public String matchingEntry(PathFragment directory) {

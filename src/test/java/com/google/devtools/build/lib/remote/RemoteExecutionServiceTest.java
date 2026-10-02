@@ -20,13 +20,17 @@ import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.toBinaryDigest;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
+import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_MILLISECONDS;
+import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.naturalOrder;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -73,6 +77,7 @@ import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -111,7 +116,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -125,6 +129,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -139,6 +144,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
@@ -157,7 +163,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.random.RandomGeneratorFactory;
 import javax.annotation.Nullable;
@@ -848,12 +856,12 @@ public class RemoteExecutionServiceTest {
       //         9        32       288   b.b.r.e.v2.Digest
       //         2       112       224   [Ljava.lang.Object;
       //         9        16       144   c.g.p.ByteString$LiteralByteString
-      //         1        40        40   c.g.c.c.ImmutableSortedMap
+      //         1        24        24   c.g.c.c.ImmutableSortedMap
       //         2        16        32   c.g.c.c.RegularImmutableList
       //         1        32        32   c.g.d.b.l.r.m.MerkleTree$RootOnly$BlobsUploaded
       //         1        24        24   c.g.c.c.RegularImmutableSortedSet
       //         1        16        16   c.g.d.b.l.r.m.MerkleTree$Uploadable
-      //        44                4064   (total)
+      //        44                4048   (total)
       //
       // Ignoring objects with constant count, the footprint is made up of:
       // * the two Object arrays backing the ImmutableSortedMap that tracks a map from digest-like
@@ -874,8 +882,7 @@ public class RemoteExecutionServiceTest {
       // TODO: Get this number down.
       // NOTE: Don't just increase this number if the test fails, it directly corresponds to the
       // memory usage of Bazel's (but not Blaze's) remote execution implementation.
-      // TODO: b/280079296 - Change this to 4048 after pulling in Guava 33.7.0:
-      assertThat(stableRetainedSize).isEqualTo(4064);
+      assertThat(stableRetainedSize).isEqualTo(4048);
     }
   }
 
@@ -947,35 +954,6 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(execRoot.getRelative("outputs/foo").isExecutable()).isFalse();
     assertThat(execRoot.getRelative("outputs/dir/bar").isExecutable()).isFalse();
-    assertThat(context.isLockOutputFilesCalled()).isTrue();
-  }
-
-  @Test
-  public void downloadOutputs_siblingLayout() throws Exception {
-    // arrange
-    remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
-
-    Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
-    Digest barDigest = cache.addContents(remoteActionExecutionContext, "bar-contents");
-    ActionResult.Builder builder = ActionResult.newBuilder();
-    builder.addOutputFilesBuilder().setPath("outputs/foo").setDigest(fooDigest);
-    builder.addOutputFilesBuilder().setPath("outputs/bar").setDigest(barDigest);
-    RemoteActionResult result =
-        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
-    Spawn spawn = newSpawnFromResult(result);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteExecutionService service = newRemoteExecutionService();
-    RemoteAction action = service.buildRemoteAction(spawn, context);
-    createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
-        .thenReturn(true);
-
-    // act
-    service.downloadOutputs(action, result);
-
-    // assert
-    assertThat(readContent(execRoot.getRelative("outputs/foo"), UTF_8)).isEqualTo("foo-contents");
-    assertThat(readContent(execRoot.getRelative("outputs/bar"), UTF_8)).isEqualTo("bar-contents");
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -1818,6 +1796,32 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_stdoutOutput_downloadedAsOutputFile() throws Exception {
+    // arrange
+    Digest dOut = cache.addContents(remoteActionExecutionContext, "hello stdout");
+    ActionResult r = ActionResult.newBuilder().setExitCode(0).setStdoutDigest(dOut).build();
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Path path = execRoot.getRelative("outputs/stdout.txt");
+    Artifact stdoutArtifact = ActionsTestUtil.createArtifact(artifactRoot, path);
+    Spawn spawn =
+        withStdout(newSpawn(ImmutableMap.of(), ImmutableSet.of(stdoutArtifact)), stdoutArtifact);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
+        .thenReturn(true);
+
+    // act
+    service.downloadOutputs(action, result);
+
+    // assert: the captured stdout is materialized as the output file instead of being reported
+    // as regular action stdout.
+    assertThat(readContent(path, UTF_8)).isEqualTo("hello stdout");
+    assertThat(outErr.getOutputPath().exists()).isFalse();
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
   public void downloadOutputs_outputNameClashesWithTempName_success() throws Exception {
     Digest d1 = cache.addContents(remoteActionExecutionContext, "content1");
     Digest d2 = cache.addContents(remoteActionExecutionContext, "content2");
@@ -2549,6 +2553,168 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void uploadOutputs_backgroundExecutorRejects_runsCompletionCallback() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    service.shutdownBackgroundTaskExecutorForTesting();
+    AtomicInteger completionCalls = new AtomicInteger();
+
+    assertThrows(
+        RejectedExecutionException.class,
+        () ->
+            service.uploadOutputs(
+                action,
+                spawnResult,
+                completionCalls::incrementAndGet,
+                ConcurrentChangesCheckLevel.OFF));
+
+    assertThat(completionCalls.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void outputUploadTask_backgroundExecutorRejects_awaitsConcurrentCompletion()
+      throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    var completionStarted = new Semaphore(0);
+    var completionMayFinish = new Semaphore(0);
+    var task =
+        service
+        .new OutputUploadTask(
+            action,
+            spawnResult,
+            /* force= */ false,
+            () -> {
+              completionStarted.release();
+              completionMayFinish.acquireUninterruptibly();
+            });
+    var canceller = new TestThread(task::requestCancellation);
+    canceller.start();
+    assertThat(completionStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    service.shutdownBackgroundTaskExecutorForTesting();
+
+    var startAttempted = new Semaphore(0);
+    var starter =
+        new TestThread(
+            () -> {
+              startAttempted.release();
+              assertThrows(RejectedExecutionException.class, task::start);
+            });
+    starter.start();
+    assertThat(startAttempted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    try {
+      assertThat(starter.isAlive()).isTrue();
+    } finally {
+      completionMayFinish.release();
+    }
+
+    canceller.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+    starter.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+  }
+
+  @Test
+  public void outputUploadTask_completes_unregistersItself() throws Exception {
+    var synchronizer =
+        new RemoteRewoundActionSynchronizer(
+            mock(RemoteActionInputFetcher.class), mock(WalkableGraph.class));
+    RemoteOutputService remoteOutputService = mock(RemoteOutputService.class);
+    when(remoteOutputService.getRewoundActionSynchronizer()).thenReturn(synchronizer);
+    outputService = remoteOutputService;
+    RemoteExecutionService service = newRemoteExecutionService();
+    // The synchronizer keys registrations by the generating action key of the owner's primary
+    // output, which the FakeOwner used by newSpawn does not have.
+    DerivedArtifact primaryOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(artifactRoot, "primary_output");
+    primaryOutput.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    Spawn spawn =
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar", "//dummy:label") {
+              @Override
+              public Artifact getPrimaryOutput() {
+                return primaryOutput;
+              }
+            },
+            /* arguments= */ ImmutableList.of(),
+            /* environment= */ ImmutableMap.of(),
+            /* executionInfo= */ ImmutableMap.of(),
+            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(),
+            ResourceSet.ZERO);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    var uploadComplete = new CountDownLatch(1);
+    var task =
+        service
+        .new OutputUploadTask(action, spawnResult, /* force= */ false, uploadComplete::countDown);
+    var spawnOwner = action.getRemoteActionExecutionContext().getSpawnOwner();
+
+    task.start();
+
+    assertThat(uploadComplete.await(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    // The completion callback runs from within the upload, which only unregisters itself once its
+    // body has returned, so poll rather than assert immediately.
+    long startNanos = System.nanoTime();
+    while (synchronizer.hasRegisteredOutputUploadTasks(spawnOwner)
+        && System.nanoTime() - startNanos < SECONDS.toNanos(WAIT_TIMEOUT_SECONDS)) {
+      Thread.sleep(1);
+    }
+    // The upload no longer needs to be cancelled on rewinding, so it must not stay registered (and
+    // thus retained) for the rest of the build.
+    assertThat(synchronizer.hasRegisteredOutputUploadTasks(spawnOwner)).isFalse();
+  }
+
+  @Test
+  public void outputUploadTask_cancelBeforeStart_runsCompletionCallbackOnce() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    AtomicInteger completionCalls = new AtomicInteger();
+    var task =
+        service
+        .new OutputUploadTask(
+            action, spawnResult, /* force= */ false, completionCalls::incrementAndGet);
+
+    task.requestCancellation();
+    task.awaitCompletion();
+    task.requestCancellation();
+    task.awaitCompletion();
+    service.shutdownBackgroundTaskExecutorForTesting();
+
+    assertThrows(RejectedExecutionException.class, task::start);
+
+    assertThat(completionCalls.get()).isEqualTo(1);
+  }
+
+  @Test
   public void uploadOutputs_uploadFails_printWarning() throws Exception {
     RemoteExecutionService service = newRemoteExecutionService();
     Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
@@ -2645,6 +2811,42 @@ public class RemoteExecutionServiceTest {
 
     // assert
     assertThat(cache.getNumFindMissingDigests()).isEmpty();
+  }
+
+  @Test
+  public void uploadOutputs_stdoutOutput_uploadedAsStdoutDigest() throws Exception {
+    // arrange
+    Digest stdoutDigest =
+        fakeFileCache.createScratchInput(
+            ActionInputHelper.fromPath("outputs/stdout.txt"), "hello stdout");
+    Path path = execRoot.getRelative("outputs/stdout.txt");
+    Artifact stdoutArtifact = ActionsTestUtil.createArtifact(artifactRoot, path);
+    Spawn spawn =
+        withStdout(newSpawn(ImmutableMap.of(), ImmutableSet.of(stdoutArtifact)), stdoutArtifact);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+
+    // act
+    UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
+    uploadOutputsAndWait(service, action, spawnResult);
+
+    // assert: the captured stdout is stored as the action result's stdout digest rather than as
+    // an output file, consistent with the result of a remotely executed action.
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.setStdoutDigest(stdoutDigest);
+    assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
+    assertThat(
+            getFromFuture(
+                cache.findMissingDigests(
+                    remoteActionExecutionContext, ImmutableList.of(stdoutDigest))))
+        .isEmpty();
   }
 
   @Test
@@ -2775,8 +2977,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void buildRemoteActionForRemotePersistentWorkers(
-      @TestParameter boolean enablePathMapping, @TestParameter boolean siblingRepositoryLayout)
+  public void buildRemoteActionForRemotePersistentWorkers(@TestParameter boolean enablePathMapping)
       throws Exception {
     var input = ActionsTestUtil.createArtifact(artifactRoot, "input");
     fakeFileCache.createScratchInput(input, "value");
@@ -2803,10 +3004,7 @@ public class RemoteExecutionServiceTest {
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     remoteOptions.setMarkToolInputs(true);
     remoteOptions.setRemoteDiscardMerkleTrees(false);
-    remotePathResolver =
-        siblingRepositoryLayout
-            ? new SiblingRepositoryLayoutResolver(execRoot)
-            : new DefaultRemotePathResolver(execRoot);
+    remotePathResolver = new DefaultRemotePathResolver(execRoot);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     // Check that worker files are properly marked in the merkle tree.
@@ -2866,17 +3064,6 @@ public class RemoteExecutionServiceTest {
                     .setDigest(digestUtil.compute(outputsDirectory))
                     .build())
             .build();
-
-    if (siblingRepositoryLayout) {
-      rootDirectory =
-          Directory.newBuilder()
-              .addDirectories(
-                  DirectoryNode.newBuilder()
-                      .setName("_main")
-                      .setDigest(digestUtil.compute(rootDirectory))
-                      .build())
-              .build();
-    }
 
     var remoteAction1 = service.buildRemoteAction(spawn, context);
     var merkleTree = (MerkleTree.Uploadable) remoteAction1.getMerkleTree();
@@ -3185,6 +3372,13 @@ public class RemoteExecutionServiceTest {
         ResourceSet.ZERO);
   }
 
+  /** Returns a spawn that redirects its stdout into the given output. */
+  private static Spawn withStdout(Spawn spawn, Artifact stdout) {
+    Spawn spawnWithStdout = mock(Spawn.class, delegatesTo(spawn));
+    doReturn(stdout).when(spawnWithStdout).getStdout();
+    return spawnWithStdout;
+  }
+
   private FakeSpawnExecutionContext newSpawnExecutionContext(Spawn spawn) {
     return newSpawnExecutionContext(spawn, outErr);
   }
@@ -3236,7 +3430,8 @@ public class RemoteExecutionServiceTest {
         null,
         remoteOutputChecker,
         outputService,
-        Sets.newConcurrentHashSet());
+        Sets.newConcurrentHashSet(),
+        /* wasRewound= */ action -> false);
   }
 
   private RunfilesTree createRunfilesTree(String root, Collection<Artifact> artifacts) {

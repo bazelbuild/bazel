@@ -44,6 +44,13 @@ py_library(
 )
 
 py_test(
+    name = "action_stdout_test",
+    size = "medium",
+    srcs = ["action_stdout_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "action_temp_test",
     size = "medium",
     srcs = ["action_temp_test.py"],
@@ -327,6 +334,7 @@ py_test(
     name = "bazel_overrides_test",
     size = "large",
     srcs = ["bzlmod/bazel_overrides_test.py"],
+    shard_count = 4,
     tags = [
         "requires-network",
     ],
@@ -407,16 +415,28 @@ py_test(
     ],
 )
 
+py_library(
+    name = "remote_repo_contents_cache_test_base",
+    testonly = 1,
+    srcs = ["bzlmod/remote_repo_contents_cache_test_base.py"],
+    deps = [":test_base"],
+)
+
 py_test(
     name = "remote_repo_contents_cache_test",
     size = "large",
     srcs = ["bzlmod/remote_repo_contents_cache_test.py"],
     shard_count = 2,
     tags = ["requires-network"],
-    deps = [
-        ":bzlmod_test_utils",
-        ":test_base",
-    ],
+    deps = [":remote_repo_contents_cache_test_base"],
+)
+
+py_test(
+    name = "remote_repo_contents_cache_rewinding_test",
+    size = "large",
+    srcs = ["bzlmod/remote_repo_contents_cache_rewinding_test.py"],
+    tags = ["requires-network"],
+    deps = [":remote_repo_contents_cache_test_base"],
 )
 
 py_test(

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -20,7 +21,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.IOException;
@@ -78,7 +78,7 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
   Digest addContents(RemoteActionExecutionContext context, byte[] bytes)
       throws IOException, InterruptedException {
     Digest digest = digestUtil.compute(bytes);
-    Utils.getFromFuture(
+    getFromFuture(
         remoteCacheClient.uploadBlob(
             context, digest, ByteString.copyFrom(bytes), /* force= */ false));
     return digest;

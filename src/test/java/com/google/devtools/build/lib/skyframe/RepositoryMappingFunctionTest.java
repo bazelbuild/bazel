@@ -114,7 +114,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRepoNameMapping_asRootModule() throws Exception {
+  public void testRepoNameMapping_asRootModule_afterModuleChange() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(name='aaa',version='0.1')",
@@ -136,6 +136,24 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     RepositoryName.MAIN,
                     "com_foo_bar_b",
                     RepositoryName.create("bbb+")),
+                "aaa",
+                "0.1"));
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0', repo_name = 'renamed')");
+    result = eval(skyKey);
+
+    assertThat(result.hasError()).isFalse();
+    assertThatEvaluationResult(result)
+        .hasEntryThat(skyKey)
+        .isEqualTo(
+            valueForRootModule(
+                ImmutableMap.of(
+                    "", RepositoryName.MAIN,
+                    "aaa", RepositoryName.MAIN,
+                    "renamed", RepositoryName.create("bbb+")),
                 "aaa",
                 "0.1"));
   }

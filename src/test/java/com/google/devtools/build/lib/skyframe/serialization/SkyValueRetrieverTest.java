@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.getDone;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus.DONE;
 import static com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus.NOT_DONE;
@@ -31,9 +32,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.SkyframeLookup;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
@@ -61,11 +66,16 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -73,6 +83,9 @@ import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public final class SkyValueRetrieverTest {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
+
   /** Default implementation that errors if any keys are requested. */
   private static final EnvironmentForUtilities NO_LOOKUP_ENVIRONMENT =
       new EnvironmentForUtilities(
@@ -96,6 +109,7 @@ public final class SkyValueRetrieverTest {
       FrontierNodeVersion frontierNodeVersion,
       SkycacheChannelStateAdvisor channelStateAdvisor) {
     return new SkyValueRetriever(
+        COMPRESSION_SERVICE,
         fingerprintValueService,
         codecs,
         frontierNodeVersion,
@@ -203,7 +217,6 @@ public final class SkyValueRetrieverTest {
     FUTURE_VALUE
   }
 
-
   @Test
   public void initialQueryState_withAnalysisCacheService_progressesToWaiting(
       @TestParameter InitialQueryCases testCase) throws Exception {
@@ -221,7 +234,7 @@ public final class SkyValueRetrieverTest {
 
     var key = new TrivialKey("a");
     SerializationResult<ByteString> keyBytes =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, key);
+        codecs.serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, key);
     assertThat(keyBytes.getFutureToBlockWritesOn()).isNull();
 
     if (testCase.equals(InitialQueryCases.IMMEDIATE_EMPTY_VALUE)) {
@@ -255,7 +268,6 @@ public final class SkyValueRetrieverTest {
     }
   }
 
-
   @Test
   public void waitingForCacheServiceResponse_returnsValue() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
@@ -267,7 +279,8 @@ public final class SkyValueRetrieverTest {
     var key = new TrivialKey("a");
     var value = new TrivialValue("abc");
 
-    uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
 
     RetrievalResult result =
         createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
@@ -312,7 +325,6 @@ public final class SkyValueRetrieverTest {
     return previousResult;
   }
 
-
   private PackedFingerprint fingerprintObject(
       FingerprintValueService fingerprintValueService, Object o) throws Exception {
     @SuppressWarnings("unchecked") // codec() returns ObjectCodec<?>
@@ -323,7 +335,8 @@ public final class SkyValueRetrieverTest {
     CodedOutputStream cos = CodedOutputStream.newInstance(outputStream);
     codec.serialize(codecs.getSerializationContextForTesting(), o, cos);
     cos.flush();
-    return fingerprintValueService.fingerprint(outputStream.toByteArray());
+    return fingerprintValueService.fingerprint(
+        outputStream.toByteArray(), codec.getClass().getName());
   }
 
   @Test
@@ -345,7 +358,8 @@ public final class SkyValueRetrieverTest {
     var v4 = new ValueWithReference(4, v3);
 
     PackedFingerprint skyValueFingerprint =
-        uploadKeyValuePair(key, v4, fingerprintValueService, analysisCacheServiceData);
+        uploadKeyValuePair(
+            key, v4, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
     PackedFingerprint v1Fingerprint = fingerprintObject(fingerprintValueService, v1);
 
     store.remove(v1Fingerprint);
@@ -389,7 +403,8 @@ public final class SkyValueRetrieverTest {
 
     var key = new TrivialKey("a");
     var value = new TrivialValue("abc");
-    uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
 
     RetrievalResult result =
         createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
@@ -443,7 +458,8 @@ public final class SkyValueRetrieverTest {
 
     var key = new ExampleKey("a");
     var value = new ExampleValue(key, 10);
-    uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
 
     var capturedKey = new SkyKey[1];
 
@@ -572,7 +588,8 @@ public final class SkyValueRetrieverTest {
 
     var key = new ExampleKey("a");
     var value = new ExampleValue(key, 10);
-    uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
 
     var capturedKey = new SkyKey[1];
 
@@ -633,7 +650,12 @@ public final class SkyValueRetrieverTest {
     var lookupKey1 = new ExampleKey("b");
     var multiLookupValue =
         new MultiLookupValue(new ExampleValue(lookupKey0, 3), new ExampleValue(lookupKey1, 5));
-    uploadKeyValuePair(key, multiLookupValue, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key,
+        multiLookupValue,
+        COMPRESSION_SERVICE,
+        fingerprintValueService,
+        analysisCacheServiceData);
 
     var capturedKeys = new ArrayList<SkyKey>();
 
@@ -693,6 +715,270 @@ public final class SkyValueRetrieverTest {
   }
 
   @Test
+  public void skyframeLookupError_withPriorSuccessfulLookup_preservesSuccessfulLookup()
+      throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    var state = new RetrievalContext();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createFakeAnalysisCacheClient(analysisCacheServiceData);
+
+    var key = new TrivialKey("a");
+
+    var lookupKey0 = new ExampleKey("a");
+    var lookupKey1 = new ExampleKey("b");
+    var multiLookupValue =
+        new MultiLookupValue(new ExampleValue(lookupKey0, 3), new ExampleValue(lookupKey1, 5));
+    uploadKeyValuePair(
+        key,
+        multiLookupValue,
+        COMPRESSION_SERVICE,
+        fingerprintValueService,
+        analysisCacheServiceData);
+
+    RetrievalResult result =
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                new EnvironmentForUtilities(k -> null),
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
+
+    assertThat(result).isEqualTo(RESTART);
+    assertThat(state.getState()).isInstanceOf(WaitingForLookupContinuation.class);
+
+    var lookups =
+        ImmutableList.copyOf(
+            ((WaitingForLookupContinuation) state.getState())
+                .continuation()
+                .getSkyframeLookupsForTesting());
+    assertThat(lookups).hasSize(2);
+
+    var error = new Exception();
+    var thrown =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        new EnvironmentForUtilities(
+                            k -> {
+                              if (k.equals(lookupKey0)) {
+                                return new ExampleValue(lookupKey0, 3);
+                              }
+                              if (k.equals(lookupKey1)) {
+                                return error;
+                              }
+                              return null;
+                            }),
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("skyframe dependency error during deserialization for " + key);
+    assertThat(thrown).hasCauseThat().isInstanceOf(SkyframeDependencyException.class);
+    assertThat(thrown).hasCauseThat().hasCauseThat().isSameInstanceAs(error);
+
+    // Verifies that the successful lookup is NOT marked failed.
+    assertThat(lookups.get(0).isDone()).isTrue();
+    assertThat(getDone(lookups.get(0))).isNull();
+
+    // Verifies that the failed lookup has the expected error.
+    assertThat(lookups.get(1).isDone()).isTrue();
+    var thrownByLookup1 = assertThrows(ExecutionException.class, lookups.get(1)::get).getCause();
+    assertThat(thrownByLookup1).isInstanceOf(SkyframeDependencyException.class);
+    assertThat(thrownByLookup1).hasCauseThat().isSameInstanceAs(error);
+  }
+
+  @Test
+  public void skyframeLookupStateEvicted_handlesEvictionGracefully() throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    var state = new RetrievalContext();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createFakeAnalysisCacheClient(analysisCacheServiceData);
+
+    var key = new TrivialKey("a");
+
+    var lookupKey0 = new ExampleKey("a");
+    var lookupKey1 = new ExampleKey("b");
+    var multiLookupValue =
+        new MultiLookupValue(new ExampleValue(lookupKey0, 3), new ExampleValue(lookupKey1, 5));
+    uploadKeyValuePair(
+        key,
+        multiLookupValue,
+        COMPRESSION_SERVICE,
+        fingerprintValueService,
+        analysisCacheServiceData);
+
+    RetrievalResult result =
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                new EnvironmentForUtilities(k -> null),
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
+
+    assertThat(result).isEqualTo(RESTART);
+    assertThat(state.getState()).isInstanceOf(WaitingForLookupContinuation.class);
+
+    var lookups =
+        ImmutableList.copyOf(
+            ((WaitingForLookupContinuation) state.getState())
+                .continuation()
+                .getSkyframeLookupsForTesting());
+    assertThat(lookups).hasSize(2);
+
+    // Simulates an in-flight lookup being abandoned due to state eviction (e.g. from memory
+    // pressure).
+    lookups.get(0).abandon(new StateEvictedException());
+
+    var thrown =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        new EnvironmentForUtilities(
+                            k -> {
+                              if (k.equals(lookupKey0)) {
+                                return new ExampleValue(lookupKey0, 10);
+                              }
+                              return null;
+                            }),
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("lookup abandoned during deserialization for " + key);
+    assertThat(thrown).hasCauseThat().isInstanceOf(StateEvictedException.class);
+
+    var thrownByLookup0 = assertThrows(ExecutionException.class, lookups.get(0)::get).getCause();
+    assertThat(thrownByLookup0).isInstanceOf(StateEvictedException.class);
+
+    var thrownByLookup1 = assertThrows(ExecutionException.class, lookups.get(1)::get).getCause();
+    assertThat(thrownByLookup1).isInstanceOf(StateEvictedException.class);
+  }
+
+  @Test
+  public void cleanupSerializationState_handlesEvictionGracefully() throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    var state = new RetrievalContext();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createFakeAnalysisCacheClient(analysisCacheServiceData);
+
+    var key = new TrivialKey("a");
+
+    var lookupKey0 = new ExampleKey("a");
+    var lookupKey1 = new ExampleKey("b");
+    var multiLookupValue =
+        new MultiLookupValue(new ExampleValue(lookupKey0, 3), new ExampleValue(lookupKey1, 5));
+    uploadKeyValuePair(
+        key,
+        multiLookupValue,
+        COMPRESSION_SERVICE,
+        fingerprintValueService,
+        analysisCacheServiceData);
+
+    RetrievalResult result =
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                new EnvironmentForUtilities(k -> null),
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
+
+    assertThat(result).isEqualTo(RESTART);
+    assertThat(state.getState()).isInstanceOf(WaitingForLookupContinuation.class);
+
+    // Simulates compute state eviction before the next tryRetrieve call.
+    state.getState().cleanupSerializationState();
+
+    var thrown =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        new EnvironmentForUtilities(k -> new ExampleValue(lookupKey0, 10)),
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
+    assertThat(thrown).hasMessageThat().contains("waiting for deserialization result for " + key);
+    assertThat(thrown).hasCauseThat().hasCauseThat().isInstanceOf(StateEvictedException.class);
+  }
+
+  @Test
+  public void abandon_concurrentWithDoLookup_synchronizesSafely() throws Exception {
+    var parent1 = new AtomicReference<Object>();
+    var lookup1 =
+        new SkyframeLookup<AtomicReference<Object>>(
+            new ExampleKey("a"), parent1, AtomicReference::set);
+    var parent2 = new AtomicReference<Object>();
+    var lookup2 =
+        new SkyframeLookup<AtomicReference<Object>>(
+            new ExampleKey("b"), parent2, AtomicReference::set);
+
+    var lookups = new ArrayDeque<SkyframeLookup<?>>();
+    lookups.add(lookup1);
+    lookups.add(lookup2);
+    var resultFuture = SettableFuture.create();
+    var continuation = new SkyframeLookupContinuation(lookups, resultFuture);
+
+    var doLookupEntered = new CountDownLatch(1);
+    var abandonStarted = new CountDownLatch(1);
+    var executor = Executors.newSingleThreadExecutor();
+    Future<?> abandonFuture;
+    try {
+      abandonFuture =
+          executor.submit(
+              () -> {
+                try {
+                  doLookupEntered.await();
+                  abandonStarted.countDown();
+                  continuation.abandon(new StateEvictedException());
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                }
+              });
+
+      ListenableFuture<?> processResult =
+          continuation.process(
+              new EnvironmentForUtilities(
+                  k -> {
+                    doLookupEntered.countDown();
+                    try {
+                      abandonStarted.await();
+                      // Brief pause to allow the background thread to attempt abandon(),
+                      // verifying that it blocks on continuation's monitor until doLookup finishes.
+                      Thread.sleep(20);
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                    }
+                    return null; // Returns null to trigger a restart.
+                  }));
+      abandonFuture.get();
+      assertThat(processResult).isNull();
+
+      // Subsequent process() call after restart: lookups were abandoned, so it returns resultFuture
+      // cleanly.
+      assertThat(continuation.process(new EnvironmentForUtilities(k -> null)))
+          .isSameInstanceAs(resultFuture);
+    } finally {
+      executor.shutdown();
+    }
+  }
+
+  @Test
   public void exceptionWhileWaitingForResult_throwsException() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
     var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
@@ -704,7 +990,8 @@ public final class SkyValueRetrieverTest {
 
     var key = new TrivialKey("k");
     var value = new TrivialValue("v");
-    uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
 
     var thrown =
         assertThrows(
@@ -924,11 +1211,17 @@ public final class SkyValueRetrieverTest {
   private PackedFingerprint uploadKeyValuePair(
       SkyKey key,
       SkyValue value,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       @Nullable Map<ByteString, ByteString> analysisCacheServiceData)
       throws SerializationException, InterruptedException, ExecutionException {
     return uploadKeyValuePair(
-        key, CONSTANT_FOR_TESTING, value, fingerprintValueService, analysisCacheServiceData);
+        key,
+        CONSTANT_FOR_TESTING,
+        value,
+        compressionService,
+        fingerprintValueService,
+        analysisCacheServiceData);
   }
 
   @CanIgnoreReturnValue
@@ -936,18 +1229,19 @@ public final class SkyValueRetrieverTest {
       SkyKey key,
       FrontierNodeVersion version,
       SkyValue value,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       @Nullable Map<ByteString, ByteString> analysisCacheServiceData)
       throws SerializationException, InterruptedException, ExecutionException {
     SerializationResult<ByteString> keyBytes =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, key);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, key);
     ListenableFuture<?> writeStatus = keyBytes.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       var unused = writeStatus.get();
     }
 
     SerializationResult<ByteString> valueBytes =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, value);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, value);
     writeStatus = keyBytes.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       var unused = writeStatus.get();

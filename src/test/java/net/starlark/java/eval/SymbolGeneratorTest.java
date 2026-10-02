@@ -41,18 +41,15 @@ public final class SymbolGeneratorTest {
     SymbolGenerator.Symbol<Object> s1aPrime = generator1Prime.generate(); // owner1, index 0
 
     new EqualsTester()
-        .addEqualityGroup(s1a, s1a) // Reflexive
+        .addEqualityGroup(s1a, s1aPrime) // Same owner and index
         .addEqualityGroup(s1b)
         .addEqualityGroup(s2a)
-        .addEqualityGroup(s1aPrime) // Different generator instance, same owner and index
         .testEquals();
 
+    assertThat(s1a).isEqualTo(s1aPrime);
     assertThat(s1a).isNotEqualTo(s1b);
     assertThat(s1a).isNotEqualTo(s2a);
     assertThat(s1b).isNotEqualTo(s2a);
-
-    // These should not be equal because the index will be different
-    assertThat(s1a).isNotEqualTo(s1aPrime);
   }
 
   @Test

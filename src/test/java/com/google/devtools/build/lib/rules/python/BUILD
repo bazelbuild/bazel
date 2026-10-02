@@ -3,14 +3,13 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = True,
-    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/rules:__pkg__"],
 )
 
 test_suite(
@@ -33,6 +32,9 @@ java_library(
         "PyInfo.java",
         "PyRuntimeInfo.java",
         "PythonTestUtils.java",
+    ],
+    visibility = [
+        "//src/test:__subpackages__",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -97,7 +99,7 @@ java_test(
     deps = [
         ":PyExecutableTestBase",
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/junit",
@@ -125,7 +127,7 @@ java_test(
     deps = [
         ":PyBaseTestBase",
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//third_party/java/junit",

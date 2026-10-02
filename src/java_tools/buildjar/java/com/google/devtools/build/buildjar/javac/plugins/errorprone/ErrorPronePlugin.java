@@ -46,6 +46,7 @@ import java.util.Map;
 public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
 
   private final ScannerSupplier scannerSupplier;
+  private final boolean recordTimings;
 
   /**
    * Constructs an {@link ErrorPronePlugin} instance with the set of checks that are enabled as
@@ -60,7 +61,12 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
    * scannerSupplier}.
    */
   public ErrorPronePlugin(ScannerSupplier scannerSupplier) {
+    this(scannerSupplier, /* recordTimings= */ false);
+  }
+
+  public ErrorPronePlugin(ScannerSupplier scannerSupplier, boolean recordTimings) {
     this.scannerSupplier = scannerSupplier;
+    this.recordTimings = recordTimings;
   }
 
   private ErrorProneAnalyzer errorProneAnalyzer;
@@ -81,6 +87,9 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
     ImmutableList.Builder<String> epArgs = ImmutableList.<String>builder().addAll(blazeJavacopts);
     // allow javacopts that reference unknown error-prone checks
     epArgs.add("-XepIgnoreUnknownCheckNames");
+    if (recordTimings) {
+      epArgs.add("-XepRecordTimings");
+    }
     processEpOptions(epArgs.build());
   }
 

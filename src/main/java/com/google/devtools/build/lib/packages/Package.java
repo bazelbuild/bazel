@@ -366,37 +366,42 @@ public class Package extends Packageoid {
 
   static String getAlternateTargetSuggestion(
       Metadata metadata, String targetName, ImmutableList<Target> otherTargets) {
-    // If there's a file on the disk that's not mentioned in the BUILD file,
-    // produce a more informative error.  NOTE! this code path is only executed
-    // on failure, which is (relatively) very rare.  In the common case no
-    // stat(2) is executed.
-    Path filename = metadata.getPackageDirectory().getRelative(targetName);
-    if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
-      // Don't check for file existence if the target name is not normalized
-      // because the error message would be confusing and wrong. If the
-      // targetName is "foo/bar/.", and there is a directory "foo/bar", it
-      // doesn't mean that "//pkg:foo/bar/." is a valid label.
-      // Also don't check if the target name is a single * character since
-      // it's invalid on Windows.
+    try {
+      // If there's a file on the disk that's not mentioned in the BUILD file,
+      // produce a more informative error.  NOTE! this code path is only executed
+      // on failure, which is (relatively) very rare.  In the common case no
+      // stat(2) is executed.
+      Path filename = metadata.getPackageDirectory().getRelative(targetName);
+      if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
+        // Don't check for file existence if the target name is not normalized
+        // because the error message would be confusing and wrong. If the
+        // targetName is "foo/bar/.", and there is a directory "foo/bar", it
+        // doesn't mean that "//pkg:foo/bar/." is a valid label.
+        // Also don't check if the target name is a single * character since
+        // it's invalid on Windows.
+        return "";
+      } else if (filename.isDirectory()) {
+        return "; however, a source directory of this name exists.  (Perhaps add "
+            + "'exports_files([\""
+            + targetName
+            + "\"])' to "
+            + getRepoRelativeBuildFilePathString(metadata)
+            + ", or define a "
+            + "filegroup?)";
+      } else if (filename.exists()) {
+        return "; however, a source file of this name exists.  (Perhaps add "
+            + "'exports_files([\""
+            + targetName
+            + "\"])' to "
+            + getRepoRelativeBuildFilePathString(metadata)
+            + "?)";
+      } else {
+        return TargetSuggester.suggestTargets(
+            targetName, Lists.transform(otherTargets, Target::getName));
+      }
+    } catch (IOException e) {
+      // Ignore - suggestions are best-effort.
       return "";
-    } else if (filename.isDirectory()) {
-      return "; however, a source directory of this name exists.  (Perhaps add "
-          + "'exports_files([\""
-          + targetName
-          + "\"])' to "
-          + getRepoRelativeBuildFilePathString(metadata)
-          + ", or define a "
-          + "filegroup?)";
-    } else if (filename.exists()) {
-      return "; however, a source file of this name exists.  (Perhaps add "
-          + "'exports_files([\""
-          + targetName
-          + "\"])' to "
-          + getRepoRelativeBuildFilePathString(metadata)
-          + "?)";
-    } else {
-      return TargetSuggester.suggestTargets(
-          targetName, Lists.transform(otherTargets, Target::getName));
     }
   }
 

@@ -175,7 +175,7 @@ def maven_install_to_packages(maven_install: dict) -> dict:
     repo, artifact = name.split(":")
     version = info["version"]
 
-    for arch in info["shasums"].keys():
+    for arch in info["shasums"]:
       # build the download URL
       sub_version = version
       repo_name = name

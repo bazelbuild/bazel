@@ -253,7 +253,11 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
   private static ArtifactsToBuild getArtifactsToBuild(ConfiguredTargetAndData ctAndData) {
     TopLevelArtifactContext context =
-        new TopLevelArtifactContext(false, false, OutputGroupInfo.DEFAULT_GROUPS);
+        new TopLevelArtifactContext(
+            false,
+            OutputGroupInfo.DEFAULT_GROUPS,
+            /* failOnUnknownOutputGroups= */ false,
+            /* forRunCommand= */ false);
     return TopLevelArtifactHelper.getAllArtifactsToBuild(ctAndData.getConfiguredTarget(), context);
   }
 
@@ -263,7 +267,6 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     ActionInputMap inputMap = new ActionInputMap(0);
     metadata.forEach(inputMap::put);
     treeMetadata.forEach(inputMap::putTreeArtifact);
-    return new CompletionContext(
-        ArtifactPathResolver.IDENTITY, inputMap, /* expandFilesets= */ false);
+    return new CompletionContext(ArtifactPathResolver.IDENTITY, inputMap);
   }
 }

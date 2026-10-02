@@ -9,8 +9,15 @@ package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = [
-        "//src:__subpackages__",
-        "//tools:__subpackages__",
+        "//src/java_tools:__subpackages__",
+        "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:__subpackages__",
+        "//src/java_tools/singlejar/javatests/com/google/devtools/build:__subpackages__",
+        "//src/test/java:__subpackages__",
+        "//src/test/shell/bazel:__pkg__",
+        "//src/test/shell/integration/bazel:__pkg__",
+        "//src/tools/dash/src/test/java:__subpackages__",
+        "//third_party/bazel_rules/rules_android/src/tools/javatests:__subpackages__",
+        "//tools/java/runfiles:__subpackages__",
     ],
 )
 
@@ -18,7 +25,6 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -41,6 +47,9 @@ java_library(
         "TimestampGranularityUtils.java",
         "UnknownRuleConfiguredTarget.java",
     ],
+    visibility = [
+        "//src:__subpackages__",
+    ],
     deps = [
         ":JunitUtils",
         ":TestConstants",
@@ -48,7 +57,7 @@ java_library(
         ":TestUtils",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:common_prerequisite_validator",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
@@ -111,8 +120,9 @@ java_library(
     name = "BazelPackageBuilderHelperForTesting",
     testonly = 0,
     srcs = ["BazelPackageLoadingListenerForTesting.java"],
+    visibility = ["//visibility:private"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -148,7 +158,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party/java/guava:collect",
         "@rules_java//java/runfiles",
@@ -308,6 +318,7 @@ java_library(
         "RulesCcRepoName.java",
         "TestConstants.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
@@ -321,6 +332,7 @@ java_library(
     srcs = [
         "TestServices.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
@@ -333,7 +345,11 @@ java_library(
     srcs = [
         "SkyframeExecutorTestHelper.java",
     ],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
+    ],
 )
 
 java_library(
@@ -341,6 +357,7 @@ java_library(
     srcs = [
         "TestPackageFactoryBuilderFactory.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         ":PackageFactoryBuilderFactoryForBazelUnitTests",  # unuseddeps: keep
         "//src/main/java/com/google/devtools/build/lib/packages:builder_factory_for_testing",
@@ -350,9 +367,10 @@ java_library(
 java_library(
     name = "PackageFactoryBuilderFactoryForBazelUnitTests",
     srcs = ["PackageFactoryBuilderFactoryForBazelUnitTests.java"],
+    visibility = ["//visibility:private"],
     deps = [
         ":BazelPackageBuilderHelperForTesting",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:builder_factory_for_testing",
@@ -401,6 +419,6 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":TestUtilTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )

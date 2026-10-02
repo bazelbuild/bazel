@@ -15,10 +15,7 @@ package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.Future;
 
 /** A {@link QuiescingExecutor} implementation that wraps a {@link ForkJoinPool}. */
 // TODO(bazel-team): This extends AQV to ensure that they share the same semantics for interrupt
@@ -74,15 +71,5 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
   /** Returns a fresh {@link Builder}. */
   public static Builder newBuilder() {
     return new Builder();
-  }
-
-  @Override
-  protected void executeWrappedRunnable(WrappedRunnable runnable, ExecutorService executorService) {
-    if (ForkJoinTask.getPool() == executorService) {
-      @SuppressWarnings("unused")
-      Future<?> possiblyIgnoredError = ForkJoinTask.adapt(runnable).fork();
-    } else {
-      super.executeWrappedRunnable(runnable, executorService);
-    }
   }
 }

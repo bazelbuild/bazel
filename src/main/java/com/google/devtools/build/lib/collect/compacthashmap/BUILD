@@ -2,19 +2,23 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/collect:__pkg__"],
 )
 
 # Library of collection utilities.
 java_library(
     name = "compacthashmap",
     srcs = ["CompactHashMap.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/skyframe:__subpackages__",
+    ],
     deps = [
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",

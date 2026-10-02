@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
@@ -11,7 +11,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/util/io:srcs",
         "//src/main/java/com/google/devtools/build/lib/util/regex:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -50,17 +50,30 @@ java_library(
 java_library(
     name = "os",
     srcs = ["OS.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",  # exposed to jcg/devtools/build/rpcs
+    ],
 )
 
 java_library(
     name = "classpath",
     srcs = ["Classpath.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/docgen:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+        "//src/test/java/com/google/devtools/common/options:__pkg__",
+    ],
     deps = ["//third_party/java/guava:reflect"],
 )
 
 java_library(
     name = "env_var",
     srcs = ["EnvVar.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/common/options",
@@ -338,8 +351,14 @@ java_library(
 
 java_library(
     name = "deterministic_writer",
-    srcs = ["DeterministicWriter.java"],
-    deps = ["//third_party/java/protobuf"],
+    srcs = [
+        "DeterministicWriter.java",
+        "DeterministicWriterInputStream.java",
+    ],
+    deps = [
+        "//third_party/java/guava:io",
+        "//third_party/java/protobuf",
+    ],
 )
 
 java_library(
@@ -431,6 +450,7 @@ java_library(
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:escape",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -522,6 +542,7 @@ java_library(
         ":TestType",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
     ],
 )

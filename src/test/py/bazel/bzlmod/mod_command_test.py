@@ -264,7 +264,7 @@ class ModCommandTest(test_base.TestBase):
         'ERROR: Results may be incomplete as 1 extension failed.', stderr
     )
     self.assertIn('\t\tfail("ext failed")', stderr)
-    self.assertIn('Error in fail: ext failed', stderr)
+    self.assertIn('Error: ext failed', stderr)
     self.assertListEqual(
         stdout,
         [
@@ -520,6 +520,15 @@ class ModCommandTest(test_base.TestBase):
     )
     repos = [json.loads(line) for line in stdout]
 
+    _, output_base, _ = self.RunBazel(['info', 'output_base'], rstrip=True)
+    self.assertListEqual(
+        [repo.pop('repoRoot') for repo in repos],
+        [
+            output_base[0] + '/external/' + name
+            for name in ['bar+', 'ext+', 'ext++ext+repo3', 'bar+']
+        ],
+    )
+
     ignored_attrs = {
         'integrity',
         'path',
@@ -660,6 +669,21 @@ class ModCommandTest(test_base.TestBase):
         ],
         rstrip=True,
     )
+    _, output_base, _ = self.RunBazel(['info', 'output_base'], rstrip=True)
+    self.assertListEqual(
+        [line for line in stdout if line.startswith('# Located at: ')],
+        [
+            '# Located at: ' + output_base[0] + '/external/' + name
+            for name in [
+                'bar+',
+                'ext+',
+                'ext++ext+repo3',
+                'ext++ext+repo4',
+                'bar+',
+            ]
+        ],
+    )
+    stdout = [line for line in stdout if not line.startswith('# Located at: ')]
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
     self.assertRegex(
@@ -1430,7 +1454,7 @@ class ModCommandTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('ext1 is being evaluated', stderr)
     self.assertIn('ext2 is being evaluated', stderr)
-    self.assertIn('Error in fail: ext2 failed', stderr)
+    self.assertIn('Error: ext2 failed', stderr)
     self.assertIn(
         'Not imported, but reported as direct dependencies by the extension'
         ' (may cause the build to fail):\nmissing_dep',
@@ -1692,6 +1716,38 @@ class ModCommandTest(test_base.TestBase):
           ],
           module_file.read().split('\n'),
       )
+
+  def testModCommandWithCycleDoesNotCrash(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "cycle_test")',
+            'cycle_ext = use_extension("//:cycle_def.bzl", "cycle_ext")',
+            'use_repo(cycle_ext, "cycle_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'cycle_def.bzl',
+        [
+            'load("@cycle_repo//:defs.bzl", "dummy")',
+            'def _cycle_impl(ctx):',
+            '    pass',
+            'cycle_ext = module_extension(implementation=_cycle_impl)',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'graph'],
+        rstrip=True,
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    stderr_str = '\n'.join(stderr)
+    self.assertNotIn(
+        'FATAL: bazel crashed due to an internal error', stderr_str
+    )
+    self.assertNotIn('UnsupportedOperationException', stderr_str)
+    self.assertIn('Circular definition of repositories', stderr_str)
 
 
 if __name__ == '__main__':

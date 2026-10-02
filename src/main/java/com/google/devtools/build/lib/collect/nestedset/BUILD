@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 # Library of collection utilities.
@@ -27,6 +27,11 @@ java_library(
         "NestedSetStore.java",
         "NestedSetVisitor.java",
         "Order.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/skyframe:__subpackages__",
+        "//src/test/java/com/google/devtools/build/skyframe:__subpackages__",
     ],
     deps = [
         ":nested_sets_should_be_interned_by_equality",
@@ -65,6 +70,7 @@ java_library(
 java_library(
     name = "nested_sets_should_be_interned_by_equality",
     srcs = ["NestedSetsShouldBeInternedByEquality.java"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 java_library(

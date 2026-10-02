@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
@@ -69,6 +70,7 @@ import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
@@ -205,6 +207,7 @@ final class SelectedEntrySerializer {
   private final ObjectCodecs codecs;
   private final FrontierNodeVersion frontierVersion;
 
+  private final CompressionService compressionService;
   private final FingerprintValueService fingerprintValueService;
 
   private final FileOpNodeMemoizingLookup fileOpNodes;
@@ -236,6 +239,7 @@ final class SelectedEntrySerializer {
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
       ImmutableSet<SkyKey> selection,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       KeyValueWriter fileInvalidationWriter,
       boolean shouldDiscardMemory,
@@ -254,9 +258,11 @@ final class SelectedEntrySerializer {
                 if (!(key instanceof ConfiguredTargetKey ctKey)) {
                   return;
                 }
+                var ctValue = (ConfiguredTargetValue) graph.getIfPresent(ctKey).getValue();
                 tempRefcounts
                     .computeIfAbsent(
-                        getActualPackageIdentifier(graph, ctKey), unused -> new AtomicInteger(0))
+                        ctValue.getConfiguredTarget().getLabel().getPackageIdentifier(),
+                        _ -> new AtomicInteger(0))
                     .incrementAndGet();
               });
       packageRefcounts = ImmutableMap.copyOf(tempRefcounts);
@@ -267,6 +273,7 @@ final class SelectedEntrySerializer {
         new FileDependencySerializer(
             versionGetter,
             graph,
+            compressionService,
             fileInvalidationWriter,
             fingerprintValueService.getExecutor(),
             profileCollector);
@@ -276,6 +283,7 @@ final class SelectedEntrySerializer {
             graph,
             codecs,
             frontierVersion,
+            compressionService,
             fingerprintValueService,
             fileOpNodes,
             fileDependencySerializer,
@@ -308,6 +316,7 @@ final class SelectedEntrySerializer {
       InMemoryGraph graph,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       FileOpNodeMemoizingLookup fileOpNodes,
       FileDependencySerializer fileDependencySerializer,
@@ -321,6 +330,7 @@ final class SelectedEntrySerializer {
     this.graph = graph;
     this.codecs = codecs;
     this.frontierVersion = frontierVersion;
+    this.compressionService = compressionService;
     this.fingerprintValueService = fingerprintValueService;
     this.fileOpNodes = fileOpNodes;
     this.fileDependencySerializer = fileDependencySerializer;
@@ -348,7 +358,11 @@ final class SelectedEntrySerializer {
             throw new MissingSkyframeEntryException(actionLookupKey);
           }
           serializationStats.registerAnalysisNode();
-          uploadAnalysisEntry(actionLookupKey, entry.getValue(), entry.getDirectDeps());
+          uploadAnalysisEntry(
+              actionLookupKey,
+              entry.getValue(),
+              entry.getDirectDeps(),
+              entry.getMaxTransitiveSourceVersion());
         }
         case ActionLookupData lookupData -> {
           serializationStats.registerExecutionNode();
@@ -378,11 +392,14 @@ final class SelectedEntrySerializer {
    * Uploads an analysis phase entry to Skycache.
    *
    * <p>Direct deps must always be given.
+   *
+   * <p>If {@code mtsv} is given, it is stored along with the value in a {@link
+   * AnalysisValueWithMtsv}.
    */
   public void uploadAnalysisEntry(
-      ActionLookupKey key, SkyValue value, Iterable<SkyKey> directDeps) {
+      ActionLookupKey key, SkyValue value, Iterable<SkyKey> directDeps, @Nullable Version mtsv) {
     // For analysis phase entries, we register their own dependencies in the invalidation data
-    uploadEntry(key, value, key, directDeps);
+    uploadEntry(key, value, key, directDeps, mtsv);
   }
 
   /**
@@ -412,7 +429,7 @@ final class SelectedEntrySerializer {
     // anymore. In this case, FileOpNodeMemoizingLookup will definitely contain an entry for it,
     // since creating one is a side effect of uploading. If we are not deleting them, it will do
     // a graph lookup anyway.
-    uploadEntry(key, value, dependencyKey, null);
+    uploadEntry(key, value, dependencyKey, null, /* mtsv= */ null);
   }
 
   private static ActionLookupKey getDependencyKey(SkyKey key) {
@@ -433,13 +450,15 @@ final class SelectedEntrySerializer {
    * @param dependencyKey the {@link SkyKey} whose file system dependencies are to be used
    * @param dependencyDeps the dependencies to traverse. These should be the direct deps of {@code
    *     dependencyDeps}. If null, Skyframe will be asked for the deps of {@code key}
+   * @param mtsv the max transitive source version of the node, if applicable
    */
   private void uploadEntry(
       SkyKey key,
       SkyValue value,
       ActionLookupKey dependencyKey,
-      @Nullable Iterable<SkyKey> dependencyDeps) {
-    new UploadTask(key, value, dependencyKey, dependencyDeps).submit();
+      @Nullable Iterable<SkyKey> dependencyDeps,
+      @Nullable Version mtsv) {
+    new UploadTask(key, value, dependencyKey, dependencyDeps, mtsv).submit();
   }
 
   private final class UploadTask
@@ -448,7 +467,7 @@ final class SelectedEntrySerializer {
     private final SkyValue value;
     private final ActionLookupKey dependencyKey;
     @Nullable private final Iterable<SkyKey> dependencyDeps;
-    private final boolean isExecutionValue;
+    @Nullable private final Version mtsv;
 
     // Keys are always stored as fingerprints so their detailed profiles are omitted.
     private AsyncSerializationTask keyResultTask;
@@ -458,12 +477,13 @@ final class SelectedEntrySerializer {
         SkyKey key,
         SkyValue value,
         ActionLookupKey dependencyKey,
-        @Nullable Iterable<SkyKey> dependencyDeps) {
+        @Nullable Iterable<SkyKey> dependencyDeps,
+        @Nullable Version mtsv) {
       this.key = key;
       this.value = value;
       this.dependencyKey = dependencyKey;
       this.dependencyDeps = dependencyDeps;
-      this.isExecutionValue = isExecutionValue(key);
+      this.mtsv = mtsv;
     }
 
     void submit() {
@@ -485,10 +505,16 @@ final class SelectedEntrySerializer {
 
         this.keyResultTask =
             codecs.serializeMemoizedAsync(
-                fingerprintValueService, key, /* profileCollector= */ null);
+                compressionService, fingerprintValueService, key, /* profileCollector= */ null);
         fingerprintValueService.getExecutor().execute(keyResultTask);
+
+        SkyValue valueToSerialize =
+            mtsv != null && key instanceof ActionLookupKey
+                ? new AnalysisValueWithMtsv(value, mtsv)
+                : value;
         this.valueResultTask =
-            codecs.serializeMemoizedAsync(fingerprintValueService, value, profileCollector);
+            codecs.serializeMemoizedAsync(
+                compressionService, fingerprintValueService, valueToSerialize, profileCollector);
         fingerprintValueService.getExecutor().execute(valueResultTask);
 
         keyResultTask.addListener(
@@ -501,7 +527,8 @@ final class SelectedEntrySerializer {
         // We pass a null value for execution entries to maintain the invariant that value is
         // non-null only for analysis entries.
         FileOpNodeOrFuture fileOpNodeOrFuture =
-            fileOpNodes.computeNode(dependencyKey, isExecutionValue ? null : value, dependencyDeps);
+            fileOpNodes.computeNode(
+                dependencyKey, isExecutionValue(key) ? null : value, dependencyDeps);
         switch (fileOpNodeOrFuture) {
           case FileOpNodeOrEmpty nodeOrEmpty -> onSuccess(nodeOrEmpty);
           case FutureFileOpNode future ->
@@ -599,21 +626,23 @@ final class SelectedEntrySerializer {
        */
       @Override
       public void onSuccess(@Nullable InvalidationDataInfo dataInfo) {
-        if (shouldDiscardMemory) {
-          // Reclaim memory early: once a selected entry is successfully serialized and uploaded,
-          // its value is no longer needed in the evaluator. If it's a ConfiguredTargetKey, we
-          // also decrement the refcount of its package. Once all selected configured targets in
-          // the package are uploaded, the PackageValue is also discarded, releasing substantial
-          // memory early.
-          if (key instanceof ConfiguredTargetKey ctKey) {
-            PackageIdentifier pkgId = getActualPackageIdentifier(graph, ctKey);
-            if (packageRefcounts.get(pkgId).decrementAndGet() <= 0) {
-              graph.removeIfDone(pkgId);
-            }
-          }
-          graph.removeIfDone(key);
-        }
         try {
+          if (shouldDiscardMemory) {
+            // Reclaim memory early: once a selected entry is successfully serialized and uploaded,
+            // its value is no longer needed in the evaluator. If it's a ConfiguredTargetKey, we
+            // also decrement the refcount of its package. Once all selected configured targets in
+            // the package are uploaded, the PackageValue is also discarded, releasing substantial
+            // memory early.
+            if (key instanceof ConfiguredTargetKey
+                && value instanceof ConfiguredTargetValue ctValue) {
+              PackageIdentifier pkgId =
+                  ctValue.getConfiguredTarget().getLabel().getPackageIdentifier();
+              if (packageRefcounts.get(pkgId).decrementAndGet() <= 0) {
+                graph.removeIfDone(pkgId);
+              }
+            }
+            graph.removeIfDone(key);
+          }
           ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
           CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
 
@@ -639,7 +668,8 @@ final class SelectedEntrySerializer {
           }
 
           codedOut.writeEnumNoTag(
-              (isExecutionValue ? DATA_TYPE_EXECUTION_NODE : DATA_TYPE_ANALYSIS_NODE).getNumber());
+              (isExecutionValue(key) ? DATA_TYPE_EXECUTION_NODE : DATA_TYPE_ANALYSIS_NODE)
+                  .getNumber());
           node.cacheKey().writeTo(codedOut);
           writeStatuses.addWriteStatus(node.writeStatus());
           codedOut.writeRawBytes(valueResult.getObject());
@@ -924,18 +954,5 @@ final class SelectedEntrySerializer {
     }
 
     result.add(key);
-  }
-
-  /**
-   * Returns the real package associated with a configured target.
-   *
-   * <p>The configured target may be an alias where the referent package contains its target data.
-   */
-  private static PackageIdentifier getActualPackageIdentifier(
-      InMemoryGraph graph, ConfiguredTargetKey key) {
-    return ((ConfiguredTargetValue) graph.getIfPresent(key).getValue())
-        .getConfiguredTarget()
-        .getLabel()
-        .getPackageIdentifier();
   }
 }

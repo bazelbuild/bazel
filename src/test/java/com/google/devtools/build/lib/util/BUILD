@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -26,6 +26,7 @@ java_test(
         ],
         exclude = [
             "DependencySetWindowsTest.java",
+            "DeterministicWriterTest.java",
             "ResourceFileLoaderTest.java",
             "HeapOffsetHelperTest.java",
             "StringEncodingTest.java",
@@ -37,7 +38,7 @@ java_test(
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_compute_resources",
@@ -147,7 +148,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":FileTypeTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )
 
@@ -177,7 +178,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":UtilWindowsTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )
 
@@ -214,6 +215,18 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/junit",
         "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "DeterministicWriterTest",
+    size = "small",
+    srcs = ["DeterministicWriterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//third_party/java/junit",
         "//third_party/java/truth",
     ],
 )

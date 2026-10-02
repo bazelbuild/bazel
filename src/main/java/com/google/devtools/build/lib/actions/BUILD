@@ -2,18 +2,21 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
     name = "execution_requirements",
     srcs = ["ExecutionRequirements.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":exec_exception",
         "//src/main/protobuf:failure_details_java_proto",
@@ -111,12 +114,13 @@ java_library(
         "Spawns.java",
         "StoppedScanningActionEvent.java",
         "TestExecException.java",
+        "ToolProvider.java",
         "TopLevelOutputException.java",
         "UploadingActionEvent.java",
-        "cache/ActionCache.java",
-        "cache/CompactPersistentActionCache.java",
-        "cache/PersistentStringIndexer.java",
-        "cache/PostableActionCacheStats.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     exports = [
         ":action_environment",
@@ -146,21 +150,21 @@ java_library(
         ":fileset_output_tree",
         ":localhost_capacity",
         ":output_checker",
+        ":output_metadata_store",
         ":package_roots",
         ":param_file_action_input",
         ":param_file_info",
         ":parameter_file",
         ":runfiles_metadata",
         ":runfiles_tree",
+        "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -170,12 +174,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -485,7 +487,6 @@ java_library(
         "FileStatusWithMetadata.java",
         "FileValue.java",
         "RichArtifactData.java",
-        "cache/MetadataDigestUtils.java",
     ],
     deps = [
         ":artifacts",
@@ -500,7 +501,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
-        "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -543,6 +543,10 @@ java_library(
 java_library(
     name = "localhost_compute_resources",
     srcs = ["LocalHostComputeResources.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
 )
 
 java_library(
@@ -553,8 +557,13 @@ java_library(
         "ResourceSet.java",
         "ResourceSetOrBuilder.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
     deps = [
         ":exec_exception",
+        ":execution_requirements",
         ":localhost_compute_resources",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -609,6 +618,7 @@ java_library(
     deps = [
         ":parameter_file",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
@@ -633,6 +643,10 @@ java_library(
     srcs = [
         "MachineLoadProvider.java",
         "ResourceManager.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     deps = [
         ":actions",
@@ -741,7 +755,10 @@ java_library(
         "SpawnMetrics.java",
         "SpawnResult.java",
         "StaticInputMetadataProvider.java",
-        "cache/OutputMetadataStore.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     deps = [
         ":action_input",
@@ -752,6 +769,7 @@ java_library(
         ":file_metadata",
         ":fileset_output_tree",
         ":localhost_capacity",
+        ":output_metadata_store",
         ":param_file_action_input",
         ":runfiles_metadata",
         ":runfiles_tree",
@@ -797,5 +815,28 @@ java_library(
         "//third_party/java/guava:primitives",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "metadata_digest_utils",
+    srcs = ["MetadataDigestUtils.java"],
+    deps = [
+        ":file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:var_int",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "output_metadata_store",
+    srcs = ["OutputMetadataStore.java"],
+    deps = [
+        ":artifacts",
+        ":file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//third_party/java/jsr305_annotations",
     ],
 )

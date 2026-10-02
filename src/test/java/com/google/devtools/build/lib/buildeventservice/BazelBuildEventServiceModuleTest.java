@@ -366,6 +366,41 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   }
 
   @Test
+  public void testReportsBesResultsUrlWithTerminalOptions(
+      @TestParameter({"yes", "no", "auto"}) String color,
+      @TestParameter({"yes", "no", "auto"}) String terminalHyperlinks,
+      @TestParameter boolean isatty)
+      throws Exception {
+    String invocationId = "00000000-0000-0000-0000-000000000000";
+    runBuildWithOptions(
+        "--color=" + color,
+        "--terminal_hyperlinks=" + terminalHyperlinks,
+        "--isatty=" + (isatty ? "1" : "0"),
+        "--invocation_id=" + invocationId,
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=FULLY_ASYNC",
+        "--bes_results_url=http://results-ui/");
+
+    boolean useColor = color.equals("yes") || (color.equals("auto") && isatty);
+    String url = "http://results-ui/" + invocationId;
+    String expectedUrl = url;
+    if (terminalHyperlinks.equals("yes")
+        || (terminalHyperlinks.equals("auto") && useColor && isatty)) {
+      expectedUrl = "\u001B]8;;" + url + "\u001B\\" + url + "\u001B]8;;\u001B\\";
+    }
+    if (useColor) {
+      expectedUrl = "\u001B[36m" + expectedUrl + "\u001B[0m";
+    }
+    String expectedMessage = "Streaming build results to: " + expectedUrl;
+    events.assertContainsEventsInOrder(expectedMessage, "Found 0 targets", "Found 0 targets");
+
+    afterBuildCommand();
+
+    events.assertContainsEventsInOrder(
+        expectedMessage, "Found 0 targets", "Found 0 targets", expectedMessage, expectedMessage);
+  }
+
+  @Test
   public void testAfterCommandGrpcReportsBesResultsUrl() throws Exception {
     runBuildWithOptions(
         "--color=no", // disable ANSI color sequences

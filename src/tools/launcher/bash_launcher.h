@@ -15,6 +15,8 @@
 #ifndef BAZEL_SRC_TOOLS_LAUNCHER_BASH_LAUNCHER_H_
 #define BAZEL_SRC_TOOLS_LAUNCHER_BASH_LAUNCHER_H_
 
+#include <string>
+
 #include "src/tools/launcher/launcher.h"
 
 namespace bazel {

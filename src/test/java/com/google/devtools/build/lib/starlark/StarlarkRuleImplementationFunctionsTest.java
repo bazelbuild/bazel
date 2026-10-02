@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -366,6 +367,106 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testCreateSpawnActionWithStdout() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = out)");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img", "stdout.txt");
+    Artifact stdoutOutput = action.getStdoutOutput();
+    assertThat(stdoutOutput).isNotNull();
+    assertThat(stdoutOutput.getFilename()).isEqualTo("stdout.txt");
+
+    Spawn spawn = action.getSpawnForTesting();
+    assertThat(spawn.getOutputFiles()).contains(stdoutOutput);
+    assertThat(spawn.getStdout()).isEqualTo(stdoutOutput);
+  }
+
+  @Test
+  public void testCreateSpawnActionWithStdoutOnlyOutput() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    // An empty 'outputs' is allowed as long as 'stdout' provides an output.
+    ev.exec(
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = out)");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertArtifactFilenames(action.getOutputs(), "stdout.txt");
+    assertThat(action.getStdoutOutput()).isEqualTo(action.getPrimaryOutput());
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutAlsoInOutputsFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "may not also be listed in 'outputs'",
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [out],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = out)");
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutWrongType() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "parameter 'stdout' got value of type 'string', want 'File or NoneType'",
+        "ruleContext.actions.run(",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = 'not_a_file')");
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutWithWorkerFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "parameter 'stdout' of actions.run is incompatible with worker execution",
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  execution_requirements = {'supports-workers': '1'},",
+        "  stdout = out)");
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutWithMultiplexWorkerFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "parameter 'stdout' of actions.run is incompatible with worker execution",
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  execution_requirements = {'supports-multiplex-workers': '1'},",
+        "  stdout = out)");
+  }
+
+  @Test
   public void createSpawnAction_progressMessageWithSubstitutions() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
@@ -529,6 +630,22 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "ruleContext.actions.run_shell(outputs = ruleContext.files.srcs,",
         "  command = [\"echo\", \"'hello world'\", \"&&\", \"touch\"],",
         "  arguments = [ruleContext.files.srcs[0].path])");
+  }
+
+  @Test
+  public void testRequireMnemonicForRunActions() throws Exception {
+    setBuildLanguageOptions("--incompatible_require_mnemonic_for_run_actions=true");
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "actions.run and actions.run_shell require an explicit mnemonic.",
+        "ruleContext.actions.run_shell(",
+        "  outputs = ruleContext.files.srcs,",
+        "  command = 'echo hello')");
+    ev.checkEvalErrorContains(
+        "actions.run and actions.run_shell require an explicit mnemonic.",
+        "ruleContext.actions.run(",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = ruleContext.files.tools[0])");
   }
 
   private void setupToolInInputsTest(String... ruleImpl) throws Exception {
@@ -1287,6 +1404,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
                 dir = str(sorted(dir(provider))),
                 rule_data_runfiles = provider.data_runfiles,
                 rule_default_runfiles = provider.default_runfiles,
+                rule_executable = provider.executable,
                 rule_files = provider.files,
                 rule_files_to_run = provider.files_to_run,
                 rule_file_executable = provider.files_to_run.executable
@@ -1316,7 +1434,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
-        .isEqualTo("[\"data_runfiles\", \"default_runfiles\", \"files\", \"files_to_run\"]");
+        .isEqualTo(
+            "[\"data_runfiles\", \"default_runfiles\", \"executable\", \"files\","
+                + " \"files_to_run\"]");
 
     assertThat(myInfo.getValue("rule_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
@@ -1336,6 +1456,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     assertThat(myInfo.getValue("rule_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
+    assertThat(myInfo.getValue("rule_executable")).isEqualTo(Starlark.NONE);
     assertThat(myInfo.getValue("rule_file_executable")).isEqualTo(Starlark.NONE);
   }
 
@@ -1400,7 +1521,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
-        .isEqualTo("[\"data_runfiles\", \"default_runfiles\", \"files\", \"files_to_run\"]");
+        .isEqualTo(
+            "[\"data_runfiles\", \"default_runfiles\", \"executable\", \"files\","
+                + " \"files_to_run\"]");
 
     assertThat(myInfo.getValue("rule_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
@@ -1436,6 +1559,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
                 dir = str(sorted(dir(provider))),
                 file_data_runfiles = provider.data_runfiles,
                 file_default_runfiles = provider.default_runfiles,
+                file_executable = provider.executable,
                 file_files = provider.files,
                 file_files_to_run = provider.files_to_run,
             )]
@@ -1463,7 +1587,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
-        .isEqualTo("[\"data_runfiles\", \"default_runfiles\", \"files\", \"files_to_run\"]");
+        .isEqualTo(
+            "[\"data_runfiles\", \"default_runfiles\", \"executable\", \"files\","
+                + " \"files_to_run\"]");
 
     assertThat(myInfo.getValue("file_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
@@ -1481,6 +1607,20 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     assertThat(myInfo.getValue("file_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("file_files_to_run")).isInstanceOf(FilesToRunProvider.class);
+    assertThat(myInfo.getValue("file_executable"))
+        .isEqualTo(((FilesToRunProvider) myInfo.getValue("file_files_to_run")).getExecutable());
+  }
+
+  @Test
+  public void testDefaultProviderOnPackageGroup() throws Exception {
+    scratch.file("test/BUILD", "package_group(name = 'group', packages = ['//...'])");
+
+    DefaultInfo provider =
+        (DefaultInfo) getConfiguredTarget("//test:group").get(DefaultInfo.PROVIDER.getKey());
+    ev.update("provider", provider);
+
+    assertThat(ev.eval("provider.executable")).isEqualTo(Starlark.NONE);
+    assertThat((String) ev.eval("str(provider)")).contains("executable = None");
   }
 
   @Test
@@ -2121,8 +2261,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     StarlarkRuleContext ctx = createRuleContext("//foo:bar");
     setRuleContext(ctx);
     Object result = ev.eval("ruleContext.bin_dir.path");
-    assertThat(result)
-        .isEqualTo(ctx.getConfiguration().getBinFragment(RepositoryName.MAIN).getPathString());
+    assertThat(result).isEqualTo(ctx.getConfiguration().getBinFragment().getPathString());
   }
 
   @Test
@@ -4118,7 +4257,9 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
 
     // When asking for arguments without an artifact expander we just return the directory
-    assertThat(commandLine.arguments()).containsExactly("foo/dir");
+    // (without applying map_each, because expand_directories is true by default and contents are
+    // not yet available)
+    assertThat(commandLine.arguments()).containsExactly(directory.getExecPathString());
 
     // Now ask for one with an expanded directory
     InputMetadataProvider inputMetadataProvider =
@@ -4140,6 +4281,10 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
+
+    // Without an artifact expander, expand_directories=True emits the directory exec path,
+    // while expand_directories=False applies map_each directly to the directory.
+    assertThat(commandLine.arguments()).containsExactly(directory.getExecPathString(), "foo/dir");
 
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(directory.getRootRelativePathString(), "file1", "file2");
@@ -4294,10 +4439,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
 
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
 
     ConfiguredTarget target = getConfiguredTarget("//test:foo");
 

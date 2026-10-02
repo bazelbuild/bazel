@@ -70,12 +70,14 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
       name = "google_credentials",
       oldName = "auth_credentials",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
-          "Specifies the file to get authentication credentials from. See "
-              + "https://cloud.google.com/docs/authentication for details.")
+          "Specifies the file to get authentication credentials from. An empty value resets the"
+              + " flag to its default. See https://cloud.google.com/docs/authentication for"
+              + " details.")
   public abstract String getGoogleCredentials();
 
   public abstract void setGoogleCredentials(String value);
@@ -117,12 +119,13 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
   @Option(
       name = "tls_authority_override",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       metadataTags = {OptionMetadataTag.HIDDEN},
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "TESTING ONLY! Can be used with a self-signed certificate to consider the specified "
-              + "value a valid TLS authority.")
+              + "value a valid TLS authority. An empty value resets the flag to its default.")
   public abstract String getTlsAuthorityOverride();
 
   @Option(

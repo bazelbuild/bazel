@@ -1115,7 +1115,8 @@ providers. That is, <code>[FooInfo, BarInfo]</code> will automatically be conver
             defaultValue = "[]",
             doc = "A list of constraints on the execution platform."),
       },
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   ExecGroupApi execGroup(
       Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
       throws EvalException;

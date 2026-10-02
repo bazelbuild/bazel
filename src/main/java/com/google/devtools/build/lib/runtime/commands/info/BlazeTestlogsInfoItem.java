@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 
@@ -38,6 +37,6 @@ public final class BlazeTestlogsInfoItem extends InfoItem {
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     checkNotNull(configurationSupplier);
-    return print(configurationSupplier.get().getTestLogsDirectory(RepositoryName.MAIN).getRoot());
+    return print(configurationSupplier.get().getTestLogsDirectory().getRoot());
   }
 }

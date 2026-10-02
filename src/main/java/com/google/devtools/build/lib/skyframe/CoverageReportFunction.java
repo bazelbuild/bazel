@@ -56,7 +56,9 @@ public class CoverageReportFunction implements SkyFunction {
     try {
       Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
           actionKeyContext, actions, CoverageReportValue.COVERAGE_REPORT_KEY);
-    } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
+    } catch (ActionConflictException
+        | Actions.ArtifactGeneratedByOtherRuleException
+        | Actions.SourceArtifactUsedAsOutputException e) {
       throw new IllegalStateException("Issues not expected in coverage: " + skyKey, e);
     }
     return new CoverageReportValue(actions);

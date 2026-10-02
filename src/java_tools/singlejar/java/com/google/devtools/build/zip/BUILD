@@ -12,7 +12,6 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
-    visibility = ["//src:__subpackages__"],
 )
 
 # Necessary for the bootstrap compilation.

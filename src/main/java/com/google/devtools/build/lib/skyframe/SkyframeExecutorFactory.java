@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -54,6 +55,7 @@ public interface SkyframeExecutorFactory {
       boolean allowExternalRepositories,
       Supplier<Path> repoContentsCachePathSupplier,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
+      CompressionService compressionService,
       BugReporter bugReporter)
       throws AbruptExitException;
 }

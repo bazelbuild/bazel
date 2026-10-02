@@ -91,7 +91,8 @@ public class LeaseService {
               var value = memoizingEvaluator.getExistingValue(key);
               return value instanceof ActionExecutionValue actionExecutionValue
                   && isRemote(actionExecutionValue);
-            } catch (InterruptedException ignored) {
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
               return false;
             }
           }

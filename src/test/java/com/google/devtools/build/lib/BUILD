@@ -7,12 +7,18 @@ package(
     ],
 )
 
+package_group(
+    name = "test_lib",
+    packages = ["//src/test/java/..."],
+)
+
 # Generate list of all srcs via:
 # bazel query 'filter("srcs", kind("filegroup rule", //src/test/java/com/google/devtools/build/lib/...))' | sort | sed -e "s/^/\"/" | sed -e "s/$/\",/" | fgrep -v "build/lib:srcs"
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/actions:srcs",
+        "//src/test/java/com/google/devtools/build/lib/actions/cache:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis:srcs",
         "//src/test/java/com/google/devtools/build/lib/authandtls:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel:srcs",
@@ -82,12 +88,6 @@ filegroup(
         "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
     ],
-)
-
-alias(
-    name = "test_runner",
-    actual = ":AllTests",
-    visibility = ["//src/test:__subpackages__"],
 )
 
 java_library(

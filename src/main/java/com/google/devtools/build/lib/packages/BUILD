@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -31,11 +31,21 @@ java_library(
 java_library(
     name = "globber",
     srcs = ["Globber.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
 )
 
 java_library(
     name = "globber_utils",
     srcs = ["GlobberUtils.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
     deps = [
         ":globber",
         "//third_party/java/error_prone:annotations",
@@ -74,6 +84,10 @@ java_library(
             "StructProvider.java",
         ],
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+    ],
     deps = [
         ":bzl_visibility",
         ":declared_exec_group",
@@ -194,9 +208,6 @@ java_library(
     ],
 )
 
-# TODO(kkress, adonovan) Eliminate this target, it is mostly unnecessary. It
-# depends on lib:build-base for BlazeDirectories, which it uses for a type
-# parameter, but the param is unused.
 java_library(
     name = "builder_factory_for_testing",
     srcs = ["BuilderFactoryForTesting.java"],
@@ -254,6 +265,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:abstract-exported-starlark-symbol-codec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
@@ -264,6 +276,7 @@ java_library(
         "//src/main/java/net/starlark/java/lib",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",

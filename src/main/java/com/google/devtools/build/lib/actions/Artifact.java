@@ -516,7 +516,7 @@ public abstract sealed class Artifact
    * one of its most common use cases is to construct a derived artifact's output path out of a
    * sibling source artifact's by replacing the basename in its output-dir-relative path.
    */
-  public PathFragment getOutputDirRelativePath(boolean siblingRepositoryLayout) {
+  public PathFragment getOutputDirRelativePath() {
     return getRootRelativePath();
   }
 
@@ -526,8 +526,8 @@ public abstract sealed class Artifact
    */
   public PathFragment getRepositoryRelativePath() {
     PathFragment relativePath = getRootRelativePath();
-    // External artifacts under legacy roots are still prefixed with "external/<repo name>".
-    if (root.isLegacy() && relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+    // External derived artifacts are prefixed with "external/<repo name>".
+    if (!root.isSourceRoot() && relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       relativePath = relativePath.subFragment(2);
     }
     return relativePath;
@@ -657,28 +657,23 @@ public abstract sealed class Artifact
   public final PathFragment getRunfilesPath() {
     PathFragment relativePath = getRootRelativePath();
     // Runfile paths for external artifacts should be prefixed with "../<repo name>".
-    if (root.isLegacy()) {
-      // Root-relative paths of external artifacts under legacy roots are already prefixed with
-      // "external/<repo name>". Just replace "external" with "..".
-      if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
-        relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
-        relativePath = LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(relativePath);
-      }
-    } else {
+    if (root.isSourceRoot()) {
       if (root.isExternal()) {
-        // Both external source artifacts and external derived artifacts have their repo name as
-        // their 2nd level directory name in their exec paths.
-        // i.e. external/<repo name>/... and bazel-out/<repo name>/...
-        // This is a pure coincidence, and the below line needs to be updated if any of the
-        // directory structures change.
+        // External source artifacts have their repo name as the 2nd level directory name in their
+        // exec paths, i.e. external/<repo name>/..., while their root-relative paths are already
+        // relative to the repo root.
         String repoName = execPath.getSegment(1);
         relativePath =
             LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX
                 .getRelative(repoName)
                 .getRelative(relativePath);
       }
+    } else if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+      // Root-relative paths of external derived artifacts are already prefixed with
+      // "external/<repo name>". Just replace "external" with "..".
+      relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
+      relativePath = LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(relativePath);
     }
-    // We can't use root.isExternalSource() here since it needs to handle derived artifacts too.
     return relativePath;
   }
 
@@ -802,8 +797,8 @@ public abstract sealed class Artifact
     }
 
     @Override
-    public PathFragment getOutputDirRelativePath(boolean siblingRepositoryLayout) {
-      return siblingRepositoryLayout ? getRepositoryRelativePath() : getExecPath();
+    public PathFragment getOutputDirRelativePath() {
+      return getExecPath();
     }
 
     @Override

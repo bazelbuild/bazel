@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -305,7 +306,7 @@ public abstract sealed class RepoRecordedInput {
   /**
    * Returns a human-readable description of the change from {@code oldValue} to {@code newValue}.
    */
-  protected abstract String describeChange(String oldValue, String newValue);
+  public abstract String describeChange(@Nullable String oldValue, @Nullable String newValue);
 
   /**
    * Returns the post-colon substring that identifies the specific input: for example, the {@code
@@ -481,10 +482,18 @@ public abstract sealed class RepoRecordedInput {
         return "ENOENT";
       }
       // Return the file content digest in hex. fileValue may or may not have the digest available.
-      byte[] digest = fileValue.realFileStateValue().getDigest();
+      var fileStateValue = fileValue.realFileStateValue();
+      byte[] digest = fileStateValue.getDigest();
       if (digest == null) {
         // Fast digest not available, or it would have been in the FileValue.
-        digest = fileValue.realRootedPath(rootedPath).asPath().getDigest();
+        var contentsProxy = fileStateValue.getContentsProxy();
+        var maybeStat =
+            contentsProxy != null
+                ? contentsProxy.toMetadataOnlyFileStatus(fileStateValue.getSize())
+                : null;
+        digest =
+            DigestUtils.manuallyComputeDigest(
+                fileValue.realRootedPath(rootedPath).asPath(), maybeStat);
       }
       return BaseEncoding.base16().lowerCase().encode(digest);
     }
@@ -505,11 +514,11 @@ public abstract sealed class RepoRecordedInput {
     public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var skyKey = getSkyKey(directories);
+      var fileValue = (FileValue) env.getValue(skyKey);
+      if (fileValue == null) {
+        return MaybeValue.VALUES_MISSING;
+      }
       try {
-        var fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
-        if (fileValue == null) {
-          return MaybeValue.VALUES_MISSING;
-        }
         return new MaybeValue.Valid(
             fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
       } catch (IOException e) {
@@ -523,7 +532,12 @@ public abstract sealed class RepoRecordedInput {
     }
   }
 
-  /** Represents the list of entries under a directory accessed during the fetch. */
+  /**
+   * Represents the list of entries under a directory accessed during the fetch.
+   *
+   * <p>May only be requested for paths that are known to represent existing directories, so
+   * consumers usually have to request a {@link RepoRecordedInput.File} first.
+   */
   public static final class Dirents extends RepoRecordedInput {
     public static final Parser PARSER =
         new Parser() {
@@ -592,9 +606,9 @@ public abstract sealed class RepoRecordedInput {
 
     @Override
     protected boolean canBeRequestedUnconditionally() {
-      // Requesting directories in external repositories can result in cycles if the external repo
-      // transitively depends on the requesting repo.
-      return !path.inExternalRepo();
+      // If the File input requested before this input has changed its type to non-directory, this
+      // input's DirectoryListingValue must not be requested as it would result in a build error.
+      return false;
     }
 
     @Override
@@ -621,6 +635,9 @@ public abstract sealed class RepoRecordedInput {
    *
    * <p>Files can be excluded from the out-of-date check with the given {@code excludes} glob
    * patterns.
+   *
+   * <p>May only be requested for paths that are known to represent existing directories, so
+   * consumers usually have to request a {@link RepoRecordedInput.File} first.
    */
   public static final class DirTree extends RepoRecordedInput {
 
@@ -732,26 +749,20 @@ public abstract sealed class RepoRecordedInput {
 
     @Override
     protected boolean canBeRequestedUnconditionally() {
-      // Requesting directory trees in external repositories can result in cycles if the external
-      // repo now transitively depends on the requesting repo.
-      return !path.inExternalRepo();
+      // If the File input requested before this input has changed its type to non-directory, this
+      // input's DirectoryTreeDigestValue must not be requested as it would result in a build error.
+      return false;
     }
 
     @Override
     public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var skyKey = getSkyKey(directories);
-      try {
-        var directoryTreeDigestValue =
-            (DirectoryTreeDigestValue) env.getValueOrThrow(skyKey, IOException.class);
-        if (directoryTreeDigestValue == null) {
-          return MaybeValue.VALUES_MISSING;
-        }
-        return new MaybeValue.Valid(directoryTreeDigestValue.hexDigest());
-      } catch (IOException e) {
-        return new MaybeValue.Invalid(
-            "failed to digest directory tree at %s: %s".formatted(path, e.getMessage()));
+      var directoryTreeDigestValue = (DirectoryTreeDigestValue) env.getValue(skyKey);
+      if (directoryTreeDigestValue == null) {
+        return MaybeValue.VALUES_MISSING;
       }
+      return new MaybeValue.Valid(directoryTreeDigestValue.hexDigest());
     }
 
     @Override

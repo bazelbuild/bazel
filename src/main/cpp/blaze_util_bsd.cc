@@ -44,6 +44,9 @@
 # include <libprocstat.h>  // must be included after <sys/...> headers
 #endif
 
+#include <cstdint>
+#include <string>
+
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
@@ -238,6 +241,13 @@ bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
   // unrelated process if the server died and the PID got reused.
   return killpg(pid, 0) == 0;
 }
+
+std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
+                                   int /*pid*/) {
+  return "";
+}
+
+std::string GetProcessTerminationDiagnosis(int /*pid*/) { return ""; }
 
 // Not supported.
 void ExcludePathFromBackup(const blaze_util::Path &path) {}

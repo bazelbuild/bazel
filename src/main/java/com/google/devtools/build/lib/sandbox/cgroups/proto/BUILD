@@ -4,7 +4,10 @@ load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -16,6 +19,8 @@ filegroup(
 proto_library(
     name = "cgroups_info_proto",
     srcs = ["cgroups_info.proto"],
+    visibility = [
+    ],
 )
 
 java_proto_library(

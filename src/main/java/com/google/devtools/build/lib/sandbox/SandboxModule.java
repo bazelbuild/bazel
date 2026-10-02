@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -50,10 +52,10 @@ import com.google.devtools.common.options.TriState;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** This module provides the Sandbox spawn strategy. */
@@ -220,6 +222,11 @@ public final class SandboxModule extends BlazeModule {
         firstBuild = true;
       }
     }
+    // Whenever a build starts, ensure the tree deleter runs in single-threaded mode so it
+    // does not compete with the active build for CPU and I/O resources.
+    if (treeDeleter instanceof AsynchronousTreeDeleter asyncTreeDeleter) {
+      asyncTreeDeleter.setThreads(1);
+    }
     try (SilentCloseable c = Profiler.instance().profile("SandboxStash.initialize")) {
       SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options, treeDeleter);
     }
@@ -229,13 +236,27 @@ public final class SandboxModule extends BlazeModule {
     // previous builds. However, on the very first build of an instance of the server, we must
     // wipe old contents to avoid reusing stale directories.
     if (firstBuild && sandboxBase.exists()) {
+      int idleThreads = options.getAsyncTreeDeleteIdleThreads();
+      AsynchronousTreeDeleter asyncDeleter =
+          treeDeleter instanceof AsynchronousTreeDeleter atd ? atd : null;
+      if (idleThreads > 0 && asyncDeleter != null) {
+        asyncDeleter.setThreads(idleThreads);
+      }
       try (SilentCloseable c = Profiler.instance().profile("clean sandbox on first build")) {
         if (trashBase.exists()) {
           // Delete stale trash from a previous server instance.
           Path staleTrash = getStaleTrashDir(trashBase);
           trashBase.renameTo(staleTrash);
           trashBase.createDirectory();
-          treeDeleter.deleteTree(staleTrash);
+          for (Dirent dirent : staleTrash.readdir(Symlinks.NOFOLLOW)) {
+            Path childPath = staleTrash.getChild(dirent.getName());
+            if (dirent.getType() == Dirent.Type.DIRECTORY) {
+              treeDeleter.deleteTree(childPath);
+            } else {
+              childPath.delete();
+            }
+          }
+          staleTrash.delete();
         } else {
           trashBase.createDirectory();
         }
@@ -259,7 +280,22 @@ public final class SandboxModule extends BlazeModule {
         // docker image. The overlay filesystem is different and the renaming of the directories
         // that we need to do for asynchronous deletion will fail. When that happens we fall back to
         // synchronous deletion here.
+        logger.atWarning().withCause(e).log(
+            "Asynchronous sandbox deletion failed (likely due to overlayfs/container filesystem"
+                + " layers, see https://github.com/bazelbuild/bazel/issues/21719); falling back to"
+                + " synchronous deletion of %s",
+            sandboxBase);
+        if (treeDeleter != null) {
+          treeDeleter.shutdown();
+          if (options.getAsyncTreeDeleteIdleThreads() > 0) {
+            treeDeleter = new AsynchronousTreeDeleter(trashBase);
+          }
+        }
         sandboxBase.deleteTree();
+      } finally {
+        if (idleThreads > 0 && asyncDeleter != null) {
+          asyncDeleter.setThreads(1);
+        }
       }
     }
     firstBuild = false;
@@ -400,16 +436,45 @@ public final class SandboxModule extends BlazeModule {
   }
 
   /**
-   * If there is anything other than SANDBOX_BASE_PERSISTENT_DIRS in sandboxBase when we hit this
-   * precondition then there is a programming error somewhere (or I made a wrong assumption that
-   * wasn't caught by any of our tests).
+   * Removes any top-level entries in sandboxBase that are not in SANDBOX_BASE_PERSISTENT_DIRS or
+   * expected inaccessible helper files/directories. This cleans up leftover sandbox directories
+   * (e.g. linux-sandbox) from previous builds that used --sandbox_debug or different execution
+   * strategies.
    */
-  private static void checkSandboxBaseTopOnlyContainsPersistentDirs(Path sandboxBase) {
+  // Package-private for testing
+  static void cleanSandboxBaseTopOnlyContainsPersistentDirs(
+      Path sandboxBase, @Nullable TreeDeleter treeDeleter) throws IOException {
+    for (Dirent dirent : sandboxBase.readdir(Symlinks.NOFOLLOW)) {
+      String name = dirent.getName();
+      if (SANDBOX_BASE_PERSISTENT_DIRS.contains(name)
+          || name.equals(SandboxHelpers.INACCESSIBLE_HELPER_DIR)
+          || name.equals(SandboxHelpers.INACCESSIBLE_HELPER_FILE)) {
+        continue;
+      }
+      Path childPath = sandboxBase.getChild(name);
+      if (dirent.getType() == Dirent.Type.DIRECTORY) {
+        if (treeDeleter != null) {
+          treeDeleter.deleteTree(childPath);
+        } else {
+          childPath.deleteTree();
+        }
+      } else {
+        childPath.delete();
+      }
+    }
+  }
+
+  /**
+   * Checks that sandboxBase only contains persistent directories, logging a warning if unexpected
+   * entries are found.
+   */
+  // Package-private for testing
+  static void checkSandboxBaseTopOnlyContainsPersistentDirs(Path sandboxBase) {
     try {
       List<String> directoryEntries =
           sandboxBase.getDirectoryEntries().stream()
               .map(Path::getBaseName)
-              .collect(Collectors.toList());
+              .collect(toCollection(ArrayList::new));
       // If sandbox initialization failed in-between creating the inaccessible dir/file and adding
       // the Linux sandboxing strategy to spawnRunners, then the sandbox base will be in a bad
       // state. We check for that here and clean up.
@@ -425,14 +490,14 @@ public final class SandboxModule extends BlazeModule {
         inaccessibleHelperFile.delete();
       }
 
-      if (!SANDBOX_BASE_PERSISTENT_DIRS.containsAll(directoryEntries)) {
-        StringBuilder message =
-            new StringBuilder(
-                "Found unexpected entries in sandbox base. Please report this in"
-                    + " https://github.com/bazelbuild/bazel/issues.");
-        message.append(" The entries are: ");
-        Joiner.on(", ").appendTo(message, directoryEntries);
-        throw new IllegalStateException(message.toString());
+      ImmutableList<String> unexpectedEntries =
+          directoryEntries.stream()
+              .filter(entry -> !SANDBOX_BASE_PERSISTENT_DIRS.contains(entry))
+              .collect(toImmutableList());
+      if (!unexpectedEntries.isEmpty()) {
+        StringBuilder message = new StringBuilder("Found unexpected entries in sandbox base: ");
+        Joiner.on(", ").appendTo(message, unexpectedEntries);
+        logger.atWarning().log("%s", message);
       }
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to clean up sandbox base %s", sandboxBase);
@@ -457,19 +522,33 @@ public final class SandboxModule extends BlazeModule {
     // will be nothing new to delete. See #13240.
 
     if (shouldCleanupSandboxBase) {
+      boolean cleanupSucceeded = false;
       try {
         checkNotNull(sandboxBase, "shouldCleanupSandboxBase implies sandboxBase has been set");
         for (SpawnRunner spawnRunner : spawnRunners) {
           spawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
-          sandboxBase.getChild(spawnRunner.getName()).delete();
+          Path runnerDir = sandboxBase.getChild(spawnRunner.getName());
+          if (runnerDir.exists()) {
+            if (treeDeleter != null) {
+              treeDeleter.deleteTree(runnerDir);
+            } else {
+              runnerDir.deleteTree();
+            }
+          }
         }
+        cleanSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase, treeDeleter);
+        cleanupSucceeded = true;
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       } catch (IOException e) {
         env.getReporter()
             .handle(Event.warn("Failed to delete contents of sandbox " + sandboxBase + ": " + e));
       }
       shouldCleanupSandboxBase = false;
 
-      checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
+      if (cleanupSucceeded) {
+        checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
+      }
       // We intentionally keep sandboxBase around, without resetting it to null, in case we have
       // asynchronous deletions going on. In that case, we'd still want to retry this during
       // shutdown.
@@ -485,6 +564,10 @@ public final class SandboxModule extends BlazeModule {
     // Try to clean up as much garbage as possible, if there happens to be any. This will delay
     // server termination but it's the nice thing to do. If the user gets impatient, they can always
     // kill us again.
+    if (sandboxBase != null) {
+      SandboxStash.clean(treeDeleter, sandboxBase);
+    }
+
     if (treeDeleter != null) {
       try {
         treeDeleter.shutdown();
@@ -506,7 +589,7 @@ public final class SandboxModule extends BlazeModule {
     commonShutdown();
   }
 
-  private Path getStaleTrashDir(Path trashBase) {
+  private Path getStaleTrashDir(Path trashBase) throws IOException {
     int i = 0;
     while (trashBase.getParentDirectory().getChild("stale-trash-" + i++).exists()) {
       ;

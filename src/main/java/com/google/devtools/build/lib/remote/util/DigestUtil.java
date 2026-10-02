@@ -77,7 +77,7 @@ public class DigestUtil {
   }
 
   public Digest compute(byte[] blob) {
-    return buildDigest(hashFn.getHashFunction().hashBytes(blob).toString(), blob.length);
+    return buildDigest(hashFn.getHashFunction().hashBytes(blob).asBytes(), blob.length);
   }
 
   /**
@@ -89,7 +89,7 @@ public class DigestUtil {
    * @param length the number of bytes to hash
    */
   public Digest compute(byte[] data, int offset, int length) {
-    return buildDigest(hashFn.getHashFunction().hashBytes(data, offset, length).toString(), length);
+    return buildDigest(hashFn.getHashFunction().hashBytes(data, offset, length).asBytes(), length);
   }
 
   /** Computes a digest of the given {@link ByteString} without copying its contents. */
@@ -98,7 +98,7 @@ public class DigestUtil {
     for (ByteBuffer buffer : blob.asReadOnlyByteBufferList()) {
       hasher.putBytes(buffer);
     }
-    return buildDigest(hasher.hash().toString(), blob.size());
+    return buildDigest(hasher.hash().asBytes(), blob.size());
   }
 
   /**
@@ -177,8 +177,13 @@ public class DigestUtil {
     return hashFn.getHashFunction().hashBytes(data).asBytes();
   }
 
+  /** Builds a {@link Digest} from a binary hash. */
   public static Digest buildDigest(byte[] hash, long size) {
-    return buildDigest(HashCode.fromBytes(hash).toString(), size);
+    Preconditions.checkArgument(hash.length > 0, "A hash must contain at least 1 byte.");
+    return Digest.newBuilder()
+        .setHashBytes(DigestUtils.toHexByteString(hash))
+        .setSizeBytes(size)
+        .build();
   }
 
   public static Digest buildDigest(String hexHash, long size) {

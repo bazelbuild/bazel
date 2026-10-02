@@ -20,11 +20,15 @@ import javax.annotation.Nullable;
 /**
  * A context for obtaining more detailed information about Starlark types.
  *
- * <p>This is used to inject type information from the {@code eval/} package into the {@code
- * syntax/} package, e.g. the method APIs of {@link StarlarkList}.
+ * <p>This is used to inject potentially StarlarkSemantics-dependent type information from the
+ * {@code eval/} package into the {@code syntax/} package, e.g. the method APIs of {@link
+ * StarlarkList}.
+ *
+ * <p>The canonical ways to obtain a {@link TypeContext} are via {@link
+ * net.starlark.java.eval.StarlarkThread#getTypeContext} or {@link Resolver.Module#getTypeContext}.
  */
 public interface TypeContext {
-  
+
   /** Returns the type of the given field of a {@code str} type, or null if no such field exists. */
   @Nullable
   StarlarkType getStrFieldType(String name);
@@ -67,18 +71,4 @@ public interface TypeContext {
   default ImmutableList<StarlarkType> getStarlarkBuiltinAutoTypeSupertypes(Class<?> clazz) {
     return null;
   }
-
-  /**
-   * Returns the value type of a {@link Resolver.Scope#PREDECLARED} symbol, or null if there is no
-   * such symbol.
-   */
-  @Nullable
-  StarlarkType getPredeclaredSymbolType(String name);
-
-  /**
-   * Returns the value type of a {@link Resolver.Scope#UNIVERSAL} symbol, or null if there is no
-   * such symbol.
-   */
-  @Nullable
-  StarlarkType getUniversalSymbolType(String name);
 }

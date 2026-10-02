@@ -78,12 +78,14 @@ public final class RunfilesProvider implements TransitiveInfoProvider {
       };
 
   public static RunfilesProvider simple(Runfiles defaultRunfiles) {
-    return new RunfilesProvider(defaultRunfiles, defaultRunfiles);
+    return withData(defaultRunfiles, defaultRunfiles);
   }
 
   public static RunfilesProvider withData(
       Runfiles defaultRunfiles, Runfiles dataRunfiles) {
-    return new RunfilesProvider(defaultRunfiles, dataRunfiles);
+    return defaultRunfiles == Runfiles.EMPTY && dataRunfiles == Runfiles.EMPTY
+        ? EMPTY
+        : new RunfilesProvider(defaultRunfiles, dataRunfiles);
   }
 
   public static final RunfilesProvider EMPTY = new RunfilesProvider(

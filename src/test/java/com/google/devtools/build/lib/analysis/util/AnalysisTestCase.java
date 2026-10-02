@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -72,6 +74,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -197,7 +200,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   private SkyframeExecutor createSkyframeExecutor(PackageFactory pkgFactory) {
-    return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+    return SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
         .setDirectories(directories)
@@ -205,6 +208,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
         .setSyscallCache(delegatingSyscallCache)
+        .setCompressionService(new CompressionServiceImpl())
         .allowExternalRepositories(allowExternalRepositories())
         .build();
   }
@@ -368,6 +372,25 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       ImmutableMap<String, String> aspectsParameters,
       String... labels)
       throws Exception {
+    return update(
+        eventBus,
+        config,
+        AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
+        explicitTargetPatterns,
+        aspects,
+        aspectsParameters,
+        labels);
+  }
+
+  protected AnalysisResult update(
+      EventBus eventBus,
+      FlagBuilder config,
+      TopLevelArtifactContext topLevelArtifactContext,
+      ImmutableSet<Label> explicitTargetPatterns,
+      ImmutableList<String> aspects,
+      ImmutableMap<String, String> aspectsParameters,
+      String... labels)
+      throws Exception {
     Set<Flag> flags = config.flags;
 
     LoadingOptions loadingOptions = optionsParser.getOptions(LoadingOptions.class);
@@ -425,7 +448,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             viewOptions,
             keepGoing,
             LOADING_PHASE_THREADS,
-            AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
+            topLevelArtifactContext,
             reporter,
             eventBus);
     if (discardAnalysisCache) {
@@ -487,6 +510,28 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         aspects,
         aspectsParameters,
         labels);
+  }
+
+  @CanIgnoreReturnValue
+  protected AnalysisResult update(
+      TopLevelArtifactContext topLevelArtifactContext,
+      ImmutableList<String> aspects,
+      String... labels)
+      throws Exception {
+    return update(
+        new EventBus(),
+        defaultFlags(),
+        topLevelArtifactContext,
+        /* explicitTargetPatterns= */ ImmutableSet.of(),
+        aspects,
+        /* aspectsParameters= */ ImmutableMap.of(),
+        labels);
+  }
+
+  @CanIgnoreReturnValue
+  protected AnalysisResult update(TopLevelArtifactContext topLevelArtifactContext, String... labels)
+      throws Exception {
+    return update(topLevelArtifactContext, /* aspects= */ ImmutableList.of(), labels);
   }
 
   protected ConfiguredTargetAndData getConfiguredTargetAndTarget(String label)
@@ -605,7 +650,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .getArtifactFactory()
         .getDerivedArtifact(
             label.getPackageFragment().getRelative(packageRelativePath),
-            getTargetConfiguration().getBinDirectory(label.getRepository()),
+            getTargetConfiguration().getBinDirectory(),
             ConfiguredTargetKey.fromConfiguredTarget(owner));
   }
 

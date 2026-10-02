@@ -11,7 +11,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/tools/remote:__pkg__"],
 )
 
 copy_file(
@@ -49,8 +49,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_output_stream",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",

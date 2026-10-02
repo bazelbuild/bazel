@@ -3,14 +3,14 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 ABSTRACT_TEST_SRCS = [
@@ -21,6 +21,9 @@ ABSTRACT_TEST_SRCS = [
 java_library(
     name = "AbstractBuildEventServiceTransportTest",
     srcs = ABSTRACT_TEST_SRCS,
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_transport",
@@ -66,7 +69,7 @@ java_test(
         "BuildEventServiceProtoUtilTest.java",
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
+    runtime_deps = ["//src/test/java/com/google/devtools/build/lib:AllTests"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:command_context_impl",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_grpc_client",
@@ -93,6 +96,9 @@ java_test(
 java_library(
     name = "BuildEventServiceTransportGrpcTestLib",
     srcs = ["BuildEventServiceTransportGrpcTest.java"],
+    visibility = [
+    ],
+    runtime_deps = ["//third_party/java/grpc:netty"],
     deps = [
         ":AbstractBuildEventServiceTransportTest",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
@@ -178,6 +184,8 @@ java_library(
     name = "build_event_service_test_utils",
     srcs = [
         "DelayingPublishBuildEventService.java",
+    ],
+    visibility = [
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",

@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -182,21 +183,7 @@ public final class FlagSetFunction implements SkyFunction {
     // Canonicalize space-separated flags to equals-separated flags.
     sclConfigValue =
         sclConfigValue.stream()
-            .map(
-                flag -> {
-                  // Leave normal and malformed flags alone.
-                  if (!flag.startsWith("--") || !flag.contains(" ")) {
-                    return flag;
-                  }
-                  int spaceIndex = flag.indexOf(' ');
-                  int equalsIndex = flag.indexOf('=');
-                  // Space-separated flags will always have the space before the equals sign.
-                  // e.g. we need to canonicalize --define bar=baz, but not --foo='bar baz'
-                  if (spaceIndex < equalsIndex) {
-                    return flag.substring(0, spaceIndex) + "=" + flag.substring(spaceIndex + 1);
-                  }
-                  return flag;
-                })
+            .map(FlagSetFunction::canonicalizeSpaceSeparatedFlag)
             .collect(toImmutableList());
 
     ImmutableList<String> buildOptionsAsStrings = getBuildOptionsAsStrings(key.targetOptions());
@@ -238,7 +225,9 @@ public final class FlagSetFunction implements SkyFunction {
     }
 
     // Replace --config=foo entries with their expanded definitions.
-    sclConfigValue = expandConfigFlags(sclConfigName, sclConfigValue, key.configFlagDefinitions());
+    sclConfigValue =
+        expandConfigFlags(
+            sclConfigName, sclConfigValue, key.configFlagDefinitions(), key.allOptionNames());
     // TODO: b/388289978 - Fail on unrecognized options from --config and warn when ignoring
     //     recognized options that are filtered out here.
     ImmutableSet<String> optionsToApply = filterOptions(sclConfigValue, buildOptionsAsStrings);
@@ -518,6 +507,29 @@ public final class FlagSetFunction implements SkyFunction {
     return true;
   }
 
+  /** Canonicalize space-separated flags to equals-separated flags. */
+  private static String canonicalizeSpaceSeparatedFlag(String flag) {
+    // Leave normal and malformed flags alone.
+    if (!flag.startsWith("--") || !flag.contains(" ")) {
+      return flag;
+    }
+    int spaceIndex = flag.indexOf(' ');
+    int equalsIndex = flag.indexOf('=');
+    // Space-separated flags will always have the space before the equals sign (or no equals sign).
+    // e.g. we need to canonicalize --define bar=baz and --features bar, but not --foo='bar baz'
+    if (equalsIndex == -1 || spaceIndex < equalsIndex) {
+      return flag.substring(0, spaceIndex) + "=" + flag.substring(spaceIndex + 1);
+    }
+    return flag;
+  }
+
+  private static boolean isBooleanOption(String optionName, ImmutableSet<String> allOptionNames) {
+    return allOptionNames.contains("no" + optionName)
+        || (optionName.startsWith("no")
+            && allOptionNames.contains(optionName)
+            && allOptionNames.contains(optionName.substring(2)));
+  }
+
   /**
    * In-place expands {@code --config=foo} entries in {@code inputFlags}.
    *
@@ -531,7 +543,8 @@ public final class FlagSetFunction implements SkyFunction {
   private static ImmutableList<String> expandConfigFlags(
       String sclConfigName,
       Collection<String> inputFlags,
-      ConfigFlagDefinitions configFlagDefinitions)
+      ConfigFlagDefinitions configFlagDefinitions,
+      ImmutableSet<String> allOptionNames)
       throws FlagSetFunctionException {
     // First look for dupes.
     HashSet<String> dupeChecker = new HashSet<>();
@@ -576,7 +589,21 @@ public final class FlagSetFunction implements SkyFunction {
               Transience.PERSISTENT);
         }
       }
-      ans.addAll(expandedFlags.flags());
+      List<String> rawFlags = expandedFlags.flags();
+      for (int i = 0; i < rawFlags.size(); i++) {
+        String rawFlag = canonicalizeSpaceSeparatedFlag(rawFlags.get(i));
+        String optionName = rawFlag.startsWith("--") ? rawFlag.substring(2) : "";
+        if (!optionName.isEmpty()
+            && !rawFlag.contains("=")
+            && allOptionNames.contains(optionName)
+            && !isBooleanOption(optionName, allOptionNames)
+            && i + 1 < rawFlags.size()) {
+          ans.add(rawFlag + "=" + rawFlags.get(i + 1));
+          i++;
+        } else {
+          ans.add(rawFlag);
+        }
+      }
     }
     return ans.build();
   }

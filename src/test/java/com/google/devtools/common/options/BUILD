@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/common:__subpackages__"],
 )
 
 filegroup(
@@ -11,7 +11,7 @@ filegroup(
         "//src/test/java/com/google/devtools/common/options/processor:srcs",
         "//src/test/java/com/google/devtools/common/options/testing:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src:__pkg__"],
 )
 
 java_library(
@@ -20,6 +20,9 @@ java_library(
     srcs = [
         "InvocationPolicyEnforcerTestBase.java",
         "TestOptions.java",
+    ],
+    visibility = [
+        "//src/test/java:__subpackages__",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_server_startup_options",

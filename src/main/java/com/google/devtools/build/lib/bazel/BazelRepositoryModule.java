@@ -436,15 +436,17 @@ public class BazelRepositoryModule extends BlazeModule {
             UrlRewriter.getDownloaderUrlRewriter(
                 env.getWorkspace(), repoOptions.getDownloaderConfigs());
         downloadManager.setUrlRewriter(rewriter);
-      } catch (UrlRewriterParseException e) {
+      } catch (IOException | UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
         // security purposes, and the build must not proceed ignoring it.
+        String locationMsg =
+            e instanceof UrlRewriterParseException parseException
+                ? " at %s".formatted(parseException.getLocation())
+                : "";
         throw new AbruptExitException(
             detailedExitCode(
                 String.format(
-                    "Failed to parse downloader config%s: %s",
-                    e.getLocation() != null ? String.format(" at %s", e.getLocation()) : "",
-                    e.getMessage()),
+                    "Failed to parse downloader config%s: %s", locationMsg, e.getMessage()),
                 Code.BAD_DOWNLOADER_CONFIG));
       }
 

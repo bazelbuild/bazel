@@ -48,5 +48,5 @@ java_test(
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/java_tools/singlejar:singlejar_package_group"],
 )

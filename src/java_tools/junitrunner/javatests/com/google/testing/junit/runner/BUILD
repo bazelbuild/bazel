@@ -66,7 +66,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )
 
 # BazelTestRunner integration tests

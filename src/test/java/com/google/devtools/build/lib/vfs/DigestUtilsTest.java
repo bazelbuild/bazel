@@ -16,15 +16,17 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.HexFormat;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link DigestUtils}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class DigestUtilsTest {
 
   @After
@@ -57,21 +59,66 @@ public final class DigestUtilsTest {
     Path file = tracingFileSystem.getPath("/file.txt");
     FileSystemUtils.writeContentAsLatin1(file, "some contents");
 
-    byte[] digest = DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE);
+    byte[] digest =
+        DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE, /* status= */ null);
     assertThat(getFastDigestCounter.get()).isEqualTo(1);
     assertThat(getDigestCounter.get()).isEqualTo(1);
 
-    assertThat(DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE))
+    assertThat(
+            DigestUtils.getDigestWithManualFallback(
+                file, SyscallCache.NO_CACHE, /* status= */ null))
         .isEqualTo(digest);
     assertThat(getFastDigestCounter.get()).isEqualTo(2);
     assertThat(getDigestCounter.get()).isEqualTo(1); // Cached.
 
     DigestUtils.clearCache();
 
-    assertThat(DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE))
+    assertThat(
+            DigestUtils.getDigestWithManualFallback(
+                file, SyscallCache.NO_CACHE, /* status= */ null))
         .isEqualTo(digest);
     assertThat(getFastDigestCounter.get()).isEqualTo(3);
     assertThat(getDigestCounter.get()).isEqualTo(2); // Not cached.
+  }
+
+  @Test
+  public void cacheHitWithoutRestatingWhenTheCallerSuppliesTheStat() throws Exception {
+    AtomicInteger getDigestCounter = new AtomicInteger(0);
+    AtomicInteger statCounter = new AtomicInteger(0);
+
+    FileSystem tracingFileSystem =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public byte[] getDigest(PathFragment path) throws IOException {
+            getDigestCounter.incrementAndGet();
+            return super.getDigest(path);
+          }
+
+          @Override
+          public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+            statCounter.incrementAndGet();
+            return super.stat(path, followSymlinks);
+          }
+        };
+
+    DigestUtils.configureCache(/* maximumSize= */ 100);
+
+    Path file = tracingFileSystem.getPath("/file.txt");
+    FileSystemUtils.writeContentAsLatin1(file, "some contents");
+
+    // Without a stat, DigestUtils has to stat the file itself to build the cache key.
+    byte[] digest = DigestUtils.manuallyComputeDigest(file, /* status= */ null);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
+    assertThat(statCounter.get()).isEqualTo(1);
+
+    // A caller that already stat'ed the file gets the cached digest without a further stat, which
+    // only works if both spellings of the key agree.
+    FileStatus stat = file.stat();
+    getDigestCounter.set(0);
+    statCounter.set(0);
+    assertThat(DigestUtils.manuallyComputeDigest(file, stat)).isEqualTo(digest);
+    assertThat(getDigestCounter.get()).isEqualTo(0);
+    assertThat(statCounter.get()).isEqualTo(0);
   }
 
   @Test
@@ -92,7 +139,7 @@ public final class DigestUtilsTest {
     Path file = noDigestFileSystem.getPath("/f.txt");
     FileSystemUtils.writeContentAsLatin1(file, "contents");
 
-    assertThat(DigestUtils.manuallyComputeDigest(file)).isEqualTo(digest);
+    assertThat(DigestUtils.manuallyComputeDigest(file, /* status= */ null)).isEqualTo(digest);
   }
 
   @Test
@@ -108,5 +155,23 @@ public final class DigestUtilsTest {
     byte[] a = {1, 2, 3};
     assertThat(DigestUtils.combineUnordered(a.clone(), a.clone()))
         .isNotEqualTo(new byte[] {0, 0, 0});
+  }
+
+  @Test
+  public void toHexByteString_matchesLowercaseHexEncoding(
+      @TestParameter({
+            "",
+            "00",
+            "0f",
+            "10",
+            "7f",
+            "80",
+            "ff",
+            "0123456789abcdef",
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          })
+          String hex) {
+    assertThat(DigestUtils.toHexByteString(HexFormat.of().parseHex(hex)).toStringUtf8())
+        .isEqualTo(hex);
   }
 }

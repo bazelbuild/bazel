@@ -33,6 +33,7 @@
 #include <mutex>  // NOLINT
 #include <set>
 #include <sstream>
+#include <string>
 #include <thread>       // NOLINT (to silence Google-internal linter)
 #include <type_traits>  // static_assert
 #include <utility>
@@ -54,6 +55,7 @@
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -306,7 +308,8 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
               SignalHandler::Get().GetServerProcessInfo()->server_pid_,
-              SignalHandler::Get().GetOutputBase());
+              SignalHandler::Get().GetOutputBase(),
+              /*from_signal_handler=*/true);
         }
         _exit(1);
       }
@@ -741,11 +744,9 @@ int ExecuteDaemon(
 }
 
 // Run the given program in the current working directory, using the given
-// argument vector, wait for it to finish, then exit ourselves with the exitcode
-// of that program.
-ATTRIBUTE_NORETURN static void ExecuteProgram(
-    const blaze_util::Path& exe,
-    const std::vector<std::wstring>& wargs_vector) {
+// argument vector, wait for it to finish, then return its exit code.
+static int RunProgram(const blaze_util::Path& exe,
+                      const std::vector<std::wstring>& wargs_vector) {
   CmdLine cmdline;
   CreateCommandLine(&cmdline, blaze_util::Path(), wargs_vector);
 
@@ -767,21 +768,76 @@ ATTRIBUTE_NORETURN static void ExecuteProgram(
         << "ExecuteProgram(" << exe.AsPrintablePath()
         << ") failed: " << blaze_util::WstringToCstring(werror);
   }
-  exit(x);
+  return x;
+}
+
+// Run the given program in the current working directory, using the given
+// argument vector, wait for it to finish, then exit ourselves with the exitcode
+// of that program.
+ATTRIBUTE_NORETURN static void ExecuteProgram(
+    const blaze_util::Path& exe,
+    const std::vector<std::wstring>& wargs_vector) {
+  exit(RunProgram(exe, wargs_vector));
+}
+
+// Appends an argument quoted for a Java launcher argument file to *out.
+// Within quotes, a backslash starts an escape sequence and a line break ends
+// the argument.
+static void AppendQuotedForJavaArgFile(const string& arg, string* out) {
+  *out += '"';
+  for (char c : arg) {
+    switch (c) {
+      case '\\':
+      case '"':
+        *out += '\\';
+        *out += c;
+        break;
+      case '\n':
+        *out += "\\n";
+        break;
+      case '\r':
+        *out += "\\r";
+        break;
+      default:
+        *out += c;
+    }
+  }
+  *out += '"';
 }
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args,
+                      const blaze_util::Path& argfile,
                       bool run_in_user_cgroup) {
-  std::vector<std::wstring> wargs;
-  wargs.reserve(server_jvm_args.size());
-  for (const string& a : server_jvm_args) {
-    std::wstring wa = blaze_util::CstringToWstring(a);
-    std::wstring wesc = bazel::windows::WindowsEscapeArg(wa);
-    wargs.push_back(wesc);
+  // The arguments can exceed the command line length limit of CreateProcessW,
+  // for example in batch mode with a large client environment passed via
+  // --client_env. Let the Java launcher read them from a file instead. The
+  // embedded JDK's java.exe uses UTF-8 as its active code page and thus reads
+  // the file as UTF-8.
+  string content;
+  // Skip the first argument, it is equal to 'exe'.
+  for (size_t i = 1; i < server_jvm_args.size(); ++i) {
+    AppendQuotedForJavaArgFile(server_jvm_args[i], &content);
+    content += '\n';
   }
-
-  ExecuteProgram(exe, wargs);
+  if (!blaze_util::WriteFile(content, argfile, 0600)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ExecuteServerJvm: failed to write " << argfile.AsPrintablePath()
+        << ": " << GetLastErrorString();
+  }
+  wstring wshort_argfile;
+  string error;
+  if (!blaze_util::AsShortWindowsPath(argfile.AsNativePath(), &wshort_argfile,
+                                      &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ExecuteServerJvm: AsShortWindowsPath(" << argfile.AsPrintablePath()
+        << "): " << error;
+  }
+  int exit_code = RunProgram(
+      exe, {exe.AsNativePath(),
+            bazel::windows::WindowsEscapeArg(L"@" + wshort_argfile)});
+  blaze_util::UnlinkPath(argfile);
+  exit(exit_code);
 }
 
 void ExecuteRunRequest(const blaze_util::Path& exe,
@@ -846,7 +902,15 @@ bool VerifyServerProcess(int pid, const blaze_util::Path& output_base) {
          recorded_start_time == blaze_util::ToString(start_time);
 }
 
-bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
+std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
+                                   int /*pid*/) {
+  return "";
+}
+
+std::string GetProcessTerminationDiagnosis(int /*pid*/) { return ""; }
+
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler) {
   AutoHandle process(::OpenProcess(
       PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
   DWORD exitcode = 0;
@@ -858,12 +922,21 @@ bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
   }
 
   BOOL result = TerminateProcess(process, /*uExitCode*/ 0);
-  if (!result || !AwaitServerProcessTermination(pid, output_base,
-                                                kPostKillGracePeriodSeconds)) {
+  if (!result || !AwaitServerProcessTermination(
+                     pid, output_base, kPostKillGracePeriodSeconds,
+                     TerminationReason::kKillSignal)) {
     string err = GetLastErrorString();
+    string diagnosis;
+    if (!from_signal_handler) {
+      diagnosis = GetProcessTerminationDiagnosis(pid);
+      if (!diagnosis.empty()) {
+        diagnosis = " Diagnosis: " + diagnosis;
+      }
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Cannot terminate server process with PID " << pid
-        << ", output_base=(" << output_base.AsPrintablePath() << "): " << err;
+        << ", output_base=(" << output_base.AsPrintablePath() << "): " << err
+        << diagnosis;
   }
   return result;
 }
@@ -1117,7 +1190,8 @@ static bool StillExists(HANDLE handle, const string& name) {
 std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
                                                   const blaze_util::Path& path,
                                                   LockMode mode,
-                                                  bool batch_mode, bool block) {
+                                                  bool batch_mode,
+                                                  absl::Duration timeout) {
   const uint64_t start_time = GetMillisecondsMonotonic();
   bool multiple_attempts = false;
 
@@ -1168,22 +1242,36 @@ std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
 
     if (!multiple_attempts) {
       BAZEL_LOG(USER) << "Another command holds the " << name << " lock.";
-      if (block) {
-        BAZEL_LOG(USER) << "Waiting for it to complete...";
-      }
-      fflush(stderr);
     }
 
-    if (!block) {
+    if (timeout <= absl::ZeroDuration()) {
       BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
           << "Exiting because the " << name
           << " lock is held and --noblock_for_lock was given.";
     }
 
-    multiple_attempts = true;
+    DWORD sleep_ms = 500;
+    if (timeout != absl::InfiniteDuration()) {
+      const uint64_t elapsed = GetMillisecondsMonotonic() - start_time;
+      const uint64_t timeout_ms = absl::ToInt64Milliseconds(timeout);
+      if (elapsed >= timeout_ms) {
+        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+            << "Exiting because the " << name
+            << " lock is held and --block_for_lock=" << timeout_ms
+            << "ms timeout expired.";
+      }
+      sleep_ms =
+          static_cast<DWORD>(std::min<uint64_t>(500ULL, timeout_ms - elapsed));
+    }
 
+    if (!multiple_attempts) {
+      BAZEL_LOG(USER) << "Waiting for it to complete...";
+      fflush(stderr);
+    }
+
+    multiple_attempts = true;
     CloseHandle(handle);
-    Sleep(/* dwMilliseconds */ 500);
+    Sleep(/* dwMilliseconds */ sleep_ms);
   }
 }
 

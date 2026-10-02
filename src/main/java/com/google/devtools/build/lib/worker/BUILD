@@ -2,13 +2,16 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+        "//src/test/shell/bazel:__pkg__",
+    ],
 )
 
 java_library(
@@ -17,6 +20,9 @@ java_library(
         "JsonWorkerProtocol.java",
         "ProtoWorkerProtocol.java",
         "WorkerProtocolImpl.java",
+    ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/worker:__pkg__",
     ],
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
@@ -29,6 +35,9 @@ java_library(
 java_library(
     name = "worker_files_hash",
     srcs = ["WorkerFilesHash.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/worker:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
@@ -137,6 +146,7 @@ java_library(
         "ProtoWorkerMessageProcessor.java",
         "WorkRequestHandler.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party/java/error_prone:annotations",
@@ -186,6 +196,11 @@ java_library(
 java_library(
     name = "worker_options",
     srcs = ["WorkerOptions.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib/remote:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/worker:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:ram_resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
@@ -303,7 +318,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_util",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",

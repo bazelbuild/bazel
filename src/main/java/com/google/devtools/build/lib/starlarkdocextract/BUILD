@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -34,6 +34,7 @@ java_library(
 java_library(
     name = "starlarkfunctioninfoextractor",
     srcs = ["StarlarkFunctionInfoExtractor.java"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/starlarkdocextract:__subpackages__"],
     deps = [
         ":extractionexception",
         ":labelrenderer",
@@ -82,10 +83,9 @@ java_library(
         ":labelrenderer",
         ":ruleinfoextractor",
         ":starlarkfunctioninfoextractor",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",

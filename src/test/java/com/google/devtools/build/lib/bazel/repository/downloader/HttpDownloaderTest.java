@@ -42,6 +42,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -59,7 +60,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Ignore;
@@ -1173,6 +1173,43 @@ public class HttpDownloaderTest {
   }
 
   @Test
+  public void download_connectException_doesNotRetry() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    downloadManager.setRetries(5);
+    AtomicInteger times = new AtomicInteger(0);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  times.getAndIncrement();
+                  IOException e = new IOException();
+                  e.addSuppressed(new ConnectException("Connection refused"));
+                  throw e;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    assertThrows(
+        IOException.class,
+        () ->
+            download(
+                downloadManager,
+                ImmutableList.of(URI.create("http://localhost")),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                Optional.empty(),
+                "testCanonicalId",
+                Optional.empty(),
+                fs.getPath(workingDir.newFile().getAbsolutePath()),
+                ImmutableMap.of(),
+                "testRepo"));
+
+    assertThat(times.get()).isEqualTo(1);
+  }
+
+  @Test
   public void download_socketException_retries() throws Exception {
     Downloader downloader = mock(Downloader.class);
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
@@ -1349,7 +1386,6 @@ public class HttpDownloaderTest {
       Map<String, String> clientEnv,
       String context)
       throws IOException, InterruptedException {
-    Phaser downloadPhaser = new Phaser();
     try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
       Future<Path> future =
           downloadManager.startDownload(
@@ -1363,12 +1399,8 @@ public class HttpDownloaderTest {
               output,
               clientEnv,
               context,
-              downloadPhaser,
               /* mayHardlink= */ true);
-      Path downloadedPath = downloadManager.finalizeDownload(future);
-      // Should not be in the download phase.
-      assertThat(downloadPhaser.getPhase()).isNotEqualTo(0);
-      return downloadedPath;
+      return downloadManager.finalizeDownload(future);
     }
   }
 }

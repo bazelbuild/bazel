@@ -4,7 +4,7 @@ load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 #   Documentation generator for Bazel
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:public"],
 )
 
 filegroup(
@@ -12,7 +12,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/docgen/annot:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -24,7 +23,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen/annot",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
@@ -57,7 +56,7 @@ java_binary(
     main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
     deps = [
         ":docgen_javalib",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/common/options",
     ],
 )
@@ -92,9 +91,11 @@ filegroup(
         "templates/**/*.html",
         "templates/**/*.vm",
     ]),
+    visibility = ["//visibility:private"],
 )
 
 filegroup(
     name = "bazel_link_map",
     srcs = ["bazel_link_map.json"],
+    visibility = ["//src:__subpackages__"],
 )

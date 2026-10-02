@@ -49,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -115,7 +114,7 @@ public class UrlRewriter {
    */
   public static UrlRewriter getDownloaderUrlRewriter(
       Path workspaceRoot, @Nullable List<PathFragment> configPaths)
-      throws UrlRewriterParseException {
+      throws IOException, UrlRewriterParseException {
     // "empty" UrlRewriter shouldn't alter auth headers
     if (configPaths == null
         || configPaths.isEmpty()
@@ -128,8 +127,12 @@ public class UrlRewriter {
     // investigation suggests that the current working directory isn't the workspace root.
     List<Path> actualConfigPaths = configPaths.stream().map(workspaceRoot::getRelative).toList();
 
-    List<Path> notFoundConfigPaths =
-        actualConfigPaths.stream().filter(Predicate.not(Path::exists)).toList();
+    List<Path> notFoundConfigPaths = new ArrayList<>();
+    for (Path actualConfigPath : actualConfigPaths) {
+      if (!actualConfigPath.exists()) {
+        notFoundConfigPaths.add(actualConfigPath);
+      }
+    }
     if (!notFoundConfigPaths.isEmpty()) {
       throw new UrlRewriterParseException(
           String.format(
@@ -388,16 +391,16 @@ public class UrlRewriter {
     //  - If netrcFileString is a relative path, it's resolved to an absolute path with the current
     //    working directory.
     Path netrcFile = workingDirectory.getRelative(netrcFileString);
-    if (netrcFile.exists()) {
-      try {
+    try {
+      if (netrcFile.exists()) {
         Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
         return new NetrcCredentials(netrc);
-      } catch (IOException e) {
-        throw new UrlRewriterParseException(
-            "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), location);
+      } else {
+        return null;
       }
-    } else {
-      return null;
+    } catch (IOException e) {
+      throw new UrlRewriterParseException(
+          "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), location);
     }
   }
 

@@ -15,7 +15,10 @@ package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
@@ -117,5 +120,38 @@ public class MultiExecutorQueueVisitorTest {
         () ->
             queueVisitorWithoutExecutionPhasePool.getExecutorServiceByThreadPoolType(
                 ThreadPoolType.EXECUTION_PHASE));
+  }
+
+  @Test
+  public void testLaunchQueuedUpExecutionPhaseTasks() {
+    ExecutorService regular = mock(ExecutorService.class);
+    ExecutorService cpuHeavy = mock(ExecutorService.class);
+    ExecutorService executionPhase = mock(ExecutorService.class);
+
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regular,
+            cpuHeavy,
+            executionPhase,
+            ExceptionHandlingMode.KEEP_GOING,
+            ErrorClassifier.DEFAULT);
+
+    Runnable runnable = mock(Runnable.class);
+    QuiescingTask task =
+        new QuiescingTask(queueVisitor) {
+          @Override
+          public void runCore() {}
+        };
+
+    queueVisitor.execute(
+        runnable, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ true);
+    queueVisitor.execute(
+        task, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ true);
+
+    verify(executionPhase, never()).execute(any(Runnable.class));
+
+    queueVisitor.launchQueuedUpExecutionPhaseTasks();
+
+    verify(executionPhase, times(2)).execute(any(Runnable.class));
   }
 }

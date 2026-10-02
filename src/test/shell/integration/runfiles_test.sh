@@ -218,6 +218,7 @@ EOF
 ./test_foo_runfiles/e/f symlink dir
 ./test_foo_runfiles/foo file
 ./test_foo_runfiles/py file
+./test_foo_runfiles/py.build_data.txt file
 ./test_foo_runfiles/py.py file
 ./test_foo_runfiles/x regular dir
 ./test_foo_runfiles/x/y regular dir
@@ -231,7 +232,7 @@ EOF
 ./test_foo_runfiles/_private_py.lazy_imports_info.json file
 "
     # Filter out Bazel Python runfiles.
-    filters='_py.venv|_py_stage2_bootstrap.py'
+    filters='_py.venv|_py_stage2_bootstrap.py|py.build_data.txt'
     expected=$(echo "$expected" | grep -v -E "$filters")
   fi
 

@@ -20,7 +20,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.unsafe.StringUnsafe.getInternalStringBytes;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.joining;
@@ -42,14 +42,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.DigestWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
@@ -71,7 +69,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.SortedMap;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -107,7 +104,7 @@ import javax.annotation.Nullable;
  */
 public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCache {
   // Salts all cache keys; change it whenever previously cached entries may no longer be valid.
-  private static final UUID GUID = UUID.fromString("0336b325-9db8-4592-a5eb-79b4970bc4ce");
+  private static final UUID GUID = UUID.fromString("06a53d89-9f52-46ed-8064-f7af6ba27769");
   private static final String MARKER_FILE_PATH = ".recorded_inputs";
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
   private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
@@ -218,7 +215,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                   /* startTime= */ Instant.now(),
                   /* wallTimeInMs= */ 0,
                   /* preserveExecutableBit= */ true)
-              .upload(context, cache, reporter);
+              .upload(context, cache, reporter, /* force= */ false);
     } catch (ExecException | IOException e) {
       reporter.handle(
           Event.warn(
@@ -611,23 +608,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     }
 
     @Override
-    public PathFragment getWorkingDirectory() {
-      throw new UnsupportedOperationException("Not used");
-    }
-
-    @Override
     public Path outputPathToLocalPath(String outputPath) {
       throw new UnsupportedOperationException("Not used");
     }
 
     @Override
     public PathFragment localPathToExecPath(PathFragment localPath) {
-      throw new UnsupportedOperationException("Not used");
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnRunner.SpawnExecutionContext context, boolean willAccessRepeatedly) {
       throw new UnsupportedOperationException("Not used");
     }
   }

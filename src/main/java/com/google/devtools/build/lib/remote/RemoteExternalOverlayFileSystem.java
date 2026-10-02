@@ -16,8 +16,9 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.util.StringUtilities.bytesCountToDisplayString;
 
@@ -86,8 +87,7 @@ import javax.annotation.Nullable;
  * <p>Each external repository can either be materialized to the native file system or kept in
  * memory in the {@link RemoteExternalFileSystem}.
  */
-public final class RemoteExternalOverlayFileSystem extends FileSystem
-    implements SubtreeMaterializer {
+public final class RemoteExternalOverlayFileSystem extends FileSystem implements LazyMaterializer {
   private final PathFragment externalDirectory;
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
@@ -261,7 +261,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * this doesn't happen in {@link #injectRecursively}.
    */
   private void addSymlinkTargetsToPrefetch(
-      List<PathFragment> symlinks, Set<PathFragment> filesToPrefetch) {
+      List<PathFragment> symlinks, Set<PathFragment> filesToPrefetch) throws IOException {
     for (var symlink : symlinks) {
       Path target;
       try {
@@ -390,6 +390,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * Bazel or local actions are handled automatically by the file system or {@link
    * AbstractActionInputPrefetcher}.
    */
+  @Override
   public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
@@ -402,12 +403,17 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
                 repo.getName(),
                 /* attributes= */ null,
                 /* canJoin= */ unusedAttributes -> true,
-                () ->
-                    materializationExecutor.submit(
-                        () -> {
-                          doMaterialize(repo, reporter);
-                          return null;
-                        })));
+                () -> {
+                  // Another caller may have finished since the presence check above.
+                  if (!markerFileContents.containsKey(repo.getName())) {
+                    return immediateVoidFuture();
+                  }
+                  return materializationExecutor.submit(
+                      () -> {
+                        doMaterialize(repo, reporter);
+                        return null;
+                      });
+                }));
   }
 
   private void doMaterialize(RepositoryName repo, ExtendedEventHandler reporter)
@@ -570,7 +576,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       if (hasBeenInjected && !hasBeenMaterialized) {
         // The repo may have been deleted due to refetching. Clean up in-memory state if that is the
         // case.
-        if (externalFs.getPath(externalDirectory.getChild(repoName)).exists()) {
+        boolean exists;
+        try {
+          exists = externalFs.getPath(externalDirectory.getChild(repoName)).exists();
+        } catch (IOException e) {
+          // Ignore and treat as if the repo does not exist.
+          exists = false;
+        }
+        if (exists) {
           return externalFs;
         }
         materializedRepos.remove(repoName);
@@ -661,12 +674,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
+  public boolean exists(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).exists(path, followSymlinks);
   }
 
   @Override
-  public boolean exists(PathFragment path) {
+  public boolean exists(PathFragment path) throws IOException {
     return fsForPath(path).exists(path);
   }
 
@@ -767,33 +780,27 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Nullable
   @Override
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).statNullable(path, followSymlinks);
-  }
-
-  @Nullable
-  @Override
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).statIfFound(path, followSymlinks);
   }
 
   @Override
-  public boolean isFile(PathFragment path, boolean followSymlinks) {
+  public boolean isFile(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).isFile(path, followSymlinks);
   }
 
   @Override
-  public boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
+  public boolean isSpecialFile(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).isSpecialFile(path, followSymlinks);
   }
 
   @Override
-  public boolean isSymbolicLink(PathFragment path) {
+  public boolean isSymbolicLink(PathFragment path) throws IOException {
     return fsForPath(path).isSymbolicLink(path);
   }
 
   @Override
-  public boolean isDirectory(PathFragment path, boolean followSymlinks) {
+  public boolean isDirectory(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).isDirectory(path, followSymlinks);
   }
 

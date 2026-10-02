@@ -525,4 +525,49 @@ public class WindowsFileSystemTest {
         .that(existsWithCache)
         .isEqualTo(existsWithoutCache);
   }
+
+  @Test
+  public void testOperationsOnInvalidPath(
+      @TestParameter({"*", "?", "<", ">", "\"", "|", "colon:name", "a*b/c?d"}) String invalidPath)
+      throws Exception {
+    Path path = scratchRoot.getRelative(invalidPath);
+    assertThat(path.exists()).isFalse();
+    assertThat(path.isDirectory()).isFalse();
+    assertThat(path.isFile()).isFalse();
+    assertThat(path.isSpecialFile()).isFalse();
+    assertThat(path.isSymbolicLink()).isFalse();
+    assertThat(path.statIfFound()).isNull();
+    assertThat(path.delete()).isFalse();
+    assertThrows(FileNotFoundException.class, () -> path.stat());
+    assertThrows(FileNotFoundException.class, () -> path.getDirectoryEntries());
+    assertThrows(FileNotFoundException.class, () -> path.readSymbolicLink());
+    assertThrows(IOException.class, () -> path.createReadWriteByteChannel());
+    assertThrows(IOException.class, () -> fs.createReadWriteByteChannel(path.asFragment()));
+  }
+
+  @Test
+  public void testCombinedInvalidCharactersAndNestedPaths() throws Exception {
+    Path nested = scratchRoot.getRelative("foo/bar/bad*name/baz?qux/child");
+    assertThat(nested.exists()).isFalse();
+    assertThat(nested.isDirectory()).isFalse();
+    assertThat(nested.isFile()).isFalse();
+    assertThat(nested.isSymbolicLink()).isFalse();
+    assertThat(nested.statIfFound()).isNull();
+    assertThat(nested.delete()).isFalse();
+    assertThrows(FileNotFoundException.class, () -> nested.stat());
+    assertThrows(FileNotFoundException.class, () -> nested.getDirectoryEntries());
+    assertThrows(FileNotFoundException.class, () -> nested.readSymbolicLink());
+    assertThrows(IOException.class, () -> fs.createDirectory(nested.asFragment()));
+    assertThrows(IOException.class, () -> nested.createDirectoryAndParents());
+    assertThrows(
+        IOException.class, () -> nested.createSymbolicLink(scratchRoot.getRelative("target")));
+    assertThrows(
+        IOException.class,
+        () -> fs.renameTo(nested.asFragment(), scratchRoot.getRelative("dest").asFragment()));
+    assertThrows(
+        IOException.class,
+        () -> fs.renameTo(scratchRoot.getRelative("src").asFragment(), nested.asFragment()));
+    assertThrows(IOException.class, () -> nested.createReadWriteByteChannel());
+    assertThrows(IOException.class, () -> fs.createReadWriteByteChannel(nested.asFragment()));
+  }
 }

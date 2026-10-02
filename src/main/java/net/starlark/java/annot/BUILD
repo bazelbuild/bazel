@@ -1,14 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(
-    default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
-)
+package(default_applicable_licenses = ["//:license"])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + ["//src/main/java/net/starlark/java/annot/processor:srcs"],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/net/starlark/java:__pkg__"],
 )
 
 # Annotations to make Java classes and methods accessible from Starlark.

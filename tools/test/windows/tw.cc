@@ -346,9 +346,15 @@ bool DirectoryExists(const Path& p) {
 bool GetEnv(const wchar_t* name, std::wstring* result) {
   static constexpr size_t kSmallBuf = MAX_PATH;
   WCHAR value[kSmallBuf];
+  SetLastError(0);
   DWORD size = GetEnvironmentVariableW(name, value, kSmallBuf);
   DWORD err = GetLastError();
-  if (size == 0 && err == ERROR_ENVVAR_NOT_FOUND) {
+  // GetEnvironmentVariableW returns 0 both on failure and when the variable
+  // exists but is empty (""). To disambiguate, inspect GetLastError():
+  // - ERROR_SUCCESS: The variable is defined and empty.
+  // - ERROR_ENVVAR_NOT_FOUND: The variable is unset.
+  // In both cases, clear the result and return success.
+  if (size == 0 && (err == ERROR_SUCCESS || err == ERROR_ENVVAR_NOT_FOUND)) {
     result->clear();
     return true;
   } else if (0 < size && size < kSmallBuf) {

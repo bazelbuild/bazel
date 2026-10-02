@@ -22,9 +22,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.LookupAbandonedException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyframeDependencyException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyframeLookupContinuation;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -40,6 +43,8 @@ import org.junit.runners.JUnit4;
 /** Tests for BzlLoadFunction. */
 @RunWith(JUnit4.class)
 public class BzlLoadThreadOwnerTest extends BuildViewTestCase {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   private final ObjectCodecs objectCodecs = new ObjectCodecs();
   private final FingerprintValueService fingerprintValueService =
@@ -157,14 +162,16 @@ public class BzlLoadThreadOwnerTest extends BuildViewTestCase {
       throws ExecutionException,
           InterruptedException,
           SerializationException,
-          SkyframeDependencyException {
+          SkyframeDependencyException,
+          LookupAbandonedException {
     // Deserialization always returns a future because there is a Skyframe lookup. The future is
     // always done because there are no shared values to wait on.
     SkyframeLookupContinuation continuation =
         (SkyframeLookupContinuation)
             Futures.getDone(
                 (ListenableFuture<?>)
-                    objectCodecs.deserializeWithSkyframe(fingerprintValueService, serialized));
+                    objectCodecs.deserializeWithSkyframe(
+                        COMPRESSION_SERVICE, fingerprintValueService, serialized));
     ListenableFuture<?> resultFuture =
         continuation.process(
             new EnvironmentForUtilities(

@@ -80,6 +80,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
           TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
           """
           toolchain_type(name = 'toolchain_type')
+          toolchain_type(name = 'cc_runtimes_toolchain_type')
           cc_library(
               name = 'link_extra_lib',
               srcs = ['linkextra.cc'],
@@ -204,7 +205,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
         CcToolchainConfigInfo = _CcToolchainConfigInfo
         """);
     config.overwrite(
-        "third_party/bazel_rules/rules_cc/cc/private/coverage/BUILD.bazel",
+        "third_party/bazel_rules/rules_cc/cc/coverage/BUILD.bazel",
         """
         filegroup(
           name = "collect_cc_coverage",
@@ -219,6 +220,17 @@ public final class BazelMockCcSupport extends MockCcSupport {
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/impl/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/variables/BUILD");
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/toolchains/args/archiver_flags/BUILD",
+        """
+        load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+        bool_flag(
+            name = "use_libtool_on_macos",
+            build_setting_default = True,
+            visibility = ["//cc/private/toolchain:__pkg__"],
+        )
+        """);
   }
 
   @Override

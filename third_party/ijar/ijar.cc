@@ -28,13 +28,6 @@
 
 namespace devtools_ijar {
 
-bool verbose = false;
-
-// Reads a JVM class from classdata_in (of the specified length), and
-// writes out a simplified class to classdata_out, advancing the
-// pointer. Returns true if the class should be kept.
-bool StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length);
-
 const char *CLASS_EXTENSION = ".class";
 const size_t CLASS_EXTENSION_LENGTH = strlen(CLASS_EXTENSION);
 const char *TRANSITIVE_PREFIX = "META-INF/TRANSITIVE/";

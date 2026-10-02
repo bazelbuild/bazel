@@ -36,12 +36,12 @@ public final class SkycacheChannelStateAdvisorTest {
     for (int i = 0; i < 100_000; i++) {
       advisor.incrementInFlightRequests();
     }
-    assertThat(advisor.getInFlightRequestsForTesting()).isEqualTo(100_000);
+    assertThat(advisor.getInFlightRequests()).isEqualTo(100_000);
     assertThat(advisor.isSaturated()).isFalse();
 
     // Restore counter to zero
     advisor.decrementInFlightRequests(100_000);
-    assertThat(advisor.getInFlightRequestsForTesting()).isEqualTo(0);
+    assertThat(advisor.getInFlightRequests()).isEqualTo(0);
   }
 
   @Test
@@ -60,36 +60,36 @@ public final class SkycacheChannelStateAdvisorTest {
     SkycacheChannelStateAdvisor advisor = new SkycacheChannelStateAdvisor(100);
 
     assertThat(advisor.isSaturated()).isFalse();
-    assertThat(advisor.getInFlightRequestsForTesting()).isEqualTo(0);
+    assertThat(advisor.getInFlightRequests()).isEqualTo(0);
 
     // Below limit
     for (int i = 0; i < 99; i++) {
       advisor.incrementInFlightRequests();
     }
     assertThat(advisor.isSaturated()).isFalse();
-    assertThat(advisor.getInFlightRequestsForTesting()).isEqualTo(99);
+    assertThat(advisor.getInFlightRequests()).isEqualTo(99);
 
     // Increment to 100 (at limit)
     advisor.incrementInFlightRequests();
     assertThat(advisor.isSaturated()).isTrue();
-    assertThat(advisor.getInFlightRequestsForTesting()).isEqualTo(100);
+    assertThat(advisor.getInFlightRequests()).isEqualTo(100);
 
     // Above limit
     for (int i = 0; i < 50; i++) {
       advisor.incrementInFlightRequests();
     }
     assertThat(advisor.isSaturated()).isTrue();
-    assertThat(advisor.getInFlightRequestsForTesting()).isEqualTo(150);
+    assertThat(advisor.getInFlightRequests()).isEqualTo(150);
 
     // Decrement by delta back below limit
     advisor.decrementInFlightRequests(51);
     assertThat(advisor.isSaturated()).isFalse();
-    assertThat(advisor.getInFlightRequestsForTesting()).isEqualTo(99);
+    assertThat(advisor.getInFlightRequests()).isEqualTo(99);
 
     // Decrement to zero
     advisor.decrementInFlightRequests(99);
     assertThat(advisor.isSaturated()).isFalse();
-    assertThat(advisor.getInFlightRequestsForTesting()).isEqualTo(0);
+    assertThat(advisor.getInFlightRequests()).isEqualTo(0);
   }
 
   @Test
@@ -116,8 +116,7 @@ public final class SkycacheChannelStateAdvisorTest {
         future.get();
       }
 
-      assertThat(advisor.getInFlightRequestsForTesting())
-          .isEqualTo((long) threadCount * iterationsPerThread);
+      assertThat(advisor.getInFlightRequests()).isEqualTo((long) threadCount * iterationsPerThread);
       assertThat(advisor.isSaturated()).isTrue();
 
       // Decrement back concurrently using batch decrements
@@ -135,7 +134,7 @@ public final class SkycacheChannelStateAdvisorTest {
         future.get();
       }
 
-      assertThat(advisor.getInFlightRequestsForTesting()).isEqualTo(0);
+      assertThat(advisor.getInFlightRequests()).isEqualTo(0);
       assertThat(advisor.isSaturated()).isFalse();
     } finally {
       executor.shutdown();

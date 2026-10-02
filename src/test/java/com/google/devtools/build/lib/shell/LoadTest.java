@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
+import static com.google.devtools.build.lib.util.OsUtils.executableExtension;
+
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.FileWriter;
@@ -71,10 +72,8 @@ public class LoadTest {
   public void testLoad() throws Throwable {
     Runfiles runfiles = Runfiles.create();
     String catBin =
-        "io_bazel/src/test/java/com/google/devtools/build/lib/shell/cat_file";
-    if (OS.getCurrent() == OS.WINDOWS) {
-      catBin += ".exe";
-    }
+        "io_bazel/src/test/java/com/google/devtools/build/lib/shell/cat_file"
+            + executableExtension();
     catBin = runfiles.rlocation(catBin);
 
     final Command command =

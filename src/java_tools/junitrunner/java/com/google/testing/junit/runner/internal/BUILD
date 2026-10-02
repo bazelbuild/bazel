@@ -41,5 +41,4 @@ java_library(
 filegroup(
     name = "srcs",
     srcs = glob(["**/*.java"]) + ["BUILD"],
-    visibility = ["//src:__subpackages__"],
 )

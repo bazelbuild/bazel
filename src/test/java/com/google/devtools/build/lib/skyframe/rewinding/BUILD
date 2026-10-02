@@ -3,14 +3,14 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = True,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
     name = "srcs",
     testonly = False,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__"],
 )
 
 java_library(
@@ -24,7 +24,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:aspect_complete_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:target_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -48,13 +49,13 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:action_event_recorder",
         "//src/test/java/com/google/devtools/build/lib/testutil:controllable_action_strategy_module",
         "//src/test/java/com/google/devtools/build/lib/testutil:spawn_controller",
         "//src/test/java/com/google/devtools/build/lib/testutil:spawn_input_utils",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party/java/error_prone:annotations",
-        "//third_party/java/flogger",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:concurrent",
@@ -69,7 +70,7 @@ java_test(
     name = "RewindingTest",
     timeout = "long",
     srcs = ["RewindingTest.java"],
-    shard_count = 24,
+    shard_count = 14,
     runtime_deps = [
         "//third_party/java/grpc:util",
     ],

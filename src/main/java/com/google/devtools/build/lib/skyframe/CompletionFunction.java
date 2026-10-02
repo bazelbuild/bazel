@@ -236,9 +236,7 @@ public final class CompletionFunction<
         handleSourceFileError(input, e.getDetailedExitCode(), rootCausesBuilder, env, value, key);
       }
     }
-    CompletionContext ctx =
-        CompletionContext.create(
-            key.topLevelArtifactContext().expandFilesets(), importantInputMap, pathResolverFactory);
+    CompletionContext ctx = CompletionContext.create(importantInputMap, pathResolverFactory);
 
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
@@ -415,10 +413,7 @@ public final class CompletionFunction<
               ImportantOutputHandler.LOG_THRESHOLD)) {
         lostOutputs =
             importantOutputHandler.processOutputsAndGetLostArtifacts(
-                key.topLevelArtifactContext().expandFilesets()
-                    ? importantArtifacts
-                    : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
-                metadataProvider);
+                importantArtifacts, metadataProvider);
       }
       if (lostOutputs.isEmpty()) {
         return null;

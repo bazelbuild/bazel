@@ -10,7 +10,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/tools/remote/src/test/java/com/google/devtools/build/remote/worker:__pkg__"],
 )
 
 java_test(

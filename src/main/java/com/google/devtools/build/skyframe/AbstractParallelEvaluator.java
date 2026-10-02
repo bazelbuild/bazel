@@ -32,7 +32,9 @@ import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.Traverser;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
+import com.google.devtools.build.lib.concurrent.QuiescingTask;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
@@ -156,10 +158,11 @@ abstract class AbstractParallelEvaluator {
   }
 
   /** * An action that evaluates a value. */
-  private final class Evaluate implements Runnable {
+  private final class Evaluate extends QuiescingTask {
     private final SkyKey skyKey;
 
     private Evaluate(SkyKey skyKey) {
+      super((AbstractQueueVisitor) evaluatorContext.getExecutor());
       this.skyKey = skyKey;
     }
 
@@ -412,7 +415,7 @@ abstract class AbstractParallelEvaluator {
     }
 
     @Override
-    public void run() {
+    public void runCore() {
       SkyFunctionEnvironment env = null;
       try {
         NodeEntry nodeEntry = graph.get(null, Reason.EVALUATION, skyKey);

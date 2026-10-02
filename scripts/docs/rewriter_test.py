@@ -24,7 +24,7 @@ from scripts.docs import rewriter
 
 class CanRewriteTest(parameterized.TestCase):
 
-  @parameterized.parameters(("/file/doc.md", True), ("/path/_book.yaml", True),
+  @parameterized.parameters(("/file/doc.md", True),
                             ("http://www.bazel.build/foo.html", True),
                             ("/dir/test.txt", False),
                             ("/images/aspects.svg", False))
@@ -44,9 +44,8 @@ def read_data_file(basename, in_or_out_fragment):
 
 class RewriteLinksTest(parameterized.TestCase):
 
-  @parameterized.parameters(("_book.yaml"), ("doc.md"),
-                            ("markdown_with_html.md"), ("site.html"),
-                            ("yaml_with_html.yaml"))
+  @parameterized.parameters(("doc.md"),
+                            ("markdown_with_html.md"), ("site.html"))
   def testRewrite(self, basename):
     input_path, content = read_data_file(basename, "input")
     _, version = read_data_file("VERSION", "input")

@@ -20,9 +20,12 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.BoolOrEnumConverter;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
@@ -33,10 +36,12 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.ByteString;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -190,17 +195,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getExperimentalEnableFirstClassMacros();
 
   @Option(
-      name = "experimental_enable_scl_dialect",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      // TODO(brandjon): point to more extensive user documentation somewhere
-      help = "If set to true, .scl files may be used in load() statements.")
-  public abstract boolean getExperimentalEnableSclDialect();
-
-  public abstract void setExperimentalEnableSclDialect(boolean value);
-
-  @Option(
       name = "experimental_isolated_extension_usages",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -283,25 +277,17 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       help = "If set to true, repository_rule gains some remote execution capabilities.")
   public abstract boolean getExperimentalRepoRemoteExec();
 
+  @Deprecated
   @Option(
       name = "experimental_sibling_repository_layout",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {
-        OptionEffectTag.ACTION_COMMAND_LINES,
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE
-      },
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help =
-          "If set to true, non-main repositories are planted as symlinks to the main repository in"
-              + " the execution root. That is, all repositories are direct children of the"
-              + " $output_base/execution_root directory. This has the side effect of freeing up"
-              + " $output_base/execution_root/__main__/external for the real top-level 'external' "
-              + "directory.")
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      deprecationWarning =
+          "This flag is a no-op. Non-main repositories are always planted under"
+              + " $output_base/execution_root/_main/external.",
+      help = "Deprecated. No-op.")
   public abstract boolean getExperimentalSiblingRepositoryLayout();
 
   @Option(
@@ -447,7 +433,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, ctx.actions.run and ctx.actions.run_shell will require an explicit"
-              + " mnemonic")
+              + " mnemonic.")
   public abstract boolean getIncompatibleRequireMnemonicForRunActions();
 
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
@@ -491,6 +477,62 @@ public abstract class BuildLanguageOptions extends OptionsBase {
           "The maximum number of Starlark computation steps that may be executed by a BUILD file"
               + " (zero means no limit).")
   public abstract long getMaxComputationSteps();
+
+  @Option(
+      name = "max_bzl_file_size",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "The hard maximum size in bytes allowed for an individual .bzl or .scl file. Files"
+              + " exceeding this size fail compilation unless on"
+              + " --bzl_file_size_limit_allowlist (zero means no limit).")
+  public abstract long getMaxBzlFileSize();
+
+  @Option(
+      name = "soft_max_bzl_file_size",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "The soft maximum size in bytes for an individual .bzl or .scl file. Files exceeding"
+              + " this size fail compilation unless they define _KNOWN_OVERSIZED_BZL_FILE at"
+              + " the top level or are on --bzl_file_size_limit_allowlist (zero means no"
+              + " limit).")
+  public abstract long getSoftMaxBzlFileSize();
+
+  /** Converter for {@code --bzl_file_size_limit_allowlist} that validates label syntax. */
+  public static class AllowlistLabelConverter extends Converter.Contextless<String> {
+    @Override
+    public String convert(String input) throws OptionsParsingException {
+      String stripped = input.strip();
+      if (stripped.isEmpty()) {
+        return "";
+      }
+      try {
+        var unused = LabelValidator.validateAbsoluteLabel(stripped);
+      } catch (BadLabelException e) {
+        throw new OptionsParsingException(e.getMessage(), input, e);
+      }
+      return stripped;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a build target label";
+    }
+  }
+
+  @Option(
+      name = "bzl_file_size_limit_allowlist",
+      defaultValue = "",
+      converter = AllowlistLabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "A label to a .scl file defining an ALLOWED list of .bzl/.scl file paths exempt from"
+              + " file size limits.")
+  public abstract String getBzlFileSizeLimitAllowlist();
 
   @Option(
       name = "nested_set_depth_limit",
@@ -693,7 +735,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "If enabled, certain deprecated APIs (native.repository_name, Label.workspace_name,"
-              + " Label.relative) can be used.")
+              + " Label.workspace_root, Label.relative) can be used.")
   public abstract boolean getEnableDeprecatedLabelApis();
 
   @Option(
@@ -873,7 +915,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 getExperimentalSinglePackageToolchainBinding())
             .setBool(
                 EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, getExperimentalEnableFirstClassMacros())
-            .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, getExperimentalEnableSclDialect())
             .setBool(
                 EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, getExperimentalIsolatedExtensionUsages())
             .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, getIncompatibleNoImplicitWatchLabel())
@@ -881,8 +922,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_PLATFORMS_API, getExperimentalPlatformsApi())
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, getExperimentalCcSharedLibrary())
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, getExperimentalRepoRemoteExec())
-            .setBool(
-                EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, getExperimentalSiblingRepositoryLayout())
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS,
                 getIncompatibleAlwaysCheckDepsetElements())
@@ -915,6 +954,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
                 getIncompatibleUnambiguousLabelStringification())
             .set(MAX_COMPUTATION_STEPS, getMaxComputationSteps())
+            .set(MAX_BZL_FILE_SIZE, getMaxBzlFileSize())
+            .set(SOFT_MAX_BZL_FILE_SIZE, getSoftMaxBzlFileSize())
+            .set(BZL_FILE_SIZE_LIMIT_ALLOWLIST, getBzlFileSizeLimitAllowlist().strip())
             .set(NESTED_SET_DEPTH_LIMIT, getNestedSetDepthLimit())
             .setBool(
                 INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS, getIncompatibleSymbolicMacroStrictAttrs())
@@ -1070,7 +1112,13 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
       "+experimental_enable_first_class_macros";
+
+  /**
+   * @deprecated Flag has been graveyarded.
+   */
+  @Deprecated
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "+experimental_enable_scl_dialect";
+
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
   public static final String INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL =
@@ -1078,8 +1126,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
-  public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
-      "-experimental_sibling_repository_layout";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
   public static final String INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY =
@@ -1168,6 +1214,16 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
       new StarlarkSemantics.Key<>("max_computation_steps", 0L);
+  public static final StarlarkSemantics.Key<Long> MAX_BZL_FILE_SIZE =
+      new StarlarkSemantics.Key<>("max_bzl_file_size", 0L);
+  public static final StarlarkSemantics.Key<Long> SOFT_MAX_BZL_FILE_SIZE =
+      new StarlarkSemantics.Key<>("soft_max_bzl_file_size", 0L);
+  public static final StarlarkSemantics.Key<String> BZL_FILE_SIZE_LIMIT_ALLOWLIST =
+      new StarlarkSemantics.Key<>("bzl_file_size_limit_allowlist", "");
+  public static final Pattern KNOWN_OVERSIZED_BZL_FILE_VALUE_PATTERN =
+      Pattern.compile(FlagConstants.KNOWN_OVERSIZED_BZL_FILE_VALUE_PATTERN);
+  public static final String KNOWN_OVERSIZED_BZL_FILE_VALUE_EXAMPLE =
+      FlagConstants.KNOWN_OVERSIZED_BZL_FILE_VALUE_EXAMPLE;
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =
       new StarlarkSemantics.Key<>("nested_set_depth_limit", 3500);
 }

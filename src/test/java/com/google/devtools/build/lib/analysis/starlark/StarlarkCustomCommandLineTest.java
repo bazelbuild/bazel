@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ArgChunk;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -447,6 +448,66 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
+  public void uniquify() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg("a", "b", "a", "c", "b", "d").uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b", "c", "d");
+  }
+
+  @Test
+  public void uniquify_withMapEach() throws Exception {
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(x):
+                  return x.lower()
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg("A", "b", "a", "B", "c")
+                    .setMapEach(mapEach)
+                    .setLocation(Location.BUILTIN)
+                    .uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b", "c");
+  }
+
+  @Test
+  public void uniquify_withMapEachReturningList() throws Exception {
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(x):
+                  return [x, x]
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg("a", "b", "a")
+                    .setMapEach(mapEach)
+                    .setLocation(Location.BUILTIN)
+                    .uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b");
+  }
+
+  @Test
+  public void uniquify_withJoinWith() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg("a", "b", "a", "c", "b").setJoinWith(",").uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a,b,c");
+  }
+
+  @Test
   public void flagPerLine() throws Exception {
     CommandLine commandLine =
         builder
@@ -606,6 +667,181 @@ public final class StarlarkCustomCommandLineTest {
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
     assertThat(arguments).containsExactly("bin/tree/child1", "bin/tree/child2");
+  }
+
+  @Test
+  public void vectorArgArguments_expandsTreeArtifact_uniquify() throws Exception {
+    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree1, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree1, "child2");
+    TreeArtifactValue treeArtifactValue1 =
+        TreeArtifactValue.newBuilder(tree1)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    TreeFileArtifact child3 = TreeFileArtifact.createTreeOutput(tree2, "child3");
+    TreeArtifactValue treeArtifactValue2 =
+        TreeArtifactValue.newBuilder(tree2)
+            .putChild(child3, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree1, treeArtifactValue1);
+    fakeActionInputFileCache.putTreeArtifact(tree2, treeArtifactValue2);
+
+    if (!useNestedSet) {
+      CommandLine commandLine =
+          builder
+              .add(
+                  vectorArg(tree1, artifact1, tree1, artifact1, tree2)
+                      .setExpandDirectories(true)
+                      .uniquify(true))
+              .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+      Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
+      assertThat(arguments)
+          .containsExactly(
+              "bin/tree1/child1",
+              "bin/tree1/child2",
+              artifact1.getExecPathString(),
+              "bin/tree2/child3")
+          .inOrder();
+    } else {
+      CommandLine commandLine =
+          builder
+              .add(vectorArg(tree1, tree2).setExpandDirectories(true).uniquify(true))
+              .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+      Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
+      assertThat(arguments)
+          .containsExactly("bin/tree1/child1", "bin/tree1/child2", "bin/tree2/child3")
+          .inOrder();
+    }
+  }
+
+  @Test
+  public void vectorArgArguments_expandsSubTreeArtifact_uniquify() throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    SpecialArtifact subtree = createSubTreeArtifact(tree, "subdir");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(subtree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(subtree, "child2");
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(subtree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(subtree, treeArtifactValue);
+
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(subtree, subtree).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
+    assertThat(arguments)
+        .containsExactly("bin/tree/subdir/child1", "bin/tree/subdir/child2")
+        .inOrder();
+
+    TreeFileArtifact treeRootChild = TreeFileArtifact.createTreeOutput(tree, "root_child");
+    TreeArtifactValue parentTreeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(treeRootChild, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    fakeActionInputFileCache.putTreeArtifact(tree, parentTreeArtifactValue);
+
+    CommandLine treeThenSubtreeChild =
+        new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
+            .add(vectorArg(tree, child1).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(treeThenSubtreeChild.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/tree/root_child", "bin/tree/subdir/child1", "bin/tree/subdir/child2")
+        .inOrder();
+
+    CommandLine subtreeChildThenTree =
+        new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
+            .add(vectorArg(child2, tree).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(subtreeChildThenTree.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/tree/subdir/child2", "bin/tree/root_child", "bin/tree/subdir/child1")
+        .inOrder();
+  }
+
+  @Test
+  public void vectorArgArguments_expandsTreeArtifactAndChild_uniquify() throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+
+    // tree first, child second: child1 should not be duplicated
+    CommandLine commandLine1 =
+        builder
+            .add(vectorArg(tree, child1).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(commandLine1.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/tree/child1", "bin/tree/child2")
+        .inOrder();
+
+    // child2 first, tree second: child2 should appear before child1 and not be duplicated
+    CommandLine commandLine2 =
+        new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
+            .add(vectorArg(child2, tree).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(commandLine2.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/tree/child2", "bin/tree/child1")
+        .inOrder();
+  }
+
+  @Test
+  public void vectorArgArguments_expandsTreeArtifactAndFileset_uniquify() throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    SpecialArtifact fileset = createFileset("fileset");
+    FilesetOutputSymlink symlinkFromTree = createFilesetSymlink("symlink_child1", child1);
+    FilesetOutputSymlink symlinkOther = createFilesetSymlink("other");
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+    fakeActionInputFileCache.putFileset(
+        fileset,
+        FilesetOutputTree.create(
+            ImmutableList.of(symlinkFromTree, symlinkOther),
+            ImmutableMap.of(tree, treeArtifactValue)));
+
+    // tree first, fileset second: child1 should not be duplicated
+    CommandLine commandLine1 =
+        builder
+            .add(vectorArg(tree, fileset).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(commandLine1.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/tree/child1", "bin/tree/child2", "bin/fileset/other")
+        .inOrder();
+
+    // fileset first, tree second: child1 is emitted by fileset first and not duplicated by tree
+    CommandLine commandLine2 =
+        new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
+            .add(vectorArg(fileset, tree).setExpandDirectories(true).uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    assertThat(commandLine2.arguments(fakeActionInputFileCache, PathMapper.NOOP))
+        .containsExactly("bin/fileset/other", "bin/fileset/symlink_child1", "bin/tree/child2")
+        .inOrder();
   }
 
   @Test
@@ -906,6 +1142,21 @@ public final class StarlarkCustomCommandLineTest {
         FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1));
   }
 
+  private FilesetOutputSymlink createFilesetSymlink(String relativePath, Artifact target) {
+    return new FilesetOutputSymlink(
+        PathFragment.create(relativePath),
+        target,
+        FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1));
+  }
+
+  private SpecialArtifact createSubTreeArtifact(SpecialArtifact parent, String parentRelativePath) {
+    SpecialArtifact subtree =
+        SpecialArtifact.createSubTreeArtifact(
+            parent, PathFragment.create(parentRelativePath), ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    subtree.setGeneratingActionKey(ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, 0));
+    return subtree;
+  }
+
   private SpecialArtifact createTreeArtifact(String relativePath) {
     SpecialArtifact tree = createSpecialArtifact(relativePath, SpecialArtifactType.TREE);
     tree.setGeneratingActionKey(ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, 0));
@@ -936,6 +1187,284 @@ public final class StarlarkCustomCommandLineTest {
 
     assertThat(commandLine1.arguments()).containsExactly("val1_foo", "val2_foo").inOrder();
     assertThat(commandLine2.arguments()).containsExactly("val3_bar", "val4_bar").inOrder();
+  }
+
+  @Test
+  public void supportsHeuristicPathMapping_stripsAllArgsWithOutputPaths() throws Exception {
+    ActionsTestUtil.MockAction heuristicAction =
+        new ActionsTestUtil.MockAction(
+            ImmutableList.of(artifact1, artifact2), ImmutableSet.of(artifact3)) {
+          @Override
+          public ImmutableMap<String, String> getExecutionInfo() {
+            return ImmutableMap.of(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING, "");
+          }
+        };
+
+    CommandLine commandLine =
+        builder
+            .add("-I" + artifact1.getExecPathString())
+            .add("--plugin=protoc-gen-cpp=" + artifact2.getExecPathString())
+            .add("--descriptor_set_out=" + artifact3.getExecPathString())
+            .add(
+                "--custom_flag="
+                    + artifact1.getExecPathString()
+                    + ":"
+                    + artifact2.getExecPathString())
+            .add("--non_path_flag")
+            .add("-I.")
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    verifyCommandLine(
+        PathMappers.create(
+            heuristicAction,
+            CoreOptions.OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ true,
+            /* inputMetadataProvider= */ null),
+        commandLine,
+        "-Ibazel-out/cfg/bin/pkg/artifact1",
+        "--plugin=protoc-gen-cpp=bazel-out/cfg/bin/pkg/artifact2",
+        "--descriptor_set_out=bazel-out/cfg/bin/artifact3",
+        "--custom_flag=bazel-out/cfg/bin/pkg/artifact1:bazel-out/cfg/bin/pkg/artifact2",
+        "--non_path_flag",
+        "-I.");
+  }
+
+  @Test
+  public void supportsHeuristicPathMapping_stripsFormattedArguments() throws Exception {
+    ActionsTestUtil.MockAction heuristicAction =
+        new ActionsTestUtil.MockAction(
+            ImmutableList.of(artifact1, artifact2), ImmutableSet.of(artifact3)) {
+          @Override
+          public ImmutableMap<String, String> getExecutionInfo() {
+            return ImmutableMap.of(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING, "");
+          }
+        };
+
+    CommandLine commandLine =
+        builder
+            .addFormatted(artifact1.getRoot(), "--arg1_root=%s")
+            .addFormatted(artifact1.getExecPathString(), "--arg1_path=%s")
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    verifyCommandLine(
+        PathMappers.create(
+            heuristicAction,
+            CoreOptions.OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ true,
+            /* inputMetadataProvider= */ null),
+        commandLine,
+        "--arg1_root=bazel-out/cfg/bin",
+        "--arg1_path=bazel-out/cfg/bin/pkg/artifact1");
+  }
+
+  @Test
+  public void supportsPathMapping_onlyMapsStructuredCommandLineFragments() throws Exception {
+    ActionsTestUtil.MockAction structuredAction =
+        new ActionsTestUtil.MockAction(
+            ImmutableList.of(artifact1, artifact2), ImmutableSet.of(artifact3)) {
+          @Override
+          public ImmutableMap<String, String> getExecutionInfo() {
+            return ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "");
+          }
+        };
+
+    CommandLine commandLine =
+        builder
+            .add("-I" + artifact1.getExecPathString())
+            .add("--plugin=protoc-gen-cpp=" + artifact2.getExecPathString())
+            .add("--descriptor_set_out=" + artifact3.getExecPathString())
+            .add(
+                "--custom_flag="
+                    + artifact1.getExecPathString()
+                    + ":"
+                    + artifact2.getExecPathString())
+            .add(artifact1)
+            .add("--non_path_flag")
+            .add("-I.")
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    verifyCommandLine(
+        PathMappers.create(
+            structuredAction,
+            CoreOptions.OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ true,
+            /* inputMetadataProvider= */ null),
+        commandLine,
+        "-I" + artifact1.getExecPathString(),
+        "--plugin=protoc-gen-cpp=" + artifact2.getExecPathString(),
+        "--descriptor_set_out=" + artifact3.getExecPathString(),
+        "--custom_flag=" + artifact1.getExecPathString() + ":" + artifact2.getExecPathString(),
+        "bazel-out/cfg/bin/pkg/artifact1",
+        "--non_path_flag",
+        "-I.");
+  }
+
+  @Test
+  public void
+      vectorArgArguments_expandDirectoriesTrue_treeArtifactWithMapEach_withoutMetadataProvider_bypassesMapEach()
+          throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(f):
+                  if f.is_directory:
+                    fail("Should not be called on directory")
+                  return f.path
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(tree).setExpandDirectories(true).setMapEach(mapEach))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    // At analysis time / without metadata provider, map_each should NOT be called on directory.
+    assertThat(commandLine.arguments()).containsExactly("bin/tree");
+
+    // Fingerprint computation should also succeed without calling map_each on directory.
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    Fingerprint fingerprint = new Fingerprint();
+    commandLine.addToFingerprint(
+        actionKeyContext,
+        /* inputMetadataProvider= */ null,
+        CoreOptions.OutputPathsMode.OFF,
+        fingerprint);
+    assertThat(fingerprint.digestAndReset()).isNotEmpty();
+  }
+
+  @Test
+  public void
+      vectorArgArguments_expandDirectoriesTrue_filesetWithMapEach_withoutMetadataProvider_bypassesMapEach()
+          throws Exception {
+    SpecialArtifact fileset = createFileset("fileset");
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(f):
+                  if f.is_directory:
+                    fail("Should not be called on directory")
+                  return f.path
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(fileset).setExpandDirectories(true).setMapEach(mapEach))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    assertThat(commandLine.arguments()).containsExactly("bin/fileset");
+
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    Fingerprint fingerprint = new Fingerprint();
+    commandLine.addToFingerprint(
+        actionKeyContext,
+        /* inputMetadataProvider= */ null,
+        CoreOptions.OutputPathsMode.OFF,
+        fingerprint);
+    assertThat(fingerprint.digestAndReset()).isNotEmpty();
+  }
+
+  @Test
+  public void
+      vectorArgArguments_expandDirectoriesFalse_treeArtifactWithMapEach_callsMapEachOnDirectory()
+          throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(f):
+                  if f.is_directory:
+                    return "dir:" + f.short_path
+                  return f.short_path
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(tree).setExpandDirectories(false).setMapEach(mapEach))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    assertThat(commandLine.arguments()).containsExactly("dir:tree");
+  }
+
+  @Test
+  public void
+      vectorArgArguments_expandDirectoriesTrue_treeArtifactWithMapEach_withMetadataProvider_callsMapEachOnChildren()
+          throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(f):
+                  if f.is_directory:
+                    fail("Should not be called on directory")
+                  return f.path
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(tree).setExpandDirectories(true).setMapEach(mapEach))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
+    assertThat(arguments).containsExactly("bin/tree/child1", "bin/tree/child2");
+
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    Fingerprint fingerprintWithoutMetadata = new Fingerprint();
+    commandLine.addToFingerprint(
+        actionKeyContext,
+        /* inputMetadataProvider= */ null,
+        CoreOptions.OutputPathsMode.OFF,
+        fingerprintWithoutMetadata);
+    String digestWithoutMetadata = fingerprintWithoutMetadata.hexDigestAndReset();
+
+    Fingerprint fingerprintWithMetadata = new Fingerprint();
+    commandLine.addToFingerprint(
+        actionKeyContext,
+        fakeActionInputFileCache,
+        CoreOptions.OutputPathsMode.OFF,
+        fingerprintWithMetadata);
+    String digestWithMetadata = fingerprintWithMetadata.hexDigestAndReset();
+
+    assertThat(digestWithoutMetadata).isNotEmpty();
+    assertThat(digestWithMetadata).isNotEmpty();
+    assertThat(digestWithoutMetadata).isNotEqualTo(digestWithMetadata);
+  }
+
+  @Test
+  public void
+      vectorArgArguments_expandDirectoriesTrue_mixedFilesAndTreeArtifact_bypassesMapEachOnlyOnDirectory()
+          throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(f):
+                  if f.is_directory:
+                    fail("Should not be called on directory")
+                  return "mapped:" + f.short_path
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(artifact1, tree).setExpandDirectories(true).setMapEach(mapEach))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    assertThat(commandLine.arguments()).containsExactly("mapped:pkg/artifact1", "bin/tree");
   }
 
   private static Object execStarlark(String code) throws Exception {

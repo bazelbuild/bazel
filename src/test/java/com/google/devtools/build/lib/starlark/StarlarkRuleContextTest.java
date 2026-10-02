@@ -3307,7 +3307,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     //
     //     /workspace/test/rules.bzl:7:15: Traceback (most recent call last):
     //          File "/workspace/test/rules.bzl", line 2, column 9, in fail_with_message
-    //     Error in fail: args expansion error message
+    //     Error: args expansion error message
     // ```
 
     // stack=[fail_with_message@rules.bzl:2, fail@<builtin>]
@@ -3315,7 +3315,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("File \"/workspace/test/rules.bzl\", line 2, column 9, in fail_with_message");
-    assertThat(e).hasMessageThat().contains("Error in fail: args expansion error message");
+    assertThat(e).hasMessageThat().contains("Error: args expansion error message");
   }
 
   @Test

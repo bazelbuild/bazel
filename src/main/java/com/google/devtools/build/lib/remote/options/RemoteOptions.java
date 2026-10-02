@@ -28,6 +28,7 @@ import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.ByteSizeConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.EmptyToNullStringConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -50,11 +51,13 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_proxy",
       oldName = "remote_cache_proxy",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Connect to the remote cache through a proxy. Currently this flag can only be used to "
-              + "configure a Unix domain socket (unix:/path/to/socket).")
+              + "configure a Unix domain socket (unix:/path/to/socket). An empty value resets the"
+              + " flag to its default.")
   public abstract String getRemoteProxy();
 
   public abstract void setRemoteProxy(String value);
@@ -96,13 +99,14 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_executor",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "HOST or HOST:PORT of a remote execution endpoint. The supported schemes are grpc, "
               + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is "
               + "provided Bazel will default to grpcs. Specify grpc:// or unix: scheme to "
-              + "disable TLS.")
+              + "disable TLS. An empty value resets the flag to its default.")
   public abstract String getRemoteExecutor();
 
   public abstract void setRemoteExecutor(String value);
@@ -122,8 +126,10 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
-      help = "A path to a directory where the corrupted outputs will be captured to.")
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "A path to a directory where the corrupted outputs will be captured to. An empty value"
+              + " resets the flag to its default.")
   public abstract PathFragment getRemoteCaptureCorruptedOutputs();
 
   @Option(
@@ -143,13 +149,15 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_cache",
       oldName = "remote_http_cache",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A URI of a caching endpoint. The supported schemes are http, https, grpc, grpcs "
-              + "(grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is provided "
-              + "Bazel will default to grpcs. Specify grpc://, http:// or unix: scheme to disable "
-              + "TLS. See https://bazel.build/remote/caching")
+          "A URI of a caching endpoint. The supported schemes are http, https, grpc, grpcs (grpc"
+              + " with TLS enabled) and unix (local UNIX sockets). If no scheme is provided Bazel"
+              + " will default to grpcs. Specify grpc://, http:// or unix: scheme to disable TLS."
+              + " An empty value resets the flag to its default. See"
+              + " https://bazel.build/remote/caching")
   public abstract String getRemoteCache();
 
   public abstract void setRemoteCache(String value);
@@ -158,12 +166,14 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_downloader",
       oldName = "experimental_remote_downloader",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A Remote Asset API endpoint URI, to be used as a remote download proxy. The supported"
               + " schemes are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If"
-              + " no scheme is provided Bazel will default to grpcs. See: "
+              + " no scheme is provided Bazel will default to grpcs. An empty value resets the flag"
+              + " to its default. See: "
               + "https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
   public abstract String getRemoteDownloader();
 
@@ -303,6 +313,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_bytestream_uri_prefix",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -310,7 +321,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
               + "build event streams. This option can be set when builds are performed using a "
               + "proxy, which causes the values of --remote_executor and --remote_instance_name "
               + "to no longer correspond to the canonical name of the remote execution service. "
-              + "When not set, it will default to \"${hostname}/${instance_name}\".")
+              + "When not set, it will default to \"${hostname}/${instance_name}\". An empty"
+              + " value resets the flag to its default.")
   public abstract String getRemoteBytestreamUriPrefix();
 
   @Option(
@@ -490,38 +502,39 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract void setDiskCache(PathFragment value);
 
   @Option(
-      name = "experimental_disk_cache_gc_idle_delay",
+      name = "disk_cache_gc_idle_delay",
+      oldName = "experimental_disk_cache_gc_idle_delay",
       defaultValue = "5m",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = DurationConverter.class,
       help =
           "How long the server must remain idle before a garbage collection of the disk cache"
-              + " occurs. To specify the garbage collection policy, set"
-              + " --experimental_disk_cache_gc_max_size and/or"
-              + " --experimental_disk_cache_gc_max_age.")
+              + " occurs. To specify the garbage collection policy, set --disk_cache_gc_max_size"
+              + " and/or --disk_cache_gc_max_age.")
   public abstract Duration getDiskCacheGcIdleDelay();
 
   public abstract void setDiskCacheGcIdleDelay(Duration value);
 
   @Option(
-      name = "experimental_disk_cache_gc_max_size",
+      name = "disk_cache_gc_max_size",
+      oldName = "experimental_disk_cache_gc_max_size",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = ByteSizeConverter.class,
       help =
           "If set to a positive value, the disk cache will be periodically garbage collected to"
-              + " stay under this size. If set in conjunction with"
-              + " --experimental_disk_cache_gc_max_age, both criteria are applied. Garbage"
-              + " collection occurrs in the background once the server has become idle, as"
-              + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
+              + " stay under this size. If set in conjunction with --disk_cache_gc_max_age, both"
+              + " criteria are applied. Garbage collection occurrs in the background once the"
+              + " server has become idle, as determined by the --disk_cache_gc_idle_delay flag.")
   public abstract long getDiskCacheGcMaxSize();
 
   public abstract void setDiskCacheGcMaxSize(long value);
 
   @Option(
-      name = "experimental_disk_cache_gc_max_age",
+      name = "disk_cache_gc_max_age",
+      oldName = "experimental_disk_cache_gc_max_age",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -529,9 +542,9 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       help =
           "If set to a positive value, the disk cache will be periodically garbage collected to"
               + " remove entries older than this age. If set in conjunction with"
-              + " --experimental_disk_cache_gc_max_size, both criteria are applied. Garbage"
-              + " collection occurrs in the background once the server has become idle, as"
-              + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
+              + " --disk_cache_gc_max_size, both criteria are applied. Garbage collection occurrs"
+              + " in the background once the server has become idle, as determined by the"
+              + " --disk_cache_gc_idle_delay flag.")
   public abstract Duration getDiskCacheGcMaxAge();
 
   public abstract void setDiskCacheGcMaxAge(Duration value);
@@ -903,8 +916,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
               + " local filesystem or internal caches; a clean build is required to reexecute"
               + " affected actions.\n\n"
               + "In order to successfully use this feature, you likely want to set a custom"
-              + " --host_platform together with --experimental_platform_in_output_dir (to normalize"
-              + " output prefixes). An empty value disables scrubbing.")
+              + " --host_platform (to normalize output prefixes). An empty value disables"
+              + " scrubbing.")
   public abstract Scrubber getScrubber();
 
   public abstract void setScrubber(Scrubber value);
@@ -982,13 +995,14 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "experimental_remote_output_service",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "HOST or HOST:PORT of a remote output service endpoint. The supported schemes are grpc, "
               + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is "
               + "provided Bazel will default to grpcs. Specify grpc:// or unix: scheme to "
-              + "disable TLS.")
+              + "disable TLS. An empty value resets the flag to its default.")
   public abstract String getRemoteOutputService();
 
   public abstract void setRemoteOutputService(String value);

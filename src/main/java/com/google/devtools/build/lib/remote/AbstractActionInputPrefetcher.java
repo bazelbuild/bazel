@@ -18,10 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.mergeBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 import static io.reactivex.rxjava3.core.Completable.concat;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -46,9 +46,9 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -162,7 +162,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             }
             try {
               if (outputDirectoryHelper != null) {
-                outputDirectoryHelper.createOutputDirectory(dir, execRoot);
+                outputDirectoryHelper.createOutputDirectory(dir, execRoot.asFragment());
               } else {
                 dir.createDirectoryAndParents();
               }
@@ -279,16 +279,29 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (digest == null) {
       digest = path.getDigest();
     }
-    return !Arrays.equals(digest, metadata.getDigest());
+    if (!Arrays.equals(digest, metadata.getDigest())) {
+      return true;
+    }
+    // The file contents have been verified to be up to date. Record the contents proxy when
+    // supported, just like after a fresh download, to make future modification checks cheaper.
+    metadata.setContentsProxy(FileContentsProxy.create(stat));
+    return false;
   }
 
-  protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
+  /**
+   * Returns whether the file at the given path with the given metadata should be downloaded.
+   *
+   * <p>Must only return true for regular files with local metadata if {@link #forceRefetch} returns
+   * true for them, as such files are otherwise skipped without calling this method.
+   */
+  protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata)
+      throws IOException;
 
   /**
    * If true, then all previously acquired knowledge of the file system state of this path (e.g. the
    * existence of tree artifact directories or previously downloaded files) must be discarded.
    */
-  protected boolean forceRefetch(Path path) {
+  protected final boolean forceRefetch(Path path) {
     // Caches for download operations and output directory creation need to be disregarded for the
     // outputs of rewound actions as they may have been deleted after they were first created.
     // Compare as fragments since execRoot may be located on a file system overlaying the host file
@@ -437,24 +450,35 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         return immediateVoidFuture();
       }
 
-      Path inputPath =
-          input instanceof Artifact artifact
-              ? artifact.getPath()
-              : execRoot.getRelative(input.getExecPath());
-
       // Metadata may legitimately be missing, e.g. if this is an optional test output.
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
       if (metadata == null) {
         return immediateVoidFuture();
       }
 
+      // Regular files that are already present locally and have no symlinks to plant only need to
+      // be prefetched if they are outputs of rewound actions.
+      if (!metadata.isRemote()
+          && !metadata.isInline()
+          && metadata.getType() == FileStateType.REGULAR_FILE
+          && metadata.getResolvedPath() == null
+          && !(input instanceof TreeFileArtifact)
+          && rewoundActionOutputs.isEmpty()) {
+        return immediateVoidFuture();
+      }
+
+      Path inputPath =
+          input instanceof Artifact artifact
+              ? artifact.getPath()
+              : execRoot.getRelative(input.getExecPath());
+
       if (metadata.getType() == FileStateType.DIRECTORY) {
         // Tree artifacts have already been expanded into their children, so this is a source
         // directory. If it lies in an external repo backed by the remote repo contents cache, its
         // contents may only be available in memory and must be materialized to the local file
         // system for local actions to access them.
-        if (inputPath.getFileSystem() instanceof SubtreeMaterializer subtreeMaterializer) {
-          subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+        if (inputPath.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
+          lazyMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
         }
         return immediateVoidFuture();
       }
@@ -846,12 +870,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   public void shutdown() {
     downloadCache.shutdown();
-    while (true) {
-      try {
-        downloadCache.awaitTermination();
-        break;
-      } catch (InterruptedException ignored) {
-        downloadCache.shutdownNow();
+    boolean interrupted = false;
+    try {
+      while (true) {
+        try {
+          downloadCache.awaitTermination();
+          break;
+        } catch (InterruptedException ignored) {
+          interrupted = true;
+          downloadCache.shutdownNow();
+        }
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
       }
     }
   }

@@ -446,6 +446,10 @@ public interface SpawnResult {
         }
       } else if (status() == Status.OUT_OF_MEMORY) {
         explanation += " (Remote action was terminated due to Out of Memory.)";
+      } else if (exitCode() == 137 || (!status.exited() && status.getTerminatingSignal() == 9)) {
+        explanation +=
+            " (Action was terminated by SIGKILL, likely killed by Linux OOM killer due to memory"
+                + " exhaustion.)";
       }
       if (status() != Status.TIMEOUT && forciblyRunRemotely) {
         explanation +=

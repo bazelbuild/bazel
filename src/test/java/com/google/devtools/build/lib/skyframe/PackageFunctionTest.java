@@ -378,7 +378,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         \t\tmy_macro = macro(implementation = _impl)
         \tFile "/workspace/pkg/my_macro.bzl", line 3, column 9, in _impl
         \t\tfail("fail fail fail")
-        Error in fail: fail fail fail\
+        Error: fail fail fail\
         """);
     if (computationMode.equals(ComputationMode.MONOLITHIC_PACKAGE)) {
       assertThat(eventCollector.filtered(EventKind.ERROR)).hasSize(1);
@@ -910,8 +910,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("qux/ext.bzl", "c = 1");
 
     preparePackageLoading(computationMode, rootDirectory);
-    // must be done after preparePackageLoading()
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     Packageoid pkg = validPackageoidWithoutErrors("foo");
     assertThat(pkg.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles())
@@ -972,9 +970,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex)
         .hasMessageThat()
         .isEqualTo(
-            "error loading package 'test/starlark': "
-                + "at /workspace/test/starlark/extension.bzl:1:6: "
-                + "cannot load '//test/starlark:bad_extension.bzl': no such file");
+            """
+            error loading package 'test/starlark': at /workspace/test/starlark/extension.bzl:1:6:
+            cannot load '//test/starlark:bad_extension.bzl': no such file\
+            """);
     assertDetailedExitCode(
         ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }

@@ -59,7 +59,7 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       name = "experimental_remote_analysis_cache_max_in_flight_read_requests",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "125000",
+      defaultValue = "500000",
       converter = NonNegativeIntegerConverter.class,
       help =
           "Maximum number of concurrent in-flight read requests across Skycache stores before"
@@ -74,6 +74,15 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       converter = PositiveIntegerConverter.class,
       help = "Batch size limit for remote analysis caching RPCs.")
   public abstract int getMaxBatchSize();
+
+  @Option(
+      name = "experimental_remote_analysis_cache_reader_max_batch_size",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "1024",
+      converter = PositiveIntegerConverter.class,
+      help = "Batch size limit for remote analysis caching reader RPCs.")
+  public abstract int getReaderMaxBatchSize();
 
   @Option(
       name = "experimental_remote_analysis_cache_concurrency",

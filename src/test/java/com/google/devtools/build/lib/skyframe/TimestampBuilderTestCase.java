@@ -315,7 +315,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       private void setGeneratingActions()
           throws ActionConflictException,
               InterruptedException,
-              Actions.ArtifactGeneratedByOtherRuleException {
+              Actions.ArtifactGeneratedByOtherRuleException,
+              Actions.SourceArtifactUsedAsOutputException {
         if (evaluator.getExistingValue(ACTION_LOOKUP_KEY) == null) {
           ImmutableList<ActionAnalysisMetadata> generatingActions = ImmutableList.copyOf(actions);
           Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
@@ -366,7 +367,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
         try {
           setGeneratingActions();
-        } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
+        } catch (ActionConflictException
+            | Actions.ArtifactGeneratedByOtherRuleException
+            | Actions.SourceArtifactUsedAsOutputException e) {
           throw new IllegalStateException(e);
         }
 

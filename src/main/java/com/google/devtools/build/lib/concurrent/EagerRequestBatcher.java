@@ -311,7 +311,8 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
 
     @Override
     public void handleRejection(Throwable t) {
-      handleSynchronousException(copyElements(buffer), t);
+      onBatchDone();
+      batchExecutionStrategy.handleRejection(copyElements(buffer), t);
     }
   }
 

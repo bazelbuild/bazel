@@ -62,6 +62,16 @@ public abstract class AqueryOptions extends CommonQueryOptions {
   public abstract boolean getIncludePrunedInputs();
 
   @Option(
+      name = "prune_unused_actions",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true, only emits actions that are reachable from the requested top-level"
+              + " targets' default outputs (or specified --output_groups) in the action graph.")
+  public abstract boolean getPruneUnusedActions();
+
+  @Option(
       name = "include_param_files",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,

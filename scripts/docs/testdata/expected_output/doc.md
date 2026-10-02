@@ -1,11 +1,4 @@
-Project: /_project.yaml
-Book: /versions/6.6.6/_book.yaml
-
 # Configurations
-
-{% dynamic setvar version "6.6.6" %}
-{% dynamic setvar original_path "/doc" %}
-{% include "_buttons.html" %}
 
 A build setting is a single piece of [configuration](/versions/6.6.6/rules/rules#configurations) information.
 

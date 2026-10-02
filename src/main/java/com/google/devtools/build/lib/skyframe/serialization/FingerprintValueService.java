@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.util.DecimalBucketer;
@@ -42,7 +43,24 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   /** A {@link Fingerprinter} implementation for non-production use. */
   public static final Fingerprinter NONPROD_FINGERPRINTER =
-      input -> PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
+      new Fingerprinter() {
+        @Override
+        public PackedFingerprint fingerprint(byte[] input) {
+          return PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
+        }
+
+        @Override
+        public PackedFingerprint fingerprint(byte[] input, String salt) {
+          return PackedFingerprint.fromBytes(
+              murmur3_128()
+                  .newHasher()
+                  .putInt(salt.length())
+                  .putUnencodedChars(salt)
+                  .putBytes(input)
+                  .hash()
+                  .asBytes());
+        }
+      };
 
   private final SafeExecutor executor;
   private final FingerprintValueStore store;
@@ -114,13 +132,15 @@ public final class FingerprintValueService implements KeyValueWriter {
    * fingerprint, and returns the {@link PackedFingerprint}.
    */
   public static PackedFingerprint computeFingerprint(
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       ObjectCodecs codecs,
       SkyKey key,
       FrontierNodeVersion nodeVersion)
       throws InterruptedException, SerializationException {
     AsyncSerializationTask serializeKeyTask =
-        codecs.serializeMemoizedAsync(fingerprintValueService, key, /* profileCollector= */ null);
+        codecs.serializeMemoizedAsync(
+            compressionService, fingerprintValueService, key, /* profileCollector= */ null);
     serializeKeyTask.run();
 
     ListenableFuture<PackedFingerprint> fingerprintFuture =
@@ -210,6 +230,12 @@ public final class FingerprintValueService implements KeyValueWriter {
   @Override
   public PackedFingerprint fingerprint(byte[] bytes) {
     return fingerprinter.fingerprint(bytes);
+  }
+
+  /** Computes the fingerprint of {@code bytes} with a salt. */
+  @Override
+  public PackedFingerprint fingerprint(byte[] bytes, String salt) {
+    return fingerprinter.fingerprint(bytes, salt);
   }
 
   /** Convenience overload of {@link #fingerprint(byte[])}. */

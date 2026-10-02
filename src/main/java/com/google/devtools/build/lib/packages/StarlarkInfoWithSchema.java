@@ -35,7 +35,9 @@ import net.starlark.java.eval.Compactable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFloat;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TokenKind;
 
 /**
@@ -71,7 +73,12 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   }
 
   @Override
-  public final Provider getProvider() {
+  public final StarlarkProvider getProvider() {
+    return provider;
+  }
+
+  @Override
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     return provider;
   }
 

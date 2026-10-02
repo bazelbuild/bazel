@@ -49,7 +49,7 @@ EOF
     || fail "Build failed but should have succeeded"
 }
 
-function test_sibling_repository_layout_include_external_repo_output() {
+function test_include_external_repo_output() {
   add_rules_java MODULE.bazel
   add_rules_cc "MODULE.bazel"
   mkdir test
@@ -69,7 +69,7 @@ extern "C" JNIEXPORT void JNICALL Java_foo_App_f(JNIEnv *env, jclass clazz, jint
   printf("hello %d\n", x);
 }
 EOF
-  bazel build --experimental_sibling_repository_layout //test:foo > "$TEST_log" \
+  bazel build //test:foo > "$TEST_log" \
     || fail "expected build success"
 }
 
@@ -186,8 +186,6 @@ local_repository(name = 'repo', path='$REPO_PATH')
 EOF
 
   bazel build @repo//foo:bar \
-    > "$TEST_log" || fail "expected build success"
-  bazel build --experimental_sibling_repository_layout @repo//foo:bar \
     > "$TEST_log" || fail "expected build success"
 }
 
@@ -449,20 +447,6 @@ function test_external_cc_test_sandboxed() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
-function test_external_cc_test_sandboxed_sibling_repository_layout() {
-  if is_windows; then
-    return 0
-  fi
-
-  external_cc_test_setup
-
-  bazel test \
-      --test_output=errors \
-      --strategy=sandboxed \
-      --experimental_sibling_repository_layout \
-      @other_repo//test >& $TEST_log || fail "Test should pass"
-}
-
 function test_external_cc_test_local() {
   external_cc_test_setup
 
@@ -472,13 +456,12 @@ function test_external_cc_test_local() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
-function test_external_cc_test_local_sibling_repository_layout() {
+function test_external_cc_test_local_hits_action_cache() {
   external_cc_test_setup
 
   bazel test \
       --test_output=errors \
       --strategy=local \
-      --experimental_sibling_repository_layout \
       @other_repo//test >& $TEST_log || fail "Test should pass"
 
   # Test cc compile action can hit the action cache. See
@@ -488,7 +471,6 @@ function test_external_cc_test_local_sibling_repository_layout() {
   bazel test \
       --test_output=errors \
       --strategy=local \
-      --experimental_sibling_repository_layout \
       @other_repo//test >& $TEST_log || fail "Test should pass"
   expect_log "1 process: .*1 internal"
 }
@@ -705,10 +687,8 @@ int main() {
 EOF
 
   bazel build //:main_c \
-    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
     --repo_env=BAZEL_CXXOPTS=-DEXIT_CODE=0 && fail "Expected C compilation to fail"
   bazel run //:main_cpp \
-    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
     --repo_env=BAZEL_CXXOPTS=-DEXIT_CODE=0 || fail "Expected C++ compilation to pass"
 }
 
@@ -739,10 +719,8 @@ int main() {
 EOF
 
   bazel build //:main_cpp \
-    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
     --repo_env=BAZEL_CONLYOPTS=-DEXIT_CODE=0 && fail "Expected C++ compilation to fail"
   bazel run //:main_c \
-    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
     --repo_env=BAZEL_CONLYOPTS=-DEXIT_CODE=0 || fail "Expected C compilation to pass"
 }
 
@@ -1179,6 +1157,7 @@ EOF
 
 function test_cpp20_modules_with_clang() {
   type -P clang || return 0
+  type -P clang-scan-deps || return 0
   # Check if clang version is less than 17
   clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
   if [[ -n "$clang_version" ]]; then
@@ -1316,8 +1295,6 @@ int main() {
 EOF
 
   bazel build --repo_env=CC=clang --features=thin_lto @repo//foo \
-    > "$TEST_log" || fail "expected build success"
-  bazel build --repo_env=CC=clang --features=thin_lto --experimental_sibling_repository_layout @repo//foo \
     > "$TEST_log" || fail "expected build success"
 }
 

@@ -28,6 +28,7 @@ import com.google.common.math.IntMath;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.InvalidationLookupMetrics;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.events.Event;
@@ -64,6 +65,7 @@ public final class AnalysisCacheInvalidator {
 
   private final RemoteAnalysisCacheClient analysisCacheClient;
   private final ObjectCodecs codecs;
+  private final CompressionService compressionService;
   private final FingerprintValueService fingerprintService;
   private final ExtendedEventHandler eventHandler;
   private final RemoteAnalysisCachingEventListener eventListener;
@@ -74,6 +76,7 @@ public final class AnalysisCacheInvalidator {
   public AnalysisCacheInvalidator(
       RemoteAnalysisCacheClient analysisCacheClient,
       ObjectCodecs objectCodecs,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       FrontierNodeVersion currentVersion,
       ClientId currentClientId,
@@ -82,6 +85,7 @@ public final class AnalysisCacheInvalidator {
       SafeExecutor executor) {
     this.analysisCacheClient = checkNotNull(analysisCacheClient, "analysisCacheClient");
     this.codecs = checkNotNull(objectCodecs, "objectCodecs");
+    this.compressionService = checkNotNull(compressionService, "compressionService");
     this.fingerprintService = checkNotNull(fingerprintValueService, "fingerprintValueService");
     this.currentVersion = checkNotNull(currentVersion, "currentVersion");
     this.currentClientId = checkNotNull(currentClientId, "currentClientId");
@@ -203,7 +207,7 @@ public final class AnalysisCacheInvalidator {
   private ListenableFuture<Optional<SkyKey>> submitInvalidationLookup(SkyKey key) {
     // 1. Serialize the key
     AsyncSerializationTask serializeKeyTask =
-        codecs.serializeMemoizedAsync(fingerprintService, key, null);
+        codecs.serializeMemoizedAsync(compressionService, fingerprintService, key, null);
     serializeKeyTask.run();
 
     // 2. Compute the fingerprint from the serialized blob

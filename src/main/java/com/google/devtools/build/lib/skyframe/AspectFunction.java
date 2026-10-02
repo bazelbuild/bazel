@@ -103,6 +103,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -1021,6 +1022,8 @@ final class AspectFunction implements SkyFunction {
                     transitiveState.transitivePackages(),
                     key,
                     starlarkExecTransition);
+      } catch (IOException e) {
+        throw new AspectFunctionException(e);
       } catch (MissingDepException e) {
         Preconditions.checkState(env.valuesMissing());
         return null;
@@ -1104,6 +1107,10 @@ final class AspectFunction implements SkyFunction {
 
     public AspectFunctionException(RuleErrorException cause) {
       super(cause, Transience.PERSISTENT);
+    }
+
+    public AspectFunctionException(IOException cause) {
+      super(cause, Transience.TRANSIENT);
     }
   }
 }

@@ -220,12 +220,16 @@ public class ModuleFileFunction implements SkyFunction {
     }
     ModuleThreadContext moduleThreadContext;
     if (state.moduleFileMetadata.registry != null) {
-      if (!state.compiledModuleFile.includeStatements().isEmpty()) {
+      Optional<IncludeStatement> nonDevInclude =
+          state.compiledModuleFile.includeStatements().stream()
+              .filter(include -> !include.devDependency())
+              .findFirst();
+      if (nonDevInclude.isPresent()) {
         throw errorf(
             Code.BAD_MODULE,
             "include() directive found at %s, but it can only be used in the root module or in "
                 + "modules with non-registry overrides",
-            state.compiledModuleFile.includeStatements().getFirst().location());
+            nonDevInclude.get().location());
       }
       moduleThreadContext =
           execModuleFile(
@@ -342,8 +346,11 @@ public class ModuleFileFunction implements SkyFunction {
       SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
     Preconditions.checkNotNull(state.compiledModuleFile);
+    boolean isRoot = moduleKey.equals(ModuleKey.ROOT);
+    boolean ignoreDevDeps = isRoot ? IGNORE_DEV_DEPS.get(env) : true;
     if (state.horizon == null) {
-      state.horizon = state.compiledModuleFile.includeStatements();
+      state.horizon =
+          activeIncludeStatements(state.compiledModuleFile.includeStatements(), ignoreDevDeps);
     }
     while (!state.horizon.isEmpty()) {
       var newHorizon =
@@ -353,18 +360,18 @@ public class ModuleFileFunction implements SkyFunction {
               state.horizon,
               env,
               starlarkSemantics,
-              starlarkEnv);
+              starlarkEnv,
+              ignoreDevDeps);
       if (newHorizon == null) {
         return null;
       }
       state.horizon = newHorizon;
     }
-    boolean isRoot = moduleKey.equals(ModuleKey.ROOT);
     return execModuleFile(
         state.compiledModuleFile,
         ImmutableMap.copyOf(state.includeLabelToCompiledModuleFile),
         moduleKey,
-        isRoot ? IGNORE_DEV_DEPS.get(env) : true,
+        ignoreDevDeps,
         builtinModules,
         isRoot ? INJECTED_REPOSITORIES.get(env) : ImmutableMap.of(),
         // Allow printing to aid in debugging non-registry overrides, which are often edited by the
@@ -392,7 +399,8 @@ public class ModuleFileFunction implements SkyFunction {
       ImmutableList<IncludeStatement> horizon,
       Environment env,
       StarlarkSemantics starlarkSemantics,
-      BazelStarlarkEnvironment starlarkEnv)
+      BazelStarlarkEnvironment starlarkEnv,
+      boolean ignoreDevDeps)
       throws ModuleFileFunctionException, InterruptedException {
     var seenIncludeLabels = new HashSet<>(includeLabelToCompiledModuleFile.keySet());
     var pendingBuilder = ImmutableList.<IncludeStatement>builder();
@@ -486,12 +494,19 @@ public class ModuleFileFunction implements SkyFunction {
     result =
         env.getValuesAndExceptions(
             rootedPaths.stream().map(FileValue::key).collect(toImmutableSet()));
-    var newHorizon = ImmutableList.<IncludeStatement>builder();
-    for (int i = 0; i < pending.size(); i++) {
-      FileValue fileValue = (FileValue) result.get(FileValue.key(rootedPaths.get(i)));
+    // Resolve all file dependencies before compiling so a restart cannot retain a compiled file
+    // while discarding its nested includes from the next horizon.
+    var fileValues = new ArrayList<FileValue>(pending.size());
+    for (var rootedPath : rootedPaths) {
+      FileValue fileValue = (FileValue) result.get(FileValue.key(rootedPath));
       if (fileValue == null) {
         return null;
       }
+      fileValues.add(fileValue);
+    }
+    var newHorizon = ImmutableList.<IncludeStatement>builder();
+    for (int i = 0; i < pending.size(); i++) {
+      FileValue fileValue = fileValues.get(i);
       if (!fileValue.isFile()) {
         throw errorf(
             Code.BAD_MODULE,
@@ -519,12 +534,23 @@ public class ModuleFileFunction implements SkyFunction {
                 starlarkEnv,
                 env.getListener());
         includeLabelToCompiledModuleFile.put(pending.get(i).includeLabel(), compiledModuleFile);
-        newHorizon.addAll(compiledModuleFile.includeStatements());
+        newHorizon.addAll(
+            activeIncludeStatements(compiledModuleFile.includeStatements(), ignoreDevDeps));
       } catch (ExternalDepsException e) {
         throw new ModuleFileFunctionException(e, Transience.PERSISTENT);
       }
     }
     return newHorizon.build();
+  }
+
+  private static ImmutableList<IncludeStatement> activeIncludeStatements(
+      ImmutableList<IncludeStatement> includeStatements, boolean ignoreDevDeps) {
+    if (!ignoreDevDeps) {
+      return includeStatements;
+    }
+    return includeStatements.stream()
+        .filter(include -> !include.devDependency())
+        .collect(toImmutableList());
   }
 
   public static RootedPath getModuleFilePath(Path workspaceRoot) {

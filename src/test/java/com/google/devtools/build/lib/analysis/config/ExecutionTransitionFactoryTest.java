@@ -53,6 +53,12 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
+  public void executionTransition_cached() throws Exception {
+    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
+    assertThat(getExecTransition(EXECUTION_PLATFORM)).isSameInstanceAs(transition);
+  }
+
+  @Test
   public void executionTransition() throws Exception {
     PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
     assertThat(transition).isNotNull();
@@ -317,9 +323,8 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
         """);
 
     useConfiguration(
-        "--experimental_platform_in_output_dir",
         "--extra_execution_platforms=//platforms:mock_platform",
-        "--experimental_override_name_platform_in_output_dir=//platforms:mock_platform=mock_platform_path_string");
+        "--override_platform_cpu_name=//platforms:mock_platform=mock_platform_path_string");
     BuildConfigurationValue execConfig =
         getConfiguration(
             getDirectPrerequisite(getConfiguredTarget("//test:parent"), "//test:child"));

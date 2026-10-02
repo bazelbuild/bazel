@@ -36,10 +36,13 @@ import com.google.devtools.build.lib.remote.common.MaybePathBacked;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
+import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -72,6 +75,7 @@ public class DiskCacheClient {
 
   private final ImmutableMap<Store, Path> storeRootMap;
   private final Path tmpRoot;
+  private final boolean checkActionResultIntegrity;
 
   // Disk cache operations are almost entirely I/O-bound as digests are only computed as part of
   // I/O operations, so using virtual threads is appropriate.
@@ -80,7 +84,15 @@ public class DiskCacheClient {
       MoreExecutors.listeningDecorator(
           Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("disk-cache-", 0).factory()));
 
-  public DiskCacheClient(Path root, DigestUtil digestUtil) throws IOException {
+  /**
+   * Creates a new disk cache client.
+   *
+   * @param checkActionResultIntegrity whether {@link #downloadActionResult} should only return an
+   *     action result whose referenced blobs are all present in the disk cache
+   */
+  public DiskCacheClient(Path root, DigestUtil digestUtil, boolean checkActionResultIntegrity)
+      throws IOException {
+    this.checkActionResultIntegrity = checkActionResultIntegrity;
     Path fnRoot =
         isOldStyleDigestFunction(digestUtil.getDigestFunction())
             ? root
@@ -114,6 +126,16 @@ public class DiskCacheClient {
       path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
     } catch (FileNotFoundException e) {
       return false;
+    } catch (FileAccessException e) {
+      // On Windows, setting the last modified time via java.io.File#setLastModified opens the file
+      // with FILE_SHARE_READ | FILE_SHARE_WRITE (without FILE_SHARE_DELETE). If another thread or
+      // process is concurrently replacing the file via renameTo (MoveFileExW), CreateFileW fails
+      // with ERROR_SHARING_VIOLATION or ERROR_ACCESS_DENIED, which JavaIoFileSystem wraps in
+      // FileAccessException after already verifying that the file exists. Since the concurrent
+      // operation already sets a recent mtime, we can treat the entry as present and refreshed.
+      if (OS.getCurrent() != OS.WINDOWS) {
+        throw e;
+      }
     }
     return true;
   }
@@ -148,14 +170,33 @@ public class DiskCacheClient {
             outPath = maybePathBacked.maybeGetPath();
           }
 
-          if (outPath != null) {
-            // If the output stream is path-backed, the filesystem may be able to avoid copying the
-            // file.
-            FileSystemUtils.copyFile(path, outPath);
-          } else {
-            try (InputStream in = path.getInputStream()) {
-              ByteStreams.copy(in, out);
+          try {
+            if (outPath != null) {
+              // If the output stream is path-backed, the filesystem may be able to avoid copying
+              // the file.
+              FileSystemUtils.copyFile(path, outPath);
+            } else {
+              try (InputStream in = path.getInputStream()) {
+                ByteStreams.copy(in, out);
+              }
             }
+          } catch (FileNotFoundException e) {
+            // The entry may have been deleted between the refresh above and the copy, for example
+            // due to a concurrent garbage collection. Report this case as a cache miss rather than
+            // a real I/O error.
+            //
+            // Note that a FileNotFoundException could also be thrown if a parent directory of the
+            // destination doesn't exist, so we try to preserve the error reporting in that case.
+            // TODO: When migrating to NIO exceptions, use NoSuchFileException#getFile to avoid this
+            // check.
+            if (outPath != null
+                && outPath.getParentDirectory() != null
+                && !outPath.getParentDirectory().exists()) {
+              throw e;
+            }
+            var cacheNotFoundException = new CacheNotFoundException(digest);
+            cacheNotFoundException.addSuppressed(e);
+            throw cacheNotFoundException;
           }
           return null;
         });
@@ -175,56 +216,98 @@ public class DiskCacheClient {
         directExecutor());
   }
 
-  private void checkDigestExists(Digest digest) throws IOException {
+  /**
+   * If the blob with the given digest exists, marks it as recently used.
+   *
+   * @return whether the blob exists.
+   * @throws IOException if an I/O error other than a missing file occurs.
+   */
+  private boolean refreshDigest(Digest digest) throws IOException {
     if (digest.getSizeBytes() == 0) {
-      return;
+      return true;
     }
 
-    Path path = toPath(digest, Store.CAS);
-    if (!refresh(path)) {
-      throw new CacheNotFoundException(digest);
-    }
+    return refresh(toPath(digest, Store.CAS));
   }
 
-  private void checkOutputDirectory(Directory dir) throws IOException {
+  private boolean refreshOutputDirectory(Directory dir, boolean stopAtFirstMissing)
+      throws IOException {
+    boolean allPresent = true;
     for (var file : dir.getFilesList()) {
-      checkDigestExists(file.getDigest());
+      allPresent &= refreshDigest(file.getDigest());
+      if (!allPresent && stopAtFirstMissing) {
+        return false;
+      }
     }
+    return allPresent;
   }
 
   /**
-   * Checks that all of the blobs referenced by the {@link ActionResult} exist and marks them as
-   * recently used.
+   * Marks all of the blobs referenced by the {@link ActionResult} that exist as recently used.
    *
-   * @throws CacheNotFoundException if at least one of the referenced blobs is missing.
+   * @param stopAtFirstMissing whether to return as soon as a referenced blob is found to be
+   *     missing, leaving the mtime of the remaining blobs untouched.
+   * @return whether all of the referenced blobs exist.
    * @throws IOException if an I/O error other than a missing file occurs.
    */
-  private void checkActionResult(ActionResult actionResult) throws IOException {
+  private boolean refreshActionResult(ActionResult actionResult, boolean stopAtFirstMissing)
+      throws IOException {
+    boolean allPresent = true;
+
     for (var outputFile : actionResult.getOutputFilesList()) {
-      checkDigestExists(outputFile.getDigest());
+      allPresent &= refreshDigest(outputFile.getDigest());
+      if (!allPresent && stopAtFirstMissing) {
+        return false;
+      }
     }
 
     for (var outputDirectory : actionResult.getOutputDirectoriesList()) {
       var treeDigest = outputDirectory.getTreeDigest();
-      checkDigestExists(treeDigest);
+      if (!refreshDigest(treeDigest)) {
+        // Without the Tree, the blobs it references can't be determined.
+        if (stopAtFirstMissing) {
+          return false;
+        }
+        allPresent = false;
+        continue;
+      }
 
       Tree tree;
       try (var in = toPath(treeDigest, Store.CAS).getInputStream()) {
         tree = Tree.parseFrom(in, ExtensionRegistryLite.getEmptyRegistry());
+      } catch (FileNotFoundException e) {
+        // The tree was deleted between the refresh above and the read, most likely by a concurrent
+        // garbage collection. Treat it as missing rather than as a real I/O error.
+        if (stopAtFirstMissing) {
+          return false;
+        }
+        allPresent = false;
+        continue;
       }
-      checkOutputDirectory(tree.getRoot());
+      allPresent &= refreshOutputDirectory(tree.getRoot(), stopAtFirstMissing);
+      if (!allPresent && stopAtFirstMissing) {
+        return false;
+      }
       for (var dir : tree.getChildrenList()) {
-        checkOutputDirectory(dir);
+        allPresent &= refreshOutputDirectory(dir, stopAtFirstMissing);
+        if (!allPresent && stopAtFirstMissing) {
+          return false;
+        }
       }
     }
 
     if (actionResult.hasStdoutDigest()) {
-      checkDigestExists(actionResult.getStdoutDigest());
+      allPresent &= refreshDigest(actionResult.getStdoutDigest());
+      if (!allPresent && stopAtFirstMissing) {
+        return false;
+      }
     }
 
     if (actionResult.hasStderrDigest()) {
-      checkDigestExists(actionResult.getStderrDigest());
+      allPresent &= refreshDigest(actionResult.getStderrDigest());
     }
+
+    return allPresent;
   }
 
   public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
@@ -238,14 +321,13 @@ public class DiskCacheClient {
             return immediateFuture(null);
           }
 
-          try {
-            // Verify that all of the referenced blobs exist and update their mtime.
-            checkActionResult(actionResult);
-          } catch (CacheNotFoundException e) {
+          boolean allBlobsPresent =
+              refreshActionResult(
+                  actionResult, /* stopAtFirstMissing= */ checkActionResultIntegrity);
+
+          if (checkActionResultIntegrity && !allBlobsPresent) {
             // If at least one of the referenced blobs is missing, consider the action result to be
-            // stale. At this point we might have unnecessarily updated the mtime on some of the
-            // referenced blobs, but this should happen infrequently, and doing it this way avoids a
-            // double pass over the blobs.
+            // stale.
             return immediateFuture(null);
           }
 
@@ -284,9 +366,14 @@ public class DiskCacheClient {
   public ListenableFuture<Void> uploadBlob(Digest digest, Blob blob) {
     return executorService.submit(
         () -> {
-          try (InputStream in = blob.get()) {
-            saveFile(digest, Store.CAS, in);
-          }
+          save(
+              digest,
+              Store.CAS,
+              temp -> {
+                try (InputStream in = blob.get()) {
+                  copyToTemp(in, temp);
+                }
+              });
           return null;
         });
   }
@@ -312,19 +399,7 @@ public class DiskCacheClient {
   }
 
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
-    save(
-        digest,
-        store,
-        temp -> {
-          try (OutputStream out = temp.getOutputStream()) {
-            ByteStreams.copy(in, out);
-            // Fsync temp before we rename it to avoid data loss in the case of machine
-            // crashes (the OS may reorder the writes and the rename).
-            if (out instanceof FileOutputStream fos) {
-              fos.getFD().sync();
-            }
-          }
-        });
+    save(digest, store, temp -> copyToTemp(in, temp));
   }
 
   /**
@@ -349,6 +424,19 @@ public class DiskCacheClient {
           // crashes (the OS may reorder the writes and the rename).
           syncFile(temp);
         });
+  }
+
+  private static void copyToTemp(InputStream in, Path temp) throws IOException {
+    try (var out = temp.getOutputStream()) {
+      var bufferedOut = new BufferedOutputStream(out);
+      in.transferTo(bufferedOut);
+      bufferedOut.flush();
+      // Fsync temp before we rename it to avoid data loss in the case of machine
+      // crashes (the OS may reorder the writes and the rename).
+      if (out instanceof FileOutputStream fos) {
+        fos.getFD().sync();
+      }
+    }
   }
 
   /** Writes the contents of a cache entry into a temporary file. */

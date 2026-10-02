@@ -130,6 +130,15 @@ public interface Spawn extends DescribableExecutionUnit {
   Collection<? extends ActionInput> getOutputFiles();
 
   /**
+   * Returns the output that captures this spawn's standard output stream, or {@code null} if the
+   * standard output is not captured.
+   */
+  @Nullable
+  default Artifact getStdout() {
+    return null;
+  }
+
+  /**
    * Returns the output files that should be considered to be "generated" by this spawn for purposes
    * of reconstructing the execution graph in {@link
    * com.google.devtools.build.lib.runtime.ExecutionGraphModule}.

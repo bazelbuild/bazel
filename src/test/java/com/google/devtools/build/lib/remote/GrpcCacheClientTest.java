@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -356,7 +357,6 @@ public class GrpcCacheClientTest {
                 ImmutableSet.of(),
                 /* scrubber= */ null,
                 context.getSpawnExecutionContext(),
-                remotePathResolver,
                 MerkleTreeComputer.BlobPolicy.KEEP);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput);
 
@@ -440,11 +440,7 @@ public class GrpcCacheClientTest {
                 () -> {
                   try {
                     client.ensureInputsPresent(
-                        context,
-                        merkleTree,
-                        ImmutableMap.of(),
-                        /* force= */ true,
-                        remotePathResolver);
+                        context, merkleTree, ImmutableMap.of(), /* force= */ true);
                   } catch (Throwable e) {
                     if (e instanceof InterruptedException) {
                       Thread.currentThread().interrupt();
@@ -851,7 +847,8 @@ public class GrpcCacheClientTest {
             /* startTime= */ null,
             /* wallTimeInMs= */ 0,
             /* preserveExecutableBit= */ false);
-    return uploadManifest.upload(context, combinedCache, NullEventHandler.INSTANCE);
+    return uploadManifest.upload(
+        context, combinedCache, NullEventHandler.INSTANCE, /* force= */ false);
   }
 
   private ActionResult uploadDirectory(CombinedCache combinedCache, List<Path> outputs)
@@ -1468,6 +1465,29 @@ public class GrpcCacheClientTest {
   }
 
   @Test
+  public void downloadBlobFailsWhenServerCompletesBeforeExpectedSize() throws IOException {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.setRemoteVerifyDownloads(false);
+    GrpcCacheClient client = newClient(remoteOptions);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    OutputDigestMismatchException e =
+        assertThrows(
+            OutputDigestMismatchException.class, () -> downloadBlob(context, client, digest));
+    assertThat(e).hasMessageThat().contains(digest.getHash());
+    assertThat(e).hasMessageThat().contains("received 3 bytes");
+  }
+
+  @Test
   public void compressedDownloadBlobIsRetriedWithProgress()
       throws IOException, InterruptedException {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
@@ -1508,6 +1528,46 @@ public class GrpcCacheClientTest {
           }
         });
     assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+  }
+
+  @Test
+  public void compressedDownloadFailsWhenServerIgnoresReadOffset() throws IOException {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.setCacheCompression(true);
+    remoteOptions.setCacheCompressionThreshold(0);
+    remoteOptions.setRemoteVerifyDownloads(false);
+    GrpcCacheClient client = newClient(remoteOptions);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    ByteString compressedPrefix = ByteString.copyFrom(Zstd.compress("abcd".getBytes(UTF_8)));
+    ByteString compressedBlob = ByteString.copyFrom(Zstd.compress("abcdefg".getBytes(UTF_8)));
+    AtomicInteger readCalls = new AtomicInteger();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            int readCall = readCalls.getAndIncrement();
+            if (readCall == 0) {
+              assertThat(request.getReadOffset()).isEqualTo(0);
+              responseObserver.onNext(ReadResponse.newBuilder().setData(compressedPrefix).build());
+              responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+              return;
+            }
+            // Simulate a noncompliant compressed ByteStream server that ignores the uncompressed
+            // read offset and replays the blob from the beginning.
+            assertThat(readCall).isEqualTo(1);
+            assertThat(request.getReadOffset()).isEqualTo(4);
+            responseObserver.onNext(ReadResponse.newBuilder().setData(compressedBlob).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    IOException e =
+        assertThrows(
+            IOException.class, () -> getFromFuture(client.downloadBlob(context, digest, out)));
+    assertThat(e).hasMessageThat().contains("Received more bytes than expected");
+    assertThat(out.size()).isAtMost(Math.toIntExact(digest.getSizeBytes()));
+    assertThat(readCalls.get()).isEqualTo(2);
   }
 
   @Test
@@ -1642,6 +1702,7 @@ public class GrpcCacheClientTest {
 
     assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isFalse();
   }
+
   @Test
   public void splitBlob_serverCannotSplit_failsWithBlobNotSplittable(
       @TestParameter({"NOT_FOUND", "UNIMPLEMENTED"}) Status.Code code) throws Exception {

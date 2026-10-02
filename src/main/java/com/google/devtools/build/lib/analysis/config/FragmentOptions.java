@@ -16,19 +16,104 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.EnvVar;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.AbstractMap;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Command-line build options for a Blaze module. */
 public abstract class FragmentOptions extends OptionsBase implements Cloneable {
+
+  /**
+   * Memoized checksum of these options.
+   *
+   * <p>Inherited by clones, which allows most fragments of a transitioned {@link BuildOptions} to
+   * reuse the checksum of the original. Changing the value of any option resets it.
+   */
+  @Nullable private transient volatile byte[] cachedChecksum;
+
+  @Override
+  public final void onOptionChanged() {
+    cachedChecksum = null;
+  }
+
+  /** Adds the options to the fingerprint. */
+  public final void addToFingerprint(Fingerprint fp) {
+    fp.addBytes(checksum());
+  }
+
+  /** Computes a memoized checksum of the options. */
+  @VisibleForTesting
+  final byte[] checksum() {
+    byte[] checksum = cachedChecksum;
+    if (checksum == null) {
+      var fp = new Fingerprint();
+      fingerprint(fp, this);
+      checksum = fp.digestAndReset();
+      cachedChecksum = checksum;
+    }
+    return checksum;
+  }
+
+  /** Computes a hex checksum of the given options. */
+  public static String hexChecksum(OptionsBase options) {
+    var fp = new Fingerprint();
+    if (options instanceof FragmentOptions fragmentOptions) {
+      fragmentOptions.addToFingerprint(fp); // Use cached checksum.
+    } else {
+      fingerprint(fp, options);
+    }
+    return fp.hexDigestAndReset();
+  }
+
+  private static void fingerprint(Fingerprint fp, OptionsBase options) {
+    fp.addString(options.getOptionsClass().getName());
+    addMapToFingerprint(fp, Options.toMap(options), /* valueType= */ _ -> "");
+  }
+
+  /**
+   * Adds the given map of option values to the fingerprint by stringifying them.
+   *
+   * @param valueType the result of applying this function to each value (and, for collections, each
+   *     element) is also added, which makes the fingerprint sensitive to the type of a value in
+   *     addition to its string representation
+   */
+  static void addMapToFingerprint(
+      Fingerprint fp, Map<?, ?> optionsMap, Function<Object, String> valueType) {
+    fp.addInt(optionsMap.size());
+    optionsMap.forEach(
+        (key, value) -> {
+          fp.addString(key.toString());
+          addValueToFingerprint(fp, value, valueType);
+        });
+  }
+
+  private static void addValueToFingerprint(
+      Fingerprint fp, @Nullable Object value, Function<Object, String> valueType) {
+    if (value == null) {
+      fp.addBoolean(false);
+      return;
+    }
+    fp.addBoolean(true);
+    fp.addString(valueType.apply(value));
+    if (value instanceof Collection<?> collection) {
+      fp.addInt(collection.size());
+      collection.forEach(element -> addValueToFingerprint(fp, element, valueType));
+    } else {
+      fp.addInt(-1);
+      fp.addString(value.toString());
+    }
+  }
 
   @Override
   @SuppressWarnings("unchecked") // Reflection doesn't support generics

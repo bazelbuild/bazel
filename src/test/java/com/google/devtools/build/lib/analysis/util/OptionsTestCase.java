@@ -17,8 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.stream;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.List;
 
@@ -57,25 +57,25 @@ public abstract class OptionsTestCase<T extends FragmentOptions> {
 
   protected void assertSame(T one, T two) {
     // We normalize first, since that is what BuildOptions.checkSum() does.
-    // We do not use BuildOptions.checkSum() because in case of test failure,
-    // the diff on cacheKey is humanreadable.
     FragmentOptions oneNormalized = one.getNormalized();
     FragmentOptions twoNormalized = two.getNormalized();
-    assertThat(BuildOptions.optionsToCacheKey(oneNormalized))
-        .isEqualTo(BuildOptions.optionsToCacheKey(twoNormalized));
+    assertThat(checksum(oneNormalized)).isEqualTo(checksum(twoNormalized));
     // Also check equality of toString() as that influences the ST-hash computation.
     assertThat(oneNormalized.toString()).isEqualTo(twoNormalized.toString());
   }
 
   protected void assertDifferent(T one, T two) {
     // We normalize first, since that is what BuildOptions.checkSum() does.
-    // We do not use BuildOptions.checkSum() because in case of test failure,
-    // the diff on cacheKey is humanreadable.
     FragmentOptions oneNormalized = one.getNormalized();
     FragmentOptions twoNormalized = two.getNormalized();
-    assertThat(BuildOptions.optionsToCacheKey(oneNormalized))
-        .isNotEqualTo(BuildOptions.optionsToCacheKey(twoNormalized));
+    assertThat(checksum(oneNormalized)).isNotEqualTo(checksum(twoNormalized));
     // Also check equality of toString() as that influences the ST-hash computation.
     assertThat(oneNormalized.toString()).isNotEqualTo(twoNormalized.toString());
+  }
+
+  private static String checksum(FragmentOptions options) {
+    var fp = new Fingerprint();
+    options.addToFingerprint(fp);
+    return fp.hexDigestAndReset();
   }
 }

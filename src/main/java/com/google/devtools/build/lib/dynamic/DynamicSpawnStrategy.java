@@ -246,7 +246,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       return results;
     } finally {
       checkState(localBranch.isDone());
-      checkState(remoteBranch.isDone());
+      if (options.getCancelRemoteBranchOnLocalWin() || strategyThatCancelled.get() == REMOTE) {
+        checkState(remoteBranch.isDone());
+      }
 
       if (results != null && !results.isEmpty()) {
         updateStrategyWinner(actionExecutionContext, spawn, results.get(0), strategyThatCancelled);
@@ -262,7 +264,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           "Dynamic execution of %s ended with local %s, remote %s%n",
           getSpawnReadableId(spawn),
           localBranch.isCancelled() ? "cancelled" : "done",
-          remoteBranch.isCancelled() ? "cancelled" : "done");
+          remoteBranch.isCancelled() ? "cancelled" : (remoteBranch.isDone() ? "done" : "running"));
     }
   }
 
@@ -538,6 +540,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       throw e;
     }
 
+    if (localResult != null && !options.getCancelRemoteBranchOnLocalWin()) {
+      return localResult;
+    }
+
     ImmutableList<SpawnResult> remoteResult = waitBranch(remoteBranch, options, context);
 
     if (remoteResult != null && localResult != null) {
@@ -689,28 +695,33 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                           cancellingBranch.isCancelled() ? "cancelled" : "not cancelled")));
         }
 
-        try (SilentCloseable c =
-            Profiler.instance()
-                .profile(
-                    ProfilerTask.DYNAMIC_LOCK,
-                    () ->
-                        String.format(
-                            "Cancelling %s branch of %s",
-                            cancellingStrategy.other(),
-                            getSpawnReadableId(cancellingBranch.getSpawn())))) {
+        boolean shouldCancelOther =
+            cancellingStrategy == REMOTE || options.getCancelRemoteBranchOnLocalWin();
+        if (shouldCancelOther) {
+          try (SilentCloseable c =
+              Profiler.instance()
+                  .profile(
+                      ProfilerTask.DYNAMIC_LOCK,
+                      () ->
+                          String.format(
+                              "Cancelling %s branch of %s",
+                              cancellingStrategy.other(),
+                              getSpawnReadableId(cancellingBranch.getSpawn())))) {
 
-          if (!otherBranch.cancel()) {
-            // This can happen if the other branch is local under local_lockfree and has returned
-            // its result but not yet cancelled this branch, or if the other branch was already
-            // cancelled for other reasons. In the latter case, we are good to continue.
-            if (otherBranch.future.state() == State.SUCCESS) {
-              throw new DynamicInterruptedException(
-                  String.format(
-                      "Execution of %s strategy stopped because %s strategy could not be cancelled",
-                      cancellingStrategy, cancellingStrategy.other()));
+            if (!otherBranch.cancel()) {
+              // This can happen if the other branch is local under local_lockfree and has returned
+              // its result but not yet cancelled this branch, or if the other branch was already
+              // cancelled for other reasons. In the latter case, we are good to continue.
+              if (otherBranch.future.state() == State.SUCCESS) {
+                throw new DynamicInterruptedException(
+                    String.format(
+                        "Execution of %s strategy stopped because %s strategy could not be"
+                            + " cancelled",
+                        cancellingStrategy, cancellingStrategy.other()));
+              }
             }
+            otherBranch.getDoneSemaphore().acquire();
           }
-          otherBranch.getDoneSemaphore().acquire();
         }
       } else {
         throw new DynamicInterruptedException(
