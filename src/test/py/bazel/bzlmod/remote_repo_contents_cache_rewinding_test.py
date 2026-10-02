@@ -1050,6 +1050,73 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertNotIn('JUST FETCHED', stderr)
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
 
+  def testLostRemoteFile_refetchFails_cacheConsultedAgain(self):
+    # A file of a cached repo is also treated as lost if the remote cache is
+    # only temporarily unable to provide it. If the repo can't be fetched
+    # either, later commands have to consult the cache again rather than keep
+    # trying to fetch the repo.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  if rctx.workspace_root.get_child("origin_unavailable").exists:',
+            '    fail("origin unavailable")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The file can't be downloaded and the repo can't be fetched to restore it.
+    blob_path = self.DeleteCasEntry(b'hello')
+    self.ScratchFile('origin_unavailable')
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//main:use_data'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('origin unavailable', '\n'.join(stderr))
+
+    # The remote cache can provide the file again. The next command still
+    # tries to fetch the repo, but the one after that uses the cache.
+    with open(blob_path, 'wb') as f:
+      f.write(b'hello')
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//main:use_data'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('origin unavailable', '\n'.join(stderr))
+
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
   def testLostRemoteFile_multipleReposRecoverInOneBuild(self):
     # Two cached repos independently reference a lost CAS blob, but the second
     # one is only reached after the first has recovered: a module extension

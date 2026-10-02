@@ -487,9 +487,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * treated as cache misses, which causes them to be fetched again and their contents to be
    * uploaded to the remote cache again.
    *
-   * <p>Deliberately does not clear the state: a lookup is not a promise that the repo will actually
-   * be fetched, so a repo that reported a cache miss once must keep doing so until it has actually
-   * been fetched again.
+   * <p>Doesn't clear the state: a lookup is not a promise that the repo will actually be fetched.
    */
   public boolean shouldRefetch(RepositoryName repo) {
     return switch (repoStates.get(repo.getName())) {
@@ -506,8 +504,20 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // they have also been uploaded doesn't matter here: a cache entry that still references lost
     // files is only consulted once the repo's marker file has become stale and is recovered from
     // like the first time.
+    forgetLostFiles(repo.getName());
+  }
+
+  @Override
+  public void repoRefetchFailed(RepositoryName repo) {
+    // A file is also reported as lost if it couldn't be downloaded for any other reason, so the
+    // cached contents may be usable after all. As long as the repo can't be fetched, they are the
+    // only way to get it, and if they still reference lost files, that is noticed again.
+    forgetLostFiles(repo.getName());
+  }
+
+  private void forgetLostFiles(String repoName) {
     repoStates.computeIfPresent(
-        repo.getName(),
+        repoName,
         (unused, state) ->
             switch (state) {
               case InMemory inMemory -> new InMemory(inMemory.contents(), /* hasLostFiles= */ false);

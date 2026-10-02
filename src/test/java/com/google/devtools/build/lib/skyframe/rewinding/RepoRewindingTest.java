@@ -1184,6 +1184,9 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     }
 
     @Override
+    public void repoRefetchFailed(RepositoryName repo) {}
+
+    @Override
     public void repoRefetched(RepositoryName repo) {
       // The fetch replaces the repo's contents, which makes its lost files available again.
       pathsToLoseUntilRefetched.removeIf(p -> p.startsWith(repo.getName() + "/"));

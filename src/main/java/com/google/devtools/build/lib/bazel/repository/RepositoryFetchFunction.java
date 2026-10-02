@@ -269,7 +269,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
     // The remote repo contents cache may have lost files of a repo that has been retrieved from it
     // earlier. Such a repo has to be fetched to restore these files, but its remaining contents may
-    // be in use and thus must not be replaced with any other cached contents.
+    // be in use and thus must not be replaced, not even with a matching entry of a cache.
     boolean restoreLostFiles =
         remoteRepoContentsCache != null
             && remoteRepoContentsCache.hasLostFiles(repositoryName, repoRoot);
@@ -338,7 +338,18 @@ public final class RepositoryFetchFunction implements SkyFunction {
       // repository as valid even though it is in an inconsistent state. Clear the marker file and
       // only recreate it after fetching is done to prevent this scenario.
       DigestWriter.clearMarkerFile(directories, repositoryName);
-      FetchResult result = fetchAndHandleEvents(repoDefinition, repoRoot, env, repositoryName);
+      FetchResult result;
+      try {
+        result = fetchAndHandleEvents(repoDefinition, repoRoot, env, repositoryName);
+      } catch (RepositoryFunctionException e) {
+        // A failure caused by a lost file of another repo is recovered from by rewinding, after
+        // which this repo is fetched again.
+        if (!RepoRewinding.isRecoverableLostRepoFile(e)
+            && repoRoot.getFileSystem() instanceof RewindableRepoFileSystem repoFileSystem) {
+          repoFileSystem.repoRefetchFailed(repositoryName);
+        }
+        throw e;
+      }
       if (result == null) {
         return null;
       }
