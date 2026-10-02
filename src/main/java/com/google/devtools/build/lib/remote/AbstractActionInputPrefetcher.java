@@ -960,6 +960,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   /**
+   * Returns whether the file with the given metadata is available at the given path, e.g. because
+   * it has been downloaded before.
+   */
+  public boolean isAvailable(Path path, FileArtifactValue metadata) throws IOException {
+    return !shouldDownloadFile(path.forHostFileSystem(), metadata);
+  }
+
+  /**
    * Moves a local file with the given metadata to the given path in an external repo unless the
    * path already holds that file, e.g. because it has been downloaded before.
    *
