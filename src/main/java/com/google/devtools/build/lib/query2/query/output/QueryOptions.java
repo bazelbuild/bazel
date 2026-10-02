@@ -56,14 +56,6 @@ public abstract class QueryOptions extends CommonQueryOptions {
               + " Starlark rules.")
   public abstract boolean getDisplayFullKind();
 
-  @Option(
-      name = "null",
-      defaultValue = "null",
-      expansion = {"--line_terminator_null=true"},
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Whether each format is terminated with \\0 instead of newline.")
-  public abstract Void getIsNull();
 
   @Option(
       name = "order_results",
