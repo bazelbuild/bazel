@@ -126,7 +126,7 @@ public final class SpawnRunnerTestUtil {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(boolean willAccessRepeatedly) {
+    public SortedMap<PathFragment, ActionInput> getInputMapping() {
       TreeMap<PathFragment, ActionInput> inputMapping = new TreeMap<>(HIERARCHICAL_COMPARATOR);
       for (ActionInput actionInput : spawn.getInputFiles().flatten()) {
         inputMapping.put(actionInput.getExecPath(), actionInput);

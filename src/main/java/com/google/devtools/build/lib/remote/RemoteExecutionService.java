@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -1955,16 +1956,18 @@ public class RemoteExecutionService {
     }
   }
 
-  private void checkForConcurrentModifications(
-      RemoteAction action, ConcurrentChangesCheckLevel level) throws IOException {
+  @VisibleForTesting
+  void checkForConcurrentModifications(RemoteAction action, ConcurrentChangesCheckLevel level)
+      throws IOException {
     if (level == ConcurrentChangesCheckLevel.OFF) {
       return;
     }
 
-    // As this check runs after the action has been executed, we can reuse the input map if it
-    // has already been created with willAccessRepeatedly = true, but do not need to force its
-    // retention.
-    for (ActionInput input : action.getInputMap(/* willAccessRepeatedly= */ false).values()) {
+    InputMetadataProvider metadataProvider =
+        action.getSpawnExecutionContext().getInputMetadataProvider();
+    // Modification checks use original exec paths and do not need a sorted input mapping.
+    for (ActionInput input :
+        RemoteActionInputs.expand(action.getSpawn().getInputFiles().flatten(), metadataProvider)) {
       // In lite mode, only check source artifacts in the main repository for modifications.
       // Non-source artifacts are made read-only after execution, and external repositories are
       // rarely modified, with local_repository being the notable exception.
@@ -1980,8 +1983,7 @@ public class RemoteExecutionService {
       } else if (input instanceof VirtualActionInput) {
         continue;
       }
-      FileArtifactValue metadata =
-          action.getSpawnExecutionContext().getInputMetadataProvider().getInputMetadata(input);
+      FileArtifactValue metadata = metadataProvider.getInputMetadata(input);
       Path path = execRoot.getRelative(input.getExecPath());
       if (metadata.wasModifiedSinceDigest(path)) {
         throw new IOException(path + " was modified during execution");

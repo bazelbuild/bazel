@@ -176,7 +176,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getInputMetadataProvider(),
-            () -> context.getInputMapping(/* willAccessRepeatedly= */ false),
+            context::getInputMapping,
             actionExecutionContext.getActionFileSystem() != null
                 ? actionExecutionContext.getActionFileSystem()
                 : actionExecutionContext.getExecRoot().getFileSystem(),
@@ -282,27 +282,16 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(boolean willAccessRepeatedly) {
-      // Return previously computed copy if present.
-      if (lazyInputMapping != null) {
-        return lazyInputMapping;
+    public SortedMap<PathFragment, ActionInput> getInputMapping() {
+      if (lazyInputMapping == null) {
+        try (SilentCloseable c =
+            Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
+          lazyInputMapping =
+              spawnInputExpander.getInputMapping(
+                  spawn, actionExecutionContext.getInputMetadataProvider());
+        }
       }
-
-      SortedMap<PathFragment, ActionInput> inputMapping;
-      try (SilentCloseable c =
-          Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
-        inputMapping =
-            spawnInputExpander.getInputMapping(
-                spawn, actionExecutionContext.getInputMetadataProvider());
-      }
-
-      // Don't cache the input mapping if it is unlikely that it is used again.
-      // This reduces memory usage in the case where remote caching/execution is
-      // used, and the expected cache hit rate is high.
-      if (willAccessRepeatedly) {
-        lazyInputMapping = inputMapping;
-      }
-      return inputMapping;
+      return lazyInputMapping;
     }
 
     @Override

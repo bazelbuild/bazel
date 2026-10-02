@@ -194,9 +194,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       SandboxInputs inputFiles;
       try (SilentCloseable c1 =
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
-        inputFiles =
-            SandboxHelpers.processInputFiles(
-                context.getInputMapping(/* willAccessRepeatedly= */ true), execRoot);
+        inputFiles = SandboxHelpers.processInputFiles(context.getInputMapping(), execRoot);
       }
       SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 

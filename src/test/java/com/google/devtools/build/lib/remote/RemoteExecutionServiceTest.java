@@ -33,6 +33,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -82,6 +83,8 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -135,6 +138,7 @@ import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
@@ -2526,6 +2530,120 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void checkForConcurrentModifications_withoutInputMapping(
+      @TestParameter({"source", "external", "derived", "tree", "fileset", "runfiles"})
+          String inputKind,
+      @TestParameter ConcurrentChangesCheckLevel level,
+      @TestParameter boolean modified)
+      throws Exception {
+    var metadataProvider = spy(fakeFileCache);
+    Artifact file;
+    Artifact input;
+    switch (inputKind) {
+      case "derived" -> {
+        file = ActionsTestUtil.createArtifact(artifactRoot, "input");
+        input = file;
+      }
+      case "external" -> {
+        file =
+            ActionsTestUtil.createArtifact(
+                ArtifactRoot.asExternalSourceRoot(
+                    Root.fromPath(execRoot.getRelative("external/repo"))),
+                "input");
+        input = file;
+      }
+      case "tree" -> {
+        var tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "tree");
+        file = TreeFileArtifact.createTreeOutput(tree, "child");
+        input = tree;
+      }
+      default -> {
+        file = ActionsTestUtil.createArtifact(sourceRoot, "input");
+        input = file;
+      }
+    }
+    metadataProvider.createScratchInput(file, "original contents");
+    switch (inputKind) {
+      case "tree" ->
+          metadataProvider.addTreeArtifact(
+              input,
+              TreeArtifactValue.newBuilder((Artifact.SpecialArtifact) input)
+                  .putChild((TreeFileArtifact) file, metadataProvider.getInputMetadata(file))
+                  .build());
+      case "fileset" -> {
+        input =
+            Artifact.SpecialArtifact.create(
+                artifactRoot,
+                artifactRoot.getExecPath().getRelative("fileset"),
+                ActionsTestUtil.NULL_ARTIFACT_OWNER,
+                Artifact.SpecialArtifactType.FILESET);
+        doReturn(
+                FilesetOutputTree.create(
+                    ImmutableList.of(
+                        new FilesetOutputSymlink(
+                            PathFragment.create("link"),
+                            file,
+                            metadataProvider.getInputMetadata(file))),
+                    ImmutableMap.of()))
+            .when(metadataProvider)
+            .getFileset(input);
+      }
+      case "runfiles" -> {
+        input =
+            Artifact.SpecialArtifact.create(
+                artifactRoot,
+                artifactRoot.getExecPath().getRelative("tool.runfiles"),
+                ActionsTestUtil.NULL_ARTIFACT_OWNER,
+                Artifact.SpecialArtifactType.RUNFILES);
+        metadataProvider.addRunfilesTree(
+            input, createRunfilesTree("tool.runfiles", ImmutableList.of(file)));
+      }
+      default -> {}
+    }
+    var emptyTree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "empty");
+    metadataProvider.addTreeArtifact(emptyTree, TreeArtifactValue.newBuilder(emptyTree).build());
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withInputs(
+                input, emptyTree, ActionsTestUtil.createVirtualActionInput("params", "value"))
+            .setPathMapper(path -> PathFragment.create("mapped").getRelative(path))
+            .build();
+    var context =
+        spy(
+            new FakeSpawnExecutionContext(
+                spawn, metadataProvider, execRoot, outErr, ImmutableClassToInstanceMap.of(), null));
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = mock(RemoteAction.class);
+    when(action.getSpawn()).thenReturn(spawn);
+    when(action.getSpawnExecutionContext()).thenReturn(context);
+    doThrow(new AssertionError("Concurrent modification checks must not request an input mapping"))
+        .when(context)
+        .getInputMapping();
+    if (modified) {
+      Path path = execRoot.getRelative(file.getExecPath());
+      FileSystemUtils.writeContentAsLatin1(path, "modified contents");
+      // Ensure a distinct timestamp even when both writes happen in the same clock tick.
+      path.setLastModifiedTime(path.getLastModifiedTime() + 1000);
+    }
+    boolean shouldReject =
+        modified
+            && (level == ConcurrentChangesCheckLevel.FULL
+                || (level == ConcurrentChangesCheckLevel.LITE
+                    && file.isSourceArtifact()
+                    && !file.getRoot().isExternal()));
+    if (shouldReject) {
+      IOException error =
+          assertThrows(
+              IOException.class, () -> service.checkForConcurrentModifications(action, level));
+      assertThat(error)
+          .hasMessageThat()
+          .contains(execRoot.getRelative(file.getExecPath()) + " was modified during execution");
+    } else {
+      service.checkForConcurrentModifications(action, level);
+    }
+  }
+
+  @Test
   public void uploadOutputs_backgroundExecutorRejects_runsCompletionCallback() throws Exception {
     RemoteExecutionService service = newRemoteExecutionService();
     Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
@@ -3142,10 +3260,6 @@ public class RemoteExecutionServiceTest {
 
     // Check that inputs and outputs of the remote action are mapped correctly.
     var remoteAction = service.buildRemoteAction(spawn, context);
-    assertThat(remoteAction.getInputMap(false))
-        .containsExactly(
-            PathFragment.create("outputs/bin/input1"), mappedInput,
-            PathFragment.create("outputs/bin/input2"), unmappedInput);
     assertThat(remoteAction.getCommand().getOutputFilesList()).isEmpty();
     assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
     assertThat(remoteAction.getCommand().getOutputPathsList())

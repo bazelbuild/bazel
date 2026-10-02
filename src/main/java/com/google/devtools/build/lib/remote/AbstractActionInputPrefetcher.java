@@ -334,7 +334,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   /**
    * Fetches remotely stored action outputs and stores them under their path in the output base.
    *
-   * <p>The {@code inputs} may not contain any unexpanded directories.
+   * <p>When a spawn is available, expand its inputs lazily without constructing the input mapping.
+   * Prefetching uses the original input paths, so it does not need the mapped paths or their order.
    *
    * <p>This method is safe to be called concurrently from spawn runners before running any local
    * spawn.
@@ -350,7 +351,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Priority priority,
       Reason reason) {
     return prefetchFilesInterruptibly(
-        action, expandedInputs.get(), metadataProvider::getInputMetadata, priority, reason);
+        action,
+        spawn != null
+            ? RemoteActionInputs.expand(spawn.getInputFiles().flatten(), metadataProvider)
+            : expandedInputs.get(),
+        metadataProvider::getInputMetadata,
+        priority,
+        reason);
   }
 
   /**
