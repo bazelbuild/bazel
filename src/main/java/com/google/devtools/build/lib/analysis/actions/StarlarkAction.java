@@ -388,6 +388,13 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
+    public boolean usesSplitMandatoryInputsActionCacheCheck() {
+      return shadowedAction
+          .map(Action::usesSplitMandatoryInputsActionCacheCheck)
+          .orElse(false);
+    }
+
+    @Override
     public NestedSet<Artifact> getAllowedDerivedInputs() {
       if (shadowedAction.isPresent()) {
         return createInputs(shadowedAction.get().getAllowedDerivedInputs(), getInputs());
