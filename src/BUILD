@@ -233,14 +233,32 @@ _JLINK_TOOL_LOCATION = select({
     "//conditions:default": "$(location :jdk_for_jlink)",
 })
 
+# Temurin distributions omit JMODs from the JDK archive. Supply the matching
+# module archive when creating either flavor of the embedded runtime.
+_JMODS_REPOS = {
+    "//src/conditions:linux_ppc64le": "@openjdk_linux_ppc64le_jmods//file",
+    "//src/conditions:linux_riscv64": "@openjdk_linux_riscv64_jmods//file",
+    "//src/conditions:linux_s390x": "@openjdk_linux_s390x_jmods//file",
+}
+
+_JMODS_SRCS = select({
+    condition: [repo]
+    for condition, repo in _JMODS_REPOS.items()
+} | {"//conditions:default": []})
+
+_JMODS_ARG = select({
+    condition: " $(location %s)" % repo
+    for condition, repo in _JMODS_REPOS.items()
+} | {"//conditions:default": ""})
+
 genrule(
     name = "embedded_jdk_minimal",
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + _JMODS_SRCS,
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + _JMODS_ARG,
     tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -250,9 +268,9 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + _JMODS_SRCS,
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + _JMODS_ARG,
     tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
