@@ -3262,6 +3262,7 @@ java_library(
     name = "external_files_helper",
     srcs = ["ExternalFilesHelper.java"],
     deps = [
+        ":already_reported_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -3273,6 +3274,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party/java/flogger",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",

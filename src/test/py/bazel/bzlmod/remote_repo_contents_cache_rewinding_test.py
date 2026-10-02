@@ -557,7 +557,7 @@ class RemoteRepoContentsCacheRewindingTest(
     exit_code, _, stderr = self.RunBazel(
         ['build', '//main:use_data'], allow_failure=True
     )
-    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.AssertExitCode(exit_code, 1, stderr)
     stderr = '\n'.join(stderr)
     self.assertIn('JUST FETCHED', stderr)
     self.assertRegex(
@@ -596,7 +596,7 @@ class RemoteRepoContentsCacheRewindingTest(
     exit_code, _, stderr = self.RunBazel(
         ['build', '//main:use_data'], allow_failure=True
     )
-    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.AssertExitCode(exit_code, 1, stderr)
     stderr = '\n'.join(stderr)
     self.assertIn('JUST FETCHED', stderr)
     self.assertRegex(

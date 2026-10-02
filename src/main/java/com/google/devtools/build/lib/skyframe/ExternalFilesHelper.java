@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
@@ -362,10 +363,23 @@ public class ExternalFilesHelper {
    * through symlinks. So the upwards transitive closure of external files is small.
    */
   private void addExternalFilesDependencies(RootedPath rootedPath, Environment env)
-      throws InterruptedException {
+      throws IOException, InterruptedException {
     var repositoryName = getExternalRepoName(rootedPath);
-    if (repositoryName != null) {
-      env.getValue(RepositoryDirectoryValue.key(repositoryName));
+    if (repositoryName == null) {
+      return;
+    }
+    try {
+      env.getValueOrThrow(
+          RepositoryDirectoryValue.key(repositoryName),
+          IOException.class,
+          EvalException.class,
+          AlreadyReportedException.class);
+    } catch (EvalException | AlreadyReportedException e) {
+      // The repo is usually fetched before any of its files are accessed, with the exception of a
+      // repo that is fetched again to restore files that have been lost. Those who are waiting for
+      // such a file expect a failure to access it.
+      throw new IOException(
+          "failed to fetch repository %s: %s".formatted(repositoryName, e.getMessage()), e);
     }
   }
 
