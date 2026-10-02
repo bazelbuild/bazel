@@ -123,7 +123,6 @@ struct CreateSymlinkResult {
   enum {
     kSuccess = 0,
     kError = 1,
-    kTargetIsDirectory = 2,
   };
 };
 
@@ -185,12 +184,11 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
 
 // Creates a symlink at `symlink_name`, pointing to `symlink_target`.
 // Returns CreateSymlinkResult::kSuccess if could create the symlink.
-// If the target is a directory, this function will return
-// CreateSymlinkResult::kTargetIsDirectory since a junction is preferred
-// instead. When the function returns CreateSymlinkResult::kError and `error`
-// is non-null then `error` receives an error message.
+// A directory symlink is created if `is_directory` is true or the target is an
+// existing directory. When the function returns CreateSymlinkResult::kError and
+// `error` is non-null then `error` receives an error message.
 int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
-                  wstring* error);
+                  bool is_directory, wstring* error);
 
 // Reads the symlink or junction into 'result'.
 // Returns a value from 'ReadSymlinkOrJunctionResult'.

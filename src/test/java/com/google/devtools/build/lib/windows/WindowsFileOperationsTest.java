@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -84,15 +82,10 @@ public class WindowsFileOperationsTest {
   }
 
   @Test
-  public void testSymlinkCreationFailsForDirectory() throws Exception {
+  public void testSymlinkCreationForDirectory() throws Exception {
     testUtil.scratchDir("dir").toFile();
-
-    try {
-      testUtil.createSymlinks(ImmutableMap.of("symlink", "dir"));
-      fail("Expected to throw: Symlinks to a directory should fail.");
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().contains("target is a directory");
-    }
+    testUtil.createSymlinks(ImmutableMap.of("symlink", "dir"));
+    assertThat(WindowsFileOperations.isSymlinkOrJunction(scratchRoot + "/symlink")).isTrue();
   }
 
   @Test

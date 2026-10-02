@@ -96,11 +96,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       if (!createSymbolicLinks && existingFile) {
         // If symlinks aren't enabled and the target is an existing file, fall back to a copy.
         Files.copy(target, link);
-      } else if (createSymbolicLinks
-          && (existingFile || (!existingDirectory && type != SymlinkTargetType.DIRECTORY))) {
-        // If symlinks are enabled and the target is not an existing or future directory, create a
-        // symlink.
-        WindowsFileOperations.createSymlink(link.toString(), target.toString());
+      } else if (createSymbolicLinks) {
+        WindowsFileOperations.createSymlink(
+            link.toString(),
+            target.toString(),
+            existingDirectory || (!existingFile && type == SymlinkTargetType.DIRECTORY));
       } else {
         // Otherwise, create a junction.
         WindowsFileOperations.createJunction(link.toString(), target.toString());
