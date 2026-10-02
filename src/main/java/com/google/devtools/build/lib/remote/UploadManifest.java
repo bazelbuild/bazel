@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -313,6 +314,27 @@ public class UploadManifest {
   @VisibleForTesting
   public Map<Digest, Path> getDigestToFile() {
     return digestToFile;
+  }
+
+  /**
+   * Changes where the contents of files are read from when they are uploaded: a file below {@code
+   * sourceDir} is read from the same relative path below {@code targetDir}, which must have the
+   * same contents, and any other file is read now and kept in memory.
+   *
+   * <p>Must be called before the upload starts. The files that this manifest has been created from
+   * can be moved or deleted afterwards, whereas those below {@code targetDir} have to stay in place
+   * until all uploads of them have finished.
+   */
+  public void relocateFiles(Path sourceDir, Path targetDir) throws IOException {
+    for (var entry : digestToFile.entrySet()) {
+      Path file = entry.getValue();
+      if (file.startsWith(sourceDir)) {
+        entry.setValue(targetDir.getRelative(file.relativeTo(sourceDir)));
+      } else {
+        digestToBlobs.put(entry.getKey(), ByteString.copyFrom(FileSystemUtils.readContent(file)));
+        digestToFile.remove(entry.getKey());
+      }
+    }
   }
 
   @Nullable

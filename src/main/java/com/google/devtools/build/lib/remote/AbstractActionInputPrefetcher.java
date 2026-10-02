@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
@@ -729,6 +730,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return failure;
   }
 
+  /**
+   * Records the loss of a file in an external repo with the file system serving the repo.
+   *
+   * @param path the fully resolved path of the file on the file system serving the repo, which
+   *     identifies the repo to fetch again: an input can be a symlink to a file in another repo
+   */
+  private static void markLostRepoFile(Throwable failure, Path path) {
+    if (failure instanceof CacheNotFoundException
+        && path.getFileSystem() instanceof RewindableRepoFileSystem fs
+        && fs.isRepoPath(path.asFragment())) {
+      fs.markLostRepoFile(fs.repoContaining(path.asFragment()));
+    }
+  }
+
   private Completable downloadFileNoCheckRx(
       @Nullable ActionExecutionMetadata action,
       ActionInput input,
@@ -755,6 +770,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return Completable.error(e);
     }
 
+    Path resolvedPath = path;
     // Downloads are written to the actual host file system, not any overlays.
     Path finalPath = path.forHostFileSystem();
 
@@ -799,16 +815,18 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           alreadyDeleted.set(true);
                         }));
 
-    return downloadCache.execute(
-        finalPath,
-        Completable.defer(
-            () -> {
-              if (shouldDownloadFile(finalPath, metadata)) {
-                return download;
-              }
-              return Completable.complete();
-            }),
-        forceRefetch(finalPath));
+    return downloadCache
+        .execute(
+            finalPath,
+            Completable.defer(
+                () -> {
+                  if (shouldDownloadFile(finalPath, metadata)) {
+                    return download;
+                  }
+                  return Completable.complete();
+                }),
+            forceRefetch(finalPath))
+        .doOnError(e -> markLostRepoFile(e, resolvedPath));
   }
 
   private void finalizeDownload(

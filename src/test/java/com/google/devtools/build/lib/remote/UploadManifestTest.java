@@ -809,6 +809,36 @@ public class UploadManifestTest {
   }
 
   @Test
+  public void relocateFiles() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectoryAndParents();
+    Path fileInDir = dir.getRelative("file");
+    FileSystemUtils.writeContent(fileInDir, new byte[] {1, 2, 3});
+    Path otherFile = execRoot.getRelative("other");
+    FileSystemUtils.writeContent(otherFile, new byte[] {4, 5});
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /* allowAbsoluteSymlinks= */ false,
+            /* preserveExecutableBit= */ true);
+    um.addFiles(ImmutableList.of(dir, otherFile));
+    Digest fileDigest = digestUtil.compute(fileInDir);
+    Digest otherDigest = digestUtil.compute(otherFile);
+    ActionResult resultBeforeRelocation = result.build();
+
+    Path newDir = execRoot.getRelative("new_dir");
+    um.relocateFiles(dir, newDir);
+    otherFile.delete();
+
+    assertThat(um.getDigestToFile()).containsExactly(fileDigest, newDir.getRelative("file"));
+    assertThat(um.getBlob(otherDigest).toByteArray()).isEqualTo(new byte[] {4, 5});
+    assertThat(result.build()).isEqualTo(resultBeforeRelocation);
+  }
+
+  @Test
   public void actionResult_preserveExecutableBit_executableFile() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
     Path file = execRoot.getRelative("file");

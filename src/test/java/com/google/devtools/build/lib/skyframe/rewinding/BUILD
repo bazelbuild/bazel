@@ -89,6 +89,7 @@ java_test(
     srcs = ["RepoRewindingTest.java"],
     shard_count = 4,
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
         ":rewinding_tests_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",

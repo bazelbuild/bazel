@@ -424,7 +424,7 @@ public final class ActionRewindStrategy {
       if (file == null) {
         missingDependencies = true;
       } else {
-        addLostSourceFileNodesToRewindGraph(rewindGraph, lostSource, file);
+        rewindLostSourceFile(rewindGraph, lostSource, file);
       }
       // Aggregation artifacts (e.g. runfiles trees) containing the lost source artifact cache its
       // metadata, so their rewound nodes must be re-evaluated after the source artifact.
@@ -796,11 +796,10 @@ public final class ActionRewindStrategy {
         // Unlike a derived artifact, a lost source artifact is rewound even if an aggregation
         // artifact owning it is a direct dep: rewinding that aggregation alone would recompute it
         // from the very file that is gone.
-        if (foundLostInputDepOwner || expandedDeps.contains(Artifact.key(sourceArtifact))) {
-          if (markLostSourceFile(sourceArtifact)) {
-            sourceArtifacts.add(sourceArtifact);
-            foundLostInputDepOwner = true;
-          }
+        if (repoFileSystem != null
+            && (foundLostInputDepOwner || expandedDeps.contains(Artifact.key(sourceArtifact)))) {
+          sourceArtifacts.add(sourceArtifact);
+          foundLostInputDepOwner = true;
         }
       } else if (lostInput instanceof Artifact artifact
           && expandedDeps.contains(Artifact.key(artifact))) {
@@ -840,19 +839,6 @@ public final class ActionRewindStrategy {
   }
 
   /**
-   * Marks the given lost source artifact's file as lost in the repository file system and returns
-   * whether the file can be recovered by rewinding.
-   */
-  private boolean markLostSourceFile(SourceArtifact artifact) {
-    if (repoFileSystem == null) {
-      return false;
-    }
-    RepositoryName repo = artifact.getRoot().getExternalRepositoryName();
-    repoFileSystem.markLostRepoFile(repo);
-    return true;
-  }
-
-  /**
    * Returns the file node of the given source artifact, which every action reading it depends on,
    * or null if another rewind is already rebuilding it.
    */
@@ -863,21 +849,31 @@ public final class ActionRewindStrategy {
   }
 
   /**
-   * Adds the chain of Skyframe nodes that must be rewound to recover a lost source artifact served
-   * from the remote repo contents cache.
+   * Marks the file that the given lost source artifact resolves to as lost in the repository file
+   * system and adds the chain of Skyframe nodes that must be rewound to recover it. Returns whether
+   * the file can be recovered this way, which requires it to lie in a repository.
+   *
+   * <p>The file can lie in a different repository than the artifact, which may be a symlink into
+   * another repository whose contents are served from the remote repo contents cache.
    */
-  private static void addLostSourceFileNodesToRewindGraph(
+  private boolean rewindLostSourceFile(
       MutableGraph<SkyKey> rewindGraph, SourceArtifact lostSource, FileValue file) {
     RootedPath rootedPath = lostSource.getRootedPath();
-    SkyKey fileKey = FileValue.key(rootedPath);
     // FileFunction stats the resolved path, which can also have a different root after following
     // an ancestor symlink. Rewinding the lexical FileState would leave remote metadata cached.
-    SkyKey fileStateKey = FileStateValue.key(file.realRootedPath(rootedPath));
+    RootedPath realRootedPath = file.realRootedPath(rootedPath);
+    PathFragment realPath = realRootedPath.asPath().asFragment();
+    if (!repoFileSystem.isRepoPath(realPath)) {
+      return false;
+    }
+    RepositoryName repo = repoFileSystem.repoContaining(realPath);
+    repoFileSystem.markLostRepoFile(repo);
+    SkyKey fileKey = FileValue.key(rootedPath);
+    SkyKey fileStateKey = FileStateValue.key(realRootedPath);
     rewindGraph.putEdge(lostSource, fileKey);
     rewindGraph.putEdge(fileKey, fileStateKey);
-    rewindGraph.putEdge(
-        fileStateKey,
-        RepositoryDirectoryValue.key(lostSource.getRoot().getExternalRepositoryName()));
+    rewindGraph.putEdge(fileStateKey, RepositoryDirectoryValue.key(repo));
+    return true;
   }
 
   /**
@@ -972,9 +968,8 @@ public final class ActionRewindStrategy {
             lostRepoPaths.contains(sourceTarget.getPath().asFragment())
                 || lostRepoPaths.contains(
                     file.realRootedPath(sourceTarget.getRootedPath()).asPath().asFragment());
-        if (lost && markLostSourceFile(sourceTarget)) {
+        if (lost && rewindLostSourceFile(rewindGraph, sourceTarget, file)) {
           rewindGraph.putEdge(actionAndLookupData.lookupData(), sourceTarget);
-          addLostSourceFileNodesToRewindGraph(rewindGraph, sourceTarget, file);
         }
       }
 

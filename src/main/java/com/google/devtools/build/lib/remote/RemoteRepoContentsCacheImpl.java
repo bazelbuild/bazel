@@ -280,11 +280,15 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           repoName, remoteFs.describeFirstDifference(repoName, fetchedRepoDir));
     }
 
-    // Upload the files while they are still at the location recorded in the manifest, which also
-    // repairs the cache entry for others.
+    remoteFs.materializeFrom(repoName, fetchedRepoDir, reporter);
+
+    // Upload the files to repair the cache entry for others.
     var context = buildContext(repoName, CacheOp.UPLOAD);
     if (context.getWriteCachePolicy().allowRemoteCache()) {
       try {
+        // An upload shared with other uploads of the same contents can outlive the staging
+        // directory, so the files are uploaded from the repo they have been installed into.
+        manifest.relocateFiles(fetchedRepoDir, repoDir);
         var unusedHash =
             uploadIntermediateActionResults(context, predeclaredInputHash, recordedInputValues);
         // This server may have uploaded the lost files itself, in which case their uploads must
@@ -297,8 +301,6 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                     .formatted(repoName, maybeGetStackTrace(e))));
       }
     }
-
-    remoteFs.materializeFrom(repoName, fetchedRepoDir, reporter);
   }
 
   @Override

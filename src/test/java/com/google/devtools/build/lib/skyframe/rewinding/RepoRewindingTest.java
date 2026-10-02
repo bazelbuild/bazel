@@ -146,6 +146,11 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
 
         materializing_dep_repo = repository_rule(implementation = _materializing_dep_repo_impl)
 
+        def _link_repo_impl(rctx):
+            rctx.file("BUILD", "exports_files(['link.txt'])")
+            rctx.symlink(Label("@repo_a//:src.txt"), "link.txt")
+
+        link_repo = repository_rule(implementation = _link_repo_impl)
         """);
   }
 
@@ -381,6 +386,51 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     assertThat(rewoundKeys).contains(Artifact.key(lostInput.get()));
     assertThat(helper.getExecutedSpawnDescriptions())
         .containsExactly("Executing genrule //test:consume", "Executing genrule //test:consume");
+  }
+
+  @Test
+  public void lostFileBehindSymlinkIntoOtherRepo_otherRepoRewound() throws Exception {
+    writeRepoRule();
+    write("repo/content_a.txt", "old");
+    appendToModuleFile(
+        "my_repo = use_repo_rule('//repo:repo.bzl', 'my_repo')",
+        "my_repo(name = 'repo_a', content_file = 'content_a.txt')",
+        "link_repo = use_repo_rule('//repo:repo.bzl', 'link_repo')",
+        "link_repo(name = 'repo_link')");
+    write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "consume",
+            srcs = ["@repo_link//:link.txt"],
+            outs = ["out.txt"],
+            cmd = "cp $< $@",
+        )
+        """);
+
+    helper.addSpawnShim(
+        "Executing genrule //test:consume",
+        (spawn, context) -> {
+          // The input lies in @repo_link, but the file whose contents are lost lies in @repo_a.
+          Artifact input = (Artifact) SpawnInputUtils.getInputWithName(spawn, "link.txt");
+          write("repo/content_a.txt", "new");
+          var unused =
+              getOutputBase()
+                  .getRelative("external")
+                  .getRelative(canonicalRepoName("repo_a").getMarkerFileName())
+                  .delete();
+          return helper.createLostInputsExecException(context, ImmutableList.of(input));
+        });
+
+    List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
+    buildTarget("//test:consume");
+
+    helper.verifyAllSpawnShimsConsumed();
+    assertContents("new", "//test:consume");
+    assertThat(rewindableFs.lostRepos).containsExactly(canonicalRepoName("repo_a"));
+    assertThat(rewoundKeys).contains(RepositoryDirectoryValue.key(canonicalRepoName("repo_a")));
+    assertThat(rewoundKeys)
+        .doesNotContain(RepositoryDirectoryValue.key(canonicalRepoName("repo_link")));
   }
 
   @Test
