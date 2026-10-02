@@ -536,6 +536,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   metadata,
                   priority,
                   reason)
+              .onErrorResumeNext(e -> Completable.error(withInputOfCaller(e, input)))
               .andThen(plantSymlinks);
 
       return toListenableFuture(result);
@@ -711,6 +712,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       throw new FileSymlinkLoopException(path.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
     }
     return path;
+  }
+
+  /**
+   * Downloads are shared by all callers that request the same file, possibly through different
+   * inputs, and their failures name the input of the caller that started them. Returns a failure
+   * that names the given input of the current caller instead.
+   */
+  private static Throwable withInputOfCaller(Throwable failure, ActionInput input) {
+    if (failure instanceof CacheNotFoundException e
+        && !input.getExecPath().equals(e.getExecPath())) {
+      var ownFailure = new CacheNotFoundException(e.getMissingDigest(), input.getExecPath());
+      ownFailure.addSuppressed(e);
+      return ownFailure;
+    }
+    return failure;
   }
 
   private Completable downloadFileNoCheckRx(
