@@ -319,7 +319,7 @@ public interface SpawnRunner {
             .prefetchFiles(
                 spawn.getResourceOwner(),
                 spawn,
-                () -> getInputMapping(/* willAccessRepeatedly= */ true).values(),
+                /* expandedInputs= */ null,
                 getInputMetadataProvider(),
                 Priority.MEDIUM,
                 Reason.INPUTS);

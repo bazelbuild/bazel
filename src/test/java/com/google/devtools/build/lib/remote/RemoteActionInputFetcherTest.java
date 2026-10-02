@@ -102,7 +102,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
   }
 
   @Test
-  public void prefetchFiles_spawnInputs_doesNotRequestInputMapping() throws Exception {
+  public void prefetchFiles_spawnInputs_doesNotRequireExpandedInputs() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
     Artifact file = createRemoteArtifact("file", "remote contents", metadata, cas);
@@ -282,7 +282,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             .prefetchFiles(
                 action,
                 /* spawn= */ null,
-                () -> ImmutableList.of(file),
+                ImmutableList.of(file),
                 new StaticInputMetadataProvider(metadata),
                 Priority.LOW,
                 Reason.OUTPUTS));
@@ -316,9 +316,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         prefetcher.prefetchFiles(
             action,
             new SpawnBuilder().withInputs(inputs).build(),
-            () -> {
-              throw new AssertionError("Prefetching should not request the expanded input mapping");
-            },
+            /* expandedInputs= */ null,
             metadataProvider,
             Priority.MEDIUM,
             Reason.INPUTS));

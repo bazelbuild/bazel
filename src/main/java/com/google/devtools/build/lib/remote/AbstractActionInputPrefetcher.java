@@ -73,7 +73,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -346,7 +345,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   public ListenableFuture<Void> prefetchFiles(
       @Nullable ActionExecutionMetadata action,
       @Nullable Spawn spawn,
-      Supplier<Iterable<? extends ActionInput>> expandedInputs,
+      @Nullable Iterable<? extends ActionInput> expandedInputs,
       InputMetadataProvider metadataProvider,
       Priority priority,
       Reason reason) {
@@ -354,7 +353,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         action,
         spawn != null
             ? RemoteActionInputs.expand(spawn.getInputFiles().flatten(), metadataProvider)
-            : expandedInputs.get(),
+            : checkNotNull(expandedInputs),
         metadataProvider::getInputMetadata,
         priority,
         reason);

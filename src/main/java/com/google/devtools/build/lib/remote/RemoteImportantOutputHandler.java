@@ -210,7 +210,7 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
                 // implement the required ActionExecutionMetadata.
                 getGeneratingAction(filesToDownload.getFirst()),
                 /* spawn= */ null,
-                () -> filesToDownload,
+                filesToDownload,
                 metadataProvider,
                 ActionInputPrefetcher.Priority.LOW,
                 ActionInputPrefetcher.Reason.OUTPUTS));
@@ -229,7 +229,7 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
                     ? getGeneratingAction(derivedArtifact)
                     : null,
                 /* spawn= */ null,
-                () -> ImmutableList.of(artifact),
+                ImmutableList.of(artifact),
                 metadataProvider,
                 ActionInputPrefetcher.Priority.LOW,
                 ActionInputPrefetcher.Reason.OUTPUTS));
