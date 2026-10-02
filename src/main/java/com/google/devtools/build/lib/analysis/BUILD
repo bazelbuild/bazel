@@ -50,7 +50,6 @@ java_library(
         "SourceManifestAction.java",
         "Util.java",
         "configuredtargets/AbstractConfiguredTarget.java",
-        "configuredtargets/EnvironmentGroupConfiguredTarget.java",
         "configuredtargets/FileConfiguredTarget.java",
         "configuredtargets/InputFileConfiguredTarget.java",
         "configuredtargets/MergedConfiguredTarget.java",
@@ -2388,12 +2387,28 @@ java_library(
 )
 
 java_library(
+    name = "configuredtargets/environment_group_configured_target",
+    srcs = ["configuredtargets/EnvironmentGroupConfiguredTarget.java"],
+    deps = [
+        ":analysis_core",
+        ":visibility_provider",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "configured_target_factory",
     srcs = ["ConfiguredTargetFactory.java"],
     deps = [
         ":analysis_core",
         ":configured_aspect_factory",
         ":configured_target",
+        ":configuredtargets/environment_group_configured_target",
         ":dependency_kind",
         ":exec_group_collection",
         ":required_config_fragments_provider",
@@ -2428,7 +2443,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",

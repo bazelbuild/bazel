@@ -44,6 +44,13 @@ py_library(
 )
 
 py_test(
+    name = "action_stdout_test",
+    size = "medium",
+    srcs = ["action_stdout_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "action_temp_test",
     size = "medium",
     srcs = ["action_temp_test.py"],

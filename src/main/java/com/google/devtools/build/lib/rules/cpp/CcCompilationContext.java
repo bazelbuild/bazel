@@ -303,12 +303,24 @@ public final class CcCompilationContext {
     HeaderInfo headerInfo = getHeaderInfo();
     Collection<HeaderInfo> transitiveHeaderInfos = headerInfo.getTransitiveCollection();
     ArrayList<Artifact> treeArtifacts = new ArrayList<>();
+    int expectedHeaderCount = 0;
+    int expectedModularHeaderCount = 0;
+    for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
+      int modularCount =
+          transitiveHeaderInfo.modularPublicHeaders.size()
+              + transitiveHeaderInfo.modularPrivateHeaders.size()
+              + transitiveHeaderInfo.separateModuleHeaders.size();
+      expectedHeaderCount += modularCount + transitiveHeaderInfo.textualHeaders.size();
+      if (createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null) {
+        expectedModularHeaderCount += modularCount;
+      }
+    }
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
     Map<PathFragment, Artifact> pathToLegalArtifact =
-        CompactHashMap.createWithExpectedSize(transitiveHeaderInfos.size());
+        CompactHashMap.createWithExpectedSize(expectedHeaderCount);
     Set<Artifact> modularHeaders =
-        CompactHashSet.createWithExpectedSize(transitiveHeaderInfos.size());
+        CompactHashSet.createWithExpectedSize(expectedModularHeaderCount);
     // Not using range-based for loops here and below as the additional overhead of the
     // ImmutableList iterators has shown up in profiles.
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {

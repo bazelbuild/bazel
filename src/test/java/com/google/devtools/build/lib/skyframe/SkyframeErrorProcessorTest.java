@@ -2180,35 +2180,51 @@ public class SkyframeErrorProcessorTest {
     assertThat(bugReporter.nonFatalBugReports).isEmpty();
   }
 
-  // TODO(b/561978611): Remove this behavior. A cycle on an ActionLookupData crashes with a
-  // NullPointerException.
   @Test
-  public void actionLookupDataCycle_filesBugReportThenThrowsNullPointerException(
-      @TestParameter boolean keepGoing) {
-    // Latent bug, in both keep_going modes: for an ActionLookupData key, classify unconditionally
-    // takes the execution path and hands the ErrorInfo's exception - null, for a
-    // cycle - to getExecutionDetailedExitCodeFromCause. DetailedException.getDetailedExitCode(null)
-    // is harmless there (a plain instanceof check that returns null), so the null cause reaches
-    // sendBugReportAndCreateUnknownExecutionDetailedExitCode, which files a non-fatal bug report
-    // and *then* dereferences the cause, i.e.
-    // "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage().
-    // That second call, not the getDetailedExitCode one, is where the NPE comes from. All of it
-    // happens before the keepGoing branch, hence the identical crash in both modes.
+  public void actionLookupDataCycle_keepGoing_executionErrorWithCycleCode(
+      @TestParameter boolean executionCycle) throws Exception {
     ConfiguredTargetKey ctKey = configuredTargetKey("//pkg:build_info");
     ActionLookupData key = ActionLookupData.create(ctKey, /* actionIndex= */ 0);
-    // The cycle's contents do not matter: the ActionLookupData branch never inspects them, so not
-    // even an execution cycle gets the CYCLE_CODE shortcut that the other key types get.
-    EvaluationResult<SkyValue> result = resultOf(key, ErrorInfo.fromCycle(executionCycle(ctKey)));
+    CycleInfo cycle =
+        executionCycle ? executionCycle(ctKey) : CycleInfo.createCycleInfo(ImmutableList.of(ctKey));
 
-    assertThrows(
-        NullPointerException.class,
-        () -> processErrors(result, keepGoing, /* includeExecutionPhase= */ true));
+    ErrorProcessingResult result =
+        processErrors(
+            resultOf(key, ErrorInfo.fromCycle(cycle)),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ true);
 
-    // Filed on the injected bug reporter, before the NPE was thrown.
-    assertThat(bugReporter.nonFatalBugReports).hasSize(1);
-    assertThat(bugReporter.nonFatalBugReports.get(0))
-        .hasMessageThat()
-        .startsWith("action terminated with unexpected exception with result");
+    assertThat(result.executionDetailedExitCode()).isEqualTo(EXECUTION_CYCLE_CODE);
+    assertThat(result.hasAnalysisError()).isFalse();
+    assertThat(result.hasLoadingError()).isFalse();
+    assertThat(eventBusCollector.allEvents).isEmpty();
+    assertThat(warningMessages()).isEmpty();
+    assertThat(cyclesReporter.cycles).containsExactly(cycle);
+    assertThat(bugReporter.nonFatalBugReports).isEmpty();
+  }
+
+  @Test
+  public void actionLookupDataCycle_noKeepGoing_throwsBuildFailedExceptionWithCycleCode(
+      @TestParameter boolean executionCycle) {
+    ConfiguredTargetKey ctKey = configuredTargetKey("//pkg:build_info");
+    ActionLookupData key = ActionLookupData.create(ctKey, /* actionIndex= */ 0);
+    CycleInfo cycle =
+        executionCycle ? executionCycle(ctKey) : CycleInfo.createCycleInfo(ImmutableList.of(ctKey));
+
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                processErrors(
+                    resultOf(key, ErrorInfo.fromCycle(cycle)),
+                    /* keepGoing= */ false,
+                    /* includeExecutionPhase= */ true));
+
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(EXECUTION_CYCLE_CODE);
+    assertThat(thrown).hasMessageThat().isNull();
+    assertThat(eventBusCollector.allEvents).isEmpty();
+    assertThat(cyclesReporter.cycles).containsExactly(cycle);
+    assertThat(bugReporter.nonFatalBugReports).isEmpty();
   }
 
   @Test
@@ -2434,14 +2450,11 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown.isCatastrophic()).isTrue();
   }
 
-  // TODO(b/561978611): Remove this behavior. rethrow only carries the catastrophe bit over for an
-  // ActionExecutionException, so every other execution exception silently loses it.
   @Test
-  public void noKeepGoing_catastrophicArtifactNestedSetEvalException_isNotCatastrophic() {
-    // The contrast with the test above. An ArtifactNestedSetEvalException has its own
-    // isCatastrophic flag, which ArtifactNestedSetFunction propagates up through the nested-set
-    // evaluation - and which rethrow() then drops, because the exception reaches the final
-    // "unexpected exception" fallback rather than the ActionExecutionException branch.
+  public void noKeepGoing_artifactNestedSetEvalException_preservesCatastrophicFlag(
+      @TestParameter boolean catastrophic) {
+    // An ArtifactNestedSetEvalException carries an isCatastrophic flag propagated from its child
+    // exceptions by ArtifactNestedSetFunction, which rethrow() forwards to BuildFailedException.
     ConfiguredTargetKey key = configuredTargetKey("//nested_set_err");
 
     BuildFailedException thrown =
@@ -2452,12 +2465,11 @@ public class SkyframeErrorProcessorTest {
                     resultOf(
                         key,
                         errorInfo(
-                            artifactNestedSetEvalException(
-                                "nested set failed", /* catastrophic= */ true))),
+                            artifactNestedSetEvalException("nested set failed", catastrophic))),
                     /* keepGoing= */ false,
                     /* includeExecutionPhase= */ true));
 
-    assertThat(thrown.isCatastrophic()).isFalse();
+    assertThat(thrown.isCatastrophic()).isEqualTo(catastrophic);
     assertThat(thrown)
         .hasMessageThat()
         .isEqualTo(
@@ -2468,16 +2480,15 @@ public class SkyframeErrorProcessorTest {
     assertThat(bugReporter.nonFatalBugReports).hasSize(2);
   }
 
-  // TODO(b/561978611): Remove this behavior. The rethrown message reads "TestAction failed: null".
   @Test
   public void noKeepGoing_actionExecutionErrorWithNoMessage_errorIsMarkedAlreadyShown() {
     // Pins the !showError() branch of rethrow(). The base showError() is getMessage() != null, so
     // with a plain ActionExecutionException the only way to reach it is a null message; the
     // subclass AlreadyReportedActionExecutionException hard-codes false instead, see
-    // noKeepGoing_alreadyReportedActionExecutionError_errorIsMarkedAlreadyShown. Wart: the
-    // rethrown message is *not* null - it comes out as "TestAction failed: null" - which is what
-    // makes isErrorAlreadyShown() prove the showError() branch rather than BuildFailedException's
-    // own null-message shortcut.
+    // noKeepGoing_alreadyReportedActionExecutionError_errorIsMarkedAlreadyShown. Because the
+    // action description is still prepended ("TestAction failed"), the rethrown message is
+    // non-null, so isErrorAlreadyShown() proves the !showError() flag rather than
+    // BuildFailedException's own null-message shortcut.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
     DetailedExitCode exitCode =
         executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
@@ -2498,7 +2509,7 @@ public class SkyframeErrorProcessorTest {
                     /* keepGoing= */ false,
                     /* includeExecutionPhase= */ true));
 
-    assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed: null");
+    assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed");
     assertThat(thrown.isErrorAlreadyShown()).isTrue();
   }
 
@@ -2507,8 +2518,6 @@ public class SkyframeErrorProcessorTest {
     // The production-realistic route into the same branch: SkyframeActionExecutor and
     // ActionExecutionFunction wrap failures they have already reported in
     // AlreadyReportedActionExecutionException, the one showError() override in the codebase.
-    // Unlike the null-message case above, the message survives intact, so this pins the
-    // errorAlreadyShown mapping without also depending on the "TestAction failed: null" wart.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
     DetailedExitCode exitCode =
         executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
@@ -2530,55 +2539,52 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown.isErrorAlreadyShown()).isTrue();
   }
 
-  // TODO(b/561978611): Remove this behavior. rethrow dereferences the action's owner
-  // unconditionally, so the getAction() null check guards nothing.
   @Test
-  public void noKeepGoing_actionExecutionErrorWithOwnerlessAction_throwsNullPointerException() {
-    // Latent bug, pinned on purpose: rethrow() guards on getAction() != null and its comment
-    // claims to handle "Actions with no owner", but it then calls getLocation() unconditionally,
-    // which dereferences action.getOwner(). An action with a null owner passes the guard, gets its
-    // description prepended, and then NPEs.
+  public void noKeepGoing_actionExecutionErrorWithOwnerlessAction_omitsLocationFromMessage() {
+    // An ActionExecutionException whose action has a null owner has no location: rethrow() still
+    // prepends the action description, without a location prefix.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
     ActionAnalysisMetadata ownerlessAction = mock(ActionAnalysisMetadata.class);
     when(ownerlessAction.describe()).thenReturn("TestAction");
     when(ownerlessAction.getOwner()).thenReturn(null);
+    DetailedExitCode exitCode =
+        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
     ActionExecutionException cause =
         new ActionExecutionException(
-            "action failed",
-            ownerlessAction,
-            /* catastrophe= */ false,
-            executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE));
+            "action failed", ownerlessAction, /* catastrophe= */ false, exitCode);
 
-    EvaluationResult<SkyValue> result = resultOf(key, errorInfo(cause));
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                processErrors(
+                    resultOf(key, errorInfo(cause)),
+                    /* keepGoing= */ false,
+                    /* includeExecutionPhase= */ true));
 
-    assertThrows(
-        NullPointerException.class,
-        () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
+    assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed: action failed");
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(exitCode);
   }
 
-  // TODO(b/561978611): Remove this behavior. rethrow dereferences the action's owner
-  // unconditionally, so the getAction() null check guards nothing.
   @Test
-  public void noKeepGoing_actionExecutionErrorWithNoAction_throwsNullPointerException() {
-    // The same latent bug, other flavour: getLocation() also dereferences a *null* action, so the
-    // getAction() != null guard protects nothing. This flavour is only reachable through rethrow()
-    // with --nokeep_going: every other use of the null-action actionExecutionException helper is
-    // --keep_going (rethrow is never called), and
-    // noKeepGoing_testExecExceptionNestedInActionExecutionException_isRethrown escapes earlier via
-    // the nested TestExecException.
+  public void noKeepGoing_actionExecutionErrorWithNoAction_keepsCauseMessageAsIs() {
+    // An ActionExecutionException with a null action has neither an action description nor a
+    // location, so rethrow() leaves the exception's own message untouched.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
+    DetailedExitCode exitCode =
+        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
 
-    EvaluationResult<SkyValue> result =
-        resultOf(
-            key,
-            errorInfo(
-                actionExecutionException(
-                    "action failed",
-                    executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE))));
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                processErrors(
+                    resultOf(key, errorInfo(actionExecutionException("action failed", exitCode))),
+                    /* keepGoing= */ false,
+                    /* includeExecutionPhase= */ true));
 
-    assertThrows(
-        NullPointerException.class,
-        () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
+    assertThat(thrown).hasMessageThat().isEqualTo("action failed");
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(exitCode);
   }
 
   @Test
@@ -3066,9 +3072,7 @@ public class SkyframeErrorProcessorTest {
   }
 
   /**
-   * Same, but with a non-null action. {@code --nokeep_going} needs one: {@link
-   * SkyframeErrorProcessor#rethrow} unconditionally calls {@link
-   * ActionExecutionException#getLocation}, which dereferences the action.
+   * Same, but with a non-null action whose description is {@code "TestAction"}.
    *
    * <p>The action's owner has a null label, which keeps the exception's root causes empty (an owner
    * with a label would make the constructor dereference the action's primary output too).

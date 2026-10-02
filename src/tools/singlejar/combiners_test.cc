@@ -16,9 +16,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
+#include <vector>
 
 #include "src/tools/singlejar/input_jar.h"
+#include "src/tools/singlejar/log4j2_plugin_dat_combiner.h"
 #include "src/tools/singlejar/test_util.h"
 #include "src/tools/singlejar/zip_headers.h"
 #include "src/tools/singlejar/zlib_interface.h"
@@ -362,6 +365,95 @@ TEST_F(CombinersTest, ManifestCombinerFalse) {
   EXPECT_EQ(kCombinedManifestContentsDisabled,
             std::string(reinterpret_cast<char*>(entry->data()), original_size));
   free(reinterpret_cast<void*>(entry));
+}
+
+TEST_F(CombinersTest, XmlCombinerShortInputs) {
+  XmlCombiner xml_combiner("combined.xml", "toplevel");
+  auto merge_bytes = [&](const char* contents) {
+    size_t len = strlen(contents);
+    std::vector<uint8_t> lh_buf(sizeof(LH) + 1 + len, 0);
+    auto* lh = reinterpret_cast<LH*>(lh_buf.data());
+    lh->signature();
+    lh->compression_method(Z_NO_COMPRESSION);
+    lh->compressed_file_size32(len);
+    lh->uncompressed_file_size32(len);
+    lh->file_name("a", 1);
+    if (len > 0) {
+      memcpy(lh->data(), contents, len);
+    }
+    std::vector<uint8_t> cdh_buf(sizeof(CDH) + 1, 0);
+    auto* cdh = reinterpret_cast<CDH*>(cdh_buf.data());
+    cdh->signature();
+    cdh->compression_method(Z_NO_COMPRESSION);
+    cdh->compressed_file_size32(len);
+    cdh->uncompressed_file_size32(len);
+    cdh->file_name("a", 1);
+    return xml_combiner.Merge(cdh, lh);
+  };
+  EXPECT_TRUE(merge_bytes(""));
+  EXPECT_TRUE(merge_bytes("   "));
+  EXPECT_TRUE(merge_bytes("x"));
+  EXPECT_TRUE(merge_bytes("<toplevel>  "));
+  LH* entry = reinterpret_cast<LH*>(xml_combiner.OutputEntry(false));
+  ASSERT_NE(nullptr, entry);
+  EXPECT_EQ("<toplevel>\n   x  </toplevel>\n",
+            std::string(reinterpret_cast<char*>(entry->data()),
+                        entry->uncompressed_file_size()));
+  free(entry);
+}
+
+TEST_F(CombinersTest, ManifestCombinerEmptyLine) {
+  ManifestCombiner manifest_combiner("META-INF/MANIFEST.MF");
+  manifest_combiner.AppendLine("");
+  LH* entry = reinterpret_cast<LH*>(manifest_combiner.OutputEntry(false));
+  ASSERT_NE(nullptr, entry);
+  EXPECT_EQ("\r\n\r\n", std::string(reinterpret_cast<char*>(entry->data()),
+                                    entry->uncompressed_file_size()));
+  free(entry);
+}
+
+TEST_F(CombinersTest, Log4J2PluginDatCombinerNonStandardBoolAndTruncated) {
+  Log4J2PluginDatCombiner combiner("Log4j2Plugins.dat", false);
+  auto make_and_merge = [&](const std::vector<uint8_t>& payload) {
+    std::vector<uint8_t> lh_buf(sizeof(LH) + 1 + payload.size(), 0);
+    auto* lh = reinterpret_cast<LH*>(lh_buf.data());
+    lh->signature();
+    lh->compression_method(Z_NO_COMPRESSION);
+    lh->compressed_file_size32(payload.size());
+    lh->uncompressed_file_size32(payload.size());
+    lh->file_name("a", 1);
+    if (!payload.empty()) {
+      memcpy(lh->data(), payload.data(), payload.size());
+    }
+    std::vector<uint8_t> cdh_buf(sizeof(CDH) + 1, 0);
+    auto* cdh = reinterpret_cast<CDH*>(cdh_buf.data());
+    cdh->signature();
+    cdh->compression_method(Z_NO_COMPRESSION);
+    cdh->compressed_file_size32(payload.size());
+    cdh->uncompressed_file_size32(payload.size());
+    cdh->file_name("a", 1);
+    return combiner.Merge(cdh, lh);
+  };
+
+  // Valid 1-category, 1-entry cache with non-0/1 boolean byte (0x02).
+  std::vector<uint8_t> valid_with_bool_2 = {
+      0, 0, 0,   1,                     // 1 category
+      0, 3, 'c', 'a', 't', 0, 0, 0, 1,  // 1 entry
+      0, 1, 'k',                        // key
+      0, 1, 'c',                        // className
+      0, 1, 'n',                        // name
+      2,                                // printable = 2 (truthy, non-0/1 byte)
+      0,                                // defer = 0
+  };
+  EXPECT_TRUE(make_and_merge(valid_with_bool_2));
+  LH* entry = reinterpret_cast<LH*>(combiner.OutputEntry(false));
+  ASSERT_NE(nullptr, entry);
+  free(entry);
+
+  // Truncated after huge category count (0xFFFFFFFF): fails immediately.
+  std::vector<uint8_t> truncated_huge_count = {0xFF, 0xFF, 0xFF, 0xFF};
+  EXPECT_DEATH(make_and_merge(truncated_huge_count),
+               "Log4j2Plugins.dat file is malformed");
 }
 
 }  // anonymous namespace
