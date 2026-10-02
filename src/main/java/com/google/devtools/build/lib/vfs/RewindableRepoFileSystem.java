@@ -53,4 +53,11 @@ public interface RewindableRepoFileSystem {
    * replaces any contents that referenced files the remote cache has lost.
    */
   void repoRefetched(RepositoryName repo);
+
+  /**
+   * Records that fetching the given repository anew by running its repo rule has failed, so that
+   * its contents are looked up in the remote cache again: they may only have been temporarily
+   * unavailable.
+   */
+  void repoRefetchFailed(RepositoryName repo);
 }
