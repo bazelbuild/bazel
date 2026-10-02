@@ -355,7 +355,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
 
       try (var s = Profiler.instance().profile("updateRunfiles")) {
-        runfilesTreeUpdater.updateRunfiles(runfilesTrees);
+        runfilesTreeUpdater.updateRunfiles(runfilesTrees, context.getInputMetadataProvider());
       }
 
       stepLog(INFO, "running locally");

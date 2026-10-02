@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -63,8 +64,14 @@ public class RunfilesTreeUpdater {
     this.xattrProvider = xattrProvider;
   }
 
-  /** Creates or updates input runfiles trees for a spawn. */
-  public void updateRunfiles(Iterable<RunfilesTree> runfilesTrees)
+  /**
+   * Creates or updates input runfiles trees for a spawn.
+   *
+   * @param runfilesTrees the runfiles trees to create or update
+   * @param inputMetadataProvider provides metadata for the runfiles in the trees
+   */
+  public void updateRunfiles(
+      Iterable<RunfilesTree> runfilesTrees, InputMetadataProvider inputMetadataProvider)
       throws ExecException, IOException, InterruptedException {
     for (RunfilesTree tree : runfilesTrees) {
       PathFragment runfilesDir = tree.getExecPath();
@@ -78,7 +85,7 @@ public class RunfilesTreeUpdater {
       if (priorFuture == null) {
         // We are the first attempt; update the runfiles tree and mark the future complete.
         try {
-          updateRunfilesTree(tree);
+          updateRunfilesTree(tree, inputMetadataProvider);
           freshFuture.complete(null);
         } catch (Exception e) {
           freshFuture.completeExceptionally(e);
@@ -102,7 +109,8 @@ public class RunfilesTreeUpdater {
     }
   }
 
-  private void updateRunfilesTree(RunfilesTree tree) throws IOException, ExecException {
+  private void updateRunfilesTree(RunfilesTree tree, InputMetadataProvider inputMetadataProvider)
+      throws IOException, ExecException {
     Path runfilesDir = execRoot.getRelative(tree.getExecPath());
     Path inputManifest =
         execRoot.getRelative(RunfilesSupport.inputManifestExecPath(tree.getExecPath()));
@@ -151,7 +159,7 @@ public class RunfilesTreeUpdater {
 
     switch (tree.getSymlinksMode()) {
       case CREATE -> {
-        helper.createRunfilesSymlinks(tree.getMapping());
+        helper.createRunfilesSymlinks(tree.getMapping(), inputMetadataProvider);
         helper.linkManifest();
       }
       case SKIP -> helper.createMinimalRunfilesDirectory();

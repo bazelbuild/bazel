@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -115,7 +116,7 @@ public final class SymlinkTreeHelperTest {
         symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/file"), file);
         symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/symlink"), symlink);
 
-        helper.createRunfilesSymlinks(symlinkMap);
+        helper.createRunfilesSymlinks(symlinkMap, StaticInputMetadataProvider.empty());
       }
       case FILESET -> {
         HashMap<PathFragment, PathFragment> symlinkMap = new HashMap<>();

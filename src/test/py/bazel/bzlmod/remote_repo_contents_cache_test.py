@@ -2475,6 +2475,105 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('hello from my_bin', '\n'.join(stdout))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
+  def testSourceDirectoryInRunfiles(self):
+    # A source directory in a repo restored from the remote repo contents cache
+    # isn't present on disk when the runfiles tree of a test is created and is
+    # only materialized when the test runs. It must still be linked correctly,
+    # which on Windows requires a junction rather than a file symlink.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    ext = '.bat' if self.IsWindows() else '.sh'
+    # Read the file through the runfiles tree with a native tool so that a
+    # symlink of the wrong type is noticed on Windows.
+    script_content = (
+        '@cd data_dir && type data.txt || exit /b 1'
+        if self.IsWindows()
+        else '#!/bin/sh\ncat data_dir/data.txt'
+    )
+    write_exe = f"  ctx.actions.write(exe, '''{script_content}"
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'data_dir\','
+                " srcs=['dir'], visibility=['//visibility:public'])\")"
+            ),
+            '  rctx.file("dir/data.txt", "source-directory-data")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/defs.bzl',
+        [
+            'def _dir_test_impl(ctx):',
+            f'  exe = ctx.actions.declare_file(ctx.label.name + "{ext}")',
+            write_exe,
+            "''', is_executable=True)",
+            '  return [DefaultInfo(',
+            '    executable = exe,',
+            '    runfiles = ctx.runfiles(',
+            '        symlinks = {"data_dir": ctx.file.dir},',
+            '    ),',
+            '  )]',
+            'dir_test = rule(',
+            '  implementation = _dir_test_impl,',
+            '  attrs = {"dir": attr.label(allow_single_file = True)},',
+            '  test = True,',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'load(":defs.bzl", "dir_test")',
+            'dir_test(',
+            '  name = "dir_test",',
+            '  dir = "@my_repo//:data_dir",',
+            ')',
+        ],
+    )
+    flags = [
+        '--enable_runfiles',
+        '--nocache_test_results',
+        '--test_output=errors',
+    ]
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['test', '//main:dir_test'] + flags)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: the repo is a remote cache hit and isn't materialized
+    # when the runfiles tree is created, only when the test itself runs. Cover
+    # both the runfiles tree created by the build and the one created lazily
+    # for the test spawn.
+    for extra_flags in ([], ['--nobuild_runfile_links']):
+      self.RunBazel(['clean', '--expunge'])
+      _, _, stderr = self.RunBazel(
+          ['test', '//main:dir_test'] + flags + extra_flags
+      )
+      self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+      self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+      self.assertTrue(
+          os.path.exists(os.path.join(repo_dir, 'dir/data.txt'))
+      )
+
   def testReverseDependencyDirection(self):
     # Set up two repos that retain their predeclared input hashes across two
     # builds but still reverse their dependency direction. Depending on how repo
