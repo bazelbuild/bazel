@@ -332,12 +332,16 @@ information through your transitive dependencies. This helps ensure that
 your build scales well as your target graph grows deeper.
 
 Finally, it’s important to not retrieve the contents of the depset
-unnecessarily in rule implementations. One call to `to_list()`
-at the end in a binary rule is fine, since the overall cost is just O(n). It’s
-when many non-terminal targets try to call `to_list()` that quadratic behavior
-occurs.
+unnecessarily in rule implementations. Calling `to_list()` at the end in a
+single binary rule avoids quadratic behavior across the chain of library rules
+(since the cost is just O(n) for that target in isolation). However, doing so
+across multiple top-level targets with overlapping dependencies (such as when
+building `//foo/tests/...` or importing an IDE project) still results in O(n^2)
+cost. Whenever possible, avoid calling `to_list()` altogether; for example, pass
+depsets directly to `ctx.actions.args()` to defer expansion to the execution
+phase.
 
-For more information about using depsets efficiently, see the [performance](/rules/performance) page.
+For more information about using depsets efficiently, see the [performance](/rules/performance#avoid-depset-to-list) page.
 
 ## API Reference
 
