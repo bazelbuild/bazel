@@ -127,7 +127,8 @@ public class RepositoryUtils {
     boolean portableSymlinksOnly = true;
     // TODO(#30160): Repos with symlinks pointing out of the repo are currently excluded from the
     // remote repo contents cache since cross-FS resolution of symlinks proved tricky to get right.
-    boolean symlinksResolveWithinRepo = true;
+    // The root of a repo can itself be such a symlink, e.g. to a directory in the main repo.
+    boolean symlinksResolveWithinRepo = !repoDir.isSymbolicLink();
     // Without support for symlinks to files, which is optional on Windows, only symlinks to
     // directories can be created when a repo is materialized from the remote repo contents cache.
     // Note that tools run by repo rules can presumably create these symlinks even if Bazel itself

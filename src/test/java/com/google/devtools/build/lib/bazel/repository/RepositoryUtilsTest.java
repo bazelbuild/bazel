@@ -88,6 +88,28 @@ public final class RepositoryUtilsTest {
     assertThat(result.safeForRemoteCache()).isFalse();
   }
 
+  @Test
+  public void replantSymlinks_repoRootIsSymlink_notSafeForRemoteCache() throws Exception {
+    var fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path workspace = fs.getPath("/workspace");
+    workspace.getChild("dir").createDirectoryAndParents();
+    FileSystemUtils.writeContent(workspace.getRelative("dir/file"), UTF_8, "contents");
+    Path externalRoot = fs.getPath("/output_base/external");
+    externalRoot.createDirectoryAndParents();
+    Path repoDir = externalRoot.getChild("repo");
+    repoDir.createSymbolicLink(workspace.getChild("dir"));
+
+    var result =
+        RepositoryUtils.replantSymlinks(
+            repoDir,
+            workspace,
+            externalRoot,
+            PathFragment.EMPTY_FRAGMENT,
+            /* replantSymlinksIntoMainRepo= */ false);
+
+    assertThat(result.safeForRemoteCache()).isFalse();
+  }
+
   /**
    * A file system that reports that it can't create symlinks to files, like the Windows file system
    * does by default.
