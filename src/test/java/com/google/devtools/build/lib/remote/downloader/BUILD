@@ -21,6 +21,8 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/build/lib/authandtls:grpc",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -43,6 +45,7 @@ java_library(
         "//third_party/google/rpc:code_java_proto",
         "//third_party/google/rpc:status_java_proto",
         "//third_party/java/auth_kit:credentials",
+        "//third_party/java/caffeine",
         "//third_party/java/grpc:core",
         "//third_party/java/grpc:inprocess",
         "//third_party/java/grpc:stub",
