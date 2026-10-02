@@ -610,6 +610,80 @@ public final class StarlarkRepositoryContextTest {
     assertThat(context.getPath("bar").realpath()).isEqualTo(context.getPath("foo"));
   }
 
+  @Test
+  public void testCopy() throws Exception {
+    setUpRepo("test");
+    var src = scratch.file(root.getRelative("foo").getPathString(), "foobar");
+    src.setExecutable(false);
+    src.setWritable(false);
+    var executableSrc = scratch.file(root.getRelative("foo.sh").getPathString(), "foobar");
+    executableSrc.setExecutable(true);
+
+    context.copy(src.getPathString(), "bar/baz", "auto", thread);
+    context.copy(executableSrc.getPathString(), "bar/baz.sh", "no", thread);
+
+    var dst = outputDirectory.getRelative("bar/baz");
+    testOutputFile(dst, "foobar\n");
+    assertThat(dst.isSymbolicLink()).isFalse();
+    assertThat(dst.isExecutable()).isFalse();
+    assertThat(dst.isWritable()).isTrue();
+    var executableDst = outputDirectory.getRelative("bar/baz.sh");
+    testOutputFile(executableDst, "foobar\n");
+    assertThat(executableDst.isExecutable()).isTrue();
+    assertThat(context.getRecordedInputs().stream().map(RepoRecordedInput.WithValue::input))
+        .containsExactly(
+            new RepoRecordedInput.File(
+                RepoCacheFriendlyPath.createInsideWorkspace(
+                    RepositoryName.MAIN, PathFragment.create("foo"))));
+  }
+
+  @Test
+  public void testCopyOverwritesDestination() throws Exception {
+    setUpRepo("test");
+    var src = scratch.file(root.getRelative("foo").getPathString(), "new");
+    context.createFile(context.getPath("target"), "old", false, false, thread);
+    context.symlink(context.getPath("target"), context.getPath("link"), thread);
+
+    context.copy(src.getPathString(), "link", "auto", thread);
+
+    var dst = outputDirectory.getChild("link");
+    testOutputFile(dst, "new\n");
+    assertThat(dst.isSymbolicLink()).isFalse();
+    testOutputFile(outputDirectory.getChild("target"), "old");
+  }
+
+  @Test
+  public void testCopyErrors() throws Exception {
+    setUpRepo("test");
+    var src = scratch.file(root.getRelative("foo").getPathString(), "foobar");
+    var srcDir = scratch.dir(root.getRelative("dir").getPathString());
+
+    var evalException =
+        assertThrows(
+            EvalException.class, () -> context.copy(srcDir.getPathString(), "bar", "auto", thread));
+    assertThat(evalException)
+        .hasMessageThat()
+        .isEqualTo("attempting to copy() a directory: /wsRoot/dir");
+
+    var outsideException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(src.getPathString(), "/bar", "auto", thread));
+    assertThat(outsideException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo("Cannot write outside of the repository directory for path /bar");
+
+    var missingException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy("/wsRoot/missing", "bar", "auto", thread));
+    assertThat(missingException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .startsWith("Could not copy /wsRoot/missing to /outputDir/bar: ");
+  }
+
   private static void testOutputFile(Path path, String content) throws IOException {
     assertThat(path.exists()).isTrue();
     try (InputStreamReader reader =

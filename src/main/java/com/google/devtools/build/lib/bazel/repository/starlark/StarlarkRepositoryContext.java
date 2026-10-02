@@ -193,11 +193,18 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   // This method must not be moved to ModuleExtensionContext as the FS-specific watch in its
-  // implementation would cause lock files to differ across platforms. If this is ever needed, add
-  // a `copy` method instead.
+  // implementation would cause lock files to differ across platforms. Module extensions can use
+  // `copy` instead.
   @StarlarkMethod(
       name = "symlink",
-      doc = "Creates a symlink on the filesystem.",
+      doc =
+          """
+          Creates a symlink on the filesystem. \
+          <p>Prefer <a href="#copy"><code>copy()</code></a> for files: symlinks may make a \
+          repository ineligible for repo contents caches and will have different behavior if the \
+          host doesn't support creating symlinks. Only use <code>symlink()</code> for directories \
+          or if changes to the target have to be visible in the repository without refetching it.
+          """,
       useStarlarkThread = true,
       parameters = {
         @Param(
