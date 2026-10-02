@@ -86,7 +86,9 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     Path statisticsPath = sandboxPath.getRelative("stats.out");
     commandLineBuilder.setStatisticsPath(statisticsPath.asFragment());
 
-    SandboxInputs inputs = SandboxHelpers.processInputFiles(context.getInputMapping(), execRoot);
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(
+            context.getInputMapping(/* willAccessRepeatedly= */ true), execRoot);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     return new SymlinkedSandboxedSpawn(

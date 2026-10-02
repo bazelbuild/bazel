@@ -194,7 +194,9 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
-    SandboxInputs inputs = SandboxHelpers.processInputFiles(context.getInputMapping(), execRoot);
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(
+            context.getInputMapping(/* willAccessRepeatedly= */ true), execRoot);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();

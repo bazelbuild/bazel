@@ -264,7 +264,7 @@ public interface SpawnRunner {
      * the input tree, for example, tree artifacts, runfiles trees and {@code Fileset} input
      * manifests.
      */
-    SortedMap<PathFragment, ActionInput> getInputMapping();
+    SortedMap<PathFragment, ActionInput> getInputMapping(boolean willAccessRepeatedly);
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);
@@ -319,7 +319,7 @@ public interface SpawnRunner {
             .prefetchFiles(
                 spawn.getResourceOwner(),
                 spawn,
-                () -> getInputMapping().values(),
+                () -> getInputMapping(/* willAccessRepeatedly= */ true).values(),
                 getInputMetadataProvider(),
                 Priority.MEDIUM,
                 Reason.INPUTS);

@@ -31,6 +31,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -2618,7 +2619,7 @@ public class RemoteExecutionServiceTest {
     when(action.getSpawnExecutionContext()).thenReturn(context);
     doThrow(new AssertionError("Concurrent modification checks must not request an input mapping"))
         .when(context)
-        .getInputMapping();
+        .getInputMapping(anyBoolean());
     if (modified) {
       Path path = execRoot.getRelative(file.getExecPath());
       FileSystemUtils.writeContentAsLatin1(path, "modified contents");
