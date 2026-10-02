@@ -143,7 +143,7 @@ struct ReadSymlinkOrJunctionResult {
 // prefix if it's longer than MAX_PATH.
 //
 // To read about differences between junctions and directory symlinks,
-// see http://superuser.com/a/343079. In Bazel we only ever create junctions.
+// see http://superuser.com/a/343079.
 int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error);
 
 // Retrieves the FILETIME at which `path` was last changed, including metadata.
@@ -184,9 +184,10 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
 
 // Creates a symlink at `symlink_name`, pointing to `symlink_target`.
 // Returns CreateSymlinkResult::kSuccess if could create the symlink.
-// A directory symlink is created if `is_directory` is true or the target is an
-// existing directory. When the function returns CreateSymlinkResult::kError and
-// `error` is non-null then `error` receives an error message.
+// The caller must set `is_directory` to the target's type, or its expected type
+// if the target does not exist yet. When the function returns
+// CreateSymlinkResult::kError and `error` is non-null then `error` receives an
+// error message.
 int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
                   bool is_directory, wstring* error);
 

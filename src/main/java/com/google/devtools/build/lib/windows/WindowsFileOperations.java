@@ -191,8 +191,10 @@ public class WindowsFileOperations {
   }
 
   /**
-   * Creates a symlink at `name`, pointing to `target`. A directory symlink is created if
-   * `isDirectory` is true or `target` is an existing directory.
+   * Creates a symlink at {@code name}, pointing to {@code target}.
+   *
+   * <p>The caller must set {@code isDirectory} to the target's type, or its expected type if the
+   * target does not exist yet.
    */
   public static void createSymlink(String name, String target, boolean isDirectory)
       throws IOException {

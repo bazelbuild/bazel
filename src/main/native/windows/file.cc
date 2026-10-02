@@ -521,16 +521,13 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
   const wstring name = AddUncPrefixMaybe(symlink_name);
   const wstring target = AddUncPrefixMaybe(symlink_target);
 
-  DWORD attrs = GetFileAttributesW(target.c_str());
-  DWORD dir_flag = (is_directory || ((attrs != INVALID_FILE_ATTRIBUTES) &&
-                                     (attrs & FILE_ATTRIBUTE_DIRECTORY)))
-                       ? SYMBOLIC_LINK_FLAG_DIRECTORY
-                       : 0;
+  DWORD dir_flag = is_directory ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0;
 
   if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
                            symlinkPrivilegeFlag | dir_flag)) {
     if (GetLastError() == ERROR_INVALID_PARAMETER) {
-      // We are on a version of Windows that does not support the symlink privilege flag.
+      // We are on a version of Windows that does not support the symlink
+      // privilege flag.
       // Retry without the flag and return to error handling if necessary.
       if (CreateSymbolicLinkW(name.c_str(), target.c_str(), dir_flag)) {
         return CreateSymlinkResult::kSuccess;

@@ -597,13 +597,16 @@ public class BazelRepositoryModule extends BlazeModule {
                 vendorDirectory.get().getRelative(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
                 externalRoot);
             if (OS.getCurrent() == OS.WINDOWS) {
-              // On Windows, symlinks are resolved differently.
+              // Windows junctions preserve the logical parent when resolving relative symlinks.
               // Given <external>/repo_foo/link,
               // where <external>/repo_foo points to <vendor dir>/repo_foo in vendor mode
               // and repo_foo/link points to a relative path ../bazel-external/repo_bar/data.
-              // Windows won't resolve `repo_foo` before resolving `link`, which causes
+              // If repo_foo is a junction, Windows won't resolve it before resolving link, causing
               // <external>/repo_foo/link to be resolved to <external>/bazel-external/repo_bar/data
               // To work around this, we create a symlink <external>/bazel-external -> <external>.
+              // Directory symlinks resolve through <vendor dir>/bazel-external instead. Keep this
+              // workaround even with --windows_enable_symlinks: ensureSymbolicLink can reuse a
+              // junction created by an older Bazel or with symlinks disabled.
               FileSystemUtils.ensureSymbolicLink(
                   externalRoot.getRelative(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME), externalRoot);
             }

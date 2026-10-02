@@ -97,6 +97,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         // If symlinks aren't enabled and the target is an existing file, fall back to a copy.
         Files.copy(target, link);
       } else if (createSymbolicLinks) {
+        // Prefer the existing target's type over the hint, which is only needed for dangling links.
         WindowsFileOperations.createSymlink(
             link.toString(),
             target.toString(),
@@ -278,23 +279,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   /**
-   * Returns true if the path refers to a directory junction, directory symlink, or regular symlink.
+   * Returns true if the path refers to a junction, directory symlink, or file symlink, even if its
+   * target does not exist.
    *
-   * <p>Directory junctions are symbolic links created with "mklink /J" where the target is a
-   * directory or another directory junction. Directory junctions can be created without any user
-   * privileges.
-   *
-   * <p>Directory symlinks are symbolic links created with "mklink /D" where the target is a
-   * directory or another directory symlink. Note that directory symlinks can only be created by
-   * Administrators.
-   *
-   * <p>Normal symlinks are symbolic links created with "mklink". Normal symlinks should not point
-   * at directories, because even though "mklink" can create the link, it will not be a functional
-   * one (the linked directory's contents cannot be listed). Only Administrators may create regular
-   * symlinks.
-   *
-   * <p>This method returns true for all three types as long as their target is a directory (even if
-   * they are dangling), though only directory junctions and directory symlinks are useful.
+   * <p>Junctions ("mklink /J") require no special privileges. Directory symlinks ("mklink /D") and
+   * file symlinks ("mklink") require Developer Mode or administrator privileges. The symlink type
+   * must match the target's type for the link to be usable.
    */
   @VisibleForTesting
   static boolean isSymlinkOrJunction(Path file) throws IOException {

@@ -478,7 +478,8 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
-          "If true, real symbolic links will be created on Windows instead of file copying. "
+          "If true, real symbolic links will be created on Windows instead of copying files or "
+              + "creating directory junctions. Existing links may be reused. "
               + "Requires Windows developer mode to be enabled and Windows 10 version 1703 or "
               + "greater.")
   public abstract boolean getEnableWindowsSymlinks();

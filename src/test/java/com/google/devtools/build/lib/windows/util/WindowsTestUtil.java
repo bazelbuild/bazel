@@ -68,7 +68,7 @@ public final class WindowsTestUtil {
       WindowsFileOperations.createSymlink(
           scratchRoot + "/" + entry.getKey(),
           scratchRoot + "/" + entry.getValue(),
-          /* isDirectory= */ false);
+          Files.isDirectory(java.nio.file.Path.of(scratchRoot, entry.getValue())));
     }
   }
 
