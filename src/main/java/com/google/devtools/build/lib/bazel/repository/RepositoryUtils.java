@@ -131,7 +131,7 @@ public class RepositoryUtils {
         FileSystemUtils.ensureSymbolicLink(workspaceSymlinkUnderExternal, workspace);
       }
       for (Path symlink : symlinks) {
-        if (!fileSymlinksSupported && !symlink.isDirectory()) {
+        if (!fileSymlinksSupported && !resolvesToDirectory(symlink)) {
           symlinksCanBeMaterialized = false;
         }
         PathFragment target = symlink.readSymbolicLink();
@@ -222,5 +222,14 @@ public class RepositoryUtils {
     }
     return new ReplantSymlinksResult(
         portableSymlinksOnly, symlinksResolveWithinRepo && symlinksCanBeMaterialized);
+  }
+
+  private static boolean resolvesToDirectory(Path symlink) {
+    try {
+      return symlink.isDirectory();
+    } catch (IOException e) {
+      // The symlink can't be resolved, e.g. because it is part of a loop.
+      return false;
+    }
   }
 }
