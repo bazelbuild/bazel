@@ -372,4 +372,57 @@ namespace {
     EXPECT_EQ(kPoison, bytes[z64->size()]);
   }
 
+  TEST(ZipHeadersTest, TruncatedZip64ExtraField) {
+    uint8_t lh_bytes[128];
+    memset(lh_bytes, kPoison, sizeof(lh_bytes));
+    LH* lh = reinterpret_cast<LH*>(lh_bytes);
+    lh->signature();
+    lh->file_name("foo", 3);
+    lh->uncompressed_file_size32(0xFFFFFFFF);
+    lh->compressed_file_size32(0xFFFFFFFF);
+    // Zip64 extra field with payload_size = 8 (only 1 attribute instead of 2).
+    uint8_t extra_8[] = {
+        1, 0, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+    };
+    lh->extra_fields(extra_8, sizeof(extra_8));
+    EXPECT_EQ(0x0807060504030201ULL, lh->uncompressed_file_size());
+    EXPECT_EQ(0xFFFFFFFFUL, lh->compressed_file_size());
+
+    uint8_t cdh_bytes[128];
+    memset(cdh_bytes, kPoison, sizeof(cdh_bytes));
+    CDH* cdh = reinterpret_cast<CDH*>(cdh_bytes);
+    cdh->signature();
+    cdh->file_name("foo", 3);
+    cdh->uncompressed_file_size32(0xFFFFFFFF);
+    cdh->compressed_file_size32(0xFFFFFFFF);
+    cdh->local_header_offset32(0xFFFFFFFF);
+    cdh->extra_fields(extra_8, sizeof(extra_8));
+    EXPECT_EQ(0x0807060504030201ULL, cdh->uncompressed_file_size());
+    EXPECT_EQ(0xFFFFFFFFUL, cdh->compressed_file_size());
+    EXPECT_EQ(0xFFFFFFFFULL, cdh->local_header_offset());
+  }
+
+  TEST(ZipHeadersTest, EmptyUnixTimeExtraField) {
+    uint8_t extra_ut_empty[] = {'U', 'T', 0, 0};
+    const UnixTimeExtraField* ut = UnixTimeExtraField::find(
+        extra_ut_empty, extra_ut_empty + sizeof(extra_ut_empty));
+    ASSERT_NE(nullptr, ut);
+    EXPECT_EQ(0, ut->payload_size());
+    EXPECT_EQ(0, ut->timestamp_count());
+    EXPECT_FALSE(ut->has_modification_time());
+    EXPECT_FALSE(ut->has_access_time());
+    EXPECT_FALSE(ut->has_creation_time());
+  }
+
+  TEST(ZipHeadersTest, ExtraFieldLargePayloadSize) {
+    // payload_size = 0xFFFC (65532) -> total size = 4 + 65532 = 65536, which
+    // would wrap around to 0 if ExtraField::size() returned uint16_t.
+    uint8_t extra_overflow[] = {1, 0, 0xFC, 0xFF, 'U', 'T', 0, 0};
+    const auto* ef = reinterpret_cast<const ExtraField*>(extra_overflow);
+    EXPECT_EQ(65536U, ef->size());
+    EXPECT_EQ(nullptr,
+              ExtraField::find(0x5455, extra_overflow,
+                               extra_overflow + sizeof(extra_overflow)));
+  }
+
 }  // namespace
