@@ -43,14 +43,8 @@ import java.util.Arrays;
 /**
  * Measures the per-spawn wall time and allocation of {@link ActionDumpWriter#enqueue(
  * SpawnExecutedEvent)}, to quantify the cost of deferring {@code outputToNode} registration until
- * after {@code enqueueBytes()}.
- *
- * <p>How to read the output: allocation is stable to within a byte or two across the trials of one
- * invocation, but the level shifts by as much as 100 bytes/spawn <em>between</em> invocations,
- * because whether escape analysis eliminates a given short-lived object is decided per-JVM and then
- * holds for that JVM's life. A single invocation therefore cannot be compared against another
- * revision's single invocation. Build each revision, run it several times, and compare medians:
- *
+ * after {@code enqueueBytes()}
+ * 
  * <pre>{@code
  * bazel build //src/test/java/com/google/devtools/build/lib/runtime:ExecutionGraphModuleBenchmark
  * for i in $(seq 5); do

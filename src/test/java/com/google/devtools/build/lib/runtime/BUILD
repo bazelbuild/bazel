@@ -256,8 +256,6 @@ java_test(
     ],
 )
 
-# Measures the allocation and wall time of ExecutionGraphModule's spawn enqueue path. Run it
-# several times and compare medians; see the class javadoc.
 java_binary(
     name = "ExecutionGraphModuleBenchmark",
     main_class = "com.google.devtools.build.lib.runtime.ExecutionGraphModuleBenchmark",
