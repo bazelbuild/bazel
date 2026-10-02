@@ -642,7 +642,10 @@ public final class SkyframeErrorProcessor {
       return ClassifiedError.execution(
           errorKey,
           cause,
-          getExecutionDetailedExitCodeFromCause(result, cause, bugReporter),
+          // A cycle is the only way to fail without an exception (cause == null).
+          cause == null
+              ? CYCLE_CODE
+              : getExecutionDetailedExitCodeFromCause(result, cause, bugReporter),
           cause instanceof ActionExecutionException actionExecutionException
               ? actionExecutionException.getRootCauses()
               : NestedSetBuilder.emptySet(Order.STABLE_ORDER));

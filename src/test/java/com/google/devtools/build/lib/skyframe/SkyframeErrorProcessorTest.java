@@ -2180,35 +2180,51 @@ public class SkyframeErrorProcessorTest {
     assertThat(bugReporter.nonFatalBugReports).isEmpty();
   }
 
-  // TODO(b/561978611): Remove this behavior. A cycle on an ActionLookupData crashes with a
-  // NullPointerException.
   @Test
-  public void actionLookupDataCycle_filesBugReportThenThrowsNullPointerException(
-      @TestParameter boolean keepGoing) {
-    // Latent bug, in both keep_going modes: for an ActionLookupData key, classify unconditionally
-    // takes the execution path and hands the ErrorInfo's exception - null, for a
-    // cycle - to getExecutionDetailedExitCodeFromCause. DetailedException.getDetailedExitCode(null)
-    // is harmless there (a plain instanceof check that returns null), so the null cause reaches
-    // sendBugReportAndCreateUnknownExecutionDetailedExitCode, which files a non-fatal bug report
-    // and *then* dereferences the cause, i.e.
-    // "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage().
-    // That second call, not the getDetailedExitCode one, is where the NPE comes from. All of it
-    // happens before the keepGoing branch, hence the identical crash in both modes.
+  public void actionLookupDataCycle_keepGoing_executionErrorWithCycleCode(
+      @TestParameter boolean executionCycle) throws Exception {
     ConfiguredTargetKey ctKey = configuredTargetKey("//pkg:build_info");
     ActionLookupData key = ActionLookupData.create(ctKey, /* actionIndex= */ 0);
-    // The cycle's contents do not matter: the ActionLookupData branch never inspects them, so not
-    // even an execution cycle gets the CYCLE_CODE shortcut that the other key types get.
-    EvaluationResult<SkyValue> result = resultOf(key, ErrorInfo.fromCycle(executionCycle(ctKey)));
+    CycleInfo cycle =
+        executionCycle ? executionCycle(ctKey) : CycleInfo.createCycleInfo(ImmutableList.of(ctKey));
 
-    assertThrows(
-        NullPointerException.class,
-        () -> processErrors(result, keepGoing, /* includeExecutionPhase= */ true));
+    ErrorProcessingResult result =
+        processErrors(
+            resultOf(key, ErrorInfo.fromCycle(cycle)),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ true);
 
-    // Filed on the injected bug reporter, before the NPE was thrown.
-    assertThat(bugReporter.nonFatalBugReports).hasSize(1);
-    assertThat(bugReporter.nonFatalBugReports.get(0))
-        .hasMessageThat()
-        .startsWith("action terminated with unexpected exception with result");
+    assertThat(result.executionDetailedExitCode()).isEqualTo(EXECUTION_CYCLE_CODE);
+    assertThat(result.hasAnalysisError()).isFalse();
+    assertThat(result.hasLoadingError()).isFalse();
+    assertThat(eventBusCollector.allEvents).isEmpty();
+    assertThat(warningMessages()).isEmpty();
+    assertThat(cyclesReporter.cycles).containsExactly(cycle);
+    assertThat(bugReporter.nonFatalBugReports).isEmpty();
+  }
+
+  @Test
+  public void actionLookupDataCycle_noKeepGoing_throwsBuildFailedExceptionWithCycleCode(
+      @TestParameter boolean executionCycle) {
+    ConfiguredTargetKey ctKey = configuredTargetKey("//pkg:build_info");
+    ActionLookupData key = ActionLookupData.create(ctKey, /* actionIndex= */ 0);
+    CycleInfo cycle =
+        executionCycle ? executionCycle(ctKey) : CycleInfo.createCycleInfo(ImmutableList.of(ctKey));
+
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                processErrors(
+                    resultOf(key, ErrorInfo.fromCycle(cycle)),
+                    /* keepGoing= */ false,
+                    /* includeExecutionPhase= */ true));
+
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(EXECUTION_CYCLE_CODE);
+    assertThat(thrown).hasMessageThat().isNull();
+    assertThat(eventBusCollector.allEvents).isEmpty();
+    assertThat(cyclesReporter.cycles).containsExactly(cycle);
+    assertThat(bugReporter.nonFatalBugReports).isEmpty();
   }
 
   @Test
