@@ -79,6 +79,15 @@ public final class RepositoryUtilsTest {
     assertThat(result.safeForRemoteCache()).isFalse();
   }
 
+  @Test
+  public void replantSymlinks_fileSymlinksUnsupported_symlinkLoop_notSafeForRemoteCache()
+      throws Exception {
+    var result = replantSymlinks(new FileSystemWithoutFileSymlinks(), "link");
+
+    assertThat(result.safeForLocalCache()).isTrue();
+    assertThat(result.safeForRemoteCache()).isFalse();
+  }
+
   /**
    * A file system that reports that it can't create symlinks to files, like the Windows file system
    * does by default.
