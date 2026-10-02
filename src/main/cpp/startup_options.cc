@@ -691,6 +691,11 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   if (use_compact_headers) {
     result->push_back("-XX:+UnlockExperimentalVMOptions");
     result->push_back("-XX:+UseCompactObjectHeaders");
+  } else if (option_sources.find("experimental_use_compact_object_headers") !=
+             option_sources.end()) {
+    // JDK 27 enables compact object headers by default, so an explicit opt-out
+    // must also be passed to the JVM.
+    result->push_back("-XX:-UseCompactObjectHeaders");
   }
 
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);

@@ -51,8 +51,7 @@ common --host_features=external_include_paths
 # Build protoc from source instead of using the prebuilt binary so we can apply patches.
 common --@com_google_protobuf//bazel/flags:prefer_prebuilt_protoc=false
 
-# Enable Java 25 language features and compile for a Java 25 runtime, matching
-# version of the embedded JDK.
+# Enable Java 25 language features and compile for a Java 25 runtime.
 # Keep in sync with //:java_toolchain_%d.
 # LINT.IfChange
 common --java_language_version=25

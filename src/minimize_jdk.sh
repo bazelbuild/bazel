@@ -66,6 +66,11 @@ UNAME=$(uname -s | tr 'A-Z' 'a-z')
 # Native access is required for the JNI library.
 # Compact object headers reduce retained and peak memory usage.
 JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UseCompactObjectHeaders'
+# Preserve heap shrinking after System.gc(), which Bazel uses to release memory
+# when idle and after clean. JDK 27 changed G1's defaults to 0 and 100, disabling
+# resizing after a full GC (JDK-8238686). Explicit --host_jvm_args override these
+# defaults embedded by jlink.
+JVM_OPTIONS+=' -XX:MinHeapFreeRatio=40 -XX:MaxHeapFreeRatio=70'
 
 # Strips an extracted JDK archive to its home directory.
 # Some JDK archives (e.g., macOS .jdk bundles) nest the JDK home inside
