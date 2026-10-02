@@ -64,6 +64,9 @@ public class VendorManager {
     if (!vendorDirectory.exists()) {
       vendorDirectory.createDirectoryAndParents();
     }
+    // The external directory may be on a file system that wraps the one the vendor directory is
+    // on, but files can only be moved within a file system.
+    externalRepoRoot = externalRepoRoot.forHostFileSystem();
 
     for (RepositoryName repo : reposToVendor) {
       try (SilentCloseable c =

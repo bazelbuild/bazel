@@ -2728,5 +2728,79 @@ class RemoteRepoContentsCacheTest(
     )
 
 
+  def _setupRepoToVendor(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+    return repo_dir[repo_dir.rfind('/') + 1 :]
+
+  def _assertVendored(self, canonical_repo_name):
+    with open(self.Path('vendor/%s/data.txt' % canonical_repo_name)) as f:
+      self.assertEqual(f.read(), 'hello')
+    _, _, stderr = self.RunBazel(
+        ['build', '--vendor_dir=vendor', '@my_repo//:data.txt']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testVendor_fetchedRepo(self):
+    canonical_repo_name = self._setupRepoToVendor()
+
+    _, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@' + canonical_repo_name]
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self._assertVendored(canonical_repo_name)
+
+  def testVendor_cachedRepo(self):
+    canonical_repo_name = self._setupRepoToVendor()
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@' + canonical_repo_name]
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self._assertVendored(canonical_repo_name)
+
+  def testVendor_cachedRepoInUse(self):
+    canonical_repo_name = self._setupRepoToVendor()
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached, with the contents of data.txt staying remote
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    _, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@' + canonical_repo_name]
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self._assertVendored(canonical_repo_name)
+
+
 if __name__ == '__main__':
   absltest.main()
