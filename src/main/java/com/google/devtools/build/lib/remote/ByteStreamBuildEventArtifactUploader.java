@@ -231,10 +231,11 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       }
     }
 
+    var stat = path.stat();
     if (file.type == LocalFileType.OUTPUT_DIRECTORY
         || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
                 || file.type == LocalFileType.FAILED_TEST_OUTPUT)
-            && path.isDirectory())) {
+            && stat.isDirectory())) {
       return new PathMetadata(
           path,
           /* digest= */ null,
@@ -256,7 +257,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* specialFile= */ false,
           digestFunction);
     }
-    if (path.isSpecialFile()) {
+    if (stat.isSpecialFile()) {
       return new PathMetadata(
           path,
           /* digest= */ null,
@@ -268,7 +269,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           digestFunction);
     }
 
-    Digest digest = digestUtil.compute(path);
+    Digest digest = digestUtil.compute(path, stat);
     return new PathMetadata(
         path,
         digest,

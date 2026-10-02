@@ -172,7 +172,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
       FileSystemUtils.writeContent(file, blob);
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file, file.stat()).getHash()), blob);
       filesToUpload.put(
           file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
@@ -234,7 +234,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
       FileSystemUtils.writeContent(file, blob);
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file, file.stat()).getHash()), blob);
       filesToUpload.put(
           file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
@@ -511,7 +511,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
       FileSystemUtils.writeContent(file, blob);
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file, file.stat()).getHash()), blob);
       filesToUpload.put(
           file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
@@ -628,10 +628,10 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // arrange
     Path remoteFile = fs.getPath("/remote-file");
     FileSystemUtils.writeContent(remoteFile, StandardCharsets.UTF_8, "hello world");
-    Digest remoteDigest = DIGEST_UTIL.compute(remoteFile);
+    Digest remoteDigest = DIGEST_UTIL.compute(remoteFile, remoteFile.stat());
     Path localFile = fs.getPath("/local-file");
     FileSystemUtils.writeContent(localFile, StandardCharsets.UTF_8, "foo bar");
-    Digest localDigest = DIGEST_UTIL.compute(localFile);
+    Digest localDigest = DIGEST_UTIL.compute(localFile, localFile.stat());
 
     StaticMissingDigestsFinder digestQuerier =
         Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));
