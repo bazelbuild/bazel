@@ -241,6 +241,74 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
 
+  def testChangeModuleFileInLocalRegistryIsPickedUpWithoutShutdown(self):
+    local_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'local')
+    )
+    local_registry.createShModule('lll', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "lll", version = "1.0")']
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    registry_flag = '--registry=' + local_registry.getLocalURL()
+    self.RunBazel(['build', '--nobuild', registry_flag, '//:all'])
+    # Run again so that the lockfile is unchanged by the next invocation, which
+    # would otherwise invalidate the registry on its own.
+    self.RunBazel(['build', '--nobuild', registry_flag, '//:all'])
+
+    module_dir = local_registry.root.joinpath('modules', 'lll', '1.0')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', registry_flag, '//:all'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'error parsing MODULE.bazel file for lll@1.0', '\n'.join(stderr)
+    )
+
+    scratchFile(
+        module_dir.joinpath('MODULE.bazel'),
+        ['module(name = "lll", version = "1.0")'],
+    )
+    self.RunBazel(['build', '--nobuild', registry_flag, '//:all'])
+
+  def testChangeSourceJsonInLocalRegistryIsPickedUpWithoutShutdown(self):
+    local_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'local')
+    )
+    local_registry.setModuleBasePath('projects')
+    local_registry.createLocalPathModule('mmm', '1.0', 'mmm_v1')
+    scratchFile(
+        local_registry.projects.joinpath('mmm_v1', 'BUILD'),
+        ['filegroup(name = "v1")'],
+    )
+    scratchFile(
+        local_registry.projects.joinpath('mmm_v2', 'MODULE.bazel'),
+        ['module(name = "mmm", version = "1.0")'],
+    )
+    scratchFile(
+        local_registry.projects.joinpath('mmm_v2', 'BUILD'),
+        ['filegroup(name = "v2")'],
+    )
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "mmm", version = "1.0")']
+    )
+    self.ScratchFile('BUILD')
+    registry_flag = '--registry=' + local_registry.getLocalURL()
+    self.RunBazel(['build', registry_flag, '@mmm//:v1'])
+    # Run again so that the lockfile is unchanged by the next invocation, which
+    # would otherwise invalidate the registry on its own.
+    self.RunBazel(['build', registry_flag, '@mmm//:v1'])
+
+    source_json = local_registry.root.joinpath(
+        'modules', 'mmm', '1.0', 'source.json'
+    )
+    with source_json.open('w') as f:
+      json.dump({'type': 'local_path', 'path': 'mmm_v2'}, f)
+
+    self.RunBazel(['build', registry_flag, '@mmm//:v2'])
+
   def testChangeModuleInRegistryWithLockfile(self):
     # Add module 'sss' to the registry with dep on 'aaa'
     self.main_registry.createShModule('sss', '1.3', {'aaa': '1.1'})
