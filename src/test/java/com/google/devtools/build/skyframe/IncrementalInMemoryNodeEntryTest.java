@@ -158,6 +158,47 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
   }
 
   @Test
+  public void markChangedIfCheckingDependencies() throws InterruptedException {
+    InMemoryNodeEntry entry = createEntry();
+    // NOT_YET_EVALUATING state: should not mark changed.
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NOT_YET_EVALUATING);
+    assertThat(entry.markChangedIfCheckingDependencies())
+        .isEqualTo(LifecycleState.NOT_YET_EVALUATING);
+    assertThat(entry.isChanged()).isFalse();
+
+    // Set value and make done.
+    entry.addReverseDepAndCheckIfDone(null);
+    entry.markRebuilding();
+    SkyKey dep = key("dep");
+    entry.addSingletonTemporaryDirectDep(dep);
+    entry.signalDep(initialVersion, dep);
+    SkyValue oldValue = new IntegerValue(1);
+    setValue(entry, oldValue, /* errorInfo= */ null, initialVersion);
+    assertThat(entry.isDone()).isTrue();
+
+    // DONE state: should return DONE and not mark dirty.
+    assertThat(entry.markChangedIfCheckingDependencies()).isEqualTo(LifecycleState.DONE);
+    assertThat(entry.isDone()).isTrue();
+
+    // Mark dirty with DIRTY and move into CHECK_DEPENDENCIES state.
+    entry.markDirty(DirtyType.DIRTY);
+    entry.addReverseDepAndCheckIfDone(null);
+    entry.addReverseDepAndCheckIfDone(key("parent"));
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
+    assertThat(entry.isChanged()).isFalse();
+
+    // In CHECK_DEPENDENCIES state: should return CHECK_DEPENDENCIES and mark changed.
+    assertThat(entry.markChangedIfCheckingDependencies())
+        .isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
+    assertThat(entry.isChanged()).isTrue();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
+
+    // Subsequent call in NEEDS_REBUILDING state returns NEEDS_REBUILDING.
+    assertThat(entry.markChangedIfCheckingDependencies())
+        .isEqualTo(LifecycleState.NEEDS_REBUILDING);
+  }
+
+  @Test
   public void markChangedThenDirty() throws InterruptedException {
     InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
