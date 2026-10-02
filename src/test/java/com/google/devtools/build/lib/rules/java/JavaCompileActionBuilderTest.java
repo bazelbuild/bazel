@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -347,7 +348,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     when(inputFetcher.prefetchFiles(any(), any(), any(), any(), any(), any()))
         .thenAnswer(
             invocation -> {
-              Object requested = invocation.getArgument(2);
+              Object requested = invocation.<Supplier<?>>getArgument(2).get();
               if (ImmutableList.of(jdepsA).equals(requested)) {
                 return Futures.immediateFailedFuture(lostInputException(jdepsA, "a".repeat(64)));
               }

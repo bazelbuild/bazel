@@ -73,6 +73,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -333,8 +334,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   /**
    * Fetches remotely stored action outputs and stores them under their path in the output base.
    *
-   * <p>When a spawn is available, expand its inputs lazily without constructing the input mapping.
-   * Prefetching uses the original input paths, so it does not need the mapped paths or their order.
+   * <p>The {@code inputs} may not contain any unexpanded directories.
    *
    * <p>This method is safe to be called concurrently from spawn runners before running any local
    * spawn.
@@ -345,18 +345,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   public ListenableFuture<Void> prefetchFiles(
       @Nullable ActionExecutionMetadata action,
       @Nullable Spawn spawn,
-      @Nullable Iterable<? extends ActionInput> expandedInputs,
+      Supplier<Iterable<? extends ActionInput>> expandedInputs,
       InputMetadataProvider metadataProvider,
       Priority priority,
       Reason reason) {
     return prefetchFilesInterruptibly(
-        action,
-        spawn != null
-            ? RemoteActionInputs.expand(spawn.getInputFiles().flatten(), metadataProvider)
-            : checkNotNull(expandedInputs),
-        metadataProvider::getInputMetadata,
-        priority,
-        reason);
+        action, expandedInputs.get(), metadataProvider::getInputMetadata, priority, reason);
   }
 
   /**

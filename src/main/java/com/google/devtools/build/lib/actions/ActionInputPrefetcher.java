@@ -17,6 +17,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Prefetches files to local disk. */
@@ -64,17 +65,17 @@ public interface ActionInputPrefetcher {
    *
    * <p>For any path not under this prefetcher's control, the call should be a no-op.
    *
-   * <p>If {@code spawn} is provided, implementations obtain its inputs from {@link
-   * Spawn#getInputFiles} and expand tree artifacts, filesets and runfiles as needed. In this case,
-   * {@code expandedInputs} is ignored and may be null. Otherwise, {@code expandedInputs} must be
-   * non-null and contain the already expanded inputs.
+   * <p>Implementations that wish to operate on unexpanded inputs (tree artifacts, filesets,
+   * runfiles) may call {@link Spawn#getInputFiles} if {@code spawn} is provided. Otherwise, {@code
+   * expandedInputs} supplies the {@linkplain com.google.devtools.build.lib.exec.SpawnInputExpander
+   * expanded} inputs.
    *
    * @return future success if prefetch is finished or {@link IOException}.
    */
   ListenableFuture<Void> prefetchFiles(
       @Nullable ActionExecutionMetadata action,
       @Nullable Spawn spawn,
-      @Nullable Iterable<? extends ActionInput> expandedInputs,
+      Supplier<Iterable<? extends ActionInput>> expandedInputs,
       InputMetadataProvider metadataProvider,
       Priority priority,
       Reason reason);

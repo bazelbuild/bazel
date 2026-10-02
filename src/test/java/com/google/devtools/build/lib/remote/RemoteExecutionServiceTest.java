@@ -31,10 +31,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -84,8 +82,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -2530,117 +2526,61 @@ public class RemoteExecutionServiceTest {
         .containsExactly(emptyDigest);
   }
 
+  private enum InputKind {
+    SOURCE,
+    EXTERNAL_SOURCE,
+    DERIVED
+  }
+
   @Test
-  public void checkForConcurrentModifications_withoutInputMapping(
-      @TestParameter({"source", "external", "derived", "tree", "fileset", "runfiles"})
-          String inputKind,
-      @TestParameter ConcurrentChangesCheckLevel level,
-      @TestParameter boolean modified)
+  public void uploadOutputs_inputModifiedDuringExecution(
+      @TestParameter InputKind inputKind, @TestParameter ConcurrentChangesCheckLevel level)
       throws Exception {
-    var metadataProvider = spy(fakeFileCache);
-    Artifact file;
-    Artifact input;
-    switch (inputKind) {
-      case "derived" -> {
-        file = ActionsTestUtil.createArtifact(artifactRoot, "input");
-        input = file;
-      }
-      case "external" -> {
-        file =
-            ActionsTestUtil.createArtifact(
-                ArtifactRoot.asExternalSourceRoot(
-                    Root.fromPath(execRoot.getRelative("external/repo"))),
-                "input");
-        input = file;
-      }
-      case "tree" -> {
-        var tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "tree");
-        file = TreeFileArtifact.createTreeOutput(tree, "child");
-        input = tree;
-      }
-      default -> {
-        file = ActionsTestUtil.createArtifact(sourceRoot, "input");
-        input = file;
-      }
-    }
-    metadataProvider.createScratchInput(file, "original contents");
-    switch (inputKind) {
-      case "tree" ->
-          metadataProvider.addTreeArtifact(
-              input,
-              TreeArtifactValue.newBuilder((Artifact.SpecialArtifact) input)
-                  .putChild((TreeFileArtifact) file, metadataProvider.getInputMetadata(file))
-                  .build());
-      case "fileset" -> {
-        input =
-            Artifact.SpecialArtifact.create(
-                artifactRoot,
-                artifactRoot.getExecPath().getRelative("fileset"),
-                ActionsTestUtil.NULL_ARTIFACT_OWNER,
-                Artifact.SpecialArtifactType.FILESET);
-        doReturn(
-                FilesetOutputTree.create(
-                    ImmutableList.of(
-                        new FilesetOutputSymlink(
-                            PathFragment.create("link"),
-                            file,
-                            metadataProvider.getInputMetadata(file))),
-                    ImmutableMap.of()))
-            .when(metadataProvider)
-            .getFileset(input);
-      }
-      case "runfiles" -> {
-        input =
-            Artifact.SpecialArtifact.create(
-                artifactRoot,
-                artifactRoot.getExecPath().getRelative("tool.runfiles"),
-                ActionsTestUtil.NULL_ARTIFACT_OWNER,
-                Artifact.SpecialArtifactType.RUNFILES);
-        metadataProvider.addRunfilesTree(
-            input, createRunfilesTree("tool.runfiles", ImmutableList.of(file)));
-      }
-      default -> {}
-    }
-    var emptyTree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "empty");
-    metadataProvider.addTreeArtifact(emptyTree, TreeArtifactValue.newBuilder(emptyTree).build());
-    Spawn spawn =
-        new SpawnBuilder("dummy")
-            .withInputs(
-                input, emptyTree, ActionsTestUtil.createVirtualActionInput("params", "value"))
-            .setPathMapper(path -> PathFragment.create("mapped").getRelative(path))
+    var input =
+        ActionsTestUtil.createArtifact(
+            switch (inputKind) {
+              case SOURCE -> sourceRoot;
+              case EXTERNAL_SOURCE ->
+                  ArtifactRoot.asExternalSourceRoot(
+                      Root.fromPath(execRoot.getRelative("external/repo")));
+              case DERIVED -> artifactRoot;
+            },
+            "input");
+    fakeFileCache.createScratchInput(input, "original contents");
+    var service = newRemoteExecutionService();
+    var spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    var action = service.buildRemoteAction(spawn, newSpawnExecutionContext(spawn));
+    var spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
             .build();
-    var context =
-        spy(
-            new FakeSpawnExecutionContext(
-                spawn, metadataProvider, execRoot, outErr, ImmutableClassToInstanceMap.of(), null));
-    RemoteExecutionService service = newRemoteExecutionService();
-    RemoteAction action = mock(RemoteAction.class);
-    when(action.getSpawn()).thenReturn(spawn);
-    when(action.getSpawnExecutionContext()).thenReturn(context);
-    doThrow(new AssertionError("Concurrent modification checks must not request an input mapping"))
-        .when(context)
-        .getInputMapping(anyBoolean());
-    if (modified) {
-      Path path = execRoot.getRelative(file.getExecPath());
-      FileSystemUtils.writeContentAsLatin1(path, "modified contents");
-      // Ensure a distinct timestamp even when both writes happen in the same clock tick.
-      path.setLastModifiedTime(path.getLastModifiedTime() + 1000);
-    }
-    boolean shouldReject =
-        modified
-            && (level == ConcurrentChangesCheckLevel.FULL
-                || (level == ConcurrentChangesCheckLevel.LITE
-                    && file.isSourceArtifact()
-                    && !file.getRoot().isExternal()));
-    if (shouldReject) {
-      IOException error =
-          assertThrows(
-              IOException.class, () -> service.checkForConcurrentModifications(action, level));
-      assertThat(error)
-          .hasMessageThat()
-          .contains(execRoot.getRelative(file.getExecPath()) + " was modified during execution");
+    var inputPath = execRoot.getRelative(input.getExecPath());
+    FileSystemUtils.writeContentAsLatin1(inputPath, "modified contents");
+    // Ensure a distinct timestamp even when both writes happen in the same clock tick.
+    inputPath.setLastModifiedTime(inputPath.getLastModifiedTime() + 1000);
+
+    var uploadComplete = SettableFuture.<Void>create();
+    service.uploadOutputs(action, spawnResult, () -> uploadComplete.set(null), level);
+    uploadComplete.get();
+
+    boolean modificationDetected =
+        switch (level) {
+          case OFF -> false;
+          case LITE -> inputKind == InputKind.SOURCE;
+          case FULL -> true;
+        };
+    if (modificationDetected) {
+      assertThat(eventHandler.getEvents()).hasSize(1);
+      assertThat(eventHandler.getEvents().getFirst().getMessage())
+          .contains(inputPath + " was modified during execution");
     } else {
-      service.checkForConcurrentModifications(action, level);
+      assertThat(eventHandler.getEvents()).isEmpty();
     }
   }
 
@@ -3259,7 +3199,7 @@ public class RemoteExecutionServiceTest {
     remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
-    // Check that inputs and outputs of the remote action are mapped correctly.
+    // Check that the outputs of the remote action are mapped correctly.
     var remoteAction = service.buildRemoteAction(spawn, context);
     assertThat(remoteAction.getCommand().getOutputFilesList()).isEmpty();
     assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();

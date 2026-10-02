@@ -17,6 +17,8 @@ import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPAR
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -31,6 +33,8 @@ import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -206,6 +210,79 @@ public final class SpawnInputExpander {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>(HIERARCHICAL_COMPARATOR);
     addInputs(inputMap, spawn.getInputFiles(), inputMetadataProvider, spawn.getPathMapper());
     return inputMap;
+  }
+
+  /**
+   * Lazily expands the inputs and runfiles of the given spawn just like {@link #getInputMapping},
+   * but without computing the paths they are mapped to.
+   *
+   * <p>The inputs are returned in no particular order and may contain duplicates.
+   */
+  public Iterable<ActionInput> getExpandedInputs(
+      Spawn spawn, InputMetadataProvider inputMetadataProvider) {
+    return () ->
+        new AbstractIterator<>() {
+          private final Iterator<ActionInput> inputs = spawn.getInputFiles().flatten().iterator();
+          private Iterator<Artifact> runfiles = Collections.emptyIterator();
+          // The children of a tree artifact or the targets of a fileset.
+          private Iterator<? extends ActionInput> children = Collections.emptyIterator();
+
+          @Override
+          protected ActionInput computeNext() {
+            while (true) {
+              if (children.hasNext()) {
+                return children.next();
+              }
+              boolean inRunfilesTree = runfiles.hasNext();
+              ActionInput input;
+              if (inRunfilesTree) {
+                input = runfiles.next();
+                if (input == null) {
+                  return VirtualActionInput.EMPTY_MARKER;
+                }
+              } else if (inputs.hasNext()) {
+                input = inputs.next();
+              } else {
+                return endOfData();
+              }
+              switch (input) {
+                case Artifact tree when tree.isTreeArtifact() -> {
+                  TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(tree);
+                  if (treeArtifactValue == null) {
+                    return tree;
+                  }
+                  if (inRunfilesTree
+                      && !expandArchivedTreeArtifacts
+                      && treeArtifactValue.getArchivedArtifact() != null) {
+                    return treeArtifactValue.getArchivedArtifact();
+                  }
+                  if (treeArtifactValue.getChildren().isEmpty()) {
+                    return tree;
+                  }
+                  children = treeArtifactValue.getChildren().iterator();
+                }
+                case Artifact runfilesTree when runfilesTree.isRunfilesTree() -> {
+                  Preconditions.checkArgument(!inRunfilesTree, runfilesTree);
+                  runfiles =
+                      inputMetadataProvider
+                          .getRunfilesMetadata(runfilesTree)
+                          .getRunfilesTree()
+                          .getMapping()
+                          .values()
+                          .iterator();
+                }
+                case Artifact fileset when fileset.isFileset() ->
+                    children =
+                        Iterators.transform(
+                            inputMetadataProvider.getFileset(fileset).symlinks().iterator(),
+                            FilesetOutputSymlink::target);
+                default -> {
+                  return input;
+                }
+              }
+            }
+          }
+        };
   }
 
   private static PathFragment mapForRunfiles(

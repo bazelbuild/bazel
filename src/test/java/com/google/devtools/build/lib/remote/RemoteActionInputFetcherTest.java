@@ -15,16 +15,12 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -32,26 +28,16 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
-import com.google.devtools.build.lib.actions.RunfilesTree;
-import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
@@ -64,7 +50,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -99,227 +84,6 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         DUMMY_REMOTE_OUTPUT_CHECKER,
         ActionOutputDirectoryHelper.createForTesting(),
         OutputPermissions.READONLY);
-  }
-
-  @Test
-  public void prefetchFiles_spawnInputs_doesNotRequireExpandedInputs() throws Exception {
-    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
-    Map<HashCode, byte[]> cas = new HashMap<>();
-    Artifact file = createRemoteArtifact("file", "remote contents", metadata, cas);
-    VirtualActionInput paramFile =
-        ActionsTestUtil.createVirtualActionInput("params", "--flag=value");
-    var prefetcher = createPrefetcher(cas);
-
-    prefetchSpawnInputs(prefetcher, new StaticInputMetadataProvider(metadata), file, paramFile);
-
-    assertThat(FileSystemUtils.readContent(file.getPath(), StandardCharsets.UTF_8))
-        .isEqualTo("remote contents");
-    assertThat(
-            FileSystemUtils.readContent(
-                execRoot.getRelative(paramFile.getExecPath()), StandardCharsets.UTF_8))
-        .isEqualTo("--flag=value");
-  }
-
-  @Test
-  public void prefetchFiles_spawnTreeInputs_materializesAndRefetchesChildren() throws Exception {
-    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
-    Map<HashCode, byte[]> cas = new HashMap<>();
-    Path resolvedPath = artifactRoot.getRoot().getRelative("resolved");
-    var tree =
-        createRemoteTreeArtifact(
-            "tree",
-            ImmutableMap.of("local", "local contents"),
-            ImmutableMap.of("dir/remote", "remote contents"),
-            resolvedPath.asFragment(),
-            metadata,
-            cas);
-    resolvedPath.createDirectoryAndParents();
-    FileSystemUtils.writeContent(
-        resolvedPath.getRelative("local"), StandardCharsets.UTF_8, "local contents");
-    var treeValueBuilder = TreeArtifactValue.newBuilder(tree.first);
-    for (var child : tree.second) {
-      treeValueBuilder.putChild(child, metadata.get(child));
-    }
-    treeValueBuilder.setResolvedPath(resolvedPath.asFragment());
-    var emptyTree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "empty");
-    var metadataProvider = mockMetadataProvider(metadata);
-    when(metadataProvider.getTreeMetadata(tree.first)).thenReturn(treeValueBuilder.build());
-    when(metadataProvider.getTreeMetadata(emptyTree))
-        .thenReturn(TreeArtifactValue.newBuilder(emptyTree).build());
-    var prefetcher = createPrefetcher(cas);
-
-    // Include a child directly as well to exercise overlapping inputs.
-    prefetchSpawnInputs(
-        prefetcher, metadataProvider, tree.first, tree.second.getFirst(), emptyTree);
-
-    assertThat(tree.first.getPath().isSymbolicLink()).isTrue();
-    assertThat(
-            FileSystemUtils.readContent(
-                tree.first.getPath().getRelative("dir/remote"), StandardCharsets.UTF_8))
-        .isEqualTo("remote contents");
-    assertThat(
-            FileSystemUtils.readContent(
-                tree.first.getPath().getRelative("local"), StandardCharsets.UTF_8))
-        .isEqualTo("local contents");
-    assertThat(resolvedPath.isWritable()).isFalse();
-    assertThat(emptyTree.getPath().exists()).isFalse();
-
-    resolvedPath.getRelative("dir").setWritable(true);
-    resolvedPath.getRelative("dir/remote").delete();
-    prefetcher.handleRewoundActionOutputs(
-        ImmutableList.of(
-            ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "resolved")));
-    prefetchSpawnInputs(prefetcher, metadataProvider, tree.first);
-
-    assertThat(
-            FileSystemUtils.readContent(
-                tree.first.getPath().getRelative("dir/remote"), StandardCharsets.UTF_8))
-        .isEqualTo("remote contents");
-  }
-
-  @Test
-  public void prefetchFiles_spawnFilesetInput_onlyMaterializesSelectedChildren() throws Exception {
-    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
-    Map<HashCode, byte[]> cas = new HashMap<>();
-    var tree =
-        createRemoteTreeArtifact(
-            "tree",
-            ImmutableMap.of(),
-            ImmutableMap.of("included", "included contents", "excluded", "excluded contents"),
-            metadata,
-            cas);
-    var included =
-        tree.second.stream()
-            .filter(child -> child.getParentRelativePath().getPathString().equals("included"))
-            .findFirst()
-            .orElseThrow();
-    cas.remove(
-        HASH_FUNCTION
-            .getHashFunction()
-            .hashBytes("excluded contents".getBytes(StandardCharsets.UTF_8)));
-    var fileset = createSpecialArtifact("fileset", SpecialArtifactType.FILESET);
-    var metadataProvider = mockMetadataProvider(metadata);
-    when(metadataProvider.getFileset(fileset))
-        .thenReturn(
-            FilesetOutputTree.create(
-                ImmutableList.of(
-                    new FilesetOutputSymlink(
-                        PathFragment.create("link"), included, metadata.get(included))),
-                ImmutableMap.of()));
-
-    prefetchSpawnInputs(createPrefetcher(cas), metadataProvider, fileset);
-
-    assertThat(FileSystemUtils.readContent(included.getPath(), StandardCharsets.UTF_8))
-        .isEqualTo("included contents");
-    assertThat(tree.first.getPath().getRelative("excluded").exists()).isFalse();
-  }
-
-  @Test
-  public void prefetchFiles_spawnRunfilesInput_followsMapping() throws Exception {
-    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
-    Map<HashCode, byte[]> cas = new HashMap<>();
-    Artifact file = createRemoteArtifact("file", "file contents", metadata, cas);
-    Artifact hidden = createRemoteArtifact("hidden", "hidden contents", metadata, /* cas= */ null);
-    Artifact target = createRemoteArtifact("target", "fileset contents", metadata, cas);
-    var tree =
-        createRemoteTreeArtifact(
-            "tree", ImmutableMap.of(), ImmutableMap.of("child", "tree contents"), metadata, cas);
-    var treeValue =
-        TreeArtifactValue.newBuilder(tree.first)
-            .putChild(tree.second.getFirst(), metadata.get(tree.second.getFirst()))
-            .build();
-    var fileset = createSpecialArtifact("fileset", SpecialArtifactType.FILESET);
-    var filesetValue =
-        FilesetOutputTree.create(
-            ImmutableList.of(
-                new FilesetOutputSymlink(
-                    PathFragment.create("link"), target, metadata.get(target))),
-            ImmutableMap.of());
-    var runfilesArtifact = createSpecialArtifact("tool.runfiles", SpecialArtifactType.RUNFILES);
-    var runfilesTree = mock(RunfilesTree.class);
-    var mapping = new TreeMap<PathFragment, Artifact>();
-    mapping.put(PathFragment.create("file"), file);
-    mapping.put(PathFragment.create("alias"), file);
-    mapping.put(PathFragment.create("tree"), tree.first);
-    mapping.put(PathFragment.create("fileset"), fileset);
-    mapping.put(PathFragment.create("empty"), null);
-    when(runfilesTree.getMapping()).thenReturn(mapping);
-    // The aggregate metadata also contains a shadowed artifact that is unavailable in the CAS.
-    var runfilesValue =
-        new RunfilesArtifactValue(
-            runfilesTree,
-            ImmutableList.of(file, hidden),
-            ImmutableList.of(metadata.get(file), metadata.get(hidden)),
-            ImmutableList.of(tree.first),
-            ImmutableList.of(treeValue),
-            ImmutableList.of(fileset),
-            ImmutableList.of(filesetValue));
-    var metadataProvider = mockMetadataProvider(metadata);
-    when(metadataProvider.getRunfilesMetadata(runfilesArtifact)).thenReturn(runfilesValue);
-    when(metadataProvider.getTreeMetadata(tree.first)).thenReturn(treeValue);
-    when(metadataProvider.getFileset(fileset)).thenReturn(filesetValue);
-
-    prefetchSpawnInputs(createPrefetcher(cas), metadataProvider, runfilesArtifact);
-
-    assertThat(FileSystemUtils.readContent(file.getPath(), StandardCharsets.UTF_8))
-        .isEqualTo("file contents");
-    assertThat(
-            FileSystemUtils.readContent(tree.second.getFirst().getPath(), StandardCharsets.UTF_8))
-        .isEqualTo("tree contents");
-    assertThat(FileSystemUtils.readContent(target.getPath(), StandardCharsets.UTF_8))
-        .isEqualTo("fileset contents");
-    assertThat(hidden.getPath().exists()).isFalse();
-  }
-
-  @Test
-  public void prefetchFiles_withoutSpawn_usesExpandedInputs() throws Exception {
-    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
-    Map<HashCode, byte[]> cas = new HashMap<>();
-    Artifact file = createRemoteArtifact("file", "contents", metadata, cas);
-
-    wait(
-        createPrefetcher(cas)
-            .prefetchFiles(
-                action,
-                /* spawn= */ null,
-                ImmutableList.of(file),
-                new StaticInputMetadataProvider(metadata),
-                Priority.LOW,
-                Reason.OUTPUTS));
-
-    assertThat(FileSystemUtils.readContent(file.getPath(), StandardCharsets.UTF_8))
-        .isEqualTo("contents");
-  }
-
-  private SpecialArtifact createSpecialArtifact(String path, SpecialArtifactType type) {
-    return SpecialArtifact.create(
-        artifactRoot,
-        artifactRoot.getExecPath().getRelative(path),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER,
-        type);
-  }
-
-  private static InputMetadataProvider mockMetadataProvider(
-      Map<ActionInput, FileArtifactValue> metadata) throws IOException {
-    var metadataProvider = mock(InputMetadataProvider.class);
-    when(metadataProvider.getInputMetadata(any()))
-        .thenAnswer(invocation -> metadata.get(invocation.getArgument(0)));
-    return metadataProvider;
-  }
-
-  private void prefetchSpawnInputs(
-      AbstractActionInputPrefetcher prefetcher,
-      InputMetadataProvider metadataProvider,
-      ActionInput... inputs)
-      throws Exception {
-    wait(
-        prefetcher.prefetchFiles(
-            action,
-            new SpawnBuilder().withInputs(inputs).build(),
-            /* expandedInputs= */ null,
-            metadataProvider,
-            Priority.MEDIUM,
-            Reason.INPUTS));
   }
 
   @Test

@@ -72,7 +72,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -1956,18 +1955,13 @@ public class RemoteExecutionService {
     }
   }
 
-  @VisibleForTesting
-  void checkForConcurrentModifications(RemoteAction action, ConcurrentChangesCheckLevel level)
-      throws IOException {
+  private void checkForConcurrentModifications(
+      RemoteAction action, ConcurrentChangesCheckLevel level) throws IOException {
     if (level == ConcurrentChangesCheckLevel.OFF) {
       return;
     }
 
-    InputMetadataProvider metadataProvider =
-        action.getSpawnExecutionContext().getInputMetadataProvider();
-    // Modification checks use original exec paths and do not need a sorted input mapping.
-    for (ActionInput input :
-        RemoteActionInputs.expand(action.getSpawn().getInputFiles().flatten(), metadataProvider)) {
+    for (ActionInput input : action.getSpawnExecutionContext().getExpandedInputs()) {
       // In lite mode, only check source artifacts in the main repository for modifications.
       // Non-source artifacts are made read-only after execution, and external repositories are
       // rarely modified, with local_repository being the notable exception.
@@ -1983,7 +1977,8 @@ public class RemoteExecutionService {
       } else if (input instanceof VirtualActionInput) {
         continue;
       }
-      FileArtifactValue metadata = metadataProvider.getInputMetadata(input);
+      FileArtifactValue metadata =
+          action.getSpawnExecutionContext().getInputMetadataProvider().getInputMetadata(input);
       Path path = execRoot.getRelative(input.getExecPath());
       if (metadata.wasModifiedSinceDigest(path)) {
         throw new IOException(path + " was modified during execution");

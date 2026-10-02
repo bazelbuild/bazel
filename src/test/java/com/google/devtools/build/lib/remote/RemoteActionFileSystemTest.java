@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -181,7 +182,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         .prefetchFiles(
             any(),
             any(),
-            eq(ImmutableList.of(artifact)),
+            argThat(arg -> arg.get().equals(ImmutableList.of(artifact))),
             any(),
             eq(Priority.CRITICAL),
             eq(Reason.INPUTS));
@@ -197,7 +198,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         .prefetchFiles(
             any(),
             any(),
-            eq(ImmutableList.of(artifact)),
+            argThat(arg -> arg.get().equals(ImmutableList.of(artifact))),
             any(),
             eq(Priority.CRITICAL),
             eq(Reason.INPUTS));

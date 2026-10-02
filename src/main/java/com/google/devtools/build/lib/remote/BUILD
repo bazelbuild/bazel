@@ -1094,7 +1094,6 @@ java_library(
     deps = [
         ":concurrent_artifact_path_trie",
         ":lazy_materializer",
-        ":remote_action_inputs",
         ":remote_output_checker",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
@@ -1245,7 +1244,6 @@ java_library(
         ":platform_properties",
         ":remote_action",
         ":remote_action_file_system",
-        ":remote_action_inputs",
         ":remote_execution_cache",
         ":remote_output_checker",
         ":remote_output_service",
@@ -1314,21 +1312,5 @@ java_library(
         "//third_party/java/protobuf",
         "//third_party/java/protobuf:protobuf_lite",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
-    ],
-)
-
-java_library(
-    name = "remote_action_inputs",
-    srcs = ["RemoteActionInputs.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
-        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
-        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
-        "//third_party/java/guava:collect",
     ],
 )

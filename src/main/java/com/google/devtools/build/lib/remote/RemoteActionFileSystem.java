@@ -425,7 +425,7 @@ public class RemoteActionFileSystem extends FileSystem {
     return inputFetcher.prefetchFiles(
         action,
         /* spawn= */ null,
-        ImmutableList.of(input),
+        () -> ImmutableList.of(input),
         inputArtifactData,
         Priority.CRITICAL,
         Reason.INPUTS);
@@ -652,6 +652,7 @@ public class RemoteActionFileSystem extends FileSystem {
     return statInternal(
         path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
+
 
   /**
    * Internal stat implementation.
