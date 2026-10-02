@@ -874,19 +874,19 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * the file that ends up being materialized.
    */
   private static boolean shouldPrefetch(PathFragment path) {
-    // .bzl files are typically small and the loads between them can form complex DAGs that can only
-    // be discovered layer by layer, so prefetching is worthwhile to reduce the number of sequential
-    // cache requests.
-    // The same applies to .scl files, which can be loaded just like .bzl files.
-    // REPO.bazel and .bazelignore are dependencies of package loading. Prefetch .bazelignore also
-    // because its reader reports an inconsistent filesystem on an I/O error instead of rewinding.
-    // Since all of these are read on behalf of Skyframe nodes that can't rewind the repo fetch
-    // when they are lost, prefetching them is what turns their loss into a cache miss instead.
+    // .bzl and .scl files are typically small and the loads between them can form complex DAGs that
+    // can only be discovered layer by layer, so prefetching is worthwhile to reduce the number of
+    // sequential cache requests.
+    // None of these files are read by nodes that can rewind the fetch of the repo when a file has
+    // been lost, so prefetching turns such a loss into a cache miss instead.
     String extension = path.getFileExtension();
+    String baseName = path.getBaseName();
     return extension.equals("bzl")
         || extension.equals("scl")
-        || path.getBaseName().equals("REPO.bazel")
-        || path.getBaseName().equals(".bazelignore");
+        || baseName.equals("REPO.bazel")
+        || baseName.equals(".bazelignore")
+        || baseName.equals("MODULE.bazel")
+        || baseName.endsWith(".MODULE.bazel");
   }
 
   @Override
