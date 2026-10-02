@@ -1530,6 +1530,84 @@ Strip the given number of leading components from file paths on extraction. Only
     }
   }
 
+  @StarlarkMethod(
+      name = "copy",
+      doc =
+          """
+          Copies the file at <code>src</code> to <code>dst</code>, preserving its executable \
+          bit and making it writable. If <code>src</code> is a symlink, the file it points to is \
+          copied. Parent directories of <code>dst</code> are created as needed and an existing \
+          file at <code>dst</code> is overwritten. Directories can't be copied. \
+          <p>On file systems that support it, the copy is created as a copy-on-write clone of \
+          <code>src</code> that doesn't take up additional disk space. \
+          """,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "src",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "The path of the existing file to copy."),
+        @Param(
+            name = "dst",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "The path of the copy to create, relative to the repository directory."),
+        @Param(
+            name = "watch_src",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Whether to <a href="#watch">watch</a> the source file. Can be the string \
+                'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking \
+                the <a href="#watch"><code>watch()</code></a> method; passing 'no' does \
+                not attempt to watch the file; passing 'auto' will only attempt to watch \
+                the file when it is legal to do so (see <code>watch()</code> docs for more \
+                information.
+                """),
+      })
+  public void copy(Object src, Object dst, String watchSrc, StarlarkThread thread)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
+    StarlarkPath srcPath = getPath(src);
+    StarlarkPath dstPath = getPath(dst);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newCopyEvent(
+            srcPath.toString(),
+            dstPath.toString(),
+            identifyingStringForLogging,
+            thread.getCallerLocation());
+    env.getListener().post(w);
+    maybeWatch(srcPath, ShouldWatch.fromString(watchSrc));
+    if (srcPath.isDir()) {
+      throw Starlark.errorf("attempting to copy() a directory: %s", srcPath);
+    }
+    try {
+      checkInOutputDirectory("write", dstPath);
+      makeDirectories(dstPath.getPath());
+      FileSystemUtils.copyFile(srcPath.getPath(), dstPath.getPath());
+      // The copy inherits the permissions of the source, which may be read-only, but has to remain
+      // modifiable by later steps of the repo rule such as patching.
+      dstPath.getPath().setWritable(true);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Could not copy " + srcPath + " to " + dstPath + ": " + e.getMessage(), e),
+          Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not copy %s to %s: %s", srcPath, dstPath, e.getMessage()),
+          Transience.PERSISTENT);
+    }
+  }
+
   // Move to a common location like net.starlark.java.eval.Starlark?
   @Nullable
   private static <T> T nullIfNone(Object object, Class<T> type) {
