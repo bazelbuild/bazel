@@ -598,12 +598,11 @@ public class SandboxStash {
       Label stashTarget = sandboxToTarget.getOrDefault(stash, /* defaultValue= */ null);
       if (target == null) {
         countMap.put(stash, stashTarget == null ? 1 : 0);
+      } else if (stashTarget == null) {
+        countMap.put(stash, 0);
       } else {
-        countMap.put(
-            stash,
-            stashTarget == null
-                ? 0
-                : Arrays.mismatch(targetStr, stashTarget.getPackageName().split("/")));
+        int mismatch = Arrays.mismatch(targetStr, stashTarget.getPackageName().split("/"));
+        countMap.put(stash, mismatch == -1 ? Integer.MAX_VALUE : mismatch);
       }
     }
     return ImmutableList.sortedCopyOf(
