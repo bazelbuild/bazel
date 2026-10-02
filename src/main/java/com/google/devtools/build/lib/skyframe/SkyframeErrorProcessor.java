@@ -977,8 +977,12 @@ public final class SkyframeErrorProcessor {
     DetailedExitCode unknownExitCode =
         sendBugReportAndCreateUnknownExecutionDetailedExitCode(
             resultForDebugging, cause, bugReporter);
+    // The catastrophe bit is propagated through the ArtifactNestedSetEvalException.
+    boolean catastrophic = cause instanceof ArtifactNestedSetEvalException e && e.isCatastrophic();
     throw new BuildFailedException(
         Preconditions.checkNotNull(unknownExitCode.getFailureDetail()).getMessage(),
+        catastrophic,
+        /* errorAlreadyShown= */ false,
         unknownExitCode);
   }
 

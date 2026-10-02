@@ -2450,14 +2450,11 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown.isCatastrophic()).isTrue();
   }
 
-  // TODO(b/561978611): Remove this behavior. rethrow only carries the catastrophe bit over for an
-  // ActionExecutionException, so every other execution exception silently loses it.
   @Test
-  public void noKeepGoing_catastrophicArtifactNestedSetEvalException_isNotCatastrophic() {
-    // The contrast with the test above. An ArtifactNestedSetEvalException has its own
-    // isCatastrophic flag, which ArtifactNestedSetFunction propagates up through the nested-set
-    // evaluation - and which rethrow() then drops, because the exception reaches the final
-    // "unexpected exception" fallback rather than the ActionExecutionException branch.
+  public void noKeepGoing_artifactNestedSetEvalException_preservesCatastrophicFlag(
+      @TestParameter boolean catastrophic) {
+    // An ArtifactNestedSetEvalException carries an isCatastrophic flag propagated from its child
+    // exceptions by ArtifactNestedSetFunction, which rethrow() forwards to BuildFailedException.
     ConfiguredTargetKey key = configuredTargetKey("//nested_set_err");
 
     BuildFailedException thrown =
@@ -2468,12 +2465,11 @@ public class SkyframeErrorProcessorTest {
                     resultOf(
                         key,
                         errorInfo(
-                            artifactNestedSetEvalException(
-                                "nested set failed", /* catastrophic= */ true))),
+                            artifactNestedSetEvalException("nested set failed", catastrophic))),
                     /* keepGoing= */ false,
                     /* includeExecutionPhase= */ true));
 
-    assertThat(thrown.isCatastrophic()).isFalse();
+    assertThat(thrown.isCatastrophic()).isEqualTo(catastrophic);
     assertThat(thrown)
         .hasMessageThat()
         .isEqualTo(
