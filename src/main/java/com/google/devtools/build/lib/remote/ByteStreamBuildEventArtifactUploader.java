@@ -231,27 +231,27 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       }
     }
 
-    var stat = path.stat();
     if (file.type == LocalFileType.OUTPUT_DIRECTORY
-        || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
-                || file.type == LocalFileType.FAILED_TEST_OUTPUT)
-            && stat.isDirectory())) {
+        || file.type == LocalFileType.OUTPUT_SYMLINK) {
       return new PathMetadata(
           path,
           /* digest= */ null,
-          /* directory= */ true,
-          /* symlink= */ false,
+          /* directory= */ file.type == LocalFileType.OUTPUT_DIRECTORY,
+          /* symlink= */ file.type == LocalFileType.OUTPUT_SYMLINK,
           /* remote= */ false,
           /* isBuildToolLog= */ false,
           /* specialFile= */ false,
           digestFunction);
     }
-    if (file.type == LocalFileType.OUTPUT_SYMLINK) {
+    var stat = path.stat();
+    if ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
+            || file.type == LocalFileType.FAILED_TEST_OUTPUT)
+        && stat.isDirectory()) {
       return new PathMetadata(
           path,
           /* digest= */ null,
-          /* directory= */ false,
-          /* symlink= */ true,
+          /* directory= */ true,
+          /* symlink= */ false,
           /* remote= */ false,
           /* isBuildToolLog= */ false,
           /* specialFile= */ false,

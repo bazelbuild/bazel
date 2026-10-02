@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -203,7 +204,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   @Test
   public void uploadsShouldIgnoreSpecialFiles() throws Exception {
     Path file = Mockito.spy(fs.getPath("/fifo"));
-    Mockito.doReturn(true).when(file).isSpecialFile();
+    FileStatus stat = mock(FileStatus.class);
+    Mockito.doReturn(true).when(stat).isSpecialFile();
+    Mockito.doReturn(stat).when(file).stat();
 
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(file, new LocalFile(file, LocalFileType.LOG, /* artifactMetadata= */ null));
@@ -218,6 +221,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     String conversion = pathConverter.apply(file);
     assertThat(conversion).isEqualTo("file:///fifo");
+    assertThat(eventHandler.getEvents()).isEmpty();
 
     artifactUploader.release();
   }
@@ -395,11 +399,16 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void directory_notUploaded() throws Exception {
+  public void directories_notUploaded() throws Exception {
     Path dir = fs.getPath("/dir");
+    Path runfilesDir = fs.getPath("/unmaterialized.runfiles");
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
         dir, new LocalFile(dir, LocalFileType.OUTPUT_DIRECTORY, /* artifactMetadata= */ null));
+    filesToUpload.put(
+        runfilesDir,
+        new LocalFile(
+            runfilesDir, LocalFileType.OUTPUT_DIRECTORY, FileArtifactValue.RUNFILES_TREE_MARKER));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
@@ -409,12 +418,15 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
+    assertThat(pathConverter.apply(runfilesDir)).isNull();
+    assertThat(eventHandler.getEvents()).isEmpty();
     artifactUploader.release();
   }
 
   @Test
   public void symlink_notUploaded() throws Exception {
     Path sym = fs.getPath("/sym");
+    sym.createSymbolicLink(PathFragment.create("missing-target"));
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
         sym, new LocalFile(sym, LocalFileType.OUTPUT_SYMLINK, /* artifactMetadata= */ null));
@@ -427,6 +439,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(sym)).isNull();
+    assertThat(eventHandler.getEvents()).isEmpty();
     artifactUploader.release();
   }
 
