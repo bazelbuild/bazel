@@ -1431,6 +1431,142 @@ class RemoteRepoContentsCacheTest(
           os.readlink(os.path.join(repo_dir, 'link1.txt')), 'data.txt'
       )
 
+  def doTestInputBelowSymlinkedDirectories(self, name):
+    # The symlinks at the directories above an input of a local action must be
+    # reproduced on disk rather than created as regular directories, which
+    # would no longer match the contents of the repo and make its full
+    # materialization fail.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            (
+                'other_repo_rule ='
+                ' use_repo_rule("//:other_repo.bzl", "other_repo_rule")'
+            ),
+            'other_repo_rule(name = "other", build_file = "@my_repo//:BUILD")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "exports_files('
+                "['alias/inner_link/nested.txt'])\\n"
+                "filegroup(name='inner_dir', srcs=['alias/inner_link'],"
+                " visibility=['//visibility:public'])\")"
+            ),
+            '  rctx.file("real/file.txt", "file")',
+            '  rctx.file("real/subdir/nested.txt", "nested")',
+            # A chain of directory symlinks with another directory symlink below
+            # its target.
+            '  rctx.symlink("real", "alias2")',
+            '  rctx.symlink("alias2", "alias")',
+            '  rctx.symlink("real/subdir", "real/inner_link")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            # Reading my_repo's BUILD forces full materialization of my_repo.
+            '  rctx.read(rctx.attr.build_file)',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo_rule = repository_rule(_other_repo_impl,'
+                ' attrs={"build_file": attr.label()})'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_file",',
+            '  srcs = ["@my_repo//:alias/inner_link/nested.txt"],',
+            '  outs = ["use_file.txt"],',
+            '  cmd = "cat $< > $@",',
+            '  tags = ["no-cache"],',
+            ')',
+            'genrule(',
+            '  name = "use_source_directory",',
+            '  srcs = ["@my_repo//:inner_dir"],',
+            '  outs = ["use_source_directory.txt"],',
+            '  cmd = "cat $</nested.txt > $@",',
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    target = '//main:' + name
+    out = self.Path('bazel-bin/main/%s.txt' % name)
+
+    def assert_symlinks_reproduced():
+      for link, link_target, resolved in [
+          ('alias', 'alias2', 'real'),
+          ('alias2', 'real', 'real'),
+          ('real/inner_link', '../real/subdir', 'real/subdir'),
+      ]:
+        self.assertTrue(
+            os.path.samefile(
+                os.path.join(repo_dir, link), os.path.join(repo_dir, resolved)
+            ),
+            link,
+        )
+        if not self.IsWindows():
+          # The exact relative symlink targets are reproduced (POSIX only, as
+          # the representation is platform-dependent).
+          self.assertEqual(
+              os.readlink(os.path.join(repo_dir, link)), link_target
+          )
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', target])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: the repo is a remote cache hit and is not fully
+    # materialized, but the no-cache action still runs locally and must be able
+    # to read its input through the symlinks.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', target])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'real/file.txt')))
+    assert_symlinks_reproduced()
+    with open(out) as f:
+      self.assertEqual(f.read(), 'nested')
+
+    # Fetch other: my_repo is fully materialized, which plants the symlinks
+    # again.
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    assert_symlinks_reproduced()
+    with open(os.path.join(repo_dir, 'alias/file.txt')) as f:
+      self.assertEqual(f.read(), 'file')
+
+  def testUseRepoFileBelowSymlinkedDirectories_actionDoesNotUseCache(self):
+    self.doTestInputBelowSymlinkedDirectories('use_file')
+
+  def testUseSourceDirectoryBelowSymlinkedDirectories_actionDoesNotUseCache(
+      self,
+  ):
+    self.doTestInputBelowSymlinkedDirectories('use_source_directory')
+
   def testRepoWithSymlinkChainIntoMainRepoIsNotCached(self):
     # A repo containing a symlink chain that ends with a symlink pointing at a
     # file in the main repo must not be added to the remote repo contents
