@@ -115,6 +115,34 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
+  def testLostRemoteFile_evaluatorReplacedDuringCommand(self):
+    # The first command that tracks incremental state after one that doesn't
+    # replaces the Skyframe evaluator while it is running. If it can't restore
+    # the lost files of a repo, the fetch of the repo has to be invalidated in
+    # the new evaluator for the next command to fetch the repo again.
+    repo_dir = self._setupRepoWithSubpackage()
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--notrack_incremental_state', '@my_repo//:root']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
+
+    # The lost file can't be restored since fetching is disabled.
+    self.DeleteCasEntry(b"filegroup(name='sub', srcs=['sub.txt'])")
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nofetch', '@my_repo//sub:sub'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('fetching repositories is disabled', '\n'.join(stderr))
+
+    # The next command fetches the repo again.
+    _, _, stderr = self.RunBazel(['build', '@my_repo//sub:sub'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
+
   def testLostRemoteFile_remoteExecutionUpload(self):
     # Regression test for a crash when a file in a remotely cached repo has
     # been evicted after the analysis phase and this is only noticed while

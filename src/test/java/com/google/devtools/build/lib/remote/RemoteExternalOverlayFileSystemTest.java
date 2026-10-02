@@ -60,7 +60,7 @@ public final class RemoteExternalOverlayFileSystemTest {
         new Reporter(),
         "build-request",
         "command",
-        mock(MemoizingEvaluator.class),
+        () -> mock(MemoizingEvaluator.class),
         Duration.ofMinutes(1));
     try {
       // The remote cache doesn't have the contents of the files.
@@ -114,7 +114,7 @@ public final class RemoteExternalOverlayFileSystemTest {
         reporter,
         "build-request",
         "command",
-        mock(MemoizingEvaluator.class),
+        () -> mock(MemoizingEvaluator.class),
         Duration.ofMinutes(1));
     try {
       var repo = RepositoryName.create("repo");
