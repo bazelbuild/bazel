@@ -209,6 +209,13 @@ workspace as if Bazel had been run locally.
 }
 ```
 
+## ExecRequestConstructed {#execrequestconstructed}
+
+Published by `bazel run` (unless `--script_path` is set) after a successful
+build, before the requested binary is executed. This event contains the
+execution details, such as the working directory, command-line arguments
+(`argv`), and environment variables.
+
 ## Fetch {#fetch}
 
 Indicates that a Fetch operation occurred as a part of the command execution.
@@ -299,6 +306,12 @@ during command execution. These events are also auto-generated as needed to
 announce events that have not been announced by a logical "parent" event (in
 particular, [NamedSetOfFiles](#namedsetoffiles).)
 
+## SkyValueUploaded {#skyvalueuploaded}
+
+**Experimental.** Emitted when Bazel uploads a Skyframe node or value to remote
+analysis cache storage. This event includes the Skyframe node key, version, and
+fingerprint to support remote analysis caching workflows.
+
 ## TargetComplete {#targetcomplete}
 
 For each `(target, configuration, aspect)` combination that completes the
@@ -385,6 +398,13 @@ If testing is requested, a `TestResult` event is sent for each test attempt,
 shard, and run per test. This allows BEP consumers to identify precisely which
 test actions failed their tests and identify the test outputs (such as logs,
 test.xml files) for each test action.
+
+## TestProgress {#testprogress}
+
+May be emitted while a test action is running. The event contains a URI that
+can be queried for information about the active test run, such as live output.
+The URI is not guaranteed to be available after the test completes and
+publishes its final [`TestResult`](#testresult).
 
 ## TestSummary {#testsummary}
 
