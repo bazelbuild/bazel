@@ -192,6 +192,17 @@ public abstract class QueryOptions extends CommonQueryOptions {
 
   public abstract void setUseGraphlessQuery(TriState value);
 
+  @Option(
+      name = "experimental_parallel_streamed_proto_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, --output=streamed_proto serializes targets in parallel while preserving output"
+              + " order. Has no effect when --proto:rule_classes is enabled.")
+  public abstract boolean getParallelStreamedProtoOutput();
+
   /** Return the current options as a set of QueryEnvironment settings. */
   @Override
   public Set<Setting> toSettings() {
