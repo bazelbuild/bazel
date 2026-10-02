@@ -1,0 +1,222 @@
+// Copyright 2026 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.remote;
+
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
+
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.util.DeterministicWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.Duration;
+import java.time.Instant;
+
+/**
+ * A {@link FileWriteActionContext} that stores the contents of the file in the disk and/or remote
+ * cache and records them as a remote output instead of writing them to disk.
+ *
+ * <p>The file is written to disk instead if the file write isn't remotable, if the action doesn't
+ * run on a {@link RemoteActionFileSystem} or if the output has to be downloaded anyway according to
+ * {@code --remote_download_outputs} or {@code --remote_download_regex}.
+ *
+ * <p>The contents are always stored in the disk cache if there is one. They are uploaded to the
+ * remote cache if it doesn't have them yet and uploads are enabled. If there is no disk cache and
+ * uploads to the remote cache are disabled, the contents are only recorded as a remote output if
+ * the remote cache already has them and the file is written to disk otherwise. If the caches lose
+ * the contents later, action rewinding re-executes the action to store them again.
+ */
+public final class RemoteFileWriteStrategy implements FileWriteActionContext {
+  private final FileWriteActionContext localStrategy;
+  private final CombinedCache combinedCache;
+  private final RemoteOutputChecker remoteOutputChecker;
+  private final DigestUtil digestUtil;
+  private final String buildRequestId;
+  private final String commandId;
+  private final Duration remoteCacheTtl;
+  private final boolean remoteUploadEnabled;
+  private final boolean verboseFailures;
+
+  public RemoteFileWriteStrategy(
+      FileWriteActionContext localStrategy,
+      CombinedCache combinedCache,
+      RemoteOutputChecker remoteOutputChecker,
+      DigestUtil digestUtil,
+      String buildRequestId,
+      String commandId,
+      Duration remoteCacheTtl,
+      boolean remoteUploadEnabled,
+      boolean verboseFailures) {
+    this.localStrategy = localStrategy;
+    this.combinedCache = combinedCache;
+    this.remoteOutputChecker = remoteOutputChecker;
+    this.digestUtil = digestUtil;
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
+    this.remoteCacheTtl = remoteCacheTtl;
+    this.remoteUploadEnabled = remoteUploadEnabled;
+    this.verboseFailures = verboseFailures;
+  }
+
+  @Override
+  public ImmutableList<SpawnResult> writeOutputToFile(
+      AbstractAction action,
+      ActionExecutionContext actionExecutionContext,
+      DeterministicWriter deterministicWriter,
+      boolean makeExecutable,
+      boolean isRemotable,
+      Artifact output)
+      throws InterruptedException, ExecException {
+    // Non-remotable file writes are consumed by Bazel itself and thus have to exist locally.
+    // Outputs that are requested for download would be materialized right after the action anyway.
+    if (!isRemotable
+        || !(actionExecutionContext.getActionFileSystem()
+            instanceof RemoteActionFileSystem remoteActionFileSystem)
+        || remoteOutputChecker.shouldDownloadOutput(
+            output.getExecPath(), /* treeRootExecPath= */ null)) {
+      return localStrategy.writeOutputToFile(
+          action, actionExecutionContext, deterministicWriter, makeExecutable, isRemotable, output);
+    }
+
+    actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "remote"));
+    try (var _ = Profiler.instance().profile("RemoteFileWriteStrategy.writeOutputToFile")) {
+      Digest digest;
+      try {
+        digest = digestUtil.compute(deterministicWriter);
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(e, Code.FILE_WRITE_IO_EXCEPTION);
+      }
+
+      var context = RemoteActionExecutionContext.create(buildRequestMetadata(action));
+      try {
+        if (!storeInCaches(context, digest, deterministicWriter, output)) {
+          // No cache has the contents and Bazel isn't allowed to store them in any, so the file
+          // has to exist locally for consumers to be able to use it.
+          return localStrategy.writeOutputToFile(
+              action,
+              actionExecutionContext,
+              deterministicWriter,
+              makeExecutable,
+              isRemotable,
+              output);
+        }
+      } catch (IOException e) {
+        // Cache failures shouldn't fail the build, so write the file to disk instead.
+        actionExecutionContext
+            .getEventHandler()
+            .handle(Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+        return localStrategy.writeOutputToFile(
+            action,
+            actionExecutionContext,
+            deterministicWriter,
+            makeExecutable,
+            isRemotable,
+            output);
+      }
+
+      // TODO: Bazel currently marks all output files as executable after local execution and
+      // stages all files as executable for remote execution, so the executable bit isn't tracked
+      // in the metadata yet.
+      try {
+        remoteActionFileSystem.injectRemoteFile(
+            actionExecutionContext.getInputPath(output).asFragment(),
+            DigestUtil.toBinaryDigest(digest),
+            digest.getSizeBytes(),
+            Instant.now().plus(remoteCacheTtl),
+            /* inMemoryOutput= */ false);
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(e, Code.FILE_WRITE_IO_EXCEPTION);
+      }
+    }
+    return ImmutableList.of();
+  }
+
+  /**
+   * Stores the contents in every cache that Bazel is allowed to write to and that doesn't have them
+   * yet.
+   *
+   * @return whether at least one cache has the contents afterwards
+   */
+  private boolean storeInCaches(
+      RemoteActionExecutionContext context,
+      Digest digest,
+      DeterministicWriter deterministicWriter,
+      Artifact output)
+      throws IOException, InterruptedException {
+    // The disk cache is always writable and skips the write if it already has the contents.
+    boolean writeToDiskCache = combinedCache.hasDiskCache();
+    boolean presentInRemoteCache = false;
+    boolean uploadToRemoteCache = false;
+    if (combinedCache.hasRemoteCache()) {
+      ImmutableSet<Digest> missingDigests =
+          getFromFuture(combinedCache.findMissingDigests(context, ImmutableList.of(digest)));
+      presentInRemoteCache = missingDigests.isEmpty();
+      uploadToRemoteCache = !presentInRemoteCache && remoteUploadEnabled;
+    }
+    if (writeToDiskCache || uploadToRemoteCache) {
+      getFromFuture(
+          combinedCache.uploadBlob(
+              context.withWriteCachePolicy(
+                  CachePolicy.create(uploadToRemoteCache, writeToDiskCache)),
+              digest,
+              new DeterministicWriterBlob(deterministicWriter, output)));
+    }
+    return writeToDiskCache || presentInRemoteCache || uploadToRemoteCache;
+  }
+
+  private RequestMetadata buildRequestMetadata(AbstractAction action) {
+    ActionOwner owner = action.getOwner();
+    return TracingMetadataUtils.buildMetadata(
+        buildRequestId,
+        commandId,
+        action.getPrimaryOutput().getExecPathString(),
+        action.getMnemonic(),
+        owner.getLabel() != null ? owner.getLabel().getCanonicalForm() : null,
+        owner.getConfigurationChecksum());
+  }
+
+  /** Streams the contents of a {@link DeterministicWriter} through a bounded pipe. */
+  private record DeterministicWriterBlob(DeterministicWriter writer, Artifact output)
+      implements Blob {
+    @Override
+    public InputStream get() {
+      return writer.getInputStream(Chunker.getDefaultChunkSize());
+    }
+
+    @Override
+    public String description() {
+      return output.getExecPathString();
+    }
+  }
+}

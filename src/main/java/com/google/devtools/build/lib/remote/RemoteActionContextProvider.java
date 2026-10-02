@@ -18,7 +18,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
@@ -216,6 +218,37 @@ final class RemoteActionContextProvider {
             getRemoteExecutionService(),
             digestUtil);
     registryBuilder.register(SpawnCache.class, spawnCache, "remote-cache");
+  }
+
+  /**
+   * Registers a file write strategy that stores file contents in the disk and/or remote cache
+   * under the {@code remote} identifier if this instance was created with a cache, otherwise does
+   * nothing. Whether it is used is up to {@code --file_write_strategy}.
+   *
+   * @param registryBuilder builder with which to register the strategy
+   */
+  public void registerFileWriteStrategy(ModuleActionContextRegistry.Builder registryBuilder) {
+    if (combinedCache == null || remoteOutputChecker == null) {
+      return;
+    }
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
+    RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
+    registryBuilder.register(
+        FileWriteActionContext.class,
+        new RemoteFileWriteStrategy(
+            new FileWriteStrategy(),
+            combinedCache,
+            remoteOutputChecker,
+            digestUtil,
+            env.getBuildRequestId(),
+            env.getCommandId().toString(),
+            remoteOptions.getRemoteCacheTtl(),
+            // Remote execution uploads action inputs regardless of the setting for local results.
+            /* remoteUploadEnabled= */ remoteExecutor != null
+                || remoteOptions.getRemoteUploadLocalResults(),
+            executionOptions.getVerboseFailures()),
+        "remote");
   }
 
   CombinedCache getCombinedCache() {
