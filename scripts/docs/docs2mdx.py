@@ -266,12 +266,14 @@ def _transform(path, content):
     if os.path.basename(path) == "command-line-reference.html":
       md = clr_converter.convert(content)
     else:
-      content = (
-          _fix_configuration_dot_html(content)
-          if path.endswith("configuration.html")
-          else content
-      )
-      md = _html2md(content)
+      if path.endswith("configuration.html"):
+        fixed_content = _fix_configuration_dot_html(content)
+      elif path.endswith("bzl.html"):
+        fixed_content = _fix_bzl_dot_html(content)
+      else:
+        fixed_content = content
+
+      md = _html2md(fixed_content)
   else:
     md = content
   return _post_markdown_transforms(md)
@@ -284,6 +286,21 @@ def _fix_configuration_dot_html(content):
     return f"{m.group(0).replace('.', '.</li>')}</ul></p>"
 
   return _CONFIGURATION_HTML_BAD_LINE.sub(fix, content)
+
+
+def _fix_bzl_dot_html(content):
+  """Fixes malformed HTML link in rules/lib/globals/bzl.html.
+
+  There is only a single instance of this bug, so it doesn't
+  make sense to implement a general solution.
+
+  Args:
+    content: str; the HTML content to be fixed.
+  Returns:
+    The fixed HTML content, as string.
+  """
+  href = "../globals/workspace#register_execution_platforms"
+  return content.replace(f'"{href}>', f'"{href}">')
 
 
 def _html2md(content):
