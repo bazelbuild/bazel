@@ -116,7 +116,8 @@ public class RepositoryUtils {
     boolean portableSymlinksOnly = true;
     // TODO(#30160): Repos with symlinks pointing out of the repo are currently excluded from the
     // remote repo contents cache since cross-FS resolution of symlinks proved tricky to get right.
-    boolean symlinksResolveWithinRepo = true;
+    // The root of a repo can itself be such a symlink, e.g. to a directory in the main repo.
+    boolean symlinksResolveWithinRepo = !repoDir.isSymbolicLink();
     try {
       Collection<Path> symlinks = FileSystemUtils.traverseTree(repoDir, Path::isSymbolicLink);
       Path workspaceSymlinkUnderExternal = externalRepoRoot.getChild(WORKSPACE_SYMLINK_NAME);
