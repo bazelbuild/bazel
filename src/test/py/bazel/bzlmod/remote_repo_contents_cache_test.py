@@ -2727,6 +2727,164 @@ class RemoteRepoContentsCacheTest(
         stderr,
     )
 
+  def testSymlinkTargetSpelledWithDifferentCase(self):
+    # On a case-insensitive file system, a symlink resolves even if its target
+    # is spelled with different case than the directory it points to.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    if not os.path.exists(self.Path('module.BAZEL')):
+      self.skipTest('requires a case-insensitive file system')
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'link/data.txt\'])")',
+            '  rctx.file("real/data.txt", "hello")',
+            '  rctx.symlink("REAL", "link")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:link/data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
+    # After expunging: not cached. The contents of a cached repo are served
+    # from memory, where names only match exactly and the symlink wouldn't
+    # resolve.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
+  def testDanglingSymlinkTargetSpelledWithDifferentCase(self):
+    # A symlink that doesn't resolve on disk doesn't keep a repo out of the
+    # cache, even if the part of its target that exists is spelled with
+    # different case than the directory it refers to.
+    if self.IsWindows():
+      self.skipTest('whether symlinks are cached depends on user privileges')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'real/data.txt\'])")',
+            '  rctx.file("real/data.txt", "hello")',
+            '  rctx.symlink("REAL/missing", "dangling")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:real/data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
+  def testUnusedSymlinkLoop(self):
+    self.doTestUnusedSymlinks(['  rctx.symlink("loop", "loop")'])
+
+  def testUnusedSymlinkThroughParentOfSymlinkedDirectory(self):
+    # The target of "through_parent" resolves on disk, where ".." refers to the
+    # parent of the directory that "jump" points to, but not after it has been
+    # normalized to "real".
+    self.doTestUnusedSymlinks([
+        '  rctx.file("actual/sub/file", "")',
+        '  rctx.file("actual/real/file", "")',
+        '  rctx.symlink("actual/sub", "jump")',
+        '  rctx.execute(["ln", "-s", "jump/../real", "through_parent"])',
+        '  rctx.symlink("through_parent/file", "link")',
+    ])
+
+  def doTestUnusedSymlinks(self, symlink_lines):
+    if self.IsWindows():
+      self.skipTest('requires Unix symlinks')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+        ]
+        + symlink_lines
+        + [
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+
+    # The repo can be used both when it has just been fetched and after
+    # expunging, whether it is cached or not.
+    for _ in range(2):
+      self.RunBazel(['build', '//main:use_data'])
+      with open(self.Path('bazel-bin/main/out.txt')) as f:
+        self.assertEqual(f.read(), 'hello')
+      self.RunBazel(['clean', '--expunge'])
+
 
 if __name__ == '__main__':
   absltest.main()
