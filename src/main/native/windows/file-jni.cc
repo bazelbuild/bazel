@@ -107,11 +107,12 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeCreateJun
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeCreateSymlink(
     JNIEnv* env, jclass clazz, jstring name, jstring target,
-    jobjectArray error_msg_holder) {
+    jboolean is_directory, jobjectArray error_msg_holder) {
   std::wstring wname(bazel::windows::GetJavaWstring(env, name));
   std::wstring wtarget(bazel::windows::GetJavaWstring(env, target));
   std::wstring error;
-  int result = bazel::windows::CreateSymlink(wname, wtarget, &error);
+  int result = bazel::windows::CreateSymlink(wname, wtarget,
+                                             is_directory != JNI_FALSE, &error);
   if (result != bazel::windows::CreateSymlinkResult::kSuccess &&
       !error.empty() && CanReportError(env, error_msg_holder)) {
     ReportLastError(bazel::windows::MakeErrorMessage(
