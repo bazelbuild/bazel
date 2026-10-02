@@ -32,8 +32,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -200,10 +198,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       doc =
           """
           Creates a symlink on the filesystem. \
-          <p>Prefer <a href="#copy"><code>copy()</code></a> for files: symlinks may make a \
-          repository ineligible for repo contents caches and will have different behavior if the \
-          host doesn't support creating symlinks. Only use <code>symlink()</code> for directories \
-          or if changes to the target have to be visible in the repository without refetching it.
+          <p>Prefer <a href="#copy"><code>copy()</code></a> for files and directories: symlinks \
+          may make a repository ineligible for repo contents caches and will have different \
+          behavior if the host doesn't support creating symlinks. Only use <code>symlink()</code> \
+          if changes to the target have to be visible in the repository without refetching it or \
+          if a directory is too large to copy.
           """,
       useStarlarkThread = true,
       parameters = {
@@ -618,20 +617,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     }
     ImmutableList<String> excludes =
         Sequence.cast(exclude, String.class, "excludes").getImmutableList();
-    RepoCacheFriendlyPath repoCacheFriendlyPath =
-        toRepoCacheFriendlyPath(p.getPath(), ShouldWatch.YES);
-    if (repoCacheFriendlyPath == null) {
-      return;
-    }
-    try {
-      // DirTree can only be recorded for directories, so we have to additionally track the type of
-      // the file. When checking for invalidation, the type is verified first and if it doesn't
-      // match, the directory entries are never requested.
-      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
-      getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath, excludes));
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
+    maybeWatchTree(p.getPath(), ShouldWatch.YES, excludes);
   }
 
   @StarlarkMethod(
