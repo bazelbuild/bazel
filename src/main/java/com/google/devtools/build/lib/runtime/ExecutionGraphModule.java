@@ -587,10 +587,10 @@ public class ExecutionGraphModule extends BlazeModule {
         long totalMillis,
         int index) {
       if (depType == DependencyInfo.NONE) {
-        return () -> {};
+        return NO_OP;
       }
 
-      Runnable commitOutputs = () -> {};
+      Runnable commitOutputs = NO_OP;
       ActionInput primaryOutput = getFirstOutput(metadata, outputs);
       if (primaryOutput != null) {
         // If primaryOutput is null, then we know that outputs is also empty, and we don't need to
@@ -619,7 +619,7 @@ public class ExecutionGraphModule extends BlazeModule {
             // Special case what could be dynamic execution with
             // `--experimental_local_lockfree_output`, skip adding the dependencies for the second
             // spawn, but report both spawns.
-            return () -> {};
+            return NO_OP;
           } else {
             // TODO(b/227635546): Remove the bug report once we capture all cases when it can
             //  fire.
@@ -632,18 +632,17 @@ public class ExecutionGraphModule extends BlazeModule {
           }
         }
 
-        // Capture outputs to register after enqueueBytes(), so that no concurrent thread can
-        // observe this node in outputToNode and record a dependency on it before its bytes reach
-        // the write queue (which would produce a forward reference in the stream).
-        ImmutableList<ActionInput> outputsSnapshot = ImmutableList.copyOf(outputs);
+        // Register outputs only after enqueueBytes(), so that no concurrent thread can observe
+        // this node in outputToNode and record a dependency on it before its bytes reach the
+        // write queue (which would produce a forward reference in the stream).
         NodeInfo currentAttempt = new NodeInfo(index, startMillis + totalMillis);
-        ActionInput primaryOutputFinal = primaryOutput;
         commitOutputs =
             () -> {
-              for (ActionInput output : outputsSnapshot) {
+              for (ActionInput output : outputs) {
                 outputToNode.put(output, currentAttempt);
               }
-              outputToNode.put(primaryOutputFinal, currentAttempt);
+              // Some actions, like tests, don't have their primary output in getOutputFiles().
+              outputToNode.put(primaryOutput, currentAttempt);
             };
       }
 
@@ -748,6 +747,10 @@ public class ExecutionGraphModule extends BlazeModule {
 
     // This queue entry signals that there are no more entries that need to be written.
     private static final byte[] INVOCATION_COMPLETED = new byte[0];
+
+    // Returned by maybeAddEdges() when there are no outputs to register, to avoid allocating a
+    // throwaway lambda per call.
+    private static final Runnable NO_OP = () -> {};
 
     // Based on benchmarks. 2Mib buffers seem sufficient, and buffers bigger than that don't
     // provide much benefit.

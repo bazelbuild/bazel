@@ -79,14 +79,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -982,139 +976,106 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
         .inOrder();
   }
 
-
   /**
-   * Regression test: when two spawns are processed concurrently and B depends on A's output,
-   * B must not appear in the stream before A even if B's enqueueBytes() call races ahead.
-   *
-   * <p>Before the fix, {@code outputToNode.put(A)} happened inside {@code maybeAddEdges()} before
-   * {@code enqueueBytes(A)} was called, so a concurrent thread could see A in {@code outputToNode},
-   * record {@code dependent_index=A.index}, and enqueue B's bytes first — producing a forward
-   * reference that breaks the implicit topological sort.
+   * A spawn's outputs must not become visible in {@code outputToNode} until its own bytes have
+   * been handed to the write queue. Otherwise a concurrent spawn can write a 
+   * forward dependency that appears before it's node.
    */
   @Test(timeout = 30_000)
-  public void concurrentSpawns_dependentNodeAppearsAfterDependencyInStream() throws Exception {
-    // Use a large queue so neither spawn blocks during enqueueBytes.
-    int threads = 64;
-    int iterations = 200;
-    ExecutorService executor = Executors.newFixedThreadPool(threads);
+  public void outputsPublishedAfterEnqueue_noForwardReferenceInStream() throws Exception {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    Artifact out1 = createOutputArtifact("foo/out1");
+    Artifact out2 = createOutputArtifact("foo/out2");
+    SpawnResult result = createRemoteSpawnResult(100);
 
-    for (int iter = 0; iter < iterations; iter++) {
-      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-      ExecutionGraphModule iterModule = new ExecutionGraphModule();
-      iterModule.resetNanosToMillis();
+    CountDownLatch aInEnqueueBytes = new CountDownLatch(1);
+    CountDownLatch bDone = new CountDownLatch(1);
 
-      Artifact out1 = createOutputArtifact("foo/out1_" + iter);
-      Artifact out2 = createOutputArtifact("foo/out2_" + iter);
+    ActionDumpWriter writer =
+        new ActionDumpWriter(
+            BugReporter.defaultInstance(),
+            new EventBus(),
+            /* localLockFreeOutputEnabled= */ false,
+            /* logFileWriteEdges= */ false,
+            buffer,
+            DependencyInfo.ALL,
+            /* queueSize= */ -1,
+            /* queuedBytesLimit= */ -1) {
+          @Override
+          protected void updateLogs(BuildToolLogCollection logs) {}
 
-      Spawn spawnA =
-          new SpawnBuilder()
-              .withOwnerPrimaryOutput(out1)
-              .withMnemonic("MnemonicA")
-              .build();
-      Spawn spawnB =
-          new SpawnBuilder()
-              .withOwnerPrimaryOutput(out2)
-              .withInput(out1)
-              .withMnemonic("MnemonicB")
-              .build();
+          @Override
+          void enqueueBytes(byte[] entry) {
+            if (Thread.currentThread().getName().equals("spawn-a")) {
+              aInEnqueueBytes.countDown();
+              try {
+                bDone.await();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+              }
+            }
+            super.enqueueBytes(entry);
+          }
+        };
 
-      SpawnResult result = createRemoteSpawnResult(100);
-
-      // startLogging registers the module on a fresh EventBus; use a raw writer instead.
-      ActionDumpWriter writer =
-          new ActionDumpWriter(
-              BugReporter.defaultInstance(),
-              new EventBus(),
-              /* localLockFreeOutputEnabled= */ false,
-              /* logFileWriteEdges= */ false,
-              buffer,
-              DependencyInfo.ALL,
-              /* queueSize= */ -1,
-              /* queuedBytesLimit= */ -1) {
-            @Override
-            protected void updateLogs(BuildToolLogCollection logs) {}
-          };
-      iterModule.setWriter(writer);
-
-      // Use a latch so both threads start enqueue() as simultaneously as possible,
-      // maximising the chance of the race occurring without the fix.
-      CountDownLatch ready = new CountDownLatch(2);
-      CountDownLatch go = new CountDownLatch(1);
-
-      Instant t0 = Instant.ofEpochMilli(0);
-      Instant t1 = Instant.ofEpochMilli(100);
-
-      Future<?> futureA =
-          executor.submit(
-              () -> {
-                ready.countDown();
-                try {
-                  go.await();
-                } catch (InterruptedException e) {
-                  Thread.currentThread().interrupt();
-                  return;
-                }
+    Thread a =
+        new Thread(
+            () ->
                 writer.enqueue(
                     new SpawnExecutedEvent(
-                        spawnA,
+                        new SpawnBuilder().withOwnerPrimaryOutput(out1).build(),
                         new FakeActionInputFileCache(),
                         null,
                         new TestFileOutErr(),
                         result,
-                        t0,
-                        /* spawnIdentifier= */ "a"));
-              });
+                        Instant.ofEpochMilli(0),
+                        /* spawnIdentifier= */ "a")),
+            "spawn-a");
 
-      Future<?> futureB =
-          executor.submit(
-              () -> {
-                ready.countDown();
-                try {
-                  go.await();
-                } catch (InterruptedException e) {
-                  Thread.currentThread().interrupt();
-                  return;
-                }
+    Thread b =
+        new Thread(
+            () -> {
+              try {
+                aInEnqueueBytes.await();
                 writer.enqueue(
                     new SpawnExecutedEvent(
-                        spawnB,
+                        new SpawnBuilder().withOwnerPrimaryOutput(out2).withInput(out1).build(),
                         new FakeActionInputFileCache(),
                         null,
                         new TestFileOutErr(),
                         result,
-                        t1,
+                        Instant.ofEpochMilli(100),
                         /* spawnIdentifier= */ "b"));
-              });
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              } finally {
+                // Always unpark A, so a failure here surfaces as an assertion rather than a hang.
+                bDone.countDown();
+              }
+            },
+            "spawn-b");
 
-      ready.await();
-      go.countDown();
-      futureA.get(10, TimeUnit.SECONDS);
-      futureB.get(10, TimeUnit.SECONDS);
-      writer.shutdown(/* logs= */ null);
+    a.start();
+    b.start();
+    a.join();
+    b.join();
+    writer.shutdown(/* logs= */ null);
 
-      ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
-      assertThat(nodes).hasSize(2);
+    ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
+    assertThat(nodes).hasSize(2);
 
-      // Build index→stream-position map and verify every dependent_index refers to a node that
-      // appears *before* the referencing node in the stream.
-      Map<Integer, Integer> indexToStreamPos = new HashMap<>();
-      for (int i = 0; i < nodes.size(); i++) {
-        indexToStreamPos.put(nodes.get(i).getIndex(), i);
-      }
-      Set<Integer> allIndices = indexToStreamPos.keySet();
-      for (int pos = 0; pos < nodes.size(); pos++) {
-        ExecutionGraph.Node node = nodes.get(pos);
-        for (int depIndex : node.getDependentIndexList()) {
-          assertThat(allIndices).contains(depIndex);
-          assertThat(indexToStreamPos.get(depIndex))
-              .isLessThan(pos); // dependency must precede dependent
-        }
+    // Every dependent_index must resolve to a node at an earlier position in the stream.
+    Map<Integer, Integer> streamPositionByIndex = new HashMap<>();
+    for (int pos = 0; pos < nodes.size(); pos++) {
+      streamPositionByIndex.put(nodes.get(pos).getIndex(), pos);
+    }
+    for (int pos = 0; pos < nodes.size(); pos++) {
+      for (int depIndex : nodes.get(pos).getDependentIndexList()) {
+        assertThat(streamPositionByIndex).containsKey(depIndex);
+        assertThat(streamPositionByIndex.get(depIndex)).isLessThan(pos);
       }
     }
-
-    executor.shutdown();
-    assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
   }
 
   private class FakeOwnerWithPrimaryOutput extends FakeOwner {
@@ -1186,5 +1147,4 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
         .setTargetLabel(action.getOwner().getLabel().toString())
         .setMnemonic(action.getMnemonic());
   }
-
 }
