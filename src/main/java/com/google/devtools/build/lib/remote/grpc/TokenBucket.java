@@ -17,20 +17,24 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Observer;
+import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.subjects.BehaviorSubject;
+import io.reactivex.rxjava3.subjects.Subject;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /** A container for tokens which is used for rate limiting. */
 @ThreadSafe
 public class TokenBucket<T> implements Closeable {
   private final ConcurrentLinkedDeque<T> tokens;
-  private final BehaviorSubject<T> tokenBehaviorSubject;
+  // Serialized, as tokens are added from the callbacks of concurrently closing connections.
+  private final Subject<T> tokenSubject;
 
   public TokenBucket() {
     this(ImmutableList.of());
@@ -38,17 +42,16 @@ public class TokenBucket<T> implements Closeable {
 
   public TokenBucket(Collection<T> initialTokens) {
     tokens = new ConcurrentLinkedDeque<>(initialTokens);
-    tokenBehaviorSubject = BehaviorSubject.create();
-
+    tokenSubject = BehaviorSubject.<T>create().toSerialized();
     if (!tokens.isEmpty()) {
-      tokenBehaviorSubject.onNext(tokens.getFirst());
+      tokenSubject.onNext(tokens.getFirst());
     }
   }
 
   /** Add a token to the bucket. */
   public void addToken(T token) {
     tokens.addLast(token);
-    tokenBehaviorSubject.onNext(token);
+    tokenSubject.onNext(token);
   }
 
   /** Returns current number of tokens in the bucket. */
@@ -65,40 +68,107 @@ public class TokenBucket<T> implements Closeable {
    * Returns a cold {@link Single} which will start the token acquisition process upon subscription.
    */
   public Single<T> acquireToken() {
-    return Single.create(
-        downstream ->
-            tokenBehaviorSubject.subscribe(
-                new Observer<T>() {
-                  Disposable upstream;
+    return new Single<T>() {
+      @Override
+      protected void subscribeActual(SingleObserver<? super T> observer) {
+        var acquisition = new Acquisition(observer);
+        observer.onSubscribe(acquisition);
+        tokenSubject.subscribe(acquisition);
+      }
+    };
+  }
 
-                  @Override
-                  public void onSubscribe(@NonNull Disposable d) {
-                    upstream = d;
-                    downstream.setDisposable(d);
-                  }
+  /**
+   * A pending acquisition of a token, which decides under its own lock whether a token it takes
+   * from the bucket is delivered: an emitter would silently discard a token delivered after the
+   * downstream has been disposed.
+   */
+  private final class Acquisition implements Observer<T>, Disposable {
+    private final SingleObserver<? super T> downstream;
+    private final Object lock = new Object();
 
-                  @Override
-                  public void onNext(@NonNull T ignored) {
-                    if (!downstream.isDisposed()) {
-                      T token = tokens.pollFirst();
-                      if (token != null) {
-                        downstream.onSuccess(token);
-                      }
-                    }
-                  }
+    @GuardedBy("lock")
+    private boolean disposed;
 
-                  @Override
-                  public void onError(@NonNull Throwable e) {
-                    downstream.onError(new IllegalStateException(e));
-                  }
+    @GuardedBy("lock")
+    private boolean done;
 
-                  @Override
-                  public void onComplete() {
-                    if (!downstream.isDisposed()) {
-                      downstream.onError(new IllegalStateException("closed"));
-                    }
-                  }
-                }));
+    @Nullable private volatile Disposable upstream;
+
+    Acquisition(SingleObserver<? super T> downstream) {
+      this.downstream = downstream;
+    }
+
+    @Override
+    public void onSubscribe(@NonNull Disposable d) {
+      upstream = d;
+      synchronized (lock) {
+        if (disposed || done) {
+          d.dispose();
+        }
+      }
+    }
+
+    @Override
+    public void onNext(@NonNull T ignored) {
+      T token;
+      synchronized (lock) {
+        if (disposed || done) {
+          return;
+        }
+        token = tokens.pollFirst();
+        if (token == null) {
+          return;
+        }
+        done = true;
+      }
+      disposeUpstream();
+      downstream.onSuccess(token);
+    }
+
+    @Override
+    public void onError(@NonNull Throwable e) {
+      synchronized (lock) {
+        if (disposed || done) {
+          return;
+        }
+        done = true;
+      }
+      downstream.onError(new IllegalStateException(e));
+    }
+
+    @Override
+    public void onComplete() {
+      synchronized (lock) {
+        if (disposed || done) {
+          return;
+        }
+        done = true;
+      }
+      downstream.onError(new IllegalStateException("closed"));
+    }
+
+    @Override
+    public void dispose() {
+      synchronized (lock) {
+        disposed = true;
+      }
+      disposeUpstream();
+    }
+
+    @Override
+    public boolean isDisposed() {
+      synchronized (lock) {
+        return disposed;
+      }
+    }
+
+    private void disposeUpstream() {
+      Disposable d = upstream;
+      if (d != null) {
+        d.dispose();
+      }
+    }
   }
 
   /**
@@ -110,6 +180,6 @@ public class TokenBucket<T> implements Closeable {
   @Override
   public void close() throws IOException {
     tokens.clear();
-    tokenBehaviorSubject.onComplete();
+    tokenSubject.onComplete();
   }
 }
