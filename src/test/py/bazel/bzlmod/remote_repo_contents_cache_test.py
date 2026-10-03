@@ -374,6 +374,36 @@ class RemoteRepoContentsCacheTest(
     with open(self.Path('bazel-bin/platform.txt')) as f:
       self.assertEqual(f.read().strip(), 'macOS')
 
+  def testRecordedInputs_labelWithSpace(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel', ['exports_files(["input with space.txt"])'])
+    self.ScratchFile('input with space.txt', ['input'])
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", rctx.read(Label("//:input with space.txt")))',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The recorded input with a space in its name is found in the cache.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
   def testRecordedInputs_differentInputs(self):
     platform_file = self.ScratchFile('platform.txt')
 

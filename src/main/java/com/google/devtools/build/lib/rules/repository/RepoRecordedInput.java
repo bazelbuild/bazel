@@ -96,7 +96,7 @@ public abstract sealed class RepoRecordedInput {
   }
 
   /**
-   * Parses a recorded input from its string representation.
+   * Parses a recorded input from its string representation as returned by {@link #toString}.
    *
    * @param s the string representation
    * @return The parsed recorded input object, or {@link
@@ -107,12 +107,16 @@ public abstract sealed class RepoRecordedInput {
     if (parts.size() < 2) {
       return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
     }
+    String unescaped = unescape(parts.get(1));
+    if (unescaped == null) {
+      return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
+    }
     for (Parser parser :
         new Parser[] {
           File.PARSER, Dirents.PARSER, DirTree.PARSER, EnvVar.PARSER, RecordedRepoMapping.PARSER
         }) {
       if (parts.get(0).equals(parser.getPrefix())) {
-        return parser.parse(parts.get(1));
+        return parser.parse(unescaped);
       }
     }
     return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
@@ -125,7 +129,7 @@ public abstract sealed class RepoRecordedInput {
     public static Optional<RepoRecordedInput.WithValue> parse(String s) {
       int sChar = s.indexOf(' ');
       if (sChar > 0) {
-        var input = RepoRecordedInput.parse(unescape(s.substring(0, sChar)));
+        var input = RepoRecordedInput.parse(s.substring(0, sChar));
         if (!input.equals(NeverUpToDateRepoRecordedInput.PARSE_FAILURE)) {
           return Optional.of(new WithValue(input, unescape(s.substring(sChar + 1))));
         }
