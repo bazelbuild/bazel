@@ -190,7 +190,6 @@ public final class LocalRepoContentsCache {
     sharedLock = FileSystemLock.get(path.getRelative(LOCK_PATH), LockMode.SHARED);
   }
 
-  /** Returns whether this process holds the shared lock. */
   public boolean holdsSharedLock() {
     return sharedLock != null;
   }
