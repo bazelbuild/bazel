@@ -697,7 +697,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       long totalChildSize = 0;
       for (Map.Entry<TreeFileArtifact, FileArtifactValue> childData : finalChildData.entrySet()) {
         // Digest will be deterministic because children are sorted.
-        fingerprint.addPath(childData.getKey().getParentRelativePath());
+        // A child's immediate parent may be a declared subdirectory of this tree.
+        fingerprint.addPath(childData.getKey().getExecPath().relativeTo(parent.getExecPath()));
         FileArtifactValue metadata = childData.getValue();
         metadata.addTo(fingerprint);
 
