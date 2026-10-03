@@ -257,11 +257,49 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
     }
-    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash);
-    if (env.valuesMissing() || finalEntry == null) {
+    // The remote cache may have lost the marker file or tree of a final entry. Another final entry
+    // for the same inputs, e.g. one that recorded them in a different order, may still be complete,
+    // so the search continues where it found the incomplete one.
+    var search = new FinalEntrySearch(env, context, predeclaredInputHash);
+    CacheEntry.Final finalEntry;
+    FinalEntryContents contents;
+    do {
+      finalEntry = search.next();
+      if (env.valuesMissing() || finalEntry == null) {
+        return false;
+      }
+      contents = downloadFinalEntry(context, finalEntry);
+    } while (contents == null);
+
+    String markerFileContent = contents.markerFileContent();
+    var maybeRecordedInputs = DigestWriter.readMarkerFile(markerFileContent, predeclaredInputHash);
+    if (maybeRecordedInputs.isEmpty()) {
+      return false;
+    }
+    var outdatedReason =
+        RepoRecordedInput.isAnyValueOutdated(env, directories, maybeRecordedInputs.get());
+    if (env.valuesMissing() || outdatedReason.isPresent()) {
+      env.getListener()
+          .handle(
+              Event.warn(
+                  "Unexpectedly outdated cached repo %s: %s"
+                      .formatted(repoName, outdatedReason.orElse("unknown reason"))));
       return false;
     }
 
+    return remoteFs.injectRemoteRepo(repoName, contents.tree(), markerFileContent);
+  }
+
+  private record FinalEntryContents(String markerFileContent, Tree tree) {}
+
+  /**
+   * Downloads the marker file and tree of a final cache entry, or returns null if the remote cache
+   * has lost either of them.
+   */
+  @Nullable
+  private FinalEntryContents downloadFinalEntry(
+      RemoteActionExecutionContext context, CacheEntry.Final finalEntry)
+      throws IOException, InterruptedException {
     ListenableFuture<byte[]> markerFileContentFuture;
     var markerFile = finalEntry.markerFile();
     // Inlining is an optional feature, so we have to be prepared to download the marker file.
@@ -281,26 +319,17 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                 immediateFuture(
                     Tree.parseFrom(treeBytes, ExtensionRegistryLite.getEmptyRegistry())),
             directExecutor());
-    waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
-
-    String markerFileContent = new String(markerFileContentFuture.resultNow(), ISO_8859_1);
-    var maybeRecordedInputs = DigestWriter.readMarkerFile(markerFileContent, predeclaredInputHash);
-    if (maybeRecordedInputs.isEmpty()) {
-      return false;
+    try {
+      waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
+    } catch (BulkTransferException e) {
+      if (!e.allCausedByCacheNotFoundException()) {
+        throw e;
+      }
+      return null;
     }
-    var outdatedReason =
-        RepoRecordedInput.isAnyValueOutdated(env, directories, maybeRecordedInputs.get());
-    if (env.valuesMissing() || outdatedReason.isPresent()) {
-      env.getListener()
-          .handle(
-              Event.warn(
-                  "Unexpectedly outdated cached repo %s: %s"
-                      .formatted(repoName, outdatedReason.orElse("unknown reason"))));
-      return false;
-    }
-
-    return remoteFs.injectRemoteRepo(
-        repoName, repoDirectoryContentFuture.resultNow(), markerFileContent);
+    return new FinalEntryContents(
+        new String(markerFileContentFuture.resultNow(), ISO_8859_1),
+        repoDirectoryContentFuture.resultNow());
   }
 
   private enum CacheOp {
@@ -458,39 +487,52 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   }
 
   /**
-   * Fetches a final cache entry for the given predeclared input hash by recursively following
-   * intermediate entries if needed or returns null if no final entry could be found or a Skyframe
-   * restart is needed.
+   * A breadth-first search for a final cache entry that starts at the predeclared inputs and can be
+   * resumed after an entry turned out to be incomplete.
    */
-  @Nullable
-  private CacheEntry.Final fetchFinalCacheEntry(
-      SkyFunction.Environment env,
-      RemoteActionExecutionContext context,
-      String predeclaredInputHash)
-      throws IOException, InterruptedException {
-    var currentHashes = ImmutableList.of(predeclaredInputHash);
-    while (!currentHashes.isEmpty()) {
-      var nextHashes = ImmutableList.<String>builder();
-      for (var hash : currentHashes) {
-        switch (fetchCacheEntry(env, context, hash)) {
-          case CacheEntry.Final finalEntry -> {
-            return finalEntry;
-          }
-          case CacheEntry.Intermediate(ImmutableList<String> nextInputHashes) ->
-              nextHashes.addAll(nextInputHashes);
-          case CacheEntry.Invalid(String reason) -> env.getListener().handle(Event.warn(reason));
-          case null -> {
-            // Keep checking hashes to batch missing values in fewer restarts.
-            Preconditions.checkState(env.valuesMissing());
+  private final class FinalEntrySearch {
+    private final SkyFunction.Environment env;
+    private final RemoteActionExecutionContext context;
+    private List<String> currentHashes;
+    private int nextIndex = 0;
+    private List<String> nextHashes = new ArrayList<>();
+
+    FinalEntrySearch(
+        SkyFunction.Environment env,
+        RemoteActionExecutionContext context,
+        String predeclaredInputHash) {
+      this.env = env;
+      this.context = context;
+      this.currentHashes = ImmutableList.of(predeclaredInputHash);
+    }
+
+    /** Returns the next final entry, or null if there is none or if values are missing. */
+    @Nullable
+    CacheEntry.Final next() throws IOException, InterruptedException {
+      while (true) {
+        while (nextIndex < currentHashes.size()) {
+          var hash = currentHashes.get(nextIndex++);
+          switch (fetchCacheEntry(env, context, hash)) {
+            case CacheEntry.Final finalEntry -> {
+              return finalEntry;
+            }
+            case CacheEntry.Intermediate(ImmutableList<String> nextInputHashes) ->
+                nextHashes.addAll(nextInputHashes);
+            case CacheEntry.Invalid(String reason) -> env.getListener().handle(Event.warn(reason));
+            case null -> {
+              // Keep checking hashes to batch missing values in fewer restarts.
+              Preconditions.checkState(env.valuesMissing());
+            }
           }
         }
+        if (env.valuesMissing() || nextHashes.isEmpty()) {
+          return null;
+        }
+        currentHashes = nextHashes;
+        nextHashes = new ArrayList<>();
+        nextIndex = 0;
       }
-      if (env.valuesMissing()) {
-        return null;
-      }
-      currentHashes = nextHashes.build();
     }
-    return null;
   }
 
   // Returns null if and only if values are missing.

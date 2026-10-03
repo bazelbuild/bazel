@@ -41,10 +41,13 @@ final class ActionCacheServer extends ActionCacheImplBase {
 
   private final OnDiskBlobStoreCache cache;
   private final DigestUtil digestUtil;
+  private final boolean inlineOutputFiles;
 
-  public ActionCacheServer(OnDiskBlobStoreCache cache, DigestUtil digestUtil) {
+  public ActionCacheServer(
+      OnDiskBlobStoreCache cache, DigestUtil digestUtil, boolean inlineOutputFiles) {
     this.cache = cache;
     this.digestUtil = digestUtil;
+    this.inlineOutputFiles = inlineOutputFiles;
   }
 
   @Override
@@ -55,7 +58,10 @@ final class ActionCacheServer extends ActionCacheImplBase {
       RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
-      var inlineOutputFiles = ImmutableSet.copyOf(request.getInlineOutputFilesList());
+      var inlineOutputFiles =
+          this.inlineOutputFiles
+              ? ImmutableSet.copyOf(request.getInlineOutputFilesList())
+              : ImmutableSet.<String>of();
       var result =
           cache.downloadActionResult(
               context, actionKey, /* inlineOutErr= */ false, inlineOutputFiles);
