@@ -946,6 +946,89 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   // All other methods delegate to the file system given by this method. It is important to override
   // each non-final FileSystem method to benefit from optimizations implemented in the respective
   // underlying file systems.
+  /** A read of a path that is performed on the file system backing the path. */
+  private interface Read<T> {
+    T apply(FileSystem fs, PathFragment path) throws IOException;
+  }
+
+  /**
+   * Performs the given read on the backing file system of the path it resolves to.
+   *
+   * <p>A natively fetched repo can contain symlinks into a repo that is served from memory, e.g.
+   * because its repo rule created them from labels of that repo, which also excludes the native repo
+   * itself from the cache. The native file system finds such a symlink dangling or, if some files of
+   * the target have been prefetched, pointing to an incomplete directory, so a native path in the
+   * external directory is read where its symlinks lead. Paths that resolve natively are read as
+   * given, since the native file system may resolve raw symlink targets differently.
+   *
+   * @param followLast whether the read follows a symlink at the end of the path
+   */
+  private <T> T read(PathFragment path, boolean followLast, Read<T> read) throws IOException {
+    FileSystem fs = fsForPath(path);
+    if (fs == externalFs || repoStates.isEmpty() || !path.startsWith(externalDirectory)) {
+      return read.apply(fs, path);
+    }
+    PathFragment resolved = resolveIntoMemory(path, followLast);
+    return resolved != null ? read.apply(externalFs, resolved) : read.apply(fs, path);
+  }
+
+  /**
+   * Returns the path in a repo served from memory that the given native path below the external
+   * directory resolves to through symlinks, or null if it doesn't resolve into memory.
+   *
+   * <p>Symlinks are followed by their normalized targets, which is how Bazel resolves them
+   * everywhere else, but the native file system resolves a target such as {@code dirlink/../file}
+   * against the directory {@code dirlink} points to rather than the one it lies in. A symlink that
+   * resolves natively is thus only followed if its normalized target is the same file.
+   */
+  @Nullable
+  private PathFragment resolveIntoMemory(PathFragment path, boolean followLast) {
+    try {
+      PathFragment current = externalDirectory;
+      PathFragment remaining = path.relativeTo(externalDirectory);
+      int symlinksFollowed = 0;
+      while (!remaining.isEmpty()) {
+        current = current.getChild(remaining.getSegment(0));
+        remaining = remaining.subFragment(1);
+        if (fsForPath(current) == externalFs) {
+          return current.getRelative(remaining);
+        }
+        if (remaining.isEmpty() && !followLast) {
+          return null;
+        }
+        FileStatus status = nativeFs.statIfFound(current, /* followSymlinks= */ false);
+        if (status == null) {
+          return null;
+        }
+        if (!status.isSymbolicLink()) {
+          continue;
+        }
+        if (++symlinksFollowed > MAX_SYMLINKS) {
+          return null;
+        }
+        PathFragment target = nativeFs.readSymbolicLink(current);
+        PathFragment resolvedTarget =
+            target.isAbsolute() ? target : current.getParentDirectory().getRelative(target);
+        FileStatus nativeStatus = nativeFs.statIfFound(current, /* followSymlinks= */ true);
+        if (nativeStatus != null) {
+          FileStatus targetStatus = nativeFs.statIfFound(resolvedTarget, /* followSymlinks= */ true);
+          if (targetStatus == null || targetStatus.getNodeId() != nativeStatus.getNodeId()) {
+            return null;
+          }
+        }
+        if (!resolvedTarget.startsWith(externalDirectory)) {
+          return null;
+        }
+        current = externalDirectory;
+        remaining = resolvedTarget.relativeTo(externalDirectory).getRelative(remaining);
+      }
+      return null;
+    } catch (IOException e) {
+      // The path doesn't resolve at all, which its own backing file system reports.
+      return null;
+    }
+  }
+
   private FileSystem fsForPath(PathFragment path) {
     if (path.startsWith(externalDirectory) && !path.equals(externalDirectory)) {
       String repoName = path.getSegment(externalDirectorySegmentCount);
@@ -979,13 +1062,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Override
   public byte[] getDigest(PathFragment path) throws IOException {
-    return fsForPath(path).getDigest(path);
+    return read(path, /* followLast= */ true, (fs, p) -> fs.getDigest(p));
   }
 
   @Nullable
   @Override
   public byte[] getFastDigest(PathFragment path) throws IOException {
-    return fsForPath(path).getFastDigest(path);
+    return read(path, /* followLast= */ true, (fs, p) -> fs.getFastDigest(p));
   }
 
   @Override
@@ -1020,12 +1103,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Override
   public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).getFileSize(path, followSymlinks);
+    return read(path, followSymlinks, (fs, p) -> fs.getFileSize(p, followSymlinks));
   }
 
   @Override
   public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).getLastModifiedTime(path, followSymlinks);
+    return read(path, followSymlinks, (fs, p) -> fs.getLastModifiedTime(p, followSymlinks));
   }
 
   @Override
@@ -1035,7 +1118,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).stat(path, followSymlinks);
+    return read(path, followSymlinks, (fs, p) -> fs.stat(p, followSymlinks));
   }
 
   @Override
@@ -1047,27 +1130,27 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Override
   public PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    return fsForPath(path).readSymbolicLink(path);
+    return read(path, /* followLast= */ false, (fs, p) -> fs.readSymbolicLink(p));
   }
 
   @Override
   public boolean exists(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).exists(path, followSymlinks);
+    return read(path, followSymlinks, (fs, p) -> fs.exists(p, followSymlinks));
   }
 
   @Override
   public boolean exists(PathFragment path) throws IOException {
-    return fsForPath(path).exists(path);
+    return read(path, /* followLast= */ true, (fs, p) -> fs.exists(p));
   }
 
   @Override
   public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
-    return fsForPath(path).getDirectoryEntries(path);
+    return read(path, /* followLast= */ true, (fs, p) -> fs.getDirectoryEntries(p));
   }
 
   @Override
   public boolean isReadable(PathFragment path) throws IOException {
-    return fsForPath(path).isReadable(path);
+    return read(path, /* followLast= */ true, (fs, p) -> fs.isReadable(p));
   }
 
   @Override
@@ -1077,7 +1160,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Override
   public boolean isWritable(PathFragment path) throws IOException {
-    return fsForPath(path).isWritable(path);
+    return read(path, /* followLast= */ true, (fs, p) -> fs.isWritable(p));
   }
 
   @Override
@@ -1087,7 +1170,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Override
   public boolean isExecutable(PathFragment path) throws IOException {
-    return fsForPath(path).isExecutable(path);
+    return read(path, /* followLast= */ true, (fs, p) -> fs.isExecutable(p));
   }
 
   @Override
@@ -1097,7 +1180,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Override
   public InputStream getInputStream(PathFragment path) throws IOException {
-    return fsForPath(path).getInputStream(path);
+    return read(path, /* followLast= */ true, (fs, p) -> fs.getInputStream(p));
   }
 
   @Override
@@ -1140,7 +1223,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   @Override
   public byte[] getxattr(PathFragment path, String name, boolean followSymlinks)
       throws IOException {
-    return fsForPath(path).getxattr(path, name, followSymlinks);
+    return read(path, followSymlinks, (fs, p) -> fs.getxattr(p, name, followSymlinks));
   }
 
   @Nullable
@@ -1151,44 +1234,86 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Override
   public Path resolveSymbolicLinks(PathFragment path) throws IOException {
+    PathFragment resolved =
+        read(path, /* followLast= */ true, (fs, p) -> fs.resolveSymbolicLinks(p).asFragment());
     // Ensure that the return value doesn't leave the overlay file system.
-    return getPath(fsForPath(path).resolveSymbolicLinks(path).asFragment());
+    return getPath(resolved);
   }
 
   @Nullable
   @Override
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).statIfFound(path, followSymlinks);
+    return read(path, followSymlinks, (fs, p) -> fs.statIfFound(p, followSymlinks));
   }
 
   @Override
   public boolean isFile(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).isFile(path, followSymlinks);
+    return read(path, followSymlinks, (fs, p) -> fs.isFile(p, followSymlinks));
   }
 
   @Override
   public boolean isSpecialFile(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).isSpecialFile(path, followSymlinks);
+    return read(path, followSymlinks, (fs, p) -> fs.isSpecialFile(p, followSymlinks));
   }
 
   @Override
   public boolean isSymbolicLink(PathFragment path) throws IOException {
-    return fsForPath(path).isSymbolicLink(path);
+    return read(path, /* followLast= */ false, (fs, p) -> fs.isSymbolicLink(p));
   }
 
   @Override
   public boolean isDirectory(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).isDirectory(path, followSymlinks);
+    return read(path, followSymlinks, (fs, p) -> fs.isDirectory(p, followSymlinks));
   }
 
   @Override
   public PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
-    return fsForPath(path).readSymbolicLinkUnchecked(path);
+    return read(path, /* followLast= */ false, (fs, p) -> fs.readSymbolicLinkUnchecked(p));
   }
 
   @Override
   public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).readdir(path, followSymlinks);
+    // The directory is always followed, the flag only applies to the entries, whose symlinks may
+    // lead into the other backing file system and are thus followed through this one.
+    return read(
+        path,
+        /* followLast= */ true,
+        (fs, p) -> {
+          Collection<Dirent> entries = fs.readdir(p, /* followSymlinks= */ false);
+          if (!followSymlinks || fs == externalFs) {
+            return followSymlinks ? fs.readdir(p, /* followSymlinks= */ true) : entries;
+          }
+          ImmutableList.Builder<Dirent> followed =
+              ImmutableList.builderWithExpectedSize(entries.size());
+          for (Dirent entry : entries) {
+            followed.add(followDirent(p, entry));
+          }
+          return followed.build();
+        });
+  }
+
+  /** Returns the given entry of the given directory with the type of what its symlink points to. */
+  private Dirent followDirent(PathFragment dir, Dirent entry) throws IOException {
+    if (entry.getType() != Dirent.Type.SYMLINK) {
+      return entry;
+    }
+    FileStatus status;
+    try {
+      status = statIfFound(dir.getChild(entry.getName()), /* followSymlinks= */ true);
+    } catch (FileSymlinkLoopException e) {
+      status = null;
+    }
+    Dirent.Type type;
+    if (status == null) {
+      type = Dirent.Type.UNKNOWN;
+    } else if (status.isFile()) {
+      type = Dirent.Type.FILE;
+    } else if (status.isDirectory()) {
+      type = Dirent.Type.DIRECTORY;
+    } else {
+      type = Dirent.Type.UNKNOWN;
+    }
+    return new Dirent(entry.getName(), type);
   }
 
   @Override
