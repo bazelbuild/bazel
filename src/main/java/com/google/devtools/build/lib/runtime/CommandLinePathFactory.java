@@ -17,8 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -50,13 +52,29 @@ public final class CommandLinePathFactory {
 
   private static final Splitter PATH_SPLITTER = Splitter.on(File.pathSeparator);
 
+  // Unlike PATH, PATHEXT is always separated by ';', since it only exists on Windows.
+  private static final Splitter PATHEXT_SPLITTER = Splitter.on(';');
+
+  /**
+   * Executable file extensions appended to a bare file name while searching the {@code PATH} on
+   * Windows, used when {@code PATHEXT} is unset or empty. This matches the Windows default value.
+   */
+  private static final ImmutableList<String> DEFAULT_PATH_EXTENSIONS =
+      ImmutableList.of(".COM", ".EXE", ".BAT", ".CMD");
+
   private final FileSystem fileSystem;
   private final ImmutableMap<String, Path> roots;
+  private final OS os;
+
+  public CommandLinePathFactory(FileSystem fileSystem, ImmutableMap<String, Path> roots) {
+    this(fileSystem, roots, OS.getCurrent());
+  }
 
   @VisibleForTesting
-  public CommandLinePathFactory(FileSystem fileSystem, ImmutableMap<String, Path> roots) {
+  public CommandLinePathFactory(FileSystem fileSystem, ImmutableMap<String, Path> roots, OS os) {
     this.fileSystem = Preconditions.checkNotNull(fileSystem);
     this.roots = Preconditions.checkNotNull(roots);
+    this.os = Preconditions.checkNotNull(os);
   }
 
   static CommandLinePathFactory create(FileSystem fileSystem, BlazeDirectories directories) {
@@ -125,6 +143,7 @@ public final class CommandLinePathFactory {
     }
 
     String pathVariable = env.getOrDefault("PATH", "");
+    ImmutableList<String> candidateNames = lookupCandidateNames(env, path.getBaseName());
     if (!Strings.isNullOrEmpty(pathVariable)) {
       for (String lookupPath : PATH_SPLITTER.split(pathVariable)) {
         PathFragment lookupPathFragment = PathFragment.create(lookupPath);
@@ -134,11 +153,14 @@ public final class CommandLinePathFactory {
           continue;
         }
 
-        Path maybePath = fileSystem.getPath(lookupPathFragment).getRelative(path);
-        if (maybePath.exists(Symlinks.FOLLOW)
-            && maybePath.isFile(Symlinks.FOLLOW)
-            && maybePath.isExecutable()) {
-          return maybePath;
+        Path lookupDirectory = fileSystem.getPath(lookupPathFragment);
+        for (String candidateName : candidateNames) {
+          Path maybePath = lookupDirectory.getRelative(candidateName);
+          if (maybePath.exists(Symlinks.FOLLOW)
+              && maybePath.isFile(Symlinks.FOLLOW)
+              && maybePath.isExecutable()) {
+            return maybePath;
+          }
         }
       }
     }
@@ -146,5 +168,43 @@ public final class CommandLinePathFactory {
     throw new FileNotFoundException(
         String.format(
             Locale.US, "Could not find file with name '%s' on PATH '%s'", path, pathVariable));
+  }
+
+  /**
+   * Returns the file names to look for in each {@code PATH} entry, in order of preference.
+   *
+   * <p>On Windows, executables carry an extension, but users generally refer to them without one
+   * (e.g. {@code cmd} rather than {@code cmd.exe}). Mirroring the shell, the bare name is tried
+   * first and the extensions listed in {@code PATHEXT} are appended to it afterwards. Everywhere
+   * else the bare name is the only candidate.
+   */
+  private ImmutableList<String> lookupCandidateNames(Map<String, String> env, String name) {
+    if (os != OS.WINDOWS) {
+      return ImmutableList.of(name);
+    }
+
+    ImmutableList.Builder<String> candidates = ImmutableList.builder();
+    candidates.add(name);
+    for (String extension : pathExtensions(env)) {
+      candidates.add(name + extension);
+    }
+    return candidates.build();
+  }
+
+  private static ImmutableList<String> pathExtensions(Map<String, String> env) {
+    String pathExtVariable = env.getOrDefault("PATHEXT", "");
+    if (Strings.isNullOrEmpty(pathExtVariable)) {
+      return DEFAULT_PATH_EXTENSIONS;
+    }
+
+    ImmutableList.Builder<String> extensions = ImmutableList.builder();
+    for (String extension : PATHEXT_SPLITTER.split(pathExtVariable)) {
+      if (extension.isEmpty()) {
+        continue;
+      }
+      extensions.add(extension.startsWith(".") ? extension : "." + extension);
+    }
+    ImmutableList<String> result = extensions.build();
+    return result.isEmpty() ? DEFAULT_PATH_EXTENSIONS : result;
   }
 }
