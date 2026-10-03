@@ -80,25 +80,25 @@ public class BlazeRuntimeTest {
   private final AtomicReference<String> shutdownReason = new AtomicReference<>();
 
   @Test
-  public void manageProfiles() throws Exception {
+  public void manageRetainedOutputs() throws Exception {
     var dir = fs.getPath("/output");
     dir.createDirectory();
     dir.getChild("foo").createDirectory();
     dir.getChild("bar").getOutputStream().close();
     clock.advanceMillis(10);
-    var p1 = BlazeRuntime.manageProfiles(dir, "p1", 3);
+    var p1 = BlazeRuntime.manageRetainedOutputs(dir, "command-", ".profile.gz", "p1", 3);
     assertThat(p1.getBaseName()).isEqualTo("command-p1.profile.gz");
     p1.getOutputStream().close();
     clock.advanceMillis(10);
-    var p2 = BlazeRuntime.manageProfiles(dir, "p2", 3);
+    var p2 = BlazeRuntime.manageRetainedOutputs(dir, "command-", ".profile.gz", "p2", 3);
     assertThat(p2.getBaseName()).isEqualTo("command-p2.profile.gz");
     p2.getOutputStream().close();
     clock.advanceMillis(10);
-    var p3 = BlazeRuntime.manageProfiles(dir, "p3", 3);
+    var p3 = BlazeRuntime.manageRetainedOutputs(dir, "command-", ".profile.gz", "p3", 3);
     assertThat(p3.getBaseName()).isEqualTo("command-p3.profile.gz");
     p3.getOutputStream().close();
     clock.advanceMillis(10);
-    var p4 = BlazeRuntime.manageProfiles(dir, "p4", 3);
+    var p4 = BlazeRuntime.manageRetainedOutputs(dir, "command-", ".profile.gz", "p4", 3);
     assertThat(p4.getBaseName()).isEqualTo("command-p4.profile.gz");
     p4.getOutputStream().close();
     assertThat(dir.readdir(Symlinks.FOLLOW).stream().map(Dirent::getName))
@@ -109,7 +109,7 @@ public class BlazeRuntimeTest {
             "command-p3.profile.gz",
             "command-p4.profile.gz");
     clock.advanceMillis(10);
-    var p5 = BlazeRuntime.manageProfiles(dir, "p5", 1);
+    var p5 = BlazeRuntime.manageRetainedOutputs(dir, "command-", ".profile.gz", "p5", 1);
     assertThat(p5.getBaseName()).isEqualTo("command-p5.profile.gz");
     p5.getOutputStream().close();
     assertThat(dir.readdir(Symlinks.FOLLOW).stream().map(Dirent::getName))
