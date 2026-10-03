@@ -1252,6 +1252,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
           instanceof RemoteActionFileSystem.RemoteInMemoryFileInfo info)) {
         throw Errno.EISDIR.exception(path);
       }
+      if (inputPrefetcher.isAvailable(nativeFs.getPath(path), info.getMetadata())) {
+        // The file has been downloaded before, e.g. as an input of an action.
+        return nativeFs.getInputStream(path);
+      }
       reporter.post(
           new ExtendedEventHandler.FetchProgress() {
             @Override
@@ -1284,10 +1288,6 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
         throw new InterruptedIOException("interrupted while waiting for remote file transfer");
       } catch (BulkTransferException e) {
         if (e.allCausedByCacheNotFoundException()) {
-          if (inputPrefetcher.isAvailable(nativeFs.getPath(path), info.getMetadata())) {
-            // The file has been downloaded before, e.g. as an input of an action.
-            return nativeFs.getInputStream(path);
-          }
           throw lostRemoteFile(relativePath, digest, e);
         }
         throw e;

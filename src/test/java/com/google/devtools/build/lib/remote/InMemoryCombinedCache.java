@@ -51,8 +51,12 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
   }
 
   InMemoryCombinedCache(DigestUtil digestUtil) {
+    this(new InMemoryCacheClient(), digestUtil);
+  }
+
+  InMemoryCombinedCache(InMemoryCacheClient cacheClient, DigestUtil digestUtil) {
     super(
-        new InMemoryCacheClient(),
+        cacheClient,
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,

@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,6 +47,22 @@ import org.junit.runners.JUnit4;
 public final class RemoteExternalOverlayFileSystemTest {
   @Test
   public void getInputStream_lostFileDownloadedBefore_readFromDisk() throws Exception {
+    // The remote cache doesn't have the contents of the files.
+    assertDownloadedFileReadFromDisk(new InMemoryCacheClient());
+  }
+
+  @Test
+  public void getInputStream_downloadFailsForFileDownloadedBefore_readFromDisk() throws Exception {
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var cacheClient = new InMemoryCacheClient();
+    // The remote cache has the contents, but fails to serve them.
+    cacheClient.addDownloadFailure(
+        digestUtil.compute("contents".getBytes(UTF_8)), new IOException("503 Service Unavailable"));
+    assertDownloadedFileReadFromDisk(cacheClient);
+  }
+
+  private static void assertDownloadedFileReadFromDisk(InMemoryCacheClient cacheClient)
+      throws Exception {
     var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
     var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     var externalRoot = PathFragment.create("/output/external");
@@ -55,7 +72,7 @@ public final class RemoteExternalOverlayFileSystemTest {
         .thenReturn(immediateVoidFuture());
     when(prefetcher.isAvailable(any(), any())).thenCallRealMethod();
     overlay.beforeCommand(
-        new InMemoryCombinedCache(digestUtil),
+        new InMemoryCombinedCache(cacheClient, digestUtil),
         prefetcher,
         new Reporter(),
         "build-request",
@@ -63,7 +80,6 @@ public final class RemoteExternalOverlayFileSystemTest {
         () -> mock(MemoizingEvaluator.class),
         Duration.ofMinutes(1));
     try {
-      // The remote cache doesn't have the contents of the files.
       var repo = RepositoryName.create("repo");
       var root = Directory.newBuilder();
       for (var name : ImmutableList.of("downloaded", "missing", "modified")) {
