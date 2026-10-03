@@ -53,6 +53,10 @@ freebsd)
   SOURCES+=(src/main/native/unix_jni_bsd.cc)
   FLAGS+=("-I${JAVA_HOME}/include/freebsd")
   ;;
+netbsd)
+  SOURCES+=(src/main/native/unix_jni_bsd.cc)
+  FLAGS+=("-I${JAVA_HOME}/include/netbsd")
+  ;;
 esac
 
 c++ "${FLAGS[@]}" "${SOURCES[@]}" -o "$OUT"
