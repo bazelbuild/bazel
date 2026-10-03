@@ -210,14 +210,14 @@ information about controlling fetch.
 
 ### Directory layout {#directory-layout}
 
-After being fetched, the repo can be found in the subdirectory `external` in the
-[output base](/remote/output-directories), under its canonical name.
+After being fetched, the repo can be found in the external directory, which is
+printed by `bazel info external_directory`, under its canonical name.
 
 You can run the following command to see the contents of the repo with the
 canonical name `canonical_name`:
 
 ```posix-terminal
-ls $(bazel info output_base)/external/<var> canonical_name </var>
+ls $(bazel info external_directory)/<var> canonical_name </var>
 ```
 
 ### REPO.bazel file {#repo.bazel}
