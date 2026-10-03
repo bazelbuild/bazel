@@ -33,8 +33,7 @@ trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
 JAVA_SRC_DIR="${PACKAGE_DIR}/derived/src/java"
 mkdir -p "${JAVA_SRC_DIR}"
 
-for i in $*
-do
+for i do
     JARFILE="${PWD}/$i"
     (cd "${JAVA_SRC_DIR}" && "${JAVABASE}/bin/jar" xf "${JARFILE}")
 done
