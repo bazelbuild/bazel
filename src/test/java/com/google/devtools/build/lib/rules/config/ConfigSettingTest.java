@@ -223,6 +223,22 @@ public final class ConfigSettingTest extends BuildViewTestCase {
         "    values = {'not_an_option': 'bar'})");
   }
 
+  @Test
+  public void retiredCrosstoolTopDoesNotMatch() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "legacy_android_crosstool",
+            values = {"crosstool_top": "@androidndk//:toolchain-libcpp"},
+        )
+        """);
+
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:legacy_android_crosstool"))
+        .isFalse();
+    assertNoEvents();
+  }
+
   /**
    * Tests that rule analysis fails on internal options.
    */
@@ -3066,7 +3082,7 @@ public final class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  @TestParameters({"{flag: cpu}", "{flag: host_cpu}", "{flag: crosstool_top}"})
+  @TestParameters({"{flag: cpu}", "{flag: host_cpu}"})
   public void selectOnDeprecatedFlagEmitsWarning(String flag) throws Exception {
     scratch.file(
         "test/BUILD",
@@ -3087,7 +3103,7 @@ public final class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  @TestParameters({"{flag: cpu}", "{flag: host_cpu}", "{flag: crosstool_top}"})
+  @TestParameters({"{flag: cpu}", "{flag: host_cpu}"})
   public void selectOnDisabledFlagFails(String flag) throws Exception {
     scratch.file(
         "test/BUILD",
