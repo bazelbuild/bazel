@@ -65,6 +65,7 @@ import io.reactivex.rxjava3.core.SingleEmitter;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -222,7 +223,18 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             // If we get here, the remote input was determined to exist in the remote or disk
             // cache at some point before action execution, but reported to be missing when
             // querying the remote for missing action inputs; possibly because it was evicted in
-            // the interim.
+            // the interim. The disk cache may still have a copy, e.g. from an earlier read of a
+            // file of a repo that is served from the remote repo contents cache.
+            if (diskCacheClient != null && context.getReadCachePolicy().allowDiskCache()) {
+              Path diskCachePath = diskCacheClient.toPath(digest, Store.CAS);
+              if (diskCachePath.exists()) {
+                return Futures.catchingAsync(
+                    remoteCacheClient.uploadFile(context, digest, diskCachePath, force),
+                    FileNotFoundException.class,
+                    e -> immediateFailedFuture(new CacheNotFoundException(digest, execPath)),
+                    directExecutor());
+              }
+            }
             markLostRepoFile(path);
             throw new CacheNotFoundException(digest, execPath);
           }

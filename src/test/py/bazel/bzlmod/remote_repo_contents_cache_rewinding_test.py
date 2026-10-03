@@ -1939,5 +1939,71 @@ class RemoteRepoContentsCacheRewindingTest(
       self.assertEqual(f.read(), 'data for a')
 
 
+  def testLostRemoteFile_remoteExecutionUpload_fromDiskCache(self):
+    # The contents of a repo file that the remote cache has lost are still in
+    # the disk cache, from which they are uploaded for a remote action instead
+    # of refetching the repo.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'reader = use_repo_rule("//:repo.bzl", "reader")',
+            'reader(name = "reader")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+            'def _reader_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'copy.txt\'])")',
+            '  rctx.file("copy.txt", rctx.read(Label("@my_repo//:data.txt")))',
+            'reader = repository_rule(_reader_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(SRCS) > $@",',
+            ')',
+        ],
+    )
+    args = [
+        'build',
+        '--disk_cache=' + self.Path('disk_cache'),
+        '--spawn_strategy=remote',
+        '--remote_executor=grpc://localhost:' + str(self._worker_port),
+    ]
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(args + ['--nobuild', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached, with the contents of data.txt being read into
+    # the disk cache by the reader repo.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(args + ['--nobuild', '@reader//:copy.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The remote cache loses the contents, which the remote action's upload
+    # takes from the disk cache.
+    self.DeleteCasEntry(b'hello')
+    _, _, stderr = self.RunBazel(args + ['//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
+
 if __name__ == '__main__':
   absltest.main()
