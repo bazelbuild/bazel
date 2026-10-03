@@ -19,6 +19,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -27,6 +29,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -48,7 +51,9 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
     Map<String, Pattern> patternCache = new HashMap<>();
     DirectoryTreeDigestValue.Key key = (DirectoryTreeDigestValue.Key) skyKey;
     RootedPath rootedPath = key.rootedPath();
-    if (excludes(rootedPath, key.globBase(), key.excludes(), patternCache)) {
+    PathFragment logicalPath = key.logicalPath();
+    if (logicalPath != null
+        && excludes(logicalPath.toString(), key.globBase(), key.excludes(), patternCache)) {
       // The path we are trying to compute a digest for is excluded.
       // This should only happen at the very beginning/root of a tree digest as the subsequent
       // computation of digests for child nodes should be excluded before they are asked to be
@@ -73,10 +78,13 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
         StreamSupport.stream(dirListingValue.getDirents().spliterator(), /* parallel= */ false)
             .map(Dirent::getName)
             .filter(
-                entry -> {
-                  String path = rootedPath.getRootRelativePath().getRelative(entry).toString();
-                  return !excludes(path, key.globBase(), key.excludes(), patternCache);
-                })
+                entry ->
+                    logicalPath == null
+                        || !excludes(
+                            logicalPath.getRelative(entry).toString(),
+                            key.globBase(),
+                            key.excludes(),
+                            patternCache))
             .sorted()
             .collect(toImmutableSet());
 
@@ -151,23 +159,46 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
       Environment env,
       ImmutableList<Pair<RootedPath, FileValue>> fileValues,
       DirectoryTreeDigestValue.Key key)
-      throws InterruptedException {
-    ImmutableSet<SkyKey> dirTreeDigestValueKeys =
-        fileValues.stream()
-            .filter(p -> p.getSecond().isDirectory())
-            .map(
-                p ->
-                    DirectoryTreeDigestValue.key(
-                        /* rootedPath= */ p.getSecond().realRootedPath(p.getFirst()),
-                        /* globBase= */ key.globBase(),
-                        /* excludes= */ key.excludes()))
-            .collect(toImmutableSet());
-    SkyframeLookupResult result = env.getValuesAndExceptions(dirTreeDigestValueKeys);
-    if (env.valuesMissing()
-        || dirTreeDigestValueKeys.stream().map(result::get).anyMatch(Objects::isNull)) {
+      throws InterruptedException, DirectoryTreeDigestFunctionException {
+    // One digest per entry, in the order of the entries: several entries may resolve to the same
+    // directory, and which of them do is part of the tree's contents.
+    ImmutableList.Builder<SkyKey> dirTreeDigestValueKeys = ImmutableList.builder();
+    for (Pair<RootedPath, FileValue> rootedPathAndFileValue : fileValues) {
+      RootedPath entryPath = rootedPathAndFileValue.getFirst();
+      FileValue fileValue = rootedPathAndFileValue.getSecond();
+      if (!fileValue.isDirectory()) {
+        continue;
+      }
+      if (fileValue.unboundedAncestorSymlinkExpansionChain() != null) {
+        // A symlink to an ancestor of the entry would be descended into without end.
+        env.getValue(
+            FileSymlinkInfiniteExpansionUniquenessFunction.key(
+                fileValue.unboundedAncestorSymlinkExpansionChain()));
+        if (env.valuesMissing()) {
+          return null;
+        }
+        throw new DirectoryTreeDigestFunctionException(
+            new FileSymlinkInfiniteExpansionException(
+                fileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
+                fileValue.unboundedAncestorSymlinkExpansionChain()),
+            Transience.PERSISTENT);
+      }
+      PathFragment logicalPath = key.logicalPath();
+      dirTreeDigestValueKeys.add(
+          DirectoryTreeDigestValue.key(
+              /* rootedPath= */ fileValue.realRootedPath(entryPath),
+              /* globBase= */ key.globBase(),
+              /* excludes= */ key.excludes(),
+              /* logicalPath= */ logicalPath == null
+                  ? null
+                  : logicalPath.getRelative(entryPath.getRootRelativePath().getBaseName())));
+    }
+    ImmutableList<SkyKey> keys = dirTreeDigestValueKeys.build();
+    SkyframeLookupResult result = env.getValuesAndExceptions(ImmutableSet.copyOf(keys));
+    if (env.valuesMissing() || keys.stream().map(result::get).anyMatch(Objects::isNull)) {
       return null;
     }
-    return dirTreeDigestValueKeys.stream()
+    return keys.stream()
         .map(result::get)
         .map(DirectoryTreeDigestValue.class::cast)
         .map(DirectoryTreeDigestValue::hexDigest)
@@ -206,7 +237,11 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
 
   private static final class DirectoryTreeDigestFunctionException extends SkyFunctionException {
     public DirectoryTreeDigestFunctionException(IOException e) {
-      super(e, Transience.TRANSIENT);
+      this(e, Transience.TRANSIENT);
+    }
+
+    public DirectoryTreeDigestFunctionException(IOException e, Transience transience) {
+      super(e, transience);
     }
   }
 }
