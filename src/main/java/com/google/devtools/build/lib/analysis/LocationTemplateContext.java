@@ -107,7 +107,7 @@ final class LocationTemplateContext implements TemplateContext {
 
   private String lookupFunctionImpl(String name, String param) throws ExpansionException {
     try {
-      LocationFunction f = functions.get(name);
+      var f = functions.get(name);
       if (f != null) {
         return f.apply(param, repositoryMapping, workspaceRunfilesDirectory);
       }
