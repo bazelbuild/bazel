@@ -31,6 +31,7 @@ import io.grpc.MethodDescriptor;
 import io.grpc.Status;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
+import io.reactivex.rxjava3.subjects.SingleSubject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayDeque;
@@ -299,6 +300,37 @@ public class SharedConnectionFactoryTest {
     assertThat(canceled.get()).isFalse();
     assertThat(finished.get()).isTrue();
     assertThat(factory.numAvailableConnections()).isEqualTo(1);
+  }
+
+  @Test
+  public void create_disposedWhileReceivingToken_tokenReturned() {
+    // The failure of the first connection hands its token to the waiting creation, which is
+    // disposed while it asks the factory for a new connection.
+    SingleSubject<Connection> firstConnection = SingleSubject.create();
+    AtomicReference<TestObserver<SharedConnection>> waiting = new AtomicReference<>();
+    ConnectionFactory connectionFactory = mock(ConnectionFactory.class);
+    when(connectionFactory.create())
+        .thenAnswer(invocation -> firstConnection)
+        .thenAnswer(
+            invocation -> {
+              waiting.get().dispose();
+              return Single.just(connection);
+            });
+    SharedConnectionFactory factory = new SharedConnectionFactory(connectionFactory, 1);
+    TestObserver<SharedConnection> first = factory.create().test();
+    waiting.set(factory.create().test());
+    assertThat(factory.numAvailableConnections()).isEqualTo(0);
+
+    firstConnection.onError(new IOException("failed"));
+
+    first.assertError(IOException.class);
+    waiting.get().assertEmpty();
+    assertThat(factory.numAvailableConnections()).isEqualTo(1);
+    factory
+        .create()
+        .test()
+        .assertValue(conn -> conn.getUnderlyingConnection() == connection)
+        .assertComplete();
   }
 
   @Test
