@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.util.OS;
@@ -64,6 +65,16 @@ public class RepositoryUtils {
         message = PackageLookupFunction.explainNoBuildFileValue(label.getPackageIdentifier(), env);
       }
       throw Starlark.errorf("Unable to load package for %s: %s", label, message);
+    }
+
+    if (!label.getRepository().isMain()) {
+      // The package lookup caches the repo root and stays valid while the fetch of the repo is
+      // rewound to restore a file that the remote repo contents cache has lost. Wait for such a
+      // fetch here rather than reading the repo in the meantime, which would fail on the lost file
+      // and require the caller to start over.
+      if (env.getValue(RepositoryDirectoryValue.key(label.getRepository())) == null) {
+        return null;
+      }
     }
 
     // And now for the file
@@ -116,7 +127,15 @@ public class RepositoryUtils {
     boolean portableSymlinksOnly = true;
     // TODO(#30160): Repos with symlinks pointing out of the repo are currently excluded from the
     // remote repo contents cache since cross-FS resolution of symlinks proved tricky to get right.
-    boolean symlinksResolveWithinRepo = true;
+    // The root of a repo can itself be such a symlink, e.g. to a directory in the main repo.
+    boolean symlinksResolveWithinRepo = !repoDir.isSymbolicLink();
+    // Without support for symlinks to files, which is optional on Windows, only symlinks to
+    // directories can be created when a repo is materialized from the remote repo contents cache.
+    // Note that tools run by repo rules can presumably create these symlinks even if Bazel itself
+    // doesn't.
+    boolean fileSymlinksSupported =
+        repoDir.getFileSystem().supportsSymbolicLinksNatively(repoDir.asFragment());
+    boolean symlinksCanBeMaterialized = true;
     try {
       Collection<Path> symlinks = FileSystemUtils.traverseTree(repoDir, Path::isSymbolicLink);
       Path workspaceSymlinkUnderExternal = externalRepoRoot.getChild(WORKSPACE_SYMLINK_NAME);
@@ -124,6 +143,9 @@ public class RepositoryUtils {
         FileSystemUtils.ensureSymbolicLink(workspaceSymlinkUnderExternal, workspace);
       }
       for (Path symlink : symlinks) {
+        if (!fileSymlinksSupported && !resolvesToDirectory(symlink)) {
+          symlinksCanBeMaterialized = false;
+        }
         PathFragment target = symlink.readSymbolicLink();
         PathFragment originalTarget = target;
         if (target.startsWith(workspace.asFragment())) {
@@ -148,7 +170,10 @@ public class RepositoryUtils {
           }
           continue;
         }
-        if (!target.startsWith(externalRepoRoot.asFragment())) {
+        // The repo may have been fetched into a directory that isn't located under the external
+        // root, so check for symlinks into the repo itself first.
+        boolean targetInRepo = target.startsWith(repoDir.asFragment());
+        if (!targetInRepo && !target.startsWith(externalRepoRoot.asFragment())) {
           // This symlink doesn't point into any Bazel repo, including the main repo, and thus its
           // target isn't managed by Bazel. We assume such symlinks are portable across machines
           // on which the repo is relevant (e.g. /lib/ld-linux.so* or /usr/bin/ld)
@@ -156,7 +181,7 @@ public class RepositoryUtils {
           continue;
         }
         PathFragment newTarget;
-        if (target.startsWith(repoDir.asFragment())) {
+        if (targetInRepo) {
           // Same-repo symlink: replant relative within the repo. This is always safe regardless
           // of where the repo is physically located.
           PathFragment targetRelativeToRepo = target.relativeTo(repoDir.asFragment());
@@ -210,6 +235,16 @@ public class RepositoryUtils {
       throw new IOException(
           String.format("Failed to rewrite symlinks under %s: %s", repoDir, e.getMessage()), e);
     }
-    return new ReplantSymlinksResult(portableSymlinksOnly, symlinksResolveWithinRepo);
+    return new ReplantSymlinksResult(
+        portableSymlinksOnly, symlinksResolveWithinRepo && symlinksCanBeMaterialized);
+  }
+
+  private static boolean resolvesToDirectory(Path symlink) {
+    try {
+      return symlink.isDirectory();
+    } catch (IOException e) {
+      // The symlink can't be resolved, e.g. because it is part of a loop.
+      return false;
+    }
   }
 }

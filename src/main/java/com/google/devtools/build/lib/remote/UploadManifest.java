@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -97,6 +98,8 @@ public class UploadManifest {
   private final boolean preserveExecutableBit;
   private final ConcurrentHashMap<Digest, Path> digestToFile = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Digest, ByteString> digestToBlobs = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Digest, Digest> treeDigestToRootDigest =
+      new ConcurrentHashMap<>();
   @Nullable private ActionKey actionKey;
   private Digest stderrDigest = null;
   private Digest stdoutDigest = null;
@@ -313,6 +316,27 @@ public class UploadManifest {
     return digestToFile;
   }
 
+  /**
+   * Changes where the contents of files are read from when they are uploaded: a file below {@code
+   * sourceDir} is read from the same relative path below {@code targetDir}, which must have the
+   * same contents, and any other file is read now and kept in memory.
+   *
+   * <p>Must be called before the upload starts. The files that this manifest has been created from
+   * can be moved or deleted afterwards, whereas those below {@code targetDir} have to stay in place
+   * until all uploads of them have finished.
+   */
+  public void relocateFiles(Path sourceDir, Path targetDir) throws IOException {
+    for (var entry : digestToFile.entrySet()) {
+      Path file = entry.getValue();
+      if (file.startsWith(sourceDir)) {
+        entry.setValue(targetDir.getRelative(file.relativeTo(sourceDir)));
+      } else {
+        digestToBlobs.put(entry.getKey(), ByteString.copyFrom(FileSystemUtils.readContent(file)));
+        digestToFile.remove(entry.getKey());
+      }
+    }
+  }
+
   @Nullable
   public Digest getStdoutDigest() {
     return stdoutDigest;
@@ -411,7 +435,7 @@ public class UploadManifest {
      * Returns a {@link Tree} message in wire format describing the directory contents, obeying the
      * requirements of the {@code OutputDirectory.is_topologically_sorted} field.
      */
-    ByteString build() throws ExecException, IOException, InterruptedException {
+    DirectoryTree build() throws ExecException, IOException, InterruptedException {
       // Collect directory entries (subdirectories, files, symlinks) in parallel.
       // This is a major speedup for large tree artifacts with hundreds of thousands of files.
       execute(() -> visit(rootDir, Dirent.Type.DIRECTORY));
@@ -443,7 +467,6 @@ public class UploadManifest {
               .setDigest(dirToDigest.get(subdir));
         }
         ByteString dirBlob = builder.build().toByteString();
-
         dirToDigest.put(dir, digestUtil.compute(dirBlob));
         dirBlobs.add(dirBlob);
       }
@@ -462,7 +485,7 @@ public class UploadManifest {
       }
       codedOutputStream.flush();
 
-      return out.toByteString();
+      return new DirectoryTree(out.toByteString(), checkNotNull(dirToDigest.get(rootDir)));
     }
 
     private void visit(Path path, Dirent.Type type) {
@@ -552,9 +575,13 @@ public class UploadManifest {
   private static final int TREE_CHILDREN_FIELD_NUMBER =
       Tree.getDescriptor().findFieldByName("children").getNumber();
 
+  private record DirectoryTree(ByteString treeBlob, Digest rootDigest) {}
+
   private void addDirectory(Path dir) throws ExecException, IOException, InterruptedException {
-    ByteString treeBlob = new DirectoryBuilder(dir).build();
+    DirectoryTree tree = new DirectoryBuilder(dir).build();
+    ByteString treeBlob = tree.treeBlob();
     Digest treeDigest = digestUtil.compute(treeBlob);
+    treeDigestToRootDigest.put(treeDigest, tree.rootDigest());
 
     result
         .addOutputDirectoriesBuilder()
@@ -593,9 +620,21 @@ public class UploadManifest {
     throw new UserExecException(failureDetail);
   }
 
-  @VisibleForTesting
   ActionResult getActionResult() {
     return result.build();
+  }
+
+  /**
+   * @param treeDigest the tree digest of an output directory of this manifest
+   */
+  Digest getRootDirectoryDigest(Digest treeDigest) {
+    return checkNotNull(treeDigestToRootDigest.get(treeDigest), treeDigest);
+  }
+
+  /** Returns the blob with the given digest that this manifest uploads from memory. */
+  @VisibleForTesting
+  ByteString getBlob(Digest digest) {
+    return checkNotNull(digestToBlobs.get(digest), digest);
   }
 
   /**

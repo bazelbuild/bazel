@@ -68,7 +68,7 @@ public class DigestWriter {
       StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
     String predeclaredInputHash =
-        computePredeclaredInputHash(env, repoDefinition, starlarkSemantics);
+        computePredeclaredInputHash(env, directories, repoDefinition, starlarkSemantics);
     if (predeclaredInputHash == null) {
       return null;
     }
@@ -76,6 +76,11 @@ public class DigestWriter {
   }
 
   void writeMarkerFile(List<RepoRecordedInput.WithValue> recordedInputValues)
+      throws RepositoryFunctionException {
+    writeMarkerFile(markerPath, recordedInputValues);
+  }
+
+  void writeMarkerFile(Path markerPath, List<RepoRecordedInput.WithValue> recordedInputValues)
       throws RepositoryFunctionException {
     StringBuilder builder = new StringBuilder();
     builder.append(predeclaredInputHash).append('\n');
@@ -109,25 +114,34 @@ public class DigestWriter {
       if (!markerPath.exists()) {
         return Optional.of("repo hasn't been fetched yet");
       }
-      String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
-      Optional<ImmutableList<RepoRecordedInput.WithValue>> recordedInputValues =
-          readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
-      if (recordedInputValues.isEmpty()) {
-        return Optional.of("Bazel version, flags, repo rule definition or attributes changed");
-      }
-      // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
-      for (ImmutableList<RepoRecordedInput.WithValue> batch :
-          RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues.get())) {
-        Optional<String> outdatedReason =
-            RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
-        if (outdatedReason.isPresent()) {
-          return outdatedReason;
-        }
-      }
-      return Optional.empty();
+      return areRecordedInputsUpToDate(
+          env, FileSystemUtils.readContent(markerPath, ISO_8859_1));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
+  }
+
+  /**
+   * Like {@link #areRepositoryAndMarkerFileConsistent(Environment, Path)}, but for the given
+   * contents of a marker file. The caller is responsible for checking {@code env.valuesMissing()}.
+   */
+  Optional<String> areRecordedInputsUpToDate(Environment env, String markerFileContent)
+      throws InterruptedException {
+    Optional<ImmutableList<RepoRecordedInput.WithValue>> recordedInputValues =
+        readMarkerFile(markerFileContent, Preconditions.checkNotNull(predeclaredInputHash));
+    if (recordedInputValues.isEmpty()) {
+      return Optional.of("Bazel version, flags, repo rule definition or attributes changed");
+    }
+    // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
+    for (ImmutableList<RepoRecordedInput.WithValue> batch :
+        RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues.get())) {
+      Optional<String> outdatedReason =
+          RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
+      if (outdatedReason.isPresent()) {
+        return outdatedReason;
+      }
+    }
+    return Optional.empty();
   }
 
   /**
@@ -169,7 +183,10 @@ public class DigestWriter {
 
   @Nullable
   static String computePredeclaredInputHash(
-      Environment env, RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics)
+      Environment env,
+      BlazeDirectories directories,
+      RepoDefinition repoDefinition,
+      StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
     var environ =
         RepoEnvironmentFunction.getEnvironmentView(env, repoDefinition.repoRule().environ());
@@ -177,6 +194,7 @@ public class DigestWriter {
       return null;
     }
     var environInputs = RepoRecordedInput.EnvVar.wrap(environ);
+    Path outputBase = directories.getOutputBase();
     var fp =
         new Fingerprint()
             .addInt(MARKER_FILE_VERSION)
@@ -194,7 +212,14 @@ public class DigestWriter {
             // result of a repo rule in subtle ways (e.g. behavior of host tools, line breaks,
             // etc).
             .addString(OS_NAME.value().toLowerCase(Locale.ROOT))
-            .addString(System.getProperty("os.arch").toLowerCase(Locale.ROOT));
+            .addString(System.getProperty("os.arch").toLowerCase(Locale.ROOT))
+            // Without support for symlinks to files, which is optional on Windows, a repo rule
+            // that creates such a symlink ends up with a copy of the file instead and thus with
+            // different repo contents.
+            .addBoolean(
+                outputBase
+                    .getFileSystem()
+                    .supportsSymbolicLinksNatively(outputBase.asFragment()));
     fp.addInt(environInputs.size());
     environInputs.forEach(
         (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
