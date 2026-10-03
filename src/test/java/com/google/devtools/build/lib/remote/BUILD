@@ -36,6 +36,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/remote:abstract_action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",

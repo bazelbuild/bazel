@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -518,6 +519,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   metadata,
                   priority,
                   reason)
+              .onErrorResumeNext(e -> Completable.error(maybeOverrideMissingInput(e, input)))
               .andThen(plantSymlinks);
 
       return toListenableFuture(result);
@@ -649,6 +651,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       throw new FileSymlinkLoopException(path.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
     }
     return path;
+  }
+
+  /**
+   * A download is shared by all callers that request the same file, possibly through different
+   * inputs such as symlinks that resolve to it, and its failure names the input of the caller that
+   * started it. Returns a failure that names the given input of the current caller instead.
+   */
+  private static Throwable maybeOverrideMissingInput(Throwable failure, ActionInput input) {
+    if (failure instanceof CacheNotFoundException e
+        && !input.getExecPath().equals(e.getExecPath())) {
+      var ownFailure = new CacheNotFoundException(e.getMissingDigest(), input.getExecPath());
+      ownFailure.addSuppressed(e);
+      return ownFailure;
+    }
+    return failure;
   }
 
   private Completable downloadFileNoCheckRx(
