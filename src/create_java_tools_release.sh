@@ -79,12 +79,7 @@ github_prefix="https://github.com/bazelbuild/java_tools/releases/download"
 function copy_or_fail_if_target_exists() {
   src_path=$1
   target_path=$2
-  already_exists=$(gcloud storage objects describe ${target_path} &>/dev/null && echo "yes" || echo "no")
-  if [[ "${already_exists}" == "yes" ]]; then
-    fail "${target_path} already exists, did you mean to create a fresh RC / release?"
-  else
-    gcloud --quiet storage cp -n ${src_path} ${target_path}
-  fi
+  gcloud --quiet storage cp "${src_path}" "${target_path}" --if-generation-match=0
 }
 
 for platform in "linux" "linux_aarch64" "windows" "darwin_x86_64" "darwin_arm64"; do
