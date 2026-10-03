@@ -145,6 +145,9 @@ struct ReadSymlinkOrJunctionResult {
 //
 // To read about differences between junctions and directory symlinks,
 // see http://superuser.com/a/343079. In Bazel we only ever create junctions.
+//
+// A volume mount point ("mounted folder") is not a junction even though it has
+// the same reparse tag: it is a directory, so `result` is false for it.
 int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error);
 
 // Retrieves the FILETIME at which `path` was last changed, including metadata.
@@ -196,7 +199,28 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
 // Returns a value from 'ReadSymlinkOrJunctionResult'.
 // When the method returns 'ReadSymlinkOrJunctionResult::kError' and 'error' is
 // non-null then 'error' receives an error message.
+// Returns 'ReadSymlinkOrJunctionResult::kNotALink' for a volume mount point.
 int ReadSymlinkOrJunction(const wstring& path, wstring* result, wstring* error);
+
+// Interprets the `size` bytes of reparse data in `data`, as returned by
+// FSCTL_GET_REPARSE_POINT (a REPARSE_DATA_BUFFER). This is the part of
+// ReadSymlinkOrJunction that does not touch the file system.
+// Returns ReadSymlinkOrJunctionResult::kSuccess and writes the link target
+// into `result` for a symlink or junction, kNotALink for a reparse point that
+// is not a link (e.g. a volume mount point), and kError for an unsupported
+// reparse tag or malformed data.
+int InterpretReparseData(const uint8_t* data, size_t size, wstring* result);
+
+// Returns true if `target`, the substitute name of an
+// IO_REPARSE_TAG_MOUNT_POINT reparse point, is the root of a volume
+// ("\??\Volume{GUID}\"), i.e. the reparse point is a volume mount point
+// ("mounted folder") rather than a junction.
+//
+// Windows resolves a volume mount point transparently when a path through it is
+// opened, and the volume GUID path has no drive-letter form that Bazel could
+// follow, so Bazel treats a volume mount point as a plain directory.
+// See https://learn.microsoft.com/windows/win32/fileio/volume-mount-points
+bool IsVolumeMountPointTarget(const wstring& target);
 
 // Deletes the file, junction, or empty directory at `path`.
 // Returns DELETE_PATH_SUCCESS if it successfully deleted the path, otherwise
