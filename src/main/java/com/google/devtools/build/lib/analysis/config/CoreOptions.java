@@ -898,9 +898,9 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           """
           If enabled, `bazel test --run_under=//:runner` builds `//:runner` in the exec
           configuration. If disabled, it builds `//:runner` in the target configuration.
-          Bazel executes tests on exec machines, so the former is more correct. This
-          doesn't affect `bazel run`, which always builds `--run_under=//foo` in the
-          target configuration.
+          Bazel executes tests on exec machines, so the former is more correct. This also
+          applies to `bazel run --run_under=//:runner` of a test target. For other targets,
+          `bazel run` always builds `//:runner` in the target configuration.
           """)
   public abstract boolean getBazelTestExecRunUnder();
 
