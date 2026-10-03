@@ -1185,6 +1185,11 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     }
 
     @Override
+    public boolean isServedFromCache(RepositoryName repo) {
+      return true;
+    }
+
+    @Override
     public void repoRefetchFailed(RepositoryName repo) {}
 
     @Override

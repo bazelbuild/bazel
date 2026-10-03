@@ -49,6 +49,13 @@ public interface RewindableRepoFileSystem {
   void markLostRepoFile(RepositoryName repo);
 
   /**
+   * Returns whether the contents of the given repo have been retrieved from the remote repo contents
+   * cache during this command, so that a file of it that the remote cache has lost can be restored
+   * by rewinding its fetch.
+   */
+  boolean isServedFromCache(RepositoryName repo);
+
+  /**
    * Records that the given repository has been fetched anew by running its repo rule, which
    * replaces any contents that referenced files the remote cache has lost.
    */
