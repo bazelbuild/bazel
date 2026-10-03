@@ -430,6 +430,7 @@ java_library(
     deps = [
         ":chunker",
         ":combined_cache",
+        ":lazy_materializer",
         ":remote_action_file_system",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
@@ -1108,6 +1109,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/util:async_task_cache",
         "//src/main/java/com/google/devtools/build/lib/remote/util:bulk_transfers",
         "//src/main/java/com/google/devtools/build/lib/remote/util:futures",

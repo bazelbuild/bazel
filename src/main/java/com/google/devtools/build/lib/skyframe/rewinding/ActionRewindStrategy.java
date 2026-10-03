@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
@@ -230,6 +231,7 @@ public final class ActionRewindStrategy {
       throws ActionRewindException, InterruptedException {
     ImmutableSetMultimap<String, ActionInput> lostInputsByDigest = e.getLostInputs();
     checkRewindingEnabled(lostInputsByDigest, LostType.INPUT, env.getListener());
+    checkNoLostSourceInputs(lostInputsByDigest, env.getListener());
 
     ImmutableList<LostInputRecord> lostInputRecords = createLostInputRecords(lostInputsByDigest);
 
@@ -298,13 +300,56 @@ public final class ActionRewindStrategy {
       // can still trigger invocation retries in BlazeCommandDispatcher without passing here.
       return;
     }
+    throw failWithoutRewinding(
+        lostArtifacts,
+        lostType,
+        listener,
+        "Unexpected lost %s (pass --rewind_lost_inputs to enable recovery): %s"
+            .formatted(lostType.description, prettyPrint(lostArtifacts.values())),
+        lostType.codeWhenDisabled);
+  }
+
+  /**
+   * Source artifacts have no generating action that could be rewound to recreate them. A source
+   * file served from the remote repo contents cache can still be lost and is restored by fetching
+   * its repository again, which a retry of the build does.
+   */
+  private void checkNoLostSourceInputs(
+      ImmutableSetMultimap<String, ActionInput> lostInputs, ExtendedEventHandler listener)
+      throws ActionRewindException {
+    ImmutableSetMultimap<String, ActionInput> lostSources =
+        ImmutableSetMultimap.copyOf(
+            Multimaps.filterValues(
+                lostInputs,
+                input -> input instanceof Artifact artifact && artifact.isSourceArtifact()));
+    if (!lostSources.isEmpty()) {
+      throw failWithoutRewinding(
+          lostSources,
+          LostType.INPUT,
+          listener,
+          "Lost inputs are source files, which can't be recovered by rewinding: %s"
+              .formatted(prettyPrint(lostSources.values())),
+          Code.LOST_INPUT_UNRECOVERABLE_SOURCE);
+    }
+  }
+
+  /**
+   * Returns the exception to fail the action with when the given lost artifacts can't be recovered
+   * by rewinding it: a fallback to retrying the build if invocation retries are enabled, otherwise
+   * a failure with the given message and code.
+   */
+  private ActionRewindException failWithoutRewinding(
+      ImmutableSetMultimap<String, ActionInput> lostArtifacts,
+      LostType lostType,
+      ExtendedEventHandler listener,
+      String message,
+      Code code) {
     if (skyframeActionExecutor.invocationRetriesEnabled()) {
       // Bazel's (but not Blaze's) remote implementation needs to learn about lost digests so that
       // the retried invocation doesn't accept the same stale action result.
       listener.post(new LostInputsEvent(lostArtifacts.keySet()));
-      // When action rewinding is disabled, recover by retrying the invocation in
-      // BlazeCommandDispatcher instead.
-      throw new FallbackToBuildRewindingException(
+      // Recover by retrying the invocation in BlazeCommandDispatcher instead.
+      return new FallbackToBuildRewindingException(
           lostArtifacts.entries().stream()
               .limit(MAX_LOST_INPUTS_RECORDED)
               .map(lost -> "%s (%s)".formatted(prettyPrint(lost.getValue()), lost.getKey()))
@@ -314,10 +359,7 @@ public final class ActionRewindStrategy {
                       "Lost %s no longer available remotely: ".formatted(lostType.description),
                       "")));
     }
-    throw new GenericActionRewindException(
-        "Unexpected lost %s (pass --rewind_lost_inputs to enable recovery): %s"
-            .formatted(lostType.description, prettyPrint(lostArtifacts.values())),
-        lostType.codeWhenDisabled);
+    return new GenericActionRewindException(message, code);
   }
 
   private RewindPlanResult prepareRewindPlan(

@@ -221,11 +221,33 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             // cache at some point before action execution, but reported to be missing when
             // querying the remote for missing action inputs; possibly because it was evicted in
             // the interim.
+            markLostRepoFile(path);
             throw new CacheNotFoundException(digest, execPath);
           }
           return remoteCacheClient.uploadFile(context, digest, path, force);
         },
         directExecutor());
+  }
+
+  /**
+   * Records the loss of a file in an external repo with the file system serving the repo, which
+   * hasn't noticed it: the file wasn't read, but found to be missing remotely.
+   *
+   * @param path the path of the file, which may be a symlink into another repo than the one it
+   *     lexically lies in
+   */
+  private static void markLostRepoFile(Path path) {
+    if (!(path.getFileSystem() instanceof RemoteActionFileSystem actionFs
+        && actionFs.getLocalFileSystem() instanceof LazyMaterializer lazyMaterializer)) {
+      return;
+    }
+    PathFragment resolvedPath;
+    try {
+      resolvedPath = path.resolveSymbolicLinks().asFragment();
+    } catch (IOException e) {
+      return;
+    }
+    lazyMaterializer.markLostRepoFile(resolvedPath);
   }
 
   @Override

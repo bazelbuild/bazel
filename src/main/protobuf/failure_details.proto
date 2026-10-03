@@ -1129,6 +1129,7 @@ message ActionRewinding {
     LOST_OUTPUT_TOO_MANY_TIMES = 4 [(metadata) = { exit_code: 1 }];
     LOST_INPUT_REWINDING_DISABLED = 5 [(metadata) = { exit_code: 1 }];
     LOST_OUTPUT_REWINDING_DISABLED = 6 [(metadata) = { exit_code: 1 }];
+    LOST_INPUT_UNRECOVERABLE_SOURCE = 7 [(metadata) = { exit_code: 1 }];
     // Deprecated: attempting to rewind a source artifact is now a hard crash.
     DEPRECATED_LOST_INPUT_IS_SOURCE = 2
         [(metadata) = { exit_code: 1 }, deprecated = true];
