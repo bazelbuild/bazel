@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
@@ -167,7 +166,7 @@ public interface OutputService {
 
   /** Notify the output service of a completed action. */
   void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
-      throws IOException, EnvironmentalExecException, InterruptedException;
+      throws IOException, ExecException, InterruptedException;
 
   @Nullable
   BatchStat getBatchStatter();

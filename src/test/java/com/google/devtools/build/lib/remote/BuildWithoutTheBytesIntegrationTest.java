@@ -1260,4 +1260,56 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
   }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenDownloadingSymlinkToOutput_rewindsTarget()
+      throws Exception {
+    // Arrange: a symlink to the output of a remote action
+    write(
+        "a/defs.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.symlink(output = out, target_file = ctx.file.target)
+            return DefaultInfo(files = depset([out]))
+
+        symlink = rule(_impl, attrs = {"target": attr.label(allow_single_file = True)})
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "symlink")
+
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        symlink(
+            name = "link",
+            target = ":foo.out",
+        )
+        """);
+    write("a/foo.in", "foo");
+
+    // Populate the remote cache without downloading the output
+    setDownloadMinimal();
+    buildTarget("//a:foo");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // Act: the symlink action runs locally without reading its input, which is only read when the
+    // symlink is downloaded as a top-level output.
+    setDownloadToplevel();
+    enableActionRewinding();
+    buildTarget("//a:link");
+    waitDownloads();
+
+    // Assert: the generating action of the symlink's target was rewound
+    assertValidOutputFile("a/link", "foo\n");
+  }
 }
