@@ -24,9 +24,23 @@ import java.util.regex.Pattern;
 
 /** Utils for logging safely user commandlines. */
 public class SafeRequestLogging {
+  /**
+   * Environment variables redacted by exact name, whatever they are called, because the name says
+   * nothing about the value. This currently means variables holding a serialised copy of other
+   * environment variables, which may carry a secret regardless of their own name; {@code
+   * DIRENV_DIFF} is direnv's encoded record of what an {@code .envrc} changed.
+   *
+   * <p>Names are matched case-insensitively along with the pattern below. This is for variables set
+   * by widely used tools, not for site-specific ones.
+   */
+  private static final ImmutableSet<String> ALWAYS_REDACTED_ENV_VARS =
+      ImmutableSet.of("DIRENV_DIFF");
+
   private static final Pattern suppressFromLog =
       Pattern.compile(
-          "--client_env=([^=]*(?:auth|pass|cookie|token|api_key|credential|secret)[^=]*)=",
+          "--client_env=([^=]*(?:auth|pass|cookie|token|key|cred|secret)[^=]*|"
+              + String.join("|", ALWAYS_REDACTED_ENV_VARS)
+              + ")=",
           Pattern.CASE_INSENSITIVE);
 
   private static final ImmutableSet<String> CREDENTIAL_OPTION_NAMES =
@@ -74,7 +88,8 @@ public class SafeRequestLogging {
   /**
    * Generates a string form of a request to be written to the logs, filtering the user environment
    * to remove anything that looks private. The current filter criteria removes any variable whose
-   * name includes "auth", "pass", "cookie", "token", "api_key", "credential" or "secret".
+   * name includes "auth", "pass", "cookie", "token", "key", "cred" or "secret", and any variable
+   * named in {@link #ALWAYS_REDACTED_ENV_VARS}.
    *
    * @return the filtered request to write to the log.
    */
