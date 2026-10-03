@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.repository;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -352,7 +353,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
       DigestWriter.clearMarkerFile(directories, repositoryName);
       FetchResult result;
       try {
-        result = fetchAndHandleEvents(repoDefinition, repoRoot, env, repositoryName);
+        result =
+            fetchAndHandleEvents(
+                repoDefinition, repoRoot, env, repositoryName, /* failureIsMoot= */ () -> false);
       } catch (RepositoryFunctionException e) {
         // A failure caused by a lost file of another repo is recovered from by rewinding, after
         // which this repo is fetched again.
@@ -520,9 +523,36 @@ public final class RepositoryFetchFunction implements SkyFunction {
                 Long.toString(nextStagingDirectoryId.getAndIncrement(), Character.MAX_RADIX));
     Path stagingRepoRoot = stagingRoot.getChild(repositoryName.getName());
     Path stagingMarkerPath = stagingRoot.getChild(repositoryName.getMarkerFileName());
+    var success = new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
     try {
-      FetchResult result =
-          fetchAndHandleEvents(repoDefinition, stagingRepoRoot, env, repositoryName);
+      // The repo may be materialized while it is being fetched, e.g. by a repo rule that accesses
+      // all of its files, in which case the lost files have been restored along with the others
+      // and a failure of the fetch doesn't matter. This is decided once, when the failure would
+      // first be reported.
+      Supplier<Boolean> restoredConcurrently =
+          Suppliers.memoize(
+              () ->
+                  remoteRepoContentsCache.getLostFilesMarkerFile(repositoryName, repoRoot)
+                      == null);
+      FetchResult result;
+      try {
+        result =
+            fetchAndHandleEvents(
+                repoDefinition, stagingRepoRoot, env, repositoryName, restoredConcurrently);
+      } catch (RepositoryFunctionException e) {
+        if (restoredConcurrently.get()) {
+          // The repo has been materialized along with its marker file. Its recorded inputs are
+          // still those of the cached contents and must be depended on like after a fetch.
+          Optional<String> inconsistency = digestWriter.areRepositoryAndMarkerFileConsistent(env);
+          if (env.valuesMissing()) {
+            return null;
+          }
+          if (inconsistency.isEmpty()) {
+            return success;
+          }
+        }
+        throw e;
+      }
       if (result == null) {
         return null;
       }
@@ -555,7 +585,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
         throw new RepositoryFunctionException(
             new AlreadyReportedRepositoryAccessException(e), Transience.PERSISTENT);
       }
-      return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
+      return success;
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -695,19 +725,28 @@ public final class RepositoryFetchFunction implements SkyFunction {
     return repoDefinition.repoRule().local() || repoDefinition.repoRule().configure();
   }
 
+  /**
+   * @param failureIsMoot whether a failure of the fetch doesn't have to be reported since the fetch
+   *     is no longer needed. Must return the same value on every call so that all code handling the
+   *     failure agrees on it.
+   */
   @Nullable
   private FetchResult fetchAndHandleEvents(
-      RepoDefinition repoDefinition, Path repoRoot, Environment env, RepositoryName repoName)
+      RepoDefinition repoDefinition,
+      Path repoRoot,
+      Environment env,
+      RepositoryName repoName,
+      Supplier<Boolean> failureIsMoot)
       throws InterruptedException, RepositoryFunctionException {
     env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "starting"));
 
     FetchResult result;
     try {
-      result = fetch(repoDefinition, repoRoot, env, repoName);
+      result = fetch(repoDefinition, repoRoot, env, repoName, failureIsMoot);
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(RepositoryFetchProgress.finished(repoName));
-      if (RepoRewinding.isRecoverableLostRepoFile(e)) {
+      if (RepoRewinding.isRecoverableLostRepoFile(e) || failureIsMoot.get()) {
         // The repo rule read a file of another cached repo that the remote cache has lost. The
         // build recovers by rewinding that repo's fetch, so this is not a failure to report.
         throw e;
@@ -756,7 +795,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   @Nullable
   private FetchResult fetch(
-      RepoDefinition repoDefinition, Path outputDirectory, Environment env, RepositoryName repoName)
+      RepoDefinition repoDefinition,
+      Path outputDirectory,
+      Environment env,
+      RepositoryName repoName,
+      Supplier<Boolean> failureIsMoot)
       throws RepositoryFunctionException, InterruptedException {
     setupRepoRoot(outputDirectory);
 
@@ -880,16 +923,19 @@ public final class RepositoryFetchFunction implements SkyFunction {
     } catch (NeedsSkyframeRestartException e) {
       return null;
     } catch (EvalException e) {
-      env.getListener()
-          .handle(
-              Event.error(
-                  e.getInnermostLocation(),
-                  "An error occurred during the fetch of repository '"
-                      + repoDefinition.name()
-                      + "':\n   "
-                      + e.getMessageWithStack()));
-      env.getListener()
-          .handle(Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(repoDefinition)));
+      if (!failureIsMoot.get()) {
+        env.getListener()
+            .handle(
+                Event.error(
+                    e.getInnermostLocation(),
+                    "An error occurred during the fetch of repository '"
+                        + repoDefinition.name()
+                        + "':\n   "
+                        + e.getMessageWithStack()));
+        env.getListener()
+            .handle(
+                Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(repoDefinition)));
+      }
 
       throw new RepositoryFunctionException(
           new AlreadyReportedRepositoryAccessException(e), Transience.TRANSIENT);
