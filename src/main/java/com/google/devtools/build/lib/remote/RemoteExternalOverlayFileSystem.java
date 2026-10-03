@@ -74,6 +74,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -109,6 +110,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   @Nullable private MemoizingEvaluator evaluator;
   @Nullable private Duration remoteCacheTtl;
   @Nullable private ListeningExecutorService materializationExecutor;
+
+  // The directory that the previous contents of a repo are moved to while it is injected, which
+  // can only exist after a server crash.
+  private static final String REPLACED_DIRECTORY_PREFIX = "@";
+  private static final String REPLACED_DIRECTORY_SUFFIX = ".replaced.tmp";
 
   public RemoteExternalOverlayFileSystem(PathFragment externalDirectory, FileSystem nativeFs) {
     super(nativeFs.getDigestFunction());
@@ -146,6 +152,28 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
         MoreExecutors.listeningDecorator(
             Executors.newThreadPerTaskExecutor(
                 Thread.ofVirtual().name("remote-repo-materialization-", 0).factory()));
+    deleteReplacedRepos();
+  }
+
+  /** Deletes the previous contents of repos that a crashed server left behind. */
+  private void deleteReplacedRepos() {
+    try {
+      var nativeExternalDirectory = nativeFs.getPath(externalDirectory);
+      if (!nativeExternalDirectory.exists()) {
+        return;
+      }
+      for (Dirent dirent : nativeExternalDirectory.readdir(Symlinks.NOFOLLOW)) {
+        String name = dirent.getName();
+        if (name.startsWith(REPLACED_DIRECTORY_PREFIX) && name.endsWith(REPLACED_DIRECTORY_SUFFIX)) {
+          nativeExternalDirectory.getChild(name).deleteTree();
+        }
+      }
+    } catch (IOException e) {
+      reporter.handle(
+          Event.warn(
+              "Failed to delete previous contents of repos left behind by a crashed server: "
+                  + e.getMessage()));
+    }
   }
 
   public void afterCommand() {
@@ -208,9 +236,81 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   public boolean injectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
       throws IOException, InterruptedException {
     var repoDir = externalDirectory.getChild(repo.getName());
-    deleteTree(repoDir);
+    var markerFilePath = externalDirectory.getChild(repo.getMarkerFileName());
+    // The existing contents of the repo are only replaced once the injection has succeeded: if the
+    // remote cache has lost files of the repo, the injection is a cache miss and the existing
+    // contents may still be used, e.g. if fetching is disabled. The directory they are moved to
+    // isn't deleted if the server crashes, so it has a name that can't be mistaken for a repo.
+    var replacedDir =
+        nativeFs.getPath(
+            externalDirectory.getChild(
+                REPLACED_DIRECTORY_PREFIX + UUID.randomUUID() + REPLACED_DIRECTORY_SUFFIX));
+    replacedDir.createDirectoryAndParents();
+    var replacedRepoDir = replacedDir.getChild(repo.getName());
+    var replacedMarkerFile = replacedDir.getChild(repo.getMarkerFileName());
+    boolean repoMoved = false;
+    boolean injected;
+    try {
+      moveIfExists(nativeFs.getPath(repoDir), replacedRepoDir);
+      repoMoved = true;
+      moveIfExists(nativeFs.getPath(markerFilePath), replacedMarkerFile);
+      externalFs.deleteTree(repoDir);
+      materializedRepos.remove(repo.getName());
+      markerFileContents.remove(repo.getName());
+      injected = injectRemoteRepo(repo, repoDir, remoteContents, markerFile);
+    } catch (IOException | InterruptedException e) {
+      try {
+        if (repoMoved) {
+          restoreReplacedRepo(repo, replacedDir);
+        } else {
+          replacedDir.deleteTree();
+        }
+      } catch (IOException e2) {
+        e.addSuppressed(e2);
+      }
+      throw e;
+    }
+    if (!injected) {
+      restoreReplacedRepo(repo, replacedDir);
+      return false;
+    }
+    try {
+      replacedDir.deleteTree();
+    } catch (IOException e) {
+      // The repo has been injected, so this is only a cleanup, which the next command repeats.
+      reporter.handle(
+          Event.warn(
+              "Failed to delete the previous contents of repo %s: %s"
+                  .formatted(repo.getName(), e.getMessage())));
+    }
+    return true;
+  }
+
+  /**
+   * Restores the previous contents of the given repo from the given directory, which may be in use
+   * for lack of a cache entry. Whatever has been injected must not be served in their place.
+   */
+  private void restoreReplacedRepo(RepositoryName repo, Path replacedDir) throws IOException {
+    var repoDir = externalDirectory.getChild(repo.getName());
+    var markerFilePath = externalDirectory.getChild(repo.getMarkerFileName());
+    externalFs.deleteTree(repoDir);
     materializedRepos.remove(repo.getName());
-    var unused = delete(externalDirectory.getChild(repo.getMarkerFileName()));
+    markerFileContents.remove(repo.getName());
+    nativeFs.getPath(repoDir).deleteTree();
+    moveIfExists(replacedDir.getChild(repo.getName()), nativeFs.getPath(repoDir));
+    moveIfExists(replacedDir.getChild(repo.getMarkerFileName()), nativeFs.getPath(markerFilePath));
+    replacedDir.deleteTree();
+  }
+
+  private static void moveIfExists(Path from, Path to) throws IOException {
+    if (from.exists(Symlinks.NOFOLLOW)) {
+      from.renameTo(to);
+    }
+  }
+
+  private boolean injectRemoteRepo(
+      RepositoryName repo, PathFragment repoDir, Tree remoteContents, String markerFile)
+      throws IOException, InterruptedException {
     var childMap =
         remoteContents.getChildrenList().stream()
             .collect(
