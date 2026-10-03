@@ -184,7 +184,8 @@ java_library(
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
-    ],
+            "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+],
 )
 
 java_library(
