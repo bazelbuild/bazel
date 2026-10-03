@@ -776,11 +776,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
           // between concurrent calls touching the same directory.
           directoryTracker.setPermanentlyWritable(parentDir);
         }
+        FileSystemUtils.moveFile(tmpPath, finalPath);
       } else {
+        // A file in an external repo, which other actions and Bazel itself may already be reading
+        // if it has been downloaded before. Replace it atomically so that they never observe it
+        // missing or with partial contents.
         parentDir.createDirectoryAndParents();
+        moveIntoRepo(tmpPath, finalPath, metadata);
       }
-
-      FileSystemUtils.moveFile(tmpPath, finalPath);
     } finally {
       if (treeArtifactLock != null) {
         treeArtifactLock.unlock();
@@ -789,6 +792,25 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     // Set the contents proxy when supported, to make future modification checks cheaper.
     metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
+  }
+
+  /**
+   * Moves a file with the given metadata to the given path in an external repo, which replaces an
+   * existing file atomically or not at all.
+   */
+  private static void moveIntoRepo(Path source, Path finalPath, FileArtifactValue metadata)
+      throws IOException {
+    try {
+      source.renameTo(finalPath);
+    } catch (IOException e) {
+      // The file may have been made available at the path in the meantime, e.g. by a concurrent
+      // materialization of the repo. Some platforms can't replace a file while it is in use, which
+      // doesn't matter if it already has the expected contents.
+      if (shouldDownloadFile(finalPath, metadata)) {
+        throw e;
+      }
+      var unused = source.delete();
+    }
   }
 
   private interface TaskWithTempPath {
@@ -835,13 +857,58 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 // exist yet.
                 checkNotNull(linkPath.getParentDirectory()).createDirectoryAndParents();
               }
-              // Delete the link path if it already exists. This is the case for tree artifacts,
-              // whose root directory is created before the action runs.
-              linkPath.delete();
-              linkPath.createSymbolicLink(symlink.targetPath());
+              try {
+                linkPath.createSymbolicLink(symlink.targetPath());
+              } catch (IOException e) {
+                if (isSymlinkTo(linkPath, symlink.targetPath())) {
+                  // The symlink is already in place and may be read concurrently, e.g. by an action
+                  // that shares this input, so it must not be replaced.
+                  return Completable.complete();
+                }
+                // Delete the link path if it already exists. This is the case for tree artifacts,
+                // whose root directory is created before the action runs.
+                if (!linkPath.delete()) {
+                  throw e;
+                }
+                linkPath.createSymbolicLink(symlink.targetPath());
+              }
               return Completable.complete();
             }),
         forceRefetch(linkPath));
+  }
+
+  /**
+   * Returns whether the given path is a symlink to the given target that doesn't have to be
+   * replaced for the target to be reachable through it.
+   */
+  private boolean isSymlinkTo(Path linkPath, PathFragment targetPath) throws IOException {
+    if (!linkPath.isSymbolicLink()) {
+      return false;
+    }
+    if (!linkPath.getFileSystem().supportsSymbolicLinksNatively(linkPath.asFragment())) {
+      // Without native support for symlinks, as on Windows by default, a symlink to a file is a
+      // copy of it. A symlink created while its target didn't exist yet, e.g. by an action whose
+      // input hadn't been downloaded, is a junction instead, which only resolves to a directory.
+      var targetStat =
+          checkNotNull(linkPath.getParentDirectory()).getRelative(targetPath).statIfFound();
+      if (targetStat != null && !targetStat.isDirectory()) {
+        return false;
+      }
+    }
+    PathFragment actualTargetPath = linkPath.readSymbolicLink();
+    if (actualTargetPath.equals(targetPath)) {
+      return true;
+    }
+    if (linkPath.asFragment().startsWith(execRoot.asFragment())) {
+      // A symlink in the output tree is always planted with the given target, even if an action
+      // has created it with a different target that resolves to the same path.
+      return false;
+    }
+    // A symlink in an external repo is reproduced verbatim, but some file systems only support
+    // absolute symlink targets and thus don't preserve a relative one. Compare the paths the
+    // targets resolve to instead.
+    PathFragment parent = checkNotNull(linkPath.getParentDirectory()).asFragment();
+    return parent.getRelative(actualTargetPath).equals(parent.getRelative(targetPath));
   }
 
   /**
