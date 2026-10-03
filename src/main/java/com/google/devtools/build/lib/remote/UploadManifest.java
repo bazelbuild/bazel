@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -79,6 +80,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -390,13 +392,14 @@ public class UploadManifest {
     // Maps each directory found during the traversal to its files.
     private final SortedSetMultimap<Path, FileNode> dirToFiles =
         Multimaps.synchronizedSortedSetMultimap(
-            TreeMultimap.<Path, FileNode>create(naturalOrder(), comparing(FileNode::getName)));
+            TreeMultimap.<Path, FileNode>create(
+                naturalOrder(), comparing(FileNode::getName, comparing(StringEncoding::unicodeToInternal))));
 
     // Maps each directory found during the traversal to its symlinks.
     private final SortedSetMultimap<Path, SymlinkNode> dirToSymlinks =
         Multimaps.synchronizedSortedSetMultimap(
             TreeMultimap.<Path, SymlinkNode>create(
-                naturalOrder(), comparing(SymlinkNode::getName)));
+                naturalOrder(), comparing(SymlinkNode::getName, comparing(StringEncoding::unicodeToInternal))));
 
     DirectoryBuilder(Path rootDir) {
       super(
