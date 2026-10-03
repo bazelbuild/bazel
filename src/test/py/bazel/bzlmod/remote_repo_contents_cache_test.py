@@ -453,6 +453,62 @@ class RemoteRepoContentsCacheTest(
     with open(os.path.join(repo_dir, 'data.txt')) as f:
       self.assertEqual(f.read(), 'bm\n')
 
+  def testDiskCache_newerAlternativeFoundRemotely(self):
+    # An intermediate entry is an index of alternative batches of recorded
+    # inputs. A client with a disk cache has an older version of the index and
+    # must still find an alternative that another client added remotely later.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  switch = rctx.getenv("SWITCH")',
+            '  value = rctx.getenv("A") if switch == "a" else rctx.getenv("B")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", value)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    disk_cache = ['--disk_cache=' + self.Path('disk_cache')]
+    env = ['--repo_env=A=a', '--repo_env=B=b']
+    target = '@my_repo//:data.txt'
+
+    # The client with the disk cache fetches with SWITCH=a and then reads the
+    # index for SWITCH=a from the remote cache into its disk cache.
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # A client without a disk cache fetches with SWITCH=b, which adds an
+    # alternative to the remote index.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=b', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The client with the disk cache finds the alternative for SWITCH=b.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=b', target] + env + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(self.RepoDir('my_repo'), 'data.txt')) as f:
+      self.assertEqual(f.read(), 'b')
+
   def testRecordedInputs_differentInputs(self):
     platform_file = self.ScratchFile('platform.txt')
 

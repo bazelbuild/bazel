@@ -448,11 +448,14 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           var stdoutDigest = digestUtil.compute(stdoutBytes);
           var actionResult =
               ActionResult.newBuilder().setExitCode(0).setStdoutDigest(stdoutDigest).build();
+          // Unlike the contents of the repo, the updated index is also written to the disk cache
+          // so that this client doesn't keep using the version it replaced.
+          var indexContext = context.withWriteCachePolicy(CachePolicy.ANY_CACHE);
           return whenAllSucceed(
-                  cache.uploadBlob(context, actionKey.digest(), action.toByteString()),
-                  cache.uploadBlob(context, stdoutDigest, ByteString.copyFrom(stdoutBytes)))
+                  cache.uploadBlob(indexContext, actionKey.digest(), action.toByteString()),
+                  cache.uploadBlob(indexContext, stdoutDigest, ByteString.copyFrom(stdoutBytes)))
               .callAsync(
-                  () -> cache.uploadActionResult(context, actionKey, actionResult),
+                  () -> cache.uploadActionResult(indexContext, actionKey, actionResult),
                   directExecutor());
         },
         directExecutor());
@@ -547,6 +550,23 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     var cachedActionResult =
         cache.downloadActionResult(
             context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
+    if (cachedActionResult != null
+        && cachedActionResult.cacheName().equals("disk")
+        && cachedActionResult.actionResult().getOutputDirectoriesCount() == 0
+        && context.getReadCachePolicy().allowRemoteCache()) {
+      // An intermediate entry is an index of alternatives that other clients extend. The disk cache
+      // holds the version seen when it was last downloaded, so the current one is fetched from the
+      // remote cache, which also refreshes the disk cache.
+      var remoteActionResult =
+          cache.downloadActionResult(
+              context.withReadCachePolicy(CachePolicy.REMOTE_CACHE_ONLY),
+              actionKey,
+              /* inlineOutErr= */ true,
+              ImmutableSet.of(MARKER_FILE_PATH));
+      if (remoteActionResult != null) {
+        cachedActionResult = remoteActionResult;
+      }
+    }
     if (cachedActionResult == null) {
       return new CacheEntry.Intermediate(ImmutableList.of());
     }
