@@ -68,7 +68,7 @@ public class DigestWriter {
       StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
     String predeclaredInputHash =
-        computePredeclaredInputHash(env, repoDefinition, starlarkSemantics);
+        computePredeclaredInputHash(env, directories, repoDefinition, starlarkSemantics);
     if (predeclaredInputHash == null) {
       return null;
     }
@@ -169,7 +169,10 @@ public class DigestWriter {
 
   @Nullable
   static String computePredeclaredInputHash(
-      Environment env, RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics)
+      Environment env,
+      BlazeDirectories directories,
+      RepoDefinition repoDefinition,
+      StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
     var environ =
         RepoEnvironmentFunction.getEnvironmentView(env, repoDefinition.repoRule().environ());
@@ -177,6 +180,7 @@ public class DigestWriter {
       return null;
     }
     var environInputs = RepoRecordedInput.EnvVar.wrap(environ);
+    Path outputBase = directories.getOutputBase();
     var fp =
         new Fingerprint()
             .addInt(MARKER_FILE_VERSION)
@@ -194,7 +198,14 @@ public class DigestWriter {
             // result of a repo rule in subtle ways (e.g. behavior of host tools, line breaks,
             // etc).
             .addString(OS_NAME.value().toLowerCase(Locale.ROOT))
-            .addString(System.getProperty("os.arch").toLowerCase(Locale.ROOT));
+            .addString(System.getProperty("os.arch").toLowerCase(Locale.ROOT))
+            // Without support for symlinks to files, which is optional on Windows, a repo rule
+            // that creates such a symlink ends up with a copy of the file instead and thus with
+            // different repo contents.
+            .addBoolean(
+                outputBase
+                    .getFileSystem()
+                    .supportsSymbolicLinksNatively(outputBase.asFragment()));
     fp.addInt(environInputs.size());
     environInputs.forEach(
         (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
