@@ -474,7 +474,10 @@ java_library(
 
 java_library(
     name = "remote_action_file_system",
-    srcs = ["RemoteActionFileSystem.java"],
+    srcs = [
+        "InputDirectoryIndex.java",
+        "RemoteActionFileSystem.java",
+    ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:build_lib",
         "//src/tools/remote:__subpackages__",
@@ -486,10 +489,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_input_metadata_provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
