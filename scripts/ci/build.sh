@@ -208,8 +208,9 @@ function create_index_md() {
   echo
   echo "## Index of files"
   echo
-  for f in $1/*.sha256; do  # just list the sha256 ones
-    local filename=$(basename $f .sha256);
+  for f in "$1"/*.sha256; do  # just list the sha256 ones
+    local filename
+    filename="$(basename "$f" .sha256)"
     echo " - [${filename}](${filename}) [[SHA-256](${filename}.sha256)] [[SIG](${filename}.sig)]"
   done
 }
