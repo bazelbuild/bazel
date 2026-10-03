@@ -38,7 +38,7 @@ public class PackageMetricsModule extends BlazeModule {
         defaultValue = "10",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "Configures number of packages included in top-package INFO logging, <= 0 disables.")
+        help = "Configures number of packages included in top-package `INFO` logging, <= 0 disables.")
     public abstract int getNumberOfPackagesToTrack();
 
     @Option(
@@ -47,8 +47,8 @@ public class PackageMetricsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help =
-            "Configures PackageMetrics to record all metrics for all packages. Disables Top-n INFO"
-                + " logging.")
+            "Configures `PackageMetrics` to record all metrics for all packages. Disables"
+                + " Top-`n` `INFO` logging.")
     public abstract boolean getEnableAllMetrics();
 
     @Option(
