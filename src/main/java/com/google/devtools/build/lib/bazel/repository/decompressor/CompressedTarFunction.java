@@ -150,6 +150,20 @@ public abstract class CompressedTarFunction implements Decompressor {
             if (entry.isSymbolicLink()) {
               symlinks.put(filePath, targetName);
             } else {
+              // Hard link targets are re-rooted at the destination above, so
+              // targetName is always absolute for them and the guard before
+              // this branch never fires. Validate the raw linkname for ".."
+              // segments, which is the actual escape vector.
+              String rawLinkName = toRawBytesString(entry.getLinkName());
+              for (String segment : rawLinkName.split("/")) {
+                if (segment.equals("..")) {
+                  throw new IOException(
+                      String.format(
+                          "Failed to extract %s, hard link target %s is escaping the destination"
+                              + " directory",
+                          entryName, rawLinkName));
+                }
+              }
               if (filePath.equals(resolvedTargetPath)) {
                 // The behavior here is semantically different, depending on whether the underlying
                 // filesystem is case-sensitive or case-insensitive. However, it is effectively the
