@@ -2412,7 +2412,7 @@ func(
 
   /**
    * @param materialize whether the repo containing the file has to be available on the native file
-   *     system, which is not required for Bazel to read the file itself
+   *     system
    */
   private StarlarkPath getPathFromLabel(Label label, boolean materialize)
       throws EvalException, InterruptedException {
