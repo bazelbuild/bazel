@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -73,7 +72,7 @@ public abstract class InterimModule extends ModuleBase {
    * NonRegistryOverride}.
    */
   @Nullable
-  public abstract Registry getRegistry();
+  public abstract String getRegistryUrl();
 
   /** Returns a {@link Builder} that starts out with the same fields as this object. */
   abstract Builder toBuilder();
@@ -108,7 +107,6 @@ public abstract class InterimModule extends ModuleBase {
 
     /** Optional; defaults to {@link ModuleKey#ROOT}. */
     public abstract Builder setKey(ModuleKey value);
-
 
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
@@ -160,7 +158,7 @@ public abstract class InterimModule extends ModuleBase {
 
     public abstract Builder setNodepDeps(ImmutableList<ModuleKey> value);
 
-    public abstract Builder setRegistry(Registry value);
+    public abstract Builder setRegistryUrl(@Nullable String value);
 
     public abstract Builder setExtensionUsages(ImmutableList<ModuleExtensionUsage> value);
 
