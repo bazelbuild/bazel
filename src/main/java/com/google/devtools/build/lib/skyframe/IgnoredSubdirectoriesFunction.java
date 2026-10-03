@@ -88,6 +88,11 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
         ignoredDirectoriesBuilder.add(ignored);
       }
     } catch (IOException e) {
+      if (e instanceof DetailedException) {
+        // Keep the failure's own exit code, e.g. so that the command is retried when the file has
+        // been evicted from the remote cache.
+        throw new IgnoredSubdirectoriesFunctionException(e);
+      }
       String errorMessage = e.getMessage() != null ? "error '" + e.getMessage() + "'" : "an error";
       throw new IgnoredSubdirectoriesFunctionException(
           new InconsistentFilesystemException(
