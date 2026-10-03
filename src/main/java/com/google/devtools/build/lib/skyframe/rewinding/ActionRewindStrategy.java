@@ -355,7 +355,7 @@ public final class ActionRewindStrategy {
       InputMetadataProvider metadataProvider,
       Environment env,
       ImmutableList.Builder<ActionAnalysisMetadata> depsToRewind)
-      throws InterruptedException {
+      throws ActionRewindException, InterruptedException {
     ImmutableList<ActionInput> lostInputs = lostInputsByDigest.values().asList();
 
     Set<ActionInput> lostInputsAndTransitiveOwners = new HashSet<>(lostInputs);
@@ -731,7 +731,8 @@ public final class ActionRewindStrategy {
       SkyKey failedKey,
       Set<SkyKey> failedKeyDeps,
       ImmutableList<ActionInput> lostInputs,
-      SetMultimap<ActionInput, Artifact> owners) {
+      SetMultimap<ActionInput, Artifact> owners)
+      throws ActionRewindException {
     // Not all input artifacts' keys are direct deps - they may be below an ArtifactNestedSetKey.
     // Expand all ArtifactNestedSetKey deps to get a flat set with all input artifact keys.
     Set<SkyKey> expandedDeps = new HashSet<>();
@@ -792,7 +793,16 @@ public final class ActionRewindStrategy {
       }
 
       if (lostInput instanceof SourceArtifact sourceArtifact) {
-        checkExternal(sourceArtifact);
+        if (!sourceArtifact.getRoot().isExternal()) {
+          // Source files of the main repository are always available locally, unless they are
+          // symlinks into an external repo, which isn't supported.
+          throw new GenericActionRewindException(
+              String.format(
+                  "lost input %s is a source file of the main repository, which can't be"
+                      + " recovered: symlinks into external repositories are not supported",
+                  lostInput.getExecPathString()),
+              ActionRewinding.Code.LOST_INPUT_UNRECOVERABLE_SOURCE);
+        }
         // Unlike a derived artifact, a lost source artifact is rewound even if an aggregation
         // artifact owning it is a direct dep: rewinding that aggregation alone would recompute it
         // from the very file that is gone.
@@ -828,14 +838,6 @@ public final class ActionRewindStrategy {
 
   private static void checkDerived(Artifact artifact) {
     checkState(!artifact.isSourceArtifact(), "Unexpected source artifact: %s", artifact);
-  }
-
-  private static void checkExternal(SourceArtifact artifact) {
-    // Source files of the main repository are always available locally and thus never lost.
-    checkState(
-        artifact.getRoot().isExternal(),
-        "Unexpected main repository source artifact: %s",
-        artifact);
   }
 
   /**
