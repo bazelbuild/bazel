@@ -731,26 +731,26 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   @Test
   public void testAfterCommand_waitForUploadComplete_errorOnComplete() throws Exception {
-    buildEventService.setErrorMessage("Boom1");
+    buildEventService.setErrorMessageAndCode("Boom1", Status.INVALID_ARGUMENT);
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE");
     afterBuildCommand();
-    events.assertContainsError("The Build Event Protocol upload failed: DATA_LOSS: Boom1");
+    events.assertContainsError("The Build Event Protocol upload failed: INVALID_ARGUMENT: Boom1");
   }
 
   @Test
   public void testAfterCommand_waitForUploadComplete_besTimeout_errorOnComplete() throws Exception {
-    buildEventService.setErrorMessage("Boom2");
+    buildEventService.setErrorMessageAndCode("Boom2", Status.INVALID_ARGUMENT);
     runBuildWithOptions(
         "--bes_backend=inprocess",
         "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
         "--bes_timeout=5s");
     afterBuildCommand();
-    events.assertContainsError("The Build Event Protocol upload failed: DATA_LOSS: Boom2");
+    events.assertContainsError("The Build Event Protocol upload failed: INVALID_ARGUMENT: Boom2");
   }
 
   @Test
   public void testAfterCommand_noWaitForUploadComplete_errorOnComplete() throws Exception {
-    buildEventService.setErrorMessage("Boom3");
+    buildEventService.setErrorMessageAndCode("Boom3", Status.INVALID_ARGUMENT);
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=NOWAIT_FOR_UPLOAD_COMPLETE");
     afterBuildCommand();
     events.assertNoWarningsOrErrors();
@@ -758,16 +758,16 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   @Test
   public void testBeforeSecondCommand_noWaitForUploadComplete_errorOnComplete() throws Exception {
-    buildEventService.setErrorMessage("Boom4");
+    buildEventService.setErrorMessageAndCode("Boom4", Status.INVALID_ARGUMENT);
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=NOWAIT_FOR_UPLOAD_COMPLETE");
     afterBuildCommand();
     buildTarget();
-    events.assertContainsWarning("The Build Event Protocol upload failed: DATA_LOSS: Boom4");
+    events.assertContainsWarning("The Build Event Protocol upload failed: INVALID_ARGUMENT: Boom4");
   }
 
   @Test
   public void testAfterCommand_fullyAsync_errorOnComplete() throws Exception {
-    buildEventService.setErrorMessage("Boom5");
+    buildEventService.setErrorMessageAndCode("Boom5", Status.INVALID_ARGUMENT);
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=FULLY_ASYNC");
     afterBuildCommand();
     events.assertNoWarningsOrErrors();
@@ -775,7 +775,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   @Test
   public void testBeforeSecondCommand_fullyAsync_errorOnComplete() throws Exception {
-    buildEventService.setErrorMessage("Boom6");
+    buildEventService.setErrorMessageAndCode("Boom6", Status.INVALID_ARGUMENT);
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=FULLY_ASYNC");
     afterBuildCommand();
     buildTarget();

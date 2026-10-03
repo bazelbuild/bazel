@@ -54,6 +54,8 @@ public abstract class AbstractBuildEventRecorder extends ExternalResource {
       (o) -> true;
   private ConcurrentLinkedQueue<PublishBuildToolEventStreamResponse> responseBuffer =
       new ConcurrentLinkedQueue<>();
+  private final ConcurrentLinkedQueue<Status> streamCompletionStatuses =
+      new ConcurrentLinkedQueue<>();
 
   protected final ListMultimap<StreamId, PublishLifecycleEventRequest> lifecycleEvents =
       LinkedListMultimap.create();
@@ -116,6 +118,11 @@ public abstract class AbstractBuildEventRecorder extends ExternalResource {
   public void setSendResponsesOnRequestPredicate(
       Predicate<PublishBuildToolEventStreamRequest> sendResponsesOnRequestPredicate) {
     this.sendResponsesOnRequestPredicate = sendResponsesOnRequestPredicate;
+  }
+
+  /** Sets statuses returned after acknowledging the final event of successive streams. */
+  public void setStreamCompletionStatuses(Collection<Status> statuses) {
+    streamCompletionStatuses.addAll(statuses);
   }
 
   void sendOutOfOrderAcknowledgments() {
@@ -188,10 +195,11 @@ public abstract class AbstractBuildEventRecorder extends ExternalResource {
   }
 
   @Nullable
-  private static Status statusFor(PublishBuildToolEventStreamRequest request) {
+  private Status statusFor(PublishBuildToolEventStreamRequest request) {
     if (request.getOrderedBuildEvent().getEvent().getEventCase()
         == EventCase.COMPONENT_STREAM_FINISHED) {
-      return Status.OK;
+      Status status = streamCompletionStatuses.poll();
+      return status != null ? status : Status.OK;
     }
     return null;
   }
