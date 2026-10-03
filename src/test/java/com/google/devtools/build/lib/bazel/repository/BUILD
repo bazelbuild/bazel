@@ -78,7 +78,9 @@ java_library(
         "//third_party/java/guava:hash",
         "//third_party/java/junit",
         "//third_party/java/truth",
-    ],
+            "//src/main/java/com/google/devtools/build/lib/bazel/repository:utils",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+],
 )
 
 java_test(
