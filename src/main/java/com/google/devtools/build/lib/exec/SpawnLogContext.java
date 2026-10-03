@@ -23,6 +23,7 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -218,10 +219,12 @@ public abstract class SpawnLogContext implements ActionContext {
 
     // Obtain a digest from the filesystem.
     FileStatus status = path.stat();
+    byte[] digest =
+        input != null
+            ? ActionInputHelper.getDigestWithManualFallback(input, path, xattrProvider, status)
+            : DigestUtils.getDigestWithManualFallback(path, xattrProvider, status);
     return builder
-        .setHash(
-            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, xattrProvider, status))
-                .toString())
+        .setHash(HashCode.fromBytes(digest).toString())
         .setSizeBytes(status.getSize())
         .build();
   }

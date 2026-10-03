@@ -104,14 +104,15 @@ public class RunfilesTreeUpdater {
 
   private void updateRunfilesTree(RunfilesTree tree) throws IOException, ExecException {
     Path runfilesDir = execRoot.getRelative(tree.getExecPath());
-    Path inputManifest =
-        execRoot.getRelative(RunfilesSupport.inputManifestExecPath(tree.getExecPath()));
+    PathFragment inputManifestExecPath = RunfilesSupport.inputManifestExecPath(tree.getExecPath());
+    Path inputManifest = execRoot.getRelative(inputManifestExecPath);
     var inputManifestStat = inputManifest.statIfFound();
     if (inputManifestStat == null) {
       return;
     }
-    Path outputManifest =
-        execRoot.getRelative(RunfilesSupport.outputManifestExecPath(tree.getExecPath()));
+    PathFragment outputManifestExecPath =
+        RunfilesSupport.outputManifestExecPath(tree.getExecPath());
+    Path outputManifest = execRoot.getRelative(outputManifestExecPath);
     try {
       // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
       // implying the symlinks exist and are already up to date. If the output manifest is a
@@ -130,9 +131,11 @@ public class RunfilesTreeUpdater {
             && !outputManifestStat.isSymbolicLink()
             && Arrays.equals(
                 DigestUtils.getDigestWithManualFallback(
-                    outputManifest, xattrProvider, outputManifestStat),
+                    outputManifestExecPath, outputManifest, xattrProvider, outputManifestStat),
+                // The input manifest is an action output: keyed by its exec path, this lookup hits
+                // the entry made when it was produced.
                 DigestUtils.getDigestWithManualFallback(
-                    inputManifest, xattrProvider, inputManifestStat))
+                    inputManifestExecPath, inputManifest, xattrProvider, inputManifestStat))
             && (OS.getCurrent() != OS.WINDOWS
                 || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
           return;
