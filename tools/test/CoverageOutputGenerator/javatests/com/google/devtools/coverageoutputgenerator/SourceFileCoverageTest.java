@@ -206,4 +206,82 @@ public class SourceFileCoverageTest {
             BranchCoverageItem.create(1, "0", "0", true, 3),
             BranchCoverageItem.create(1, "0", "1", true, 3));
   }
+
+  @Test
+  public void testAddMcdcRecord() {
+    SourceFileCoverage sourceFile = new SourceFileCoverage("test.cpp");
+    sourceFile.addMcdc(10, McdcCoverage.create(10, 3, 't', 5, 0, "a && b"));
+    sourceFile.addMcdc(10, McdcCoverage.create(10, 3, 'f', 2, 1, "a && b"));
+    sourceFile.addMcdc(15, McdcCoverage.create(15, 2, 't', 0, 0, "c || d"));
+
+    assertThat(sourceFile.nrMcdcFound()).isEqualTo(3);
+    assertThat(sourceFile.nrMcdcHit()).isEqualTo(2);
+    assertThat(sourceFile.getAllMcdc())
+        .containsExactly(
+            McdcCoverage.create(10, 3, 't', 5, 0, "a && b"),
+            McdcCoverage.create(10, 3, 'f', 2, 1, "a && b"),
+            McdcCoverage.create(15, 2, 't', 0, 0, "c || d"));
+  }
+
+  @Test
+  public void testMcdcCopyConstructor() {
+    SourceFileCoverage sourceFile = new SourceFileCoverage("src.cpp");
+    sourceFile.addMcdc(10, McdcCoverage.create(10, 3, 't', 5, 0, "a && b"));
+    sourceFile.addMcdc(10, McdcCoverage.create(10, 3, 'f', 2, 1, "a && b"));
+
+    SourceFileCoverage copy = new SourceFileCoverage(sourceFile);
+
+    assertThat(copy.nrMcdcFound()).isEqualTo(2);
+    assertThat(copy.nrMcdcHit()).isEqualTo(2);
+    assertThat(copy.getAllMcdc())
+        .containsExactly(
+            McdcCoverage.create(10, 3, 't', 5, 0, "a && b"),
+            McdcCoverage.create(10, 3, 'f', 2, 1, "a && b"));
+  }
+
+  @Test
+  public void testMergeMcdcRecords() {
+    SourceFileCoverage sourceFile1 = new SourceFileCoverage("src.cpp");
+    SourceFileCoverage sourceFile2 = new SourceFileCoverage("src.cpp");
+
+    sourceFile1.addMcdc(10, McdcCoverage.create(10, 3, 't', 5, 0, "a && b"));
+    sourceFile1.addMcdc(10, McdcCoverage.create(10, 3, 'f', 2, 1, "a && b"));
+
+    sourceFile2.addMcdc(10, McdcCoverage.create(10, 3, 't', 3, 0, "a && b"));
+    sourceFile2.addMcdc(15, McdcCoverage.create(15, 2, 't', 1, 0, "c || d"));
+
+    SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
+
+    assertThat(merged.nrMcdcFound()).isEqualTo(3);
+    assertThat(merged.nrMcdcHit()).isEqualTo(3);
+    assertThat(merged.getAllMcdc())
+        .containsExactly(
+            McdcCoverage.create(10, 3, 't', 8, 0, "a && b"), // merged 5 + 3
+            McdcCoverage.create(10, 3, 'f', 2, 1, "a && b"),
+            McdcCoverage.create(15, 2, 't', 1, 0, "c || d"));
+  }
+
+  @Test
+  public void testRepeatedMcdcRecordsAreMerged() {
+    SourceFileCoverage sourceFile = new SourceFileCoverage("source.cpp");
+
+    // Add the same MC/DC record multiple times
+    sourceFile.addMcdc(10, McdcCoverage.create(10, 3, 't', 5, 0, "a && b"));
+    sourceFile.addMcdc(10, McdcCoverage.create(10, 3, 't', 3, 0, "a && b"));
+    sourceFile.addMcdc(10, McdcCoverage.create(10, 3, 't', 2, 0, "a && b"));
+
+    assertThat(sourceFile.nrMcdcFound()).isEqualTo(1);
+    assertThat(sourceFile.nrMcdcHit()).isEqualTo(1);
+    assertThat(sourceFile.getAllMcdc())
+        .containsExactly(McdcCoverage.create(10, 3, 't', 10, 0, "a && b")); // 5 + 3 + 2
+  }
+
+  @Test
+  public void testMcdcEmptyByDefault() {
+    SourceFileCoverage sourceFile = new SourceFileCoverage("empty.cpp");
+
+    assertThat(sourceFile.nrMcdcFound()).isEqualTo(0);
+    assertThat(sourceFile.nrMcdcHit()).isEqualTo(0);
+    assertThat(sourceFile.getAllMcdc()).isEmpty();
+  }
 }

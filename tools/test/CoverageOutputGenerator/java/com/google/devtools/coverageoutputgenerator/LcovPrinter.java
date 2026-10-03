@@ -83,6 +83,8 @@ class LcovPrinter {
     }
     printBRFLine(sourceFile);
     printBRHLine(sourceFile);
+    printMcdcLines(sourceFile);
+    printMcdcSummary(sourceFile);
     printDALines(sourceFile);
     printLHLine(sourceFile);
     printLFLine(sourceFile);
@@ -215,5 +217,39 @@ class LcovPrinter {
   private void printEndOfRecordLine() throws IOException {
     bufferedWriter.write(Constants.END_OF_RECORD_MARKER);
     bufferedWriter.newLine();
+  }
+
+  // MCDC:<line>,<groupSize>,<sense>,<taken>,<index>,<expression>
+  private void printMcdcLines(SourceFileCoverage sourceFile) throws IOException {
+    for (McdcCoverage record : sourceFile.getAllMcdc()) {
+      bufferedWriter.write(Constants.MCDC_MARKER);
+      bufferedWriter.write(Integer.toString(record.lineNumber()));
+      bufferedWriter.write(Constants.DELIMITER);
+      bufferedWriter.write(Integer.toString(record.groupSize()));
+      bufferedWriter.write(Constants.DELIMITER);
+      bufferedWriter.write(record.sense());
+      bufferedWriter.write(Constants.DELIMITER);
+      bufferedWriter.write(Long.toString(record.taken()));
+      bufferedWriter.write(Constants.DELIMITER);
+      bufferedWriter.write(Integer.toString(record.index()));
+      bufferedWriter.write(Constants.DELIMITER);
+      bufferedWriter.write(record.expression());
+      bufferedWriter.newLine();
+    }
+  }
+
+  // MCF:<conditions found> and MCH:<conditions hit>
+  private void printMcdcSummary(SourceFileCoverage sourceFile) throws IOException {
+    if (sourceFile.nrMcdcFound() > 0) {
+      // MCF:<conditions found>
+      bufferedWriter.write(Constants.MCF_MARKER);
+      bufferedWriter.write(Integer.toString(sourceFile.nrMcdcFound()));
+      bufferedWriter.newLine();
+
+      // MCH:<conditions hit>
+      bufferedWriter.write(Constants.MCH_MARKER);
+      bufferedWriter.write(Integer.toString(sourceFile.nrMcdcHit()));
+      bufferedWriter.newLine();
+    }
   }
 }
