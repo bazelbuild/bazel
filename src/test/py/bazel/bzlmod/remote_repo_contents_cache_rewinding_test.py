@@ -1766,5 +1766,115 @@ class RemoteRepoContentsCacheRewindingTest(
     )
 
 
+  def testLostRemoteFile_actionInput_sourceDirectoryWithSymlinkIntoOtherRepo(
+      self,
+  ):
+    # A source directory that is an action input contains a symlink into
+    # another repo, which is served from the cache while the directory's own
+    # repo is not (the symlink excludes it from the cache). The action has no
+    # dependency on the other repo in Skyframe, so a lost file behind the
+    # symlink can only be fetched again by a retry of the build.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'tree_repo = use_repo_rule("//:repo.bzl", "tree_repo")',
+            'tree_repo(name = "tree_repo")',
+            'agg_repo = use_repo_rule("//:repo.bzl", "agg_repo")',
+            'agg_repo(name = "agg_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _tree_repo_impl(rctx):',
+            '  mode = rctx.getenv("MODE")',
+            '  rctx.file("BUILD", "exports_files([\'tree/data.txt\'])")',
+            '  rctx.file("tree/data.txt", "data for " + mode)',
+            '  print("JUST FETCHED tree_repo " + mode)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'tree_repo = repository_rule(_tree_repo_impl)',
+            'def _agg_repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'aggregate_dir\','
+                " srcs=['aggregate'], visibility=['//visibility:public'])\")"
+            ),
+            '  rctx.symlink(Label("@tree_repo//:tree"), "aggregate/linked")',
+            '  print("JUST FETCHED agg_repo")',
+            'agg_repo = repository_rule(_agg_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "read_linked",',
+            '  srcs = ["@agg_repo//:aggregate_dir"],',
+            '  outs = ["out.txt"],',
+            (
+                '  cmd = "cat $(location @agg_repo//:aggregate_dir)/linked/'
+                'data.txt > $@",'
+            ),
+            ')',
+        ],
+    )
+    args = [
+        'build',
+        '//main:read_linked',
+        '--spawn_strategy=remote',
+        '--remote_executor=grpc://localhost:' + str(self._worker_port),
+        '--rewind_lost_inputs',
+        '--experimental_remote_cache_eviction_retries=1',
+    ]
+    # Fetch both repos, then tree_repo for another value of MODE and finally
+    # serve the first value's tree_repo from the cache while agg_repo stays as
+    # fetched. tree_repo is requested explicitly so that this doesn't depend on
+    # how agg_repo's fetch depends on it.
+    seed = args + ['@tree_repo//:tree/data.txt', '--nobuild']
+    _, _, stderr = self.RunBazel(seed + ['--repo_env=MODE=a'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED tree_repo a', stderr)
+    self.assertIn('JUST FETCHED agg_repo', stderr)
+    _, _, stderr = self.RunBazel(seed + ['--repo_env=MODE=b'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED tree_repo b', stderr)
+    self.assertNotIn('JUST FETCHED agg_repo', stderr)
+    _, _, stderr = self.RunBazel(seed + ['--repo_env=MODE=a'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    if not self.IsWindows():
+      # The symlink target is not watched (it is where symlinks aren't
+      # supported natively), so agg_repo's fetch records no file of tree_repo
+      # that would make it depend on the lost file.
+      agg_repo_dir = self.RepoDir('agg_repo')
+      with open(
+          os.path.join(
+              os.path.dirname(agg_repo_dir),
+              '@' + os.path.basename(agg_repo_dir) + '.marker',
+          )
+      ) as f:
+        self.assertEqual(
+            [], [l for l in f.read().splitlines() if l.startswith('FILE:')]
+        )
+    self.assertFalse(
+        os.path.exists(
+            os.path.join(self.RepoDir('tree_repo'), 'tree', 'data.txt')
+        )
+    )
+
+    # The loss is noticed while uploading the contents of the directory for
+    # the action.
+    self.DeleteCasEntry(b'data for a')
+    _, _, stderr = self.RunBazel(args + ['--repo_env=MODE=a'])
+    stderr = '\n'.join(stderr)
+    self.assertEqual(
+        1,
+        stderr.count('Found transient remote cache error, retrying the build...'),
+    )
+    self.assertIn('JUST FETCHED tree_repo a', stderr)
+    self.assertNotIn('JUST FETCHED agg_repo', stderr)
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'data for a')
+
+
 if __name__ == '__main__':
   absltest.main()

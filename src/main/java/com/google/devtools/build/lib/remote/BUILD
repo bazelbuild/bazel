@@ -442,6 +442,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs:rewindable_repo_file_system",
         "//third_party/java/flogger",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",

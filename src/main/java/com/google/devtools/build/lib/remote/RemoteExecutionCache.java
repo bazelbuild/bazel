@@ -49,8 +49,10 @@ import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.util.DeterministicWriter;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -221,11 +223,39 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             // cache at some point before action execution, but reported to be missing when
             // querying the remote for missing action inputs; possibly because it was evicted in
             // the interim.
+            markLostRepoFile(path);
             throw new CacheNotFoundException(digest, execPath);
           }
           return remoteCacheClient.uploadFile(context, digest, path, force);
         },
         directExecutor());
+  }
+
+  /**
+   * Records the loss of a file in an external repo with the file system serving the repo, which
+   * hasn't noticed it: the file wasn't read, but found to be missing remotely.
+   *
+   * @param path the path of the file, which may be a symlink into another repo than the one it
+   *     lexically lies in
+   */
+  private static void markLostRepoFile(Path path) {
+    FileSystem fs =
+        path.getFileSystem() instanceof RemoteActionFileSystem actionFs
+            ? actionFs.getLocalFileSystem()
+            : path.getFileSystem();
+    RewindableRepoFileSystem repoFs = RewindableRepoFileSystem.of(fs);
+    if (repoFs == null) {
+      return;
+    }
+    PathFragment resolvedPath;
+    try {
+      resolvedPath = path.resolveSymbolicLinks().asFragment();
+    } catch (IOException e) {
+      return;
+    }
+    if (repoFs.isRepoPath(resolvedPath)) {
+      repoFs.markLostRepoFile(repoFs.repoContaining(resolvedPath));
+    }
   }
 
   @Override

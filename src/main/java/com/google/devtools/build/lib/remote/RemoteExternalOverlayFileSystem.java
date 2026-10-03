@@ -500,6 +500,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   @Override
+  public boolean isServedFromCache(RepositoryName repo) {
+    return getInjectedRepo(repo.getName()) != null;
+  }
+
+  @Override
   public void repoRefetched(RepositoryName repo) {
     // The fetched contents are served from disk and no longer reference the lost files. Whether
     // they have also been uploaded doesn't matter here: a cache entry that still references lost

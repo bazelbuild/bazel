@@ -325,13 +325,32 @@ public final class ActionRewindStrategy {
       // can still trigger invocation retries in BlazeCommandDispatcher without passing here.
       return;
     }
+    throw failWithoutRewinding(
+        lostArtifacts,
+        lostType,
+        listener,
+        "Unexpected lost %s (pass --rewind_lost_inputs to enable recovery): %s"
+            .formatted(lostType.description, prettyPrint(lostArtifacts.values())),
+        lostType.codeWhenDisabled);
+  }
+
+  /**
+   * Returns the exception to fail the action with when the given lost artifacts can't be recovered
+   * by rewinding it: a fallback to retrying the build if invocation retries are enabled, otherwise
+   * a failure with the given message and code.
+   */
+  private ActionRewindException failWithoutRewinding(
+      ImmutableSetMultimap<String, ActionInput> lostArtifacts,
+      LostType lostType,
+      ExtendedEventHandler listener,
+      String message,
+      ActionRewinding.Code code) {
     if (skyframeActionExecutor.invocationRetriesEnabled()) {
       // Bazel's (but not Blaze's) remote implementation needs to learn about lost digests so that
       // the retried invocation doesn't accept the same stale action result.
       listener.post(new LostInputsEvent(lostArtifacts.keySet()));
-      // When action rewinding is disabled, recover by retrying the invocation in
-      // BlazeCommandDispatcher instead.
-      throw new FallbackToBuildRewindingException(
+      // Recover by retrying the invocation in BlazeCommandDispatcher instead.
+      return new FallbackToBuildRewindingException(
           lostArtifacts.entries().stream()
               .limit(MAX_LOST_INPUTS_RECORDED)
               .map(lost -> "%s (%s)".formatted(prettyPrint(lost.getValue()), lost.getKey()))
@@ -341,10 +360,7 @@ public final class ActionRewindStrategy {
                       "Lost %s no longer available remotely: ".formatted(lostType.description),
                       "")));
     }
-    throw new GenericActionRewindException(
-        "Unexpected lost %s (pass --rewind_lost_inputs to enable recovery): %s"
-            .formatted(lostType.description, prettyPrint(lostArtifacts.values())),
-        lostType.codeWhenDisabled);
+    return new GenericActionRewindException(message, code);
   }
 
   private RewindPlanResult prepareRewindPlan(
@@ -423,8 +439,17 @@ public final class ActionRewindStrategy {
       FileValue file = fileValueOf(lostSource, env);
       if (file == null) {
         missingDependencies = true;
-      } else {
-        rewindLostSourceFile(rewindGraph, lostSource, file);
+      } else if (!rewindLostSourceFile(rewindGraph, lostSource, file)) {
+        // The lost file lies in a repository that the action has no Skyframe dependency on, so
+        // only a new command can fetch it again.
+        throw failWithoutRewinding(
+            lostInputsByDigest,
+            LostType.INPUT,
+            env.getListener(),
+            ("lost input %s is a directory in a repository that isn't served from the remote repo"
+                    + " contents cache, so its lost file can't be recovered by rewinding")
+                .formatted(lostSource.getExecPathString()),
+            ActionRewinding.Code.LOST_INPUT_UNRECOVERABLE_SOURCE);
       }
       // Aggregation artifacts (e.g. runfiles trees) containing the lost source artifact cache its
       // metadata, so their rewound nodes must be re-evaluated after the source artifact.
@@ -856,7 +881,8 @@ public final class ActionRewindStrategy {
    * the file can be recovered this way, which requires it to lie in a repository.
    *
    * <p>The file can lie in a different repository than the artifact, which may be a symlink into
-   * another repository whose contents are served from the remote repo contents cache.
+   * another repository whose contents are served from the remote repo contents cache. A lost file
+   * below a directory artifact can only be recovered if it lies in the directory's own repository.
    */
   private boolean rewindLostSourceFile(
       MutableGraph<SkyKey> rewindGraph, SourceArtifact lostSource, FileValue file) {
@@ -869,6 +895,11 @@ public final class ActionRewindStrategy {
       return false;
     }
     RepositoryName repo = repoFileSystem.repoContaining(realPath);
+    if (file.isDirectory() && !repoFileSystem.isServedFromCache(repo)) {
+      // The lost file lies below the directory in another repo, reached through a symlink in the
+      // directory. Rewinding the fetch of the directory's own repo wouldn't restore it.
+      return false;
+    }
     repoFileSystem.markLostRepoFile(repo);
     SkyKey fileKey = FileValue.key(rootedPath);
     SkyKey fileStateKey = FileStateValue.key(realRootedPath);
