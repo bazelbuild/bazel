@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -57,12 +58,12 @@ import net.starlark.java.syntax.Location;
 // the operating system's identifier (tid) for the signalled thread.
 //
 // Reading from the other end of the pipe is a Java thread, the router.
-// Its job is to map each OS tid to a StarlarkThread, if the
-// thread is currently executing Starlark code, and increment
-// a volatile counter in that StarlarkThread. If the thread is
-// not executing Starlark code, the router discards the event.
+// Its job is to map each OS tid to the CPU tick counter of the
+// StarlarkThread currently executing there, and increment that counter.
+// If the thread is not executing Starlark code, the router discards
+// the event.
 // When a Starlark thread enters or leaves a function during profiling,
-// it updates the StarlarkThread-to-OS-thread mapping consulted by the
+// it updates the OS-thread-to-counter mapping consulted by the
 // router.
 //
 // If the router does not drain the pipe in a timely manner (on the
@@ -115,20 +116,17 @@ public final class CpuProfiler {
     return instance;
   }
 
-  // Maps OS thread ID to StarlarkThread.
-  // The StarlarkThread is needed only for its cpuTicks field.
-  private static final Map<Integer, StarlarkThread> threads = new ConcurrentHashMap<>();
+  // Maps OS thread ID to its CPU tick counter. Keeping only the counter avoids retaining
+  // the StarlarkThread and its evaluation context when an association outlives the evaluation.
+  private static final Map<Integer, AtomicInteger> cpuTicksByThread = new ConcurrentHashMap<>();
 
-  /**
-   * Associates the specified StarlarkThread with the current OS thread. Returns the StarlarkThread
-   * previously associated with it, if any.
-   */
+  /** Associates a counter with the current OS thread and returns its previous counter, if any. */
   @Nullable
-  static StarlarkThread setStarlarkThread(StarlarkThread thread) {
-    if (thread == null) {
-      return threads.remove(nativeSupport.getThreadId());
+  static AtomicInteger setCpuTicksForCurrentThread(@Nullable AtomicInteger cpuTicks) {
+    if (cpuTicks == null) {
+      return cpuTicksByThread.remove(nativeSupport.getThreadId());
     } else {
-      return threads.put(nativeSupport.getThreadId(), thread);
+      return cpuTicksByThread.put(nativeSupport.getThreadId(), cpuTicks);
     }
   }
 
@@ -187,7 +185,7 @@ public final class CpuProfiler {
   }
 
   // The Router thread routes SIGPROF events (from the pipe)
-  // to the relevant StarlarkThread. Once started, it runs forever.
+  // to the relevant CPU tick counter. Once started, it runs forever.
   //
   // TODO(adonovan): opt: a more efficient implementation of routing would be
   // to use, instead of a pipe from the signal handler to the routing thread,
@@ -224,9 +222,9 @@ public final class CpuProfiler {
       // may be changing it, so we increment the thread's counter.
       // When the thread later observes the counter is non-zero,
       // it gives us the stack by calling addEvent.
-      StarlarkThread thread = threads.get(tid);
-      if (thread != null) {
-        thread.cpuTicks.getAndIncrement();
+      AtomicInteger cpuTicks = cpuTicksByThread.get(tid);
+      if (cpuTicks != null) {
+        cpuTicks.getAndIncrement();
       }
     }
   }
