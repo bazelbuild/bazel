@@ -15,20 +15,21 @@
 import os
 import tempfile
 from absl.testing import absltest
+from absl.testing import parameterized
 from src.test.py.bazel.bzlmod import remote_repo_contents_cache_test_base
 
 
 class RemoteRepoContentsCacheRewindingTest(
-    remote_repo_contents_cache_test_base.RemoteRepoContentsCacheTestBase
+    remote_repo_contents_cache_test_base.RemoteRepoContentsCacheTestBase,
+    parameterized.TestCase,
 ):
   """Tests recovery of repo files lost from the remote cache."""
 
-  def WorkerArgs(self):
-    # The remote repo contents cache has to cope with caches that serve action
-    # results without verifying that the blobs they reference are still
-    # present, which is what makes a repo's cached Tree outlive its file
-    # contents in the first place.
-    return ['--noaction_cache_integrity_check']
+  def _useNonVerifyingCacheIfRequested(self, action_cache_integrity_check):
+    # Most remote caches refuse to serve an action result whose blobs they have
+    # lost, but some serve it anyway.
+    if not action_cache_integrity_check:
+      self.RestartRemoteWorker(['--noaction_cache_integrity_check'])
 
   def BazelrcLines(self):
     # Files lost from the remote repo contents cache are recovered by
@@ -199,7 +200,13 @@ class RemoteRepoContentsCacheRewindingTest(
         'Found transient remote cache error, retrying the build...', stderr
     )
 
-  def testLostRemoteFile_remoteExecutionUpload(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_remoteExecutionUpload(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     # Regression test for a crash when a file in a remotely cached repo has
     # been evicted after the analysis phase and this is only noticed while
     # uploading the inputs of a remotely executed action.
@@ -257,7 +264,13 @@ class RemoteRepoContentsCacheRewindingTest(
     with open(self.Path('bazel-bin/main/out.txt')) as f:
       self.assertEqual(f.read(), 'hello')
 
-  def testLostRemoteFile_remoteExecutionUpload_sourceDirectory(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_remoteExecutionUpload_sourceDirectory(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     # The lost file lies below a source directory that is an input of a
     # remotely executed action. The files below the directory are uploaded
     # individually, but only the directory is an input of the action.
@@ -347,7 +360,13 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertIn('@my_repo//sub:sub', '\n'.join(stdout))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
 
-  def testLostRemoteFile_bazelignore_prefetched(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_bazelignore_prefetched(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     self.ScratchFile('MODULE.bazel', [
         'repo = use_repo_rule("//:repo.bzl", "repo")',
         'repo(name = "my_repo")',
@@ -377,7 +396,11 @@ class RemoteRepoContentsCacheRewindingTest(
     # Even on a cache hit, later package loads need no lazy read of this file.
     self.assertTrue(os.path.exists(os.path.join(repo_dir, '.bazelignore')))
 
-  def testLostRemoteFile_scl_prefetched(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_scl_prefetched(self, action_cache_integrity_check):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     self.ScratchFile('MODULE.bazel', [
         'repo = use_repo_rule("//:repo.bzl", "repo")',
         'repo(name = "my_repo")',
@@ -748,7 +771,13 @@ class RemoteRepoContentsCacheRewindingTest(
     with open(self.Path('bazel-bin/main/out.txt')) as f:
       self.assertEqual(f.read(), 'hello')
 
-  def testLostRemoteFile_actionInput_inputsRecordedInDifferentOrder(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_actionInput_inputsRecordedInDifferentOrder(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     # The repo rule records the same inputs when the repo is fetched again,
     # but in a different order, which doesn't keep its files from being
     # restored.
@@ -808,7 +837,13 @@ class RemoteRepoContentsCacheRewindingTest(
     with open(self.Path('bazel-bin/main/out.txt')) as f:
       self.assertEqual(f.read(), 'hello')
 
-  def testLostRemoteFile_otherCacheEntryOfRepoStillUsed(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_otherCacheEntryOfRepoStillUsed(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     # The remote cache has lost a file of one cache entry of a repo. The entry
     # for other inputs of its repo rule, e.g. another value of an environment
     # variable it reads, is unaffected. The variable isn't declared up front,
@@ -873,7 +908,13 @@ class RemoteRepoContentsCacheRewindingTest(
     with open(self.Path('bazel-bin/main/out.txt')) as f:
       self.assertEqual(f.read(), 'data for b')
 
-  def testLostRemoteFile_restoredFromLocalRepoContentsCache(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_restoredFromLocalRepoContentsCache(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     # The local repo contents cache was empty when the repo was retrieved from
     # the remote cache, but has since been populated by another output base.
     # Its entry is used to restore the lost file instead of fetching the repo,
@@ -1088,7 +1129,13 @@ class RemoteRepoContentsCacheRewindingTest(
     with open(os.path.join(repo_dir, 'other.txt')) as f:
       self.assertEqual(f.read(), 'other')
 
-  def testLostRemoteFile_actionInputs_multipleFilesFromSameRepo(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_actionInputs_multipleFilesFromSameRepo(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     # Two files of the same cached repo are lost from the remote cache and
     # consumed by a single action. Since the repo rule that produced them can
     # only be run as a whole, a single refetch has to recover both.
@@ -1318,7 +1365,13 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertNotIn('JUST FETCHED', stderr)
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
 
-  def testLostRemoteFile_refetchFails_cacheConsultedAgain(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_refetchFails_cacheConsultedAgain(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     # A file of a cached repo is also treated as lost if the remote cache is
     # only temporarily unable to provide it. If the repo can't be fetched
     # either, later commands have to consult the cache again rather than keep
@@ -1385,7 +1438,13 @@ class RemoteRepoContentsCacheRewindingTest(
     with open(self.Path('bazel-bin/main/out.txt')) as f:
       self.assertEqual(f.read(), 'hello')
 
-  def testLostRemoteFile_multipleReposRecoverInOneBuild(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_multipleReposRecoverInOneBuild(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     # Two cached repos independently reference a lost CAS blob, but the second
     # one is only reached after the first has recovered: a module extension
     # materializes them one after the other and aborts at the first failure.
@@ -1756,6 +1815,10 @@ class RemoteRepoContentsCacheRewindingTest(
   def testLostRemoteFile_actionInput_sourceDirectoryWithSymlinkIntoOtherRepo(
       self,
   ):
+    # A cache that refuses to serve an action result whose blobs are gone
+    # notices the loss when tree_repo's entry is looked up, before the action
+    # could; only a cache that serves the entry anyway exercises this path.
+    self.RestartRemoteWorker(['--noaction_cache_integrity_check'])
     # A source directory that is an action input contains a symlink into
     # another repo, which is served from the cache while the directory's own
     # repo is not (the symlink excludes it from the cache). The action has no

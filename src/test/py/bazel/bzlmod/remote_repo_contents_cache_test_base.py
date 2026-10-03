@@ -22,16 +22,21 @@ class RemoteRepoContentsCacheTestBase(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
-    self._worker_port = self.StartRemoteWorker(self.WorkerArgs())
+    self._worker_port = self.StartRemoteWorker()
     self.ScratchFile('.bazelrc', self.BazelrcLines())
 
   def tearDown(self):
     test_base.TestBase.tearDown(self)
     self.StopRemoteWorker()
 
-  def WorkerArgs(self):
-    """Returns the flags to start the remote worker with."""
-    return []
+  def RestartRemoteWorker(self, extra_args):
+    """Replaces the remote worker by one started with the given flags.
+
+    The contents of the remote cache are lost.
+    """
+    self.StopRemoteWorker()
+    self._worker_port = self.StartRemoteWorker(extra_args)
+    self.ScratchFile('.bazelrc', self.BazelrcLines())
 
   def BazelrcLines(self):
     """Returns the lines of the .bazelrc shared by all tests."""
