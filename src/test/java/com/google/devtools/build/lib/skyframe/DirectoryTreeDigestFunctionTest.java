@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +24,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -92,6 +95,9 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
                 SkyFunctions.DIRECTORY_LISTING_STATE,
                 new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE))
             .put(SkyFunctions.DIRECTORY_TREE_DIGEST, new DirectoryTreeDigestFunction())
+            .put(
+                FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
+                new FileSymlinkInfiniteExpansionUniquenessFunction())
             .buildOrThrow();
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
@@ -109,8 +115,14 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
 
   private String getTreeDigest(RootedPath rootedPath, ImmutableList<String> excludes)
       throws Exception {
+    return getTreeDigest(
+        new InMemoryMemoizingEvaluator(skyFunctions, differencer), rootedPath, excludes);
+  }
+
+  private String getTreeDigest(
+      MemoizingEvaluator evaluator, RootedPath rootedPath, ImmutableList<String> excludes)
+      throws Exception {
     SkyKey key = DirectoryTreeDigestValue.key(rootedPath, rootedPath, excludes);
-    MemoizingEvaluator evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     var result = evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
@@ -250,6 +262,22 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void symlinkToExcludedDirectory_matchedUnderItsOwnName() throws Exception {
+    scratch.file("dir/ignored/data", "X");
+    scratch.resolve("dir/keep").createSymbolicLink(scratch.resolve("dir/ignored"));
+    ImmutableList<String> excludes = ImmutableList.of("ignored/**");
+    // Like a watched tree in the workspace, the directory lies under a package root, so that the
+    // real path of the symlink's target is matched against the excludes.
+    RootedPath dir =
+        RootedPath.toRootedPath(Root.fromPath(scratch.resolve("")), PathFragment.create("dir"));
+    String oldDigest = getTreeDigest(dir, excludes);
+
+    // keep/data is part of the tree even though the directory it resolves to is excluded.
+    scratch.overwriteFile("dir/ignored/data", ImmutableList.of("Y"));
+    assertThat(getTreeDigest(dir, excludes)).isNotEqualTo(oldDigest);
+  }
+
+  @Test
   public void danglingSymlink() throws Exception {
     scratch.file("dir/a", "a");
     scratch.resolve("dir/b").createSymbolicLink(scratch.resolve("otherdir"));
@@ -283,6 +311,44 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
 
   public static boolean excludes(DirectoryTreeDigestValue.Key key, RootedPath path) {
     return DirectoryTreeDigestFunction.excludes(path, key.globBase(), key.excludes(), null);
+  }
+
+  @Test
+  public void symlinkToAncestor_infiniteSymlinkExpansion() throws Exception {
+    // The infinite expansion is reported as an error event.
+    reporter.removeHandler(failFastHandler);
+    scratch.file("dir/a", "a");
+    scratch.resolve("dir/loop").createSymbolicLink(scratch.resolve("dir"));
+
+    assertThrows(FileSymlinkInfiniteExpansionException.class, () -> getTreeDigest("dir"));
+    // Also with excludes, which make the digest of a directory depend on the path it is reached
+    // through.
+    assertThrows(
+        FileSymlinkInfiniteExpansionException.class,
+        () -> getTreeDigest("dir", ImmutableList.of("unrelated")));
+    // The symlink isn't followed if it is excluded.
+    var oldDigest = getTreeDigest("dir", ImmutableList.of("loop"));
+    scratch.overwriteFile("dir/a", "b");
+    assertThat(getTreeDigest("dir", ImmutableList.of("loop"))).isNotEqualTo(oldDigest);
+  }
+
+  @Test
+  public void symlinksToSameDirectory_singleDigest() throws Exception {
+    scratch.file("dir/real/sub/data", "X");
+    scratch.resolve("dir/alias1").createSymbolicLink(scratch.resolve("dir/real"));
+    scratch.resolve("dir/alias2").createSymbolicLink(scratch.resolve("dir/real"));
+    RootedPath dir =
+        RootedPath.toRootedPath(Root.fromPath(scratch.resolve("")), PathFragment.create("dir"));
+    var evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
+
+    getTreeDigest(evaluator, dir, ImmutableList.of());
+
+    // dir, real and real/sub, regardless of the three paths under which real is reached.
+    assertThat(
+            evaluator.getDoneValues().keySet().stream()
+                .filter(key -> key.functionName().equals(SkyFunctions.DIRECTORY_TREE_DIGEST))
+                .count())
+        .isEqualTo(3);
   }
 
   @Test
