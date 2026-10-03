@@ -270,9 +270,21 @@ public final class RepositoryFetchFunction implements SkyFunction {
     // The remote repo contents cache may have lost files of a repo that has been retrieved from it
     // earlier. Such a repo has to be fetched to restore these files, but its remaining contents may
     // be in use and thus must not be replaced, not even with a matching entry of a cache.
-    boolean restoreLostFiles =
-        remoteRepoContentsCache != null
-            && remoteRepoContentsCache.hasLostFiles(repositoryName, repoRoot);
+    boolean restoreLostFiles = false;
+    if (remoteRepoContentsCache != null) {
+      String lostFilesMarkerFile =
+          remoteRepoContentsCache.getLostFilesMarkerFile(repositoryName, repoRoot);
+      if (lostFilesMarkerFile != null) {
+        // The cached contents are only restored if they are still up to date. Otherwise, they are
+        // replaced like any other out-of-date contents, by another cache entry or a fetch.
+        restoreLostFiles =
+            digestWriter.areRecordedInputsUpToDate(env, lostFilesMarkerFile).isEmpty();
+        if (env.valuesMissing()) {
+          return null;
+        }
+      }
+    }
+
 
     if (!restoreLostFiles && shouldUseCachedRepoContents(env, repoDefinition)) {
       // Make sure marker file is up-to-date; correctly describes the current repository state

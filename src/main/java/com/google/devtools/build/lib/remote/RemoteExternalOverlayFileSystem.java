@@ -141,10 +141,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   /**
    * The remote cache has lost files of the repo and its contents are no longer available in
    * externalFs, so that it has to be fetched again rather than looked up in the cache.
+   *
+   * @param markerFile the contents of the marker file of the cache entry that references the lost
+   *     files, which identifies the entry; entries for other inputs of the repo rule are unaffected
    */
-  private enum AwaitingRefetch implements RepoState {
-    INSTANCE
-  }
+  private record AwaitingRefetch(String markerFile) implements RepoState {}
 
   public RemoteExternalOverlayFileSystem(PathFragment externalDirectory, FileSystem nativeFs) {
     super(nativeFs.getDigestFunction());
@@ -244,7 +245,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   @Nullable
   private static RepoState withoutContents(RepoState state) {
     return switch (state) {
-      case InMemory inMemory when inMemory.hasLostFiles() -> AwaitingRefetch.INSTANCE;
+      case InMemory inMemory when inMemory.hasLostFiles() ->
+          new AwaitingRefetch(inMemory.contents().markerFile());
       case InMemory unused -> null;
       case Materialized unused -> null;
       case AwaitingRefetch awaitingRefetch -> awaitingRefetch;
@@ -481,18 +483,17 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   /**
-   * Returns whether the remote cache has lost files of the given repo since it was last fetched.
-   *
-   * <p>Called by the remote repo contents cache before a lookup so that repos with lost files are
-   * treated as cache misses, which causes them to be fetched again and their contents to be
-   * uploaded to the remote cache again.
+   * Returns whether the remote cache has lost files referenced by the cache entry of the given repo
+   * with the given marker file, in which case the entry has to be treated as a miss. Other entries
+   * of the repo are unaffected.
    *
    * <p>Doesn't clear the state: a lookup is not a promise that the repo will actually be fetched.
    */
-  public boolean shouldRefetch(RepositoryName repo) {
+  public boolean shouldRefetch(RepositoryName repo, String markerFile) {
     return switch (repoStates.get(repo.getName())) {
-      case InMemory inMemory -> inMemory.hasLostFiles();
-      case AwaitingRefetch unused -> true;
+      case InMemory inMemory ->
+          inMemory.hasLostFiles() && inMemory.contents().markerFile().equals(markerFile);
+      case AwaitingRefetch awaitingRefetch -> awaitingRefetch.markerFile().equals(markerFile);
       case Materialized unused -> false;
       case null -> false;
     };
@@ -607,11 +608,15 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   /**
-   * Returns whether the remote cache has lost files of the given repo while its contents are served
-   * from memory, which requires them to be restored via {@link #materializeFrom}.
+   * Returns the contents of the marker file of the cache entry that the given repo has been
+   * retrieved from if the remote cache has lost files of it while its contents are served from
+   * memory, otherwise null. Such a repo has to be restored via {@link #materializeFrom}.
    */
-  public boolean hasLostFiles(RepositoryName repo) {
-    return repoStates.get(repo.getName()) instanceof InMemory inMemory && inMemory.hasLostFiles();
+  @Nullable
+  public String getLostFilesMarkerFile(RepositoryName repo) {
+    return repoStates.get(repo.getName()) instanceof InMemory inMemory && inMemory.hasLostFiles()
+        ? inMemory.contents().markerFile()
+        : null;
   }
 
   /**

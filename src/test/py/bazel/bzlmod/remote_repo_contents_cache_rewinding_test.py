@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import tempfile
 from absl.testing import absltest
 from src.test.py.bazel.bzlmod import remote_repo_contents_cache_test_base
 
@@ -751,6 +752,71 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertNotIn('retrying the build', stderr)
     with open(self.Path('bazel-bin/main/out.txt')) as f:
       self.assertEqual(f.read(), 'hello')
+
+  def testLostRemoteFile_otherCacheEntryOfRepoStillUsed(self):
+    # The remote cache has lost a file of one cache entry of a repo. The entry
+    # for other inputs of its repo rule, e.g. another value of an environment
+    # variable it reads, is unaffected. The variable isn't declared up front,
+    # so that both entries share the hash of the predeclared inputs.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  mode = rctx.getenv("MODE")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "data for " + mode)',
+            '  print("JUST FETCHED " + mode)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+
+    for mode in ['a', 'b']:
+      _, _, stderr = self.RunBazel(
+          ['build', '--repo_env=MODE=' + mode, '--nobuild', '//main:use_data']
+      )
+      self.assertIn('JUST FETCHED ' + mode, '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=MODE=a', '--nobuild', '//main:use_data']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The file is lost and can't be restored since fetching is disabled.
+    self.DeleteCasEntry(b'data for a')
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--repo_env=MODE=a', '--nofetch', '//main:use_data'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('fetching repositories is disabled', '\n'.join(stderr))
+
+    # The entry for the other value is still usable.
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=MODE=b', '--nofetch', '//main:use_data']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'data for b')
 
   def testLostRemoteFile_actionInput_inReadOnlyDirectory(self):
     if self.IsWindows():

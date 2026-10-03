@@ -231,9 +231,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   }
 
   @Override
-  public boolean hasLostFiles(RepositoryName repoName, Path repoDir) {
+  @Nullable
+  public String getLostFilesMarkerFile(RepositoryName repoName, Path repoDir) {
     return repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs
-        && remoteFs.hasLostFiles(repoName);
+        ? remoteFs.getLostFilesMarkerFile(repoName)
+        : null;
   }
 
   private static ImmutableSet<String> getRecordedInputs(String markerFile) {
@@ -359,13 +361,6 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
       return false;
     }
-    if (remoteFs.shouldRefetch(repoName)) {
-      // The remote cache has lost the contents of files in this repo. Report a cache miss so that
-      // the repo rule is executed again, which also uploads the fresh contents to the remote
-      // cache.
-      return false;
-    }
-
     var context = buildContext(repoName, CacheOp.DOWNLOAD);
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
@@ -397,6 +392,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
 
     String markerFileContent = new String(markerFileContentFuture.resultNow(), ISO_8859_1);
+    if (remoteFs.shouldRefetch(repoName, markerFileContent)) {
+      // The remote cache has lost the contents of files in this cache entry. Report a cache miss so
+      // that the repo rule is executed again, which also uploads the fresh contents to the remote
+      // cache.
+      return false;
+    }
     var maybeRecordedInputs = DigestWriter.readMarkerFile(markerFileContent, predeclaredInputHash);
     if (maybeRecordedInputs.isEmpty()) {
       return false;

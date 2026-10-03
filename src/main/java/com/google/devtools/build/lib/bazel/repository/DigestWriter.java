@@ -112,25 +112,34 @@ public class DigestWriter {
       if (!markerPath.exists()) {
         return Optional.of("repo hasn't been fetched yet");
       }
-      String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
-      Optional<ImmutableList<RepoRecordedInput.WithValue>> recordedInputValues =
-          readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
-      if (recordedInputValues.isEmpty()) {
-        return Optional.of("Bazel version, flags, repo rule definition or attributes changed");
-      }
-      // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
-      for (ImmutableList<RepoRecordedInput.WithValue> batch :
-          RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues.get())) {
-        Optional<String> outdatedReason =
-            RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
-        if (outdatedReason.isPresent()) {
-          return outdatedReason;
-        }
-      }
-      return Optional.empty();
+      return areRecordedInputsUpToDate(
+          env, FileSystemUtils.readContent(markerPath, ISO_8859_1));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
+  }
+
+  /**
+   * Like {@link #areRepositoryAndMarkerFileConsistent(Environment, Path)}, but for the given
+   * contents of a marker file. The caller is responsible for checking {@code env.valuesMissing()}.
+   */
+  Optional<String> areRecordedInputsUpToDate(Environment env, String markerFileContent)
+      throws InterruptedException {
+    Optional<ImmutableList<RepoRecordedInput.WithValue>> recordedInputValues =
+        readMarkerFile(markerFileContent, Preconditions.checkNotNull(predeclaredInputHash));
+    if (recordedInputValues.isEmpty()) {
+      return Optional.of("Bazel version, flags, repo rule definition or attributes changed");
+    }
+    // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
+    for (ImmutableList<RepoRecordedInput.WithValue> batch :
+        RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues.get())) {
+      Optional<String> outdatedReason =
+          RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
+      if (outdatedReason.isPresent()) {
+        return outdatedReason;
+      }
+    }
+    return Optional.empty();
   }
 
   /**

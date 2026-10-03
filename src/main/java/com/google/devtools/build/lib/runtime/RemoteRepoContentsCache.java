@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** A remote cache for the contents of external repositories. */
 public interface RemoteRepoContentsCache {
@@ -47,13 +48,15 @@ public interface RemoteRepoContentsCache {
       throws IOException, InterruptedException;
 
   /**
-   * Returns whether the given repository has been retrieved from the remote cache, which has since
-   * lost the contents of some of its files.
+   * Returns the contents of the marker file of the cache entry that the given repository has been
+   * retrieved from if the remote cache has since lost the contents of some of its files while the
+   * repository is still served from memory, otherwise null.
    *
    * <p>Such a repository has to be fetched into a different directory and passed to {@link
    * #restoreLostFiles} rather than fetched in place, as its remaining contents may be in use.
    */
-  boolean hasLostFiles(RepositoryName repoName, Path repoDir);
+  @Nullable
+  String getLostFilesMarkerFile(RepositoryName repoName, Path repoDir);
 
   /**
    * Restores the files of a repository that the remote cache has lost from a fresh fetch of the
