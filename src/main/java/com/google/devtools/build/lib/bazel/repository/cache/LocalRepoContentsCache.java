@@ -224,11 +224,10 @@ public final class LocalRepoContentsCache {
           // If we can't grab the lock, abort GC. Someone will come along later.
           try (var lock = FileSystemLock.tryGet(path.getRelative(LOCK_PATH), LockMode.EXCLUSIVE)) {
             runGc(maxAge);
+            // The trash dir also holds the marker file of a repo while moveToCache moves the repo
+            // into the cache, which another server may start as soon as the lock is released.
+            path.getChild(TRASH_PATH).deleteTreesBelow();
           }
-          // Empty the trash dir outside the lock. No one is reading from these files, so it should
-          // be safe. At worst, multiple servers performing GC will try to delete the same files,
-          // but whatever.
-          path.getChild(TRASH_PATH).deleteTreesBelow();
         } catch (IOException e) {
           throw new IdleTaskException(e);
         }
