@@ -39,4 +39,13 @@ public interface LazyMaterializer {
    * <p>Does nothing if the subtree is already backed by the local file system.
    */
   void ensureSubtreeMaterialized(PathFragment path) throws IOException, InterruptedException;
+
+  /**
+   * Records that the remote storage backing the file at the given path has lost its contents, so
+   * that the directory tree containing it is fetched again by the next command rather than
+   * retrieved from the remote storage again.
+   *
+   * <p>Does nothing if the file isn't backed by remote storage.
+   */
+  void markLostRepoFile(PathFragment path);
 }
