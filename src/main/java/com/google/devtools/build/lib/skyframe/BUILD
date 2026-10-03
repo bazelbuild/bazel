@@ -526,6 +526,7 @@ java_library(
     name = "ignored_subdirectories_function",
     srcs = ["IgnoredSubdirectoriesFunction.java"],
     deps = [
+        ":detailed_exceptions",
         ":ignored_subdirectories_value",
         ":precomputed_value",
         ":repo_file_function",
