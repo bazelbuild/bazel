@@ -108,6 +108,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private static final String MARKER_FILE_PATH = ".recorded_inputs";
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
   private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
+  private static final Splitter SPLIT_ON_NEWLINE = Splitter.on('\n').omitEmptyStrings();
 
   // addOutputFiles and addOutputDirectories are deprecated in REAPI v2 in favor of addOutputPaths,
   // but are populated here for backwards compatibility with older RE backends.
@@ -394,7 +395,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           // and newlines to separate different batches.
           var newInputString =
               newInputs.stream().map(RepoRecordedInput::toString).collect(joining(" "));
-          if (currentInputsString.lines().anyMatch(newInputString::equals)) {
+          if (SPLIT_ON_NEWLINE.splitToStream(currentInputsString).anyMatch(newInputString::equals)) {
             // The current batch of inputs is already present, no need to update the action result.
             return immediateFuture(null);
           }
@@ -529,9 +530,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     // RepoRecordedInputs separated by spaces. A given batch is valid only if all inputs in the
     // batch are, but separate batches are tried independently.
     var nextInputBatches =
-        stdoutFuture
-            .resultNow()
-            .lines()
+        SPLIT_ON_NEWLINE
+            .splitToStream(stdoutFuture.resultNow())
             .map(
                 line ->
                     SPLIT_ON_SPACE
