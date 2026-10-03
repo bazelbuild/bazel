@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithoutChildren;
 import com.google.devtools.build.lib.buildeventstream.ChainableEvent;
 import com.google.devtools.build.lib.buildeventstream.LastBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
@@ -90,6 +91,9 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public class BuildEventStreamer {
+  // 10,000 roughly 100-byte child IDs take about 1 MiB, leaving headroom for longer IDs.
+  @VisibleForTesting static final int MAX_CHILDREN_PER_EVENT = 10_000;
+
   /** Return value for {@link #routeBuildEvent}. */
   private enum RetentionDecision {
     // Delay posting this event until other events post.
@@ -292,6 +296,8 @@ public class BuildEventStreamer {
   // will be running under the synchronized block.
   @SuppressWarnings("GuardedBy")
   private synchronized void post(BuildEvent event) {
+    event = splitChildren(event);
+
     List<BuildEvent> linkEvents = null;
     BuildEventId id = event.getEventId();
     List<BuildEvent> flushEvents = null;
@@ -382,6 +388,30 @@ public class BuildEventStreamer {
         }
       }
     }
+  }
+
+  /**
+   * Announces long child lists through the existing progress chain and removes them from the
+   * forwarded event.
+   */
+  @GuardedBy("this")
+  private BuildEvent splitChildren(BuildEvent event) {
+    Collection<BuildEventId> children = event.getChildrenEvents();
+    if (children.size() <= MAX_CHILDREN_PER_EVENT) {
+      return event;
+    }
+    // The next progress ID is unused and is announced only while the progress chain is open.
+    // Do not split progress events themselves: the inserted batches could consume their IDs.
+    if (announcedEvents == null
+        || !announcedEvents.contains(BuildEventIdUtil.progressId(progressCount))
+        || event.getEventId().hasProgress()) {
+      return event;
+    }
+    // Reserve one child in each progress event for the next progress update.
+    for (List<BuildEventId> batch : Iterables.partition(children, MAX_CHILDREN_PER_EVENT - 1)) {
+      post(ProgressEvent.progressChainIn(progressCount++, batch));
+    }
+    return new BuildEventWithoutChildren(event);
   }
 
   /**

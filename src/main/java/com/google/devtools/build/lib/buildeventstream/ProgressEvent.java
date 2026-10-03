@@ -76,6 +76,18 @@ public final class ProgressEvent extends GenericBuildEvent {
     return progressChainIn(number, chainIn, null, null);
   }
 
+  /** Creates a progress update announcing a batch of children from another event. */
+  public static BuildEvent progressChainIn(int number, Collection<BuildEventId> children) {
+    return new ProgressEvent(
+        BuildEventIdUtil.progressId(number),
+        ImmutableList.<BuildEventId>builder()
+            .add(BuildEventIdUtil.progressId(number + 1))
+            .addAll(children)
+            .build(),
+        null,
+        null);
+  }
+
   /**
    * A progress update event with a given id, that has no children (and hence usually is the last
    * progress event in the stream).
