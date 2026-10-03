@@ -103,8 +103,12 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
   }
 
   private String getTreeDigest(String path, ImmutableList<String> excludes) throws Exception {
-    RootedPath rootedPath =
-        RootedPath.toRootedPath(Root.absoluteRoot(fileSystem), scratch.resolve(path));
+    return getTreeDigest(
+        RootedPath.toRootedPath(Root.absoluteRoot(fileSystem), scratch.resolve(path)), excludes);
+  }
+
+  private String getTreeDigest(RootedPath rootedPath, ImmutableList<String> excludes)
+      throws Exception {
     SkyKey key = DirectoryTreeDigestValue.key(rootedPath, rootedPath, excludes);
     MemoizingEvaluator evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     var result = evaluator.evaluate(ImmutableList.of(key), evaluationContext);
@@ -226,6 +230,23 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     scratch.resolve("dir/b").createSymbolicLink(scratch.resolve("yetotherdir"));
     scratch.file("yetotherdir/crazy", "stuff");
     assertThat(getTreeDigest("dir")).isNotEqualTo(oldDigest);
+  }
+
+  @Test
+  public void symlinkRetargetedToDirectoryThatIsAlsoAnEntry() throws Exception {
+    scratch.file("dir/a/data", "X");
+    scratch.file("dir/b/data", "Y");
+    scratch.resolve("dir/c").createSymbolicLink(scratch.resolve("dir/a"));
+    // Like a watched tree in the workspace, the directory lies under a package root, so that the
+    // entry a and the symlink c resolve to the same rooted path.
+    RootedPath dir =
+        RootedPath.toRootedPath(Root.fromPath(scratch.resolve("")), PathFragment.create("dir"));
+    String oldDigest = getTreeDigest(dir, ImmutableList.of());
+
+    // The entries resolve to the same set of directories as before, but c now has b's contents.
+    scratch.deleteFile("dir/c");
+    scratch.resolve("dir/c").createSymbolicLink(scratch.resolve("dir/b"));
+    assertThat(getTreeDigest(dir, ImmutableList.of())).isNotEqualTo(oldDigest);
   }
 
   @Test
