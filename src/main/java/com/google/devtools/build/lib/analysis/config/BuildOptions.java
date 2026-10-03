@@ -359,7 +359,7 @@ public final class BuildOptions implements Cloneable {
         ignoredDefinitions.add(optionDefinition);
         continue;
       }
-      Object originalValue = originalFragment.asMap().get(optionDefinition.getOptionName());
+      Object originalValue = optionDefinition.getValue(originalFragment);
       if (!Objects.equals(originalValue, parsedOption.getConvertedValue())) {
         return false;
       }

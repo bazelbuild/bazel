@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
+import com.google.devtools.common.options.OptionDefinition;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -470,7 +471,10 @@ public final class RemoteAnalysisCacheFactory {
       if (fragmentOptions instanceof TestConfiguration.TestOptions) {
         continue;
       }
-      fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
+      for (var definition :
+          OptionDefinition.getOptionDefinitions(fragmentOptions.getOptionsClass())) {
+        allOptionsAsStringsBuilder.add(definition.getOptionName());
+      }
     }
     return allOptionsAsStringsBuilder.build();
   }
