@@ -2124,6 +2124,40 @@ EOF
     >& $TEST_log || fail "build failed"
 }
 
+function test_sandboxed_multiplexing_with_coverage() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+      # TODO: Enable test after the next java_tools release.
+      return 0
+  fi
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    javac_supports_worker_multiplex_sandboxing = True,
+)
+java_library(name = "a", srcs = ["A.java"])
+EOF
+  cat << 'EOF' > pkg/A.java
+public class A {}
+EOF
+
+  bazel build //pkg:a \
+    --collect_code_coverage \
+    --experimental_worker_multiplex_sandboxing \
+    --java_language_version=17 \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    >& $TEST_log || fail "build failed"
+  # JavaBuilder reads the file listing the paths to instrument from the request's working
+  # directory and stores it in the jar for JacocoCoverageRunner.
+  unzip -l bazel-bin/pkg/liba.jar > "$TEST_log"
+  expect_log "liba-paths-for-coverage.txt"
+}
+
 function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
   if is_windows; then
     # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
