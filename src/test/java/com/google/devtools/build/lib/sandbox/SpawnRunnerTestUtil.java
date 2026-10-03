@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -112,7 +114,9 @@ public final class SpawnRunnerTestUtil {
 
     @Override
     public InputMetadataProvider getInputMetadataProvider() {
-      return mock(InputMetadataProvider.class);
+      InputMetadataProvider provider = mock(InputMetadataProvider.class);
+      when(provider.getRunfilesTrees()).thenReturn(ImmutableList.of());
+      return provider;
     }
 
     @Override
