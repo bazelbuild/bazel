@@ -178,6 +178,25 @@ EOF
 
 source ${COMPLETION}
 
+test_config_expansion_with_rc_paths_containing_spaces() {
+  local workspace="$PWD/rc workspace" HOME="$PWD/rc home"
+  local COMP_LINE="bazel --bazelrc=\"$workspace/extra.rc\" build --config="
+  mkdir -p "$workspace" "$HOME"
+  cat > "$workspace/.bazelrc" <<'EOF'
+build:workspace_config --keep_going
+try-import %workspace%/imported.rc
+EOF
+  cat > "$workspace/imported.rc" <<'EOF'
+build:imported_config --keep_going
+try-import %workspace%/.bazelrc
+EOF
+  echo 'build:home_config --keep_going' > "$HOME/.bazelrc"
+  echo 'build:extra_config --keep_going' > "$workspace/extra.rc"
+
+  assert_equals $'extra_config\nhome_config\nimported_config\nworkspace_config' \
+      "$(_bazel__all_configs "$workspace" build)"
+}
+
 assert_expansion_function() {
   local ws=${PWD}
   local function="$1" displacement="$2" type="$3" expected="$4" current="$5"
