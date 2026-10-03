@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
@@ -71,6 +72,7 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.OutputChecker;
@@ -1324,6 +1326,8 @@ public final class SkyframeActionExecutor {
         }
         eventHandler.post(new ActionSuccessEvent(actionExecutionValue));
         return new ActionPostprocessingStep(actionExecutionValue);
+      } catch (LostInputsActionExecutionException e) {
+        throw e;
       } catch (ActionExecutionException e) {
         return ActionStepOrResult.of(e);
       }
@@ -1377,7 +1381,17 @@ public final class SkyframeActionExecutor {
           try (SilentCloseable c =
               Profiler.instance().profile(ProfilerTask.INFO, "outputService.finalizeAction")) {
             outputService.finalizeAction(action, outputMetadataStore);
-          } catch (EnvironmentalExecException | IOException e) {
+          } catch (LostInputsExecException e) {
+            // The remote cache has lost an output of the action before it could be downloaded.
+            // Like a lost input, this is recovered from by rewinding rather than reported.
+            var lostInputsException =
+                (LostInputsActionExecutionException)
+                    ActionExecutionException.fromExecException(e, action);
+            lostInputsException.setActionStartedEventAlreadyEmitted();
+            enrichLostInputsException(
+                primaryOutputPath, actionLookupData, fileOutErr, lostInputsException);
+            throw lostInputsException;
+          } catch (ExecException | IOException e) {
             logger.atWarning().withCause(e).log("unable to finalize action: '%s'", action);
             throw toActionExecutionException(
                 "unable to finalize action",
@@ -1387,6 +1401,8 @@ public final class SkyframeActionExecutor {
                 Code.ACTION_FINALIZATION_FAILURE);
           }
         }
+      } catch (LostInputsActionExecutionException e) {
+        throw e;
       } catch (ActionExecutionException actionException) {
         // Success in execution but failure in completion.
         reportActionExecution(
