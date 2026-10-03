@@ -818,6 +818,78 @@ class RemoteRepoContentsCacheRewindingTest(
     with open(self.Path('bazel-bin/main/out.txt')) as f:
       self.assertEqual(f.read(), 'data for b')
 
+  def testLostRemoteFile_restoredFromLocalRepoContentsCache(self):
+    # The local repo contents cache was empty when the repo was retrieved from
+    # the remote cache, but has since been populated by another output base.
+    # Its entry is used to restore the lost file instead of fetching the repo,
+    # which isn't possible since fetching is disabled.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+    local_cache = tempfile.mkdtemp(dir=os.environ['TEST_TMPDIR'])
+    other_output_base = tempfile.mkdtemp(dir=os.environ['TEST_TMPDIR'])
+
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_contents_cache=', '--nobuild', '//main:use_data']
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_contents_cache=', '--nobuild', '//main:use_data']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Another output base fetches the repo without the remote cache and adds
+    # it to the local cache.
+    _, _, stderr = self.RunBazel([
+        '--output_base=' + other_output_base,
+        'build',
+        '--remote_cache=',
+        '--repo_contents_cache=' + local_cache,
+        '--nobuild',
+        '//main:use_data',
+    ])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['--output_base=' + other_output_base, 'shutdown'])
+
+    self.DeleteCasEntry(b'hello')
+    _, _, stderr = self.RunBazel([
+        'build',
+        '--repo_contents_cache=' + local_cache,
+        '--nofetch',
+        '//main:use_data',
+    ])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
   def testLostRemoteFile_actionInput_inReadOnlyDirectory(self):
     if self.IsWindows():
       self.skipTest('requires chmod')
