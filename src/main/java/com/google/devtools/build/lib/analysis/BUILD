@@ -202,6 +202,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:action_construction_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:buildinfo_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:copy_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:lazy_write_nested_set_of_tuple_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:parameter_file_write_action",

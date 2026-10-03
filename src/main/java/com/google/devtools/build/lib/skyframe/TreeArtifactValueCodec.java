@@ -40,6 +40,7 @@ class TreeArtifactValueCodec extends DeferredObjectCodec<TreeArtifactValue> {
           0L,
           /* archivedRepresentation= */ null,
           /* resolvedPath= */ null,
+          /* contentCopy= */ false,
           /* entirelyRemote= */ false);
 
   private static final DeferredObjectCodec<TreeArtifactValue> AUTOCODEC =
