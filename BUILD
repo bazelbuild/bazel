@@ -11,6 +11,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//src:release_archive.bzl", "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION", "MINIMUM_JAVA_RUNTIME_VERSION")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
+load("//tools/res:winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
 
@@ -317,6 +318,23 @@ platform(
         "@platforms//os:windows",
         "@platforms//cpu:arm64",
     ],
+)
+
+# Compiles Windows resources with llvm-rc from the hermetic LLVM toolchains.
+# Registered after @local_config_winsdk in MODULE.bazel so that the Windows
+# SDK's rc.exe is preferred when it is available.
+windows_resource_compiler_toolchain(
+    name = "llvm_rc",
+    rc_exe = "@llvm//tools:llvm-rc",
+    # Keep wildcard builds from fetching the LLVM toolchains.
+    tags = ["manual"],
+)
+
+toolchain(
+    name = "llvm_rc_toolchain",
+    target_compatible_with = ["@platforms//os:windows"],
+    toolchain = ":llvm_rc",
+    toolchain_type = WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE,
 )
 
 REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
