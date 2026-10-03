@@ -645,7 +645,9 @@ public class UploadManifest {
         for (var digest : missingDigests) {
           uploadFutures.add(
               decorateUploadFuture(
-                  uploadSingleDigest(remoteContext, combinedCache, digest, force),
+                  // The remote cache has just reported the digest as missing, so an upload of it
+                  // that completed earlier in the command must not be skipped.
+                  uploadSingleDigest(remoteContext, combinedCache, digest, /* force= */ true),
                   reporter,
                   action,
                   Store.CAS,
