@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.collect.RecencyMap;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.errorprone.annotations.ForOverride;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -105,7 +105,7 @@ public class DynamicExecutionModule extends BlazeModule {
       DynamicExecutionOptions options, boolean sandboxingSupported) throws AbruptExitException {
     // Options that set "allowMultiple" to true ignore the default value, so we replicate that
     // functionality here.
-    ImmutableMap.Builder<String, List<String>> localAndWorkerStrategies = ImmutableMap.builder();
+    RecencyMap<String, List<String>> localAndWorkerStrategies = new RecencyMap<>();
     ImmutableList.Builder<String> defaultLocalStrategies = ImmutableList.builder();
     defaultLocalStrategies.add("worker");
     if (sandboxingSupported) {
@@ -118,15 +118,15 @@ public class DynamicExecutionModule extends BlazeModule {
     localAndWorkerStrategies.put("", defaultLocalStrategies.build());
 
     for (Map.Entry<String, List<String>> entry : options.getDynamicLocalStrategy()) {
-      localAndWorkerStrategies.put(entry);
+      localAndWorkerStrategies.put(entry.getKey(), entry.getValue());
       throwIfContainsDynamic(entry.getValue(), "--dynamic_local_strategy");
     }
-    return localAndWorkerStrategies.buildKeepingLast();
+    return ImmutableMap.copyOf(localAndWorkerStrategies);
   }
 
   private ImmutableMap<String, List<String>> getRemoteStrategies(DynamicExecutionOptions options)
       throws AbruptExitException {
-    Map<String, List<String>> strategies = new HashMap<>(); // Needed to dedup
+    RecencyMap<String, List<String>> strategies = new RecencyMap<>(); // Needed to dedup
     for (Map.Entry<String, List<String>> e : options.getDynamicRemoteStrategy()) {
       throwIfContainsDynamic(e.getValue(), "--dynamic_remote_strategy");
       strategies.put(e.getKey(), e.getValue());
