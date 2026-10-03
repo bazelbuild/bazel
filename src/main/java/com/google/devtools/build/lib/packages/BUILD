@@ -15,6 +15,7 @@ java_library(
     name = "configured_attribute_mapper",
     srcs = ["ConfiguredAttributeMapper.java"],
     deps = [
+        "//src/main/java/net/starlark/java/eval",
         ":packages",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:config_matching_provider",
