@@ -48,12 +48,10 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
