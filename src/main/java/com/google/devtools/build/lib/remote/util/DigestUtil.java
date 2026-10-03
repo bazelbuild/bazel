@@ -104,20 +104,8 @@ public class DigestUtil {
   /**
    * Computes a digest for a file.
    *
-   * <p>Prefer calling {@link #compute(Path, FileStatus)} when a recently obtained {@link
-   * FileStatus} is available.
-   *
    * @param path the file path
-   */
-  public Digest compute(Path path) throws IOException {
-    return compute(path, path.stat());
-  }
-
-  /**
-   * Computes a digest for a file.
-   *
-   * @param path the file path
-   * @param status a recently obtained file status, if available
+   * @param status a recently obtained file status
    */
   public Digest compute(Path path, FileStatus status) throws IOException {
     return buildDigest(
