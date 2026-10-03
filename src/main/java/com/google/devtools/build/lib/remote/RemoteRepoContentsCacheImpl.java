@@ -108,7 +108,6 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private static final String MARKER_FILE_PATH = ".recorded_inputs";
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
   private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
-  // Batches are separated by LF only; String#lines would also split at a CR in an input's name.
   private static final Splitter SPLIT_ON_NEWLINE = Splitter.on('\n').omitEmptyStrings();
 
   // addOutputFiles and addOutputDirectories are deprecated in REAPI v2 in favor of addOutputPaths,
