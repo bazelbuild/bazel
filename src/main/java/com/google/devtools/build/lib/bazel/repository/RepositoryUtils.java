@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -118,7 +120,21 @@ public class RepositoryUtils {
     // remote repo contents cache since cross-FS resolution of symlinks proved tricky to get right.
     boolean symlinksResolveWithinRepo = true;
     try {
-      Collection<Path> symlinks = FileSystemUtils.traverseTree(repoDir, Path::isSymbolicLink);
+      // The remote repo contents cache stores names as UTF-8, which can't represent a name that
+      // isn't valid UTF-8 (possible on Linux). Exclude the repo rather than mangle its names.
+      boolean[] namesRepresentable = {true};
+      Collection<Path> symlinks =
+          FileSystemUtils.traverseTree(
+              repoDir,
+              path -> {
+                if (!isRepresentableInUtf8(path.getBaseName())) {
+                  namesRepresentable[0] = false;
+                }
+                return path.isSymbolicLink();
+              });
+      if (!namesRepresentable[0]) {
+        symlinksResolveWithinRepo = false;
+      }
       Path workspaceSymlinkUnderExternal = externalRepoRoot.getChild(WORKSPACE_SYMLINK_NAME);
       if (replantSymlinksIntoMainRepo) {
         FileSystemUtils.ensureSymbolicLink(workspaceSymlinkUnderExternal, workspace);
@@ -126,6 +142,9 @@ public class RepositoryUtils {
       for (Path symlink : symlinks) {
         PathFragment target = symlink.readSymbolicLink();
         PathFragment originalTarget = target;
+        if (!isRepresentableInUtf8(target.getPathString())) {
+          symlinksResolveWithinRepo = false;
+        }
         if (target.startsWith(workspace.asFragment())) {
           symlinksResolveWithinRepo = false;
           if (!replantSymlinksIntoMainRepo) {
@@ -211,5 +230,10 @@ public class RepositoryUtils {
           String.format("Failed to rewrite symlinks under %s: %s", repoDir, e.getMessage()), e);
     }
     return new ReplantSymlinksResult(portableSymlinksOnly, symlinksResolveWithinRepo);
+  }
+
+  /** Returns whether the given internal string survives a round trip through Unicode. */
+  private static boolean isRepresentableInUtf8(String internal) {
+    return unicodeToInternal(internalToUnicode(internal)).equals(internal);
   }
 }
