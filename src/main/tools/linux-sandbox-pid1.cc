@@ -344,7 +344,7 @@ static void MountFilesystems() {
     PRINT_DEBUG("writable: %s", writable_file.c_str());
     if (bind_mount_sources.find(writable_file) != bind_mount_sources.end()) {
       // Bind mount sources contained in writable_files will be kept writable in
-      // MakeFileSystemMostlyReadOnly, but have already been mounted at this
+      // MakeFilesystemMostlyReadOnly, but have already been mounted at this
       // point.
       continue;
     }
@@ -825,6 +825,9 @@ static void MountDev() {
 static void MountAllMounts() {
   for (const std::string& tmpfs_dir : opt.tmpfs_dirs) {
     PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
+    if (CreateTarget(tmpfs_dir.c_str(), true) < 0) {
+      DIE("CreateTarget %s", tmpfs_dir.c_str());
+    }
     if (mount("tmpfs", tmpfs_dir.c_str(), "tmpfs",
               MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr) < 0) {
       DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr)",
