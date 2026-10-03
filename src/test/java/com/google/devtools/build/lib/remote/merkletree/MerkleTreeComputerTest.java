@@ -72,6 +72,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterValuesProvide
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -445,6 +446,42 @@ public class MerkleTreeComputerTest {
     }
 
     assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void inputsWithSameDigest_localOneUploaded() throws Exception {
+    // Whether the local or the remote input sorts first must not matter.
+    for (var names : ImmutableList.of(List.of("a_local", "z_remote"), List.of("a_remote", "z_local"))) {
+      var sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
+      var local =
+          ActionsTestUtil.createArtifactWithExecPath(
+              sourceRoot, PathFragment.create(names.get(0).contains("local") ? names.get(0) : names.get(1)));
+      var remote =
+          ActionsTestUtil.createArtifactWithExecPath(
+              sourceRoot, PathFragment.create(names.get(0).contains("remote") ? names.get(0) : names.get(1)));
+      FileSystemUtils.writeContentAsLatin1(local.getPath(), "same content");
+      var localMetadata = FileArtifactValue.createForTesting(local);
+      var remoteMetadata =
+          FileArtifactValue.createForRemoteFile(
+              localMetadata.getDigest(), localMetadata.getSize(), /* locationIndex= */ 1);
+      var fakeFileCache = new FakeActionInputFileCache();
+      fakeFileCache.put(local, localMetadata);
+      fakeFileCache.put(remote, remoteMetadata);
+      var spawn = new SpawnBuilder().withInputs(remote, local).build();
+
+      var merkleTree =
+          (MerkleTree.Uploadable)
+              createMerkleTreeComputer(/* uploader= */ null)
+                  .buildForSpawn(
+                      spawn,
+                      ImmutableSet.of(),
+                      /* scrubber= */ null,
+                      createSpawnExecutionContext(spawn, fakeFileCache),
+                      MerkleTreeComputer.BlobPolicy.KEEP);
+
+      var digest = DigestUtil.buildDigest(localMetadata.getDigest(), localMetadata.getSize());
+      assertThat(merkleTree.blobs().get(digest)).isEqualTo(local);
+    }
   }
 
   @Test

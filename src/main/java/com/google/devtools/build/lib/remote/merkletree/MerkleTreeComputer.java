@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
@@ -702,9 +703,7 @@ public final class MerkleTreeComputer {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
             addFile(currentDirectory, name, digest, nodeProperties);
             if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-              // If there is both a Digest and a FileArtifactValue key for the same content, prefer
-              // the FileArtifactValue as it is retained anyway.
-              blobs.put(metadata, fileOrSourceDirectory);
+              addBlob(blobs, metadata, fileOrSourceDirectory);
             }
             inputFiles++;
             inputBytes += digest.getSizeBytes();
@@ -1061,6 +1060,30 @@ public final class MerkleTreeComputer {
       }
       Throwables.throwIfUnchecked(e.getCause());
       throw new IllegalStateException(e);
+    }
+  }
+
+  /**
+   * Records an input as the source for uploading its contents, keyed by its metadata.
+   *
+   * <p>Among inputs with the same contents, one whose contents are available locally is preferred:
+   * the contents of a remote one may no longer be in the remote cache and would have to be
+   * recovered first, which an upload from a local copy avoids.
+   */
+  private static void addBlob(
+      TreeMap<Object, Object> blobs, FileArtifactValue metadata, ActionInput input) {
+    var existing = blobs.floorEntry(metadata);
+    if (existing == null
+        || MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR.compare(existing.getKey(), metadata)
+            != 0) {
+      blobs.put(metadata, input);
+      return;
+    }
+    if (!metadata.isRemote()
+        && existing.getKey() instanceof FileArtifactValue existingMetadata
+        && existingMetadata.isRemote()) {
+      blobs.remove(existing.getKey());
+      blobs.put(metadata, input);
     }
   }
 
