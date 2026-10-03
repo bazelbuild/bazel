@@ -64,7 +64,8 @@ fi
 #   exit 1
 # fi
 
-export APT_GPG_KEY_ID=$(gcloud secrets versions access latest --secret="release-key-gpg-id" --project="bazel-public")
+APT_GPG_KEY_ID=$(gcloud secrets versions access latest --secret="release-key-gpg-id" --project="bazel-public")
+export APT_GPG_KEY_ID
 
 # Generate a string from a template and a list of substitutions.
 # The first parameter is the template name and each subsequent parameter
