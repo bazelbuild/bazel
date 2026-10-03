@@ -79,7 +79,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -975,6 +977,108 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
                 .addDependentIndex(0)
                 .build())
         .inOrder();
+  }
+
+  /**
+   * A spawn's outputs must not become visible in {@code outputToNode} until its own bytes have
+   * been handed to the write queue. Otherwise a concurrent spawn can write a 
+   * forward dependency that appears before it's node.
+   */
+  @Test(timeout = 30_000)
+  public void outputsPublishedAfterEnqueue_noForwardReferenceInStream() throws Exception {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    Artifact out1 = createOutputArtifact("foo/out1");
+    Artifact out2 = createOutputArtifact("foo/out2");
+    SpawnResult result = createRemoteSpawnResult(100);
+
+    CountDownLatch aInEnqueueBytes = new CountDownLatch(1);
+    CountDownLatch bDone = new CountDownLatch(1);
+
+    ActionDumpWriter writer =
+        new ActionDumpWriter(
+            BugReporter.defaultInstance(),
+            new EventBus(),
+            /* localLockFreeOutputEnabled= */ false,
+            /* logFileWriteEdges= */ false,
+            buffer,
+            DependencyInfo.ALL,
+            /* queueSize= */ -1,
+            /* queuedBytesLimit= */ -1) {
+          @Override
+          protected void updateLogs(BuildToolLogCollection logs) {}
+
+          @Override
+          void enqueueBytes(byte[] entry) {
+            if (Thread.currentThread().getName().equals("spawn-a")) {
+              aInEnqueueBytes.countDown();
+              try {
+                bDone.await();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+              }
+            }
+            super.enqueueBytes(entry);
+          }
+        };
+
+    Thread a =
+        new Thread(
+            () ->
+                writer.enqueue(
+                    new SpawnExecutedEvent(
+                        new SpawnBuilder().withOwnerPrimaryOutput(out1).build(),
+                        new FakeActionInputFileCache(),
+                        null,
+                        new TestFileOutErr(),
+                        result,
+                        Instant.ofEpochMilli(0),
+                        /* spawnIdentifier= */ "a")),
+            "spawn-a");
+
+    Thread b =
+        new Thread(
+            () -> {
+              try {
+                aInEnqueueBytes.await();
+                writer.enqueue(
+                    new SpawnExecutedEvent(
+                        new SpawnBuilder().withOwnerPrimaryOutput(out2).withInput(out1).build(),
+                        new FakeActionInputFileCache(),
+                        null,
+                        new TestFileOutErr(),
+                        result,
+                        Instant.ofEpochMilli(100),
+                        /* spawnIdentifier= */ "b"));
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              } finally {
+                // Always unpark A, so a failure here surfaces as an assertion rather than a hang.
+                bDone.countDown();
+              }
+            },
+            "spawn-b");
+
+    a.start();
+    b.start();
+    a.join();
+    b.join();
+    writer.shutdown(/* logs= */ null);
+
+    ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
+    assertThat(nodes).hasSize(2);
+
+    // Every dependent_index must resolve to a node at an earlier position in the stream.
+    Map<Integer, Integer> streamPositionByIndex = new HashMap<>();
+    for (int pos = 0; pos < nodes.size(); pos++) {
+      streamPositionByIndex.put(nodes.get(pos).getIndex(), pos);
+    }
+    for (int pos = 0; pos < nodes.size(); pos++) {
+      for (int depIndex : nodes.get(pos).getDependentIndexList()) {
+        assertThat(streamPositionByIndex).containsKey(depIndex);
+        assertThat(streamPositionByIndex.get(depIndex)).isLessThan(pos);
+      }
+    }
   }
 
   private class FakeOwnerWithPrimaryOutput extends FakeOwner {
