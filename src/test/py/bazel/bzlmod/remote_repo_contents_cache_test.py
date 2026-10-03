@@ -374,6 +374,44 @@ class RemoteRepoContentsCacheTest(
     with open(self.Path('bazel-bin/platform.txt')) as f:
       self.assertEqual(f.read().strip(), 'macOS')
 
+  def testRecordedInputs_missingRepoMapping(self):
+    # Constructing a Label with an apparent repo name that isn't mapped records
+    # the missing mapping, which must validate as missing when the repo is
+    # looked up again.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  unused = Label("@optional_missing//:unused")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "data")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The marker file is still valid after a restart of the server.
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The cache entry is found after expunging.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
   def testRecordedInputs_differentInputs(self):
     platform_file = self.ScratchFile('platform.txt')
 

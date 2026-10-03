@@ -937,8 +937,9 @@ public abstract sealed class RepoRecordedInput {
       if (Objects.equals(repoMappingValue, RepositoryMappingValue.NOT_FOUND_VALUE)) {
         return new MaybeValue.Invalid("source repo %s doesn't exist anymore".formatted(sourceRepo));
       }
+      // Like the recorded value, the value of a mapping that doesn't exist is null.
       RepositoryName canonicalName = repoMappingValue.repositoryMapping().get(apparentName);
-      return new MaybeValue.Valid(canonicalName != null ? canonicalName.getName() : null);
+      return new MaybeValue.Valid(canonicalName.isVisible() ? canonicalName.getName() : null);
     }
 
     @Override
