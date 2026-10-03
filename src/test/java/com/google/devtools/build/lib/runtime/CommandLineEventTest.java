@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.Command
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLineSection.SectionTypeCase;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.OptionList;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -340,6 +341,65 @@ public class CommandLineEventTest {
     assertThat(line.getSections(3).getOptionList().getOption(3).getCombinedForm())
         .isEqualTo("--expanded_c=2");
     assertThat(line.getSections(4).getChunkList().getChunkCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void testNonAsciiOptionValue_canonicalCommandLine() throws OptionsParsingException {
+    OptionsParser fakeStartupOptions =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
+    // Option values reach the server in Bazel's internal string encoding (see StringEncoding).
+    fakeCommandOptions.parse(
+        PriorityCategory.COMMAND_LINE,
+        "command line",
+        ImmutableList.of("--test_string=" + StringEncoding.unicodeToInternal("¡Buenos días!")));
+
+    CommandLine line =
+        new CanonicalCommandLineEvent(
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                fakeCommandOptions.getResidue(),
+                false,
+                ImmutableSortedMap.of(),
+                ImmutableSortedMap.of(),
+                ImmutableSet.of(),
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
+            .asStreamProto(null)
+            .getStructuredCommandLine();
+
+    // The proto fields are Unicode strings, so the value has to be reencoded.
+    assertThat(line.getSections(3).getOptionList().getOption(0).getOptionValue())
+        .isEqualTo("¡Buenos días!");
+    assertThat(line.getSections(3).getOptionList().getOption(0).getCombinedForm())
+        .isEqualTo("--test_string=¡Buenos días!");
+  }
+
+  @Test
+  public void testNonAsciiResidue_canonicalCommandLine() throws OptionsParsingException {
+    OptionsParser fakeStartupOptions =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(TestOptions.class).build();
+
+    CommandLine line =
+        new CanonicalCommandLineEvent(
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                ImmutableList.of(StringEncoding.unicodeToInternal("//foo:bär")),
+                false,
+                ImmutableSortedMap.of(),
+                ImmutableSortedMap.of(),
+                ImmutableSet.of(),
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
+            .asStreamProto(null)
+            .getStructuredCommandLine();
+
+    assertThat(line.getSections(4).getChunkList().getChunk(0)).isEqualTo("//foo:bär");
   }
 
   @Test
