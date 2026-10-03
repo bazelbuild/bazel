@@ -379,8 +379,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
             cache.downloadActionResultAsync(
                 context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of()),
             (currentResult) -> {
-              if (currentResult == null
-                  || currentResult.actionResult().getStdoutDigest().getSizeBytes() == 0) {
+              if (currentResult == null || !hasStdout(currentResult.actionResult())) {
                 return immediateFuture("");
               }
               return fetchStdout(context, currentResult.actionResult());
@@ -517,7 +516,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!(actionResult.getOutputFilesCount() == 0
         && actionResult.getOutputDirectoriesCount() == 0
         && actionResult.getOutputSymlinksCount() == 0
-        && actionResult.getStdoutDigest().getSizeBytes() > 0)) {
+        && hasStdout(actionResult))) {
       return new CacheEntry.Invalid(
           "Unexpected intermediate action result for remotely cached repo %s:\n%s"
               .formatted(context.getRequestMetadata().getActionId(), actionResult));
@@ -569,6 +568,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         .addString(hash)
         .addString(inputWithValue.toString())
         .hexDigestAndReset();
+  }
+
+  /** Returns whether the action result has stdout, inline or in the CAS. */
+  private static boolean hasStdout(ActionResult actionResult) {
+    return !actionResult.getStdoutRaw().isEmpty()
+        || actionResult.getStdoutDigest().getSizeBytes() > 0;
   }
 
   private ListenableFuture<String> fetchStdout(
