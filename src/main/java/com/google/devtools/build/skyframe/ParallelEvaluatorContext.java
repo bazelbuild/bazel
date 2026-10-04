@@ -59,6 +59,7 @@ class ParallelEvaluatorContext {
   private final Cache<SkyKey, SkyKeyComputeState> stateCache;
   private final boolean dfsScheduling;
   @Nullable private final ConcurrentHashMap<SkyKey, Integer> nodeDepths;
+  private final SpeculativeDeps speculativeDeps;
 
   /**
    * The visitor managing the thread pool. Used to enqueue parents when an entry is finished, and,
@@ -87,7 +88,8 @@ class ParallelEvaluatorContext {
       QuiescingExecutor executor,
       Supplier<NodeEntryVisitor> visitorSupplier,
       Cache<SkyKey, SkyKeyComputeState> stateCache,
-      Predicate<SkyKey> keepGoing) {
+      Predicate<SkyKey> keepGoing,
+      SpeculativeDeps speculativeDeps) {
     this.graph = graph;
     this.graphVersion = graphVersion;
     this.minimalVersion = minimalVersion;
@@ -105,6 +107,7 @@ class ParallelEvaluatorContext {
     this.visitorSupplier = Suppliers.memoize(visitorSupplier);
     this.stateCache = stateCache;
     this.keepGoing = keepGoing;
+    this.speculativeDeps = speculativeDeps;
     this.dfsScheduling =
         executor instanceof AbstractQueueVisitor queueVisitor
             && queueVisitor.ordersTasksByPriority();
@@ -193,6 +196,11 @@ class ParallelEvaluatorContext {
 
   boolean keepGoing(SkyKey key) {
     return keepGoing.test(key);
+  }
+
+  /** Prototype of speculative dependencies, shared by the rounds of an evaluation. */
+  SpeculativeDeps speculativeDeps() {
+    return speculativeDeps;
   }
 
   NodeEntryVisitor getVisitor() {
