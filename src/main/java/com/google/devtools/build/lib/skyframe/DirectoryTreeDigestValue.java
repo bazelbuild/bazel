@@ -18,10 +18,12 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * Contains information about the recursive digest of a directory tree, including all transitive
@@ -38,7 +40,24 @@ public record DirectoryTreeDigestValue(String hexDigest) implements SkyValue {
 
   public static Key key(
       RootedPath rootedPath, RootedPath globBase, ImmutableList<String> excludes) {
-    return Key.of(rootedPath, globBase, excludes);
+    return Key.of(
+        rootedPath,
+        globBase,
+        excludes,
+        excludes.isEmpty() ? null : rootedPath.getRootRelativePath());
+  }
+
+  /**
+   * Returns the key for a directory that is reached at {@code logicalPath} (as seen from the root
+   * of {@code globBase}), which is what the excludes are matched against, or with a null {@code
+   * logicalPath} if there are no excludes.
+   */
+  static Key key(
+      RootedPath rootedPath,
+      RootedPath globBase,
+      ImmutableList<String> excludes,
+      @Nullable PathFragment logicalPath) {
+    return Key.of(rootedPath, globBase, excludes, logicalPath);
   }
 
   /**
@@ -63,9 +82,19 @@ public record DirectoryTreeDigestValue(String hexDigest) implements SkyValue {
    * /tmp/path/.git/**
    * /tmp/path/cache/ignoreMe
    * </pre>
+   *
+   * <p>The patterns are matched against {@code logicalPath}, the path of the directory as seen from
+   * the root of {@code globBase}, which differs from the path of {@code rootedPath} for a directory
+   * that is reached through a symlink. Without excludes, {@code logicalPath} is null: the digest of
+   * a directory then doesn't depend on the path it is reached through and is shared by all symlinks
+   * to it.
    */
   @AutoCodec
-  record Key(RootedPath rootedPath, RootedPath globBase, ImmutableList<String> excludes)
+  record Key(
+      RootedPath rootedPath,
+      RootedPath globBase,
+      ImmutableList<String> excludes,
+      @Nullable PathFragment logicalPath)
       implements SkyKey {
     Key {
       requireNonNull(rootedPath, "rootedPath");
@@ -75,13 +104,21 @@ public record DirectoryTreeDigestValue(String hexDigest) implements SkyValue {
 
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
-    static Key of(RootedPath rootedPath, RootedPath globBase, ImmutableList<String> excludes) {
-      return create(rootedPath, globBase, excludes);
+    static Key of(
+        RootedPath rootedPath,
+        RootedPath globBase,
+        ImmutableList<String> excludes,
+        @Nullable PathFragment logicalPath) {
+      return create(rootedPath, globBase, excludes, logicalPath);
     }
 
     @AutoCodec.Instantiator
-    static Key create(RootedPath rootedPath, RootedPath globBase, ImmutableList<String> excludes) {
-      return interner.intern(new Key(rootedPath, globBase, excludes));
+    static Key create(
+        RootedPath rootedPath,
+        RootedPath globBase,
+        ImmutableList<String> excludes,
+        @Nullable PathFragment logicalPath) {
+      return interner.intern(new Key(rootedPath, globBase, excludes, logicalPath));
     }
 
     @Override
