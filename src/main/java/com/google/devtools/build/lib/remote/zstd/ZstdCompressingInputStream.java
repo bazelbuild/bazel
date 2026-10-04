@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote.zstd;
 
 import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
-import com.google.common.base.Preconditions;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -23,35 +22,21 @@ import java.util.Objects;
 
 /** An {@link InputStream} that uses zstd to compress its input. */
 public class ZstdCompressingInputStream extends InputStream {
-  // Retained for callers of the previous pipe-based implementation.
-  public static final int MIN_BUFFER_SIZE = 4 + 14 + 3 + 1;
-
   // Reuse a bounded input buffer. Short reads must not force short compressed blocks.
   private static final int BUFFER_SIZE = 16 * 1024;
 
   private final InputStream in;
-  private final byte[] inputBuffer;
+  private final byte[] inputBuffer = new byte[BUFFER_SIZE];
   private final CompressedBuffer compressed = new CompressedBuffer();
   private ByteArrayInputStream compressedInput = new ByteArrayInputStream(new byte[0]);
   private ZstdOutputStreamNoFinalizer zos;
-  private boolean closed;
 
   public ZstdCompressingInputStream(InputStream in) throws IOException {
-    this(in, BUFFER_SIZE);
-  }
-
-  ZstdCompressingInputStream(InputStream in, int size) throws IOException {
     this.in = Objects.requireNonNull(in);
-    Preconditions.checkArgument(
-        size >= MIN_BUFFER_SIZE, "The buffer size must be at least %s bytes", MIN_BUFFER_SIZE);
-    inputBuffer = new byte[size];
     zos = new ZstdOutputStreamNoFinalizer(compressed);
   }
 
   private void reFill() throws IOException {
-    if (closed) {
-      throw new IOException("Stream closed");
-    }
     if (compressedInput.available() > 0 || zos == null) {
       return;
     }
@@ -88,23 +73,9 @@ public class ZstdCompressingInputStream extends InputStream {
   }
 
   @Override
-  public int available() throws IOException {
-    if (closed) {
-      throw new IOException("Stream closed");
-    }
-    return compressedInput.available();
-  }
-
-  @Override
   public void close() throws IOException {
-    if (closed) {
-      return;
-    }
-    closed = true;
     try {
       if (zos != null) {
-        // Discard unread output before finalizing an abandoned frame.
-        compressed.reset();
         zos.close();
         zos = null;
       }

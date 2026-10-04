@@ -43,19 +43,6 @@ public class ZstdCompressingInputStreamTest {
   }
 
   @Test
-  public void streamCanBeCompressedWithMinimumBufferSize() throws IOException {
-    Random rand = new Random(1);
-    byte[] data = new byte[50];
-    rand.nextBytes(data);
-
-    ByteArrayInputStream bais = new ByteArrayInputStream(data);
-    try (ZstdCompressingInputStream zdis =
-        new ZstdCompressingInputStream(bais, ZstdCompressingInputStream.MIN_BUFFER_SIZE)) {
-      assertThat(Zstd.decompress(ByteStreams.toByteArray(zdis), data.length)).isEqualTo(data);
-    }
-  }
-
-  @Test
   public void emptyInputProducesCompleteFrame() throws IOException {
     try (var stream = new ZstdCompressingInputStream(new ByteArrayInputStream(new byte[0]))) {
       byte[] compressed = ByteStreams.toByteArray(stream);
@@ -140,7 +127,6 @@ public class ZstdCompressingInputStreamTest {
       stream.close();
       assertThat(source.closed).isTrue();
       assertThat(source.available()).isEqualTo(remaining);
-      assertThrows(IOException.class, stream::read);
     }
   }
 
@@ -209,7 +195,6 @@ public class ZstdCompressingInputStreamTest {
     try (var expected = new ZstdCompressingInputStream(new ByteArrayInputStream(data));
         var actual = new ZstdCompressingInputStream(new ByteArrayInputStream(data))) {
       assertThat(actual.markSupported()).isFalse();
-      assertThat(actual.available()).isEqualTo(0);
       assertThat(expected.readNBytes(123)).hasLength(123);
       assertThat(actual.skip(123)).isEqualTo(123L);
       assertThat(ByteStreams.toByteArray(actual)).isEqualTo(ByteStreams.toByteArray(expected));
