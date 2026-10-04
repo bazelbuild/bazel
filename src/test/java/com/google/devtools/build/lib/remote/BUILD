@@ -261,6 +261,7 @@ java_library(
         "//third_party/java/truth",
         "//third_party/java/truth/extensions:proto",
         "//third_party/java/zstd_jni",
+        "//third_party:mockito",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@remoteapis//:build_bazel_semver_semver_java_proto",

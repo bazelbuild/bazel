@@ -126,7 +126,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -550,18 +549,16 @@ public final class RemoteModule extends BlazeModule {
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
-    ImmutableList.Builder<Predicate<String>> patternsToDownloadBuilder = ImmutableList.builder();
-    if (remoteOptions.getRemoteOutputsMode() != RemoteOutputsMode.ALL) {
-      for (RegexPatternOption patternOption : remoteOptions.getRemoteDownloadRegex()) {
-        patternsToDownloadBuilder.add(patternOption.matcher());
-      }
-    }
+    ImmutableList<RegexPatternOption> downloadRegexes =
+        remoteOptions.getRemoteOutputsMode() != RemoteOutputsMode.ALL
+            ? ImmutableList.copyOf(remoteOptions.getRemoteDownloadRegex())
+            : ImmutableList.of();
 
     remoteOutputChecker =
         new RemoteOutputChecker(
             env.getCommandName(),
             remoteOptions.getRemoteOutputsMode(),
-            patternsToDownloadBuilder.build(),
+            downloadRegexes,
             lastRemoteOutputChecker);
     remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
 
