@@ -24,6 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
@@ -205,16 +206,18 @@ public class ChunkerTest {
 
   @Test
   public void seekEmptyData() throws IOException {
-    var chunker = Chunker.builder().setInput(new byte[0]).build();
-    for (var i = 0; i < 2; i++) {
-      chunker.seek(0);
-      var next = chunker.next();
-      assertThat(next).isNotNull();
-      assertThat(next.getData()).isEmpty();
-      assertThat(next.getOffset()).isEqualTo(0);
+    for (boolean compressed : new boolean[] {false, true}) {
+      try (var chunker =
+          Chunker.builder().setInput(new byte[0]).setCompressed(compressed).build()) {
+        chunker.seek(0);
+        var next = chunker.next();
+        assertThat(next).isNotNull();
+        assertThat(next.getData()).isEmpty();
+        assertThat(next.getOffset()).isEqualTo(0);
 
-      assertThat(chunker.hasNext()).isFalse();
-      assertThrows(NoSuchElementException.class, chunker::next);
+        assertThat(chunker.hasNext()).isFalse();
+        assertThrows(NoSuchElementException.class, chunker::next);
+      }
     }
   }
 
@@ -246,21 +249,122 @@ public class ChunkerTest {
   }
 
   @Test
+  public void compressedLargeIncompressibleDataHasContiguousChunkOffsets() throws IOException {
+    byte[] data = new byte[1024 * 1024 + 17];
+    new Random(0).nextBytes(data);
+    try (Chunker chunker =
+        Chunker.builder().setInput(data).setChunkSize(16 * 1024).setCompressed(true).build()) {
+      byte[] compressed = collectChunks(chunker, 0, 16 * 1024);
+
+      assertThat(compressed.length).isGreaterThan(16 * 1024);
+      assertThat(Zstd.decompress(compressed, data.length)).isEqualTo(data);
+    }
+  }
+
+  @Test
+  public void compressedChunkDoesNotConsumeEntireHighlyCompressibleSource() throws IOException {
+    long size = 64L * 1024 * 1024;
+    var source =
+        new InputStream() {
+          long consumed;
+
+          @Override
+          public int read() {
+            if (consumed == size) {
+              return -1;
+            }
+            consumed++;
+            return 0;
+          }
+
+          @Override
+          public int read(byte[] b, int off, int len) {
+            if (consumed == size) {
+              return -1;
+            }
+            int n = (int) Math.min(len, size - consumed);
+            Arrays.fill(b, off, off + n, (byte) 0);
+            consumed += n;
+            return n;
+          }
+        };
+    try (Chunker chunker =
+        Chunker.builder().setInput(size, () -> source).setCompressed(true).build()) {
+      Chunk first = chunker.next();
+      assertThat(first.getOffset()).isEqualTo(0);
+      assertThat(first.getData().size()).isGreaterThan(0);
+      assertThat(first.getData().size()).isLessThan(16 * 1024);
+      assertThat(source.consumed).isAtMost(2L * 1024 * 1024);
+      assertThat(chunker.hasNext()).isTrue();
+    }
+  }
+
+  @Test
+  public void compressedResetReproducesStreamAfterPartialAndCompleteReads() throws IOException {
+    byte[] data = new byte[1024 * 1024 + 17];
+    new Random(0).nextBytes(data);
+    try (Chunker chunker =
+        Chunker.builder().setInput(data).setChunkSize(16 * 1024).setCompressed(true).build()) {
+      byte[] expected = collectChunks(chunker, 0, 16 * 1024);
+      chunker.reset();
+      Chunk first = chunker.next();
+      assertThat(first.getOffset()).isEqualTo(0);
+      assertThat(chunker.hasNext()).isTrue();
+      chunker.reset();
+
+      assertThat(collectChunks(chunker, 0, 16 * 1024)).isEqualTo(expected);
+      chunker.reset();
+      assertThat(collectChunks(chunker, 0, 16 * 1024)).isEqualTo(expected);
+    }
+  }
+
+  @Test
+  public void compressedSeekStartsFreshFrameAtUncompressedOffset() throws IOException {
+    byte[] data = new byte[1024 * 1024 + 17];
+    new Random(0).nextBytes(data);
+    int resumeOffset = 135791;
+    try (Chunker chunker =
+        Chunker.builder().setInput(data).setChunkSize(16 * 1024).setCompressed(true).build()) {
+      chunker.next();
+      chunker.seek(resumeOffset);
+      byte[] compressedSuffix = collectChunks(chunker, resumeOffset, 16 * 1024);
+
+      assertThat(Zstd.decompress(compressedSuffix, data.length - resumeOffset))
+          .isEqualTo(Arrays.copyOfRange(data, resumeOffset, data.length));
+    }
+  }
+
+  @Test
   public void testActualSizeIsCorrectAfterSeek() throws IOException {
     byte[] data = {72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33};
-    int[] expectedSizes = {12, 24};
-    for (int expected : expectedSizes) {
-      Chunker chunker =
+    for (boolean compressed : new boolean[] {false, true}) {
+      try (Chunker chunker =
           Chunker.builder()
               .setInput(data)
               .setChunkSize(data.length * 2)
-              .setCompressed(expected != data.length)
-              .build();
-      chunker.seek(5);
-      chunker.next();
-      assertThat(chunker.hasNext()).isFalse();
-      assertThat(chunker.getOffset()).isEqualTo(expected);
+              .setCompressed(compressed)
+              .build()) {
+        chunker.seek(5);
+        byte[] actual = collectChunks(chunker, 5, data.length * 2);
+        byte[] suffix = Arrays.copyOfRange(data, 5, data.length);
+        assertThat(compressed ? Zstd.decompress(actual, suffix.length) : actual).isEqualTo(suffix);
+      }
     }
+  }
+
+  private byte[] collectChunks(Chunker chunker, long initialOffset, int chunkSize)
+      throws IOException {
+    ByteArrayOutputStream data = new ByteArrayOutputStream();
+    long expectedOffset = initialOffset;
+    while (chunker.hasNext()) {
+      Chunk next = chunker.next();
+      assertThat(next.getOffset()).isEqualTo(expectedOffset);
+      assertThat(next.getData().size()).isAtMost(chunkSize);
+      next.getData().writeTo(data);
+      expectedOffset += next.getData().size();
+    }
+    assertThat(chunker.getOffset()).isEqualTo(expectedOffset);
+    return data.toByteArray();
   }
 
   private void assertNextEquals(Chunker chunker, byte... data) throws IOException {

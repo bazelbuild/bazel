@@ -47,6 +47,10 @@ public class Chunker implements AutoCloseable {
 
   private static int defaultChunkSize = 1024 * 16;
 
+  // Each compressed read can consume a source block. Limit these reads so highly compressible
+  // blobs do not delay sending a chunk and checking upload readiness until the whole blob is read.
+  private static final int MAX_COMPRESSED_READS_PER_CHUNK = 8;
+
   /** This method must only be called in tests! */
   @VisibleForTesting
   static void setDefaultChunkSizeForTesting(int value) {
@@ -187,12 +191,14 @@ public class Chunker implements AutoCloseable {
   /** Attempts reading at most a full chunk and stores it in the chunkCache buffer */
   private int read() throws IOException {
     int count = 0;
-    while (count < chunkCache.length) {
+    int reads = 0;
+    while (count < chunkCache.length && (!compressed || reads < MAX_COMPRESSED_READS_PER_CHUNK)) {
       int c = data.read(chunkCache, count, chunkCache.length - count);
       if (c < 0) {
         break;
       }
       count += c;
+      reads++;
     }
     return count;
   }
