@@ -823,6 +823,10 @@ static void MountDev() {
 }
 
 static void MountAllMounts() {
+  if (!opt.hermetic) {
+    DIE("MountAllMounts() should only be called in hermetic mode");
+  }
+
   for (const std::string& tmpfs_dir : opt.tmpfs_dirs) {
     PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
     if (CreateTarget(tmpfs_dir.c_str(), true) < 0) {
@@ -832,14 +836,6 @@ static void MountAllMounts() {
               MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr) < 0) {
       DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr)",
           tmpfs_dir.c_str());
-    }
-  }
-
-  if (!opt.hermetic) {
-    if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr,
-              MS_BIND, nullptr) < 0) {
-      DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
-          opt.working_dir.c_str());
     }
   }
 
