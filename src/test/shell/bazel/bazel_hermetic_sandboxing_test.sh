@@ -40,11 +40,11 @@ EOF
 # get access to bash, ls, python etc. Depending on linux distribution
 # these folders may vary. Mount all folders in the root directory '/'
 # except the project directory, the directory containing the bazel
-# workspace under test.
+# workspace under test, and `/tmp`.
 project_folder=`pwd | cut -d"/" -f 2`
 for folder in /*/
 do
-  if [ -d "$folder" ] && [ "$folder" != "/$project_folder/" ]
+  if [ -d "$folder" ] && [ "$folder" != "/$project_folder/" ] && [ "$folder" != "/tmp/" ]
   then
     if [[ -L $folder ]]
     then
@@ -405,6 +405,131 @@ EOF
   bazel build examples/hermetic:use_ext &> $TEST_log \
     || fail "Expected second build to succeed"
   expect_not_log "FETCHING_EXT_REPO"
+}
+
+# $1: command to run, $2: extra flags
+function do_hermetic_linux_sandbox_genrule_test() {
+  # genrule that runs the given command:
+  mkdir -p pkg
+  cat > pkg/BUILD <<EOF
+genrule(
+    name = "test",
+    srcs = [":BUILD"],
+    outs = ["out"],
+    cmd = "$1 && touch \$(OUTS)",
+)
+EOF
+
+  bazel ${startup_options-} build \
+    "${@:2}" \
+    //pkg:test &> "$TEST_log" || fail "Expected build to succeed"
+}
+
+function test_with_sandbox_root_in_tmp() {
+  sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
+  trap 'rm -rf ${sandbox_base_temp_dir}' EXIT
+
+  do_hermetic_linux_sandbox_genrule_test ":" \
+    --sandbox_base="${sandbox_base_temp_dir}"
+}
+
+function test_bind_mount_within_tmp() {
+  temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+  msg="hi there $RANDOM"
+  echo "$msg" > "${temp_dir}/file"
+
+  do_hermetic_linux_sandbox_genrule_test "cat ${temp_dir}/file" \
+    --sandbox_add_mount_pair="${temp_dir}" \
+    "${@}"
+  expect_log "$msg"
+}
+
+function test_bind_mount_within_tmp_with_sandbox_root_in_tmp() {
+  sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
+  trap 'rm -rf ${sandbox_base_temp_dir}' EXIT
+
+  test_bind_mount_within_tmp \
+    --sandbox_base="${sandbox_base_temp_dir}"
+}
+
+function test_writable_dir_within_tmp() {
+  temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+  msg="hey there $RANDOM"
+
+  do_hermetic_linux_sandbox_genrule_test "echo $msg > ${temp_dir}/file" \
+    --sandbox_add_mount_pair="${temp_dir}" \
+    --sandbox_writable_path="${temp_dir}" \
+    "${@}"
+
+  grep -q "$msg" "${temp_dir}/file" || fail "Expected ${temp_dir}/file to exist"
+}
+
+function test_writable_dir_within_tmp_with_sandbox_root_in_tmp() {
+  sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
+  trap 'rm -rf ${sandbox_base_temp_dir}' EXIT
+
+  test_writable_dir_within_tmp \
+    --sandbox_base="${sandbox_base_temp_dir}"
+}
+
+function test_tmpfs_within_tmp() {
+  temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  do_hermetic_linux_sandbox_genrule_test "touch ${temp_dir}/file" \
+    --sandbox_tmpfs_path="${temp_dir}" \
+    "${@}"
+
+  [[ ! -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to not exist"
+}
+
+function test_tmpfs_within_tmp_with_sandbox_root_in_tmp() {
+  sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
+  trap 'rm -rf ${sandbox_base_temp_dir}' EXIT
+
+  test_tmpfs_within_tmp \
+    --sandbox_base="${sandbox_base_temp_dir}"
+}
+
+function test_immutable_sources() {
+  do_hermetic_linux_sandbox_genrule_test "! touch pkg/BUILD"
+  expect_log "[rR]ead-only file system"
+}
+
+function test_immutable_sources_output_base_in_tmp() {
+  output_base_temp_dir=$(mktemp -d /tmp/output_base.XXXXXX)
+  trap 'rm -rf ${output_base_temp_dir}' EXIT
+
+  startup_options="--output_base=${output_base_temp_dir}" \
+    test_immutable_sources
+}
+
+function test_bind_mounts_immutable() {
+  # test that bind mounts are immutable unless specified as a writable dir
+  temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  do_hermetic_linux_sandbox_genrule_test "! touch ${temp_dir}/file" \
+    --sandbox_add_mount_pair="${temp_dir}" \
+    "${@}"
+  [[ ! -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to not exist"
+  expect_log "[rR]ead-only file system"
+
+  do_hermetic_linux_sandbox_genrule_test "touch ${temp_dir}/file" \
+    --sandbox_add_mount_pair="${temp_dir}" \
+    --sandbox_writable_path="${temp_dir}" \
+    "${@}"
+  [[ -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to exist"
+}
+
+function test_bind_mounts_immutable_with_sandbox_root_in_tmp() {
+  sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
+  trap 'rm -rf ${sandbox_base_temp_dir}' EXIT
+
+  test_bind_mounts_immutable \
+    --sandbox_base="${sandbox_base_temp_dir}"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
