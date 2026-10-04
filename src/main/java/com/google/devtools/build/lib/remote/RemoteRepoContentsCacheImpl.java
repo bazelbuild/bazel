@@ -550,6 +550,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     var cachedActionResult =
         cache.downloadActionResult(
             context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
+    // The disk cache's copy of an intermediate entry, which remains usable if the remote cache is
+    // unavailable or the current entry can't be followed.
+    CombinedCache.CachedActionResult diskActionResult = null;
     if (cachedActionResult != null
         && cachedActionResult.cacheName().equals("disk")
         && cachedActionResult.actionResult().getOutputDirectoriesCount() == 0
@@ -557,14 +560,19 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       // An intermediate entry is an index of alternatives that other clients extend. The disk cache
       // holds the version seen when it was last downloaded, so the current one is fetched from the
       // remote cache, which also refreshes the disk cache.
-      var remoteActionResult =
-          cache.downloadActionResult(
-              context.withReadCachePolicy(CachePolicy.REMOTE_CACHE_ONLY),
-              actionKey,
-              /* inlineOutErr= */ true,
-              ImmutableSet.of(MARKER_FILE_PATH));
-      if (remoteActionResult != null) {
-        cachedActionResult = remoteActionResult;
+      diskActionResult = cachedActionResult;
+      try {
+        var remoteActionResult =
+            cache.downloadActionResult(
+                context.withReadCachePolicy(CachePolicy.REMOTE_CACHE_ONLY),
+                actionKey,
+                /* inlineOutErr= */ true,
+                ImmutableSet.of(MARKER_FILE_PATH));
+        if (remoteActionResult != null) {
+          cachedActionResult = remoteActionResult;
+        }
+      } catch (IOException e) {
+        // The disk cache's copy may lack alternatives added since, but a hit through it is valid.
       }
     }
     if (cachedActionResult == null) {
@@ -591,24 +599,26 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           "Unexpected intermediate action result for remotely cached repo %s:\n%s"
               .formatted(context.getRequestMetadata().getActionId(), actionResult));
     }
-    var stdoutFuture = fetchStdout(context, actionResult);
-    try {
-      waitForBulkTransfer(ImmutableList.of(stdoutFuture));
-    } catch (BulkTransferException e) {
-      if (e.allCausedByCacheNotFoundException()) {
-        // The stdout has expired while the action result remained in the cache, so the entry can't
-        // be followed. The fetch that follows the miss rebuilds it.
-        return new CacheEntry.Intermediate(ImmutableList.of());
-      }
-      throw e;
+    String stdout = fetchIntermediateStdout(context, actionResult);
+    if (stdout == null
+        && diskActionResult != null
+        && !diskActionResult.actionResult().equals(actionResult)) {
+      // The current entry's stdout has expired, but the alternatives of the disk cache's copy
+      // remain usable.
+      actionResult = diskActionResult.actionResult();
+      stdout = fetchIntermediateStdout(context, actionResult);
+    }
+    if (stdout == null) {
+      // The stdout has expired while the action result remained in the cache, so the entry can't
+      // be followed. The fetch that follows the miss rebuilds it.
+      return new CacheEntry.Intermediate(ImmutableList.of());
     }
 
     // The action result's stdout contains multiple lines, each representing a batch of
     // RepoRecordedInputs separated by spaces. A given batch is valid only if all inputs in the
     // batch are, but separate batches are tried independently.
     var nextInputBatches =
-        stdoutFuture
-            .resultNow()
+        stdout
             .lines()
             .map(
                 line ->
@@ -647,6 +657,23 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         .addString(hash)
         .addString(inputWithValue.toString())
         .hexDigestAndReset();
+  }
+
+  /** Returns the stdout of an intermediate entry, or null if it has expired from the cache. */
+  @Nullable
+  private String fetchIntermediateStdout(
+      RemoteActionExecutionContext context, ActionResult actionResult)
+      throws IOException, InterruptedException {
+    var stdoutFuture = fetchStdout(context, actionResult);
+    try {
+      waitForBulkTransfer(ImmutableList.of(stdoutFuture));
+    } catch (BulkTransferException e) {
+      if (e.allCausedByCacheNotFoundException()) {
+        return null;
+      }
+      throw e;
+    }
+    return stdoutFuture.resultNow();
   }
 
   private ListenableFuture<String> fetchStdout(

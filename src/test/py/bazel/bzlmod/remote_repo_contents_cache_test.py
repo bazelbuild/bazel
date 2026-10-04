@@ -509,6 +509,97 @@ class RemoteRepoContentsCacheTest(
     with open(os.path.join(self.RepoDir('my_repo'), 'data.txt')) as f:
       self.assertEqual(f.read(), 'b')
 
+  def _writeSwitchRepo(self):
+    """Writes a repo whose contents depend on the SWITCH environment variable."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  switch = rctx.getenv("SWITCH")',
+            '  value = rctx.getenv("A") if switch == "a" else rctx.getenv("B")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", value)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+  def testDiskCache_remoteUnavailable_usesDiskIndex(self):
+    # A complete hit from the disk cache doesn't depend on the remote cache
+    # being reachable to refresh the index.
+    self._writeSwitchRepo()
+    disk_cache = ['--disk_cache=' + self.Path('disk_cache')]
+    env = ['--repo_env=A=a', '--repo_env=B=b']
+    target = '@my_repo//:data.txt'
+
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    self.RestartRemoteWorker(['--unavailable'])
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', '--remote_retries=0', target]
+        + env
+        + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(self.RepoDir('my_repo'), 'data.txt')) as f:
+      self.assertEqual(f.read(), 'a')
+
+  def testDiskCache_refreshedIndexStdoutExpired_usesDiskIndex(self):
+    # The index refreshed from the remote cache can't be followed if its stdout
+    # has expired, but the alternatives of the disk cache's copy still can.
+    self.RestartRemoteWorker(['--noaction_cache_integrity_check'])
+    self._writeSwitchRepo()
+    disk_cache = ['--disk_cache=' + self.Path('disk_cache')]
+    env = ['--repo_env=A=a', '--repo_env=B=b']
+    target = '@my_repo//:data.txt'
+
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # A client without a disk cache adds an alternative to the remote index.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=b', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The blobs of the remote cache expire, including the stdout of the new
+    # index, while its action result remains.
+    for root, _, files in os.walk(os.path.join(self._cas_path, 'cas')):
+      for name in files:
+        os.remove(os.path.join(root, name))
+
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(self.RepoDir('my_repo'), 'data.txt')) as f:
+      self.assertEqual(f.read(), 'a')
+
   def testRecordedInputs_differentInputs(self):
     platform_file = self.ScratchFile('platform.txt')
 
