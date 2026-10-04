@@ -16,6 +16,7 @@
 # pylint: disable=g-bad-todo
 
 import os
+import shutil
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel.bzlmod import remote_repo_contents_cache_test_base
@@ -786,6 +787,61 @@ class RemoteRepoContentsCacheTest(
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(other_repo_dir, 'BUILD')))
+
+  def testGlobThroughSymlinkIntoCachedRepo_coldServer(self):
+    # A repo that isn't cached symlinks a directory of a cached repo into its
+    # tree and globs through it. A server that hasn't looked up the cached repo
+    # yet serves nothing for it, so the glob depends on the native repo's
+    # marker file making the cached repo a dependency.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'native_repo = use_repo_rule("//:repos.bzl", "native_repo")',
+            'cached_repo = use_repo_rule("//:repos.bzl", "cached_repo")',
+            'native_repo(name = "a")',
+            'cached_repo(name = "b")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repos.bzl',
+        [
+            'def _cached_repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files(glob([\'tree/**\']))")',
+            '  rctx.file("tree/sub/data.txt", "b")',
+            '  return rctx.repo_metadata(reproducible = True)',
+            'cached_repo = repository_rule(_cached_repo_impl)',
+            'def _native_repo_impl(rctx):',
+            '  rctx.symlink(Label("@b//:tree"), "aggregate/linked")',
+            '  rctx.file("aggregate/native.txt", "a")',
+            '  rctx.file(',
+            '      "BUILD",',
+            '      "filegroup(name = \'globbed\', srcs = glob([\'aggregate/**/*.txt\']))",',
+            '  )',
+            'native_repo = repository_rule(_native_repo_impl)',
+        ],
+    )
+    query = ['query', 'deps(@a//:globbed)', '--output=label']
+
+    _, stdout, _ = self.RunBazel(query)
+    self.assertIn('//:aggregate/linked/sub/data.txt', '\n'.join(stdout))
+
+    # The cached repo's materialized copy and marker are gone, e.g. after an
+    # eviction, so a restarted server only learns about it from the cache.
+    cached_repo_dir = self.RepoDir('b')
+    shutil.rmtree(cached_repo_dir)
+    os.remove(
+        os.path.join(
+            os.path.dirname(cached_repo_dir),
+            '@' + os.path.basename(cached_repo_dir) + '.marker',
+        )
+    )
+    self.RunBazel(['shutdown'])
+
+    _, stdout, _ = self.RunBazel(query)
+    stdout = '\n'.join(stdout)
+    self.assertIn('//:aggregate/native.txt', stdout)
+    self.assertIn('//:aggregate/linked/sub/data.txt', stdout)
 
   def testUseRepoFileInBuildRule_actionUsesCache(self):
     self.ScratchFile(
