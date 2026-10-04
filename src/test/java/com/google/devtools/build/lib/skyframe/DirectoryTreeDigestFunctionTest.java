@@ -306,11 +306,12 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
   }
 
   public static boolean excludes(DirectoryTreeDigestValue.Key key, String path) {
-    return DirectoryTreeDigestFunction.excludes(path, key.globBase(), key.excludes(), null);
+    return DirectoryTreeDigestFunction.excludes(
+        PathFragment.create(path), key.globBase(), key.excludes());
   }
 
   public static boolean excludes(DirectoryTreeDigestValue.Key key, RootedPath path) {
-    return DirectoryTreeDigestFunction.excludes(path, key.globBase(), key.excludes(), null);
+    return DirectoryTreeDigestFunction.excludes(path, key.globBase(), key.excludes());
   }
 
   @Test
@@ -349,6 +350,33 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
                 .filter(key -> key.functionName().equals(SkyFunctions.DIRECTORY_TREE_DIGEST))
                 .count())
         .isEqualTo(3);
+  }
+
+  @Test
+  public void excludeWildcardStaysWithinADirectory() throws Exception {
+    scratch.file("dir/top.tmp", "X");
+    scratch.file("dir/sub/nested.tmp", "X");
+    scratch.file("dir/sub/kept.txt", "X");
+    ImmutableList<String> excludes = ImmutableList.of("*.tmp");
+    String oldDigest = getTreeDigest("dir", excludes);
+
+    scratch.overwriteFile("dir/top.tmp", "Y");
+    assertThat(getTreeDigest("dir", excludes)).isEqualTo(oldDigest);
+    scratch.overwriteFile("dir/sub/nested.tmp", "Y");
+    assertThat(getTreeDigest("dir", excludes)).isNotEqualTo(oldDigest);
+  }
+
+  @Test
+  public void excludeUnderDirectoryNamedLikeAPattern() throws Exception {
+    scratch.file("dir(1)/ignored/data", "X");
+    scratch.file("dir(1)/kept", "X");
+    ImmutableList<String> excludes = ImmutableList.of("ignored");
+    String oldDigest = getTreeDigest("dir(1)", excludes);
+
+    scratch.overwriteFile("dir(1)/ignored/data", "Y");
+    assertThat(getTreeDigest("dir(1)", excludes)).isEqualTo(oldDigest);
+    scratch.overwriteFile("dir(1)/kept", "Y");
+    assertThat(getTreeDigest("dir(1)", excludes)).isNotEqualTo(oldDigest);
   }
 
   @Test

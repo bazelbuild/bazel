@@ -35,10 +35,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 
@@ -48,12 +45,10 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, DirectoryTreeDigestFunctionException {
-    Map<String, Pattern> patternCache = new HashMap<>();
     DirectoryTreeDigestValue.Key key = (DirectoryTreeDigestValue.Key) skyKey;
     RootedPath rootedPath = key.rootedPath();
     PathFragment logicalPath = key.logicalPath();
-    if (logicalPath != null
-        && excludes(logicalPath.toString(), key.globBase(), key.excludes(), patternCache)) {
+    if (logicalPath != null && excludes(logicalPath, key.globBase(), key.excludes())) {
       // The path we are trying to compute a digest for is excluded.
       // This should only happen at the very beginning/root of a tree digest as the subsequent
       // computation of digests for child nodes should be excluded before they are asked to be
@@ -80,11 +75,7 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
             .filter(
                 entry ->
                     logicalPath == null
-                        || !excludes(
-                            logicalPath.getRelative(entry).toString(),
-                            key.globBase(),
-                            key.excludes(),
-                            patternCache))
+                        || !excludes(logicalPath.getRelative(entry), key.globBase(), key.excludes()))
             .sorted()
             .collect(toImmutableSet());
 
@@ -205,30 +196,29 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
         .collect(toImmutableList());
   }
 
-  /** Returns if the given {@code rootedPath} would be filtered/excluded out. */
+  /** Returns whether the given {@code rootedPath} is excluded. */
   public static boolean excludes(
-      RootedPath rootedPath,
-      RootedPath globBase,
-      ImmutableList<String> excludes,
-      Map<String, Pattern> patternCache) {
+      RootedPath rootedPath, RootedPath globBase, ImmutableList<String> excludes) {
     // Are we comparing the same roots?
     if (!rootedPath.getRoot().equals(globBase.getRoot())) {
       return false;
     }
-    String path = rootedPath.getRootRelativePath().toString();
-    return excludes(path, globBase, excludes, patternCache);
+    return excludes(rootedPath.getRootRelativePath(), globBase, excludes);
   }
 
-  /** Returns if the given {@code path} would be filtered/excluded out. */
+  /**
+   * Returns whether the given root-relative {@code path} is excluded: whether one of the exclude
+   * patterns matches its path relative to {@code globBase} segment by segment, as in a glob.
+   */
   public static boolean excludes(
-      String path,
-      RootedPath globBase,
-      ImmutableList<String> excludes,
-      Map<String, Pattern> patternCache) {
-    PathFragment baseExclude = globBase.getRootRelativePath();
+      PathFragment path, RootedPath globBase, ImmutableList<String> excludes) {
+    PathFragment base = globBase.getRootRelativePath();
+    if (!path.startsWith(base)) {
+      return false;
+    }
+    String[] segments = path.relativeTo(base).splitToListOfSegments().toArray(new String[0]);
     for (String exclude : excludes) {
-      String excludePattern = baseExclude.getRelative(exclude).toString();
-      if (UnixGlob.matches(excludePattern, path, patternCache)) {
+      if (UnixGlob.matches(exclude.split("/"), segments)) {
         return true;
       }
     }
