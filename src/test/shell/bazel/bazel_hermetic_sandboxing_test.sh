@@ -36,6 +36,9 @@ build --experimental_use_hermetic_linux_sandbox
 build --sandbox_fake_username
 EOF
 
+temporary_directories=()
+trap 'rm -rf "${temporary_directories[@]}"' EXIT
+
 # For the test to work we need to bind mount a couple of folders to
 # get access to bash, ls, python etc. Depending on linux distribution
 # these folders may vary. Mount all folders in the root directory '/'
@@ -426,17 +429,17 @@ EOF
 }
 
 function test_with_sandbox_root_in_tmp() {
-  sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
-  trap 'rm -rf ${sandbox_base_temp_dir}' EXIT
+  local sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
+  temporary_directories+=("${sandbox_base_temp_dir}")
 
   do_hermetic_linux_sandbox_genrule_test ":" \
     --sandbox_base="${sandbox_base_temp_dir}"
 }
 
 function test_bind_mount_within_tmp() {
-  temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
-  trap 'rm -rf ${temp_dir}' EXIT
-  msg="hi there $RANDOM"
+  local temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
+  temporary_directories+=("${temp_dir}")
+  local msg="hi there $RANDOM"
   echo "$msg" > "${temp_dir}/file"
 
   do_hermetic_linux_sandbox_genrule_test "cat ${temp_dir}/file" \
@@ -446,17 +449,17 @@ function test_bind_mount_within_tmp() {
 }
 
 function test_bind_mount_within_tmp_with_sandbox_root_in_tmp() {
-  sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
-  trap 'rm -rf ${sandbox_base_temp_dir}' EXIT
+  local sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
+  temporary_directories+=("${sandbox_base_temp_dir}")
 
   test_bind_mount_within_tmp \
     --sandbox_base="${sandbox_base_temp_dir}"
 }
 
 function test_writable_dir_within_tmp() {
-  temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
-  trap 'rm -rf ${temp_dir}' EXIT
-  msg="hey there $RANDOM"
+  local temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
+  temporary_directories+=("${temp_dir}")
+  local msg="hey there $RANDOM"
 
   do_hermetic_linux_sandbox_genrule_test "echo $msg > ${temp_dir}/file" \
     --sandbox_add_mount_pair="${temp_dir}" \
@@ -467,16 +470,16 @@ function test_writable_dir_within_tmp() {
 }
 
 function test_writable_dir_within_tmp_with_sandbox_root_in_tmp() {
-  sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
-  trap 'rm -rf ${sandbox_base_temp_dir}' EXIT
+  local sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
+  temporary_directories+=("${sandbox_base_temp_dir}")
 
   test_writable_dir_within_tmp \
     --sandbox_base="${sandbox_base_temp_dir}"
 }
 
 function test_tmpfs_within_tmp() {
-  temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
-  trap 'rm -rf ${temp_dir}' EXIT
+  local temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
+  temporary_directories+=("${temp_dir}")
 
   do_hermetic_linux_sandbox_genrule_test "touch ${temp_dir}/file" \
     --sandbox_tmpfs_path="${temp_dir}" \
@@ -486,8 +489,8 @@ function test_tmpfs_within_tmp() {
 }
 
 function test_tmpfs_within_tmp_with_sandbox_root_in_tmp() {
-  sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
-  trap 'rm -rf ${sandbox_base_temp_dir}' EXIT
+  local sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
+  temporary_directories+=("${sandbox_base_temp_dir}")
 
   test_tmpfs_within_tmp \
     --sandbox_base="${sandbox_base_temp_dir}"
@@ -499,8 +502,8 @@ function test_immutable_sources() {
 }
 
 function test_immutable_sources_output_base_in_tmp() {
-  output_base_temp_dir=$(mktemp -d /tmp/output_base.XXXXXX)
-  trap 'rm -rf ${output_base_temp_dir}' EXIT
+  local output_base_temp_dir=$(mktemp -d /tmp/output_base.XXXXXX)
+  temporary_directories+=("${output_base_temp_dir}")
 
   startup_options="--output_base=${output_base_temp_dir}" \
     test_immutable_sources
@@ -508,8 +511,8 @@ function test_immutable_sources_output_base_in_tmp() {
 
 function test_bind_mounts_immutable() {
   # test that bind mounts are immutable unless specified as a writable dir
-  temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
-  trap 'rm -rf ${temp_dir}' EXIT
+  local temp_dir=$(mktemp -d /tmp/test_tmp.XXXXXX)
+  temporary_directories+=("${temp_dir}")
 
   do_hermetic_linux_sandbox_genrule_test "! touch ${temp_dir}/file" \
     --sandbox_add_mount_pair="${temp_dir}" \
@@ -525,8 +528,8 @@ function test_bind_mounts_immutable() {
 }
 
 function test_bind_mounts_immutable_with_sandbox_root_in_tmp() {
-  sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
-  trap 'rm -rf ${sandbox_base_temp_dir}' EXIT
+  local sandbox_base_temp_dir=$(mktemp -d /tmp/sandbox_base.XXXXXX)
+  temporary_directories+=("${sandbox_base_temp_dir}")
 
   test_bind_mounts_immutable \
     --sandbox_base="${sandbox_base_temp_dir}"
