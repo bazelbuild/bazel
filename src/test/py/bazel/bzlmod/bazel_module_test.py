@@ -1391,6 +1391,44 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.assertIn('https://unknown-registry.example.com', stderr)
 
+  def testRepoRuleSymlinkIntoOtherRepo_otherRepoFetchedFirst(self):
+    # A repo that symlinks into another repo sees that repo's current contents
+    # when its packages are loaded, even after a server restart has left it
+    # without a Skyframe dependency on the other repo.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo_a = use_repo_rule("//:repos.bzl", "repo_a")',
+            'repo_b = use_repo_rule("//:repos.bzl", "repo_b")',
+            'repo_a(name = "a")',
+            'repo_b(name = "b")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repos.bzl',
+        [
+            'def _repo_b_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files(glob([\'tree/**\']))")',
+            '  rctx.file("tree/" + rctx.getenv("B_FILE"), "")',
+            'repo_b = repository_rule(_repo_b_impl)',
+            'def _repo_a_impl(rctx):',
+            '  rctx.symlink(Label("@b//:tree"), "linked")',
+            '  rctx.file("BUILD", "filegroup(name = \'all\', srcs = glob([\'linked/**\']))")',
+            'repo_a = repository_rule(_repo_a_impl)',
+        ],
+    )
+    query = ['query', 'deps(@a//:all)', '--output=label']
+
+    _, stdout, _ = self.RunBazel(query + ['--repo_env=B_FILE=old'])
+    self.assertIn('//:linked/old', '\n'.join(stdout))
+
+    self.RunBazel(['shutdown'])
+    _, stdout, _ = self.RunBazel(query + ['--repo_env=B_FILE=new'])
+    stdout = '\n'.join(stdout)
+    self.assertIn('//:linked/new', stdout)
+    self.assertNotIn('//:linked/old', stdout)
+
   def testInvalidRepoRuleReferencedByTargetDoesNotCrash(self):
     self.ScratchFile(
         'MODULE.bazel',
