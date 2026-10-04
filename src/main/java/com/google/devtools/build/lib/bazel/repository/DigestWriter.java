@@ -83,9 +83,19 @@ public class DigestWriter {
       builder.append(recordedInputValue).append('\n');
     }
     String content = builder.toString();
+    // The marker is written to a sibling that is renamed into place so that it is either complete
+    // or absent: the parser accepts a prefix of it that ends after the hash or a complete line.
+    Path tempMarkerPath =
+        markerPath.getParentDirectory().getChild(markerPath.getBaseName() + ".tmp");
     try {
-      FileSystemUtils.writeContent(markerPath, ISO_8859_1, content);
+      FileSystemUtils.writeContent(tempMarkerPath, ISO_8859_1, content);
+      tempMarkerPath.renameTo(markerPath);
     } catch (IOException e) {
+      try {
+        tempMarkerPath.delete();
+      } catch (IOException ignored) {
+        // The next write of the marker overwrites the sibling.
+      }
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
   }
