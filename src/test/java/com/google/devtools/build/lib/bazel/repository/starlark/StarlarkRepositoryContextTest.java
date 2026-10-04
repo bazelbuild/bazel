@@ -136,7 +136,6 @@ public final class StarlarkRepositoryContextTest {
         .environ(ImmutableSet.of())
         .local(false)
         .remotable(remotable)
-        .recordedRepoMappingEntries(ImmutableTable.of())
         .transitiveBzlDigest(ByteString.EMPTY);
     repoRuleBuilder
         .idBuilder()
@@ -175,7 +174,12 @@ public final class StarlarkRepositoryContextTest {
     RepoSpec repoSpec =
         repoRule.instantiate(kwargs, DUMMY_STACK, labelConverter, listener, "somewhere");
     RepoDefinition repoDefinition =
-        new RepoDefinition(repoRule, repoSpec.attributes(), (String) kwargs.get("name"), null);
+        new RepoDefinition(
+            repoRule,
+            repoSpec.attributes(),
+            (String) kwargs.get("name"),
+            /* originalName= */ null,
+            ImmutableTable.of());
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);

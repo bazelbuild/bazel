@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
@@ -26,10 +28,18 @@ import net.starlark.java.spelling.SpellChecker;
 /**
  * A fully-loaded repo definition, ready to be fetched. This class doubles as a Starlark value that
  * provides its own attribute struct.
+ *
+ * @param recordedRepoMappingEntries The repo mapping entries recorded while loading the .bzl file
+ *     that defines the repo rule and its transitive loads, which cover every Label the rule's
+ *     implementation function can refer to.
  */
 @AutoCodec
 public record RepoDefinition(
-    RepoRule repoRule, AttributeValues attrValues, String name, @Nullable String originalName)
+    RepoRule repoRule,
+    AttributeValues attrValues,
+    String name,
+    @Nullable String originalName,
+    ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries)
     implements Structure {
 
   @Override
