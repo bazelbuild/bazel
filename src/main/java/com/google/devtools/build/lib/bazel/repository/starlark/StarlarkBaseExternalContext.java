@@ -1118,7 +1118,7 @@ Strip the given number of leading components from file paths on extraction. Only
     createDirectory(outputPath.getPath());
 
     Path downloadedPath;
-    Path downloadDirectory;
+    Path downloadDirectory = null;
     try {
       // Download to temp directory inside the outputDirectory and delete it after extraction
       downloadDirectory = outputPath.getPath().createTempDirectory("temp");
@@ -1154,6 +1154,11 @@ Strip the given number of leading components from file paths on extraction. Only
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
+        // The repository rule may fall back to other contents of the output directory, which must
+        // not include the download directory.
+        if (downloadDirectory != null) {
+          deleteTreeWithRetries(downloadDirectory);
+        }
         ImmutableMap<String, Object> struct =
             ImmutableMap.of("success", false, "error", e.toString());
         return StarlarkInfo.create(StructProvider.STRUCT, struct);
