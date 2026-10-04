@@ -1154,8 +1154,7 @@ Strip the given number of leading components from file paths on extraction. Only
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
-        // The repository rule may fall back to other contents of the output directory, which must
-        // not include the download directory.
+        // Ensure deterministic contents of the repo directory in case it recovers.
         if (downloadDirectory != null) {
           deleteTreeWithRetries(downloadDirectory);
         }
