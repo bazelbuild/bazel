@@ -40,6 +40,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -555,8 +556,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
             .collect(toImmutableList());
     var uniqueNextInputs =
         nextInputBatches.stream().flatMap(List::stream).collect(toImmutableSet());
-    requestedInputs.addAll(uniqueNextInputs);
-    RepoRecordedInput.prefetch(env, directories, uniqueNextInputs);
+    // Inputs that may make this repo depend on another one are requested speculatively: if such an
+    // input forms a cycle, e.g. because the other repo has come to depend on this one since the
+    // alternative was recorded, the dependency is cut and the alternative skipped.
+    var cutInputs = RepoRecordedInput.prefetchSpeculatively(env, directories, uniqueNextInputs);
+    requestedInputs.addAll(Sets.difference(uniqueNextInputs, cutInputs));
     if (env.valuesMissing()) {
       return null;
     }
@@ -565,6 +569,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     for (var batch : nextInputBatches) {
       var rollingHash = inputHash;
       for (var input : batch) {
+        if (cutInputs.contains(input)) {
+          continue nextBatch;
+        }
         var value = input.getValue(env, directories);
         // Values have been prefetched above.
         Preconditions.checkState(!env.valuesMissing());

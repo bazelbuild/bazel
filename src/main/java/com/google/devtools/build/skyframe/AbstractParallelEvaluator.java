@@ -122,7 +122,8 @@ abstract class AbstractParallelEvaluator {
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
       CycleDetector cycleDetector,
-      Predicate<SkyKey> keepGoing) {
+      Predicate<SkyKey> keepGoing,
+      SpeculativeDeps speculativeDeps) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
     this.evaluatorContext =
@@ -140,7 +141,8 @@ abstract class AbstractParallelEvaluator {
             executor,
             () -> new NodeEntryVisitor(executor, progressReceiver, Evaluate::new, stateCache),
             stateCache,
-            keepGoing);
+            keepGoing,
+            speculativeDeps);
   }
 
   /**

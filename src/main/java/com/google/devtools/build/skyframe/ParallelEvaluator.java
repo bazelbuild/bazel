@@ -78,6 +78,44 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       CycleDetector cycleDetector,
       UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver,
       Predicate<SkyKey> keepGoing) {
+    this(
+        graph,
+        graphVersion,
+        minimalVersion,
+        skyFunctions,
+        reporter,
+        emittedEventState,
+        storedEventFilter,
+        errorInfoManager,
+        progressReceiver,
+        graphInconsistencyReceiver,
+        executor,
+        cycleDetector,
+        unnecessaryTemporaryStateDropperReceiver,
+        keepGoing,
+        new SpeculativeDeps());
+  }
+
+  /**
+   * Prototype of speculative dependencies: {@code speculativeDeps} is shared by the rounds of an
+   * evaluation, see {@link #eval}.
+   */
+  public ParallelEvaluator(
+      ProcessableGraph graph,
+      Version graphVersion,
+      Version minimalVersion,
+      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
+      ExtendedEventHandler reporter,
+      EmittedEventState emittedEventState,
+      EventFilter storedEventFilter,
+      ErrorInfoManager errorInfoManager,
+      InflightTrackingProgressReceiver progressReceiver,
+      GraphInconsistencyReceiver graphInconsistencyReceiver,
+      QuiescingExecutor executor,
+      CycleDetector cycleDetector,
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver,
+      Predicate<SkyKey> keepGoing,
+      SpeculativeDeps speculativeDeps) {
     super(
         graph,
         graphVersion,
@@ -91,7 +129,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         graphInconsistencyReceiver,
         executor,
         cycleDetector,
-        keepGoing);
+        keepGoing,
+        speculativeDeps);
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
   }
 
@@ -131,6 +170,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             /* directDeps= */ null);
   }
 
+  @Nullable
   @ThreadCompatible
   private <T extends SkyValue> EvaluationResult<T> doMutatingEvaluation(
       ImmutableSet<SkyKey> skyKeys, BitSet doneBeforeEvaluation) throws InterruptedException {
@@ -202,6 +242,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     }
   }
 
+  @Nullable
   private <T extends SkyValue> EvaluationResult<T> waitForCompletionAndConstructResult(
       Iterable<SkyKey> skyKeys) throws InterruptedException {
     Map<SkyKey, ValueWithMetadata> bubbleErrorInfo = null;
@@ -506,6 +547,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
    * <p>{@code visitor} may be null, but only in the case where all graph entries corresponding to
    * {@code skyKeys} are known to be in the DONE state ({@code entry.isDone()} returns true).
    */
+  @Nullable
   private <T extends SkyValue> EvaluationResult<T> constructResult(
       Iterable<SkyKey> skyKeys,
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
@@ -567,6 +609,11 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       try (AutoProfiler p =
           GoogleAutoProfilerUtils.logged("Checking for Skyframe cycles", Duration.ofMillis(10))) {
         cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
+      }
+      if (evaluatorContext.speculativeDeps().consumeCut()) {
+        // Prototype: a cycle was broken at a speculative dependency, so this round has no result
+        // and the evaluation goes on in a new one.
+        return null;
       }
     }
     Preconditions.checkState(
@@ -639,7 +686,13 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
   /**
    * Evaluates a set of values. Returns an {@link EvaluationResult}. All elements of skyKeys must be
    * keys for Values of subtype T.
+   *
+   * <p>Prototype of speculative dependencies: returns null if the cycle detector cut a speculative
+   * dependency, which ends this round of the evaluation. The caller deletes the nodes that were in
+   * flight and evaluates again with the same {@link SpeculativeDeps}, so that the node that requested
+   * the cut dependency sees it among its cut dependencies.
    */
+  @Nullable
   @ThreadCompatible
   public <T extends SkyValue> EvaluationResult<T> eval(Iterable<? extends SkyKey> skyKeys)
       throws InterruptedException {
@@ -694,7 +747,13 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         () -> evaluatorContext.stateCache().invalidateAll());
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.SKYFRAME_EVAL, "Parallel Evaluator evaluation")) {
-      return doMutatingEvaluation(skyKeySet, doneBeforeEvaluation);
+      EvaluationResult<T> result = doMutatingEvaluation(skyKeySet, doneBeforeEvaluation);
+      if (result == null) {
+        // The nodes that were in flight when the dependency was cut are deleted before the next
+        // round, so their compute states are closed.
+        stateCache.invalidateAll();
+      }
+      return result;
     } finally {
       unnecessaryTemporaryStateDropperReceiver.onEvaluationFinished();
     }
