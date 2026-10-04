@@ -473,7 +473,7 @@ public class StarlarkAction extends SpawnAction {
                   ISO_8859_1))) {
         String line;
         while ((line = br.readLine()) != null) {
-          line = line.trim();
+          // Only the line terminator is dropped: a file name may begin or end with whitespace.
           if (line.isEmpty()) {
             continue;
           }
