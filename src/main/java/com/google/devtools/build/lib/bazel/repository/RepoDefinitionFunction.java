@@ -282,7 +282,7 @@ public final class RepoDefinitionFunction implements SkyFunction {
 
   /**
    * A repo rule together with the repo mapping entries recorded while loading its .bzl file, which
-   * is only complete once the file has been loaded entirely: the file may define Labels that the
+   * is only complete once the file has been loaded entirely as the file may define Labels that the
    * implementation function refers to after the repository_rule call.
    */
   private record LoadedRepoRule(
