@@ -55,6 +55,14 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRepositoryRoundTrip() throws Exception {
+    var input = new RepoRecordedInput.Repository(RepositoryName.create("+ext+repo"));
+
+    assertThat(input.toString()).startsWith("REPO:");
+    assertThat(RepoRecordedInput.parse(input.toString())).isEqualTo(input);
+  }
+
+  @Test
   public void testMarkerFileEscaping() {
     assertMarkerFileEscaping(null);
     assertMarkerFileEscaping("\\0");
