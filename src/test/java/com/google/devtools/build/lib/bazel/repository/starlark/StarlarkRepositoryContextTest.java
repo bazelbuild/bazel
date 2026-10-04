@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepoRule;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkBaseExternalContext.ShouldWatch;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -709,6 +710,19 @@ public final class StarlarkRepositoryContextTest {
             context.getRecordedInputs().stream()
                 .filter(inputAndValue -> inputAndValue.input() instanceof RepoRecordedInput.File))
         .isEmpty();
+  }
+
+  @Test
+  public void testWatchFileOfRepoUnderOutputBaseInsideWorkspace() throws Exception {
+    // E.g. --output_base=$PWD/.ob.
+    outputBase = scratch.dir(root.getRelative(".ob").getPathString());
+    setUpRepo("test");
+    Path file = scratch.file(root.getRelative(".ob/external/+a+dep/data.txt").getPathString());
+
+    assertThat(context.toRepoCacheFriendlyPath(file, ShouldWatch.YES))
+        .isEqualTo(
+            RepoCacheFriendlyPath.createInsideWorkspace(
+                RepositoryName.create("+a+dep"), PathFragment.create("data.txt")));
   }
 
   @Test
