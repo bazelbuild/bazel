@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -221,12 +222,20 @@ public final class LocalRepoContentsCache {
       public void run() throws InterruptedException, IdleTaskException {
         try {
           Preconditions.checkState(path != null);
+          Collection<Path> trashEntries;
           // If we can't grab the lock, abort GC. Someone will come along later.
           try (var lock = FileSystemLock.tryGet(path.getRelative(LOCK_PATH), LockMode.EXCLUSIVE)) {
             runGc(maxAge);
-            // The trash dir also holds the marker file of a repo while moveToCache moves the repo
-            // into the cache, which another server may start as soon as the lock is released.
-            path.getChild(TRASH_PATH).deleteTreesBelow();
+            // Snapshot the trash while no moveToCache can be staging a live marker file in it.
+            // Trash entries have unique names, so deleting only these paths after releasing the
+            // lock cannot delete a marker file created by another server in the meantime.
+            trashEntries = path.getChild(TRASH_PATH).getDirectoryEntries();
+          }
+          for (Path trashEntry : trashEntries) {
+            if (Thread.interrupted()) {
+              throw new InterruptedException();
+            }
+            trashEntry.deleteTree();
           }
         } catch (IOException e) {
           throw new IdleTaskException(e);
