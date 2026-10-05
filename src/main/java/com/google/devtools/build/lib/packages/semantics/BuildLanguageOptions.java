@@ -556,6 +556,18 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getIncompatibleDisableStarlarkHostTransitions();
 
   @Option(
+      name = "incompatible_disallow_execution_info_exec_group",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, disables the `exec_group` parameter of `testing.ExecutionInfo`. Test"
+              + " rules that need to execute tests with particular toolchains or execution"
+              + " constraints should declare them on their \"test\" exec group instead.")
+  public abstract boolean getIncompatibleDisallowExecutionInfoExecGroup();
+
+  @Option(
       name = "incompatible_disable_objc_library_transition",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -964,6 +976,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
                 getIncompatibleDisableStarlarkHostTransitions())
             .setBool(
+                INCOMPATIBLE_DISALLOW_EXECUTION_INFO_EXEC_GROUP,
+                getIncompatibleDisallowExecutionInfoExecGroup())
+            .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 getIncompatibleDisableObjcLibraryTransition())
             .set(INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS, getIncompatibleDisableTransitionsOn())
@@ -1155,6 +1170,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "+incompatible_unambiguous_label_stringification";
   public static final String INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS =
       "-incompatible_disable_starlark_host_transitions";
+  public static final String INCOMPATIBLE_DISALLOW_EXECUTION_INFO_EXEC_GROUP =
+      "-incompatible_disallow_execution_info_exec_group";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "+incompatible_disable_objc_library_transition";
   public static final String ADD_GO_EXEC_GROUPS_TO_BINARY_RULES =

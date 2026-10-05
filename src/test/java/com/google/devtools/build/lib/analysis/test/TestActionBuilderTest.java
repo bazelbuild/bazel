@@ -874,6 +874,40 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testOverrideExecGroupDisallowedByFlag() throws Exception {
+    setBuildLanguageOptions("--incompatible_disallow_execution_info_exec_group");
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+                testing.ExecutionInfo({}, exec_group = "custom_group"),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            exec_groups = {"custom_group": exec_group()},
+            test = True,
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        "some_test(name = 'custom_exec_group_test')");
+    reporter.removeHandler(failFastHandler);
+
+    assertThat(getConfiguredTarget("//:custom_exec_group_test")).isNull();
+
+    assertContainsEvent("exec_group");
+    assertContainsEvent(
+        "It may be temporarily re-enabled by setting"
+            + " --incompatible_disallow_execution_info_exec_group=false");
+  }
+
+  @Test
   public void testNonExecutableCoverageReportGenerator() throws Exception {
     useConfiguration(
         "--coverage_report_generator=//bad_gen:bad_cov_gen", "--collect_code_coverage");
