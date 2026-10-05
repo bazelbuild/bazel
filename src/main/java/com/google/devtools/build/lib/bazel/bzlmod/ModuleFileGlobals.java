@@ -226,8 +226,7 @@ public class ModuleFileGlobals {
   @StarlarkMethod(
       name = "bazel_dep",
       doc =
-          "Declares a direct dependency on another Bazel module. A module cannot depend on itself,"
-              + " regardless of the version or repository name specified.",
+          "Declares a direct dependency on another Bazel module.",
       parameters = {
         @Param(
             name = "name",
