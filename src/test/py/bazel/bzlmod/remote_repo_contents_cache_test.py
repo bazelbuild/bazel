@@ -374,6 +374,232 @@ class RemoteRepoContentsCacheTest(
     with open(self.Path('bazel-bin/platform.txt')) as f:
       self.assertEqual(f.read().strip(), 'macOS')
 
+  def testLostMarkerFile_otherEntryUsed(self):
+    # The test worker would inline the marker file into the cache entry, unlike
+    # caches that don't support inlining, and would refuse to serve an entry
+    # whose marker file is gone, unlike caches that don't check their blobs.
+    self.RestartRemoteWorker(
+        ['--noinline_output_files', '--noaction_cache_integrity_check']
+    )
+    # Two fetches of the same repo that read their inputs in different orders
+    # (chosen by a client environment variable, which isn't recorded) produce two
+    # cache entries: the external file is read first and both inputs end up in
+    # one batch, or the main repo file is read first and the external file,
+    # which can't be requested unconditionally, starts a second batch. The
+    # one-batch entry is found first. If its marker file has been lost, the
+    # other entry is used. The canonical repo name avoids recording the repo
+    # mapping, which would start the second batch in both orders.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'other = use_repo_rule("//:repo.bzl", "other")',
+            'other(name = "other")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel', ['exports_files(["m.txt"])'])
+    self.ScratchFile('m.txt', ['m'])
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _other_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'b.txt\'])")',
+            '  rctx.file("b.txt", "b")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'other = repository_rule(_other_impl)',
+            'def _repo_impl(rctx):',
+            '  if rctx.os.environ.get("ORDER") == "m_first":',
+            '    m = rctx.read(Label("//:m.txt"))',
+            '    b = rctx.read(Label("@@+other+other//:b.txt"))',
+            '  else:',
+            '    b = rctx.read(Label("@@+other+other//:b.txt"))',
+            '    m = rctx.read(Label("//:m.txt"))',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", b + m)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+    marker_path = os.path.join(
+        os.path.dirname(repo_dir), '@' + os.path.basename(repo_dir) + '.marker'
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(marker_path, 'rb') as f:
+      b_first_marker = f.read()
+
+    # The remote cache loses the marker file of the first fetch's entry, so the
+    # second fetch, which reads the inputs in the other order, has to run and
+    # adds an entry with two batches next to the first one.
+    self.DeleteCasEntry(b_first_marker)
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@my_repo//:data.txt'], env_add={'ORDER': 'm_first'}
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(marker_path, 'rb') as f:
+      m_first_marker = f.read()
+    self.assertNotEqual(b_first_marker, m_first_marker)
+
+    # The first fetch's entry is still found first, but only the second one's
+    # is complete.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(repo_dir, 'data.txt')) as f:
+      self.assertEqual(f.read(), 'bm\n')
+
+  def testDiskCache_newerAlternativeFoundRemotely(self):
+    # An intermediate entry is an index of alternative batches of recorded
+    # inputs. A client with a disk cache has an older version of the index and
+    # must still find an alternative that another client added remotely later.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  switch = rctx.getenv("SWITCH")',
+            '  value = rctx.getenv("A") if switch == "a" else rctx.getenv("B")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", value)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    disk_cache = ['--disk_cache=' + self.Path('disk_cache')]
+    env = ['--repo_env=A=a', '--repo_env=B=b']
+    target = '@my_repo//:data.txt'
+
+    # The client with the disk cache fetches with SWITCH=a and then reads the
+    # index for SWITCH=a from the remote cache into its disk cache.
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # A client without a disk cache fetches with SWITCH=b, which adds an
+    # alternative to the remote index.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=b', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The client with the disk cache finds the alternative for SWITCH=b.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=b', target] + env + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(self.RepoDir('my_repo'), 'data.txt')) as f:
+      self.assertEqual(f.read(), 'b')
+
+  def _writeSwitchRepo(self):
+    """Writes a repo whose contents depend on the SWITCH environment variable."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  switch = rctx.getenv("SWITCH")',
+            '  value = rctx.getenv("A") if switch == "a" else rctx.getenv("B")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", value)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+  def testDiskCache_remoteUnavailable_usesDiskIndex(self):
+    # A complete hit from the disk cache doesn't depend on the remote cache
+    # being reachable to refresh the index.
+    self._writeSwitchRepo()
+    disk_cache = ['--disk_cache=' + self.Path('disk_cache')]
+    env = ['--repo_env=A=a', '--repo_env=B=b']
+    target = '@my_repo//:data.txt'
+
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    self.RestartRemoteWorker(['--unavailable'])
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', '--remote_retries=0', target]
+        + env
+        + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(self.RepoDir('my_repo'), 'data.txt')) as f:
+      self.assertEqual(f.read(), 'a')
+
+  def testDiskCache_refreshedIndexStdoutExpired_usesDiskIndex(self):
+    # The index refreshed from the remote cache can't be followed if its stdout
+    # has expired, but the alternatives of the disk cache's copy still can.
+    self.RestartRemoteWorker(['--noaction_cache_integrity_check'])
+    self._writeSwitchRepo()
+    disk_cache = ['--disk_cache=' + self.Path('disk_cache')]
+    env = ['--repo_env=A=a', '--repo_env=B=b']
+    target = '@my_repo//:data.txt'
+
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # A client without a disk cache adds an alternative to the remote index.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=b', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The blobs of the remote cache expire, including the stdout of the new
+    # index, while its action result remains.
+    for root, _, files in os.walk(os.path.join(self._cas_path, 'cas')):
+      for name in files:
+        os.remove(os.path.join(root, name))
+
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=SWITCH=a', target] + env + disk_cache
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(self.RepoDir('my_repo'), 'data.txt')) as f:
+      self.assertEqual(f.read(), 'a')
+
   def testRecordedInputs_differentInputs(self):
     platform_file = self.ScratchFile('platform.txt')
 

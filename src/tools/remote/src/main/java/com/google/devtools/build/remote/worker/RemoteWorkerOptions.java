@@ -235,6 +235,17 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   public abstract boolean getErrorOnDuplicateDownloads();
 
   @Option(
+      name = "inline_output_files",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If false, the contents of output files are never inlined into action results. This"
+              + " emulates remote caches that don't support inlining and is useful for testing"
+              + " only.")
+  public abstract boolean getInlineOutputFiles();
+
+  @Option(
       name = "action_cache_integrity_check",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
