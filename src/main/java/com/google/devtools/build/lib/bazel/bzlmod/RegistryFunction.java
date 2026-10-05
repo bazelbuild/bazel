@@ -107,20 +107,21 @@ public class RegistryFunction implements SkyFunction {
 
   /**
    * Local registry files are read outside of Skyframe, so nothing would otherwise invalidate the
-   * {@link Registry} (and the values computed from its files) when they change. For {@code file://}
-   * registries, this requests the digest of the registry tree purely to add a Skyframe dependency
-   * on it; the value itself is unused.
+   * {@link Registry} (and the values computed from its files) when they change. For {@code
+   * watch+file://} registries, this requests the digest of the registry tree purely to add a
+   * Skyframe dependency on it; the value itself is unused. Plain {@code file://} registries are not
+   * watched, since every file in the tree is then checked for changes on each command.
    *
    * @return false if the digest has not been computed yet and the caller must return null
    */
   private boolean addLocalRegistryTreeDependency(String url, Environment env)
       throws URISyntaxException, InterruptedException, RegistryException {
     URI uri = new URI(url);
-    if (!"file".equals(uri.getScheme())) {
+    if (!RegistryFactoryImpl.WATCHED_FILE_SCHEME.equals(uri.getScheme())) {
       return true;
     }
-    // Unix:    file:///tmp --> /tmp
-    // Windows: file:///C:/tmp --> C:/tmp
+    // Unix:    watch+file:///tmp --> /tmp
+    // Windows: watch+file:///C:/tmp --> C:/tmp
     String path = uri.getPath().substring(OS.getCurrent() == OS.WINDOWS ? 1 : 0);
     RootedPath registryRoot =
         RootedPath.toRootedPath(
