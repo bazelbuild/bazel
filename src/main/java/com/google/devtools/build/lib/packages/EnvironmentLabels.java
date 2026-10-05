@@ -20,10 +20,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Parts of an {@link EnvironmentGroup} that are needed for analysis. Since {@link EnvironmentGroup}
@@ -34,6 +37,7 @@ import java.util.Set;
  * mutability of fulfillersMap means that we must take care to wait until it is set before doing
  * anything with this class.e
  */
+@AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
 public final class EnvironmentLabels {
   final Label label;
   final ImmutableSet<Label> environments;
@@ -44,7 +48,7 @@ public final class EnvironmentLabels {
    * can't set this map until all Target instances for member environments have been initialized,
    * which occurs after group instantiation (this makes the class mutable).
    */
-  private Map<Label, ImmutableSortedSet<Label>> fulfillersMap;
+  @Nullable private ImmutableSortedMap<Label, ImmutableSortedSet<Label>> fulfillersMap;
 
   EnvironmentLabels(Label label, Collection<Label> environments, Collection<Label> defaults) {
     this(label, environments, defaults, null);
@@ -54,15 +58,16 @@ public final class EnvironmentLabels {
    * Only for use by serialization: the mutable fulfillersMap object is not properly initialized
    * otherwise during deserialization.
    */
-  private EnvironmentLabels(
+  @AutoCodec.Instantiator
+  EnvironmentLabels(
       Label label,
       Collection<Label> environments,
       Collection<Label> defaults,
-      Map<Label, ImmutableSortedSet<Label>> fulfillersMap) {
+      @Nullable ImmutableSortedMap<Label, ImmutableSortedSet<Label>> fulfillersMap) {
     this.label = label;
     this.environments = ImmutableSortedSet.copyOf(environments);
     this.defaults = ImmutableSortedSet.copyOf(defaults);
-    this.fulfillersMap = fulfillersMap == null ? null : ImmutableSortedMap.copyOf(fulfillersMap);
+    this.fulfillersMap = fulfillersMap;
   }
 
   void assertNotInitialized() {
