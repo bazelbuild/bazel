@@ -172,6 +172,43 @@ function tear_down() {
   rm -rf pkg
 }
 
+# A file name in the unused inputs list may end in a space: the input without the space is a
+# different one and stays used.
+function test_unused_input_name_with_trailing_space() {
+  if is_windows; then
+    # Windows removes trailing spaces from file names, so the two inputs would
+    # be the same file.
+    return
+  fi
+  cat >> pkg/BUILD << 'EOF'
+
+filegroup(
+    name = "space_inputs",
+    srcs = [
+        "space.input",
+        "space.input ",
+    ],
+)
+
+build_rule(
+    name = "space",
+    out = "space.out",
+    executable = ":cat_unused",
+    inputs = ":space_inputs",
+)
+EOF
+  echo "contentA" > pkg/space.input
+  echo "unused" > "pkg/space.input "
+
+  bazel build //pkg:space || fail "build failed"
+  assert_equals "contentA" "$(echo $(cat ${PRODUCT_NAME}-bin/pkg/space.out))"
+  assert_equals "pkg/space.input " "$(cat ${PRODUCT_NAME}-bin/pkg/space.unused)"
+
+  echo "newContentA" > pkg/space.input
+  bazel build //pkg:space || fail "build failed"
+  assert_equals "newContentA" "$(echo $(cat ${PRODUCT_NAME}-bin/pkg/space.out))"
+}
+
 # ----------------------------------------------------------------------
 # HELPER FUNCTIONS
 # ----------------------------------------------------------------------
