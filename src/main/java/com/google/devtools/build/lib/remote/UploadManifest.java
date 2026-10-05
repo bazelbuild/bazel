@@ -80,7 +80,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -390,16 +389,22 @@ public class UploadManifest {
         Multimaps.synchronizedSortedSetMultimap(TreeMultimap.create());
 
     // Maps each directory found during the traversal to its files.
+    // The values in this map are protos and thus retain Strings that do not use Bazel's internal
+    // encoding for Strings (see StringEncoding).
     private final SortedSetMultimap<Path, FileNode> dirToFiles =
         Multimaps.synchronizedSortedSetMultimap(
             TreeMultimap.<Path, FileNode>create(
-                naturalOrder(), comparing(FileNode::getName, comparing(StringEncoding::unicodeToInternal))));
+                naturalOrder(),
+                comparing(FileNode::getName, comparing(StringEncoding::unicodeToInternal))));
 
     // Maps each directory found during the traversal to its symlinks.
+    // The values in this map are protos and thus retain Strings that do not use Bazel's internal
+    // encoding for Strings (see StringEncoding).
     private final SortedSetMultimap<Path, SymlinkNode> dirToSymlinks =
         Multimaps.synchronizedSortedSetMultimap(
             TreeMultimap.<Path, SymlinkNode>create(
-                naturalOrder(), comparing(SymlinkNode::getName, comparing(StringEncoding::unicodeToInternal))));
+                naturalOrder(),
+                comparing(SymlinkNode::getName, comparing(StringEncoding::unicodeToInternal))));
 
     DirectoryBuilder(Path rootDir) {
       super(
