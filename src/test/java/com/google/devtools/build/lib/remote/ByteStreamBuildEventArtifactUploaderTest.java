@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
@@ -205,7 +206,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   public void uploadsShouldIgnoreSpecialFiles() throws Exception {
     Path file = Mockito.spy(fs.getPath("/fifo"));
     FileStatus stat = mock(FileStatus.class);
-    Mockito.doReturn(true).when(stat).isSpecialFile();
+    when(stat.isSpecialFile()).thenReturn(true);
     Mockito.doReturn(stat).when(file).stat();
 
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
