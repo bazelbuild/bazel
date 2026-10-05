@@ -313,6 +313,17 @@ public class ModuleThreadContext extends StarlarkThreadContext {
                     overridingRepoName)
                 .withCallStack(context.repoNameUsages.get(importedAs).stack);
           }
+          if (overridingRepoName.equals(
+              context.module.getRepoName().orElse(context.module.getName()))) {
+            throw Starlark.errorf(
+                    "Cannot import repo '%s' from module extension '%s' because it is overridden"
+                        + " with the root module at %s. Please refer to @%s directly.",
+                    overriddenRepoName,
+                    extensionName,
+                    override.getValue().location(),
+                    overridingRepoName)
+                .withCallStack(context.repoNameUsages.get(importedAs).stack);
+          }
           context.overriddenRepos.put(importedAs, override.getValue());
         }
         context.overridingRepos.put(overridingRepoName, override.getValue());

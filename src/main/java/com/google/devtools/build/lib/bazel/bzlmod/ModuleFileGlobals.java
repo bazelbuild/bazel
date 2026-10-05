@@ -686,6 +686,10 @@ public class ModuleFileGlobals {
           visible to the current module. This is ignored if the current module is not the root
           module or `--ignore_dev_dependency` is enabled.
 
+          <p>A repository may be overridden with the root module itself. In that case, the root
+          module must refer to itself by its own repository name instead of importing the
+          overridden repository with <code>use_repo</code>. Other modules may still import it.
+
           <p>Use <a href="#inject_repo"><code>inject_repo</code></a> instead to add a new repo.
           """,
       parameters = {

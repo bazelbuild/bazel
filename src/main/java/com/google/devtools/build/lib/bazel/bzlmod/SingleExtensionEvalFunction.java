@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -474,7 +475,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 .get()
                 .generateFixup(
                     usagesValue.getExtensionUsages().get(ModuleKey.ROOT),
-                    generatedRepoSpecs.keySet());
+                    generatedRepoSpecs.keySet(),
+                    usagesValue.getRepoOverrides().entrySet().stream()
+                        .filter(e -> e.getValue().isMain())
+                        .map(e -> e.getKey())
+                        .collect(toImmutableSet()));
       } catch (EvalException e) {
         env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
