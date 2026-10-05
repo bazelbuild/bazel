@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
  * <p>postwork - replay events/throw errors from transition implementation function and validate the
  * outputs of the transition. This only applies to Starlark transitions.
  */
-final class TransitionApplier
+public final class TransitionApplier
     implements StateMachine, StateMachine.ValueOrExceptionSink<TransitionException> {
   interface ResultSink extends BuildConfigurationKeyMapProducer.ResultSink {
     void acceptTransitionError(TransitionException e);
@@ -123,29 +123,39 @@ final class TransitionApplier
   }
 
   private StateMachine handleStarlarkTransition(Tasks tasks) throws InterruptedException {
+    StarlarkBuildSettingsDetailsValue.Key detailsKey =
+        getStarlarkBuildSettingsDetailsKey(
+            transition, fromConfiguration.getOptions(), transitionCache);
+    if (!transition.getName().equals("exec") && detailsKey.buildSettings().isEmpty()) {
+      // Quick escape if transition doesn't use any Starlark build settings.
+      buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;
+      return applyStarlarkTransition(tasks);
+    }
+    tasks.lookUp(
+        detailsKey, TransitionException.class, (ValueOrExceptionSink<TransitionException>) this);
+    return this::applyStarlarkTransition;
+  }
+
+  /**
+   * Returns the key of the {@link StarlarkBuildSettingsDetailsValue} that is required to apply the
+   * given Starlark transition to the given options via {@link
+   * StarlarkTransitionCache#computeIfAbsent}.
+   */
+  public static StarlarkBuildSettingsDetailsValue.Key getStarlarkBuildSettingsDetailsKey(
+      ConfigurationTransition transition,
+      BuildOptions fromOptions,
+      StarlarkTransitionCache transitionCache) {
+    CoreOptions coreOptions = fromOptions.get(CoreOptions.class);
     ImmutableSet<Label> starlarkBuildSettings =
         transitionCache.getAllStarlarkBuildSettings(
-            transition,
-            fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap());
-    ImmutableSet<Label> hostFlags;
+            transition, coreOptions.getCommandLineFlagAliasesMap());
 
     // If the transition is the exec transition, we want to look up the host flag declared by
     // users in the blazerc/MODULE.bazel files with alias pointing to the starlark definition. This
     // is useful to determine exec propagation for flags with scope that starts with "exec:--".
-    if (transition.getName().equals("exec")) {
-      hostFlags = fromConfiguration.getOptions().get(CoreOptions.class).getHostFlagAliases();
-    } else if (starlarkBuildSettings.isEmpty()) {
-      // Quick escape if transition doesn't use any Starlark build settings.
-      buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;
-      return applyStarlarkTransition(tasks);
-    } else {
-      hostFlags = ImmutableSet.of();
-    }
-    tasks.lookUp(
-        StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings, hostFlags),
-        TransitionException.class,
-        (ValueOrExceptionSink<TransitionException>) this);
-    return this::applyStarlarkTransition;
+    ImmutableSet<Label> hostFlags =
+        transition.getName().equals("exec") ? coreOptions.getHostFlagAliases() : ImmutableSet.of();
+    return StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings, hostFlags);
   }
 
   @Override
