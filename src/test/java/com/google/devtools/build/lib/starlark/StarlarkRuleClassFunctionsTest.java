@@ -25,9 +25,11 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -43,8 +45,10 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunction
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -102,6 +106,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -137,6 +142,35 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
+
+  private boolean configureRulesCcInModuleFile;
+
+  @Override
+  protected boolean allowExternalRepositories() {
+    return configureRulesCcInModuleFile;
+  }
+
+  @Override
+  protected AnalysisMock getAnalysisMock() {
+    if (!configureRulesCcInModuleFile) {
+      return super.getAnalysisMock();
+    }
+    return new AnalysisMock.Delegate(AnalysisMock.get()) {
+      @Override
+      public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+          BlazeDirectories directories) {
+        // Tests explicitly configure rules_cc as either the root module or a dependency.
+        return ImmutableMap.copyOf(
+            Maps.filterKeys(
+                super.getBuiltinModules(directories), name -> !name.equals("rules_cc")));
+      }
+    };
+  }
+
+  private void setUpRulesCcModuleTest() throws Exception {
+    configureRulesCcInModuleFile = true;
+    initializeSkyframeExecutor();
+  }
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
     return new StarlarkRuleContext(getRuleContextForStarlark(getConfiguredTarget(label)), null);
@@ -4925,6 +4959,136 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  @TestParameters("{moduleDeclaration: \"module(name = 'rules_cc')\", allowed: true}")
+  @TestParameters(
+      "{moduleDeclaration: \"module(name = 'app', repo_name = 'rules_cc')\", allowed: true}")
+  @TestParameters(
+      "{moduleDeclaration: \"module(name = 'rules_cc', repo_name = 'app')\", allowed: false}")
+  public void initializer_privateAttributeUsesRootRepoName(
+      String moduleDeclaration, boolean allowed) throws Exception {
+    setUpRulesCcModuleTest();
+    setBuildLanguageOptions("--experimental_rule_extension_api");
+    rewriteModuleDotBazel(moduleDeclaration);
+    scratch.file(
+        "pkg/defs.bzl",
+        """
+        def initializer(name):
+            return {"_tool": ":tool"}
+
+        def impl(ctx):
+            pass
+
+        my_rule = rule(impl, initializer = initializer, attrs = {"_tool": attr.label()})
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+        filegroup(name = "tool")
+        my_rule(name = "target")
+        """);
+
+    if (allowed) {
+      assertThat(getConfiguredTarget("//pkg:target")).isNotNull();
+    } else {
+      reporter.removeHandler(failFastHandler);
+      assertThat(getConfiguredTarget("//pkg:target")).isNull();
+      assertContainsEvent("file '//pkg:defs.bzl' cannot use private API");
+    }
+  }
+
+  @Test
+  public void initializer_privateAttributeChecksCallbackModule(
+      @TestParameter boolean allowlistedInitializer) throws Exception {
+    setBuildLanguageOptions("--experimental_rule_extension_api");
+    String initializerPackage =
+        allowlistedInitializer ? "initializer_testing/builtins" : "initializer_testing/callback";
+    String rulePackage =
+        allowlistedInitializer ? "initializer_testing/caller" : "initializer_testing/builtins";
+    scratch.file(initializerPackage + "/BUILD");
+    scratch.file(
+        initializerPackage + "/callback.bzl",
+        """
+        def initializer(name):
+            return {"_tool": Label("//initializer_testing:tool")}
+        """);
+    scratch.file(rulePackage + "/BUILD");
+    scratch.file(
+        rulePackage + "/defs.bzl",
+        "load('//" + initializerPackage + ":callback.bzl', 'initializer')",
+        """
+        def impl(ctx):
+            pass
+
+        my_rule = rule(impl, initializer = initializer, attrs = {"_tool": attr.label()})
+        """);
+    scratch.file(
+        "initializer_testing/BUILD",
+        "load('//" + rulePackage + ":defs.bzl', 'my_rule')",
+        "filegroup(name = 'tool')",
+        "my_rule(name = 'target')");
+
+    if (allowlistedInitializer) {
+      assertThat(getConfiguredTarget("//initializer_testing:target")).isNotNull();
+    } else {
+      reporter.removeHandler(failFastHandler);
+      assertThat(getConfiguredTarget("//initializer_testing:target")).isNull();
+      assertContainsEvent(
+          "file '//" + initializerPackage + ":callback.bzl' cannot use private API");
+    }
+  }
+
+  @Test
+  public void initializer_privateAttributeChecksCallbackRepository(
+      @TestParameter boolean allowlistedInitializer) throws Exception {
+    setUpRulesCcModuleTest();
+    setBuildLanguageOptions("--experimental_rule_extension_api");
+    String callbackModule = allowlistedInitializer ? "rules_cc" : "helper";
+    String mainRepoName = allowlistedInitializer ? "app" : "rules_cc";
+    String callbackPath = scratch.dir("callback_repo").getPathString();
+    // External allowlist matching uses the module name, even if its repo_name differs.
+    String callbackRepoName = allowlistedInitializer ? "helper" : "rules_cc";
+    scratch.file(
+        "callback_repo/MODULE.bazel",
+        "module(name = '" + callbackModule + "', repo_name = '" + callbackRepoName + "')");
+    scratch.file("callback_repo/REPO.bazel");
+    scratch.file("callback_repo/BUILD", "filegroup(name = 'tool')");
+    scratch.file(
+        "callback_repo/callback.bzl",
+        """
+        def initializer(name):
+            return {"_tool": Label("//:tool")}
+        """);
+    scratch.file(
+        "pkg/defs.bzl",
+        """
+        load("@callback//:callback.bzl", "initializer")
+
+        def impl(ctx):
+            pass
+
+        my_rule = rule(impl, initializer = initializer, attrs = {"_tool": attr.label()})
+        """);
+    scratch.file("pkg/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'target')");
+    rewriteModuleDotBazel(
+        "module(name = 'app', repo_name = '" + mainRepoName + "')",
+        "bazel_dep(name = '" + callbackModule + "', repo_name = 'callback')",
+        "local_path_override(module_name = '"
+            + callbackModule
+            + "', path = '"
+            + callbackPath
+            + "')");
+
+    if (allowlistedInitializer) {
+      assertThat(getConfiguredTarget("//pkg:target")).isNotNull();
+    } else {
+      reporter.removeHandler(failFastHandler);
+      assertThat(getConfiguredTarget("//pkg:target")).isNull();
+      assertContainsEvent("file '@@helper+//:callback.bzl' cannot use private API");
+    }
+  }
+
+  @Test
   public void initializer_failsSettingUnknownAttr() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
@@ -7344,6 +7508,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             BazelModuleKey.createFakeModuleKeyForTesting(bzlLabel),
             RepositoryMapping.create(
                 ImmutableMap.of("my_module", currentRepo, "dep", otherRepo), currentRepo),
+            /* moduleRepoName= */ null,
             "lib/label.bzl",
             /* loads= */ ImmutableList.of(),
             /* bzlTransitiveDigest= */ new byte[0],

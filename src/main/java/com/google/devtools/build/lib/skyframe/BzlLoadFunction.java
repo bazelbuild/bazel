@@ -772,10 +772,11 @@ public class BzlLoadFunction implements SkyFunction {
 
     // Determine dependency BzlLoadValue keys for the load statements in this bzl.
     // Labels are resolved relative to the current repo mapping.
-    RepositoryMapping repoMapping = getRepositoryMapping(key, env);
-    if (repoMapping == null) {
+    RepositoryMappingValue repoMappingValue = getRepositoryMappingValue(key, env);
+    if (repoMappingValue == null || repoMappingValue.repositoryMapping() == null) {
       return null;
     }
+    RepositoryMapping repoMapping = repoMappingValue.repositoryMapping();
     RepositoryMapping mainRepoMapping = getMainRepositoryMapping(key, env);
     if (mainRepoMapping == null) {
       return null;
@@ -864,6 +865,7 @@ public class BzlLoadFunction implements SkyFunction {
         BazelModuleContext.create(
             key,
             repoMapping,
+            repoMappingValue.moduleRepoName(),
             prog.getFilename(),
             ImmutableList.copyOf(loadMap.values()),
             transitiveDigest,
@@ -924,26 +926,23 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   @Nullable
-  private static RepositoryMapping getRepositoryMapping(BzlLoadValue.Key key, Environment env)
-      throws InterruptedException {
+  private static RepositoryMappingValue getRepositoryMappingValue(
+      BzlLoadValue.Key key, Environment env) throws InterruptedException {
     RepositoryName repoName = key.getLabel().getRepository();
 
     if (key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
       // Special case: we're only here to get one of the rules in the @bazel_tools repo that
       // load Bazel modules. At this point we can't load from any other modules and thus use a
       // repository mapping that contains only @bazel_tools itself.
-      return RepositoryMapping.create(
-          ImmutableMap.of("bazel_tools", RepositoryName.BAZEL_TOOLS), RepositoryName.BAZEL_TOOLS);
+      return RepositoryMappingValue.createSpecial(
+          RepositoryMapping.create(
+              ImmutableMap.of("bazel_tools", RepositoryName.BAZEL_TOOLS),
+              RepositoryName.BAZEL_TOOLS));
     }
 
     // This is either a .bzl loaded from BUILD files, or a .bzl loaded for bzlmod, so we can just
     // use the full repo mapping from RepositoryMappingFunction.
-    RepositoryMappingValue repositoryMappingValue =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
-    if (repositoryMappingValue == null) {
-      return null;
-    }
-    return repositoryMappingValue.repositoryMapping();
+    return (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
   }
 
   @Nullable
@@ -953,7 +952,8 @@ public class BzlLoadFunction implements SkyFunction {
         || key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
       // For builtins and @bazel_tools, the key's local repo mapping can be used as the main repo
       // mapping.
-      return getRepositoryMapping(key, env);
+      RepositoryMappingValue repoMappingValue = getRepositoryMappingValue(key, env);
+      return repoMappingValue == null ? null : repoMappingValue.repositoryMapping();
     }
     var mainRepositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));

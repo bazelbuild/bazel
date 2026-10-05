@@ -1115,6 +1115,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
         "//third_party/java/truth",
     ],
 )
