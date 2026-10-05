@@ -1019,6 +1019,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
     var second =
         new FrontierNodeVersion(
@@ -1028,6 +1029,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isEqualTo(second.getPrecomputedFingerprint());
@@ -1044,6 +1046,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
     var second =
         new FrontierNodeVersion(
@@ -1053,6 +1056,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
@@ -1069,6 +1073,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
     var second =
         new FrontierNodeVersion(
@@ -1078,6 +1083,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
@@ -1094,6 +1100,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
     var second =
         new FrontierNodeVersion(
@@ -1103,6 +1110,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
@@ -1119,6 +1127,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
     var second =
         new FrontierNodeVersion(
@@ -1128,6 +1137,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(10000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
@@ -1144,6 +1154,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
     var second =
         new FrontierNodeVersion(
@@ -1153,6 +1164,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "changed",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isNotEqualTo(second);
@@ -1168,6 +1180,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
     var second =
         new FrontierNodeVersion(
@@ -1177,6 +1190,33 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             false,
+            /* runOnHost= */ false,
+            Optional.empty());
+    assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
+    assertThat(first).isNotEqualTo(second);
+  }
+
+  @Test
+  public void frontierNodeVersions_areNotEqual_ifRunOnHostIsDifferent() {
+    var first =
+        new FrontierNodeVersion(
+            "foo",
+            HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            /* runOnHost= */ true,
+            Optional.empty());
+    var second =
+        new FrontierNodeVersion(
+            "foo",
+            HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            /* runOnHost= */ false,
             Optional.empty());
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isNotEqualTo(second);
@@ -1192,6 +1232,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.of(new SnapshotClientId("changed", 123)));
     var second =
         new FrontierNodeVersion(
@@ -1201,6 +1242,7 @@ public final class SkyValueRetrieverTest {
             IntVersion.of(9000),
             "distinguisher",
             true,
+            /* runOnHost= */ false,
             Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isEqualTo(second.getPrecomputedFingerprint());

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.toolchains;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -89,7 +91,28 @@ public final class ToolchainContextUtil {
             /* debugTarget= */ platformConfig.debugToolchainResolution(rule.getLabel()),
             /* useAutoExecGroups= */ useAutoExecGroups,
             toolchainTypes,
-            parentExecutionPlatformLabel));
+            parentExecutionPlatformLabel),
+        getRunOnHostExecutionPlatforms(rule, platformConfig, processedExecGroups));
+  }
+
+  /**
+   * Returns the execution platforms that particular exec groups of the given rule are resolved to
+   * if possible when the current command executes tests on the host ({@code
+   * PrecomputedValue#RUN_ON_HOST}).
+   *
+   * <p>In that case, the test runner and the tools it runs, such as the {@code --run_under}
+   * target, must be built for the host platform, so the test exec group is resolved to it.
+   */
+  private static ImmutableMap<String, Label> getRunOnHostExecutionPlatforms(
+      Rule rule,
+      PlatformConfiguration platformConfig,
+      ImmutableMap<String, DeclaredExecGroup> processedExecGroups) {
+    if (!TargetUtils.isTestRule(rule)
+        || !processedExecGroups.containsKey(RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME)) {
+      return ImmutableMap.of();
+    }
+    return ImmutableMap.of(
+        RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME, platformConfig.getHostPlatform());
   }
 
   private static ImmutableSet<ToolchainTypeRequirement> updateToolchainTypesFromAttribute(

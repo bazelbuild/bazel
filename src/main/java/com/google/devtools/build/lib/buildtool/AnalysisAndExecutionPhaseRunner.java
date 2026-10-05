@@ -189,6 +189,8 @@ public final class AnalysisAndExecutionPhaseRunner {
             explicitTargetPatterns,
             request.getAspects(),
             request.getAspectsParameters(),
+            request.getHostExecTopLevelTargets(),
+            request.runOnHost(),
             request.getViewOptions(),
             request.getKeepGoing(),
             request.getViewOptions().getSkipIncompatibleExplicitTargets(),
