@@ -264,7 +264,14 @@ record PlatformKeys(
       }
     }
 
-    return null;
+    // The label may be an alias of a platform, such as the default --host_platform.
+    Optional<Label> resolvedLabel =
+        platformInfos.entrySet().stream()
+            .filter(entry -> entry.getKey().getLabel().equals(platformLabel))
+            .map(entry -> entry.getValue().label())
+            .filter(label -> !label.equals(platformLabel))
+            .findFirst();
+    return resolvedLabel.map(this::find).orElse(null);
   }
 
   @Nullable

@@ -110,12 +110,28 @@ public class ToolchainResolutionFunction implements SkyFunction {
       ImmutableSet<ToolchainType> resolvedToolchainTypes =
           loadToolchainTypes(resolvedToolchainTypeInfos, key.toolchainTypes());
 
+      Optional<ConfiguredTargetKey> forcedExecutionPlatform =
+          key.forceExecutionPlatform().map(platformKeys::find);
+      if (key.requireForcedExecutionPlatform()
+          && key.forceExecutionPlatform().isPresent()
+          && (forcedExecutionPlatform.isEmpty()
+              || !platformKeys.executionPlatformKeys().contains(forcedExecutionPlatform.get()))) {
+        throw new ForcedExecutionPlatformException(
+            String.format(
+                "execution platform %s is not a registered execution platform%s",
+                key.forceExecutionPlatform().get(),
+                key.execConstraintLabels().isEmpty()
+                    ? ""
+                    : " that satisfies the execution constraints " + key.execConstraintLabels()));
+      }
+
       // Determine the actual toolchain implementations to use.
       determineToolchainImplementations(
           env,
           key.configurationKey(),
           resolvedToolchainTypes,
-          key.forceExecutionPlatform().map(platformKeys::find),
+          forcedExecutionPlatform,
+          key.requireForcedExecutionPlatform(),
           builder,
           platformKeys,
           key.debugTarget());
@@ -198,6 +214,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       BuildConfigurationKey configurationKey,
       ImmutableSet<ToolchainType> toolchainTypes,
       Optional<ConfiguredTargetKey> forcedExecutionPlatform,
+      boolean forcedExecutionPlatformRequired,
       UnloadedToolchainContextImpl.Builder builder,
       PlatformKeys platformKeys,
       boolean debugTarget)
@@ -205,6 +222,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
           ValueMissingException,
           InvalidPlatformException,
           UnresolvedToolchainsException,
+          ForcedExecutionPlatformException,
           InvalidToolchainLabelException,
           InvalidConfigurationDuringToolchainResolutionException {
 
@@ -271,7 +289,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
     // Find and return the first execution platform which has all mandatory toolchains.
     Optional<ConfiguredTargetKey> selectedExecutionPlatformKey =
         findExecutionPlatformForToolchains(
-            toolchainTypes, forcedExecutionPlatform, platformKeys, resolvedToolchains);
+            toolchainTypes,
+            forcedExecutionPlatform,
+            forcedExecutionPlatformRequired,
+            platformKeys,
+            resolvedToolchains);
 
     ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements =
         toolchainTypes.stream()
@@ -331,8 +353,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
   private static Optional<ConfiguredTargetKey> findExecutionPlatformForToolchains(
       ImmutableSet<ToolchainType> toolchainTypes,
       Optional<ConfiguredTargetKey> forcedExecutionPlatform,
+      boolean forcedExecutionPlatformRequired,
       PlatformKeys platformKeys,
-      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
+      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains)
+      throws ForcedExecutionPlatformException {
 
     if (forcedExecutionPlatform.isPresent()) {
       // Is the forced platform suitable?
@@ -343,6 +367,20 @@ public class ToolchainResolutionFunction implements SkyFunction {
           // For the forced execution platform, ignore allowed toolchain types.
           /* checkAllowedToolchainTypes= */ false)) {
         return forcedExecutionPlatform;
+      }
+      if (forcedExecutionPlatformRequired) {
+        throw new ForcedExecutionPlatformException(
+            String.format(
+                "execution platform %s has no toolchain for the required toolchain type(s) %s",
+                forcedExecutionPlatform.get().getLabel(),
+                toolchainTypes.stream()
+                    .filter(ToolchainType::mandatory)
+                    .filter(
+                        type ->
+                            !resolvedToolchains.contains(
+                                forcedExecutionPlatform.get(), type.toolchainTypeInfo()))
+                    .map(type -> type.toolchainTypeInfo().typeLabel())
+                    .collect(toImmutableSet())));
       }
     }
 

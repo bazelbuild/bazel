@@ -247,6 +247,179 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
 
+  @Test
+  public void resolve_forceExecutionPlatform_required() throws Exception {
+    // Without forcing, platform mac would be selected because it is listed first.
+    addToolchain(
+        "extra",
+        "extra_toolchain_linux",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    addToolchain(
+        "extra",
+        "extra_toolchain_mac",
+        ImmutableList.of("//constraints:mac"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .forceExecutionPlatform(Label.parseCanonicalUnchecked("//platforms:linux"))
+            .requireForcedExecutionPlatform(true)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_forceExecutionPlatform_required_alias() throws Exception {
+    addToolchain(
+        "extra",
+        "extra_toolchain_linux",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    addToolchain(
+        "extra",
+        "extra_toolchain_mac",
+        ImmutableList.of("//constraints:mac"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    scratch.file(
+        "alias/BUILD",
+        """
+        alias(name = 'linux', actual = '//platforms:linux')
+        """);
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
+
+    // The host platform may be forced by its alias, just like it is set on the command line.
+    useConfiguration("--platforms=//platforms:linux", "--host_platform=//alias:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .forceExecutionPlatform(Label.parseCanonicalUnchecked("//alias:linux"))
+            .requireForcedExecutionPlatform(true)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_forceExecutionPlatform_required_incompatibleConstraints() throws Exception {
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .execConstraintLabels(Label.parseCanonicalUnchecked("//constraints:linux"))
+            .forceExecutionPlatform(Label.parseCanonicalUnchecked("//platforms:mac"))
+            .requireForcedExecutionPlatform(true)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "execution platform //platforms:mac is not a registered execution platform that"
+                + " satisfies the execution constraints [//constraints:linux]");
+  }
+
+  @Test
+  public void resolve_forceExecutionPlatform_notRequired_incompatibleConstraints()
+      throws Exception {
+    // Without the requirement, resolution falls back to the other execution platforms.
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .execConstraintLabels(Label.parseCanonicalUnchecked("//constraints:linux"))
+            .forceExecutionPlatform(Label.parseCanonicalUnchecked("//platforms:mac"))
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_forceExecutionPlatform_required_missingToolchain() throws Exception {
+    // Only platform mac has a toolchain for the requested type.
+    addToolchain(
+        "extra",
+        "extra_toolchain_mac",
+        ImmutableList.of("//constraints:mac"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//extra:extra_toolchain_mac")
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .forceExecutionPlatform(Label.parseCanonicalUnchecked("//platforms:linux"))
+            .requireForcedExecutionPlatform(true)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "execution platform //platforms:linux has no toolchain for the required toolchain"
+                + " type(s) [//toolchain:test_toolchain]");
+  }
+
   // TODO(katre): Add further tests for optional/mandatory/mixed toolchains.
 
   @Test

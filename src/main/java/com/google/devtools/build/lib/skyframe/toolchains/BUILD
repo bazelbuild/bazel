@@ -57,6 +57,15 @@ java_library(
 )
 
 java_library(
+    name = "forced_execution_platform_exception",
+    srcs = ["ForcedExecutionPlatformException.java"],
+    deps = [
+        ":toolchain_exception",
+        "//src/main/protobuf:failure_details_java_proto",
+    ],
+)
+
+java_library(
     name = "no_matching_platform_exception",
     srcs = ["NoMatchingPlatformException.java"],
     deps = [
@@ -342,6 +351,7 @@ java_library(
     ],
     deps = [
         ":constraint_value_lookup_util",
+        ":forced_execution_platform_exception",
         ":no_matching_platform_data",
         ":platform_lookup_util",
         ":registered_execution_platforms_function",
