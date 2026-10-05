@@ -144,6 +144,28 @@ public final class ActionEnvironmentTest {
     assertThat(fingerprint(withEmptyUnset)).isEqualTo(fingerprint(withoutUnset));
   }
 
+  @Test
+  public void unsetFingerprintIsIndependentOfInsertionOrder() {
+    ActionEnvironment forward =
+        ActionEnvironment.create(
+            ImmutableMap.of("ORDER_TEST", "forward"),
+            ImmutableSet.of(),
+            ImmutableSet.of("A", "B", "C"));
+    ActionEnvironment reverse =
+        ActionEnvironment.create(
+            ImmutableMap.of("ORDER_TEST", "reverse"),
+            ImmutableSet.of(),
+            ImmutableSet.of("C", "B", "A"));
+
+    // Use different initial environments so interning cannot hide a difference in ordering.
+    forward = forward.withAdditionalFixedVariables(ImmutableMap.of("ORDER_TEST", "same"));
+    reverse = reverse.withAdditionalFixedVariables(ImmutableMap.of("ORDER_TEST", "same"));
+
+    assertThat(forward.getUnsetEnv()).containsExactly("A", "B", "C").inOrder();
+    assertThat(reverse.getUnsetEnv()).containsExactly("A", "B", "C").inOrder();
+    assertThat(fingerprint(forward)).isEqualTo(fingerprint(reverse));
+  }
+
   private static String fingerprint(ActionEnvironment env) {
     Fingerprint fp = new Fingerprint();
     env.addTo(fp);

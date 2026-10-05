@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -93,7 +94,7 @@ public abstract class ActionEnvironment {
       return EMPTY;
     }
     return actionEnvironmentInterner.intern(
-        new SimpleActionEnvironment(fixedEnv, inheritedEnv, unsetEnv));
+        new SimpleActionEnvironment(fixedEnv, inheritedEnv, ImmutableSortedSet.copyOf(unsetEnv)));
   }
 
   /**
@@ -124,7 +125,7 @@ public abstract class ActionEnvironment {
     return create(
         ImmutableMap.copyOf(fixedEnv),
         ImmutableSet.copyOf(inheritedEnv),
-        ImmutableSet.copyOf(new TreeSet<>(unsetEnv)));
+        ImmutableSet.copyOf(unsetEnv));
   }
 
   private ActionEnvironment() {}
@@ -184,12 +185,7 @@ public abstract class ActionEnvironment {
   public final void addTo(Fingerprint f) {
     f.addStringMap(getFixedEnv());
     f.addStrings(getInheritedEnv());
-    // Only add the unset variables if there are any so that the fingerprint of the common case of
-    // an environment without unset variables remains unchanged.
-    ImmutableSet<String> unsetEnv = getUnsetEnv();
-    if (!unsetEnv.isEmpty()) {
-      f.addStrings(unsetEnv);
-    }
+    f.addStrings(getUnsetEnv());
   }
 
   /**
