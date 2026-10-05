@@ -19,6 +19,7 @@
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor.h"
+#include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/sem_ver.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
@@ -27,7 +28,6 @@
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
 #include "absl/container/flat_hash_map.h"
-#include "src/main/cpp/rc_file.h"
 
 namespace blaze {
 namespace {

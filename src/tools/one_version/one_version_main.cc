@@ -20,17 +20,17 @@
 #include <utility>
 #include <vector>
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
-#include "absl/log/die_if_null.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/string_view.h"
 #include "src/tools/one_version/allowlist.h"
 #include "src/tools/one_version/duplicate_class_collector.h"
 #include "src/tools/one_version/one_version.h"
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/token_stream.h"
 #include "src/tools/singlejar/zip_headers.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/log/die_if_null.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 
 // Scans a classpath and reports one version violations.
 //

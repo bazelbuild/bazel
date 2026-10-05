@@ -17,12 +17,12 @@
 #include <string>
 #include <vector>
 
+#include "src/tools/one_version/duplicate_class_collector.h"
+#include "src/tools/singlejar/zip_headers.h"
 #include "absl/log/die_if_null.h"
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
-#include "src/tools/one_version/duplicate_class_collector.h"
-#include "src/tools/singlejar/zip_headers.h"
 
 namespace one_version {
 

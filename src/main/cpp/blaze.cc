@@ -54,8 +54,8 @@
 #include <utility>
 #include <vector>
 
-#include "src/main/cpp/startup_interceptor.h"
 #include "src/main/cpp/command_extension_adder.h"
+#include "src/main/cpp/startup_interceptor.h"
 
 #if !defined(_WIN32)
 #include <sys/stat.h>
