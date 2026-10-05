@@ -324,8 +324,20 @@ TEST(InputJarBadJarTest, DataDescriptorOutOfBounds) {
   ecd->signature();
   ecd->cen_size32(sizeof(CDH));
   ecd->cen_offset32(sizeof(LH));
-  InputJar input_jar;
-  ASSERT_TRUE(input_jar.Open(kJar, buf.data(), buf.size()));
-  const LH* lh = nullptr;
-  EXPECT_DEATH(input_jar.NextEntry(&lh), "Bad entry size|Bad data descriptor");
+  {
+    InputJar input_jar;
+    ASSERT_TRUE(input_jar.Open(kJar, buf.data(), buf.size()));
+    const LH* lh = nullptr;
+    EXPECT_DEATH(input_jar.NextEntry(&lh), "Bad entry size");
+  }
+
+  // Set compressed_file_size32 so sizeof(DDR) (4 bytes) remains in
+  // mapped_file_, which is less than the full data descriptor size (12 bytes).
+  cdh->compressed_file_size32(sizeof(CDH) + sizeof(ECD) - sizeof(DDR));
+  {
+    InputJar input_jar;
+    ASSERT_TRUE(input_jar.Open(kJar, buf.data(), buf.size()));
+    const LH* lh = nullptr;
+    EXPECT_DEATH(input_jar.NextEntry(&lh), "Bad data descriptor");
+  }
 }
