@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -102,13 +103,53 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
           throw new InconsistentFilesystemException(
               "File " + rootedPath + " found in directory, but stat failed");
         }
-        yield createWithStatNoFollow(
-            path,
-            checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
-            syscallCache,
-            tsgm);
+        var value =
+            createWithStatNoFollow(
+                path,
+                checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
+                syscallCache,
+                tsgm);
+        if (value instanceof RegularFileStateValueWithContentsProxy && shouldComputeDigest(path)) {
+          // The cache that provides the digest is keyed by the file's metadata, so the dependence
+          // on its ctime that createWithStatNoFollow registered with the tsgm remains.
+          var digest = tryComputeDigest(path, stat);
+          if (digest != null) {
+            yield new RegularFileStateValueWithDigest(stat.getSize(), digest);
+          }
+        }
+        yield value;
       }
     };
+  }
+
+  /**
+   * Returns whether to compute a digest for the given regular file even if the filesystem doesn't
+   * provide one, so that touching the file without changing its contents doesn't change its {@link
+   * FileStateValue}.
+   */
+  private static boolean shouldComputeDigest(Path path) {
+    // Packages, compiled .bzl files and configured targets are never compared for equality, so the
+    // FileStateValue of a file evaluated during the loading phase is the only place where a touch
+    // can be pruned. These files are few and read by their consumers anyway, and checking an
+    // unchanged one is a lookup in the digest cache rather than a read.
+    var baseName = path.getBaseName();
+    return switch (baseName) {
+      case "BUILD", "BUILD.bazel", "MODULE.bazel", "REPO.bazel", ".bazelignore" -> true;
+      default -> baseName.endsWith(".bzl") || baseName.endsWith(".scl");
+    };
+  }
+
+  /**
+   * Computes the digest of the given regular file, or returns {@code null} if its contents can't be
+   * read. Whoever consumes the file reads it again and reports the error in that case.
+   */
+  @Nullable
+  private static byte[] tryComputeDigest(Path path, FileStatus stat) {
+    try {
+      return DigestUtils.manuallyComputeDigest(path, stat);
+    } catch (IOException _) {
+      return null;
+    }
   }
 
   public static FileStateValue createWithStatNoFollow(

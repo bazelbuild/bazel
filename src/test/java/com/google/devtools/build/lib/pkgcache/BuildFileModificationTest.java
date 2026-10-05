@@ -209,18 +209,45 @@ public class BuildFileModificationTest extends FoundationTestCase {
   }
 
   @Test
-  public void testTouchedBuildFileCausesReloadAfterSync() throws Exception {
-    Path path = scratch.file("pkg/BUILD", "filegroup(name = 'foo')");
-
-    Package oldPkg = getPackage("pkg");
+  public void testTouchedBuildFileDoesNotCauseReload() throws Exception {
+    var path = scratch.file("pkg/BUILD", "filegroup(name = 'foo')");
+    var oldPkg = getPackage("pkg");
     // Change ctime to 1.
     clock.advanceMillis(1);
     path.setLastModifiedTime(1001);
-    assertThat(getPackage("pkg")).isSameInstanceAs(oldPkg); // change not yet visible
 
     invalidatePackages();
 
-    Package newPkg = getPackage("pkg");
+    assertThat(getPackage("pkg")).isSameInstanceAs(oldPkg);
+  }
+
+  @Test
+  public void testTouchedBzlFileDoesNotCauseReload() throws Exception {
+    var bzl = scratch.file("pkg/defs.bzl", "NAME = 'foo'");
+    scratch.file("pkg/BUILD", "load(':defs.bzl', 'NAME')", "filegroup(name = NAME)");
+    var oldPkg = getPackage("pkg");
+    // Change ctime to 1.
+    clock.advanceMillis(1);
+    bzl.setLastModifiedTime(1001);
+
+    invalidatePackages();
+
+    assertThat(getPackage("pkg")).isSameInstanceAs(oldPkg);
+  }
+
+  @Test
+  public void testBzlFileCTimeChangeDetected() throws Exception {
+    var bzl = scratch.file("pkg/defs.bzl", "NAME = 'foo'");
+    scratch.file("pkg/BUILD", "load(':defs.bzl', 'NAME')", "filegroup(name = NAME)");
+    var oldPkg = getPackage("pkg");
+    // Note that the content has exactly the same length as before.
+    clock.advanceMillis(1);
+    FileSystemUtils.writeContentAsLatin1(bzl, "NAME = 'bar'");
+
+    invalidatePackages();
+
+    var newPkg = getPackage("pkg");
     assertThat(newPkg).isNotSameInstanceAs(oldPkg);
+    assertThat(newPkg.getTarget("bar")).isNotNull();
   }
 }
