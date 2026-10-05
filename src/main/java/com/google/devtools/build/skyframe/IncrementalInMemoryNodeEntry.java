@@ -403,7 +403,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   /** Returns the version at which this node was last evaluated; see {@link NodeVersion}. */
-  final Version lastEvaluatedVersion() {
+  public final Version lastEvaluatedVersion() {
     return version.lastEvaluated();
   }
 

@@ -150,4 +150,35 @@ EOF
     "$(bazel info output_base)/skyframe_memory.json"
 }
 
+function test_skyframe_changed() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name='a')
+EOF
+  bazel build //a >& $TEST_log || fail "build failed"
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name='a', testonly=True)
+EOF
+  bazel build //a >& $TEST_log || fail "build failed"
+
+  bazel dump --skyframe=changed >& $TEST_log || fail "dump failed"
+  # The modified BUILD file is an origin of the changes.
+  expect_log '^FILE_STATE:\[.*\]/\[a/BUILD\]$'
+  # The package changed because the BUILD file did.
+  expect_log '^PACKAGE:a$'
+  expect_log '^    FILE:\[.*\]/\[a/BUILD\]$'
+  expect_log '^CONFIGURED_TARGET:.*//a:a'
+  # Values that the first build created and the second one didn't change aren't listed.
+  expect_not_log '^FILE_STATE:\[.*\]/\[MODULE.bazel\]$'
+
+  bazel dump --skyframe=changed --skykey_filter='^PACKAGE:' >& $TEST_log \
+    || fail "dump failed"
+  expect_log '^PACKAGE:a$'
+  expect_not_log '^CONFIGURED_TARGET:'
+  expect_not_log '^FILE_STATE:'
+}
+
 run_suite "Tests for 'bazel dump'"
