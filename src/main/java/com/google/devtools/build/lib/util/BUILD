@@ -476,12 +476,10 @@ java_library(
 
 java_library(
     name = "exit_code",
-    srcs = [
-        "ExitCode.java",
-    ],
+    srcs = ["ExitCode.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/error_prone:annotations",
-        "//third_party/java/guava:base",
         "//third_party/java/jsr305_annotations",
     ],
 )
