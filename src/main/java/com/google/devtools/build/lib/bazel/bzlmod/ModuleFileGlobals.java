@@ -225,8 +225,7 @@ public class ModuleFileGlobals {
 
   @StarlarkMethod(
       name = "bazel_dep",
-      doc =
-          "Declares a direct dependency on another Bazel module.",
+      doc = "Declares a direct dependency on another Bazel module.",
       parameters = {
         @Param(
             name = "name",
