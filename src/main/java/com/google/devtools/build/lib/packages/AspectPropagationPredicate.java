@@ -61,11 +61,7 @@ public final class AspectPropagationPredicate {
     }
   }
 
-  private static class AspectPropagationThreadContext extends StarlarkThreadContext {
-    public AspectPropagationThreadContext() {
-      super(null);
-    }
-  }
+  private record AspectPropagationThreadContext() implements StarlarkThreadContext {}
 
   @Override
   public boolean equals(Object o) {

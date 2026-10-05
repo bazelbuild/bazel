@@ -105,15 +105,10 @@ public class RepoPackageArgsFunction implements SkyFunction {
     RepoFileValue repoFileValue = (RepoFileValue) env.getValue(RepoFileValue.key(repositoryName));
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repositoryName));
-    RepositoryMappingValue mainRepoMapping =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
 
     if (env.valuesMissing()) {
       return null;
     }
-
-    String repoDisplayName =
-        RepoFileFunction.getDisplayNameForRepo(repositoryName, mainRepoMapping.repositoryMapping());
 
     PackageArgs.Builder pkgArgsBuilder = PackageArgs.builder();
     LabelConverter labelConverter =
@@ -130,6 +125,14 @@ public class RepoPackageArgsFunction implements SkyFunction {
             pkgArgsBuilder);
       }
     } catch (EvalException e) {
+      RepositoryMappingValue mainRepoMapping =
+          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+      if (mainRepoMapping == null) {
+        return null;
+      }
+      String repoDisplayName =
+          RepoFileFunction.getDisplayNameForRepo(
+              repositoryName, mainRepoMapping.repositoryMapping());
       env.getListener().handle(Event.error(e.getMessageWithStack()));
       throw new RepoPackageArgsFunctionException(
           new BadPackageArgsException(

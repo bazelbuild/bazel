@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.TargetRecorder.MacroFrame;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -78,7 +79,7 @@ import net.starlark.java.syntax.Location;
  * will make it easier to factor out common code for evaluating a whole package vs an individual
  * symbolic macro of that package (lazy macro evaluation).
  */
-public abstract class TargetDefinitionContext extends StarlarkThreadContext {
+public abstract class TargetDefinitionContext implements StarlarkThreadContext {
 
   // TODO: #19922 - Avoid protected fields, encapsulate with getters/setters. Temporary state on way
   // to separating this class from Package.Builder.
@@ -385,13 +386,33 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     }
   }
 
+  // Supplies the main repo mapping for Label#debugPrint. Null if unavailable, e.g. when packages
+  // are loaded outside of Skyframe.
+  @Nullable private InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier;
+
+  /**
+   * Sets a supplier for the repository mapping of the main repository, which is used only to render
+   * labels with apparent repository names in {@code print()} and {@code fail()} output. The
+   * supplier is invoked lazily so that a Skyframe dependency on the mapping is only incurred by
+   * packages that actually print a label.
+   */
+  public void setMainRepoMappingSupplier(
+      InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) {
+    this.mainRepoMappingSupplier = mainRepoMappingSupplier;
+  }
+
+  @Override
+  @Nullable
+  public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+    return mainRepoMappingSupplier == null ? null : mainRepoMappingSupplier.get();
+  }
+
   TargetDefinitionContext(
       Metadata metadata,
       Packageoid pkg,
       SymbolGenerator<?> symbolGenerator,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
       boolean symbolicMacroStrictAttrs,
-      RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       PackageOverheadEstimator packageOverheadEstimator,
       @Nullable ImmutableMap<Location, String> generatorMap,
@@ -400,7 +421,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
       boolean trackFullMacroInformation,
       boolean enableTargetMapSnapshotting,
       PackageLimits packageLimits) {
-    super(() -> mainRepositoryMapping);
     this.metadata = metadata;
     this.pkg = pkg;
     this.symbolGenerator = symbolGenerator;

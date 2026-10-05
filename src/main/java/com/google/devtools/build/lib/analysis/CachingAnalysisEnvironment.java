@@ -392,11 +392,11 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     return owner;
   }
 
-  /** Thrown in case of a missing build info key. */
+  /** Signals that a Skyframe dependency is missing and the calling SkyFunction must restart. */
   // TODO(ulfjack): It would be better for this to be a checked exception, which requires updating
   // all callers to pass the exception through.
   public static class MissingDepException extends RuntimeException {
-    MissingDepException(String msg) {
+    public MissingDepException(String msg) {
       super(msg);
     }
   }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -47,22 +46,19 @@ public interface PackagePieceValue extends PackageoidValue {
    * A Skyframe value representing a package piece obtained by evaluating a BUILD file without
    * expanding any symbolic macros.
    *
-   * <p>Inlines Starlark semantics and the main repository mapping to avoid extra dependency edges
-   * in the package's package pieces for macros.
+   * <p>Inlines Starlark semantics to avoid extra dependency edges in the package's package pieces
+   * for macros.
    *
    * <p>The corresponding {@link com.google.devtools.build.skyframe.SkyKey} is {@link
    * com.google.devtools.build.lib.packages.PackagePieceIdentifier.ForBuildFile}.
    */
   @AutoCodec
   public record ForBuildFile(
-      PackagePiece.ForBuildFile forBuildFile,
-      StarlarkSemantics starlarkSemantics,
-      RepositoryMapping mainRepositoryMapping)
+      PackagePiece.ForBuildFile forBuildFile, StarlarkSemantics starlarkSemantics)
       implements PackagePieceValue {
     public ForBuildFile {
       checkNotNull(forBuildFile);
       checkNotNull(starlarkSemantics);
-      checkNotNull(mainRepositoryMapping);
     }
 
     @Override

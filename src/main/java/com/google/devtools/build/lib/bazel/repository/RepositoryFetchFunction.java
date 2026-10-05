@@ -634,19 +634,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
       return null;
     }
 
-    @Nullable RepositoryMapping mainRepoMapping;
-    if (NonRegistryOverride.BOOTSTRAP_REPO_RULES.contains(repoDefinition.repoRule().id())) {
-      // Avoid a cycle.
-      mainRepoMapping = null;
-    } else {
-      var mainRepoMappingValue =
-          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
-      if (mainRepoMappingValue == null) {
-        return null;
-      }
-      mainRepoMapping = mainRepoMappingValue.repositoryMapping();
-    }
-
     IgnoredSubdirectoriesValue ignoredSubdirectories =
         (IgnoredSubdirectoriesValue) env.getValue(IgnoredSubdirectoriesValue.key());
     if (env.valuesMissing()) {
@@ -676,14 +663,31 @@ public final class RepositoryFetchFunction implements SkyFunction {
           StarlarkThread.create(
               mu,
               starlarkSemantics,
-              "repository " + repoName.getDisplayForm(mainRepoMapping),
+              "repository " + repoName.getNameWithAt(),
               SymbolGenerator.create("fetching " + repoName));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       starlarkRepositoryContext.storeRepoMappingRecorderInThread(thread);
 
-      // We sort of want a starlark thread context here, but no extra info is needed. So we just
-      // use an anonymous class.
-      new StarlarkThreadContext(() -> mainRepoMapping) {}.storeInThread(thread);
+      // The thread context only serves to render labels in print() and fail() output with
+      // apparent repo names. The main repo mapping is looked up lazily; since `env` is a worker
+      // environment, the lookup blocks until the value is available instead of returning null.
+      boolean isBootstrapRepoRule =
+          NonRegistryOverride.BOOTSTRAP_REPO_RULES.contains(repoDefinition.repoRule().id());
+      new StarlarkThreadContext() {
+        @Override
+        @Nullable
+        public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+          if (isBootstrapRepoRule) {
+            // The main repo mapping depends on these repos having been fetched, so looking it up
+            // would form a cycle.
+            return null;
+          }
+          var value =
+              (RepositoryMappingValue)
+                  env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+          return value == null ? null : value.repositoryMapping();
+        }
+      }.storeInThread(thread);
       if (starlarkRepositoryContext.isRemotable()) {
         // If a rule is declared remotable then invalidate it if remote execution gets
         // enabled or disabled.
