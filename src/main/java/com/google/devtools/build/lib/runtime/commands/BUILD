@@ -67,6 +67,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/output:configuration_for_output",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/output:fragment_for_output",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/output:fragment_options_for_output",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/buildtool",

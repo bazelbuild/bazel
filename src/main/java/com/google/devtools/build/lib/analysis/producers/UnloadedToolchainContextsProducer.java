@@ -17,7 +17,9 @@ import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_E
 
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.packages.DeclaredExecGroup;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.toolchains.NoMatchingPlatformException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
@@ -59,6 +61,7 @@ public final class UnloadedToolchainContextsProducer implements StateMachine {
   // -------------------- Internal State --------------------
   private ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContextsBuilder;
   private boolean toolchainContextsHasError = false;
+  private boolean runOnHost = false;
 
   UnloadedToolchainContextsProducer(
       UnloadedToolchainContextsInputs unloadedToolchainContextsInputs,
@@ -87,8 +90,7 @@ public final class UnloadedToolchainContextsProducer implements StateMachine {
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
-    var defaultToolchainContextKey = unloadedToolchainContextsInputs.targetToolchainContextKey();
-    if (defaultToolchainContextKey == null) {
+    if (unloadedToolchainContextsInputs.targetToolchainContextKey() == null) {
       // Doesn't use toolchain resolution and short-circuits.
       // TODO(bazel-team): return empty {@link ToolchainCollection} instead of {@code null} to help
       // consumers distinguish between not yet evaluated collections and collections evaluated to be
@@ -96,7 +98,17 @@ public final class UnloadedToolchainContextsProducer implements StateMachine {
       sink.acceptUnloadedToolchainContexts(null);
       return runAfter;
     }
+    if (unloadedToolchainContextsInputs.runOnHostTestExecutionPlatform() == null) {
+      return lookupToolchainContexts(tasks);
+    }
+    tasks.lookUp(
+        PrecomputedValue.RUN_ON_HOST.getKey(),
+        value -> runOnHost = (Boolean) ((PrecomputedValue) value).get());
+    return this::lookupToolchainContexts;
+  }
 
+  private StateMachine lookupToolchainContexts(Tasks tasks) throws InterruptedException {
+    var defaultToolchainContextKey = unloadedToolchainContextsInputs.targetToolchainContextKey();
     this.toolchainContextsBuilder =
         ToolchainCollection.builderWithExpectedSize(
             unloadedToolchainContextsInputs.execGroups().size() + 1);
@@ -107,20 +119,21 @@ public final class UnloadedToolchainContextsProducer implements StateMachine {
         DEFAULT_EXEC_GROUP_NAME,
         tasks);
 
-    var keyBuilder =
-        ToolchainContextKey.key()
-            .configurationKey(defaultToolchainContextKey.configurationKey())
-            .debugTarget(defaultToolchainContextKey.debugTarget());
-
     for (Map.Entry<String, DeclaredExecGroup> entry :
         unloadedToolchainContextsInputs.execGroups().entrySet()) {
       var execGroup = entry.getValue();
-      var key =
-          keyBuilder
+      var keyBuilder =
+          ToolchainContextKey.key()
+              .configurationKey(defaultToolchainContextKey.configurationKey())
+              .debugTarget(defaultToolchainContextKey.debugTarget())
               .toolchainTypes(execGroup.toolchainTypes())
-              .execConstraintLabels(execGroup.execCompatibleWith())
-              .build();
-      lookupToolchainContext(baseTargetPrerequisitesSupplier, key, entry.getKey(), tasks);
+              .execConstraintLabels(execGroup.execCompatibleWith());
+      if (runOnHost && entry.getKey().equals(RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME)) {
+        keyBuilder.forceExecutionPlatform(
+            unloadedToolchainContextsInputs.runOnHostTestExecutionPlatform());
+      }
+      lookupToolchainContext(
+          baseTargetPrerequisitesSupplier, keyBuilder.build(), entry.getKey(), tasks);
     }
 
     return this::buildToolchainContexts;

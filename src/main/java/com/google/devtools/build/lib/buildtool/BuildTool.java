@@ -382,7 +382,8 @@ public class BuildTool {
               BuildView.getTopLevelConfigurationTrimmedOfTestOptions(
                   buildOptions, env.getReporter()),
               request.getUserOptions(),
-              projectEvaluationResult.buildOptions());
+              projectEvaluationResult.buildOptions(),
+              request.runOnHost());
       analysisCachingDeps = analysisDeps.deps();
       analysisCacheReaderDeps = analysisDeps.readerDeps();
       serializationDependenciesProvider = analysisDeps.serializationDeps();

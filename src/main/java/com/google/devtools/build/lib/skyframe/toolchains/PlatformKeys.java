@@ -252,12 +252,13 @@ record PlatformKeys(
         .build(execConstraintLabels);
   }
 
+  /**
+   * Returns the key of the execution platform that the given label refers to, possibly through an
+   * alias, or null if it isn't one of the execution platforms that satisfy the execution
+   * constraints.
+   */
   @Nullable
   public ConfiguredTargetKey find(Label platformLabel) {
-    if (platformLabel.equals(targetPlatformKey.getLabel())) {
-      return targetPlatformKey();
-    }
-
     for (ConfiguredTargetKey configuredTargetKey : executionPlatformKeys) {
       if (platformLabel.equals(configuredTargetKey.getLabel())) {
         return configuredTargetKey;

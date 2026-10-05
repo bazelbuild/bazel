@@ -38,6 +38,7 @@ public final class FrontierNodeVersionTest {
                 IntVersion.of(1),
                 "distinguisher",
                 /* useFakeStampData= */ false,
+                /* runOnHost= */ false,
                 /* clientId= */ null));
   }
 
@@ -53,6 +54,7 @@ public final class FrontierNodeVersionTest {
                 IntVersion.of(1),
                 "distinguisher",
                 /* useFakeStampData= */ false,
+                /* runOnHost= */ false,
                 Optional.empty()));
   }
 
@@ -66,6 +68,7 @@ public final class FrontierNodeVersionTest {
             IntVersion.of(1),
             "distinguisher",
             /* useFakeStampData= */ false,
+            /* runOnHost= */ false,
             Optional.empty());
   }
 
@@ -79,6 +82,7 @@ public final class FrontierNodeVersionTest {
             IntVersion.of(1),
             "distinguisher",
             /* useFakeStampData= */ false,
+            /* runOnHost= */ false,
             Optional.empty());
     var differentTopLevelConfig =
         new FrontierNodeVersion(
@@ -88,6 +92,7 @@ public final class FrontierNodeVersionTest {
             IntVersion.of(1),
             "distinguisher",
             /* useFakeStampData= */ false,
+            /* runOnHost= */ false,
             Optional.empty());
     var differentStarlarkSemantics =
         new FrontierNodeVersion(
@@ -97,6 +102,7 @@ public final class FrontierNodeVersionTest {
             IntVersion.of(1),
             "distinguisher",
             /* useFakeStampData= */ false,
+            /* runOnHost= */ false,
             Optional.empty());
 
     assertThat(base.getConfigAndStarlarkSemanticsHash())

@@ -82,7 +82,8 @@ public final class RemoteAnalysisCacheFactory {
       Collection<Label> topLevelTargets,
       BuildOptions topLevelOptions,
       Map<String, String> userOptions,
-      Set<String> projectSclOptions)
+      Set<String> projectSclOptions,
+      boolean runOnHost)
       throws InterruptedException, AbruptExitException {
     // Bail out early if needed
     var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
@@ -158,6 +159,7 @@ public final class RemoteAnalysisCacheFactory {
             workspaceInfoFromDiff.getEvaluatingVersion(),
             nullToEmpty(options.getAnalysisCacheKeyDistinguisherForTesting()),
             env.getUseFakeStampData(),
+            runOnHost,
             workspaceInfoFromDiff.getSnapshot());
     env.getRemoteAnalysisCachingEventListener().recordSkyValueVersion(frontierNodeVersion);
     env.getRemoteAnalysisCachingEventListener().setClientId(clientId);
