@@ -70,7 +70,7 @@ public final class DumpCommandTest extends BuildIntegrationTestCase {
     buildTarget("//foo:foo");
 
     assertThat(dump("--skyframe", "changed").isSuccess()).isTrue();
-    var out = recordingOutErr.outAsLatin1();
+    var out = dumpOutput();
     assertThat(out).containsMatch("(?m)^ +[0-9]+ PACKAGE$");
     assertThat(out).containsMatch("(?m)^ +[0-9]+ CONFIGURED_TARGET$");
     // The modified BUILD file is an origin of the changes.
@@ -84,11 +84,16 @@ public final class DumpCommandTest extends BuildIntegrationTestCase {
     // The filter restricts the origins and the detailed list, but not the counts.
     recordingOutErr = new RecordingOutErr();
     assertThat(dump("--skyframe", "changed", "--skykey_filter", "^PACKAGE:").isSuccess()).isTrue();
-    out = recordingOutErr.outAsLatin1();
+    out = dumpOutput();
     assertThat(out).containsMatch("(?m)^ +[0-9]+ CONFIGURED_TARGET$");
     assertThat(out).contains("\nPACKAGE:foo\n    FILE:");
     assertThat(out).doesNotContain("\nFILE_STATE:");
     assertThat(out).doesNotContain("\nCONFIGURED_TARGET:");
+  }
+
+  /** Returns the output of the last dump with the line breaks normalized to {@code \n}. */
+  private String dumpOutput() {
+    return recordingOutErr.outAsLatin1().replace(System.lineSeparator(), "\n");
   }
 
   @Test
