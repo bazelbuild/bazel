@@ -30,9 +30,12 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResult;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -55,7 +58,8 @@ import org.mockito.Mockito;
 /** Tests for {@link DirtinessCheckerUtils}. */
 @RunWith(TestParameterInjector.class)
 public final class DirtinessCheckerUtilsTest {
-  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+  private final ManualClock clock = new ManualClock();
+  private final FileSystem fs = new InMemoryFileSystem(clock, DigestHashFunction.SHA256);
   private final Path pkgRoot = fs.getPath("/testroot");
   private final Root srcRoot = Root.fromPath(pkgRoot);
   private final Path outputBase = fs.getPath("/outputroot/user/outputBase");
@@ -156,6 +160,40 @@ public final class DirtinessCheckerUtilsTest {
         .isEqualTo(SkyValueDirtinessChecker.DirtyResult.dirty());
 
     Mockito.verifyNoInteractions(mockCache);
+  }
+
+  @Test
+  public void externalChecker_touchedBzlFileInRepoNotDirty() throws Exception {
+    var rootedPath =
+        RootedPath.toRootedPath(
+            Root.fromPath(outputBase),
+            LabelConstants.EXTERNAL_REPOSITORY_LOCATION.getRelative("repo/defs.bzl"));
+    var path = rootedPath.asPath();
+    path.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(path, "X = 1");
+    var oldValue = FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, /* tsgm= */ null);
+    assertThat(oldValue.getDigest()).isNotNull();
+    var underTest =
+        new DirtinessCheckerUtils.ExternalDirtinessChecker(
+            externalFilesHelper, EnumSet.of(ExternalFilesHelper.FileType.EXTERNAL_REPO));
+
+    // Touching the file updates its ctime, but not its contents.
+    clock.advanceMillis(1);
+    path.setLastModifiedTime(42);
+    assertThat(
+            underTest.check(
+                rootedPath, oldValue, /* oldMtsv= */ null, SyscallCache.NO_CACHE, /* tsgm= */ null))
+        .isEqualTo(DirtyResult.notDirty());
+    assertThat(underTest.getDirtyExternalRepos()).isEmpty();
+
+    // Changing the contents while keeping the size marks the file and its repo dirty.
+    clock.advanceMillis(1);
+    FileSystemUtils.writeContentAsLatin1(path, "X = 2");
+    assertThat(
+            underTest.check(
+                rootedPath, oldValue, /* oldMtsv= */ null, SyscallCache.NO_CACHE, /* tsgm= */ null))
+        .isEqualTo(DirtyResult.dirty());
+    assertThat(underTest.getDirtyExternalRepos()).hasSize(1);
   }
 
   @Test

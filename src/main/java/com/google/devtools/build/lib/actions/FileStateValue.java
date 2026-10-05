@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -102,13 +103,60 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
           throw new InconsistentFilesystemException(
               "File " + rootedPath + " found in directory, but stat failed");
         }
-        yield createWithStatNoFollow(
-            path,
-            checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
-            syscallCache,
-            tsgm);
+        var value =
+            createWithStatNoFollow(
+                path,
+                checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
+                syscallCache,
+                tsgm);
+        if (value instanceof RegularFileStateValueWithContentsProxy && shouldComputeDigest(path)) {
+          // The cache that provides the digest is keyed by the file's metadata, so the dependence
+          // on its ctime that createWithStatNoFollow registered with the tsgm remains.
+          var digest = tryComputeDigest(path, stat);
+          if (digest != null) {
+            yield new RegularFileStateValueWithDigest(stat.getSize(), digest);
+          }
+        }
+        yield value;
       }
     };
+  }
+
+  /**
+   * Returns whether to compute a digest for the given regular file even if the filesystem doesn't
+   * provide one.
+   *
+   * <p>Without a digest, a {@link FileStateValue} changes whenever the file's ctime does, for
+   * example when the file is touched or checked out again with the same contents. Values that
+   * derive from the contents of source files, such as the metadata of a source artifact, compare
+   * equal in that case and stop the invalidation. The values derived from files evaluated during
+   * the loading phase do not: packages, compiled .bzl files and configured targets are never
+   * compared for equality. Digesting these files makes their {@link FileStateValue} the point at
+   * which such changes are pruned, so that touching a BUILD file doesn't reanalyze everything that
+   * depends on its package. They are a small fraction of all source files and their consumers read
+   * them anyway, so the cost of doing so is acceptable. Since the digest is obtained through the
+   * cache in {@link DigestUtils}, which is keyed by the file's metadata, checking an unchanged file
+   * for changes is a cache lookup rather than a read.
+   */
+  private static boolean shouldComputeDigest(Path path) {
+    var baseName = path.getBaseName();
+    return switch (baseName) {
+      case "BUILD", "BUILD.bazel", "MODULE.bazel", "REPO.bazel", ".bazelignore" -> true;
+      default -> baseName.endsWith(".bzl") || baseName.endsWith(".scl");
+    };
+  }
+
+  /**
+   * Computes the digest of the given regular file, or returns {@code null} if its contents can't be
+   * read. Whoever consumes the file reads it again and reports the error in that case.
+   */
+  @Nullable
+  private static byte[] tryComputeDigest(Path path, FileStatus stat) {
+    try {
+      return DigestUtils.manuallyComputeDigest(path, stat);
+    } catch (IOException _) {
+      return null;
+    }
   }
 
   public static FileStateValue createWithStatNoFollow(
