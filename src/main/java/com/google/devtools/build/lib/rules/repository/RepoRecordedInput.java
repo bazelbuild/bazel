@@ -489,15 +489,11 @@ public abstract sealed class RepoRecordedInput {
       var fileStateValue = fileValue.realFileStateValue();
       byte[] digest = fileStateValue.getDigest();
       if (digest == null) {
-        // Fast digest not available, or it would have been in the FileValue.
-        var contentsProxy = fileStateValue.getContentsProxy();
-        var maybeStat =
-            contentsProxy != null
-                ? contentsProxy.toMetadataOnlyFileStatus(fileStateValue.getSize())
-                : null;
+        // Fast digest not available, or it would have been in the FileValue. The FileValue's metadata
+        // is stale if the fetch modified the file, so it can't be used to look up the digest.
         digest =
             DigestUtils.manuallyComputeDigest(
-                fileValue.realRootedPath(rootedPath).asPath(), maybeStat);
+                fileValue.realRootedPath(rootedPath).asPath(), /* status= */ null);
       }
       return BaseEncoding.base16().lowerCase().encode(digest);
     }

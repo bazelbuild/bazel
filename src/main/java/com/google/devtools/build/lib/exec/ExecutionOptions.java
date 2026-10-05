@@ -484,8 +484,8 @@ public abstract class ExecutionOptions extends OptionsBase {
               + "from file metadata. When not 0, the number indicates the size of the cache as the "
               + "number of file digests to be cached. Each cached digest takes roughly 100 bytes "
               + "of heap. The cache is most effective when it can hold the digests of all files "
-              + "that a build digests, which includes source files and outputs of locally "
-              + "executed actions.")
+              + "that a build digests, which includes source files, BUILD and .bzl files and "
+              + "outputs of locally executed actions.")
   public abstract int getCacheSizeForComputedFileDigests();
 
   @Option(

@@ -405,9 +405,10 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                 .setTopLevelArtifacts(singleFileMetric)
                 .build());
 
-    // Change BUILD file back, but don't do a full build.
+    // Change the BUILD file without changing the action, but don't do a full build.
     write(
         "a/BUILD",
+        "# Comment.",
         "genrule(name = 'a', srcs = ['//b:c', '//b:b'], outs = ['a.out'], cmd = 'cat $(SRCS) >"
             + " $@')");
     addOptions("--nobuild"); // this disables skymeld, because there is no execution phase
