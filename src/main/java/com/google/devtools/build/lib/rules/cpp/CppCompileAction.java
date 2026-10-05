@@ -1044,7 +1044,9 @@ public class CppCompileAction extends AbstractAction
     ParamFileInfo paramFileInfo = null;
     if (cppConfiguration().useArgsParamsFile()) {
       paramFileInfo =
-          ParamFileInfo.builder(ParameterFileType.GCC_QUOTED).setUseAlways(true).build();
+          ParamFileInfo.builder(getParameterFileType(featureConfiguration))
+              .setUseAlways(true)
+              .build();
     }
     CommandLineAndParamFileInfo commandLineAndParamFileInfo =
         new CommandLineAndParamFileInfo(commandLine, paramFileInfo);
@@ -1052,6 +1054,12 @@ public class CppCompileAction extends AbstractAction
     Args args = Args.forRegisteredAction(commandLineAndParamFileInfo, directoryInputs);
 
     return StarlarkList.immutableCopyOf(ImmutableList.of(args));
+  }
+
+  static ParameterFileType getParameterFileType(FeatureConfiguration featureConfiguration) {
+    return featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_QUOTING_FOR_PARAM_FILES)
+        ? ParameterFileType.WINDOWS
+        : ParameterFileType.GCC_QUOTED;
   }
 
   @Override
@@ -1388,6 +1396,7 @@ public class CppCompileAction extends AbstractAction
         compileCommandLine.getEnvironment(PathMapper.NOOP),
         executionInfo,
         getCommandLineKey(),
+        getParameterFileType(featureConfiguration),
         ccCompilationContext.getDeclaredIncludeSrcs(),
         mandatoryInputs,
         mandatorySpawnInputs,
@@ -1406,6 +1415,7 @@ public class CppCompileAction extends AbstractAction
       Map<String, String> environmentVariables,
       Map<String, String> executionInfo,
       byte[] commandLineKey,
+      ParameterFileType parameterFileType,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> mandatorySpawnInputs,
@@ -1420,6 +1430,7 @@ public class CppCompileAction extends AbstractAction
     fp.addStringMap(environmentVariables);
     fp.addStringMap(executionInfo);
     fp.addBytes(commandLineKey);
+    fp.addString(parameterFileType.toString());
 
     actionKeyContext.addNestedSetToFingerprint(fp, declaredIncludeSrcs);
     fp.addInt(0); // mark the boundary between input types
@@ -1636,8 +1647,7 @@ public class CppCompileAction extends AbstractAction
               paramFilePath,
               paramFileArg,
               compilerOptions,
-              // TODO(b/132888308): Support MSVC, which has its own method of escaping strings.
-              ParameterFileType.GCC_QUOTED);
+              getParameterFileType(featureConfiguration));
       args =
           compileCommandLine.getArgumentsWithParameterFile(pathMapper, paramFileArg, paramFilePath);
     }
