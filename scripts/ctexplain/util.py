@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Generic utilities."""
+
 import time
 
 
 class ProgressStep:
   """A simple context manager that prints a progress message.
 
-    Forked from a similar project by brandjon@google.com.
+  Forked from a similar project by brandjon@google.com.
   """
 
   def __init__(self, msg, show_done=True):

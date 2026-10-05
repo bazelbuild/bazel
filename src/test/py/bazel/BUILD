@@ -30,12 +30,9 @@ py_library(
         "//src/test/tools/bzlmod:MODULE.bazel.lock",
     ],
     visibility = [
+        "//scripts/ctexplain:__pkg__",
         "//src/test/py/bazel:__pkg__",
         "//third_party/def_parser:__pkg__",
-        "//tools/android:__pkg__",
-        "//tools/build_rules:__pkg__",
-        "//tools/ctexplain:__pkg__",
-        "//tools/python:__pkg__",
     ],
     deps = [
         "//third_party/py/abseil",

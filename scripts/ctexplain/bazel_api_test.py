@@ -11,12 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for bazel_api.py."""
 import os
 import unittest
+from scripts.ctexplain.bazel_api import BazelApi
+from scripts.ctexplain.ctexplain_types import NullConfiguration
 from src.test.py.bazel import test_base
-from tools.ctexplain.bazel_api import BazelApi
-from tools.ctexplain.ctexplain_types import NullConfiguration
 
 
 class BazelApiTest(test_base.TestBase):
@@ -35,9 +34,12 @@ class BazelApiTest(test_base.TestBase):
     test_base.TestBase.tearDown(self)
 
   def testBasicCquery(self):
-    self.ScratchFile('testapp/BUILD', [
-        'filegroup(name = "fg", srcs = ["a.file"])',
-    ])
+    self.ScratchFile(
+        'testapp/BUILD',
+        [
+            'filegroup(name = "fg", srcs = ["a.file"])',
+        ],
+    )
     res = self._bazel_api.cquery(['//testapp:all'])
     success = res[0]
     cts = res[2]
@@ -49,14 +51,19 @@ class BazelApiTest(test_base.TestBase):
     self.assertIn('PlatformConfiguration', cts[0].transitive_fragments)
 
   def testFailedCquery(self):
-    self.ScratchFile('testapp/BUILD', [
-        'filegroup(name = "fg", srcs = ["a.file"])',
-    ])
-    (success, stderr, cts) = self._bazel_api.cquery(['//testapp:typo'])
+    self.ScratchFile(
+        'testapp/BUILD',
+        [
+            'filegroup(name = "fg", srcs = ["a.file"])',
+        ],
+    )
+    success, stderr, cts = self._bazel_api.cquery(['//testapp:typo'])
     self.assertFalse(success)
     self.assertEqual(len(cts), 0)
-    self.assertIn("target 'typo' not declared in package 'testapp'",
-                  os.linesep.join(stderr))
+    self.assertIn(
+        "target 'typo' not declared in package 'testapp'",
+        os.linesep.join(stderr),
+    )
 
   def testTransitiveFragmentsAccuracy(self):
     self.ScratchFile(
@@ -77,9 +84,12 @@ class BazelApiTest(test_base.TestBase):
     self.assertIn('CppConfiguration', cts2[0].transitive_fragments)
 
   def testGetTargetConfig(self):
-    self.ScratchFile('testapp/BUILD', [
-        'filegroup(name = "fg", srcs = ["a.file"])',
-    ])
+    self.ScratchFile(
+        'testapp/BUILD',
+        [
+            'filegroup(name = "fg", srcs = ["a.file"])',
+        ],
+    )
     cts = self._bazel_api.cquery(['//testapp:fg'])[2]
     config = self._bazel_api.get_config(cts[0].config_hash)
     expected_fragments = ['PlatformConfiguration', 'JavaConfiguration']
@@ -90,9 +100,12 @@ class BazelApiTest(test_base.TestBase):
     self.assertIn(('stamp', 'false'), core_options.items())
 
   def testGetNullConfig(self):
-    self.ScratchFile('testapp/BUILD', [
-        'filegroup(name = "fg", srcs = ["a.file"])',
-    ])
+    self.ScratchFile(
+        'testapp/BUILD',
+        [
+            'filegroup(name = "fg", srcs = ["a.file"])',
+        ],
+    )
     cts = self._bazel_api.cquery(['//testapp:a.file'])[2]
     config = self._bazel_api.get_config(cts[0].config_hash)
     self.assertIsInstance(config, NullConfiguration)
@@ -101,19 +114,26 @@ class BazelApiTest(test_base.TestBase):
     self.assertEqual(len(config.options), 0)
 
   def testConfigFragmentsMap(self):
-    self.ScratchFile('testapp/BUILD', [
-        'filegroup(name = "fg", srcs = ["a.file"])',
-    ])
+    self.ScratchFile(
+        'testapp/BUILD',
+        [
+            'filegroup(name = "fg", srcs = ["a.file"])',
+        ],
+    )
     cts = self._bazel_api.cquery(['//testapp:fg'])[2]
     fragments_map = self._bazel_api.get_config(cts[0].config_hash).fragments
     self.assertIn('PlatformOptions', fragments_map['PlatformConfiguration'])
-    self.assertIn('ShellConfiguration$Options',
-                  fragments_map['ShellConfiguration'])
+    self.assertIn(
+        'ShellConfiguration$Options', fragments_map['ShellConfiguration']
+    )
 
   def testConfigWithDefines(self):
-    self.ScratchFile('testapp/BUILD', [
-        'filegroup(name = "fg", srcs = ["a.file"])',
-    ])
+    self.ScratchFile(
+        'testapp/BUILD',
+        [
+            'filegroup(name = "fg", srcs = ["a.file"])',
+        ],
+    )
     cquery_args = ['//testapp:fg', '--define', 'a=b']
     cts = self._bazel_api.cquery(cquery_args)[2]
     config = self._bazel_api.get_config(cts[0].config_hash)
@@ -122,26 +142,33 @@ class BazelApiTest(test_base.TestBase):
     self.assertDictEqual(dict(user_defined_options), {'--define:a': 'b'})
 
   def testConfigWithStarlarkFlags(self):
-    self.ScratchFile('testapp/defs.bzl', [
-        'def _flag_impl(settings, attr):',
-        '  pass',
-        'string_flag = rule(',
-        '  implementation = _flag_impl,',
-        '  build_setting = config.string(flag = True)',
-        ')',
-    ])
-    self.ScratchFile('testapp/BUILD', [
-        'load(":defs.bzl", "string_flag")',
-        'string_flag(name = "my_flag", build_setting_default = "nada")',
-        'filegroup(name = "fg", srcs = ["a.file"])',
-    ])
+    self.ScratchFile(
+        'testapp/defs.bzl',
+        [
+            'def _flag_impl(settings, attr):',
+            '  pass',
+            'string_flag = rule(',
+            '  implementation = _flag_impl,',
+            '  build_setting = config.string(flag = True)',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'testapp/BUILD',
+        [
+            'load(":defs.bzl", "string_flag")',
+            'string_flag(name = "my_flag", build_setting_default = "nada")',
+            'filegroup(name = "fg", srcs = ["a.file"])',
+        ],
+    )
     cquery_args = ['//testapp:fg', '--//testapp:my_flag=algo']
     cts = self._bazel_api.cquery(cquery_args)[2]
     config = self._bazel_api.get_config(cts[0].config_hash)
     user_defined_options = config.options['user-defined']
     self.assertIsNotNone(user_defined_options)
-    self.assertDictEqual(dict(user_defined_options),
-                         {'//testapp:my_flag': 'algo'})
+    self.assertDictEqual(
+        dict(user_defined_options), {'//testapp:my_flag': 'algo'}
+    )
 
 
 if __name__ == '__main__':

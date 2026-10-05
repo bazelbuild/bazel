@@ -35,23 +35,23 @@ Relevant terms in https://docs.bazel.build/versions/main/glossary.html:
 TODO(gregce): link to proper documentation for full details.
 """
 
-from dataclasses import dataclass
+import dataclasses
 from typing import Callable
 from typing import Tuple
 
 from absl import app
 from absl import flags
 
-import tools.ctexplain.analyses.summary as summary
-from tools.ctexplain.bazel_api import BazelApi
-from tools.ctexplain.ctexplain_types import ConfiguredTarget
-import tools.ctexplain.lib as lib
-import tools.ctexplain.util as util
+from scripts.ctexplain import lib
+from scripts.ctexplain import util
+from scripts.ctexplain.analyses import summary
+from scripts.ctexplain.bazel_api import BazelApi
+from scripts.ctexplain.ctexplain_types import ConfiguredTarget
 
 FLAGS = flags.FLAGS
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Analysis:
   """Supported analysis type."""
 

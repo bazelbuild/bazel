@@ -227,7 +227,7 @@ tasks:
       - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//third_party/def_parser/..."
-      - "//tools/aquery_differ/..."
+      - "//scripts/aquery_differ/..."
       - "//tools/bash/..."
       - "//tools/build_defs/..."
       - "//tools/java/..."
@@ -237,7 +237,6 @@ tasks:
       # Re-enable the following tests on Windows:
       # https://github.com/bazelbuild/bazel/issues/4292
       - "-//src/test/shell/bazel/remote/..."
-      - "-//tools/python:pywrapper_test"
       # Too slow for Windows presubmit (24 shards, ~19m wall time on a single VM).
       - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
     include_json_profile:
@@ -284,7 +283,7 @@ tasks:
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/aquery_differ/..."
+      - "//scripts/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
       - "//tools/test/..."

@@ -14,14 +14,14 @@
 
 import unittest
 from frozendict import frozendict
-from tools.ctexplain.ctexplain_types import Configuration
+from scripts.ctexplain.ctexplain_types import Configuration
 
 
 class TypesTest(unittest.TestCase):
 
   def testConfigurationIsHashable(self):
     options = frozendict({'o1': frozendict({'k1': 'v1'})})
-    c = Configuration(fragments=('F1'), options=options)
+    c = Configuration(fragments='F1', options=options)
     some_dict = {}
     some_dict[c] = 4
 
@@ -29,34 +29,34 @@ class TypesTest(unittest.TestCase):
     d = {}
 
     options1 = frozendict({'o1': frozendict({'k1': 'v1'})})
-    d[Configuration(fragments=('F1'), options=options1)] = 4
+    d[Configuration(fragments='F1', options=options1)] = 4
     self.assertEqual(len(d), 1)
 
     options2 = frozendict({'o1': frozendict({'k1': 'v1'})})
-    d[Configuration(fragments=('F1'), options=options2)] = 4
+    d[Configuration(fragments='F1', options=options2)] = 4
     self.assertEqual(len(d), 1)
 
     options3 = frozendict({'o1': frozendict({'k1': 'v1'})})
-    d[Configuration(fragments=('F2'), options=options3)] = 4
+    d[Configuration(fragments='F2', options=options3)] = 4
     self.assertEqual(len(d), 2)
 
     options4 = frozendict({'o2': frozendict({'k1': 'v1'})})
-    d[Configuration(fragments=('F2'), options=options4)] = 4
+    d[Configuration(fragments='F2', options=options4)] = 4
     self.assertEqual(len(d), 3)
 
     options5 = frozendict({'o2': frozendict({'k2': 'v1'})})
-    d[Configuration(fragments=('F2'), options=options5)] = 4
+    d[Configuration(fragments='F2', options=options5)] = 4
     self.assertEqual(len(d), 4)
 
     options6 = frozendict({'o2': frozendict({'k2': 'v2'})})
-    d[Configuration(fragments=('F2'), options=options6)] = 4
+    d[Configuration(fragments='F2', options=options6)] = 4
     self.assertEqual(len(d), 5)
 
   def testConfigurationEquality(self):
-    c1 = Configuration(fragments=('F1'), options={'o1': {'k1': 'v1'}})
-    c2 = Configuration(fragments=('F1'), options={'o1': {'k1': 'v1'}})
-    c3 = Configuration(fragments=('F2'), options={'o1': {'k1': 'v1'}})
-    c4 = Configuration(fragments=('F1'), options={'o2': {'k2': 'v2'}})
+    c1 = Configuration(fragments='F1', options={'o1': {'k1': 'v1'}})
+    c2 = Configuration(fragments='F1', options={'o1': {'k1': 'v1'}})
+    c3 = Configuration(fragments='F2', options={'o1': {'k1': 'v1'}})
+    c4 = Configuration(fragments='F1', options={'o2': {'k2': 'v2'}})
 
     self.assertEqual(c1, c2)
     self.assertNotEqual(c1, c3)

@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Analysis that summarizes basic graph info."""
-from dataclasses import dataclass
+
+import dataclasses
 from typing import Tuple
 
-from tools.ctexplain.ctexplain_types import ConfiguredTarget
-import tools.ctexplain.util as util
+from scripts.ctexplain import util
+from scripts.ctexplain.ctexplain_types import ConfiguredTarget
 
 
-@dataclass(frozen=True)
-class _Summary():
+@dataclasses.dataclass(frozen=True)
+class _Summary:
   """Analysis result."""
+
   # Number of configurations in the build's configured target graph.
   configurations: int
   # Number of unique target labels.
@@ -48,7 +50,8 @@ def analyze(cts: Tuple[ConfiguredTarget, ...]) -> _Summary:
   repeated_targets = sum([1 for count in label_count.values() if count > 1])
 
   return _Summary(
-      len(configurations), len(targets), configured_targets, repeated_targets)
+      len(configurations), len(targets), configured_targets, repeated_targets
+  )
 
 
 def report(result: _Summary) -> None:

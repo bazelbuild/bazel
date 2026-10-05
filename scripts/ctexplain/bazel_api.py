@@ -15,6 +15,7 @@
 
 There's no Python Bazel API so we invoke Bazel as a subprocess.
 """
+
 import json
 import os
 import subprocess
@@ -22,10 +23,10 @@ from typing import Callable
 from typing import List
 from typing import Tuple
 from frozendict import frozendict
-from tools.ctexplain.ctexplain_types import Configuration
-from tools.ctexplain.ctexplain_types import ConfiguredTarget
-from tools.ctexplain.ctexplain_types import HostConfiguration
-from tools.ctexplain.ctexplain_types import NullConfiguration
+from scripts.ctexplain.ctexplain_types import Configuration
+from scripts.ctexplain.ctexplain_types import ConfiguredTarget
+from scripts.ctexplain.ctexplain_types import HostConfiguration
+from scripts.ctexplain.ctexplain_types import NullConfiguration
 
 
 def run_bazel_in_client(args: List[str]) -> Tuple[int, List[str], List[str]]:
@@ -45,22 +46,29 @@ def run_bazel_in_client(args: List[str]) -> Tuple[int, List[str], List[str]]:
       cwd=os.getcwd(),
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE,
-      check=False)
-  return (result.returncode, result.stdout.decode("utf-8").split(os.linesep),
-          result.stderr)
+      check=False,
+  )
+  return (
+      result.returncode,
+      result.stdout.decode("utf-8").split(os.linesep),
+      result.stderr,
+  )
 
 
-class BazelApi():
+class BazelApi:
   """API that accepts injectable Bazel invocation logic."""
 
-  def __init__(self,
-               run_bazel: Callable[[List[str]],
-                                   Tuple[int, List[str],
-                                         List[str]]] = run_bazel_in_client):
+  def __init__(
+      self,
+      run_bazel: Callable[
+          [List[str]], Tuple[int, List[str], List[str]]
+      ] = run_bazel_in_client,
+  ):
     self.run_bazel = run_bazel
 
-  def cquery(self,
-             args: List[str]) -> Tuple[bool, str, Tuple[ConfiguredTarget, ...]]:
+  def cquery(
+      self, args: List[str]
+  ) -> Tuple[bool, str, Tuple[ConfiguredTarget, ...]]:
     """Calls cquery with the given arguments.
 
     Args:
@@ -77,7 +85,7 @@ class BazelApi():
       if A depends on B, A appears before B.
     """
     base_args = ["cquery", "--show_config_fragments=transitive"]
-    (returncode, stdout, stderr) = self.run_bazel(base_args + args)
+    returncode, stdout, stderr = self.run_bazel(base_args + args)
     if returncode != 0:
       return (False, stderr, ())
 
@@ -109,13 +117,14 @@ class BazelApi():
       return NullConfiguration()
 
     base_args = ["config", "--output=json"]
-    (returncode, stdout, stderr) = self.run_bazel(base_args + [config_hash])
+    returncode, stdout, stderr = self.run_bazel(base_args + [config_hash])
     if returncode != 0:
       raise ValueError("Could not get config: " + stderr)
     config_json = json.loads(os.linesep.join(stdout))
     fragments = frozendict({
-        _base_name(entry["name"]):
-        tuple(_base_name(clazz) for clazz in entry["fragmentOptions"])
+        _base_name(entry["name"]): tuple(
+            _base_name(clazz) for clazz in entry["fragmentOptions"]
+        )
         for entry in config_json["fragments"]
     })
     options = frozendict({
@@ -161,7 +170,8 @@ def _parse_cquery_result_line(line: str) -> ConfiguredTarget:
       label=label,
       config=None,  # Not yet available: we'll need `bazel config` to get this.
       config_hash=config_hash,
-      transitive_fragments=fragments)
+      transitive_fragments=fragments,
+  )
 
 
 def _base_name(full_name: str) -> str:
