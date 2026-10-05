@@ -1456,6 +1456,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
             IntVersion.of(9000),
             "distinguisher",
             /* useFakeStampData= */ true,
+            /* runOnHost= */ false,
             Optional.empty());
     getCommandEnvironment().getRemoteAnalysisCachingEventListener().recordSkyValueVersion(version);
 

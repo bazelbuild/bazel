@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import javax.annotation.Nullable;
@@ -26,15 +27,25 @@ public abstract class UnloadedToolchainContextsInputs extends ExecGroupCollectio
   @Nullable // Null if no toolchain resolution is required.
   public abstract ToolchainContextKey targetToolchainContextKey();
 
+  /**
+   * The platform that the "test" exec group of a test is resolved to if possible when the current
+   * command executes tests on the host ({@code PrecomputedValue#RUN_ON_HOST}).
+   */
+  @Nullable // Null if the target isn't a test.
+  public abstract Label runOnHostTestExecutionPlatform();
+
   public static UnloadedToolchainContextsInputs create(
       ImmutableMap<String, DeclaredExecGroup> processedExecGroups,
-      @Nullable ToolchainContextKey targetToolchainContextKey) {
+      @Nullable ToolchainContextKey targetToolchainContextKey,
+      @Nullable Label runOnHostTestExecutionPlatform) {
     return new AutoValue_UnloadedToolchainContextsInputs(
-        processedExecGroups, targetToolchainContextKey);
+        processedExecGroups, targetToolchainContextKey, runOnHostTestExecutionPlatform);
   }
 
   public static UnloadedToolchainContextsInputs empty() {
-    return new AutoValue_UnloadedToolchainContextsInputs(
-        ImmutableMap.of(), /* targetToolchainContextKey= */ null);
+    return create(
+        ImmutableMap.of(),
+        /* targetToolchainContextKey= */ null,
+        /* runOnHostTestExecutionPlatform= */ null);
   }
 }

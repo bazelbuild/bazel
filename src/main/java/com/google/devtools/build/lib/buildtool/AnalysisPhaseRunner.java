@@ -326,6 +326,8 @@ public final class AnalysisPhaseRunner {
               explicitTargetPatterns,
               request.getAspects(),
               request.getAspectsParameters(),
+              request.getHostExecTopLevelTargets(),
+              request.runOnHost(),
               request.getViewOptions(),
               request.getBuildOptions(),
               request.getKeepGoing(),
