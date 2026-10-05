@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.commands;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
 
 import com.google.common.collect.ImmutableList;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorManager;
 import com.google.devtools.build.lib.bazel.commands.RepositoryFetcher.RepositoryFetcherException;
@@ -165,14 +165,21 @@ public final class VendorCommand implements BlazeCommand {
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
     try {
-      if (!targets.isEmpty()) {
-        if (!vendorOptions.getRepos().isEmpty()) {
+      if (!vendorOptions.getRepos().isEmpty()) {
+        if (!targets.isEmpty()) {
           return createFailedBlazeCommandResult(
               env.getReporter(), "Target patterns and --repo cannot both be specified");
         }
-        result = vendorTargets(env, options, targets);
-      } else if (!vendorOptions.getRepos().isEmpty()) {
+        if (vendorOptions.getForLockfile()) {
+          return createFailedBlazeCommandResult(
+              env.getReporter(),
+              Code.OPTIONS_INVALID,
+              "--for_lockfile and --repo cannot both be specified");
+        }
         result = vendorRepos(env, threadsOption, vendorOptions.getRepos());
+      } else if (!targets.isEmpty() || vendorOptions.getForLockfile()) {
+        result =
+            vendorTargets(env, options, threadsOption, targets, vendorOptions.getForLockfile());
       } else {
         result = vendorAll(env, threadsOption);
       }
@@ -286,40 +293,81 @@ public final class VendorCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult vendorTargets(
-      CommandEnvironment env, OptionsParsingResult options, List<String> targets)
+      CommandEnvironment env,
+      OptionsParsingResult options,
+      LoadingPhaseThreadsOption threadsOption,
+      List<String> targets,
+      boolean forLockfile)
       throws InterruptedException, IOException {
-    // Call fetch which runs build to have the targets graph and configuration set
-    BuildResult buildResult;
-    try {
-      buildResult = TargetFetcher.fetchTargets(env, options, targets);
-    } catch (TargetFetcherException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), Code.QUERY_EVALUATION_ERROR, e.getMessage());
+    ImmutableList.Builder<SkyKey> rootKeys = ImmutableList.builder();
+    if (!targets.isEmpty()) {
+      // Call fetch which runs build to have the targets graph and configuration set
+      BuildResult buildResult;
+      try {
+        buildResult = TargetFetcher.fetchTargets(env, options, targets);
+      } catch (TargetFetcherException e) {
+        return createFailedBlazeCommandResult(
+            env.getReporter(), Code.QUERY_EVALUATION_ERROR, e.getMessage());
+      }
+      buildResult.getActualTargets().stream()
+          .map(ConfiguredTarget::getLookupKey)
+          .forEach(rootKeys::add);
+    }
+    if (forLockfile) {
+      // Evaluate what `bazel mod tidy` evaluates so that all repos required to update the
+      // lockfile are reachable in the graph, including those hosting module extensions that are
+      // only used by dependencies.
+      EvaluationContext evaluationContext =
+          EvaluationContext.newBuilder()
+              .setParallelism(threadsOption.getThreads())
+              .setEventHandler(env.getReporter())
+              .build();
+      EvaluationResult<SkyValue> evaluationResult =
+          env.getSkyframeExecutor()
+              .prepareAndGet(ImmutableSet.of(BazelModTidyValue.KEY), evaluationContext);
+      if (evaluationResult.hasError()) {
+        Exception e = evaluationResult.getError().getException();
+        String errorMessage =
+            e != null && e.getMessage() != null
+                ? e.getMessage()
+                : "Unexpected error while evaluating the dependencies of bazel mod tidy.";
+        return createFailedBlazeCommandResult(
+            env.getReporter(), Code.QUERY_EVALUATION_ERROR, errorMessage);
+      }
+      var modTidyValue = (BazelModTidyValue) evaluationResult.get(BazelModTidyValue.KEY);
+      if (!modTidyValue.errors().isEmpty()) {
+        return createFailedBlazeCommandResult(
+            env.getReporter(),
+            Code.QUERY_EVALUATION_ERROR,
+            String.format(
+                "Failed to process %d extension%s due to errors.",
+                modTidyValue.errors().size(), modTidyValue.errors().size() == 1 ? "" : "s"));
+      }
+      rootKeys.add(BazelModTidyValue.KEY);
     }
 
-    // Traverse the graph created from build to collect repos and vendor them
-    ImmutableList<SkyKey> targetKeys =
-        buildResult.getActualTargets().stream()
-            .map(ConfiguredTarget::getLookupKey)
-            .collect(toImmutableList());
+    // Traverse the graph to collect the repos reachable from the roots and vendor them.
     InMemoryGraph inMemoryGraph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
-    ImmutableSet<RepositoryName> reposToVendor = collectReposFromTargets(inMemoryGraph, targetKeys);
+    ImmutableSet<RepositoryName> reposToVendor =
+        collectReposReachableFrom(inMemoryGraph, rootKeys.build());
 
-    env.getReporter().handle(Event.info("Vendoring dependencies for targets..."));
+    String subject =
+        targets.isEmpty()
+            ? "lockfile updates"
+            : forLockfile ? "the requested targets and lockfile updates" : "the requested targets";
+    env.getReporter().handle(Event.info("Vendoring dependencies for " + subject + "..."));
     vendor(env, reposToVendor.asList());
     env.getReporter()
-        .handle(
-            Event.info(
-                "All external dependencies for the requested targets vendored successfully."));
+        .handle(Event.info("All external dependencies for " + subject + " vendored successfully."));
     return BlazeCommandResult.success();
   }
 
-  private ImmutableSet<RepositoryName> collectReposFromTargets(
-      InMemoryGraph inMemoryGraph, ImmutableList<SkyKey> targetKeys) throws InterruptedException {
+  private ImmutableSet<RepositoryName> collectReposReachableFrom(
+      InMemoryGraph inMemoryGraph, ImmutableList<SkyKey> rootKeys) throws InterruptedException {
     ImmutableSet.Builder<RepositoryName> repos = ImmutableSet.builder();
-    Queue<SkyKey> nodes = new ArrayDeque<>(targetKeys);
+    Queue<SkyKey> nodes = new ArrayDeque<>(rootKeys);
     // Mark nodes as visited when they are enqueued.
-    Set<SkyKey> visited = new HashSet<>(targetKeys);
+    Set<SkyKey> visited = new HashSet<>(rootKeys);
     while (!nodes.isEmpty()) {
       SkyKey key = nodes.remove();
       NodeEntry nodeEntry = inMemoryGraph.get(null, Reason.VENDOR_EXTERNAL_REPOS, key);

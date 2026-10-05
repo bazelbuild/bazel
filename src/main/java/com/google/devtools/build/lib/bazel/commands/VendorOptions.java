@@ -35,4 +35,18 @@ public abstract class VendorOptions extends OptionsBase {
           `@@canonical_repo_name`. This option can be set multiple times.
           """)
   public abstract List<String> getRepos();
+
+  @Option(
+      name = "for_lockfile",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          """
+          Also vendors the repositories required to update the lockfile, e.g. with `bazel mod
+          tidy`, while fetching is disabled. These include the repositories hosting all module
+          extensions in the dependency graph, even those only used by dependencies, as well as
+          buildozer. Can be combined with target patterns, but not with `--repo`.
+          """)
+  public abstract boolean getForLockfile();
 }
