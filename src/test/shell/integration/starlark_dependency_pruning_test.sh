@@ -175,6 +175,11 @@ function tear_down() {
 # A file name in the unused inputs list may end in a space: the input without the space is a
 # different one and stays used.
 function test_unused_input_name_with_trailing_space() {
+  if is_windows; then
+    # Windows removes trailing spaces from file names, so the two inputs would
+    # be the same file.
+    return
+  fi
   cat >> pkg/BUILD << 'EOF'
 
 filegroup(
