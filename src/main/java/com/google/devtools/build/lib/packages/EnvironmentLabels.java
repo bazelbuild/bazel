@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  * <p>Constructor should only be called by {@link EnvironmentGroup}, and this object must never be
  * accessed externally until after {@link EnvironmentGroup#processMemberEnvironments} is called. The
  * mutability of fulfillersMap means that we must take care to wait until it is set before doing
- * anything with this class.e
+ * anything with this class.
  */
 @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
 public final class EnvironmentLabels {
@@ -137,7 +137,7 @@ public final class EnvironmentLabels {
   @Override
   public int hashCode() {
     checkInitialized();
-    return Objects.hash(label, environments, defaults, fulfillersMap.keySet());
+    return Objects.hash(label, environments, defaults, fulfillersMap);
   }
 
   @Override
