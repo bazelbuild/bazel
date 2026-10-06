@@ -726,6 +726,51 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
 
+  def testObsoleteAlternatives_notDependedOn(self):
+    # A lookup also requests inputs of alternatives it doesn't end up using,
+    # which must not remain Skyframe dependencies of the repo.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  switch = rctx.getenv("SWITCH")',
+            '  value = rctx.getenv("A") if switch == "a" else rctx.getenv("B")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", value)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible = True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    env = ['--repo_env=A=a', '--repo_env=B=b']
+    target = '@my_repo//:data.txt'
+
+    # Two fetches record the alternatives [SWITCH, A] and [SWITCH, B].
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=a', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=b', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # A lookup with SWITCH=b probes A as well, but only depends on SWITCH and B.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=b', target] + env)
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    _, stdout, _ = self.RunBazel(
+        ['dump', '--skyframe=deps', '--skykey_filter=REPOSITORY_DIRECTORY:.*my_repo.*']
+    )
+    self.assertTrue(any(line.endswith(':SWITCH') for line in stdout), stdout)
+    self.assertTrue(any(line.endswith(':B') for line in stdout), stdout)
+    self.assertFalse(any(line.endswith(':A') for line in stdout), stdout)
+
   def testAccessFromOtherRepo_symlink(self):
     self.ScratchFile(
         'MODULE.bazel',

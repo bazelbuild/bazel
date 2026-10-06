@@ -290,6 +290,59 @@ class RepoContentsCacheTest(test_base.TestBase):
     )
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
 
+  def testObsoleteEntries_notDependedOn(self):
+    # The entries for a repo are checked in the order of their last use until
+    # one is up to date. The inputs of the entries checked before it must not
+    # remain Skyframe dependencies of the repo.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  switch = rctx.getenv("SWITCH")',
+            '  value = rctx.getenv("A") if switch == "a" else rctx.getenv("B")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", value)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible = True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    env = ['--repo_env=A=a', '--repo_env=B=b']
+    target = '@my_repo//:data.txt'
+
+    # Two fetches add the entries [SWITCH, A] and [SWITCH, B] to the cache.
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=a', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=b', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # A build with SWITCH=a checks the more recently used entry [SWITCH, B]
+    # first, but only depends on SWITCH and A.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=a', target] + env)
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    _, stdout, _ = self.RunBazel(
+        ['dump', '--skyframe=deps', '--skykey_filter=REPOSITORY_DIRECTORY:.*my_repo.*']
+    )
+    self.assertTrue(any(line.endswith(':SWITCH') for line in stdout), stdout)
+    self.assertTrue(any(line.endswith(':A') for line in stdout), stdout)
+    self.assertFalse(any(line.endswith(':B') for line in stdout), stdout)
+
+    # The repo still depends on its cache entry. Move the cache instead of
+    # deleting it to avoid access denied errors on Windows.
+    os.rename(self.repo_contents_cache, self.repo_contents_cache + '_deleted')
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=a', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
   def testNoThrashingBetweenWorkspaces(self):
     module_bazel_lines = [
         'repo = use_repo_rule("//:repo.bzl", "repo")',

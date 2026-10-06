@@ -159,6 +159,49 @@ class BazelVendorTest(test_base.TestBase):
     repos_vendored = os.listdir(self._test_cwd + '/vendor')
     self.assertIn('aaa+', repos_vendored)
 
+  def testOutdatedVendoredRepo_onlyDependsOnNewInputs(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  switch = rctx.getenv("SWITCH")',
+            '  value = rctx.getenv("A") if switch == "a" else rctx.getenv("B")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", value)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible = True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    flags = ['--vendor_dir=vendor', '--repo_env=A=a', '--repo_env=B=b']
+    self.RunBazel(['vendor', '--repo=@my_repo', '--repo_env=SWITCH=a'] + flags)
+
+    # The vendored repo records SWITCH and A, the new fetch records SWITCH and
+    # B.
+    flags.append('--repo_env=SWITCH=b')
+    _, _, stderr = self.RunBazel(['query', '@my_repo//:data.txt'] + flags)
+    self.assertEqual(sum('JUST FETCHED' in line for line in stderr), 1, stderr)
+    _, stdout, _ = self.RunBazel(
+        ['dump', '--skyframe=deps', '--skykey_filter=REPOSITORY_DIRECTORY:.*my_repo.*']
+    )
+    self.assertTrue(any(line.endswith(':SWITCH') for line in stdout), stdout)
+    self.assertTrue(any(line.endswith(':B') for line in stdout), stdout)
+    self.assertFalse(any(line.endswith(':A') for line in stdout), stdout)
+
+    # The repo still depends on the options that control fetching and a forced
+    # fetch, which also finds the vendored repo to be outdated, only runs the
+    # repo rule once.
+    _, _, stderr = self.RunBazel(['fetch', '--force', '--repo=@my_repo'] + flags)
+    self.assertEqual(sum('JUST FETCHED' in line for line in stderr), 1, stderr)
+
   def testVendoringMultipleTimes(self):
     self.useMockBuiltinModules()
     self.main_registry.createShModule('aaa', '1.0')

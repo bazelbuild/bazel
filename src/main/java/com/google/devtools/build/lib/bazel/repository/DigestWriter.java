@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -90,9 +91,10 @@ public class DigestWriter {
     }
   }
 
-  Optional<String> areRepositoryAndMarkerFileConsistent(Environment env)
+  Optional<String> areRepositoryAndMarkerFileConsistent(
+      Environment env, Collection<RepoRecordedInput> requestedInputs)
       throws InterruptedException, RepositoryFunctionException {
-    return areRepositoryAndMarkerFileConsistent(env, markerPath);
+    return areRepositoryAndMarkerFileConsistent(env, markerPath, requestedInputs);
   }
 
   /**
@@ -102,8 +104,12 @@ public class DigestWriter {
    *
    * <p>This method treats a missing Skyframe dependency as if the repo is not up to date. The
    * caller is responsible for checking {@code env.valuesMissing()}.
+   *
+   * @param requestedInputs collects the recorded inputs that this method requests in order, which
+   *     are all inputs of the marker file if the repo is consistent with it
    */
-  Optional<String> areRepositoryAndMarkerFileConsistent(Environment env, Path markerPath)
+  Optional<String> areRepositoryAndMarkerFileConsistent(
+      Environment env, Path markerPath, Collection<RepoRecordedInput> requestedInputs)
       throws RepositoryFunctionException, InterruptedException {
     try {
       if (!markerPath.exists()) {
@@ -118,6 +124,9 @@ public class DigestWriter {
       // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
       for (ImmutableList<RepoRecordedInput.WithValue> batch :
           RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues.get())) {
+        for (var recordedInputValue : batch) {
+          requestedInputs.add(recordedInputValue.input());
+        }
         Optional<String> outdatedReason =
             RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
         if (outdatedReason.isPresent()) {
