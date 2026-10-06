@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsValue;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsValue;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainDeclarationsValue;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
@@ -400,6 +401,8 @@ public final class FrontierSerializer {
             case RegisteredExecutionPlatformsValue.Key key ->
                 markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection);
             case RegisteredToolchainsValue.Key key ->
+                markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection);
+            case ToolchainDeclarationsValue.Key key ->
                 markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection);
             case ToolchainContextKey key ->
                 markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection);

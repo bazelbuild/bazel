@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe.toolchains;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.collect.Collections2;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
@@ -30,6 +33,7 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidationContext;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
@@ -68,6 +72,10 @@ import javax.annotation.Nullable;
 /**
  * {@link SkyFunction} that returns all registered toolchains available for toolchain resolution in
  * a given target configuration.
+ *
+ * <p>Most toolchain declarations are analyzed once without a configuration by {@link
+ * ToolchainDeclarationsFunction}. This function only analyzes the remaining declarations and the
+ * {@code target_settings} of all declarations in the target configuration.
  */
 public class RegisteredToolchainsFunction implements SkyFunction {
 
@@ -88,15 +96,16 @@ public class RegisteredToolchainsFunction implements SkyFunction {
       return null;
     }
 
-    // Expand the registered toolchains. This is shared by all configurations with the same
-    // --extra_toolchains.
+    // Expand the registered toolchains and get the configuration-independent declarations. This
+    // is shared by all configurations with the same --extra_toolchains and no-config configuration.
     ToolchainDeclarationsValue declarations;
     try {
       declarations =
           (ToolchainDeclarationsValue)
               env.getValueOrThrow(
                   ToolchainDeclarationsValue.Key.create(
-                      configuration.getFragment(PlatformConfiguration.class).getExtraToolchains()),
+                      configuration.getFragment(PlatformConfiguration.class).getExtraToolchains(),
+                      CommonOptions.noConfigOptions(configuration.getOptions())),
                   InvalidToolchainLabelException.class);
     } catch (InvalidToolchainLabelException e) {
       throw new RegisteredToolchainsFunctionException(e, Transience.PERSISTENT);
@@ -105,12 +114,25 @@ public class RegisteredToolchainsFunction implements SkyFunction {
       return null;
     }
 
-    // Load the configured target for each, and get the declared toolchain providers.
-    ImmutableList<DeclaredToolchainInfo> registeredToolchains =
-        configureRegisteredToolchains(env, configuration, declarations.labels());
-    if (env.valuesMissing()) {
+    // Analyze the remaining declarations in this configuration.
+    ImmutableMap<Label, DeclaredToolchainInfo> configIndependentToolchains =
+        declarations.configIndependentToolchains();
+    Map<Label, DeclaredToolchainInfo> configDependentToolchains =
+        configureRegisteredToolchains(
+            env,
+            key.getConfigurationKey(),
+            Collections2.filter(
+                declarations.labels(), label -> !configIndependentToolchains.containsKey(label)));
+    if (configDependentToolchains == null) {
       return null;
     }
+    ImmutableList<DeclaredToolchainInfo> registeredToolchains =
+        declarations.labels().stream()
+            .map(
+                label ->
+                    configIndependentToolchains.getOrDefault(
+                        label, configDependentToolchains.get(label)))
+            .collect(toImmutableList());
 
     // Analyze the target settings in this configuration. These are typically shared by many
     // toolchains.
@@ -355,9 +377,13 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
   }
 
+  /**
+   * Analyzes the given toolchain targets in the given configuration and returns their {@link
+   * DeclaredToolchainInfo}s, or {@code null} if Skyframe values are missing.
+   */
   @Nullable
-  private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
-      Environment env, BuildConfigurationValue configuration, Collection<Label> labels)
+  static Map<Label, DeclaredToolchainInfo> configureRegisteredToolchains(
+      Environment env, BuildConfigurationKey configurationKey, Collection<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {
     ImmutableSet<ActionLookupKey> keys =
         labels.stream()
@@ -365,12 +391,12 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                 label ->
                     ConfiguredTargetKey.builder()
                         .setLabel(label)
-                        .setConfiguration(configuration)
+                        .setConfigurationKey(configurationKey)
                         .build())
             .collect(toImmutableSet());
 
     SkyframeLookupResult values = env.getValuesAndExceptions(keys);
-    ImmutableList.Builder<DeclaredToolchainInfo> toolchains = new ImmutableList.Builder<>();
+    Map<Label, DeclaredToolchainInfo> toolchains = new HashMap<>();
     boolean valuesMissing = false;
     for (ActionLookupKey key : keys) {
       Label toolchainLabel = key.getLabel();
@@ -387,7 +413,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
           throw new RegisteredToolchainsFunctionException(
               new InvalidToolchainLabelException(toolchainLabel), Transience.PERSISTENT);
         }
-        toolchains.add(toolchainInfo);
+        toolchains.put(toolchainLabel, toolchainInfo);
       } catch (ConfiguredValueCreationException e) {
         throw new RegisteredToolchainsFunctionException(
             new InvalidToolchainLabelException(toolchainLabel, e), Transience.PERSISTENT);
@@ -397,7 +423,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     if (valuesMissing) {
       return null;
     }
-    return toolchains.build();
+    return toolchains;
   }
 
   /**
