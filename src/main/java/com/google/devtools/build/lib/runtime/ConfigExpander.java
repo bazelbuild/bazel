@@ -82,7 +82,7 @@ final class ConfigExpander {
    * Expands --config options present in the requested commands using the options configuration
    * provided in commandToRcArgs.
    *
-   * @param eventHandler collects any warnings encountered.
+   * @param eventHandler collects informational messages and warnings encountered.
    * @param rcFileNotesConsumer collects any informational messages encountered.
    * @param optionsParser will parse the expanded --config representations.
    * @throws OptionsParsingException if a fatal problem with the configuration is encountered.
@@ -156,7 +156,7 @@ final class ConfigExpander {
       }
     }
 
-    // At this point, we've expanded everything, identify duplicates, if any, to warn about
+    // At this point, we've expanded everything, identify duplicates, if any, to report
     // re-application.
     List<String> configs = optionsParser.getOptions(CommonCommandOptions.class).getConfigs();
     Set<String> configSet = new HashSet<>();
@@ -168,7 +168,7 @@ final class ConfigExpander {
     }
     if (!duplicateConfigs.isEmpty()) {
       eventHandler.handle(
-          Event.warn(
+          Event.info(
               String.format(
                   "The following configs were expanded more than once: %s. For repeatable flags, "
                       + "repeats are counted twice and may lead to unexpected behavior.",
