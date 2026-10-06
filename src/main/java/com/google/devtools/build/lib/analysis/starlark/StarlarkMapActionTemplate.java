@@ -63,7 +63,6 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
-import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -331,8 +330,10 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
       throws CommandLineExpansionException, InterruptedException {
     // Already contains input_directories, additional_inputs and tools.
     actionKeyContext.addNestedSetToFingerprint(fp, allInputs);
-    addMapToFingerprint(actionKeyContext, fp, outputDirectories);
-    addMapToFingerprint(actionKeyContext, fp, additionalParams);
+    for (Entry<String, SpecialArtifact> entry : outputDirectories.entrySet()) {
+      fp.addString(entry.getKey());
+      fp.addPath(entry.getValue().getExecPath());
+    }
     fp.addStringMap(executionRequirements);
     fp.addString(getMnemonic());
     fp.addString(expandedActionsMnemonic);
@@ -347,34 +348,6 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     fp.addString(implementation.getName());
     fp.addBytes(BazelModuleContext.of(implementation.getModule()).bzlTransitiveDigest());
     fp.addBoolean(isSubdirectoryAllowed);
-  }
-
-  private void addMapToFingerprint(
-      ActionKeyContext actionKeyContext, Fingerprint fp, Dict<String, ?> dict)
-      throws CommandLineExpansionException, InterruptedException {
-    try {
-      for (Entry<String, ?> entry : dict.entrySet()) {
-        fp.addString(entry.getKey());
-        switch (entry.getValue()) {
-          case Artifact artifact -> fp.addPath(artifact.getExecPath());
-          case Depset depset ->
-              actionKeyContext.addNestedSetToFingerprint(
-                  fp, Depset.cast(depset, Artifact.class, "unused"));
-          case Boolean bool -> fp.addBoolean(bool);
-          case StarlarkInt starlarkInt -> fp.addInt(starlarkInt.toIntUnchecked());
-          case String string -> fp.addString(string);
-          default -> {
-            throw new IllegalStateException(
-                String.format(
-                    "Expected Artifact or Depset; but got %s in %s.",
-                    Starlark.type(entry.getValue()), entry.getKey()));
-          }
-        }
-      }
-    } catch (EvalException e) {
-      // This should never happen, and should be validated / thrown in StarlarkActionFactory.
-      throw new IllegalStateException(e);
-    }
   }
 
   @Override
