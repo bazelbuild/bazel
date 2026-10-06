@@ -1,5 +1,4 @@
 #!/bin/sh
-
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,23 +20,28 @@ set -eu
 # in a way to contain canonical timestamps. This assumption must be
 # met in order to obtain reproducible output; the assumption is met
 # for the source tree and the archive of the generated java files.
-
-OUTPUT="${PWD}/$1"
+case "$1" in
+  /*) OUTPUT="$1" ;;
+  *) OUTPUT="${PWD}/$1" ;;
+esac
 shift
 
 TMP_DIR=${TMPDIR:-/tmp}
-PACKAGE_DIR="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
-trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
+PACKAGE_DIR="$(mktemp -d "${TMP_DIR%%/}/bazel.XXXXXXXX")"
+trap 'rm -fr "${PACKAGE_DIR}"' EXIT
 mkdir -p "${PACKAGE_DIR}"
 
-for i do
-    ARCHIVE="${PWD}/$i"
-    case "$i" in
-        *.zip) UNPACK="unzip -q" ;;
-        *.tar) UNPACK="tar xf" ;;
-        *) echo "unknown archive type: $i" >&2; exit 1 ;;
-    esac
-    (cd "${PACKAGE_DIR}" && ${UNPACK} "${ARCHIVE}")
+for i in "$@"; do
+  case "$i" in
+    /*) ARCHIVE="$i" ;;
+    *) ARCHIVE="${PWD}/$i" ;;
+  esac
+  case "$i" in
+    *.zip) UNPACK="unzip -q" ;;
+    *.tar) UNPACK="tar xf" ;;
+    *) echo "unknown archive type: $i" >&2; exit 1 ;;
+  esac
+  (cd "${PACKAGE_DIR}" && ${UNPACK} "${ARCHIVE}")
 done
 
 ID_OPTS="--group=0 --owner=0"
@@ -47,8 +51,8 @@ fi
 
 (
   cd "${PACKAGE_DIR}"
-  FILE_LIST="$(mktemp ${TMP_DIR%%/}/bazel-distfile-files.XXXXXXXX)"
-  trap "rm -fr \"${FILE_LIST}\"" EXIT
+  FILE_LIST="$(mktemp "${TMP_DIR%%/}/bazel-distfile-files.XXXXXXXX")"
+  trap 'rm -fr "${FILE_LIST}"' EXIT
   find . -type f | LC_ALL=C sort > "${FILE_LIST}"
   tar -c -f "${OUTPUT}" ${ID_OPTS} -T "${FILE_LIST}"
 )
