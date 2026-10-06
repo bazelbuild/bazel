@@ -116,9 +116,6 @@ bazel mod tidy --vendor_dir=vendor_src --nofetch
 Without target patterns, `bazel vendor --for_lockfile` vendors only the
 dependencies required to update the lockfile.
 
-The `@bazel_tools//tools:tools_for_bazel_subcommands` filegroup is deprecated.
-It only covers the buildozer binary, not the extensions used by dependencies.
-
 ## Configure vendor mode with VENDOR.bazel {#configure-vendor-mode}
 
 You can control how given repos are handled with the VENDOR.bazel file located
