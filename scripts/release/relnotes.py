@@ -207,7 +207,7 @@ if __name__ == "__main__":
   if current_release not in tags:
     tags.append(current_release)
 
-  tags.sort()
+  tags.sort(key=lambda t: [int(x) for x in re.findall(r"\d+", t)])
   last_release = tags[tags.index(current_release) - 1]
 
   # Assuming HEAD is on the current (to-be-released) release, find the merge
