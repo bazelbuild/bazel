@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -152,25 +151,7 @@ public class RegistryFunction implements SkyFunction {
     if (!"file".equals(uri.getScheme())) {
       throw new URISyntaxException(url, "Only file:// registries can be watched");
     }
-    String authority = uri.getAuthority();
-    String path = uri.getPath();
-    boolean windows = OS.getCurrent() == OS.WINDOWS;
-    if (windows && authority != null && authority.matches("[A-Za-z]:")) {
-      // file://%workspace%/registry expands to file://C:/ws/registry.
-      path = authority + path;
-    } else if (authority != null) {
-      throw new URISyntaxException(url, "Watched registry URL must not have a host");
-    } else if (windows && path != null && path.matches("/[A-Za-z]:/.*")) {
-      // file:///C:/ws/registry
-      path = path.substring(1);
-    }
-    if (path == null || !PathFragment.isAbsolute(path)) {
-      throw new URISyntaxException(
-          url,
-          "Watched registry URL must have an absolute path -- did you mean to use"
-              + " watch=file:///foo/bar or watch=file:///c:/foo/bar for Windows?");
-    }
-    return PathFragment.create(path);
+    return PathFragment.create(IndexRegistry.getLocalRegistryPath(uri));
   }
 
   static final class RegistryException extends SkyFunctionException {

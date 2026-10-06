@@ -38,6 +38,13 @@ public class RegistryFunctionTest {
   }
 
   @Test
+  public void getWatchedRegistryPath_localhost() throws Exception {
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+    assertThat(RegistryFunction.getWatchedRegistryPath("file://localhost/path/to/registry"))
+        .isEqualTo(PathFragment.create("/path/to/registry"));
+  }
+
+  @Test
   public void getWatchedRegistryPath_windowsDriveLetter() throws Exception {
     assumeTrue(OS.getCurrent() == OS.WINDOWS);
     assertThat(RegistryFunction.getWatchedRegistryPath("file:///C:/path/to/registry"))
