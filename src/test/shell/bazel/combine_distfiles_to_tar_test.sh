@@ -24,20 +24,45 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v3 ---
 
+source "$(rlocation io_bazel/src/test/shell/unittest.bash)" \
+  || (echo "unittest.bash not found!" && exit 1)
+
 script="$(rlocation io_bazel/combine_distfiles_to_tar.sh)"
-test_root="$(mktemp -d "${TEST_TMPDIR}/combine-distfiles.XXXXXXXX")"
-trap 'rm -rf "$test_root"' EXIT
 
-mkdir -p "$test_root/input"
-printf 'contents\n' > "$test_root/input/file.txt"
-(
-  cd "$test_root/input"
-  zip -q "$test_root/input archive.zip" file.txt
-)
+function create_zip() {
+  local archive="$1"
+  local input_dir="$2"
+  mkdir -p "$input_dir"
+  printf 'contents\n' > "$input_dir/file.txt"
+  (cd "$input_dir" && zip -q "$archive" file.txt)
+}
 
-(
-  cd "$test_root"
-  "$script" output.tar "input archive.zip"
-)
+function assert_archive_contents() {
+  local archive="$1"
+  assert_equals './file.txt' "$(tar -tf "$archive")"
+}
 
-tar -tf "$test_root/output.tar" | grep -qx './file.txt'
+function test_relative_archive_path_with_spaces() {
+  local test_root="$TEST_TMPDIR/relative paths"
+  mkdir -p "$test_root"
+  create_zip "$test_root/input archive.zip" "$test_root/input"
+
+  (cd "$test_root" && "$script" "output archive.tar" "input archive.zip")
+
+  assert_archive_contents "$test_root/output archive.tar"
+}
+
+function test_absolute_paths_and_tmpdir_with_spaces() {
+  local test_root="$TEST_TMPDIR/absolute paths"
+  local temp_dir="$test_root/temp dir"
+  local input_archive="$test_root/input archive.zip"
+  local output_archive="$test_root/output archive.tar"
+  mkdir -p "$temp_dir"
+  create_zip "$input_archive" "$test_root/input"
+
+  TMPDIR="$temp_dir" "$script" "$output_archive" "$input_archive"
+
+  assert_archive_contents "$output_archive"
+}
+
+run_suite "combine_distfiles_to_tar.sh tests"
