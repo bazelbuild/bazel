@@ -54,6 +54,16 @@ public class RegistryFunction implements SkyFunction {
       new Precomputed<>("module_mirrors");
 
   /**
+   * URLs of the local registries marked with {@code --registry=watch=file://...}, with {@code
+   * %workspace%} already expanded.
+   */
+  public static final Precomputed<ImmutableSet<String>> WATCHED_REGISTRIES =
+      new Precomputed<>("watched_registries");
+
+  /** Prefix of a {@code --registry} value whose files should be watched for changes. */
+  public static final String WATCH_PREFIX = "watch=";
+
+  /**
    * The interval after which the mutable registry contents cached in memory should be refreshed.
    */
   public static final Duration INVALIDATION_INTERVAL = Duration.ofHours(1);
@@ -85,7 +95,7 @@ public class RegistryFunction implements SkyFunction {
     RegistryKey key = (RegistryKey) skyKey.argument();
     String url = key.url().replace("%workspace%", workspaceRoot.getPathString());
     try {
-      if (!addLocalRegistryTreeDependency(url, env)) {
+      if (WATCHED_REGISTRIES.get(env).contains(url) && !addLocalRegistryTreeDependency(url, env)) {
         return null;
       }
       return registryFactory.createRegistry(
@@ -107,25 +117,18 @@ public class RegistryFunction implements SkyFunction {
 
   /**
    * Local registry files are read outside of Skyframe, so nothing would otherwise invalidate the
-   * {@link Registry} (and the values computed from its files) when they change. For {@code
-   * watch+file://} registries, this requests the digest of the registry tree purely to add a
-   * Skyframe dependency on it; the value itself is unused. Plain {@code file://} registries are not
-   * watched, since every file in the tree is then checked for changes on each command.
+   * {@link Registry} (and the values computed from its files) when they change. For watched
+   * registries, this requests the digest of the registry tree purely to add a Skyframe dependency
+   * on it; the value itself is unused. Other local registries are not watched, since every file in
+   * the tree is then checked for changes on each command.
    *
    * @return false if the digest has not been computed yet and the caller must return null
    */
   private boolean addLocalRegistryTreeDependency(String url, Environment env)
       throws URISyntaxException, InterruptedException, RegistryException {
-    URI uri = new URI(url);
-    if (!RegistryFactoryImpl.WATCHED_FILE_SCHEME.equals(uri.getScheme())) {
-      return true;
-    }
-    // Unix:    watch+file:///tmp --> /tmp
-    // Windows: watch+file:///C:/tmp --> C:/tmp
-    String path = uri.getPath().substring(OS.getCurrent() == OS.WINDOWS ? 1 : 0);
     RootedPath registryRoot =
         RootedPath.toRootedPath(
-            Root.absoluteRoot(workspaceRoot.getFileSystem()), PathFragment.create(path));
+            Root.absoluteRoot(workspaceRoot.getFileSystem()), getWatchedRegistryPath(url));
     try {
       return env.getValueOrThrow(
               DirectoryTreeDigestValue.key(registryRoot, registryRoot, ImmutableList.of()),
@@ -139,6 +142,38 @@ public class RegistryFunction implements SkyFunction {
               "Failed to read local registry %s",
               url));
     }
+  }
+
+  /**
+   * Returns the absolute path of the directory of a watched registry, given its URL with {@code
+   * %workspace%} expanded.
+   *
+   * @throws URISyntaxException if the URL is not a {@code file://} URL with an absolute path
+   */
+  public static PathFragment getWatchedRegistryPath(String url) throws URISyntaxException {
+    URI uri = new URI(url);
+    if (!"file".equals(uri.getScheme())) {
+      throw new URISyntaxException(url, "Only file:// registries can be watched");
+    }
+    String authority = uri.getAuthority();
+    String path = uri.getPath();
+    boolean windows = OS.getCurrent() == OS.WINDOWS;
+    if (windows && authority != null && authority.matches("[A-Za-z]:")) {
+      // file://%workspace%/registry expands to file://C:/ws/registry.
+      path = authority + path;
+    } else if (authority != null) {
+      throw new URISyntaxException(url, "Watched registry URL must not have a host");
+    } else if (windows && path != null && path.matches("/[A-Za-z]:/.*")) {
+      // file:///C:/ws/registry
+      path = path.substring(1);
+    }
+    if (path == null || !PathFragment.isAbsolute(path)) {
+      throw new URISyntaxException(
+          url,
+          "Watched registry URL must have an absolute path -- did you mean to use"
+              + " watch=file:///foo/bar or watch=file:///c:/foo/bar for Windows?");
+    }
+    return PathFragment.create(path);
   }
 
   static final class RegistryException extends SkyFunctionException {

@@ -108,7 +108,10 @@ public abstract class RepositoryOptions extends OptionsBase {
       help =
           "Specifies the registries to use to locate Bazel module dependencies. The order is"
               + " important: modules will be looked up in earlier registries first, and only fall"
-              + " back to later registries when they're missing from the earlier ones.")
+              + " back to later registries when they're missing from the earlier ones. Prefix a"
+              + " file:// registry with watch= (e.g. --registry=watch=file:///path/to/registry) to"
+              + " have Bazel pick up changes to its files without a shutdown, at the cost of some"
+              + " overhead on every command.")
   public abstract List<String> getRegistries();
 
   @Option(

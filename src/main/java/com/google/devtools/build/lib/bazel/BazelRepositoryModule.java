@@ -114,6 +114,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -146,6 +147,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private FileSystem filesystem;
   private ImmutableSet<String> registries;
   private ImmutableMap<String, ImmutableSet<String>> moduleMirrors;
+  private ImmutableSet<String> watchedRegistries;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
@@ -621,8 +623,34 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       }
 
+      watchedRegistries = ImmutableSet.of();
       if (repoOptions.getRegistries() != null && !repoOptions.getRegistries().isEmpty()) {
-        registries = normalizeBaseUrls(repoOptions.getRegistries());
+        var registriesBuilder = ImmutableList.<String>builder();
+        var watchedRegistriesBuilder = ImmutableSet.<String>builder();
+        for (String registry : repoOptions.getRegistries()) {
+          if (!registry.startsWith(RegistryFunction.WATCH_PREFIX)) {
+            registriesBuilder.add(registry);
+            continue;
+          }
+          registry = registry.substring(RegistryFunction.WATCH_PREFIX.length());
+          registriesBuilder.add(registry);
+          String url = normalizeBaseUrl(registry);
+          if (env.getWorkspace() != null) {
+            url = url.replace("%workspace%", env.getWorkspace().getPathString());
+          }
+          try {
+            RegistryFunction.getWatchedRegistryPath(url);
+          } catch (URISyntaxException e) {
+            throw new AbruptExitException(
+                detailedExitCode(
+                    "Invalid --registry=%s%s: %s"
+                        .formatted(RegistryFunction.WATCH_PREFIX, registry, e.getMessage()),
+                    Code.INVALID_REGISTRY_URL));
+          }
+          watchedRegistriesBuilder.add(url);
+        }
+        registries = normalizeBaseUrls(registriesBuilder.build());
+        watchedRegistries = watchedRegistriesBuilder.build();
       } else {
         registries = DEFAULT_REGISTRIES;
       }
@@ -767,6 +795,7 @@ public class BazelRepositoryModule extends BlazeModule {
             RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
         PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, moduleMirrors),
+        PrecomputedValue.injected(RegistryFunction.WATCHED_REGISTRIES, watchedRegistries),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode),
