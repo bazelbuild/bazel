@@ -492,7 +492,7 @@ public class ModuleFileGlobals {
     // their Label representation. If multiple strings map to the same Label, this would result in a
     // crash.
     // ownName can't change anymore as calling module() after this results in an error.
-    String ownName = module.getRepoName().orElse(module.getName());
+    String ownName = module.getRepoNameOrName();
     RepositoryName ownRepoName = RepositoryName.createUnvalidated(ownName);
     ImmutableMap<String, RepositoryName> repoMapping = ImmutableMap.of();
     if (module.getKey().equals(ModuleKey.ROOT)) {
@@ -525,7 +525,7 @@ public class ModuleFileGlobals {
         RepositoryMapping.create(
             ImmutableMap.<String, RepositoryName>builder()
                 .put("", RepositoryName.MAIN)
-                .put(module.getRepoName().orElse(module.getName()), RepositoryName.MAIN)
+                .put(module.getRepoNameOrName(), RepositoryName.MAIN)
                 .buildKeepingLast(),
             RepositoryName.MAIN);
     Label label;
