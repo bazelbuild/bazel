@@ -19,11 +19,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Arrays;
 import java.util.Collection;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -38,53 +37,26 @@ public final class BuiltinRestriction {
 
   /** An allowlist of packages that can access restricted APIs. */
   public static final class Allowlist {
-    private static final Allowlist EMPTY = new Allowlist(ImmutableList.of(), ImmutableList.of());
+    private static final Allowlist EMPTY = new Allowlist(ImmutableList.of());
 
-    // Keep separate lists for main and external repo entries. This allows us to optimize checks
-    // based on the incoming label's repository.
-    private final ImmutableList<AllowlistEntry> mainRepoEntries;
-    private final ImmutableList<AllowlistEntry> externalRepoEntries;
+    private final ImmutableList<AllowlistEntry> entries;
 
-    private Allowlist(
-        ImmutableList<AllowlistEntry> mainRepoEntries,
-        ImmutableList<AllowlistEntry> externalRepoEntries) {
-      this.mainRepoEntries = mainRepoEntries;
-      this.externalRepoEntries = externalRepoEntries;
+    private Allowlist(ImmutableList<AllowlistEntry> entries) {
+      this.entries = entries;
     }
 
     public static Allowlist create(Collection<AllowlistEntry> entries) {
-      if (entries.isEmpty()) {
-        return EMPTY;
-      }
-      ImmutableList.Builder<AllowlistEntry> mainBuilder = ImmutableList.builder();
-      ImmutableList.Builder<AllowlistEntry> externalBuilder = ImmutableList.builder();
-      for (AllowlistEntry entry : entries) {
-        if (entry.apparentRepoName().equals(MAIN_REPO_NAME)) {
-          mainBuilder.add(entry);
-        } else {
-          externalBuilder.add(entry);
-        }
-      }
-      return new Allowlist(mainBuilder.build(), externalBuilder.build());
+      return new Allowlist(ImmutableList.copyOf(entries));
     }
 
     public static Allowlist of(AllowlistEntry... entries) {
-      return create(Arrays.asList(entries));
+      return new Allowlist(ImmutableList.copyOf(entries));
     }
 
-    private boolean allows(Label label, RepositoryMapping repoMapping) {
-      // Check main repo entries first to reduce the chances of needing to look up repo mappings.
-      if (label.getRepository().isMain() && anyAllows(mainRepoEntries, label, repoMapping)) {
-        return true;
-      }
-      return anyAllows(externalRepoEntries, label, repoMapping);
-    }
-
-    private static boolean anyAllows(
-        ImmutableList<AllowlistEntry> entries, Label label, RepositoryMapping repoMapping) {
+    private boolean allows(Label label, @Nullable String moduleRepoName) {
       // Hot code path, avoid iterator garbage.
       for (int i = 0; i < entries.size(); i++) {
-        if (entries.get(i).allows(label, repoMapping)) {
+        if (entries.get(i).allows(label, moduleRepoName)) {
           return true;
         }
       }
@@ -156,40 +128,39 @@ public final class BuiltinRestriction {
 
   private BuiltinRestriction() {}
 
-  /** An entry in an {@link Allowlist}. */
-  public record AllowlistEntry(String apparentRepoName, PathFragment packagePrefix) {
+  /**
+   * An entry in an {@link Allowlist}.
+   *
+   * @param repoName empty for main-repository-only entries; otherwise matches a module name for
+   *     external repositories or the root module's {@code repo_name} for the main repository
+   */
+  public record AllowlistEntry(String repoName, PathFragment packagePrefix) {
 
     public AllowlistEntry {
-      checkNotNull(apparentRepoName);
+      checkNotNull(repoName);
       checkNotNull(packagePrefix);
     }
 
-    private boolean allows(Label label, RepositoryMapping repoMapping) {
-      return reposMatch(apparentRepoName, label.getRepository(), repoMapping)
+    private boolean allows(Label label, @Nullable String moduleRepoName) {
+      return matchesRepository(label.getRepository(), moduleRepoName)
           && label.getPackageFragment().startsWith(packagePrefix);
     }
 
-    private static boolean reposMatch(
-        String allowedName, RepositoryName givenName, RepositoryMapping repoMapping) {
-      if (givenName.isMain()) {
-        // The main repository may be one of the allowlisted rulesets, in which case we need to fall
-        // back to interpreting allowedName as the apparent repo name. This is not a performance
-        // concern since:
-        // * In Bazel, the main repo is not expected to use private API unless it is one of the
-        //   allowlisted rulesets. For these rulesets, it is acceptable to pay the cost of a failed
-        //   RepositoryMapping lookup, which is expensive because it uses SpellChecker to construct
-        //   error messages. The only other case in which this cost is paid is if the main repo
-        //   attempts to use private APIs and subsequently fails.
-        // * In Blaze, we should virtually always hit the first branch of the disjunction below,
-        //   since Allowlist checks main repo entries first.
-        return allowedName.equals(MAIN_REPO_NAME) || repoMapping.get(allowedName).isMain();
+    private boolean matchesRepository(RepositoryName repository, @Nullable String moduleRepoName) {
+      if (repoName.isEmpty()) {
+        return repository.isMain();
       }
-      if (givenName.equals(RepositoryName.BAZEL_TOOLS)) {
-        return allowedName.equals(RepositoryName.BAZEL_TOOLS.getName());
+      if (repository.isMain()) {
+        // The root module may itself be an allowlisted ruleset. Its repo_name (which defaults to
+        // its module name) is the only non-empty apparent name that can refer to the main repo
+        // from the main repo's own mapping.
+        return repoName.equals(moduleRepoName);
       }
-      // allowedName is a module name and givenName is a real canonical repo name, so it belongs to
-      // any version of that module if and only if it contains <allowedName>+ as a prefix.
-      return givenName.getName().startsWith(allowedName + "+");
+      if (repository.equals(RepositoryName.BAZEL_TOOLS)) {
+        return repoName.equals(RepositoryName.BAZEL_TOOLS.getName());
+      }
+      // Match any version of the module and repositories generated by its extensions.
+      return repository.getName().startsWith(repoName + "+");
     }
   }
 
@@ -199,14 +170,13 @@ public final class BuiltinRestriction {
   }
 
   /**
-   * Creates an {@link AllowlistEntry} for an external repository. This is essentially an unresolved
-   * package identifier; that is, a package identifier that has an apparent repo name in place of a
-   * canonical repo name.
+   * Creates an {@link AllowlistEntry} matching a module name and a package prefix. When checking
+   * the main repository, the name instead matches the root module's {@code repo_name}, which
+   * defaults to its module name. The special name {@code bazel_tools} matches that repository.
    */
-  public static AllowlistEntry externalRepoAllowlistEntry(
-      String apparentRepoName, String packagePrefix) {
-    checkArgument(!apparentRepoName.equals(MAIN_REPO_NAME));
-    return new AllowlistEntry(apparentRepoName, PathFragment.create(packagePrefix));
+  public static AllowlistEntry externalRepoAllowlistEntry(String repoName, String packagePrefix) {
+    checkArgument(!repoName.equals(MAIN_REPO_NAME));
+    return new AllowlistEntry(repoName, PathFragment.create(packagePrefix));
   }
 
   /**
@@ -248,7 +218,7 @@ public final class BuiltinRestriction {
    */
   public static void failIfModuleOutsideAllowlist(
       BazelModuleContext moduleContext, Allowlist allowlist) throws EvalException {
-    failIfLabelOutsideAllowlist(moduleContext.label(), moduleContext.repoMapping(), allowlist);
+    failIfLabelOutsideAllowlist(moduleContext.label(), moduleContext.moduleRepoName(), allowlist);
   }
 
   /**
@@ -256,21 +226,21 @@ public final class BuiltinRestriction {
    * repository, or 2) a package or subpackage of an entry in the given allowlist.
    */
   public static void failIfLabelOutsideAllowlist(
-      Label label, RepositoryMapping repoMapping, Allowlist allowlist) throws EvalException {
-    if (isNotAllowed(label, repoMapping, allowlist)) {
+      Label label, @Nullable String moduleRepoName, Allowlist allowlist) throws EvalException {
+    if (isNotAllowed(label, moduleRepoName, allowlist)) {
       throw Starlark.errorf("file '%s' cannot use private API", label.getCanonicalForm());
     }
   }
 
   /**
-   * Returns true if the given {@link Label} is not within both 1) the builtins repository, or 2) a
-   * package or subpackage of an entry in the given allowlist.
+   * Returns true if the given {@link Label} is not within either 1) the builtins repository, or 2)
+   * a package or subpackage of an entry in the given allowlist.
    */
   public static boolean isNotAllowed(
-      Label label, RepositoryMapping repoMapping, Allowlist allowlist) {
+      Label label, @Nullable String moduleRepoName, Allowlist allowlist) {
     if (label.getRepository().equals(RepositoryName.BUILTINS)) {
       return false;
     }
-    return !allowlist.allows(label, repoMapping);
+    return !allowlist.allows(label, moduleRepoName);
   }
 }
