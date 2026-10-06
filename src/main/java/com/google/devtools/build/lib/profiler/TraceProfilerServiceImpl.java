@@ -485,7 +485,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
       StatRecorder statRecorder = tasksHistograms[type.ordinal()];
       if (collectTaskHistograms && statRecorder != null) {
-        statRecorder.addStat((int) Duration.ofNanos(duration).toMillis(), description);
+        statRecorder.addStat((int) (duration / 1_000_000L), description);
       }
 
       if (isActive() && startTimeNanos >= 0 && isProfiling(type)) {
@@ -531,7 +531,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
       StatRecorder statRecorder = tasksHistograms[type.ordinal()];
       if (collectTaskHistograms && statRecorder != null) {
-        statRecorder.addStat((int) Duration.ofNanos(duration).toMillis(), description);
+        statRecorder.addStat((int) (duration / 1_000_000L), description);
       }
 
       if (isActive() && startTimeNanos >= 0 && isProfiling(type)) {
