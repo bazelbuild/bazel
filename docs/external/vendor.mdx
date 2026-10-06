@@ -100,11 +100,12 @@ Therefore, consider vendoring for specific targets first.
 Updating the lockfile, e.g. with `bazel mod tidy`, evaluates every module
 extension in the dependency graph, including extensions that are only used by
 dependencies, and also needs buildozer. Neither is reachable from build
-targets, so `bazel vendor //...` does not include them. Pass `--for_lockfile`
-to vendor them in addition to the dependencies of the given targets:
+targets, so `bazel vendor //...` does not include them. Pass
+`--include_lockfile_deps` to vendor them in addition to the dependencies of the
+given targets:
 
 ```none
-bazel vendor --for_lockfile //...
+bazel vendor --include_lockfile_deps //...
 ```
 
 Afterwards, the lockfile can be updated with fetching disabled:
@@ -113,7 +114,7 @@ Afterwards, the lockfile can be updated with fetching disabled:
 bazel mod tidy --vendor_dir=vendor_src --nofetch
 ```
 
-Without target patterns, `bazel vendor --for_lockfile` vendors only the
+Without target patterns, `bazel vendor --include_lockfile_deps` vendors only the
 dependencies required to update the lockfile.
 
 ## Configure vendor mode with VENDOR.bazel {#configure-vendor-mode}
