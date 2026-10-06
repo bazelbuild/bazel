@@ -282,6 +282,9 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "bazel_dep()");
     context.setNonModuleCalled();
     validateModuleName(name);
+    if (name.equals(context.getModuleBuilder().getName())) {
+      throw Starlark.errorf("module '%s' cannot depend on itself", name);
+    }
     Version parsedVersion;
     try {
       parsedVersion = Version.parse(version);
