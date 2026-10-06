@@ -30,12 +30,9 @@ py_library(
         "//src/test/tools/bzlmod:MODULE.bazel.lock",
     ],
     visibility = [
+        "//scripts/ctexplain:__pkg__",
         "//src/test/py/bazel:__pkg__",
         "//third_party/def_parser:__pkg__",
-        "//tools/android:__pkg__",
-        "//tools/build_rules:__pkg__",
-        "//tools/ctexplain:__pkg__",
-        "//tools/python:__pkg__",
     ],
     deps = [
         "//third_party/py/abseil",
@@ -319,7 +316,12 @@ py_test(
     name = "bazel_vendor_test",
     size = "large",
     srcs = ["bzlmod/bazel_vendor_test.py"],
-    data = ["//tools/build_defs/repo:mock_srcs"],
+    data = [
+        "//src:MODULE.tools",
+        "//tools:BUILD.tools",
+        "//tools:build_defs.bzl",
+        "//tools/build_defs/repo:mock_srcs",
+    ],
     shard_count = 5,
     tags = [
         "requires-network",

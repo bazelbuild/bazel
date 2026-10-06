@@ -15,11 +15,11 @@
 # pylint: disable=g-bad-todo
 # pylint: disable=g-generic-assert
 import unittest
+from scripts.ctexplain import bazel_api
+from scripts.ctexplain import lib
+from scripts.ctexplain.ctexplain_types import Configuration
+from scripts.ctexplain.ctexplain_types import NullConfiguration
 from src.test.py.bazel import test_base
-import tools.ctexplain.bazel_api as bazel_api
-from tools.ctexplain.ctexplain_types import Configuration
-from tools.ctexplain.ctexplain_types import NullConfiguration
-import tools.ctexplain.lib as lib
 
 
 class LibTest(test_base.TestBase):
@@ -35,24 +35,32 @@ class LibTest(test_base.TestBase):
     test_base.TestBase.tearDown(self)
 
   def testAnalyzeBuild(self):
-    self.ScratchFile('testapp/defs.bzl', [
-        'def _impl(ctx):',
-        '    pass',
-        'rule_with_host_dep = rule(',
-        '    implementation = _impl,',
-        '    attrs = { "host_deps": attr.label_list(cfg = "exec") })',
-    ])
-    self.ScratchFile('testapp/BUILD', [
-        'load("//testapp:defs.bzl", "rule_with_host_dep")',
-        'rule_with_host_dep(name = "a", host_deps = [":h"])',
-        'filegroup(name = "h", srcs = ["h.src"])'
-    ])
+    self.ScratchFile(
+        'testapp/defs.bzl',
+        [
+            'def _impl(ctx):',
+            '    pass',
+            'rule_with_host_dep = rule(',
+            '    implementation = _impl,',
+            '    attrs = { "host_deps": attr.label_list(cfg = "exec") })',
+        ],
+    )
+    self.ScratchFile(
+        'testapp/BUILD',
+        [
+            'load("//testapp:defs.bzl", "rule_with_host_dep")',
+            'rule_with_host_dep(name = "a", host_deps = [":h"])',
+            'filegroup(name = "h", srcs = ["h.src"])',
+        ],
+    )
     cts = lib.analyze_build(self._bazel, ('//testapp:a',), ())
     # Remove boilerplate deps to focus on targets declared here.
     cts = [ct for ct in cts if ct.label.startswith('//testapp')]
 
-    self.assertListEqual([ct.label for ct in cts],
-                         ['//testapp:a', '//testapp:h', '//testapp:h.src'])
+    self.assertListEqual(
+        [ct.label for ct in cts],
+        ['//testapp:a', '//testapp:h', '//testapp:h.src'],
+    )
     # Don't use assertIsInstance because we don't want to match subclasses.
     self.assertEqual(Configuration, type(cts[0].config))
     # TODO: Bazel no longer has the concept of a host config. Fix the test.
@@ -62,19 +70,25 @@ class LibTest(test_base.TestBase):
     self.assertIsInstance(cts[2].config, NullConfiguration)
 
   def testAnalyzeBuildNoRepeats(self):
-    self.ScratchFile('testapp/defs.bzl', [
-        'def _impl(ctx):',
-        '    pass',
-        'rule_with_host_dep = rule(',
-        '    implementation = _impl,',
-        '    attrs = { "host_deps": attr.label_list(cfg = "exec") })',
-    ])
-    self.ScratchFile('testapp/BUILD', [
-        'load("//testapp:defs.bzl", "rule_with_host_dep")',
-        'rule_with_host_dep(name = "a", host_deps = [":h", ":other"])',
-        'rule_with_host_dep(name = "other")',
-        'filegroup(name = "h", srcs = ["h.src", ":other"])'
-    ])
+    self.ScratchFile(
+        'testapp/defs.bzl',
+        [
+            'def _impl(ctx):',
+            '    pass',
+            'rule_with_host_dep = rule(',
+            '    implementation = _impl,',
+            '    attrs = { "host_deps": attr.label_list(cfg = "exec") })',
+        ],
+    )
+    self.ScratchFile(
+        'testapp/BUILD',
+        [
+            'load("//testapp:defs.bzl", "rule_with_host_dep")',
+            'rule_with_host_dep(name = "a", host_deps = [":h", ":other"])',
+            'rule_with_host_dep(name = "other")',
+            'filegroup(name = "h", srcs = ["h.src", ":other"])',
+        ],
+    )
     cts = lib.analyze_build(self._bazel, ('//testapp:a',), ())
     # Remove boilerplate deps to focus on targets declared here.
     cts = [ct for ct in cts if ct.label.startswith('//testapp')]

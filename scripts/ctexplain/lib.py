@@ -12,14 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """General-purpose business logic."""
+
 from typing import Tuple
 
-import tools.ctexplain.bazel_api as bazel_api
-from tools.ctexplain.ctexplain_types import ConfiguredTarget
+from scripts.ctexplain import bazel_api
+from scripts.ctexplain.ctexplain_types import ConfiguredTarget
 
 
-def analyze_build(bazel: bazel_api.BazelApi, labels: Tuple[str, ...],
-                  build_flags: Tuple[str, ...]) -> Tuple[ConfiguredTarget, ...]:
+def analyze_build(
+    bazel: bazel_api.BazelApi,
+    labels: Tuple[str, ...],
+    build_flags: Tuple[str, ...],
+) -> Tuple[ConfiguredTarget, ...]:
   """Gets a build invocation's configured targets.
 
   Args:
@@ -35,7 +39,7 @@ def analyze_build(bazel: bazel_api.BazelApi, labels: Tuple[str, ...],
   """
   cquery_args = [f'deps({",".join(labels)})']
   cquery_args.extend(build_flags)
-  (success, stderr, cts) = bazel.cquery(cquery_args)
+  success, stderr, cts = bazel.cquery(cquery_args)
   if not success:
     raise RuntimeError("invocation failed: " + stderr.decode("utf-8"))
 
@@ -50,7 +54,9 @@ def analyze_build(bazel: bazel_api.BazelApi, labels: Tuple[str, ...],
       hashes_to_configs[ct.config_hash] = bazel.get_config(ct.config_hash)
     config = hashes_to_configs[ct.config_hash]
     cts_with_configs.append(
-        ConfiguredTarget(ct.label, config, ct.config_hash,
-                         ct.transitive_fragments))
+        ConfiguredTarget(
+            ct.label, config, ct.config_hash, ct.transitive_fragments
+        )
+    )
 
   return tuple(cts_with_configs)

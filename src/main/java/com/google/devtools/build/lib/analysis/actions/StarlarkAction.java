@@ -473,7 +473,6 @@ public class StarlarkAction extends SpawnAction {
                   ISO_8859_1))) {
         String line;
         while ((line = br.readLine()) != null) {
-          line = line.trim();
           if (line.isEmpty()) {
             continue;
           }

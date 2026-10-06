@@ -26,17 +26,17 @@
 #include <vector>
 
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/port.h"  // IWYU pragma: keep
+#include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/output_jar.h"
 #include "src/tools/singlejar/test_util.h"
+#include "src/tools/singlejar/zip_headers.h"
 #include "googletest/include/gtest/gtest.h"
 #include "absl/base/macros.h"
 #include "absl/strings/match.h"
-#include "src/main/cpp/util/file_platform.h"
-#include "src/tools/singlejar/combiners.h"
-#include "src/tools/singlejar/zip_headers.h"
 
 #if !defined(JAR_TOOL_PATH)
 #error "The path to jar tool has to be defined via -DJAR_TOOL_PATH="

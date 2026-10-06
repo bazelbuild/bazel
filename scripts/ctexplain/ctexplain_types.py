@@ -13,17 +13,17 @@
 # limitations under the License.
 """The core data types ctexplain manipulates."""
 
+import dataclasses
 from typing import Mapping
 from typing import Optional
 from typing import Tuple
-from dataclasses import dataclass
-from dataclasses import field
 from frozendict import frozendict
 
 
-@dataclass(frozen=True)
-class Configuration():
+@dataclasses.dataclass(frozen=True)
+class Configuration:
   """Stores a build configuration as a collection of fragments and options."""
+
   # Mapping of each BuildConfiguration.Fragment in this configuration to the
   # FragmentOptions it requires.
   #
@@ -40,9 +40,10 @@ class Configuration():
   options: Mapping[str, Mapping[str, str]]
 
 
-@dataclass(frozen=True)
-class ConfiguredTarget():
+@dataclasses.dataclass(frozen=True)
+class ConfiguredTarget:
   """Encapsulates a target + configuration + required fragments."""
+
   # Label of the target this represents.
   label: str
   # Configuration this target is applied to. May be None.
@@ -55,7 +56,7 @@ class ConfiguredTarget():
   transitive_fragments: Tuple[str, ...]
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class HostConfiguration(Configuration):
   """Special marker for the host configuration.
 
@@ -68,20 +69,22 @@ class HostConfiguration(Configuration):
   configurations make this all a little less relevant, since exec configurations
   aren't "special" compared to normal configurations.
   """
+
   # We don't currently read the host config's fragments or option values.
   fragments: Tuple[str, ...] = ()
-  options: Mapping[str,
-                   Mapping[str,
-                           str]] = field(default_factory=lambda: frozendict({}))
+  options: Mapping[str, Mapping[str, str]] = dataclasses.field(
+      default_factory=lambda: frozendict({})
+  )
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class NullConfiguration(Configuration):
   """Special marker for the null configuration.
 
   By definition this has no fragments or options.
   """
+
   fragments: Tuple[str, ...] = ()
-  options: Mapping[str,
-                   Mapping[str,
-                           str]] = field(default_factory=lambda: frozendict({}))
+  options: Mapping[str, Mapping[str, str]] = dataclasses.field(
+      default_factory=lambda: frozendict({})
+  )

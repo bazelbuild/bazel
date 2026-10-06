@@ -339,6 +339,76 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void testSelectOnStarlarkFlagFromOtherRepoIsHiddenFromTransition() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='rules_x',version='1.0')");
+    registry.addModule(createModuleKey("rules_x", "1.0"), "module(name='rules_x', version='1.0')");
+    scratch.file("modules/rules_x+1.0/REPO.bazel");
+    scratch.file(
+        "modules/rules_x+1.0/BUILD",
+        """
+        load(":defs.bzl", "bool_flag")
+
+        bool_flag(
+            name = "flag",
+            build_setting_default = False,
+            visibility = ["//visibility:public"],
+        )
+        """);
+    scratch.file(
+        "modules/rules_x+1.0/defs.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+        )
+
+        def _impl(settings, attr):
+            return {"//:flag": attr.my_configurable_attr}
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//:flag"],
+        )
+
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            cfg = my_transition,
+            attrs = {
+                "my_configurable_attr": attr.bool(default = False),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("@rules_x//:defs.bzl", "my_rule")
+
+        my_rule(
+            name = "test",
+            my_configurable_attr = select({
+                "//conditions:default": False,
+                ":true-config": True,
+            }),
+        )
+
+        config_setting(
+            name = "true-config",
+            flag_values = {"@rules_x//:flag": "True"},
+        )
+        """);
+
+    invalidatePackages();
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "No attribute 'my_configurable_attr'. "
+            + "Either this attribute does not exist for this rule or the attribute "
+            + "was not resolved because it is set by a select that reads flags the transition "
+            + "may set.");
+  }
+
+  @Test
   public void testTransitionReadsInvalidConfiguredAttribute() throws Exception {
     scratch.file(
         "test/transitions.bzl",

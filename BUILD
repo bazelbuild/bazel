@@ -239,11 +239,6 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
-exports_files(
-    ["maven_install.json"],
-    visibility = ["//tools/compliance:__pkg__"],
-)
-
 py_binary(
     name = "combine_distfiles",
     srcs = ["combine_distfiles.py"],

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains resolvers for different attributes of Action in aquery output."""
+
 import copy
 
 
@@ -42,7 +43,8 @@ class DepSetResolver(object):
 
     for transitive_dep_set_id in dep_set.transitive_dep_set_ids:
       artifact_ids.extend(
-          self.resolve(self.id_to_dep_set[transitive_dep_set_id]))
+          self.resolve(self.id_to_dep_set[transitive_dep_set_id])
+      )
 
     self.dep_set_to_artifact_ids[dep_set.id] = artifact_ids
 

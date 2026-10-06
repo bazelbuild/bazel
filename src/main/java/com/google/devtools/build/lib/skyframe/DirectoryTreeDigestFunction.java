@@ -152,7 +152,9 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
       ImmutableList<Pair<RootedPath, FileValue>> fileValues,
       DirectoryTreeDigestValue.Key key)
       throws InterruptedException {
-    ImmutableSet<SkyKey> dirTreeDigestValueKeys =
+    // Use a list so that the tree entries are digested in the given order and with duplicates,
+    // which can arise from symlinks but are part of the structure to be digested.
+    ImmutableList<SkyKey> dirTreeDigestValueKeys =
         fileValues.stream()
             .filter(p -> p.getSecond().isDirectory())
             .map(
@@ -161,7 +163,7 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
                         /* rootedPath= */ p.getSecond().realRootedPath(p.getFirst()),
                         /* globBase= */ key.globBase(),
                         /* excludes= */ key.excludes()))
-            .collect(toImmutableSet());
+            .collect(toImmutableList());
     SkyframeLookupResult result = env.getValuesAndExceptions(dirTreeDigestValueKeys);
     if (env.valuesMissing()
         || dirTreeDigestValueKeys.stream().map(result::get).anyMatch(Objects::isNull)) {

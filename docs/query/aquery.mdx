@@ -231,11 +231,11 @@ You can compare the outputs of two different aquery invocations using the `aquer
 For instance: when you make some changes to your rule definition and want to verify that the
 command lines being run did not change. `aquery_differ` is the tool for that.
 
-The tool is available in the [bazelbuild/bazel](https://github.com/bazelbuild/bazel/tree/master/tools/aquery_differ) repository.
+The tool is available in the [bazelbuild/bazel](https://github.com/bazelbuild/bazel/tree/master/scripts/aquery_differ) repository.
 To use it, clone the repository to your local machine. An example usage:
 
 ```
-  $ bazel run //tools/aquery_differ -- \
+  $ bazel run //scripts/aquery_differ -- \
   --before=/path/to/before.proto \
   --after=/path/to/after.proto \
   --input_type=proto \

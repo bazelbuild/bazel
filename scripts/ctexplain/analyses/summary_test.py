@@ -11,15 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for summary.py."""
 import unittest
 
 from frozendict import frozendict
 
-import tools.ctexplain.analyses.summary as summary
-from tools.ctexplain.ctexplain_types import Configuration
-from tools.ctexplain.ctexplain_types import ConfiguredTarget
-from tools.ctexplain.ctexplain_types import NullConfiguration
+from scripts.ctexplain.analyses import summary
+from scripts.ctexplain.ctexplain_types import Configuration
+from scripts.ctexplain.ctexplain_types import ConfiguredTarget
+from scripts.ctexplain.ctexplain_types import NullConfiguration
 
 
 class SummaryTest(unittest.TestCase):

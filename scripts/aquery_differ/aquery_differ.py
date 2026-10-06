@@ -26,7 +26,7 @@ bazel aquery //path/to:target_two --output=textproto > \
     /path/to/output_two.textproto
 
 2. Run the differ from a bazel repo:
-bazel run //tools/aquery_differ:aquery_differ -- \
+bazel run //scripts/aquery_differ:aquery_differ -- \
 --before=/path/to/output_one.textproto \
 --after=/path/to/output_two.textproto \
 --input_type=textproto \
@@ -42,9 +42,10 @@ from absl import app
 from absl import flags
 from google.protobuf import proto
 from google.protobuf import text_format
+from scripts.aquery_differ.resolvers.dep_set_resolver import DepSetResolver
+from scripts.aquery_differ.resolvers.path_fragment_resolver import PathFragmentResolver
 from src.main.protobuf import analysis_v2_pb2
-from tools.aquery_differ.resolvers.dep_set_resolver import DepSetResolver
-from tools.aquery_differ.resolvers.path_fragment_resolver import PathFragmentResolver
+
 # pylint: disable=g-import-not-at-top
 # resource lib isn't available on Windows.
 if os.name != "nt":
@@ -60,11 +61,17 @@ flags.DEFINE_enum(
     "The format of the aquery proto input. One of 'proto', 'textproto' and"
     " 'streamed_proto'.",
 )
-flags.DEFINE_multi_enum("attrs", ["cmdline"], ["inputs", "cmdline"],
-                        "Attributes of the actions to be compared.")
+flags.DEFINE_multi_enum(
+    "attrs",
+    ["cmdline"],
+    ["inputs", "cmdline"],
+    "Attributes of the actions to be compared.",
+)
 flags.DEFINE_integer(
-    "max_mem_alloc_mb", 3072,
-    "Amount of max memory available for aquery_differ, in MB.")
+    "max_mem_alloc_mb",
+    3072,
+    "Amount of max memory available for aquery_differ, in MB.",
+)
 flags.mark_flag_as_required("before")
 flags.mark_flag_as_required("after")
 
@@ -94,16 +101,29 @@ def _colorize(line):
   return line
 
 
-def _print_diff(output_files, before_val, after_val, attr, before_file,
-                after_file):
+def _print_diff(
+    output_files, before_val, after_val, attr, before_file, after_file
+):
+  """Prints the unified diff between before_val and after_val."""
   diff = "\n".join(
-      map(_colorize, [
-          s.strip("\n") for s in difflib.unified_diff(before_val, after_val,
-                                                      before_file, after_file)
-      ]))
-  print(("[%s]\n"
-         "Difference in the action that generates the following output(s):"
-         "\n\t%s\n%s\n") % (attr, "\n\t".join(output_files.split()), diff))
+      map(
+          _colorize,
+          [
+              s.strip("\n")
+              for s in difflib.unified_diff(
+                  before_val, after_val, before_file, after_file
+              )
+          ],
+      )
+  )
+  print(
+      (
+          "[%s]\n"
+          "Difference in the action that generates the following output(s):"
+          "\n\t%s\n%s\n"
+      )
+      % (attr, "\n\t".join(output_files.split()), diff)
+  )
 
 
 def _map_artifact_id_to_path(artifacts, path_fragments):
@@ -128,15 +148,16 @@ def _map_action_index_to_output_files(actions, artifacts):
   action_index_to_output_files = {}
   for i, action in enumerate(actions):
     output_files = " ".join(
-        sorted([artifacts[output_id] for output_id in action.output_ids]))
+        sorted([artifacts[output_id] for output_id in action.output_ids])
+    )
     action_index_to_output_files[i] = output_files
   return action_index_to_output_files
 
 
 # output files -> input artifacts
-def _map_output_files_to_input_artifacts(action_graph_container,
-                                         artifact_id_to_path,
-                                         action_index_to_output_files):
+def _map_output_files_to_input_artifacts(
+    action_graph_container, artifact_id_to_path, action_index_to_output_files
+):
   """Constructs a map from output files to input artifacts.
 
   Args:
@@ -160,10 +181,12 @@ def _map_output_files_to_input_artifacts(action_graph_container,
 
     for dep_set_id in action.input_dep_set_ids:
       input_artifacts.update(
-          dep_set_resolver.resolve(id_to_dep_set[dep_set_id]))
+          dep_set_resolver.resolve(id_to_dep_set[dep_set_id])
+      )
 
     output_files_to_input_artifacts[action_index_to_output_files[i]] = sorted(
-        list(input_artifacts))
+        list(input_artifacts)
+    )
 
   return output_files_to_input_artifacts
 
@@ -183,23 +206,28 @@ def _map_output_files_to_command_line(actions, action_index_to_output_files):
   """
   output_files_to_command_line = {}
   for i, action in enumerate(actions):
-    output_files_to_command_line[
-        action_index_to_output_files[i]] = action.arguments
+    output_files_to_command_line[action_index_to_output_files[i]] = (
+        action.arguments
+    )
   return output_files_to_command_line
 
 
 def _aquery_diff(before_proto, after_proto, attrs, before_file, after_file):
   """Returns differences between command lines that generate same outputs."""
   found_difference = False
-  artifacts_before = _map_artifact_id_to_path(before_proto.artifacts,
-                                              before_proto.path_fragments)
-  artifacts_after = _map_artifact_id_to_path(after_proto.artifacts,
-                                             after_proto.path_fragments)
+  artifacts_before = _map_artifact_id_to_path(
+      before_proto.artifacts, before_proto.path_fragments
+  )
+  artifacts_after = _map_artifact_id_to_path(
+      after_proto.artifacts, after_proto.path_fragments
+  )
 
   action_to_output_files_before = _map_action_index_to_output_files(
-      before_proto.actions, artifacts_before)
+      before_proto.actions, artifacts_before
+  )
   action_to_output_files_after = _map_action_index_to_output_files(
-      after_proto.actions, artifacts_after)
+      after_proto.actions, artifacts_after
+  )
 
   # There's a 1-to-1 mapping between action and outputs
   output_files_before = set(action_to_output_files_before.values())
@@ -209,40 +237,66 @@ def _aquery_diff(before_proto, after_proto, attrs, before_file, after_file):
   after_before_diff = output_files_after - output_files_before
 
   if before_after_diff:
-    print(("Aquery output 'before' change contains an action that generates "
-           "the following outputs that aquery output 'after' change doesn't:"
-           "\n%s\n") % "\n".join(before_after_diff))
+    print(
+        (
+            "Aquery output 'before' change contains an action that generates "
+            "the following outputs that aquery output 'after' change doesn't:"
+            "\n%s\n"
+        )
+        % "\n".join(before_after_diff)
+    )
     found_difference = True
   if after_before_diff:
-    print(("Aquery output 'after' change contains an action that generates "
-           "the following outputs that aquery output 'before' change doesn't:"
-           "\n%s\n") % "\n".join(after_before_diff))
+    print(
+        (
+            "Aquery output 'after' change contains an action that generates "
+            "the following outputs that aquery output 'before' change doesn't:"
+            "\n%s\n"
+        )
+        % "\n".join(after_before_diff)
+    )
     found_difference = True
 
   if "cmdline" in attrs:
     output_to_command_line_before = _map_output_files_to_command_line(
-        before_proto.actions, action_to_output_files_before)
+        before_proto.actions, action_to_output_files_before
+    )
     output_to_command_line_after = _map_output_files_to_command_line(
-        after_proto.actions, action_to_output_files_after)
+        after_proto.actions, action_to_output_files_after
+    )
     for output_files in output_to_command_line_before:
       arguments = output_to_command_line_before[output_files]
       after_arguments = output_to_command_line_after.get(output_files, None)
       if after_arguments and arguments != after_arguments:
-        _print_diff(output_files, arguments, after_arguments, "cmdline",
-                    before_file, after_file)
+        _print_diff(
+            output_files,
+            arguments,
+            after_arguments,
+            "cmdline",
+            before_file,
+            after_file,
+        )
         found_difference = True
 
   if "inputs" in attrs:
     output_to_input_files_before = _map_output_files_to_input_artifacts(
-        before_proto, artifacts_before, action_to_output_files_before)
+        before_proto, artifacts_before, action_to_output_files_before
+    )
     output_to_input_files_after = _map_output_files_to_input_artifacts(
-        after_proto, artifacts_after, action_to_output_files_after)
+        after_proto, artifacts_after, action_to_output_files_after
+    )
     for output_files in output_to_input_files_before:
       before_inputs = output_to_input_files_before[output_files]
       after_inputs = output_to_input_files_after.get(output_files, None)
       if after_inputs and before_inputs != after_inputs:
-        _print_diff(output_files, before_inputs, after_inputs, "inputs",
-                    before_file, after_file)
+        _print_diff(
+            output_files,
+            before_inputs,
+            after_inputs,
+            "inputs",
+            before_file,
+            after_file,
+        )
         found_difference = True
 
   if not found_difference:
@@ -301,11 +355,14 @@ def main(unused_argv):
     _aquery_diff(before_proto, after_proto, attrs, before_file, after_file)
   except MemoryError:
     print(
-        "aquery_differ is known to cause OOM issue with large inputs. More details: b/154620006.",
-        file=sys.stderr)
+        "aquery_differ is known to cause OOM issue with large inputs. More"
+        " details: b/154620006.",
+        file=sys.stderr,
+    )
     print(
         "Max mem space of {}MB exceeded".format(max_mem_alloc_mb),
-        file=sys.stderr)
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
