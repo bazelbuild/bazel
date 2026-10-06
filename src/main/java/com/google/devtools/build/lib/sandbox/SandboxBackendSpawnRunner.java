@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.BlobPo
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.sandbox.SandboxBackendUtil.BackendConfig;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.proto.SandboxProto.ConfinementSetting;
 import com.google.devtools.build.lib.sandbox.proto.SandboxProto.Content;
@@ -360,7 +361,10 @@ final class SandboxBackendSpawnRunner extends AbstractSandboxSpawnRunner {
     // Negotiate handshake.
     SandboxBackendServer daemon =
         SandboxBackendServer.getOrSpawn(
-            name, sandboxdBinary, backendArgs, clientEnv, execRoot.getPathString());
+            name,
+            new BackendConfig(sandboxdBinary, backendArgs),
+            clientEnv,
+            execRoot.getPathString());
 
     return new SandboxBackendSpawn(
         daemon,

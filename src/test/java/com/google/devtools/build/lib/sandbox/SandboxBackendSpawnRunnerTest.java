@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ParamFileActionInput;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.sandbox.SandboxBackendUtil.BackendConfig;
 import com.google.devtools.build.lib.sandbox.SpawnRunnerTestUtil.SpawnExecutionContextForTesting;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -207,6 +209,9 @@ public final class SandboxBackendSpawnRunnerTest extends SandboxedSpawnRunnerTes
             + "                kv = o[len(b'custom-env:'):].split(b'=', 1); custom_env = (kv[0], kv[1])\n"
             + "        if ws is not None:\n"
             + "            open(ws + '/negotiate.opts', 'wb').write(b'\\n'.join(opts))\n"
+            // Also record which binary served this handshake, so tests can observe a restart onto
+            // a different binary path.
+            + "            open(ws + '/negotiate.binary', 'w').write(sys.argv[0])\n"
             + "        reply(uv(1, rid) + ld(5, ld(1, b''))); continue\n"  // negotiate=5 { Result.ok=1 {} }
             + "    if destroy is not None:\n"
             + "        reply(uv(1, rid) + ld(3, ld(1, b''))); continue\n"  // destroy=3 { Result.ok=1 {} }
@@ -429,7 +434,7 @@ public final class SandboxBackendSpawnRunnerTest extends SandboxedSpawnRunnerTes
     // --sandbox_backend_opt options travel over the Negotiate handshake, not as process argv. The
     // stub records the Negotiate.options it received; assert our args arrived in order.
     SandboxBackendSpawnRunner runner =
-        newRunner("acme", stubBinary, ImmutableList.of("--backend=fskit", "--cache-dir=/x"));
+        newRunner("acme", stubBinary, ImmutableList.of("backend=fskit", "cache_dir=/x"));
     Spawn spawn = new SpawnBuilder("/bin/sh", "-c", "exit 0").build();
     FileOutErr fileOutErr =
         new FileOutErr(testRoot.getChild("stdout"), testRoot.getChild("stderr"));
@@ -441,7 +446,111 @@ public final class SandboxBackendSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     Path recorded = commandEnvironment.getExecRoot().getRelative("negotiate.opts");
     assertThat(new String(FileSystemUtils.readContentAsLatin1(recorded)))
-        .isEqualTo("--backend=fskit\n--cache-dir=/x");
+        .isEqualTo("backend=fskit\ncache_dir=/x");
+  }
+
+  @Test
+  public void reconcile_changedOptions_restartsRunningServerWithoutASpawn() throws Exception {
+    // A fully cached build executes no spawn, so the lazy identity check in getOrSpawn never runs.
+    // reconcile() is what the module calls per command: a running server whose options changed must
+    // be relaunched right there, and the new Negotiate must carry the new options.
+    SandboxBackendSpawnRunner runner =
+        newRunner("reconcile-opts", stubBinary, ImmutableList.of("generation=1"));
+    runSpawn(runner, new SpawnBuilder("/bin/sh", "-c", "exit 0").build());
+    assertThat(readNegotiateOpts()).isEqualTo("generation=1");
+    negotiateOptsFile().delete();
+
+    SandboxBackendServer.reconcile(
+        ImmutableMap.of(
+            "reconcile-opts", new BackendConfig(stubBinary, ImmutableList.of("generation=2"))),
+        commandEnvironment.getClientEnv(),
+        commandEnvironment.getExecRoot().getPathString());
+
+    assertThat(SandboxBackendServer.isRunning("reconcile-opts")).isTrue();
+    assertThat(readNegotiateOpts()).isEqualTo("generation=2");
+  }
+
+  @Test
+  public void reconcile_changedBinary_restartsRunningServerWithoutASpawn() throws Exception {
+    // Same as above, but the binary path changes while the options stay the same: the server must be
+    // relaunched from the new path.
+    Path stub2 = commandEnvironment.getExecRoot().getRelative("sandbox-fs-stub-2");
+    FileSystemUtils.copyFile(
+        commandEnvironment.getExecRoot().getRelative(stubBinary.getBaseName()), stub2);
+    stub2.setExecutable(true);
+    SandboxBackendSpawnRunner runner = newRunner("reconcile-binary", stubBinary, ImmutableList.of());
+    runSpawn(runner, new SpawnBuilder("/bin/sh", "-c", "exit 0").build());
+    assertThat(readNegotiateBinary()).isEqualTo(stubBinary.getPathString());
+
+    SandboxBackendServer.reconcile(
+        ImmutableMap.of("reconcile-binary", new BackendConfig(stub2.asFragment(), ImmutableList.of())),
+        commandEnvironment.getClientEnv(),
+        commandEnvironment.getExecRoot().getPathString());
+
+    assertThat(SandboxBackendServer.isRunning("reconcile-binary")).isTrue();
+    assertThat(readNegotiateBinary()).isEqualTo(stub2.getPathString());
+  }
+
+  @Test
+  public void reconcile_unchangedConfig_keepsRunningServer() throws Exception {
+    SandboxBackendSpawnRunner runner =
+        newRunner("reconcile-same", stubBinary, ImmutableList.of("generation=1"));
+    runSpawn(runner, new SpawnBuilder("/bin/sh", "-c", "exit 0").build());
+    negotiateOptsFile().delete();
+
+    SandboxBackendServer.reconcile(
+        ImmutableMap.of("reconcile-same", new BackendConfig(stubBinary, ImmutableList.of("generation=1"))),
+        commandEnvironment.getClientEnv(),
+        commandEnvironment.getExecRoot().getPathString());
+
+    // Still running, and no new handshake happened.
+    assertThat(SandboxBackendServer.isRunning("reconcile-same")).isTrue();
+    assertThat(negotiateOptsFile().exists()).isFalse();
+  }
+
+  @Test
+  public void reconcile_unregisteredBackend_stopsServer_andNeverStartedBackendStaysLazy()
+      throws Exception {
+    SandboxBackendSpawnRunner runner = newRunner("reconcile-gone", stubBinary, ImmutableList.of());
+    runSpawn(runner, new SpawnBuilder("/bin/sh", "-c", "exit 0").build());
+    assertThat(SandboxBackendServer.isRunning("reconcile-gone")).isTrue();
+    negotiateOptsFile().delete();
+
+    // The command no longer registers "reconcile-gone" and registers "reconcile-fresh" instead,
+    // which has never executed a spawn.
+    SandboxBackendServer.reconcile(
+        ImmutableMap.of("reconcile-fresh", new BackendConfig(stubBinary, ImmutableList.of())),
+        commandEnvironment.getClientEnv(),
+        commandEnvironment.getExecRoot().getPathString());
+
+    assertThat(SandboxBackendServer.isRunning("reconcile-gone")).isFalse();
+    // Never-started backends are not launched eagerly; the first spawn does that.
+    assertThat(SandboxBackendServer.isRunning("reconcile-fresh")).isFalse();
+    assertThat(negotiateOptsFile().exists()).isFalse();
+  }
+
+  private SpawnResult runSpawn(SandboxBackendSpawnRunner runner, Spawn spawn) throws Exception {
+    FileOutErr fileOutErr =
+        new FileOutErr(testRoot.getChild("stdout"), testRoot.getChild("stderr"));
+    SpawnExecutionContextForTesting policy =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofMinutes(1));
+    SpawnResult result = runner.exec(spawn, policy);
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    return result;
+  }
+
+  private Path negotiateOptsFile() {
+    return commandEnvironment.getExecRoot().getRelative("negotiate.opts");
+  }
+
+  private String readNegotiateOpts() throws Exception {
+    return new String(FileSystemUtils.readContentAsLatin1(negotiateOptsFile()));
+  }
+
+  private String readNegotiateBinary() throws Exception {
+    return new String(
+        FileSystemUtils.readContentAsLatin1(
+            commandEnvironment.getExecRoot().getRelative("negotiate.binary")));
   }
 
   @Test
