@@ -32,6 +32,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.FastCdc2020Params;
+import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
@@ -190,6 +191,53 @@ public class CombinedCacheTest {
     }
     assertThat(file.exists()).isTrue();
     assertThat(file.getFileSize()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadActionResult_legacySymlinks_preservedWhenWarmingDiskCache() throws Exception {
+    Path diskRoot = fs.getPath("/disk-cache");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+    InMemoryCacheClient remoteCacheClient = new InMemoryCacheClient();
+    CombinedCache combinedCache = newCombinedCache(remoteCacheClient, diskCacheClient);
+    var actionKey = digestUtil.asActionKey(digestUtil.computeAsUtf8("legacy-symlink-action"));
+    ActionResult legacyResult =
+        ActionResult.newBuilder()
+            .addOutputFileSymlinks(
+                OutputSymlink.newBuilder().setPath("outputs/file-link").setTarget("file-target"))
+            .addOutputDirectorySymlinks(
+                OutputSymlink.newBuilder()
+                    .setPath("outputs/directory-link")
+                    .setTarget("directory-target"))
+            .build();
+    getFromFuture(
+        remoteCacheClient.uploadActionResult(
+            remoteActionExecutionContext, actionKey, legacyResult));
+
+    var remoteResult =
+        combinedCache.downloadActionResult(
+            remoteActionExecutionContext,
+            actionKey,
+            /* inlineOutErr= */ false,
+            /* inlineOutputFiles= */ ImmutableSet.of());
+
+    assertThat(remoteResult).isNotNull();
+    assertThat(remoteResult.cacheName()).isEqualTo("remote");
+    assertThat(remoteResult.actionResult()).isEqualTo(legacyResult);
+
+    // Read the persisted entry without a remote client, so a fallback cannot hide lost fields.
+    CombinedCache diskOnlyCache = newCombinedCache(/* remoteCacheClient= */ null, diskCacheClient);
+    var diskResult =
+        diskOnlyCache.downloadActionResult(
+            remoteActionExecutionContext,
+            actionKey,
+            /* inlineOutErr= */ false,
+            /* inlineOutputFiles= */ ImmutableSet.of());
+
+    assertThat(diskResult).isNotNull();
+    assertThat(diskResult.cacheName()).isEqualTo("disk");
+    assertThat(diskResult.actionResult()).isEqualTo(legacyResult);
   }
 
   @Test
@@ -1051,7 +1099,6 @@ public class CombinedCacheTest {
       combinedCache.release();
     }
   }
-
 
   @Test
   public void downloadBlob_chunkMissingAfterPartialWrite_doesNotRestartIntoSameStream()

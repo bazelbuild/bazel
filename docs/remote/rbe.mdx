@@ -28,6 +28,12 @@ self-service tools, see
 
 ## Requirements {#requirements}
 
+With Bazel 10 or newer, gRPC remote execution and remote cache servers must
+support Remote Execution API (REAPI) version 2.3 or a later version supported by
+Bazel. Bazel checks the server's advertised API version range when connecting.
+If the ranges do not overlap, upgrade the server before upgrading Bazel. This
+requirement does not apply to HTTP remote caches or local disk caches.
+
 Remote execution of Bazel builds imposes a set of mandatory configuration
 constraints on the build. For more information, see
 [Adapting Bazel Rules for Remote Execution](/remote/rules).

@@ -29,7 +29,6 @@ import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptio
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
-import static java.util.Collections.min;
 import static java.util.Comparator.comparing;
 
 import build.bazel.remote.execution.v2.Action;
@@ -161,7 +160,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -208,8 +206,6 @@ public class RemoteExecutionService {
   @Nullable private final Scrubber scrubber;
   private final Set<Digest> knownMissingCasDigests;
   private final Predicate<ActionAnalysisMetadata> wasRewound;
-
-  private Boolean useOutputPaths;
 
   public RemoteExecutionService(
       Reporter reporter,
@@ -276,7 +272,6 @@ public class RemoteExecutionService {
   }
 
   private Command buildCommand(
-      boolean useOutputPaths,
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
@@ -285,29 +280,13 @@ public class RemoteExecutionService {
       @Nullable SpawnScrubber spawnScrubber,
       @Nullable PlatformInfo executionPlatform) {
     Command.Builder command = Command.newBuilder();
-    if (useOutputPaths) {
-      var outputPaths = new ArrayList<String>();
-      for (ActionInput output : outputs) {
-        String pathString = internalToUnicode(remotePathResolver.localPathToOutputPath(output));
-        outputPaths.add(pathString);
-      }
-      outputPaths.sort(PROTO_STRING_COMPARATOR);
-      command.addAllOutputPaths(outputPaths);
-    } else {
-      var outputFiles = new ArrayList<String>();
-      var outputDirectories = new ArrayList<String>();
-      for (ActionInput output : outputs) {
-        String pathString = internalToUnicode(remotePathResolver.localPathToOutputPath(output));
-        if (output.isDirectory()) {
-          outputDirectories.add(pathString);
-        } else {
-          outputFiles.add(pathString);
-        }
-      }
-      outputFiles.sort(PROTO_STRING_COMPARATOR);
-      outputDirectories.sort(PROTO_STRING_COMPARATOR);
-      command.addAllOutputFiles(outputFiles).addAllOutputDirectories(outputDirectories);
+    var outputPaths = new ArrayList<String>();
+    for (ActionInput output : outputs) {
+      String pathString = internalToUnicode(remotePathResolver.localPathToOutputPath(output));
+      outputPaths.add(pathString);
     }
+    outputPaths.sort(PROTO_STRING_COMPARATOR);
+    command.addAllOutputPaths(outputPaths);
 
     if (platform != null) {
       command.setPlatform(platform);
@@ -451,65 +430,6 @@ public class RemoteExecutionService {
     remoteActionBuildingSemaphore.release();
   }
 
-  private boolean useOutputPaths() {
-    if (this.useOutputPaths == null) {
-      initUseOutputPaths();
-    }
-    return this.useOutputPaths;
-  }
-
-  private synchronized void initUseOutputPaths() {
-    // If this has already been initialized, return
-    if (this.useOutputPaths != null) {
-      return;
-    }
-    ApiVersion serverHighestVersion = null;
-    try {
-      // If both Remote Executor and Remote Cache are configured,
-      // use the highest version supported by both.
-
-      ClientApiVersion.ServerSupportedStatus executorSupportStatus = null;
-      if (remoteExecutor != null) {
-        var serverCapabilities = remoteExecutor.getServerCapabilities();
-        if (serverCapabilities != null) {
-          executorSupportStatus =
-              ClientApiVersion.current.checkServerSupportedVersions(serverCapabilities);
-        }
-      }
-
-      ClientApiVersion.ServerSupportedStatus cacheSupportStatus = null;
-      if (combinedCache != null) {
-        var serverCapabilities = combinedCache.getRemoteServerCapabilities();
-        if (serverCapabilities != null) {
-          cacheSupportStatus =
-              ClientApiVersion.current.checkServerSupportedVersions(serverCapabilities);
-        }
-      }
-
-      ApiVersion executorHighestVersion = null;
-      if (executorSupportStatus != null && executorSupportStatus.isSupported()) {
-        executorHighestVersion = executorSupportStatus.getHighestSupportedVersion();
-      }
-
-      ApiVersion cacheHighestVersion = null;
-      if (cacheSupportStatus != null && cacheSupportStatus.isSupported()) {
-        cacheHighestVersion = cacheSupportStatus.getHighestSupportedVersion();
-      }
-
-      if (executorHighestVersion != null && cacheHighestVersion != null) {
-        serverHighestVersion = min(ImmutableList.of(executorHighestVersion, cacheHighestVersion));
-      } else if (executorHighestVersion != null) {
-        serverHighestVersion = executorHighestVersion;
-      } else if (cacheHighestVersion != null) {
-        serverHighestVersion = cacheHighestVersion;
-      }
-    } catch (IOException e) {
-      // Intentionally ignored.
-    }
-    this.useOutputPaths =
-        serverHighestVersion == null || serverHighestVersion.compareTo(ApiVersion.twoPointOne) >= 0;
-  }
-
   @VisibleForTesting
   RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
@@ -565,7 +485,6 @@ public class RemoteExecutionService {
       SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
       Command command =
           buildCommand(
-              useOutputPaths(),
               outputsExcludingStdout(spawn),
               spawn.getArguments(),
               spawn.getEnvironment(),
@@ -1695,13 +1614,7 @@ public class RemoteExecutionService {
     Map<Path, Path> realToTmpPath = new HashMap<>();
     ByteString inMemoryOutputContent = null;
     String inMemoryOutputPath = null;
-    var outputPathsList =
-        useOutputPaths()
-            ? action.getCommand().getOutputPathsList()
-            : Stream.concat(
-                    action.getCommand().getOutputFilesList().stream(),
-                    action.getCommand().getOutputDirectoriesList().stream())
-                .toList();
+    var outputPathsList = action.getCommand().getOutputPathsList();
     try {
       for (String output : outputPathsList) {
         String reencodedOutput = unicodeToInternal(output);

@@ -109,9 +109,6 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
   private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
 
-  // addOutputFiles and addOutputDirectories are deprecated in REAPI v2 in favor of addOutputPaths,
-  // but are populated here for backwards compatibility with older RE backends.
-  @SuppressWarnings("deprecation")
   private static final Command COMMAND =
       Command.newBuilder()
           // A unique but nonsensical command that is valid on all platforms. It is never executed,
@@ -119,8 +116,6 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           .addArguments(GUID.toString())
           .addOutputPaths(MARKER_FILE_PATH)
           .addOutputPaths(REPO_DIRECTORY_PATH)
-          .addOutputFiles(MARKER_FILE_PATH)
-          .addOutputDirectories(REPO_DIRECTORY_PATH)
           .setPlatform(Platform.getDefaultInstance())
           .build();
 
