@@ -59,11 +59,11 @@ public final class CommonOptions {
       for (boolean verboseVisibilityErrors : values) {
         for (boolean enforceTransitiveVisibility : values) {
           for (boolean checkTestonlyForOutputFiles : values) {
-            BuildOptions options =
+            BuildOptions baseOptions =
                 BuildOptions.builder()
                     .addFragmentOptions(Options.getDefaults(CoreOptions.class))
                     .build();
-            var coreOptions = options.get(CoreOptions.class);
+            var coreOptions = baseOptions.get(CoreOptions.class);
             // Disable the exec transition. Since this config is empty it shouldn't trigger any exec
             // transitions. More important, the default value this would otherwise propagate may not
             // exist in the repo (if the repo remaps with a repo-wide bazelrc).
@@ -72,7 +72,7 @@ public final class CommonOptions {
             coreOptions.setVerboseVisibilityErrors(verboseVisibilityErrors);
             coreOptions.setEnforceTransitiveVisibility(enforceTransitiveVisibility);
             coreOptions.setCheckTestonlyForOutputFiles(checkTestonlyForOutputFiles);
-            noConfigOptions.put(AnalysisPhaseFlags.of(coreOptions), options);
+            noConfigOptions.put(AnalysisPhaseFlags.of(coreOptions), baseOptions);
           }
         }
       }
