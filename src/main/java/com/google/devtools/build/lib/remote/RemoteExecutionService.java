@@ -2044,7 +2044,7 @@ public class RemoteExecutionService {
       FileArtifactValue metadata =
           action.getSpawnExecutionContext().getInputMetadataProvider().getInputMetadata(input);
       Path path = execRoot.getRelative(input.getExecPath());
-      if (metadata.wasModifiedSinceDigest(path)) {
+      if (metadata.wasModifiedSinceDigest(input, path)) {
         throw new IOException(path + " was modified during execution");
       }
     }

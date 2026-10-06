@@ -16,8 +16,13 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.XattrProvider;
+import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Helper utility to create ActionInput instances. */
 public final class ActionInputHelper {
@@ -115,5 +120,30 @@ public final class ActionInputHelper {
     return input instanceof Artifact artifact
         ? artifact.getPath()
         : execRoot.getRelative(input.getExecPath());
+  }
+
+  /**
+   * Returns the digest of the file of an action input, read at {@code path}, using the digest cache
+   * under the input's exec path. See {@link DigestUtils#getDigestWithManualFallback(PathFragment,
+   * Path, XattrProvider, FileStatus)}.
+   *
+   * @param path the path to stat and read, which may differ from the input's own path, such as a
+   *     path on an action filesystem, but always ends with the input's exec path
+   */
+  public static byte[] getDigestWithManualFallback(
+      ActionInput input, Path path, XattrProvider xattrProvider, @Nullable FileStatus status)
+      throws IOException {
+    return DigestUtils.getDigestWithManualFallback(
+        input.getExecPath(), path, xattrProvider, status);
+  }
+
+  /**
+   * Same as {@link #getDigestWithManualFallback(ActionInput, Path, XattrProvider, FileStatus)}
+   * when a fast digest is known to be unavailable. See {@link
+   * DigestUtils#manuallyComputeDigest(PathFragment, Path, FileStatus)}.
+   */
+  public static byte[] manuallyComputeDigest(
+      ActionInput input, Path path, @Nullable FileStatus status) throws IOException {
+    return DigestUtils.manuallyComputeDigest(input.getExecPath(), path, status);
   }
 }

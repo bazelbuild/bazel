@@ -219,6 +219,7 @@ java_library(
     srcs = ["ActionOutputMetadataStore.java"],
     deps = [
         ":tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
