@@ -28,12 +28,40 @@ public class ConstraintSettingInfoTest extends BuildViewTestCase {
 
   @Test
   public void constraintSetting_equalsTester() {
+    ConstraintSettingInfo other =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:other"));
+    ConstraintValueInfo refined =
+        ConstraintValueInfo.create(other, Label.parseCanonicalUnchecked("//constraint:refined"));
     new EqualsTester()
         .addEqualityGroup(
             ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic")),
             ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic")))
+        .addEqualityGroup(other)
         .addEqualityGroup(
-            ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:other")))
+            // Different default.
+            ConstraintSettingInfo.create(
+                Label.parseCanonicalUnchecked("//constraint:basic"),
+                Label.parseCanonicalUnchecked("//constraint:default"),
+                /* refinedConstraintValue= */ null),
+            ConstraintSettingInfo.create(
+                Label.parseCanonicalUnchecked("//constraint:basic"),
+                Label.parseCanonicalUnchecked("//constraint:default"),
+                /* refinedConstraintValue= */ null))
+        .addEqualityGroup(
+            ConstraintSettingInfo.create(
+                Label.parseCanonicalUnchecked("//constraint:basic"),
+                Label.parseCanonicalUnchecked("//constraint:other_default"),
+                /* refinedConstraintValue= */ null))
+        .addEqualityGroup(
+            // Different refined value.
+            ConstraintSettingInfo.create(
+                Label.parseCanonicalUnchecked("//constraint:basic"),
+                /* defaultConstraintValue= */ null,
+                refined),
+            ConstraintSettingInfo.create(
+                Label.parseCanonicalUnchecked("//constraint:basic"),
+                /* defaultConstraintValue= */ null,
+                refined))
         .testEquals();
   }
 }
