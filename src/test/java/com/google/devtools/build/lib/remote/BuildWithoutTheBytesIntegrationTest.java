@@ -1260,4 +1260,102 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
   }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenReadingUnusedInputsListDuringInputDiscovery(
+      @TestParameter boolean actionRewinding) throws Exception {
+    // Arrange: The consuming action declares a list produced by another action as both an input and
+    // its unused_inputs_list, so the list is read during input discovery to prune the spawn inputs
+    // before execution. The command records which of the declared sources made it into the remote
+    // input root.
+    write(
+        "a/defs.bzl",
+        """
+        def _consume_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            script = "\\n".join([
+                'out="$1"',
+                'shift',
+                'for f in "$@"; do',
+                '  if [ -e "$f" ]; then',
+                '    cat "$f" >> "$out"',
+                '  else',
+                '    echo "pruned $f" >> "$out"',
+                '  fi',
+                'done',
+            ])
+            ctx.actions.run(
+                mnemonic = "Consume",
+                inputs = ctx.files.srcs + [ctx.file.unused_inputs_list],
+                outputs = [out],
+                executable = "/bin/sh",
+                arguments = ["-c", script, "consume", out.path] + [f.path for f in ctx.files.srcs],
+                unused_inputs_list = ctx.file.unused_inputs_list,
+            )
+            return DefaultInfo(files = depset([out]))
+
+        consume = rule(
+            implementation = _consume_impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "unused_inputs_list": attr.label(allow_single_file = True),
+            },
+        )
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "consume")
+
+        genrule(
+            name = "unused_list",
+            outs = ["unused.list"],
+            cmd = "echo a/b.in > $@",
+        )
+
+        consume(
+            name = "consume",
+            srcs = [
+                "a.in",
+                "b.in",
+            ],
+            unused_inputs_list = ":unused_list",
+        )
+        """);
+    write("a/a.in", "a");
+    write("a/b.in", "b");
+
+    // The list is pruned before execution even on a clean build without the bytes.
+    buildTarget("//a:consume");
+    assertOnlyOutputRemoteContent("//a:consume", "consume.out", "a\npruned a/b.in\n");
+    // Input discovery downloaded the list through the action file system. Delete the local copy so
+    // that the next read has to go to the remote cache again.
+    assertThat(getOutputPath("a/unused.list").delete()).isTrue();
+
+    // Act: Evict blobs from remote cache and invalidate only the consuming action
+    evictAllBlobs();
+    write("a/a.in", "updated a");
+    setDownloadToplevel();
+    List<SkyKey> rewoundKeys = null;
+    if (actionRewinding) {
+      enableActionRewinding();
+      rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+    } else {
+      // The build fails because the list is lost, but an incremental build without "clean" or
+      // "shutdown" can continue.
+      disableActionRewinding();
+      var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:consume"));
+      assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
+      assertThat(error).hasMessageThat().contains("a/unused.list");
+    }
+
+    buildTarget("//a:consume");
+    waitDownloads();
+
+    // Assert: the list was regenerated and the consuming action ran with pruned inputs.
+    assertValidOutputFile("a/consume.out", "updated a\npruned a/b.in\n");
+    if (actionRewinding) {
+      assertRewoundActions(rewoundKeys, "//a:unused_list");
+    }
+  }
 }
