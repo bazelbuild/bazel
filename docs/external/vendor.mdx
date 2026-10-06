@@ -97,9 +97,9 @@ Therefore, consider vendoring for specific targets first.
 
 ### Vendor dependencies for lockfile updates {#vendor-tools-for-subcommands}
 
-Updating the lockfile, e.g. with `bazel mod tidy`, evaluates every module
-extension in the dependency graph, including extensions that are only used by
-dependencies, and also needs buildozer. Neither is reachable from build
+Updating the lockfile, e.g. with `bazel mod tidy` or `deps`, evaluates every 
+module extension in the dependency graph, including extensions that are only 
+used by dependencies, and also needs buildozer. Neither is reachable from build
 targets, so `bazel vendor //...` does not include them. Pass `--lockfile_deps`
 to vendor them in addition to the dependencies of the given targets:
 
