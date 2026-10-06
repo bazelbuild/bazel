@@ -37,7 +37,7 @@ public abstract class VendorOptions extends OptionsBase {
   public abstract List<String> getRepos();
 
   @Option(
-      name = "include_lockfile_deps",
+      name = "lockfile_deps",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
@@ -48,5 +48,5 @@ public abstract class VendorOptions extends OptionsBase {
           extensions in the dependency graph, even those only used by dependencies, as well as
           buildozer. Can be combined with target patterns, but not with `--repo`.
           """)
-  public abstract boolean getIncludeLockfileDeps();
+  public abstract boolean getLockfileDeps();
 }

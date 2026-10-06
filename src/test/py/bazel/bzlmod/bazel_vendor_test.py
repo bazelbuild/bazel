@@ -874,7 +874,7 @@ class BazelVendorTest(test_base.TestBase):
     # Regression test for https://github.com/bazelbuild/bazel/issues/23300
     self.RunBazel(['vendor', '//foo/...', '--vendor_dir=vendor'])
 
-  def testVendorIncludeLockfileDeps(self):
+  def testVendorLockfileDeps(self):
     # Updating the lockfile, e.g. with `bazel mod tidy`, evaluates all module
     # extensions in the dependency graph, including those only used by
     # dependencies, and also needs buildozer. Neither is reachable from build
@@ -959,9 +959,7 @@ class BazelVendorTest(test_base.TestBase):
         ],
     )
 
-    self.RunBazel(
-        ['vendor', '--vendor_dir=vendor', '--include_lockfile_deps', '//...']
-    )
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--lockfile_deps', '//...'])
     vendored_repos = os.listdir(self.Path('vendor'))
     # Dependencies of the requested targets.
     self.assertIn('+ext+dep', vendored_repos)
@@ -983,9 +981,7 @@ class BazelVendorTest(test_base.TestBase):
 
     # Without target patterns, only the dependencies required to update the
     # lockfile are vendored.
-    self.RunBazel(
-        ['vendor', '--vendor_dir=vendor_lockfile', '--include_lockfile_deps']
-    )
+    self.RunBazel(['vendor', '--vendor_dir=vendor_lockfile', '--lockfile_deps'])
     vendored_repos = os.listdir(self.Path('vendor_lockfile'))
     self.assertNotIn('+ext+dep', vendored_repos)
     self.assertIn('ext_dep+', vendored_repos)
@@ -993,18 +989,12 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('buildozer++buildozer_binary+buildozer_binary', vendored_repos)
 
     exit_code, _, stderr = self.RunBazel(
-        [
-            'vendor',
-            '--vendor_dir=vendor',
-            '--include_lockfile_deps',
-            '--repo=@ext_dep',
-        ],
+        ['vendor', '--vendor_dir=vendor', '--lockfile_deps', '--repo=@ext_dep'],
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn(
-        'ERROR: --include_lockfile_deps and --repo cannot both be specified',
-        stderr,
+        'ERROR: --lockfile_deps and --repo cannot both be specified', stderr
     )
 
 

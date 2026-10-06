@@ -31,7 +31,7 @@ filegroup(
     ],
 )
 
-# Deprecated: `bazel vendor --include_lockfile_deps` vendors everything that
+# Deprecated: `bazel vendor --lockfile_deps` vendors everything that
 # `bazel mod tidy` requires, including the module extensions it evaluates.
 # This target only covers the buildozer binary.
 # See https://bazel.build/external/vendor#vendor-tools-for-subcommands.
@@ -43,5 +43,5 @@ filegroup(
         # BazelModTidyFunction.java (search for "buildozer.exe").
         "@buildozer_binary//:buildozer.exe",
     ],
-    deprecation = "Use `bazel vendor --include_lockfile_deps` instead.",
+    deprecation = "Use `bazel vendor --lockfile_deps` instead.",
 )

@@ -170,17 +170,16 @@ public final class VendorCommand implements BlazeCommand {
           return createFailedBlazeCommandResult(
               env.getReporter(), "Target patterns and --repo cannot both be specified");
         }
-        if (vendorOptions.getIncludeLockfileDeps()) {
+        if (vendorOptions.getLockfileDeps()) {
           return createFailedBlazeCommandResult(
               env.getReporter(),
               Code.OPTIONS_INVALID,
-              "--include_lockfile_deps and --repo cannot both be specified");
+              "--lockfile_deps and --repo cannot both be specified");
         }
         result = vendorRepos(env, threadsOption, vendorOptions.getRepos());
-      } else if (!targets.isEmpty() || vendorOptions.getIncludeLockfileDeps()) {
+      } else if (!targets.isEmpty() || vendorOptions.getLockfileDeps()) {
         result =
-            vendorTargets(
-                env, options, threadsOption, targets, vendorOptions.getIncludeLockfileDeps());
+            vendorTargets(env, options, threadsOption, targets, vendorOptions.getLockfileDeps());
       } else {
         result = vendorAll(env, threadsOption);
       }
@@ -298,7 +297,7 @@ public final class VendorCommand implements BlazeCommand {
       OptionsParsingResult options,
       LoadingPhaseThreadsOption threadsOption,
       List<String> targets,
-      boolean includeLockfileDeps)
+      boolean lockfileDeps)
       throws InterruptedException, IOException {
     ImmutableList.Builder<SkyKey> rootKeys = ImmutableList.builder();
     if (!targets.isEmpty()) {
@@ -314,7 +313,7 @@ public final class VendorCommand implements BlazeCommand {
           .map(ConfiguredTarget::getLookupKey)
           .forEach(rootKeys::add);
     }
-    if (includeLockfileDeps) {
+    if (lockfileDeps) {
       // Evaluate what `bazel mod tidy` evaluates so that all repos required to update the
       // lockfile are reachable in the graph, including those hosting module extensions that are
       // only used by dependencies.
@@ -355,9 +354,7 @@ public final class VendorCommand implements BlazeCommand {
     String subject =
         targets.isEmpty()
             ? "lockfile updates"
-            : includeLockfileDeps
-                ? "the requested targets and lockfile updates"
-                : "the requested targets";
+            : lockfileDeps ? "the requested targets and lockfile updates" : "the requested targets";
     env.getReporter().handle(Event.info("Vendoring dependencies for " + subject + "..."));
     vendor(env, reposToVendor.asList());
     env.getReporter()
