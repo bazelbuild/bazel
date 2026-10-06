@@ -617,7 +617,13 @@ public class CombinedCache extends AbstractReferenceCounted {
                 } catch (IOException e) {
                   return immediateFailedFuture(e);
                 }
-                return diskCacheClient.downloadBlob(digest, out);
+                // The garbage collection of another server sharing the disk cache may have removed
+                // the blob again, in which case it is served from the remote cache directly.
+                return Futures.catchingAsync(
+                    diskCacheClient.downloadBlob(digest, out),
+                    CacheNotFoundException.class,
+                    e -> remoteCacheClient.downloadBlob(context, digest, out),
+                    directExecutor());
               },
               directExecutor()),
           tempPath,
