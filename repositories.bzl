@@ -189,8 +189,8 @@ def _async_profiler_repos(ctx):
     http_file(
         name = "async_profiler",
         downloaded_file_path = "async-profiler.jar",
-        integrity = "sha256-hwOrB7gKRnaucBvdJPD/PMONf0OuJEHOlXtFFyOFh+c=",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.4/async-profiler.jar"],
+        integrity = "sha256-gdbK6ZcdQa8UCxxif0DVERguAEtJEwfcPH3jsZnry7s=",
+        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler.jar"],
     )
 
     _ASYNC_PROFILER_BUILD_TEMPLATE = """
@@ -210,9 +210,9 @@ copy_file(
             ext = "so",
             tag = "linux-arm64",
         ),
-        integrity = "sha256-hv+XtENqzNtte7ZcHPbjinVvIDepIZlNj6HcuX0dxTw=",
-        strip_prefix = "async-profiler-4.4-linux-arm64/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.4/async-profiler-4.4-linux-arm64.tar.gz"],
+        integrity = "sha256-ZMQdFGXWAJdDnFDX6SS0lG8fYrHL0hzlsDT60JwNaXk=",
+        strip_prefix = "async-profiler-4.5-linux-arm64/lib",
+        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler-4.5-linux-arm64.tar.gz"],
     )
 
     http_archive(
@@ -221,9 +221,9 @@ copy_file(
             ext = "so",
             tag = "linux-x64",
         ),
-        integrity = "sha256-EjPyb8lXU+dc4yczu8r48L7cLAmLDnmK+Hk1sIpjsk4=",
-        strip_prefix = "async-profiler-4.4-linux-x64/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.4/async-profiler-4.4-linux-x64.tar.gz"],
+        integrity = "sha256-iVRvu57g/FSWx+3UCZsHCUibx4sNgFfMu0uAH2sDK2I=",
+        strip_prefix = "async-profiler-4.5-linux-x64/lib",
+        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler-4.5-linux-x64.tar.gz"],
     )
 
     http_archive(
@@ -232,9 +232,9 @@ copy_file(
             ext = "dylib",
             tag = "macos",
         ),
-        integrity = "sha256-YXfr5W0IjRFuG0NmGPGLMxa55BiF/nQ1Ofa8KXpIcjk=",
-        strip_prefix = "async-profiler-4.4-macos/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.4/async-profiler-4.4-macos.zip"],
+        integrity = "sha256-RtBO+B9TKgZaCzh35IiqcGr6FKouoUQzsyPbnm/adtw=",
+        strip_prefix = "async-profiler-4.5-macos/lib",
+        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler-4.5-macos.zip"],
     )
 
 # This is an extension (instead of use_repo_rule usages) only to create a
