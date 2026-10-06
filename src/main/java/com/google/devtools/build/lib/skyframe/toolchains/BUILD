@@ -186,7 +186,10 @@ java_library(
 
 java_library(
     name = "registered_toolchains_function",
-    srcs = ["RegisteredToolchainsFunction.java"],
+    srcs = [
+        "RegisteredToolchainsFunction.java",
+        "ToolchainDeclarationsFunction.java",
+    ],
     deps = [
         ":config_matching_util",
         ":registered_toolchains_value",
@@ -219,7 +222,10 @@ java_library(
 
 java_library(
     name = "registered_toolchains_value",
-    srcs = ["RegisteredToolchainsValue.java"],
+    srcs = [
+        "RegisteredToolchainsValue.java",
+        "ToolchainDeclarationsValue.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
