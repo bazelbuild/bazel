@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.sandbox.SandboxBackendUtil.BackendConfig;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
@@ -54,7 +55,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -385,21 +385,23 @@ public final class SandboxModule extends BlazeModule {
     // sandbox binary speaking Bazel's sandbox protocol and selected by its registered name via
     // --strategy. canExec() declines at runtime when a backend's binary isn't usable, so Bazel
     // falls through to the next strategy. Each backend's configured --sandbox_backend_opt options
-    // are passed to it at the Negotiate handshake, keyed by name.
-    Map<String, List<String>> sandboxBackendArgs = new LinkedHashMap<>();
-    for (Map.Entry<String, String> arg : options.getSandboxBackendOpts()) {
-      sandboxBackendArgs.computeIfAbsent(arg.getKey(), unused -> new ArrayList<>())
-          .add(arg.getValue());
-    }
-    for (Map.Entry<String, String> backend : options.getSandboxBackends()) {
+    // are passed to it at the Negotiate handshake, keyed by name; an option naming an unregistered
+    // backend is a configuration error.
+    ImmutableMap<String, BackendConfig> sandboxBackends =
+        SandboxBackendUtil.configuredBackends(
+            options.getSandboxBackends(), options.getSandboxBackendOpts());
+    // Servers outlive commands. Apply binary/option changes (and removals) to running servers now,
+    // before any spawn: a fully cached build never reaches the lazy check in the spawn runner.
+    SandboxBackendServer.reconcile(
+        sandboxBackends, cmdEnv.getClientEnv(), cmdEnv.getExecRoot().getPathString());
+    for (Map.Entry<String, BackendConfig> backend : sandboxBackends.entrySet()) {
       String backendName = backend.getKey();
       SpawnRunner spawnRunner =
           new SandboxBackendSpawnRunner(
               cmdEnv,
               backendName,
-              PathFragment.create(backend.getValue()),
-              ImmutableList.copyOf(
-                  sandboxBackendArgs.getOrDefault(backendName, ImmutableList.of())),
+              backend.getValue().binary(),
+              backend.getValue().options(),
               sandboxBase,
               treeDeleter);
       spawnRunners.add(spawnRunner);

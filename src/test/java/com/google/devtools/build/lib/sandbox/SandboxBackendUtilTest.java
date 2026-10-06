@@ -14,14 +14,19 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.sandbox.SandboxBackendUtil.BackendConfig;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SandboxBackendUtil#isAvailable}. */
+/** Tests for {@link SandboxBackendUtil}. */
 @RunWith(JUnit4.class)
 public final class SandboxBackendUtilTest {
 
@@ -75,5 +80,70 @@ public final class SandboxBackendUtilTest {
                 PathFragment.create("definitely-not-here-xyz-9999"),
                 ImmutableMap.of("PATH", "/usr/bin:/bin")))
         .isFalse();
+  }
+
+  @Test
+  public void configuredBackends_groupsOptionsByNameInOrder() throws Exception {
+    ImmutableMap<String, BackendConfig> backends =
+        SandboxBackendUtil.configuredBackends(
+            ImmutableList.of(Map.entry("fskit", "/opt/sb"), Map.entry("cfs", "/opt/sb2")),
+            ImmutableList.of(
+                Map.entry("fskit", "backend=fskit"),
+                Map.entry("cfs", "verbose=true"),
+                Map.entry("fskit", "cache_dir=/x")));
+
+    assertThat(backends.keySet()).containsExactly("fskit", "cfs").inOrder();
+    assertThat(backends.get("fskit"))
+        .isEqualTo(
+            new BackendConfig(
+                PathFragment.create("/opt/sb"),
+                ImmutableList.of("backend=fskit", "cache_dir=/x")));
+    assertThat(backends.get("cfs"))
+        .isEqualTo(new BackendConfig(PathFragment.create("/opt/sb2"), ImmutableList.of("verbose=true")));
+  }
+
+  @Test
+  public void configuredBackends_lastBinaryWinsForRepeatedName() throws Exception {
+    // rc file says one path, command line overrides it: a later --sandbox_backend wins.
+    ImmutableMap<String, BackendConfig> backends =
+        SandboxBackendUtil.configuredBackends(
+            ImmutableList.of(Map.entry("fskit", "/opt/old"), Map.entry("fskit", "/opt/new")),
+            ImmutableList.of());
+
+    assertThat(backends.keySet()).containsExactly("fskit");
+    assertThat(backends.get("fskit").binary()).isEqualTo(PathFragment.create("/opt/new"));
+  }
+
+  @Test
+  public void configuredBackends_optionForUnknownBackend_fails() {
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                SandboxBackendUtil.configuredBackends(
+                    ImmutableList.of(Map.entry("fskit", "/opt/sb")),
+                    ImmutableList.of(Map.entry("fskti", "cache_dir=/x"))));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "--sandbox_backend_opt=fskti=cache_dir=/x refers to unknown sandbox backend 'fskti';"
+                + " registered backends: fskit");
+  }
+
+  @Test
+  public void configuredBackends_optionWithNoBackendsRegistered_fails() {
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                SandboxBackendUtil.configuredBackends(
+                    ImmutableList.of(), ImmutableList.of(Map.entry("fskit", "verbose=true"))));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "--sandbox_backend_opt=fskit=verbose=true refers to unknown sandbox backend 'fskit'; no"
+                + " backends are registered with --sandbox_backend");
   }
 }

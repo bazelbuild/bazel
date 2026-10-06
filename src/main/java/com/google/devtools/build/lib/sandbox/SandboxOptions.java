@@ -245,7 +245,9 @@ public abstract class SandboxOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "Passes one configuration option to a sandbox backend. Value is <name>=<opt>, matching a"
-              + " backend registered with --sandbox_backend. Repeat to pass several; each occurrence"
+              + " backend registered with --sandbox_backend; naming an unregistered backend is an"
+              + " error. By convention <opt> is a <key>=<value> pair, e.g."
+              + " --sandbox_backend_opt=fskit=cache_dir=/x. Repeat to pass several; each occurrence"
               + " contributes exactly one token (no quoting or splitting). Options are opaque to"
               + " Bazel and forwarded verbatim to the backend via the Negotiate handshake, not as"
               + " process arguments.")

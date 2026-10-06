@@ -144,8 +144,8 @@ public final class SandboxOptionsTest {
     parser.parse(
         "--sandbox_backend=fskit=/opt/sb",
         "--sandbox_backend=cfs=/opt/sb2",
-        "--sandbox_backend_opt=fskit=--backend=fskit", // value keeps everything after the first '='
-        "--sandbox_backend_opt=fskit=--cache-dir=/x");
+        "--sandbox_backend_opt=fskit=backend=fskit", // value keeps everything after the first '='
+        "--sandbox_backend_opt=fskit=cache_dir=/x");
     SandboxOptions options = parser.getOptions(SandboxOptions.class);
 
     assertThat(options.getSandboxBackends())
@@ -153,7 +153,7 @@ public final class SandboxOptionsTest {
         .inOrder();
     assertThat(options.getSandboxBackendOpts())
         .containsExactly(
-            Map.entry("fskit", "--backend=fskit"), Map.entry("fskit", "--cache-dir=/x"))
+            Map.entry("fskit", "backend=fskit"), Map.entry("fskit", "cache_dir=/x"))
         .inOrder();
   }
 

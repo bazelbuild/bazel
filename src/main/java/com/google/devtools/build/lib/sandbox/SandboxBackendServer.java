@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.sandbox.proto.SandboxProto.Push;
 import com.google.devtools.build.lib.sandbox.proto.SandboxProto.Request;
 import com.google.devtools.build.lib.sandbox.proto.SandboxProto.Response;
 import com.google.devtools.build.lib.sandbox.proto.SandboxProto.Retention;
+import com.google.devtools.build.lib.sandbox.SandboxBackendUtil.BackendConfig;
 import com.google.devtools.build.lib.sandbox.proto.SandboxProto.Version;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
@@ -43,8 +44,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -105,50 +109,131 @@ final class SandboxBackendServer {
 
   /**
    * Returns the server for backend {@code name}, spawning one if absent, dead, or launched with a
-   * different binary/options. Relays {@code options} via the Negotiate handshake before returning.
+   * different binary/options. Relays the configured options via the Negotiate handshake before
+   * returning.
    */
   static SandboxBackendServer getOrSpawn(
-      String name,
-      PathFragment binary,
-      ImmutableList<String> options,
-      ImmutableMap<String, String> clientEnv,
-      String workspace)
+      String name, BackendConfig config, ImmutableMap<String, String> clientEnv, String workspace)
       throws IOException {
-    String identity = binary.getPathString() + '\0' + String.join("\0", options);
+    String identity = identity(config);
     synchronized (SERVERS_LOCK) {
       SandboxBackendServer existing = servers.get(name);
       if (existing != null && existing.alive && identity.equals(existing.identity)) {
         return existing;
       }
       if (existing != null) {
-        try {
-          existing.close();
-        } catch (Exception ignored) {
-          // best-effort cleanup of the previous server
-        }
+        closeQuietly(existing);
       }
-      SandboxBackendServer server = spawn(binary, identity, clientEnv, workspace);
-      server.negotiate(options);
+      SandboxBackendServer server = spawnAndNegotiate(config, clientEnv, workspace);
       servers.put(name, server);
-      if (!shutdownHookInstalled) {
-        shutdownHookInstalled = true;
-        Runtime.getRuntime()
-            .addShutdownHook(
-                new Thread(
-                    () -> {
-                      synchronized (SERVERS_LOCK) {
-                        for (SandboxBackendServer s : servers.values()) {
-                          try {
-                            s.close();
-                          } catch (Exception ignored) {
-                          }
-                        }
-                      }
-                    },
-                    "SandboxBackendServer-shutdown"));
-      }
+      installShutdownHook();
       return server;
     }
+  }
+
+  /**
+   * Reconciles the running servers with the backends configured for the current command. Called once
+   * per command, before any spawn runs.
+   *
+   * <p>{@link #getOrSpawn} only notices a changed binary or options when a spawn actually executes,
+   * so a build whose actions are all cached would otherwise keep the previously launched server
+   * alive indefinitely. This method applies the change eagerly: a server whose backend is no longer
+   * registered, or whose launch identity differs from {@code backends}, is shut down. If the
+   * backend is still registered and its new binary is usable, a fresh server is launched right away
+   * so the restart is observable; a backend whose server was never started stays lazy, and a server
+   * that merely died is left for {@link #getOrSpawn} to respawn on demand.
+   *
+   * @throws IOException if an eagerly relaunched server fails to start or rejects the Negotiate
+   *     handshake with its new options
+   */
+  static void reconcile(
+      ImmutableMap<String, BackendConfig> backends,
+      ImmutableMap<String, String> clientEnv,
+      String workspace)
+      throws IOException {
+    synchronized (SERVERS_LOCK) {
+      List<String> toRelaunch = new ArrayList<>();
+      Iterator<Map.Entry<String, SandboxBackendServer>> it = servers.entrySet().iterator();
+      while (it.hasNext()) {
+        Map.Entry<String, SandboxBackendServer> entry = it.next();
+        String name = entry.getKey();
+        SandboxBackendServer existing = entry.getValue();
+        BackendConfig config = backends.get(name);
+        boolean sameIdentity = config != null && identity(config).equals(existing.identity);
+        if (sameIdentity && existing.alive) {
+          continue;
+        }
+        it.remove();
+        closeQuietly(existing);
+        if (config == null) {
+          logger.atInfo().log("sandbox backend %s is no longer configured; stopped its server", name);
+        } else if (!sameIdentity) {
+          logger.atInfo().log(
+              "sandbox backend %s changed binary or options; restarting its server", name);
+          if (SandboxBackendUtil.isAvailable(config.binary(), clientEnv)) {
+            toRelaunch.add(name);
+          }
+        }
+      }
+      for (String name : toRelaunch) {
+        servers.put(name, spawnAndNegotiate(backends.get(name), clientEnv, workspace));
+      }
+      if (!servers.isEmpty()) {
+        installShutdownHook();
+      }
+    }
+  }
+
+  /** Whether a server for backend {@code name} is currently running. */
+  static boolean isRunning(String name) {
+    synchronized (SERVERS_LOCK) {
+      SandboxBackendServer server = servers.get(name);
+      return server != null && server.alive;
+    }
+  }
+
+  /** The launch identity of {@code config}: a server is reused only while this stays the same. */
+  private static String identity(BackendConfig config) {
+    return config.binary().getPathString() + '\0' + String.join("\0", config.options());
+  }
+
+  private static SandboxBackendServer spawnAndNegotiate(
+      BackendConfig config, ImmutableMap<String, String> clientEnv, String workspace)
+      throws IOException {
+    SandboxBackendServer server = spawn(config.binary(), identity(config), clientEnv, workspace);
+    try {
+      server.negotiate(config.options());
+    } catch (IOException e) {
+      closeQuietly(server);
+      throw e;
+    }
+    return server;
+  }
+
+  private static void closeQuietly(SandboxBackendServer server) {
+    try {
+      server.close();
+    } catch (RuntimeException ignored) {
+      // best-effort cleanup of a server we are replacing or discarding
+    }
+  }
+
+  private static void installShutdownHook() {
+    if (shutdownHookInstalled) {
+      return;
+    }
+    shutdownHookInstalled = true;
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  synchronized (SERVERS_LOCK) {
+                    for (SandboxBackendServer s : servers.values()) {
+                      closeQuietly(s);
+                    }
+                  }
+                },
+                "SandboxBackendServer-shutdown"));
   }
 
   private static SandboxBackendServer spawn(
@@ -516,6 +601,7 @@ final class SandboxBackendServer {
                   + " timed out after "
                   + requestTimeout.toSeconds()
                   + "s (controller wedged or protocol stream corrupted)"
+                  + sampleSuffix()
                   + stderrSuffix());
       killController(io);
       throw io;
@@ -630,6 +716,43 @@ final class SandboxBackendServer {
    * stops a corrupted stream from costing more than one timeout — sibling threads parked in {@link
    * #request} unblock immediately instead of each waiting out the full deadline.
    */
+  /**
+   * Where the wedged controller is parked, captured with {@code sample(1)} before it is killed and
+   * written to a file this names; a request that times out is otherwise indistinguishable from a
+   * controller that never read it. The empty string where sampling is unavailable.
+   */
+  private String sampleSuffix() {
+    File sample = new File("/usr/bin/sample");
+    if (!sample.canExecute()) {
+      return "";
+    }
+    try {
+      java.nio.file.Path out =
+          Files.createTempFile("sandbox-backend-" + process.getProcessId() + "-", ".sample.txt");
+      Process p =
+          new ProcessBuilder(
+                  sample.getPath(),
+                  Long.toString(process.getProcessId()),
+                  "2",
+                  "-mayDie",
+                  "-file",
+                  out.toString())
+              .redirectErrorStream(true)
+              .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+              .start();
+      if (!p.waitFor(20, TimeUnit.SECONDS)) {
+        p.destroyForcibly();
+        return "";
+      }
+      return "\ncontroller stack sample: " + out;
+    } catch (IOException e) {
+      return "";
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return "";
+    }
+  }
+
   private void killController(IOException cause) {
     process.destroy();
     markDead(cause);
