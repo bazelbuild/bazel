@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -254,4 +254,10 @@ java_test(
         ":RuntimeTests_lib",
         "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
+)
+
+java_binary(
+    name = "ExecutionGraphModuleBenchmark",
+    main_class = "com.google.devtools.build.lib.runtime.ExecutionGraphModuleBenchmark",
+    runtime_deps = [":RuntimeTests_lib"],
 )
