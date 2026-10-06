@@ -1405,6 +1405,18 @@ sh_test(
 )
 
 sh_test(
+    name = "combine_distfiles_to_tar_test",
+    size = "small",
+    srcs = ["combine_distfiles_to_tar_test.sh"],
+    data = [
+        "//:srcs",
+        "//src/test/shell:bashunit",
+    ],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "generate_xml_test",
     srcs = ["generate_xml_test.sh"],
     data = [
