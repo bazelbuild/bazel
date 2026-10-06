@@ -84,7 +84,6 @@ import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 
 /** Unit tests for {@link ExecutionGraphModule}. */
 @RunWith(TestParameterInjector.class)
@@ -798,42 +797,15 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
         .inOrder();
   }
 
-  enum LocalLockFreeOutput {
-    LOCAL_LOCK_FREE_OUTPUT_ENABLED(/* optionValue= */ true) {
-      @Override
-      void assertBugReport(BugReporter bugReporter) {
-        verify(bugReporter, never()).sendNonFatalBugReport(any());
-      }
-    },
-    LOCAL_LOCK_FREE_OUTPUT_DISABLED(/* optionValue= */ false) {
-      @Override
-      void assertBugReport(BugReporter bugReporter) {
-        var captor = ArgumentCaptor.forClass(Exception.class);
-        verify(bugReporter).sendNonFatalBugReport(captor.capture());
-        assertThat(captor.getValue())
-            .hasMessageThat()
-            .contains("Multiple spawns produced 'output/foo/out' with overlapping execution time.");
-      }
-    };
-
-    LocalLockFreeOutput(boolean optionValue) {
-      this.optionValue = optionValue;
-    }
-
-    private final boolean optionValue;
-
-    abstract void assertBugReport(BugReporter bugReporter);
-  }
-
   @Test
   public void multipleSpawnsWithSameOutput_overlapping_recordsBothSpawnsWithoutRetry(
-      @TestParameter LocalLockFreeOutput localLockFreeOutput) throws Exception {
+      @TestParameter boolean localLockFreeOutputEnabled) throws Exception {
     var buffer = new ByteArrayOutputStream();
     BugReporter bugReporter = mock(BugReporter.class);
     startLogging(
         eventBus,
         bugReporter,
-        localLockFreeOutput.optionValue,
+        localLockFreeOutputEnabled,
         /* logFileWriteEdges= */ false,
         buffer,
         DependencyInfo.ALL);
@@ -886,7 +858,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
                 .setIdentifier("foo2")
                 .build())
         .inOrder();
-    localLockFreeOutput.assertBugReport(bugReporter);
+    verify(bugReporter, never()).sendNonFatalBugReport(any());
   }
 
   @Test
