@@ -21,15 +21,18 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OpaqueOptionsData;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -96,6 +99,8 @@ final class ConfigExpander {
       OptionsParser optionsParser,
       @Nullable OpaqueOptionsData fallbackData)
       throws OptionsParsingException {
+    // Tracks whether the expansion of an option added to the values accumulated by the parser.
+    Map<ParsedOptionDescription, Boolean> expansionAccumulatedValues = new HashMap<>();
 
     OptionValueDescription configValueDescription =
         optionsParser.getOptionValueDescription("config");
@@ -117,11 +122,14 @@ final class ConfigExpander {
                 configValueToExpand,
                 rcFileNotesConsumer,
                 fallbackData);
+        int unparsedArgs = countUnparsedArgs(optionsParser);
         var ignoredArgs =
             optionsParser.parseArgsAsExpansionOfOption(
                 configInstance,
                 String.format("expanded from --config=%s", configValueToExpand),
                 expansion);
+        expansionAccumulatedValues.put(
+            configInstance, countUnparsedArgs(optionsParser) > unparsedArgs);
         if (!ignoredArgs.isEmpty()) {
           rcFileNotesConsumer.accept(
               String.format(
@@ -145,9 +153,12 @@ final class ConfigExpander {
               fallbackData);
       ParsedOptionDescription optionToExpand =
           Iterables.getOnlyElement(enablePlatformSpecificConfigDescription.getCanonicalInstances());
+      int unparsedArgs = countUnparsedArgs(optionsParser);
       var ignoredArgs =
           optionsParser.parseArgsAsExpansionOfOption(
               optionToExpand, "enabled by --enable_platform_specific_config", expansion);
+      expansionAccumulatedValues.put(
+          optionToExpand, countUnparsedArgs(optionsParser) > unparsedArgs);
       if (!ignoredArgs.isEmpty()) {
         rcFileNotesConsumer.accept(
             String.format(
@@ -166,6 +177,32 @@ final class ConfigExpander {
         duplicateConfigs.add(configValue);
       }
     }
+    if (duplicateConfigs.isEmpty()) {
+      return;
+    }
+
+    // Expanding a config again only makes a difference if it adds to the values accumulated by the
+    // parser since everything else it sets is overridden by its last expansion. In addition to
+    // residue and Starlark flags, these are the values of repeatable flags, which may also be set
+    // by the untracked implicit requirements of an option.
+    for (ParsedOptionDescription option : optionsParser.asCompleteListOfParsedOptions()) {
+      OptionDefinition definition = option.getOptionDefinition();
+      if (definition.hasImplicitRequirements()
+          || (definition.allowsMultiple() && !definition.getOptionName().equals("config"))) {
+        expansionAccumulatedValues.replace(
+            getExpandedOption(option, expansionAccumulatedValues.keySet()), true);
+      }
+    }
+    // As a config adds the same values every time it is expanded, it can only have added any if
+    // every expansion it has been part of did.
+    for (ParsedOptionDescription configInstance :
+        optionsParser.getOptionValueDescription("config").getCanonicalInstances()) {
+      if (!expansionAccumulatedValues.getOrDefault(
+          getExpandedOption(configInstance, expansionAccumulatedValues.keySet()), true)) {
+        duplicateConfigs.remove((String) configInstance.getConvertedValue());
+      }
+    }
+
     if (!duplicateConfigs.isEmpty()) {
       eventHandler.handle(
           Event.warn(
@@ -174,6 +211,28 @@ final class ConfigExpander {
                       + "repeats are counted twice and may lead to unexpected behavior.",
                   duplicateConfigs)));
     }
+  }
+
+  /**
+   * Returns the number of args that the parser didn't parse as options and thus accumulated
+   * instead of overriding earlier ones: residue and Starlark flags, as it isn't known at this
+   * point whether they are repeatable.
+   */
+  private static int countUnparsedArgs(OptionsParser optionsParser) {
+    return optionsParser.getResidue().size() + optionsParser.getSkippedArgs().size();
+  }
+
+  /**
+   * Returns the given option if it is one of the expanded options or else the one among them that
+   * it has been expanded from, if any.
+   */
+  @Nullable
+  private static ParsedOptionDescription getExpandedOption(
+      ParsedOptionDescription option, Set<ParsedOptionDescription> expandedOptions) {
+    while (option != null && !expandedOptions.contains(option)) {
+      option = option.getOrigin().getExpandedFrom();
+    }
+    return option;
   }
 
   private static List<ArgAndFallbackData> getExpansion(
