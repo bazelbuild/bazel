@@ -2,6 +2,14 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(
+    [
+        "BUILD.tools",
+        "build_defs.bzl",
+    ],
+    visibility = ["//src/test/py/bazel:__pkg__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
