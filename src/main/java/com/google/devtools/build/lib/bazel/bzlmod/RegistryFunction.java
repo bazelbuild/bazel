@@ -60,9 +60,6 @@ public class RegistryFunction implements SkyFunction {
   public static final Precomputed<ImmutableSet<String>> WATCHED_REGISTRIES =
       new Precomputed<>("watched_registries");
 
-  /** Prefix of a {@code --registry} value whose files should be watched for changes. */
-  public static final String WATCH_PREFIX = "watch=";
-
   /**
    * The interval after which the mutable registry contents cached in memory should be refreshed.
    */
