@@ -21,6 +21,7 @@ import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
+from src.test.py.bazel.bzlmod.test_utils import Module
 
 
 class BazelVendorTest(test_base.TestBase):
@@ -873,120 +874,132 @@ class BazelVendorTest(test_base.TestBase):
     # Regression test for https://github.com/bazelbuild/bazel/issues/23300
     self.RunBazel(['vendor', '//foo/...', '--vendor_dir=vendor'])
 
-  def testVendorToolsForBazelSubcommands(self):
-    # Regression test for https://github.com/bazelbuild/bazel/issues/29222:
-    # `bazel vendor //...` alone doesn't pull in tools needed by Bazel
-    # subcommands (e.g. buildozer for `bazel mod tidy`). Users must explicitly
-    # vendor @bazel_tools//tools:tools_for_bazel_subcommands for those
-    # subcommands to work under `--nofetch`.
-    # Since `mod tidy` evaluates all extensions, just like `mod deps`, more deps
-    # may need to be vendored than just `//...`.
-    self.useMockBuiltinModules()
-    with open(
-        self.Rlocation('io_bazel/src/MODULE.tools'), encoding='utf-8'
-    ) as f:
-      tools_module = [
-          line.rstrip('\n')
-          for line in f
-          if line.startswith((
-              'module(',
-              'bazel_dep(name = "buildozer",',
-              'bazel_dep(name = "platforms",',
-              'bazel_dep(name = "bazel_features",',
-              'bazel_dep(name = "bazel_skylib",',
-              'bazel_dep(name = "rules_shell",',
-              'buildozer_binary = ',
-              'use_repo(buildozer_binary,',
-          ))
-      ]
-    self.ScratchFile('tools_mock/MODULE.bazel', tools_module)
-    self.CopyFile(
-        self.Rlocation('io_bazel/tools/BUILD.tools'), 'tools_mock/tools/BUILD'
+  def testVendorLockfileDeps(self):
+    # Updating the lockfile, e.g. with `bazel mod tidy`, evaluates all module
+    # extensions in the dependency graph, including those only used by
+    # dependencies, and also needs buildozer. Neither is reachable from build
+    # targets.
+
+    # A dependency using an extension that the root module doesn't use.
+    self.ScratchFile(
+        'ext_dep_src/MODULE.bazel',
+        [
+            'module(name = "ext_dep", version = "1.0")',
+            'ext = use_extension("//:extension.bzl", "dep_ext")',
+            'use_repo(ext, "dep_ext_repo")',
+        ],
     )
-    self.CopyFile(
-        self.Rlocation('io_bazel/tools/build_defs.bzl'),
-        'tools_mock/tools/build_defs.bzl',
+    self.ScratchFile('ext_dep_src/BUILD')
+    self.ScratchFile(
+        'ext_dep_src/extension.bzl',
+        [
+            'def _repo_impl(ctx):',
+            '    ctx.file("BUILD")',
+            '',
+            'repo_rule = repository_rule(implementation = _repo_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name = "dep_ext_repo")',
+            '',
+            'dep_ext = module_extension(implementation = _ext_impl)',
+        ],
     )
-    self.ScratchFile('.bazelignore', ['tools_mock'])
+    archive = self.main_registry.createArchive(
+        'ext_dep', '1.0', self.Path('ext_dep_src')
+    )
+    self.main_registry.addModule(
+        Module('ext_dep', '1.0')
+        .set_source(archive.resolve().as_uri())
+        .set_module_dot_bazel(self.Path('ext_dep_src/MODULE.bazel'))
+    )
+
+    self.ScratchFile(
+        '.bazelignore',
+        [
+            'ext_dep_src',
+            'tools_mock',
+            os.path.relpath(self.registries_work_dir, self._test_cwd),
+        ],
+    )
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'local_path_override(',
-            '    module_name = "bazel_tools",',
-            '    path = "tools_mock",',
-            ')',
+            'bazel_dep(name = "ext_dep", version = "1.0")',
             'ext = use_extension("//:extension.bzl", "ext")',
             'use_repo(ext, "dep", "indirect_dep")',
         ],
     )
-    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'BUILD.bazel',
+        ['filegroup(name = "dep_files", srcs = ["@dep//:lala"])'],
+    )
     self.ScratchFile(
         'extension.bzl',
         [
             'def _repo_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
-            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_impl)',
+            '    ctx.file("BUILD", """',
+            'filegroup(',
+            '    name = "lala",',
+            '    visibility = ["//visibility:public"],',
+            ')',
+            '""")',
+            '',
+            'repo_rule = repository_rule(implementation = _repo_impl)',
             '',
             'def _ext_impl(ctx):',
-            '    repo_rule(name="dep")',
-            '    repo_rule(name="missing_dep")',
-            '    repo_rule(name="indirect_dep")',
+            '    repo_rule(name = "dep")',
+            '    repo_rule(name = "missing_dep")',
+            '    repo_rule(name = "indirect_dep")',
             '    return ctx.extension_metadata(',
-            '        root_module_direct_deps=["dep", "missing_dep"],',
-            '        root_module_direct_dev_deps=[],',
+            '        root_module_direct_deps = ["dep", "missing_dep"],',
+            '        root_module_direct_dev_deps = [],',
             '    )',
             '',
-            'ext = module_extension(implementation=_ext_impl)',
+            'ext = module_extension(implementation = _ext_impl)',
         ],
     )
 
-    # The filegroup vendors the buildozer module, which hosts the extension
-    # providing the buildozer binary. The binary's repo rule sets configure and
-    # is thus never vendored; the vendor command fetches it into the output base
-    # instead, where --nofetch finds it.
-    self.RunBazel([
-        'vendor',
-        '--vendor_dir=vendor',
-        '//...',
-        '@bazel_tools//tools:tools_for_bazel_subcommands',
-    ])
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--lockfile_deps', '//...'])
     vendored_repos = os.listdir(self.Path('vendor'))
+    # Dependencies of the requested targets.
+    self.assertIn('+ext+dep', vendored_repos)
+    self.assertNotIn('+ext+indirect_dep', vendored_repos)
+    # Modules hosting the evaluated extensions, but not the repos generated
+    # by them.
+    self.assertIn('ext_dep+', vendored_repos)
+    self.assertNotIn('ext_dep++dep_ext+dep_ext_repo', vendored_repos)
     self.assertIn('buildozer+', vendored_repos)
-    self.assertNotIn(
+    self.assertIn(
         'buildozer++buildozer_binary+buildozer_binary', vendored_repos
     )
 
-    # Target-based vendoring does not cover extensions used only by
-    # dependencies, such as the one declared by rules_shell.
-    exit_code, _, stderr = self.RunBazel(
-        ['mod', 'tidy', '--vendor_dir=vendor', '--nofetch'],
-        allow_failure=True,
-    )
-    self.AssertNotExitCode(exit_code, 0, stderr)
-    self.assertIn(
-        'Vendored repository rules_shell+ not found under the vendor directory'
-        ' and fetching is disabled.',
-        '\n'.join(stderr),
-    )
-
-    # Vendor the entire graph before updating module files offline.
-    self.RunBazel(['vendor', '--vendor_dir=vendor'])
-
-    self.RunBazel([
-        'mod',
-        'tidy',
-        '--vendor_dir=vendor',
-        '--nofetch',
-    ])
-
-    # Verify that mod tidy actually rewrote MODULE.bazel based on the
-    # extension's root_module_direct_deps metadata.
+    self.RunBazel(['mod', 'deps', '--vendor_dir=vendor', '--nofetch'])
+    self.RunBazel(['mod', 'tidy', '--vendor_dir=vendor', '--nofetch'])
     with open(self.Path('MODULE.bazel'), 'r', encoding='utf-8') as f:
       contents = f.read()
     self.assertIn('"dep"', contents)
     self.assertIn('"missing_dep"', contents)
     self.assertNotIn('"indirect_dep"', contents)
+
+    # Without target patterns, only the dependencies required to update the
+    # lockfile are vendored.
+    self.RunBazel(['vendor', '--vendor_dir=vendor_lockfile', '--lockfile_deps'])
+    vendored_repos = os.listdir(self.Path('vendor_lockfile'))
+    self.assertNotIn('+ext+dep', vendored_repos)
+    self.assertIn('ext_dep+', vendored_repos)
+    self.assertIn('buildozer+', vendored_repos)
+    self.assertIn(
+        'buildozer++buildozer_binary+buildozer_binary', vendored_repos
+    )
+
+    exit_code, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--lockfile_deps', '--repo=@ext_dep'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 2, stderr)
+    self.assertIn(
+        'ERROR: --lockfile_deps and --repo cannot both be specified', stderr
+    )
 
 
 if __name__ == '__main__':

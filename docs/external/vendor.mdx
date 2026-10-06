@@ -95,21 +95,26 @@ Note that vendoring all dependencies has a few **disadvantages**:
 
 Therefore, consider vendoring for specific targets first.
 
-### Vendor tools for Bazel subcommands {#vendor-tools-for-subcommands}
+### Vendor dependencies for lockfile updates {#vendor-tools-for-subcommands}
 
-Some Bazel subcommands (such as `bazel mod tidy`) have implicit tool
-dependencies that are not reachable from user build targets, so they are
-**not** included by `bazel vendor //...`. To vendor those tools as well, add
-the `@bazel_tools//tools:tools_for_bazel_subcommands` filegroup to your
-vendor invocation:
+Updating the lockfile, e.g. with `bazel mod tidy` or `deps`, evaluates every
+module extension in the dependency graph, including extensions that are only
+used by dependencies, and also needs buildozer. Neither is reachable from build
+targets, so `bazel vendor //...` does not include them. Pass `--lockfile_deps`
+to vendor them in addition to the dependencies of the given targets:
 
 ```none
-bazel vendor //... @bazel_tools//tools:tools_for_bazel_subcommands
+bazel vendor --lockfile_deps //...
 ```
 
-This is required if you plan to run commands like `bazel mod tidy` in an
- offline or hermetic environment (for example with `--vendor_dir` and
- `--nofetch`).
+Afterwards, the lockfile can be updated with fetching disabled:
+
+```none
+bazel mod tidy --vendor_dir=vendor_src --nofetch
+```
+
+Without target patterns, `bazel vendor --lockfile_deps` vendors only the
+dependencies required to update the lockfile.
 
 ## Configure vendor mode with VENDOR.bazel {#configure-vendor-mode}
 
