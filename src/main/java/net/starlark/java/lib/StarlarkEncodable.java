@@ -20,8 +20,8 @@ import net.starlark.java.eval.StarlarkSemantics;
 public interface StarlarkEncodable {
   /**
    * Returns a value which represents this object and which will be encoded by {@link
-   * net.starlark.java.lib.json.Json#encode} and {@link
-   * com.google.devtools.build.lib.packages.Proto.TextEncoder}.
+   * net.starlark.java.lib.json.Json#encode}, {@link net.starlark.java.lib.toml.TomlParser#encode},
+   * and {@link com.google.devtools.build.lib.packages.Proto.TextEncoder}.
    *
    * <p>The returned value must be one of the following:
    *

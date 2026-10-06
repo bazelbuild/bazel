@@ -2160,8 +2160,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJsonAndProtoFileEncoding() throws Exception {
-    // Test that File objects can be encoded as JSON and proto.
+  public void testJsonAndProtoAndTomlFileEncoding() throws Exception {
+    // Test that File objects can be encoded as JSON, proto, and TOML.
     scratch.file(
         "test/BUILD",
         """
@@ -2201,6 +2201,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             if proto_encoded != proto_expected_encoded:
                 fail("Proto encoding of File failed. Expected: {}, actual: {}".format(repr(proto_expected_encoded), repr(proto_encoded)))
 
+            encoded = toml.encode(json_input)
+            decoded = toml.decode(encoded)
+
+            if decoded != json_expected_output:
+                fail("TOML encode/decode of File did not round-trip. Expected: {}, actual: {}".format(json_expected_output, decoded))
+
             return []
 
         test_rule = rule(
@@ -2212,14 +2218,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file("test/test.txt", "test content");
 
     var unused = createRuleContext("//test:test");
-    // The rule implementation tests the JSON encoding internally
+    // The rule implementation tests the encoding internally
   }
 
   @Test
-  public void testJsonAndProtoNativeInfoEncoding() throws Exception {
+  public void testJsonAndProtoAndTomlNativeInfoEncoding() throws Exception {
     // FeatureFlagInfo is a NativeInfo having both struct fields (value, error) and non-struct-field
     // methods (is_valid_value), which makes it a good test case for NativeInfo method filtering in
-    // json and textproto encoding.
+    // JSON, textproto, and TOML encoding.
     // Note for future maintainers: If FeatureFlagInfo ever evolves to not have non-struct-field
     // methods, update this test case to use a different NativeInfo subclass having some
     // non-constructor @StarlarkMethod-annotatated methods with structField = true, and some
@@ -2241,6 +2247,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             # We expect no `is_valid_value` method or `error` None-valued field in proto encoding.
             if proto_encoded != 'value: "val"\\n':
                 fail("proto.encode_text(feature_flag_info) not as expected, got %s" % repr(proto_encoded))
+            toml_decoded = toml.decode(toml.encode(feature_flag_info))
+            if toml_decoded != {"value": "val"}:
+                fail("TOML encoding of FeatureFlagInfo not as expected, got %s" % repr(toml_decoded))
             return []
 
         test_rule = rule(
@@ -2255,7 +2264,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         """);
 
     var unused = createRuleContext("//test:test");
-    // The rule implementation tests the json and proto encoding internally
+    // The rule implementation tests the encoding internally.
   }
 
   @Test
