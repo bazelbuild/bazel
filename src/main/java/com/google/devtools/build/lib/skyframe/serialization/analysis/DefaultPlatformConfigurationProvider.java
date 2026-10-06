@@ -84,7 +84,8 @@ public final class DefaultPlatformConfigurationProvider implements PlatformConfi
         getBaseOptionsForPlatform(platformLabel, isExec, trimTestOptions);
     try {
       return OutputPathMnemonicComputer.computeMnemonic(
-          targetOptions, baselineOptions, ImmutableSortedMap.of());
+              targetOptions, baselineOptions, ImmutableSortedMap.of())
+          .mnemonic();
     } catch (OutputPathMnemonicComputer.InvalidMnemonicException e) {
       throw new IllegalStateException("Invalid mnemonic for " + targetOptions, e);
     }

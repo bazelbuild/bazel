@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -897,6 +898,48 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm"))
         .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc"))
         .testEquals();
+  }
+
+  @Test
+  public void mnemonicDependsOnBaseline_stHash() throws Exception {
+    BuildOptions baseline = parseBuildOptions();
+    BuildOptions withDefine = parseBuildOptions("--define=a=b");
+    BuildOptions withOpt = parseBuildOptions("-c", "opt");
+
+    // Options equal to the baseline: no ST-hash.
+    assertThat(createConfigurationWithBaseline(withDefine, withDefine).mnemonicDependsOnBaseline())
+        .isFalse();
+    // A hashed option differs from the baseline: ST-hash.
+    assertThat(createConfigurationWithBaseline(baseline, withDefine).mnemonicDependsOnBaseline())
+        .isTrue();
+    // Only an explicit-in-output-path option differs: still no ST-hash.
+    assertThat(createConfigurationWithBaseline(baseline, withOpt).mnemonicDependsOnBaseline())
+        .isFalse();
+  }
+
+  @Test
+  public void mnemonicDependsOnBaseline_fragmentConsultsBaseline() throws Exception {
+    BuildOptions options = parseBuildOptions();
+    Fragment fragment =
+        new Fragment() {
+          @Override
+          public void processForOutputPathMnemonic(OutputDirectoriesContext ctx) {
+            var _ = ctx.getBaseline(CoreOptions.class);
+          }
+        };
+
+    OutputPathMnemonicComputer.Result result =
+        OutputPathMnemonicComputer.computeMnemonic(
+            options,
+            options,
+            ImmutableSortedMap.<Class<? extends Fragment>, Fragment>orderedBy(
+                    FragmentClassSet.LEXICAL_FRAGMENT_SORTER)
+                .put(fragment.getClass(), fragment)
+                .buildOrThrow());
+
+    // No ST-hash (options equal the baseline), yet the fragment looked at the baseline.
+    assertThat(result.mnemonic()).doesNotContain("ST-");
+    assertThat(result.dependsOnBaseline()).isTrue();
   }
 
   /**

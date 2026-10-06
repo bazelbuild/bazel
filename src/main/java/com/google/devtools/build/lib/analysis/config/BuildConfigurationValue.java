@@ -55,7 +55,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
@@ -134,6 +133,12 @@ public class BuildConfigurationValue
    */
   private final String mnemonic;
 
+  /**
+   * Whether {@link #mnemonic} depends on the baseline options rather than being a pure function of
+   * {@link #buildOptions}.
+   */
+  private final boolean mnemonicDependsOnBaseline;
+
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
   /** Data for introspecting the options used by this configuration. */
@@ -209,12 +214,13 @@ public class BuildConfigurationValue
     ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments =
         getConfigurationFragments(buildOptions, fragmentClasses, fragmentFactory);
 
-    String mnemonic =
+    OutputPathMnemonicComputer.Result mnemonic =
         OutputPathMnemonicComputer.computeMnemonic(buildOptions, baselineOptions, fragments);
 
     return new BuildConfigurationValue(
         buildOptions,
-        mnemonic,
+        mnemonic.mnemonic(),
+        mnemonic.dependsOnBaseline(),
         platformCpu,
         globalProvider.getRunfilesPrefix(),
         directories,
@@ -246,6 +252,8 @@ public class BuildConfigurationValue
     return new BuildConfigurationValue(
         buildOptions,
         mnemonic,
+        // The mnemonic passed to createForTesting is taken at face value.
+        /* mnemonicDependsOnBaseline= */ false,
         "",
         globalProvider.getRunfilesPrefix(),
         directories,
@@ -272,6 +280,7 @@ public class BuildConfigurationValue
   BuildConfigurationValue(
       BuildOptions buildOptions,
       String mnemonic,
+      boolean mnemonicDependsOnBaseline,
       String platformCpu,
       // Arguments below this are either server-global and constant or completely dependent values.
       String workspaceName,
@@ -285,6 +294,7 @@ public class BuildConfigurationValue
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
     this.mnemonic = mnemonic;
+    this.mnemonicDependsOnBaseline = mnemonicDependsOnBaseline;
     this.options = buildOptions.get(CoreOptions.class);
     this.outputDirectories =
         new OutputDirectories(
@@ -473,6 +483,21 @@ public class BuildConfigurationValue
     return outputDirectories.getMnemonic();
   }
 
+  /**
+   * Returns whether {@link #getMnemonic} depends on the baseline options used to construct this
+   * configuration, as opposed to being a pure function of {@link #getOptions}.
+   *
+   * <p>When false, two configurations with equal {@link BuildOptions} (built by the same Blaze
+   * release) are guaranteed to have equal mnemonics and thus equal output directories, so {@link
+   * BuildConfigurationKey} suffices to identify the output directory. When true, the mnemonic
+   * contains a segment (such as the starlark transition hash, {@code ST-<hash>}) whose presence or
+   * value varies with the baseline, and callers that need to distinguish output directories must
+   * additionally incorporate {@link #getMnemonic}.
+   */
+  public boolean mnemonicDependsOnBaseline() {
+    return mnemonicDependsOnBaseline;
+  }
+
   /** Returns whether to use automatic exec groups. */
   public boolean useAutoExecGroups() {
     return options.getUseAutoExecGroups();
@@ -495,7 +520,6 @@ public class BuildConfigurationValue
 
   @Override
   public void debugPrint(PrintStream out) {
-    out.printf("BuildConfigurationValue: %s\n", this.checksum());
     out.printf("  %s\n", this.options);
   }
 
