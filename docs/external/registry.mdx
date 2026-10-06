@@ -127,7 +127,7 @@ field, which defaults to `archive`.
             resolves to `<registry_path>/<module_base_path>/<path>`.
             Registry must be hosted locally and used by
             `--registry=file://<registry_path>` or
-            `--registry=watch+file://<registry_path>`. Otherwise, Bazel
+            `--registry=watch=file://<registry_path>`. Otherwise, Bazel
             will throw an error
 
 ## Bazel Central Registry {#bazel-central-registry}
@@ -167,7 +167,7 @@ default, but you can add it back by adding `--registry=https://bcr.bazel.build`.
 
 You can use a registry on local disk with `--registry=file:///path/to/registry`.
 If you want Bazel to watch the registry for changes, use
-`--registry=watch+file:///path/to/registry` instead, but beware that this
+`--registry=watch=file:///path/to/registry` instead, but beware that this
 incurs some overhead on every subsequent Bazel command.
 
 [bcr-contribution-guidelines]: https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md

@@ -68,6 +68,8 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RegistryConverter;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RegistryOption;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
@@ -114,6 +116,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -146,6 +149,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private FileSystem filesystem;
   private ImmutableSet<String> registries;
   private ImmutableMap<String, ImmutableSet<String>> moduleMirrors;
+  private ImmutableSet<String> watchedRegistries;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
@@ -621,11 +625,7 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       }
 
-      if (repoOptions.getRegistries() != null && !repoOptions.getRegistries().isEmpty()) {
-        registries = normalizeBaseUrls(repoOptions.getRegistries());
-      } else {
-        registries = DEFAULT_REGISTRIES;
-      }
+      parseRegistries(repoOptions.getRegistries(), env.getWorkspace());
       if (repoOptions.getModuleMirrors() != null && !repoOptions.getModuleMirrors().isEmpty()) {
         var registryToMirrors =
             repoOptions.getModuleMirrors().stream()
@@ -684,6 +684,47 @@ public class BazelRepositoryModule extends BlazeModule {
         throw new IllegalStateException(e);
       }
     }
+  }
+
+  /** Sets {@link #registries} and {@link #watchedRegistries} from the {@code --registry} flags. */
+  private void parseRegistries(
+      @Nullable List<RegistryOption> registryOptions, @Nullable Path workspace)
+      throws AbruptExitException {
+    watchedRegistries = ImmutableSet.of();
+    if (registryOptions == null || registryOptions.isEmpty()) {
+      registries = DEFAULT_REGISTRIES;
+      return;
+    }
+    var watchedRegistriesBuilder = ImmutableSet.<String>builder();
+    for (RegistryOption registry : registryOptions) {
+      if (registry.watched()) {
+        watchedRegistriesBuilder.add(getWatchedRegistryUrl(registry.url(), workspace));
+      }
+    }
+    registries = normalizeBaseUrls(registryOptions.stream().map(RegistryOption::url).toList());
+    watchedRegistries = watchedRegistriesBuilder.build();
+  }
+
+  /**
+   * Returns the normalized URL of a watched registry with {@code %workspace%} expanded, as {@link
+   * RegistryFunction} sees it.
+   */
+  private static String getWatchedRegistryUrl(String registry, @Nullable Path workspace)
+      throws AbruptExitException {
+    String url = normalizeBaseUrl(registry);
+    if (workspace != null) {
+      url = url.replace("%workspace%", workspace.getPathString());
+    }
+    try {
+      RegistryFunction.getWatchedRegistryPath(url);
+    } catch (URISyntaxException e) {
+      throw new AbruptExitException(
+          detailedExitCode(
+              "Invalid --registry=%s%s: %s"
+                  .formatted(RegistryConverter.WATCH_PREFIX, registry, e.getMessage()),
+              Code.INVALID_REGISTRY_URL));
+    }
+    return url;
   }
 
   private static String normalizeBaseUrl(String baseUrl) {
@@ -767,6 +808,7 @@ public class BazelRepositoryModule extends BlazeModule {
             RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
         PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, moduleMirrors),
+        PrecomputedValue.injected(RegistryFunction.WATCHED_REGISTRIES, watchedRegistries),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode),

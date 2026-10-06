@@ -264,6 +264,7 @@ message ExternalRepository {
     UNKNOWN_REGISTRY = 6 [(metadata) = { exit_code: 2 }];
     SYMLINKING_FAILED = 7 [(metadata) = { exit_code: 2 }];
     REPOSITORY_MAPPING_IO_EXCEPTION = 8 [(metadata) = { exit_code: 36 }];
+    INVALID_REGISTRY_URL = 9 [(metadata) = { exit_code: 2 }];
   }
   Code code = 1;
   // Additional data could include external repository names.

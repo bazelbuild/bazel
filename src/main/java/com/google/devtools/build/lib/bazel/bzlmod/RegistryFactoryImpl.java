@@ -28,12 +28,6 @@ import java.util.function.Supplier;
 
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
-  /**
-   * Scheme of a local registry that is read like {@code file://}, but whose files are watched for
-   * changes. See {@link RegistryFunction}.
-   */
-  static final String WATCHED_FILE_SCHEME = "watch+file";
-
   private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
 
   public RegistryFactoryImpl(Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier) {
@@ -54,17 +48,13 @@ public class RegistryFactoryImpl implements RegistryFactory {
       throw new URISyntaxException(
           uri.toString(),
           "Registry URL has no scheme -- supported schemes are: "
-              + "http://, https://, file:// and watch+file://");
+              + "http://, https:// and file://");
     }
     if (uri.getPath() == null) {
       throw new URISyntaxException(
           uri.toString(),
           "Registry URL path is not valid -- did you mean to use file:///foo/bar "
               + "or file:///c:/foo/bar for Windows?");
-    }
-    if (uri.getScheme().equals(WATCHED_FILE_SCHEME)) {
-      // RegistryFunction takes care of the watching, the registry itself reads plain file:// URLs.
-      uri = new URI("file" + url.substring(WATCHED_FILE_SCHEME.length()));
     }
     var knownFileHashesMode =
         switch (uri.getScheme()) {

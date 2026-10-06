@@ -79,19 +79,4 @@ public class RegistryFactoryTest {
                     ImmutableSet.of()));
     assertThat(exception).hasMessageThat().contains("Registry URL path is not valid");
   }
-
-  @Test
-  public void watchedFileRegistryReadsFileUrl() throws Exception {
-    RegistryFactory registryFactory =
-        new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
-    Registry registry =
-        registryFactory.createRegistry(
-            "watch+file:///path/to/registry",
-            LockfileMode.UPDATE,
-            ImmutableMap.of(),
-            ImmutableMap.of(),
-            Optional.empty(),
-            ImmutableSet.of());
-    assertThat(registry.getUrl()).isEqualTo("file:///path/to/registry");
-  }
 }

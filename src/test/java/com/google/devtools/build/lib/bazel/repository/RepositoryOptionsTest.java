@@ -19,6 +19,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.ModuleOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.ModuleOverrideConverter;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RegistryConverter;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RegistryOption;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverrideConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -92,6 +94,18 @@ public class RepositoryOptionsTest {
     expectedException.expect(OptionsParsingException.class);
     expectedException.expectMessage("Invalid repository name given to override");
     converter.convert("foo/bar=/baz");
+  }
+
+  @Test
+  public void testRegistryConverterUnwatched() throws Exception {
+    assertThat(new RegistryConverter().convert("file:///path/to/registry"))
+        .isEqualTo(new RegistryOption("file:///path/to/registry", false));
+  }
+
+  @Test
+  public void testRegistryConverterStripsWatchPrefix() throws Exception {
+    assertThat(new RegistryConverter().convert("watch=file:///path/to/registry"))
+        .isEqualTo(new RegistryOption("file:///path/to/registry", true));
   }
 
 }
