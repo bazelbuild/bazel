@@ -136,6 +136,22 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
                 .resolvedToolchainLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"))
                 .targetLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain2"))
                 .build())
+        .addEqualityGroup(
+            // No constraints.
+            DeclaredToolchainInfo.builder()
+                .toolchainType(
+                    ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:tc1")))
+                .resolvedToolchainLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"))
+                .targetLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain1"))
+                .build())
+        .addEqualityGroup(
+            // Target to exec constraints.
+            DeclaredToolchainInfo.builder()
+                .toolchainType(
+                    ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:tc1")))
+                .resolvedToolchainLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"))
+                .targetLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain1"))
+                .buildWithTargetToExecConstraints())
         .testEquals();
   }
 }
