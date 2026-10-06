@@ -576,6 +576,9 @@ TEST_F(BazelStartupOptionsTest,
                            "-XX:+UseCompactObjectHeaders") != result.end();
   EXPECT_FALSE(has_unlock);
   EXPECT_FALSE(has_use);
+  EXPECT_EQ(
+      std::find(result.begin(), result.end(), "-XX:-UseCompactObjectHeaders"),
+      result.end());
 }
 
 TEST_F(BazelStartupOptionsTest, AddJVMArgumentsCompactObjectHeadersDisabled) {
@@ -601,6 +604,9 @@ TEST_F(BazelStartupOptionsTest, AddJVMArgumentsCompactObjectHeadersDisabled) {
                            "-XX:+UseCompactObjectHeaders") != result.end();
   EXPECT_FALSE(has_unlock);
   EXPECT_FALSE(has_use);
+  EXPECT_NE(
+      std::find(result.begin(), result.end(), "-XX:-UseCompactObjectHeaders"),
+      result.end());
 }
 
 }  // namespace blaze
