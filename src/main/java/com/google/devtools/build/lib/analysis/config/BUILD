@@ -130,8 +130,6 @@ java_library(
     deps = [
         ":build_options",
         ":core_options",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
@@ -253,7 +251,6 @@ java_library(
     srcs = ["StarlarkExecTransitionLoader.java"],
     deps = [
         ":build_options",
-        ":common_options",
         ":core_options",
         ":starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
