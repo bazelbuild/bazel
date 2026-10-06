@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -388,15 +389,22 @@ public class UploadManifest {
         Multimaps.synchronizedSortedSetMultimap(TreeMultimap.create());
 
     // Maps each directory found during the traversal to its files.
+    // The values in this map are protos and thus retain Strings that do not use Bazel's internal
+    // encoding for Strings (see StringEncoding).
     private final SortedSetMultimap<Path, FileNode> dirToFiles =
         Multimaps.synchronizedSortedSetMultimap(
-            TreeMultimap.<Path, FileNode>create(naturalOrder(), comparing(FileNode::getName)));
+            TreeMultimap.<Path, FileNode>create(
+                naturalOrder(),
+                comparing(FileNode::getName, comparing(StringEncoding::unicodeToInternal))));
 
     // Maps each directory found during the traversal to its symlinks.
+    // The values in this map are protos and thus retain Strings that do not use Bazel's internal
+    // encoding for Strings (see StringEncoding).
     private final SortedSetMultimap<Path, SymlinkNode> dirToSymlinks =
         Multimaps.synchronizedSortedSetMultimap(
             TreeMultimap.<Path, SymlinkNode>create(
-                naturalOrder(), comparing(SymlinkNode::getName)));
+                naturalOrder(),
+                comparing(SymlinkNode::getName, comparing(StringEncoding::unicodeToInternal))));
 
     DirectoryBuilder(Path rootDir) {
       super(
