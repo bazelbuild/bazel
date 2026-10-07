@@ -379,7 +379,8 @@ class BazelLockfileTest(test_base.TestBase):
         'MODULE.bazel', ['bazel_dep(name = "qqq", version = "1.0")']
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
-    registry_flag = '--registry=watch=file://%workspace%/registry'
+    # On Windows, %workspace% is C:/..., so file:///%workspace% is file:///C:/...
+    registry_flag = '--registry=watch=file:///%workspace%/registry'
     self.RunBazel(['build', '--nobuild', registry_flag, '//:all'])
     # Run again so that the lockfile is unchanged by the next invocation, which
     # would otherwise invalidate the registry on its own.
