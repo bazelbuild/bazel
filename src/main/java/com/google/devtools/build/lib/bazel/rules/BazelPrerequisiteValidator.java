@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.devtools.build.lib.analysis.CommonPrerequisiteValidator;
-import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidationContext;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 
 /** Ensures that a target's prerequisites are visible to it and match its testonly status. */
@@ -37,19 +37,19 @@ public class BazelPrerequisiteValidator extends CommonPrerequisiteValidator {
   }
 
   @Override
-  protected boolean checkVisibilityForExperimental(RuleContext.Builder context) {
+  protected boolean checkVisibilityForExperimental(PrerequisiteValidationContext context) {
     // It does not matter whether we return true or false here if packageUnderExperimental always
     // returns false.
     return true;
   }
 
   @Override
-  protected boolean checkVisibilityForPrototypes(RuleContext.Builder context) {
+  protected boolean checkVisibilityForPrototypes(PrerequisiteValidationContext context) {
     return true;
   }
 
   @Override
-  protected boolean allowExperimentalDeps(RuleContext.Builder context) {
+  protected boolean allowExperimentalDeps(PrerequisiteValidationContext context) {
     // It does not matter whether we return true or false here if packageUnderExperimental always
     // returns false.
     return false;

@@ -101,9 +101,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
     }
 
     PlatformValue platformValue =
-        (PlatformValue)
-            env.getValue(
-                PlatformValue.key(platformLabel, coreOptions.getCommandLineFlagAliasesMap()));
+        (PlatformValue) env.getValue(PlatformValue.key(platformLabel, targetOptions));
     if (platformValue == null) {
       return null;
     }

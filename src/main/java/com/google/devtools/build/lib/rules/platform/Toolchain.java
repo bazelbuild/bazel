@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -25,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -33,6 +30,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** Defines a toolchain that can be used by rules. */
@@ -52,10 +50,8 @@ public class Toolchain implements RuleConfiguredTargetFactory {
     ImmutableList<ConstraintValueInfo> targetConstraints =
         PlatformProviderUtils.constraintValues(
             ruleContext.getPrerequisites(ToolchainRule.TARGET_COMPATIBLE_WITH_ATTR));
-    ImmutableList<ConfigMatchingProvider> targetSettings =
-        ruleContext.getPrerequisites(ToolchainRule.TARGET_SETTING_ATTR).stream()
-            .map(target -> target.getProvider(ConfigMatchingProvider.class))
-            .collect(toImmutableList());
+    List<Label> targetSettings =
+        ruleContext.attributes().get(ToolchainRule.TARGET_SETTING_ATTR, BuildType.NODEP_LABEL_LIST);
     Label resolvedToolchainLabel =
         ruleContext.attributes().get(ToolchainRule.TOOLCHAIN_ATTR, BuildType.NODEP_LABEL);
     boolean targetToExecConstraints =

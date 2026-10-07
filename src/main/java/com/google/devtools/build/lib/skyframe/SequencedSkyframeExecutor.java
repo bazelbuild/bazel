@@ -740,10 +740,10 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     if (k instanceof ArtifactNestedSetKey || k instanceof ActionLookupData) {
       return true;
     }
-    // Remove BuildConfigurationKeys except for the currently active key and the key for
-    // EMPTY_OPTIONS, which is a constant and will be re-used frequently.
+    // Remove BuildConfigurationKeys except for the currently active key and the keys for the
+    // no-config configuration, which will be re-used frequently.
     if (k instanceof BuildConfigurationKey buildConfigurationKey) {
-      if (isEmptyOptionsKey(buildConfigurationKey)) {
+      if (isNoConfigKey(buildConfigurationKey)) {
         return false;
       }
       if (getSkyframeBuildView().getBuildConfiguration() != null
@@ -755,11 +755,11 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
       return true;
     }
-    // Remove ActionLookupKeys unless they are for the empty options config, in which case they will
-    // be re-used frequently and we can avoid re-creating them. They are dependencies of the empty
-    // configuration key and will never change.
+    // Remove ActionLookupKeys unless they are for the no-config configuration, in which case they
+    // will be re-used frequently and we can avoid re-creating them. They are dependencies of the
+    // no-config configuration key and will never change.
     if (k instanceof ActionLookupKey lookupKey) {
-      if (isEmptyOptionsKey(lookupKey.getConfigurationKey())) {
+      if (isNoConfigKey(lookupKey.getConfigurationKey())) {
         return false;
       }
       if (isExecConfig(lookupKey.getConfigurationKey())) {

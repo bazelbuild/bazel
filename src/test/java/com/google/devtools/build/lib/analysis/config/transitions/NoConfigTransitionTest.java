@@ -17,6 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -120,8 +122,8 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
   public void preventsConfiguredTargetForkingOnCoreOptions() throws Exception {
     // Ideally NoConfigTransition would contain empty BuildOptions. In practice it keeps CoreOptions
     // because core Blaze logic reads CoreOptions (see NoConfigTransition for details). Crucially,
-    // it contains CoreOptions default values - not the values inherited from the source config.
-    // So we still expect config forking to be impossible.
+    // it contains CoreOptions default values - not the values inherited from the source config,
+    // except for the analysis phase flags. So we still expect config forking to be impossible.
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         """
@@ -189,5 +191,60 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
     assertThat(parent1.getConfigurationKey()).isNotEqualTo(parent2.getConfigurationKey());
     assertThat(getDirectPrerequisite(parent1, "//foo:config_free_target"))
         .isSameInstanceAs(getDirectPrerequisite(parent2, "//foo:config_free_target"));
+  }
+
+  @Test
+  public void defaultAnalysisPhaseFlags_noForking() throws Exception {
+    BuildOptions noConfigOptions = CommonOptions.noConfigOptions(targetConfig.getOptions());
+    assertThat(noConfigOptions.hasNoConfig()).isTrue();
+
+    useConfiguration("--features=foo");
+    assertThat(CommonOptions.noConfigOptions(targetConfig.getOptions()))
+        .isSameInstanceAs(noConfigOptions);
+  }
+
+  @Test
+  public void inheritsAnalysisPhaseFlags() throws Exception {
+    useConfiguration("--nocheck_visibility", "--verbose_visibility_errors", "--features=foo");
+
+    BuildOptions noConfigOptions = CommonOptions.noConfigOptions(targetConfig.getOptions());
+    assertThat(noConfigOptions.hasNoConfig()).isTrue();
+    assertThat(noConfigOptions.get(CoreOptions.class).getCheckVisibility()).isFalse();
+    assertThat(noConfigOptions.get(CoreOptions.class).getVerboseVisibilityErrors()).isTrue();
+    // Only the analysis phase flags are inherited.
+    assertThat(noConfigOptions.get(CoreOptions.class).getDefaultFeatures()).isEmpty();
+    assertThat(CommonOptions.noConfigOptions(targetConfig.getOptions()))
+        .isSameInstanceAs(noConfigOptions);
+  }
+
+  @Test
+  public void checkVisibility_appliesWithoutConfiguration() throws Exception {
+    scratch.file(
+        "private/BUILD",
+        """
+        constraint_setting(
+            name = "setting",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        constraint_value(
+            name = "value",
+            constraint_setting = "//private:setting",
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//foo:value")).isNull();
+    assertContainsEvent("Visibility error:");
+
+    eventCollector.clear();
+    useConfiguration("--nocheck_visibility");
+    ConfiguredTarget value = getConfiguredTarget("//foo:value");
+    assertThat(value).isNotNull();
+    assertThat(value.getConfigurationKey().getOptions().hasNoConfig()).isTrue();
+    assertDoesNotContainEvent("Visibility error:");
   }
 }

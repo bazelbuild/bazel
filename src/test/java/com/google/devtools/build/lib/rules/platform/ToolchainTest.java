@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.rules.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult.InError;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult.Match;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
@@ -120,7 +118,7 @@ public class ToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testToolchain_targetSetting_matching() throws Exception {
+  public void testToolchain_targetSetting() throws Exception {
     useConfiguration("--compilation_mode=opt");
     scratch.file(
         "toolchain/toolchain_def.bzl",
@@ -171,72 +169,9 @@ public class ToolchainTest extends BuildViewTestCase {
     assertThat(provider.toolchainType())
         .isEqualTo(
             ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:demo_toolchain")));
-    // Ensure target settings completely matches (and not just vacuously e.g. if somehow empty)
-    assertThat(provider.targetSettings()).isNotEmpty();
-    assertThat(provider.targetSettings().stream().allMatch(x -> x.result() instanceof Match))
-        .isTrue();
-    assertThat(provider.targetSettings().stream().anyMatch(x -> x.result() instanceof InError))
-        .isFalse();
-    assertThat(provider.resolvedToolchainLabel())
-        .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"));
-    assertThat(provider.targetLabel())
-        .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain1"));
-  }
-
-  @Test
-  public void testToolchain_targetSetting_nonmatching() throws Exception {
-    useConfiguration("--compilation_mode=fastbuild");
-    scratch.file(
-        "toolchain/toolchain_def.bzl",
-        """
-        def _impl(ctx):
-            toolchain = platform_common.ToolchainInfo(
-                data = ctx.attr.data,
-            )
-            return [toolchain]
-
-        toolchain_def = rule(
-            implementation = _impl,
-            attrs = {
-                "data": attr.string(),
-            },
-        )
-        """);
-    scratch.file(
-        "toolchain/BUILD",
-        """
-        load(":toolchain_def.bzl", "toolchain_def")
-
-        toolchain_type(name = "demo_toolchain")
-
-        config_setting(
-            name = "optimised",
-            values = {"compilation_mode": "opt"},
-        )
-
-        toolchain(
-            name = "toolchain1",
-            target_settings = [":optimised"],
-            toolchain = ":toolchain_def1",
-            toolchain_type = ":demo_toolchain",
-        )
-
-        toolchain_def(
-            name = "toolchain_def1",
-            data = "foo",
-        )
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//toolchain:toolchain1");
-    DeclaredToolchainInfo provider = PlatformProviderUtils.declaredToolchainInfo(target);
-
-    assertThat(target).isNotNull();
-    assertThat(provider).isNotNull();
-    assertThat(provider.toolchainType())
-        .isEqualTo(
-            ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:demo_toolchain")));
-    assertThat(provider.targetSettings().stream().anyMatch(x -> x.result() instanceof Match))
-        .isFalse();
+    // Target settings are evaluated during toolchain resolution, not by the toolchain itself.
+    assertThat(provider.targetSettings())
+        .containsExactly(Label.parseCanonicalUnchecked("//toolchain:optimised"));
     assertThat(provider.resolvedToolchainLabel())
         .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"));
     assertThat(provider.targetLabel())
