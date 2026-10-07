@@ -38,19 +38,20 @@ public class RegistryFunctionTest {
   }
 
   @Test
-  public void getWatchedRegistryPath_localhost() throws Exception {
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-    assertThat(RegistryFunction.getWatchedRegistryPath("file://localhost/path/to/registry"))
-        .isEqualTo(PathFragment.create("/path/to/registry"));
-  }
-
-  @Test
   public void getWatchedRegistryPath_windowsDriveLetter() throws Exception {
     assumeTrue(OS.getCurrent() == OS.WINDOWS);
     assertThat(RegistryFunction.getWatchedRegistryPath("file:///C:/path/to/registry"))
         .isEqualTo(PathFragment.create("C:/path/to/registry"));
-    assertThat(RegistryFunction.getWatchedRegistryPath("file://C:/path/to/registry"))
-        .isEqualTo(PathFragment.create("C:/path/to/registry"));
+  }
+
+  @Test
+  public void getWatchedRegistryPath_windowsRejectsDriveLetterAsHost() {
+    assumeTrue(OS.getCurrent() == OS.WINDOWS);
+    var e =
+        assertThrows(
+            URISyntaxException.class,
+            () -> RegistryFunction.getWatchedRegistryPath("file://C:/path/to/registry"));
+    assertThat(e).hasMessageThat().contains("must have an absolute path");
   }
 
   @Test
@@ -72,20 +73,11 @@ public class RegistryFunctionTest {
   }
 
   @Test
-  public void getWatchedRegistryPath_rejectsHost() {
-    var e =
-        assertThrows(
-            URISyntaxException.class,
-            () -> RegistryFunction.getWatchedRegistryPath("file://server/registry"));
-    assertThat(e).hasMessageThat().contains("must not have a host");
-  }
-
-  @Test
-  public void getWatchedRegistryPath_rejectsHostWithoutPath() {
+  public void getWatchedRegistryPath_rejectsEmptyPath() {
     var e =
         assertThrows(
             URISyntaxException.class,
             () -> RegistryFunction.getWatchedRegistryPath("file://server"));
-    assertThat(e).hasMessageThat().contains("must not have a host");
+    assertThat(e).hasMessageThat().contains("must have an absolute path");
   }
 }

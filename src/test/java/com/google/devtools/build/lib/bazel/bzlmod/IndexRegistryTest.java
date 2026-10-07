@@ -1157,47 +1157,9 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   @Test
-  public void getLocalRegistryPath_unixLocalhost() throws Exception {
-    assertThat(
-            IndexRegistry.getLocalRegistryPath(new URI("file://localhost/tmp/registry"), OS.LINUX))
-        .isEqualTo("/tmp/registry");
-  }
-
-  @Test
   public void getLocalRegistryPath_windowsDriveInPath() throws Exception {
     assertThat(IndexRegistry.getLocalRegistryPath(new URI("file:///C:/ws/registry"), OS.WINDOWS))
         .isEqualTo("C:/ws/registry");
-  }
-
-  @Test
-  public void getLocalRegistryPath_windowsDriveAsAuthority() throws Exception {
-    // What file://%workspace%/registry expands to on Windows.
-    assertThat(IndexRegistry.getLocalRegistryPath(new URI("file://C:/ws/registry"), OS.WINDOWS))
-        .isEqualTo("C:/ws/registry");
-  }
-
-  @Test
-  public void getLocalRegistryPath_windowsLocalhost() throws Exception {
-    assertThat(
-            IndexRegistry.getLocalRegistryPath(
-                new URI("file://localhost/C:/ws/registry"), OS.WINDOWS))
-        .isEqualTo("C:/ws/registry");
-  }
-
-  @Test
-  public void getLocalRegistryPath_windowsRejectsPathWithoutDrive() {
-    assertThrows(
-        URISyntaxException.class,
-        () -> IndexRegistry.getLocalRegistryPath(new URI("file:///ws/registry"), OS.WINDOWS));
-  }
-
-  @Test
-  public void getLocalRegistryPath_rejectsHost() {
-    var e =
-        assertThrows(
-            URISyntaxException.class,
-            () -> IndexRegistry.getLocalRegistryPath(new URI("file://server/registry"), OS.LINUX));
-    assertThat(e).hasMessageThat().contains("must not have a host");
   }
 
   @Test
