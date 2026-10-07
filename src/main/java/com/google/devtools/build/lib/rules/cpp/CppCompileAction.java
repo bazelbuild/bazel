@@ -1054,7 +1054,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     ParamFileInfo paramFileInfo = null;
     if (cppConfiguration().useArgsParamsFile()) {
       paramFileInfo =
-          ParamFileInfo.builder(ParameterFileType.GCC_QUOTED).setUseAlways(true).build();
+          ParamFileInfo.builder(getParameterFileType(featureConfiguration))
+              .setUseAlways(true)
+              .build();
     }
     CommandLineAndParamFileInfo commandLineAndParamFileInfo =
         new CommandLineAndParamFileInfo(commandLine, paramFileInfo);
@@ -1062,6 +1064,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     Args args = Args.forRegisteredAction(commandLineAndParamFileInfo, directoryInputs);
 
     return StarlarkList.immutableCopyOf(ImmutableList.of(args));
+  }
+
+  static ParameterFileType getParameterFileType(FeatureConfiguration featureConfiguration) {
+    return featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_QUOTING_FOR_PARAM_FILES)
+        ? ParameterFileType.WINDOWS
+        : ParameterFileType.GCC_QUOTED;
   }
 
   @Override
@@ -1399,6 +1407,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         compileCommandLine.getEnvironment(PathMapper.NOOP),
         executionInfo,
         getCommandLineKey(),
+        getParameterFileType(featureConfiguration),
         ccCompilationContext.getDeclaredIncludeSrcs(),
         mandatoryInputs,
         mandatorySpawnInputs,
@@ -1417,6 +1426,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       Map<String, String> environmentVariables,
       Map<String, String> executionInfo,
       byte[] commandLineKey,
+      ParameterFileType parameterFileType,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> mandatorySpawnInputs,
@@ -1431,6 +1441,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     fp.addStringMap(environmentVariables);
     fp.addStringMap(executionInfo);
     fp.addBytes(commandLineKey);
+    fp.addString(parameterFileType.toString());
 
     actionKeyContext.addNestedSetToFingerprint(fp, declaredIncludeSrcs);
     fp.addInt(0); // mark the boundary between input types
@@ -1490,23 +1501,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             /* isStarlarkAction= */ false,
             actionExecutionContext.getInputMetadataProvider());
 
-    if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
-      try {
-        paramFileActionInput =
-            new ParamFileActionInput(
-                paramFilePath,
-                compileCommandLine.getCompilerOptions(getOverwrittenVariables(), pathMapper),
-                // TODO(b/132888308): Support MSVC, which has its own method of escaping strings.
-                ParameterFileType.GCC_QUOTED);
-      } catch (CommandLineExpansionException e) {
-        String message =
-            String.format(
-                "failed to generate compile command for rule '%s: %s",
-                getOwner().getLabel(), e.getMessage());
-        DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
-        throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
-      }
-    }
+    paramFileActionInput = createParamFileActionInput(pathMapper);
 
     if (shouldScanIncludes) {
       updateActionInputs(additionalInputs);
@@ -1619,6 +1614,28 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // HeadersCheckingMode.NONE should only be used for ObjC build actions.
     validateInclusions(actionExecutionContext, discoveredInputs);
     return ActionResult.create(spawnResults);
+  }
+
+  @VisibleForTesting
+  @Nullable
+  ParamFileActionInput createParamFileActionInput(PathMapper pathMapper)
+      throws ActionExecutionException {
+    if (!featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
+      return null;
+    }
+    try {
+      return new ParamFileActionInput(
+          paramFilePath,
+          compileCommandLine.getCompilerOptions(getOverwrittenVariables(), pathMapper),
+          getParameterFileType(featureConfiguration));
+    } catch (CommandLineExpansionException e) {
+      String message =
+          String.format(
+              "failed to generate compile command for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
+    }
   }
 
   private void copyTempOutErrToActionOutErrMaybe(
