@@ -255,29 +255,18 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
           continue;
         }
 
-        // This check is more strict than necessary: we raise an error if globbing traverses into
-        // a directory for any reason, even though it's only necessary if that reason was the
-        // resolution of a recursive glob ("**"). Fixing this would require plumbing the ancestor
-        // symlink information through DirectoryListingValue.
-        if (symlinkFileValue.isDirectory()
-            && symlinkFileValue.unboundedAncestorSymlinkExpansionChain() != null) {
-          SkyKey uniquenessKey =
-              FileSymlinkInfiniteExpansionUniquenessFunction.key(
-                  symlinkFileValue.unboundedAncestorSymlinkExpansionChain());
-          env.getValue(uniquenessKey);
-          if (env.valuesMissing()) {
-            return null;
-          }
-
-          FileSymlinkInfiniteExpansionException symlinkException =
-              new FileSymlinkInfiniteExpansionException(
-                  symlinkFileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
-                  symlinkFileValue.unboundedAncestorSymlinkExpansionChain());
-          throw new GlobException(symlinkException, Transience.PERSISTENT);
-        }
-
         Dirent dirent = symlinkFileMap.get(subdirAndSymlinksKey);
         String fileName = dirent.getName();
+
+        // If the directory symlink has an unbounded ancestor expansion chain, do not descend into
+        // it to prevent infinite recursion, but add it if files/dirs are matched.
+        if (symlinkFileValue.isDirectory()
+            && symlinkFileValue.unboundedAncestorSymlinkExpansionChain() != null) {
+          if (globMatchesBareFile && globberOperation != Globber.Operation.SUBPACKAGES) {
+            sortedResultMap.put(dirent, glob.getSubdir().getRelative(fileName));
+          }
+          continue;
+        }
         if (symlinkFileValue.isDirectory()) {
           SkyKey keyToRequest = getSkyKeyForSubdir(fileName, glob, subdirPattern);
           if (keyToRequest != null) {

@@ -668,6 +668,24 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testGlobWithExcludedRecursiveSymlinks(
+      @TestParameter ComputationMode computationMode) throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "filegroup(",
+        "    name = 'foo',",
+        "    srcs = glob(include = ['**'], exclude = ['bar', 'bar/**']),",
+        ")");
+    scratch.file("foo/payload.txt", "hello");
+    Path barSymlink = scratch.resolve("foo/bar");
+    FileSystemUtils.ensureSymbolicLink(barSymlink, scratch.resolve("foo"));
+
+    preparePackageLoading(computationMode, rootDirectory);
+    Packageoid pkg = validPackageoidWithoutErrors("foo");
+    assertSrcs(pkg, "foo", "//foo:BUILD", "//foo:payload.txt");
+  }
+
+  @Test
   public void testGlobOrderStableWithNonSkyframeAndSkyframeComponents(
       @TestParameter ComputationMode computationMode) throws Exception {
     scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = glob(['*.txt']))");
