@@ -30,7 +30,10 @@ java_test(
 
 java_library(
     name = "jar+with+plus",
-    srcs = ["TestClass.java"],
+    srcs = [
+        "DelegatingClassLoader.java",
+        "TestClass.java",
+    ],
 )
 
 sh_test(

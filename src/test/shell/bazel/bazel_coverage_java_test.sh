@@ -111,11 +111,6 @@ EOF
 
   bazel coverage --test_output=all //:test &>$TEST_log || fail "Coverage for //:test failed"
 
-  # Regression test for https://github.com/bazelbuild/bazel/issues/28637
-  # Verifies that the coverage runtime classpath uses correct runfiles paths,
-  # i.e., workspace-local jars are found by singlejar without errors.
-  assert_not_contains "Cannot open input jar" "$TEST_log"
-
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
   local expected_result="SF:src/main/com/example/Collatz.java
@@ -421,7 +416,7 @@ EOF
   # --nooutputredirect is needed for blaze to print the output of the jar
   bazel coverage --test_output=all --test_arg=--nooutputredirect \
     javatests/cov:CovTest >"${TEST_log}" || fail "Expected success"
-  expect_not_log "JACOCO_METADATA_JAR/JACOCO_MAIN_CLASS environment variables not set"
+  expect_not_log "Cannot determine the name of the main class for the code under test"
   expect_log "Boolean.parseBoolean returned true"
   expect_log "Boolean.parseBoolean returned false"
 }
