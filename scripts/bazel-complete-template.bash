@@ -536,8 +536,11 @@ _bazel__abspath() {
 # Only return files we can actually find, and only return absolute paths
 _bazel__rc_imports() {
   local workspace="$1" rc_file="$2" rc_dir import
-  rc_dir=$(dirname "$rc_file")
+  rc_dir="$(dirname "$rc_file")"
   while IFS= read -r import; do
+    case "$import" in
+      \"*\"|\'*\') import=${import:1:${#import}-2} ;;
+    esac
     # rc imports can use %workspace% to refer to the workspace.
     import=${import//\%workspace\%/$workspace}
     if [[ "${import:0:1}" != "/" ]]; then
@@ -549,7 +552,7 @@ _bazel__rc_imports() {
     fi
   done < <(sed 's/#.*//' "$rc_file" \
       | sed -E "/^(try-){0,1}import/!d" \
-      | sed -E "s/^(try-){0,1}import ([^ ]*).*$/\2/" \
+      | sed -E "s/^(try-){0,1}import (\"[^\"]*\"|'[^']*'|[^[:space:]]+).*$/\2/" \
       | sort -u)
 }
 
@@ -597,7 +600,7 @@ _bazel__rc_files() {
 
   # Process each file only once, including files found through imports.
   while (( ${#new_files[@]} > 0 )); do
-    rc_file=${new_files[0]}
+    rc_file="${new_files[0]}"
     new_files=("${new_files[@]:1}")
     seen=false
     for file in "${processed_files[@]}"; do
