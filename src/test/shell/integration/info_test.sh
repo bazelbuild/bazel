@@ -110,4 +110,126 @@ function test_invalid_flag_error() {
   expect_log "Invalid registry URL: foobarbaz"
 }
 
+function write_string_flag_bzl() {
+  cat > "$1" <<'EOF'
+string_flag = rule(
+    implementation = lambda ctx: [],
+    build_setting = config.string(flag = True),
+)
+EOF
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/25145
+function test_label_flags_use_main_repo_mapping() {
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg/dep
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<'EOF'
+module(name = "my_module")
+bazel_dep(name = "dep")
+local_path_override(module_name = "dep", path = "dep")
+my_repo = use_repo_rule("//:my_repo.bzl", "my_repo")
+my_repo(name = "my_repo")
+EOF
+  cat > $pkg/my_repo.bzl <<'EOF'
+def _my_repo_impl(rctx):
+    rctx.file("BUILD", 'platform(name = "platform", visibility = ["//visibility:public"])')
+
+my_repo = repository_rule(_my_repo_impl)
+EOF
+  cat > $pkg/BUILD <<'EOF'
+platform(name = "platform")
+EOF
+  cat > $pkg/dep/MODULE.bazel <<'EOF'
+module(name = "dep")
+EOF
+  write_string_flag_bzl $pkg/dep/flag.bzl
+  cat > $pkg/dep/BUILD <<'EOF'
+load(":flag.bzl", "string_flag")
+platform(name = "platform", visibility = ["//visibility:public"])
+string_flag(name = "flag", build_setting_default = "", visibility = ["//visibility:public"])
+EOF
+  cd $pkg
+
+  bazel info --platforms=@my_repo//:platform bazel-bin &>$TEST_log \
+    || fail "expected success with a platform in a use_repo_rule repo"
+  bazel info --platforms=@my_module//:platform bazel-bin &>$TEST_log \
+    || fail "expected success with a platform in the main repo"
+  bazel info --platforms=@dep//:platform bazel-bin &>$TEST_log \
+    || fail "expected success with a platform in a bazel_dep"
+  # Regression test for https://github.com/bazelbuild/bazel/issues/29384
+  bazel info --flag_alias=host_dep_flag=@dep//:flag bazel-bin &>$TEST_log \
+    || fail "expected success with a flag alias for a flag in a bazel_dep"
+}
+
+function test_module_flag_alias_of_native_flag() {
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<'EOF'
+flag_alias(name = "compilation_mode", starlark_flag = "//:compilation_mode")
+EOF
+  write_string_flag_bzl $pkg/flag.bzl
+  cat > $pkg/BUILD <<'EOF'
+load(":flag.bzl", "string_flag")
+string_flag(name = "compilation_mode", build_setting_default = "")
+EOF
+  cd $pkg
+
+  bazel info --compilation_mode=opt bazel-bin &>$TEST_log \
+    || fail "${PRODUCT_NAME} info failed"
+  # The alias sets the Starlark flag, so the native flag keeps its default.
+  expect_log "-fastbuild/bin"
+  expect_not_log "-opt/bin"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/29176
+function test_info_keeps_analysis_cache() {
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  setup_module_dot_bazel "$pkg/MODULE.bazel" > /dev/null
+  cat > $pkg/BUILD <<'EOF'
+genrule(name = "gen", outs = ["out.txt"], cmd = "touch $@")
+EOF
+  cd $pkg
+  local -r disk_cache="$TEST_TMPDIR/$FUNCNAME-disk-cache"
+
+  # The second build ensures that the last one only reevaluates what info invalidated.
+  for i in 1 2; do
+    bazel build --disk_cache="$disk_cache" --build_event_json_file=bep.json //:gen &>$TEST_log \
+      || fail "${PRODUCT_NAME} build failed"
+  done
+  bazel info --disk_cache="$disk_cache" bazel-bin &>$TEST_log \
+    || fail "${PRODUCT_NAME} info failed"
+  bazel build --disk_cache="$disk_cache" --build_event_json_file=bep.json //:gen &>$TEST_log \
+    || fail "${PRODUCT_NAME} build failed"
+  grep -o '"builtValues":\[[^]]*\]' bep.json > built_values.txt || true
+  assert_not_contains '"CONFIGURED_TARGET"' built_values.txt
+}
+
+function test_keys_without_configuration_skip_module_resolution() {
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<'EOF'
+fail("MODULE.bazel was evaluated")
+EOF
+  cd $pkg
+
+  bazel info release output_base &>$TEST_log \
+    || fail "expected ${PRODUCT_NAME} info to succeed without module resolution"
+  bazel info bazel-bin &>$TEST_log \
+    && fail "expected module resolution to fail"
+  expect_log "MODULE.bazel was evaluated"
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME} info."
