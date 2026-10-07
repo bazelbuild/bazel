@@ -256,7 +256,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     this.outputPermissions = outputPermissions;
   }
 
-  private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
+  static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
       throws IOException {
     var stat = path.statIfFound();
     if (stat == null) {
