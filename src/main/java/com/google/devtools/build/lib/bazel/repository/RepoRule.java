@@ -18,13 +18,11 @@ import com.google.auto.value.AutoBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoRuleId;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -45,8 +43,6 @@ import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 /**
  * Represents a fully-loaded repo rule, ready to be run.
  *
- * @param recordedRepoMappingEntries The repo mapping entries recorded during the loading of the
- *     repo rule's impl function.
  * @param environ The predeclared set of environment variables this repo rule depends on. Note that
  *     using {@code repository_ctx.getenv} is preferred.
  */
@@ -54,7 +50,6 @@ import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 public record RepoRule(
     RepoRuleId id,
     ByteString transitiveBzlDigest,
-    ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries,
     StarlarkCallable impl,
     Optional<String> doc,
     ImmutableList<Attribute> attributes,
@@ -127,9 +122,6 @@ public record RepoRule(
     public abstract RepoRuleId.Builder idBuilder();
 
     public abstract Builder transitiveBzlDigest(ByteString value);
-
-    public abstract Builder recordedRepoMappingEntries(
-        ImmutableTable<RepositoryName, String, RepositoryName> value);
 
     public abstract Builder impl(StarlarkCallable value);
 

@@ -95,11 +95,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         BzlInitThreadContext.fromOrFail(thread, "repository_rule");
     builder.idBuilder().bzlFileLabel(bzlInitContext.getBzlFile());
     builder.transitiveBzlDigest(ByteString.copyFrom(bzlInitContext.getTransitiveDigest()));
-    var repoMappingRecorder =
-        (Label.SimpleRepoMappingRecorder) thread.getThreadLocal(Label.RepoMappingRecorder.class);
-    if (repoMappingRecorder != null) {
-      builder.recordedRepoMappingEntries(repoMappingRecorder.recordedEntries());
-    }
     return new StarlarkRepoRule(builder);
   }
 

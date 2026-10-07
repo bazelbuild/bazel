@@ -198,9 +198,8 @@ public class DigestWriter {
     fp.addInt(environInputs.size());
     environInputs.forEach(
         (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
-    fp.addInt(repoDefinition.repoRule().recordedRepoMappingEntries().cellSet().size());
+    fp.addInt(repoDefinition.recordedRepoMappingEntries().cellSet().size());
     repoDefinition
-        .repoRule()
         .recordedRepoMappingEntries()
         .cellSet()
         .forEach(

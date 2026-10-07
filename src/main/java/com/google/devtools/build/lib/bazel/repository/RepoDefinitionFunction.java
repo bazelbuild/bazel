@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
@@ -249,10 +250,11 @@ public final class RepoDefinitionFunction implements SkyFunction {
       RepositoryMapping basicMainRepoMapping,
       Environment env)
       throws RepoDefinitionFunctionException, InterruptedException {
-    RepoRule repoRule = loadRepoRule(repoSpec.repoRuleId(), env);
-    if (repoRule == null) {
+    LoadedRepoRule loadedRepoRule = loadRepoRule(repoSpec.repoRuleId(), env);
+    if (loadedRepoRule == null) {
       return null;
     }
+    RepoRule repoRule = loadedRepoRule.repoRule();
 
     try {
       RepoSpec typeCheckedRepoSpec =
@@ -267,15 +269,28 @@ public final class RepoDefinitionFunction implements SkyFunction {
               "to the root module");
       var repoDefinition =
           new RepoDefinition(
-              repoRule, typeCheckedRepoSpec.attributes(), repositoryName.getName(), originalName);
+              repoRule,
+              typeCheckedRepoSpec.attributes(),
+              repositoryName.getName(),
+              originalName,
+              loadedRepoRule.recordedRepoMappingEntries());
       return new RepoDefinitionValue.Found(repoDefinition);
     } catch (ExternalDepsException e) {
       throw new RepoDefinitionFunctionException(e, Transience.PERSISTENT);
     }
   }
 
+  /**
+   * A repo rule together with the repo mapping entries recorded while loading its .bzl file, which
+   * is only complete once the file has been loaded entirely as the file may define Labels that the
+   * implementation function refers to after the repository_rule call.
+   */
+  private record LoadedRepoRule(
+      RepoRule repoRule,
+      ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries) {}
+
   @Nullable
-  private RepoRule loadRepoRule(RepoRuleId repoRuleId, Environment env)
+  private LoadedRepoRule loadRepoRule(RepoRuleId repoRuleId, Environment env)
       throws InterruptedException, RepoDefinitionFunctionException {
     SkyKey key;
     if (NonRegistryOverride.BOOTSTRAP_REPO_RULES.contains(repoRuleId)) {
@@ -300,7 +315,8 @@ public final class RepoDefinitionFunction implements SkyFunction {
 
     Object object = bzlLoadValue.getModule().getGlobal(repoRuleId.ruleName());
     if (object instanceof RepoRule.Supplier repoRuleSupplier) {
-      return repoRuleSupplier.getRepoRule();
+      return new LoadedRepoRule(
+          repoRuleSupplier.getRepoRule(), bzlLoadValue.getRecordedRepoMappings());
     } else if (object == null) {
       throw new RepoDefinitionFunctionException(
           ExternalDepsException.withMessage(

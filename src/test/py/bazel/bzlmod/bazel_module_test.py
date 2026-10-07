@@ -1391,6 +1391,62 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.assertIn('https://unknown-registry.example.com', stderr)
 
+  def testRepoRuleRepoMappingChange_LabelDefinedAfterRule(self):
+    # A Label defined in the .bzl file after the repository_rule() call is a
+    # dependency of the repos the rule defines like one defined before it.
+    self.main_registry.createShModule('foo', '1.0')
+    self.main_registry.createShModule('bar', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0",repo_name="repo_name")',
+            'bazel_dep(name="bar",version="1.0")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'load("@repo//:defs.bzl", "STR")',
+            'print("STR="+STR)',
+            'filegroup(name="lol")',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  print("ran the repo rule!")',
+            '  rctx.file("BUILD")',
+            '  rctx.file("defs.bzl", "STR = " + repr(str(constant)))',
+            'repo = repository_rule(_repo_impl)',
+            'constant = Label("@repo_name//:lib_foo")',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('ran the repo rule!', stderr)
+    self.assertIn('STR=@@foo+//:lib_foo', stderr)
+
+    # Shutdown bazel to make sure we rely on the marker file and not skyframe
+    self.RunBazel(['shutdown'])
+    # Let repo_name point to bar and change nothing else.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0")',
+            'bazel_dep(name="bar",version="1.0",repo_name="repo_name")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "repo")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('ran the repo rule!', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
+
   def testInvalidRepoRuleReferencedByTargetDoesNotCrash(self):
     self.ScratchFile(
         'MODULE.bazel',
