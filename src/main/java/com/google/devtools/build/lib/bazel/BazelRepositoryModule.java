@@ -143,6 +143,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private ImmutableMap<String, PathFragment> overrides = ImmutableMap.of();
   private ImmutableMap<String, PathFragment> injections = ImmutableMap.of();
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
+  private ImmutableMap<String, PathFragment> moduleInjections = ImmutableMap.of();
   private FileSystem filesystem;
   private ImmutableSet<String> registries;
   private ImmutableMap<String, ImmutableSet<String>> moduleMirrors;
@@ -540,7 +541,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
       if (repoOptions.getModuleOverrides() != null) {
         Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
-        for (RepositoryOptions.ModuleOverride override : repoOptions.getModuleOverrides()) {
+        for (RepositoryOptions.ModuleNameAndPath override : repoOptions.getModuleOverrides()) {
           if (override.path().isEmpty()) {
             moduleOverrideMap.remove(override.moduleName());
             continue;
@@ -557,6 +558,25 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       } else {
         moduleOverrides = ImmutableMap.of();
+      }
+
+      if (repoOptions.getModuleInjections() != null) {
+        Map<String, PathFragment> moduleInjectionMap = new LinkedHashMap<>();
+        for (RepositoryOptions.ModuleNameAndPath injection : repoOptions.getModuleInjections()) {
+          if (injection.path().isEmpty()) {
+            moduleInjectionMap.remove(injection.moduleName());
+            continue;
+          }
+          String modulePath = getAbsolutePath(injection.path(), env);
+          moduleInjectionMap.put(injection.moduleName(), PathFragment.create(modulePath));
+        }
+        ImmutableMap<String, PathFragment> newModuleInjections =
+            ImmutableMap.copyOf(moduleInjectionMap);
+        if (!Maps.difference(moduleInjections, newModuleInjections).areEqual()) {
+          moduleInjections = newModuleInjections;
+        }
+      } else {
+        moduleInjections = ImmutableMap.of();
       }
 
       ignoreDevDeps.set(repoOptions.getIgnoreDevDependency());
@@ -757,6 +777,7 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
+        PrecomputedValue.injected(ModuleFileFunction.INJECTED_MODULES, moduleInjections),
         PrecomputedValue.injected(RepositoryDirectoryValue.FETCH_DISABLED, fetchDisabled),
         // That key will be reinjected by the sync command with a universally unique identifier.
         // Nevertheless, we need to provide a default value for other commands.

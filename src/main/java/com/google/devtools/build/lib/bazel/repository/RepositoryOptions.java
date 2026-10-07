@@ -262,7 +262,29 @@ public abstract class RepositoryOptions extends OptionsBase {
           output of `bazel info workspace`. If the given path is empty, then remove any
           previous overrides.
           """)
-  public abstract List<ModuleOverride> getModuleOverrides();
+  public abstract List<ModuleNameAndPath> getModuleOverrides();
+
+  @Option(
+      name = "inject_module",
+      defaultValue = "null",
+      allowMultiple = true,
+      converter = ModuleInjectionConverter.class,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          Adds a new module with a local path in the form of `{module name}={path}`. This is
+          equivalent to adding a `bazel_dep` on the module (with a repository name equal to the
+          module name) together with a corresponding `local_path_override` to the root module's
+          `MODULE.bazel` file, except that the override still applies when `--ignore_dev_dependency`
+          is set (overrides in `MODULE.bazel` are normally ignored in that case). If the given path
+          is an absolute path, it will be used as it is. If the given path is a relative path, it is
+          relative to the current working directory. If the given path starts with `%workspace%`, it
+          is relative to the workspace root, which is the output of `bazel info workspace`. If the
+          given path is empty, then remove any previous injections. Use `--override_module` instead
+          to override a module that the root module already depends on.
+          """)
+  public abstract List<ModuleNameAndPath> getModuleInjections();
 
   @Option(
       name = "experimental_scale_timeouts",
@@ -577,34 +599,59 @@ public abstract class RepositoryOptions extends OptionsBase {
   }
 
   /** Converts from an equals-separated pair of strings into ModuleName->PathFragment mapping. */
-  public static class ModuleOverrideConverter extends Converter.Contextless<ModuleOverride> {
+  public static class ModuleOverrideConverter extends Converter.Contextless<ModuleNameAndPath> {
 
     @Override
-    public ModuleOverride convert(String input) throws OptionsParsingException {
-      String[] pieces = input.split("=", 2);
-      if (pieces.length != 2) {
-        throw new OptionsParsingException(
-            "Module overrides must be of the form 'module-name=path'", input);
-      }
-
-      if (!RepositoryName.VALID_MODULE_NAME.matcher(pieces[0]).matches()) {
-        throw new OptionsParsingException(
-            String.format(
-                "invalid module name '%s': valid names must 1) only contain lowercase letters"
-                    + " (a-z), digits (0-9), dots (.), hyphens (-), and underscores (_); 2) begin"
-                    + " with a lowercase letter; 3) end with a lowercase letter or digit.",
-                pieces[0]));
-      }
-
-      OptionsUtils.PathFragmentConverter pathConverter = new OptionsUtils.PathFragmentConverter();
-      String pathString = pathConverter.convert(pieces[1]).getPathString();
-      return new ModuleOverride(pieces[0], pathString);
+    public ModuleNameAndPath convert(String input) throws OptionsParsingException {
+      return parseModuleNameAndPath(input, "Module overrides");
     }
 
     @Override
     public String getTypeDescription() {
       return "an equals-separated mapping of module name to path";
     }
+  }
+
+  /**
+   * Converts from an equals-separated pair of strings into ModuleName->PathFragment mapping, for
+   * modules injected into the root module.
+   */
+  public static class ModuleInjectionConverter extends Converter.Contextless<ModuleNameAndPath> {
+
+    @Override
+    public ModuleNameAndPath convert(String input) throws OptionsParsingException {
+      return parseModuleNameAndPath(input, "Module injections");
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an equals-separated mapping of module name to path";
+    }
+  }
+
+  /**
+   * Parses {@code input} of the form {@code module-name=path}, using {@code kind} (e.g. "Module
+   * overrides") to describe the flag in error messages.
+   */
+  private static ModuleNameAndPath parseModuleNameAndPath(String input, String kind)
+      throws OptionsParsingException {
+    String[] pieces = input.split("=", 2);
+    if (pieces.length != 2) {
+      throw new OptionsParsingException(kind + " must be of the form 'module-name=path'", input);
+    }
+
+    if (!RepositoryName.VALID_MODULE_NAME.matcher(pieces[0]).matches()) {
+      throw new OptionsParsingException(
+          String.format(
+              "invalid module name '%s': valid names must 1) only contain lowercase letters"
+                  + " (a-z), digits (0-9), dots (.), hyphens (-), and underscores (_); 2) begin"
+                  + " with a lowercase letter; 3) end with a lowercase letter or digit.",
+              pieces[0]));
+    }
+
+    OptionsUtils.PathFragmentConverter pathConverter = new OptionsUtils.PathFragmentConverter();
+    String pathString = pathConverter.convert(pieces[1]).getPathString();
+    return new ModuleNameAndPath(pieces[0], pathString);
   }
 
   /** A repository override, represented by a name and an absolute path to a repository. */
@@ -616,6 +663,6 @@ public abstract class RepositoryOptions extends OptionsBase {
    */
   public record RepositoryInjection(String apparentName, String path) {}
 
-  /** A module override, represented by a name and an absolute path to a module. */
-  public record ModuleOverride(String moduleName, String path) {}
+  /** A module name and a local path to it, as given to --override_module or --inject_module. */
+  public record ModuleNameAndPath(String moduleName, String path) {}
 }

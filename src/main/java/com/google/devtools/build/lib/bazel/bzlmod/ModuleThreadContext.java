@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SequencedSet;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -54,6 +55,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
   @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
+  private final List<ModuleKey> nodepDeps = new ArrayList<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
@@ -161,6 +163,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     if (repoName.isPresent()) {
       deps.put(repoName.get(), depKey);
     } else {
+      nodepDeps.add(depKey);
       module.addNodepDep(depKey);
     }
   }
@@ -378,10 +381,33 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return currentModuleFilePath;
   }
 
+  /**
+   * Whether a {@code bazel_dep} on the given module has been added, under any repo name or as a
+   * nodep dep.
+   */
+  public boolean hasDepOnModule(String moduleName) {
+    return Stream.concat(deps.values().stream(), nodepDeps.stream())
+        .anyMatch(dep -> dep.name().equals(moduleName));
+  }
+
+  /** Whether an override for the given module has been added. */
+  public boolean hasOverride(String moduleName) {
+    return overrides.containsKey(moduleName);
+  }
+
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {
     if (shouldIgnoreDevDeps()) {
       return;
     }
+    addCommandLineOverride(moduleName, override);
+  }
+
+  /**
+   * Like {@link #addOverride}, but the override is added even if dev dependencies are ignored, as
+   * overrides from command-line flags are explicitly requested by the user.
+   */
+  public void addCommandLineOverride(String moduleName, ModuleOverride override)
+      throws EvalException {
     ModuleOverride existingOverride = overrides.putIfAbsent(moduleName, override);
     if (existingOverride != null) {
       throw Starlark.errorf("multiple overrides for dep %s found", moduleName);
