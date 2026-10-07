@@ -57,6 +57,14 @@ public interface CoverageCommonApi<
             named = true,
             defaultValue = "[]"),
         @Param(
+            name = "unfiltered_source_attributes",
+            doc =
+                "A list of attribute names which contain source files processed by this rule and "
+                    + "which must not be filtered by extensions.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
             name = "dependency_attributes",
             doc =
                 "A list of attribute names which might provide runtime dependencies (either code "
@@ -132,6 +140,7 @@ public interface CoverageCommonApi<
   InstrumentedFilesInfoApi instrumentedFilesInfo(
       RuleContextT starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String> expected
+      Sequence<?> unfilteredSourceAttributes, // <String> expected
       Sequence<?> dependencyAttributes, // <String> expected
       Object supportFiles, // Sequence or Depset of <FileApi> expected
       Dict<?, ?> environment, // <String, String>
