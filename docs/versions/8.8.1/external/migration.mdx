@@ -4,7 +4,7 @@ title: 'Bzlmod Migration Guide'
 
 
 Due to the [shortcomings of
-WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is going to
+WORKSPACE](/versions/8.8.1/external/overview#workspace-shortcomings), Bzlmod is going to
 replace the legacy WORKSPACE system. The WORKSPACE file will be disabled by
 default in Bazel 8 (late 2024) and will be removed in Bazel 9 (late 2025).
 This guide helps you migrate your project to Bzlmod and drop WORKSPACE for
@@ -120,7 +120,7 @@ Bazel module when it also adopts Bzlmod.
 
     With Bzlmod, as long as the your dependency is available in [Bazel Central
     Registry](https://registry.bazel.build) or your custom [Bazel
-    registry](/external/registry), you can simply depend on it with a
+    registry](/versions/8.8.1/external/registry), you can simply depend on it with a
     [`bazel_dep`](/versions/8.8.1/rules/lib/globals/module#bazel_dep) directive.
 
     ```python
@@ -152,7 +152,7 @@ repository.
 If your dependency is not a Bazel project or not yet available in any Bazel
 registry, you can introduce it using
 [`use_repo_rule`](/versions/8.8.1/external/module#use_repo_rule) or [module
-extensions](/external/extension).
+extensions](/versions/8.8.1/external/extension).
 
 *   **WORKSPACE**
 
@@ -699,7 +699,7 @@ Using the WORKSPACE.bzlmod file can make the migration easier because:
 
 Bzlmod is able to control which other repositories are visible from a given
 repository, check [repository names and strict
-deps](/external/module#repository_names_and_strict_deps) for more details.
+deps](/versions/8.8.1/external/module#repository_names_and_strict_deps) for more details.
 
 Here is a summary of repository visibilities from different types of
 repositories when also taking WORKSPACE into consideration.
@@ -713,7 +713,7 @@ repositories when also taking WORKSPACE into consideration.
 
 Note: For the root module, if a repository `@foo` is defined in WORKSPACE and
 `@foo` is also used as an [apparent repository
-name](/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
+name](/versions/8.8.1/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
 refers to the one introduced in MODULE.bazel.
 
 Note: For a module extension generated repository `@bar`, if `@foo` is used as
