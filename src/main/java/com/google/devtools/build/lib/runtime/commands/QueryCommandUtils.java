@@ -75,16 +75,7 @@ public final class QueryCommandUtils {
    */
   @VisibleForTesting
   public static void resetDeserializedKeysFromRemoteAnalysisCache(CommandEnvironment env) {
-    var evaluator = env.getSkyframeExecutor().getEvaluator();
-    var deserializedKeysToDelete = ConcurrentHashMap.<SkyKey>newKeySet();
-    evaluator
-        .getInMemoryGraph()
-        .parallelForEach(
-            entry -> {
-              if (entry.isDone() && entry.getValue() instanceof DeserializedSkyValue) {
-                deserializedKeysToDelete.add(entry.getKey());
-              }
-            });
-    evaluator.delete(deserializedKeysToDelete::contains);
+    env.getSkyframeExecutor().getEvaluator()
+       .delete((k, v) -> v instanceof DeserializedSkyValue);
   }
 }
