@@ -52,7 +52,17 @@ public abstract class PackageLookupValue implements SkyValue {
 
   @SerializationConstant
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
-      new DeletedPackageLookupValue();
+      new DeletedPackageLookupValue("Package is considered deleted due to --deleted_packages");
+
+  @SerializationConstant
+  public static final DeletedPackageLookupValue DELETED_BY_BAZELIGNORE_VALUE =
+      new DeletedPackageLookupValue("Package is considered deleted due to .bazelignore");
+
+  @SerializationConstant
+  public static final DeletedPackageLookupValue DELETED_BY_REPO_BAZEL_VALUE =
+      new DeletedPackageLookupValue(
+          "Package is considered deleted due to ignore_directories() in REPO.bazel");
+
   enum ErrorReason {
     /** There is no BUILD file. */
     NO_BUILD_FILE,
@@ -351,7 +361,11 @@ public abstract class PackageLookupValue implements SkyValue {
 
   /** Marker value for a deleted package. */
   public static class DeletedPackageLookupValue extends UnsuccessfulPackageLookupValue {
-    private DeletedPackageLookupValue() {}
+    private final String errorMsg;
+
+    private DeletedPackageLookupValue(String errorMsg) {
+      this.errorMsg = errorMsg;
+    }
 
     @Override
     ErrorReason getErrorReason() {
@@ -360,7 +374,25 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public String getErrorMsg() {
-      return "Package is considered deleted due to --deleted_packages";
+      return errorMsg;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof DeletedPackageLookupValue other)) {
+        return false;
+      }
+      return errorMsg.equals(other.errorMsg);
+    }
+
+    @Override
+    public int hashCode() {
+      return errorMsg.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return String.format("%s: %s", this.getClass().getSimpleName(), this.errorMsg);
     }
   }
 

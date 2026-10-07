@@ -18,6 +18,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.util.concurrent.SettableFuture;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -130,5 +132,109 @@ public final class SettableFutureKeyedValueTest {
     future.verifyComplete();
     var thrown2 = assertThrows(ExecutionException.class, future::get);
     assertThat(thrown2).hasCauseThat().isSameInstanceAs(thrown.getCause());
+  }
+
+  @Test
+  public void cancel_propagatesAndAllowsVerifyComplete() {
+    var setValue = new AtomicReference<Value>();
+    var future =
+        new FutureValue(
+            "key",
+            (key, value) -> {
+              assertThat(key).isEqualTo("key");
+              assertThat(setValue.compareAndSet(null, value)).isTrue();
+            });
+
+    assertThat(future.cancel(false)).isTrue();
+    assertThat(future.isCancelled()).isTrue();
+    assertThrows(CancellationException.class, future::get);
+    assertThat(setValue.get()).isNull();
+
+    future.verifyComplete();
+    assertThat(future.isCancelled()).isTrue();
+    assertThrows(CancellationException.class, future::get);
+  }
+
+  @Test
+  public void cancel_completeWithFuture_propagatesToDelegateAndAllowsVerifyComplete() {
+    var setValue = new AtomicReference<Value>();
+    var future =
+        new FutureValue(
+            "key",
+            (key, value) -> {
+              assertThat(key).isEqualTo("key");
+              assertThat(setValue.compareAndSet(null, value)).isTrue();
+            });
+    SettableFuture<Value> delegate = SettableFuture.create();
+    var unused = future.completeWith(delegate);
+
+    assertThat(future.cancel(false)).isTrue();
+    assertThat(future.isCancelled()).isTrue();
+    assertThat(delegate.isCancelled()).isTrue();
+    assertThrows(CancellationException.class, future::get);
+
+    future.verifyComplete();
+  }
+
+  @Test
+  public void cancel_alreadyCompletedWithValue_returnsFalse() {
+    var future = new FutureValue("key", (k, v) -> {});
+    assertThat(future.completeWith(new Value("val"))).isEqualTo(new Value("val"));
+
+    assertThat(future.cancel(false)).isFalse();
+    assertThat(future.isCancelled()).isFalse();
+    future.verifyComplete();
+  }
+
+  @Test
+  public void cancel_alreadyCompletedWithException_returnsFalse() {
+    var future = new FutureValue("key", (k, v) -> {});
+    assertThat(future.failWith(new IllegalStateException("failed"))).isSameInstanceAs(future);
+
+    assertThat(future.cancel(false)).isFalse();
+    assertThat(future.isCancelled()).isFalse();
+    future.verifyComplete();
+  }
+
+  @Test
+  public void cancel_twice_secondCallReturnsFalse() {
+    var future = new FutureValue("key", (k, v) -> {});
+    assertThat(future.cancel(false)).isTrue();
+    assertThat(future.cancel(false)).isFalse();
+    assertThat(future.isCancelled()).isTrue();
+    future.verifyComplete();
+  }
+
+  @Test
+  public void cancel_mayInterruptIfRunning_propagatesAndAllowsVerifyComplete() {
+    var future = new FutureValue("key", (k, v) -> {});
+    assertThat(future.cancel(true)).isTrue();
+    assertThat(future.isCancelled()).isTrue();
+    assertThrows(CancellationException.class, future::get);
+    future.verifyComplete();
+  }
+
+  @Test
+  public void verifyComplete_concurrentCancellationBetweenIsDoneAndSetException_succeeds() {
+    class InterceptableFutureValue
+        extends SettableFutureKeyedValue<InterceptableFutureValue, String, Value> {
+      private InterceptableFutureValue() {
+        super("key", (k, v) -> {});
+      }
+
+      @Override
+      public boolean isDone() {
+        boolean done = super.isDone();
+        if (!done) {
+          // Simulate concurrent cancellation landing right after the isDone() fast-path check.
+          cancel(/* mayInterruptIfRunning= */ false);
+        }
+        return false;
+      }
+    }
+
+    var future = new InterceptableFutureValue();
+    future.verifyComplete();
+    assertThat(future.isCancelled()).isTrue();
   }
 }

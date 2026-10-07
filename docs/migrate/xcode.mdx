@@ -51,7 +51,7 @@ To build or test an Xcode project with Bazel, do the following:
 
 1.  [Create the `MODULE.bazel` file](#create-workspace)
 
-2.  [(Experimental) Integrate SwiftPM dependencies](#integrate-swiftpm)
+2.  [Integrate Swift package dependencies](#integrate-swiftpm)
 
 3.  [Create a `BUILD` file:](#create-build-file)
 
@@ -78,16 +78,79 @@ the project's directories, specify these external dependencies in the
 Note: Place the project source code within the directory tree containing the
 `MODULE.bazel` file.
 
-### Step 2: (Experimental) Integrate SwiftPM dependencies {#integrate-swiftpm}
+### Step 2: Integrate Swift package dependencies {#integrate-swiftpm}
 
-To integrate SwiftPM dependencies into the Bazel workspace with
-[swift_bazel](https://github.com/cgrindel/swift_bazel), you must
-convert them into Bazel packages as described in the [following tutorial](https://chuckgrindel.com/swift-packages-in-bazel-using-swift_bazel/)
-.
+If the Xcode project depends on Swift packages, use [rules_swift_package_manager](https://github.com/cgrindel/rules_swift_package_manager)
+to make them available as Bazel targets. It reads the `Package.swift` and
+`Package.resolved` files you already know from Swift Package Manager, so you
+keep declaring dependencies the same way.
 
-Note: SwiftPM support is a manual process with many variables. SwiftPM
-integration with Bazel has not been fully verified and is not officially
-supported.
+First, add the ruleset and the Swift package extension to your `MODULE.bazel`
+file:
+
+```python
+bazel_dep(name = "rules_swift", version = "4.0.1")
+bazel_dep(name = "rules_swift_package_manager", version = "1.23.0")
+
+swift_deps = use_extension(
+    "@rules_swift_package_manager//:extensions.bzl",
+    "swift_deps",
+)
+swift_deps.from_package(
+    resolved = "//:Package.resolved",
+    swift = "//:Package.swift",
+)
+use_repo(swift_deps, "swift_package")
+```
+
+Next, create a `Package.swift` file at the workspace root listing only the
+packages your Bazel targets depend on directly:
+
+```swift
+// swift-tools-version: 5.7
+
+import PackageDescription
+
+let package = Package(
+    name: "my-project",
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-log", from: "1.4.4"),
+    ]
+)
+```
+
+Then resolve the packages and let Bazel record the resulting repositories:
+
+```posix-terminal
+swift package update
+
+bazel mod tidy
+```
+
+`swift package update` writes `Package.resolved`, and `bazel mod tidy` adds each
+resolved package to the `use_repo` call in `MODULE.bazel`. Each package becomes
+an external repository named `swiftpkg_` plus the package identity, lowercased
+with punctuation replaced by underscores, and each product in the package
+becomes a target in it. Depend on those targets like any other:
+
+```python
+load("@rules_swift//swift:swift.bzl", "swift_library")
+
+swift_library(
+    name = "AppLib",
+    srcs = glob(["Sources/*.swift"]),
+    deps = ["@swiftpkg_swift_log//:Logging"],
+)
+```
+
+Check `Package.swift`, `Package.resolved`, and `MODULE.bazel` into version
+control. Re-run both commands above whenever you change `Package.swift`.
+
+Once `Package.resolved` exists, `bazel run @swift_package//:update` and
+`bazel run @swift_package//:resolve` replace `swift package update` and
+`swift package resolve`, using the Swift toolchain Bazel is configured with.
+
+For more examples, check `rules_swift_package_manager`'s [examples](https://github.com/cgrindel/rules_swift_package_manager/tree/main/examples)
 
 ### Step 3: Create a `BUILD` file {#create-build-file}
 

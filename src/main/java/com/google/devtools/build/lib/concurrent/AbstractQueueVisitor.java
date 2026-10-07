@@ -36,7 +36,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -316,21 +315,28 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * already been interrupted. For more details, see:
    *
    * <ul>
-   *   <li>{@link WrappedRunnable#run()} immediate returns without executing the {@code
-   *       originalRunnable} when {@link #blockNewActions()} returns true,
+   *   <li>{@link QuiescingTask#exec()} returns without executing the action when {@link
+   *       #blockNewActions()} returns true,
    *   <li>{@link #recordError} swallows {@link RejectedExecutionException} thrown by the
    *       interrupted thread.
    * </ul>
    */
   @Override
   public final void execute(Runnable runnable) {
-    executeWithExecutorService(runnable, executorService);
+    execute(wrapRunnable(runnable));
   }
 
   @Override
   public void execute(QuiescingTask task) {
     incrementRemainingTasks();
     executeQuiescingTask(task, executorService);
+  }
+
+  protected final QuiescingTask wrapRunnable(Runnable runnable) {
+    if (runnable instanceof QuiescingTask task) {
+      return task;
+    }
+    return new RunnableQuiescingTask(this, runnable);
   }
 
   void incrementRemainingTasks() {
@@ -340,19 +346,17 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         "Incrementing remaining tasks counter resulted in impossible non-positive number.");
   }
 
-  protected void executeWithExecutorService(Runnable runnable, ExecutorService executorService) {
-    WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable);
-    try {
-      incrementRemainingTasks();
-      executeWrappedRunnable(wrappedRunnable, executorService);
-    } catch (Throwable e) {
-      if (!wrappedRunnable.ran) {
-        // Note that keeping track of ranTask is necessary to disambiguate the case where
-        // execute() itself failed, vs. a caller-runs policy on pool exhaustion, where the
-        // runnable threw. To be extra cautious, we decrement the task count in a finally
-        // block, even though the CountDownLatch is unlikely to throw.
-        recordError(e, wrappedRunnable);
-      }
+  private static final class RunnableQuiescingTask extends QuiescingTask {
+    private final Runnable runnable;
+
+    private RunnableQuiescingTask(AbstractQueueVisitor visitor, Runnable runnable) {
+      super(visitor);
+      this.runnable = Preconditions.checkNotNull(runnable);
+    }
+
+    @Override
+    public void runCore() {
+      runnable.run();
     }
   }
 
@@ -372,10 +376,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         recordError(e, task);
       }
     }
-  }
-
-  protected void executeWrappedRunnable(WrappedRunnable runnable, ExecutorService executorService) {
-    executorService.execute(runnable);
   }
 
   synchronized void maybeSaveUnhandledThrowable(Throwable e, boolean markToStopJobs) {
@@ -413,21 +413,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
-  private void recordError(Throwable e, WrappedRunnable wrappedRunnable) {
-    try {
-      // If threadInterrupted is true, then RejectedExecutionExceptions are expected. There's no
-      // need to remember them, but there is a need to call decrementRemainingTasks, which is
-      // satisfied by the finally block below.
-      if (e instanceof RejectedExecutionException && threadInterrupted) {
-        return;
-      }
-      catastrophe = e;
-      maybeSaveUnhandledThrowable(e, /*markToStopJobs=*/ false);
-    } finally {
-      wrappedRunnable.decrementRemainingTasksOnce();
-    }
-  }
-
   private void recordError(Throwable e, QuiescingTask task) {
     try {
       if (e instanceof RejectedExecutionException && threadInterrupted) {
@@ -437,71 +422,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       maybeSaveUnhandledThrowable(e, /* markToStopJobs= */ false);
     } finally {
       task.decrementRemainingTasksOnce();
-    }
-  }
-
-  /**
-   * A wrapped {@link Runnable} that:
-   *
-   * <ul>
-   *   <li>Sets {@link #run} to {@code true} when {@code WrappedRunnable} is run,
-   *   <li>Records the thread evaluating {@code r} in {@link #jobs} while {@code r} is evaluated,
-   *   <li>Prevents {@link #originalRunnable} from being invoked if {@link #blockNewActions} returns
-   *       {@code true},
-   *   <li>Synchronously invokes {@code runnable.run()},
-   *   <li>Catches any {@link Throwable} thrown by {@code runnable.run()}, and if it is the most
-   *       severe {@link Throwable} seen by this {@link AbstractQueueVisitor}, assigns it to {@link
-   *       #unhandled}, and sets {@link #jobsMustBeStopped} if necessary,
-   *   <li>And, lastly, calls {@link #decrementRemainingTasks}.
-   * </ul>
-   */
-  protected final class WrappedRunnable implements Runnable {
-    private static final AtomicIntegerFieldUpdater<WrappedRunnable> DECREMENTED_UPDATER =
-        AtomicIntegerFieldUpdater.newUpdater(WrappedRunnable.class, "decremented");
-
-    private final Runnable originalRunnable;
-    private volatile boolean ran;
-
-    @SuppressWarnings("unused") // Accessed via DECREMENTED_UPDATER
-    volatile int decremented;
-
-    private WrappedRunnable(Runnable originalRunnable) {
-      this.originalRunnable = originalRunnable;
-    }
-
-    void decrementRemainingTasksOnce() {
-      if (DECREMENTED_UPDATER.compareAndSet(this, 0, 1)) {
-        decrementRemainingTasks();
-      }
-    }
-
-    @Override
-    public void run() {
-      ran = true;
-      Thread thread = null;
-      boolean addedJob = false;
-      try {
-        thread = Thread.currentThread();
-        addJob(thread);
-        addedJob = true;
-        if (blockNewActions()) {
-          // Make any newly enqueued tasks quickly die. We check after adding to the jobs map so
-          // that if another thread is racing to kill this thread and didn't make it before this
-          // conditional, it will be able to find and kill this thread anyway.
-          return;
-        }
-        originalRunnable.run();
-      } catch (Throwable e) {
-        maybeSaveUnhandledThrowable(e, /*markToStopJobs=*/ true);
-      } finally {
-        try {
-          if (thread != null && addedJob) {
-            removeJob(thread);
-          }
-        } finally {
-          decrementRemainingTasksOnce();
-        }
-      }
     }
   }
 

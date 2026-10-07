@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -93,9 +92,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
     statsSummary = env.getOptions().getOptions(ExecutionOptions.class).getStatsSummary();
     if (enabled) {
       criticalPathComputer =
-          new CriticalPathComputer(
-              actionKeyContext,
-              SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()));
+          new CriticalPathComputer(actionKeyContext, env.getSkyframeExecutor().getWalkableGraph());
       eventBus.register(criticalPathComputer);
     }
   }

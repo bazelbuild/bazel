@@ -65,9 +65,6 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
   private final String ruleClassName;
   private final Dict<String, String> ruleVariables;
 
-  static final String ERROR_MESSAGE_FOR_NO_ATTR =
-      "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.";
-
   private StarlarkAttributesCollection(
       StarlarkRuleContext starlarkRuleContext,
       String ruleClassName,
@@ -79,7 +76,9 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
       Dict<String, String> ruleVariables) {
     this.starlarkRuleContext = starlarkRuleContext;
     this.ruleClassName = ruleClassName;
-    attrObject = StructProvider.STRUCT.create(attrs, ERROR_MESSAGE_FOR_NO_ATTR);
+    attrObject =
+        StructProvider.STRUCT.create(
+            attrs, StarlarkAttributeTransitionProvider.ERROR_MESSAGE_FOR_NO_ATTR);
     executableObject =
         StructProvider.STRUCT.create(
             executables,

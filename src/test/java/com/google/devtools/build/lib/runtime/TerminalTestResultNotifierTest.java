@@ -658,7 +658,21 @@ public final class TerminalTestResultNotifierTest {
   @Test
   public void testUiOptions_useHyperlinks() {
     UiOptions options = Options.getDefaults(UiOptions.class);
-    assertThat(options.getTerminalHyperlinks()).isEqualTo(TriState.AUTO);
+    assertThat(options.getTerminalHyperlinks()).isEqualTo(TriState.NO);
+    assertThat(options.useHyperlinks()).isFalse();
+
+    options.setTerminalHyperlinks(TriState.AUTO);
+    options.setUseColorEnum(UiOptions.UseColor.YES);
+    options.setIsATty(false);
+    assertThat(options.useHyperlinks()).isFalse();
+
+    options.setIsATty(true);
+    assertThat(options.useHyperlinks()).isTrue();
+
+    options.setUseColorEnum(UiOptions.UseColor.AUTO);
+    assertThat(options.useHyperlinks()).isTrue();
+
+    options.setUseColorEnum(UiOptions.UseColor.NO);
     assertThat(options.useHyperlinks()).isFalse();
 
     options.setTerminalHyperlinks(TriState.YES);

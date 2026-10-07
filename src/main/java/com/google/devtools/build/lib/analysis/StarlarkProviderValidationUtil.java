@@ -21,18 +21,17 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
 /** Utility class to validate results of executing Starlark rules and aspects. */
-public class StarlarkProviderValidationUtil {
-  public static void validateArtifacts(RuleContext ruleContext) throws EvalException {
+public final class StarlarkProviderValidationUtil {
+  public static void validateArtifacts(AnalysisEnvironment analysisEnv) throws EvalException {
     ImmutableSet<Artifact> treeArtifactsConflictingWithFiles =
-        ruleContext.getAnalysisEnvironment().getTreeArtifactsConflictingWithFiles();
+        analysisEnv.getTreeArtifactsConflictingWithFiles();
     if (!treeArtifactsConflictingWithFiles.isEmpty()) {
       throw Starlark.errorf(
           "The following directories were also declared as files:\n%s",
           artifactsDescription(treeArtifactsConflictingWithFiles));
     }
 
-    ImmutableSet<Artifact> orphanArtifacts =
-        ruleContext.getAnalysisEnvironment().getOrphanArtifacts();
+    ImmutableSet<Artifact> orphanArtifacts = analysisEnv.getOrphanArtifacts();
     if (!orphanArtifacts.isEmpty()) {
       throw Starlark.errorf(
           "The following files have no generating action:\n%s",

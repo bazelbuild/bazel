@@ -138,7 +138,7 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
     }
 
     ConfiguredAspect configuredAspect = builder.build();
-    StarlarkProviderValidationUtil.validateArtifacts(ruleContext);
+    StarlarkProviderValidationUtil.validateArtifacts(ruleContext.getAnalysisEnvironment());
     return configuredAspect;
   }
 

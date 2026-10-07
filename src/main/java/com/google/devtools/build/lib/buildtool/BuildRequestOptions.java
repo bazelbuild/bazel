@@ -427,11 +427,7 @@ public abstract class BuildRequestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Whether to use precise rewinding. If true, only the lost inputs (and their generating"
-              + " actions) are rewound through aggregation artifacts (e.g. runfiles trees),"
-              + " avoiding rewinding the entire set of inputs to the aggregator. This is a no-op"
-              + " unless --rewind_lost_inputs is true.")
+      help = "No-op slated for removal.")
   public abstract boolean getExperimentalPreciseRewinding();
 
   @Option(
@@ -458,6 +454,29 @@ public abstract class BuildRequestOptions extends OptionsBase {
           "If set, build will read patterns from the file named here, rather than on the command "
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public abstract String getTargetPatternFile();
+
+  @Option(
+      name = "target_query",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If set, build will evaluate the query expression and build the resulting targets. "
+              + "Example: --target_query='deps(//foo) - deps(//bar)'. May be combined with "
+              + "command-line target patterns. Cannot be used with --target_pattern_file or "
+              + "--target_query_file.")
+  public abstract String getTargetQuery();
+
+  @Option(
+      name = "target_query_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If set, build will read a query expression from the file named here and build the "
+              + "resulting targets. May be combined with command-line target patterns. Cannot be "
+              + "used with --target_pattern_file or --target_query.")
+  public abstract String getTargetQueryFile();
 
   /**
    * Do not use directly. Instead use {@link

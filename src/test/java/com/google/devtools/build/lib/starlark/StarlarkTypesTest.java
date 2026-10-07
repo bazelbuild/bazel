@@ -14,23 +14,37 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.util.stream.Collectors.joining;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.SelectorValue;
+import com.google.devtools.build.lib.skyframe.BzlCompileValue;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import com.google.testing.junit.testparameterinjector.TestParameters;
+import java.io.IOException;
 import java.util.function.Predicate;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.syntax.AssignmentStatement;
+import net.starlark.java.syntax.Identifier;
+import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,6 +52,179 @@ import org.junit.runner.RunWith;
 /** Tests for Starlark types. */
 @RunWith(TestParameterInjector.class)
 public class StarlarkTypesTest extends BuildViewTestCase {
+
+  /**
+   * Given a load label string for a .bzl file, retrieves the resulting {@link Module}. Any
+   * exception is propagated.
+   */
+  private Module loadModule(String label) throws Exception {
+    BzlLoadValue.Key key = BzlLoadValue.keyForBuild(Label.parseCanonicalUnchecked(label));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    if (result.hasError()) {
+      throw result.getError(key).getException();
+    }
+    return result.get(key).getModule();
+  }
+
+  private Module loadModuleUnchecked(String label) {
+    try {
+      return loadModule(label);
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  /**
+   * Writes the given Starlark code to a .bzl file in a new temporary directory, and creates an
+   * empty BUILD file in the same directory in order to make the .bzl file loadable.
+   *
+   * @return the load label string of the .bzl file
+   */
+  private String writeTempBzlFile(String... lines) throws IOException {
+    String tempDir = rootDirectory.createTempDirectory("test").getBaseName();
+    scratch.file(tempDir + "/BUILD");
+    scratch.file(tempDir + "/test.bzl", lines);
+    return String.format("//%s:test.bzl", tempDir);
+  }
+
+  /**
+   * Evaluates the given Starlark expression in a .bzl module (with an optional prefix containing
+   * load() statements, etc.), and returns the type under which it would be exported by a module to
+   * other .bzl files. (This is type is based on the dynamic type of the expression's value.)
+   */
+  private StarlarkType revealExportedType(String expr, String... prefixLines) throws Exception {
+    StringBuilder lines = new StringBuilder();
+    for (String prefixLine : prefixLines) {
+      lines.append(prefixLine).append("\n");
+    }
+    lines.append("VAL = ").append(expr).append("\n");
+    Module module = loadModule(writeTempBzlFile(lines.toString()));
+    return module.getExportType("VAL");
+  }
+
+  /**
+   * Parses the given Starlark type expression in a .bzl module (with an optional prefix for load()
+   * statements, etc.), and returns its (type) value.
+   */
+  private StarlarkType parseType(String expr, String... prefixLines) throws Exception {
+    StringBuilder lines = new StringBuilder();
+    for (String prefixLine : prefixLines) {
+      lines.append(prefixLine).append("\n");
+    }
+    // To parse the type expression, print it as part of a type alias statement, extract the
+    // TypeConstructor from the alias's TypeConstructorValue, and apply the TypeConstructor with
+    // zero arguments.
+    lines.append("type TYPE = ").append(expr).append("\n");
+    Module module = loadModule(writeTempBzlFile(lines.toString()));
+    return module.getExportTypeConstructor("TYPE").createStarlarkType();
+  }
+
+  /**
+   * Evaluates the given Starlark expression in a .bzl module (with an optional prefix for load()
+   * statements, etc.), and returns the type that had been inferred for the expression by the static
+   * type checker.
+   *
+   * <p>Even though this method returns the static type of the expression, it also evaluates the
+   * .bzl code as a side effect, and throws an exception if there is a dynamic error.
+   */
+  private StarlarkType revealStaticType(String expr, String... prefixLines) throws Exception {
+    StringBuilder lines = new StringBuilder();
+    for (String prefixLine : prefixLines) {
+      lines.append(prefixLine).append("\n");
+    }
+    lines.append("_: Any  # enable type checker\n");
+    lines.append("VAL = ").append(expr).append("\n");
+    String labelString = writeTempBzlFile(lines.toString());
+
+    // BzlLoadFunction throws away the type checking results, so we cannot retrieve the type from
+    // the Module directly. However, we still need the predeclared symbols that BzlLoadFunction
+    // placed in the module for us.
+    // As a side effect, this also verifies that the expression is dynamically valid.
+    ImmutableMap<String, Object> predeclareds =
+        ImmutableMap.copyOf(loadModule(labelString).getPredeclaredBindings());
+
+    BzlCompileValue.Key key = BzlCompileValue.key(root, Label.parseCanonicalUnchecked(labelString));
+    EvaluationResult<BzlCompileValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    if (result.hasError()) {
+      throw result.getError(key).getException();
+    }
+    // Replicates how BzlLoadFunction invokes the type checker.
+    Program program =
+        Starlark.withTypeInfo(
+            result.get(key).getProgram(),
+            Module.withPredeclared(getStarlarkSemantics(), predeclareds),
+            /* staticTypeChecking= */ true,
+            this::loadModuleUnchecked);
+    // Find the statically inferred type of `VAL` in the `VAL = <...>` assignment statement which is
+    // the last line of the program.
+    AssignmentStatement assign =
+        (AssignmentStatement) program.getResolvedFunction().getBody().getLast();
+    return program.getTypeTable().getType(((Identifier) assign.getLHS()).getBinding());
+  }
+
+  /** Checks that a .bzl file consisting of the given lines can be loaded. */
+  private void checkValid(String... lines) throws Exception {
+    String labelString = writeTempBzlFile(lines);
+    var _ = loadModule(labelString);
+  }
+
+  /**
+   * Checks that the a .bzl file consisting of the given lines fails to load with the given error.
+   *
+   * <p>This method removes {@link #failFastHandler} and adds events to the {@link #eventCollector}.
+   */
+  private void checkInvalid(String expectedError, String... lines) throws Exception {
+    reporter.removeHandler(failFastHandler);
+    int initialEventCount = eventCollector.count();
+    String labelString = writeTempBzlFile(lines);
+    BzlLoadValue.Key key = BzlLoadValue.keyForBuild(Label.parseCanonicalUnchecked(labelString));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertThat(result.hasError()).isTrue();
+    Iterable<Event> newEvents = Iterables.skip(eventCollector, initialEventCount);
+    MoreAsserts.assertContainsEvent(newEvents, expectedError);
+  }
+
+  /** Asserts {@code t1} is assignable to {@code t2}. */
+  private void assertLt(StarlarkType t1, StarlarkType t2) {
+    assertWithMessage("%s is expected to be assignable to %s", t1, t2)
+        .that(StarlarkType.assignableFrom(t2, t1, getTypeContext()))
+        .isTrue();
+  }
+
+  /** Asserts {@code t1} is *not* assignable to {@code t2}. */
+  private void assertNotLt(StarlarkType t1, StarlarkType t2) {
+    assertWithMessage("%s is expected to be *not* assignable to %s", t1, t2)
+        .that(StarlarkType.assignableFrom(t2, t1, getTypeContext()))
+        .isFalse();
+  }
+
+  /** Asserts {@code t1} is assignable to {@code t2}, but not vice versa. */
+  private void assertStrictLt(StarlarkType t1, StarlarkType t2) {
+    assertLt(t1, t2);
+    assertNotLt(t2, t1);
+  }
+
+  /** Asserts {@code t1} and {@code t2} are assignable in both directions. */
+  private void assertLtAndGt(StarlarkType t1, StarlarkType t2) {
+    assertLt(t1, t2);
+    assertLt(t2, t1);
+  }
+
+  /** Asserts that the given types are *not* assignable in either direction. */
+  private void assertIncomparable(StarlarkType... types) {
+    for (int i = 0; i < types.length - 1; i++) {
+      for (int j = i + 1; j < types.length; j++) {
+        assertNotLt(types[i], types[j]);
+        assertNotLt(types[j], types[i]);
+      }
+    }
+  }
 
   @StarlarkBuiltin(name = "TestStructApiImpl")
   private static final class TestStructApiImpl implements StructApi {
@@ -301,59 +488,15 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void structConstructor_typedAsReturningAnyStruct() throws Exception {
+  public void structConstructor() throws Exception {
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
 
-    scratch.file(
-        "good/good.bzl",
-        """
-        def f(s: struct[{"x": int}]):
-            return s.x + 1
+    assertThat(revealStaticType("struct(x = 1, y = 2)")).isEqualTo(Types.ANY_STRUCT);
 
-        good = f(struct(x = 1))
-        """);
-    scratch.file("good/BUILD", "load('good.bzl', 'good')");
-    getConfiguredTarget("//good:BUILD");
-    assertNoEvents();
-
-    scratch.file("bad/bad.bzl", "bad: int = struct(x = 1)");
-    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bad:BUILD");
-    assertContainsEvent("cannot assign type 'struct' to 'bad' of type 'int'");
-  }
-
-  @Test
-  public void structValue_typeNarrowedOnExport() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
-
-    scratch.file("lib/lib.bzl", "value = struct(x = 1, y = 2)");
-    scratch.file("lib/BUILD", "load('lib.bzl', 'value')");
-
-    scratch.file(
-        "good/good.bzl",
-        """
-        load("//lib:lib.bzl", "value")
-        good: struct[{"x": int}] = value
-        """);
-    scratch.file("good/BUILD", "load('good.bzl', 'good')");
-    getConfiguredTarget("//good:BUILD");
-    assertNoEvents();
-
-    scratch.file(
-        "bad/bad.bzl",
-        """
-        load("//lib:lib.bzl", "value")
-        bad: struct[{"y": float}] = value
-        """);
-    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bad:BUILD");
-    assertContainsEvent(
-        "cannot assign type 'struct[{\"x\": int, \"y\": int}]' to 'bad' of type 'struct[{\"y\":"
-            + " float}]'");
+    // Type is narrowed on export
+    assertThat(revealExportedType("struct(x = 1, y = 2)"))
+        .isEqualTo(Types.struct(ImmutableMap.of("x", Types.INT, "y", Types.INT)));
   }
 
   @Test
@@ -361,25 +504,19 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
 
-    scratch.file(
-        "good/good.bzl",
+    assertThat(revealStaticType("test_struct_api_impl.plus(test_struct_api_impl)"))
+        .isNotEqualTo(Types.ANY_STRUCT);
+
+    checkValid(
         """
         good: struct[{"answer": int}] = test_struct_api_impl.plus(test_struct_api_impl)
         """);
-    scratch.file("good/BUILD", "load('good.bzl', 'good')");
-    getConfiguredTarget("//good:BUILD");
-    assertNoEvents();
 
-    scratch.file(
-        "bad/bad.bzl",
+    checkInvalid(
+        "cannot assign type 'TestStructApiImpl' to 'bad' of type 'struct[{\"answer\": float}]'",
         """
         bad: struct[{"answer": float}] = test_struct_api_impl.plus(test_struct_api_impl)
         """);
-    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bad:BUILD");
-    assertContainsEvent(
-        "cannot assign type 'TestStructApiImpl' to 'bad' of type 'struct[{\"answer\": float}]'");
   }
 
   @Test
@@ -387,63 +524,34 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
 
-    scratch.file(
-        "good/good.bzl",
-        """
-        arg: struct[{"foo": int}] = struct(foo = 1)
-        good: struct[{"bar": float}] = test_struct_api_impl.plus_or(arg)
-        """);
-    scratch.file("good/BUILD", "load('good.bzl', 'good')");
-    getConfiguredTarget("//good:BUILD");
-    assertNoEvents();
-
-    scratch.file(
-        "bad/bad.bzl",
-        """
-        bad: int = test_struct_api_impl.plus_or(struct(baz = "baz"))
-        """);
-    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bad:BUILD");
-    assertContainsEvent("cannot assign type 'struct' to 'bad' of type 'int'");
+    assertThat(revealStaticType("test_struct_api_impl.plus_or(struct())"))
+        .isEqualTo(Types.ANY_STRUCT);
   }
 
   private void doTypeConstructorUsableTest(String pkgName, String typeExpr, String valueExpr)
       throws Exception {
-    eventCollector.clear();
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
 
     scratch.file(pkgName + "/lib/lib.bzl", "value = " + valueExpr);
     scratch.file(pkgName + "/lib/BUILD");
 
-    scratch.file(
-        pkgName + "/good/good.bzl",
+    checkValid(
         String.format(
             """
             load("//%s/lib:lib.bzl", "value")
             good: %s = value
             """,
             pkgName, typeExpr));
-    scratch.file(pkgName + "/good/BUILD", "load('good.bzl', 'good')");
-    assertThat(getConfiguredTarget("//" + pkgName + "/good:BUILD")).isNotNull();
-    assertNoEvents();
 
-    scratch.file(
-        pkgName + "/bad/bad.bzl",
+    checkInvalid(
+        String.format("cannot assign type '%s' to 'bad' of type 'None'", typeExpr),
         String.format(
             """
             load("//%s/lib:lib.bzl", "value")
             bad: None = value
             """,
             pkgName));
-    scratch.file(pkgName + "/bad/BUILD", "load('bad.bzl', 'bad')");
-    // TODO: #30499 - we force a type error to reveal the type of the RHS of the assignment; replace
-    // with `reveal_type` when we have it.
-    checkLoadingPhaseError(
-        "//" + pkgName + "/bad:BUILD",
-        String.format("cannot assign type '%s' to 'bad' of type 'None'", typeExpr));
-    eventCollector.clear();
   }
 
   @Test
@@ -454,14 +562,13 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void builtinExtraTypes_usableInRuleImplementation() throws Exception {
+  public void builtinExtraTypes_usable() throws Exception {
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
 
-    scratch.file(
-        "test/rule.bzl",
+    checkValid(
         """
-        def _impl(ctx: Ctx):
+        def impl(ctx: Ctx):
             f: File = ctx.actions.declare_file("out")
             ctx.actions.write(f, "content")
             a: Args = ctx.actions.args()
@@ -470,61 +577,17 @@ public class StarlarkTypesTest extends BuildViewTestCase {
             if ctx.attr.deps:
                 t: Target = ctx.attr.deps[0]
             return []
-
-        my_rule = rule(
-            implementation = _impl,
-            attrs = {
-                "deps": attr.label_list(),
-            },
-        )
         """);
 
-    scratch.file(
-        "test/dep.bzl", "def _impl(ctx): return []", "dep_rule = rule(implementation = _impl)");
-
-    scratch.file(
-        "test/BUILD",
-        """
-        load(":rule.bzl", "my_rule")
-        load(":dep.bzl", "dep_rule")
-
-        dep_rule(name = "dep")
-        my_rule(name = "foo", deps = [":dep"])
-        """);
-
-    getConfiguredTarget("//test:foo");
-    assertNoEvents();
-  }
-
-  @Test
-  public void builtinExtraTypes_typeCheckingWorks() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
-
-    scratch.file(
-        "test/rule.bzl",
+    checkInvalid(
+        "cannot assign type 'File' to 'bad' of type 'Ctx'",
         """
         def _impl(ctx: Ctx):
             f: File = ctx.actions.declare_file("out")
             # Wrong type assignment
             bad: Ctx = f
             return []
-
-        my_rule = rule(
-            implementation = _impl,
-        )
         """);
-
-    scratch.file(
-        "test/BUILD",
-        """
-        load(":rule.bzl", "my_rule")
-        my_rule(name = "foo")
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:foo");
-    assertContainsEvent("cannot assign type 'File' to 'bad' of type 'Ctx'");
   }
 
   @Test
@@ -545,54 +608,39 @@ public class StarlarkTypesTest extends BuildViewTestCase {
         """);
     scratch.file("lib/BUILD");
 
-    scratch.file(
-        "good/good.bzl",
-        """
-        load(
-            "//lib:select.bzl",
-            "select_of_int",
-            "select_of_str",
-            "select_of_empty_list",
-            "select_of_str_list",
-            "select_of_potentially_empty_label_list",
-            "select_of_potentially_empty_dict",
-            "select_of_label_or_none",
-        )
-        good: select[int] = select_of_int + select_of_int
-        good2: select[str] = select_of_str + "hello"
-        good3: select[list[str]] = ["hello"] + select_of_empty_list + select_of_str_list + []
-        good4: select[list[Label]] = [] + select_of_potentially_empty_label_list + [Label("//x")]
-        good5: select[dict[str, Label]] = select_of_potentially_empty_dict | {"b": Label("//foo:b")}
-        good6: select[Label] = select_of_label_or_none
-        """);
-    scratch.file("good/BUILD", "load('good.bzl', 'good')");
-    getConfiguredTarget("//good:BUILD");
-    assertNoEvents();
+    StarlarkType labelType = parseType("Label");
 
-    scratch.file(
-        "bad/bad.bzl",
-        """
-        load("//lib:select.bzl", "select_of_str")
-        bad: str = "foo" + select_of_str
-        """);
-    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
-    // TODO: #30499 - we force a type error to reveal the type of the RHS of the assignment; replace
-    // with `reveal_type` when we have it.
-    checkLoadingPhaseError(
-        "//bad:BUILD", "cannot assign type 'select[str]' to 'bad' of type 'str'");
+    assertThat(
+            revealStaticType(
+                "select_of_int + select_of_int", "load('//lib:select.bzl', 'select_of_int')"))
+        .isEqualTo(SelectorValue.Type.of(Types.INT));
+    assertThat(
+            revealStaticType(
+                "select_of_str + 'hello'", "load('//lib:select.bzl', 'select_of_str')"))
+        .isEqualTo(SelectorValue.Type.of(Types.STR));
+    assertThat(
+            revealStaticType(
+                "['hello'] + select_of_empty_list + select_of_str_list + []",
+                "load('//lib:select.bzl', 'select_of_empty_list', 'select_of_str_list')"))
+        .isEqualTo(SelectorValue.Type.of(Types.list(Types.STR)));
+    assertThat(
+            revealStaticType(
+                "[] + select_of_potentially_empty_label_list + [Label('//x')]",
+                "load('//lib:select.bzl', 'select_of_potentially_empty_label_list')"))
+        .isEqualTo(SelectorValue.Type.of(Types.list(labelType)));
+    assertThat(
+            revealStaticType(
+                "select_of_potentially_empty_dict | {'b': Label('//foo:b')}",
+                "load('//lib:select.bzl', 'select_of_potentially_empty_dict')"))
+        .isEqualTo(SelectorValue.Type.of(Types.dict(Types.STR, labelType)));
+    assertThat(
+            revealStaticType(
+                "select_of_label_or_none", "load('//lib:select.bzl', 'select_of_label_or_none')"))
+        .isEqualTo(SelectorValue.Type.of(labelType));
   }
 
   @Test
-  @TestParameters({
-    "{x: select_of_int, op: '+', y: 1.5, result: 'select[float]'}",
-    "{x: '\"hello\"', op: '+', y: select_of_str, result: 'select[str]'}",
-    "{x: select_of_list_of_str, op: '+', y: select_of_list_of_label, result:"
-        + " 'select[list[str|Label]]'}",
-    "{x: select_of_dict_of_str, op: '|', y: '{\"y\": Label(\"//foo\")}', "
-        + "result: 'select[dict[str, str|Label]]'}",
-  })
-  public void select_validBinaryOperator(String x, String op, String y, String result)
-      throws Exception {
+  public void select_validBinaryOperator() throws Exception {
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
     scratch.file(
@@ -605,38 +653,26 @@ public class StarlarkTypesTest extends BuildViewTestCase {
         select_of_dict_of_str = select({"//cfg": {"a": "A"}, "//conditions:default": None})
         """);
     scratch.file("lib/BUILD");
-    scratch.file(
-        "bad/bad.bzl",
-        String.format(
-            """
-            load("//lib:lib.bzl", %s)
-            bad: None = %s %s %s
-            """,
-            ImmutableList.of(x, y).stream()
-                .filter(n -> n.startsWith("select_of_"))
-                .map(s -> String.format("'%s'", s))
-                .collect(joining(", ")),
-            x,
-            op,
-            y));
-    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
-    // TODO: #30499 - we force a type error to reveal the type of the RHS of the assignment; replace
-    // with `reveal_type` when we have it.
-    checkLoadingPhaseError(
-        "//bad:BUILD", String.format("cannot assign type '%s' to 'bad' of type 'None'", result));
+
+    assertThat(revealStaticType("select_of_int + 1", "load('//lib:lib.bzl', 'select_of_int')"))
+        .isEqualTo(parseType("select[int]"));
+    assertThat(
+            revealStaticType("'hello' + select_of_str", "load('//lib:lib.bzl', 'select_of_str')"))
+        .isEqualTo(parseType("select[str]"));
+    assertThat(
+            revealStaticType(
+                "select_of_list_of_str + select_of_list_of_label",
+                "load('//lib:lib.bzl', 'select_of_list_of_str', 'select_of_list_of_label')"))
+        .isEqualTo(parseType("select[list[str | Label]]"));
+    assertThat(
+            revealStaticType(
+                "select_of_dict_of_str | {'y': Label('//foo')}",
+                "load('//lib:lib.bzl', 'select_of_dict_of_str')"))
+        .isEqualTo(parseType("select[dict[str, str | Label]]"));
   }
 
   @Test
-  @TestParameters({
-    "{x: 'select_of_int', op: '+', y: 'select_of_str', "
-        + "error: \"'+' cannot be applied to types 'select[int]' and 'select[str]'\"}",
-    "{x: 'select_of_str', op: '+', y: 'select_of_list_of_str', "
-        + "error: \"'+' cannot be applied to types 'select[str]' and 'select[list[str]]'\"}",
-    "{x: 'select_of_list_of_str', op: '|', y: 'select_of_dict', error: \"'|' cannot be applied to"
-        + " types 'select[list[str]]' and 'select[dict[str, int]]'\"}"
-  })
-  public void select_invalidBinaryOperator(String x, String op, String y, String error)
-      throws Exception {
+  public void select_invalidBinaryOperator() throws Exception {
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
     scratch.file(
@@ -648,17 +684,38 @@ public class StarlarkTypesTest extends BuildViewTestCase {
         select_of_dict = select({"//cfg": {"a": 1}, "//conditions:default": None})
         """);
     scratch.file("lib/BUILD");
-    scratch.file(
-        "bad/bad.bzl",
-        String.format(
-            """
-            load("//lib:lib.bzl", "%s", "%s")
-            bad = %s %s %s
-            _: None = None  # enable type syntax
-            """,
-            x, y, x, op, y));
-    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
-    checkLoadingPhaseError("//bad:BUILD", error);
+
+    checkInvalid(
+        "'+' cannot be applied to types 'select[int]' and 'float'",
+        """
+        load("//lib:lib.bzl", "select_of_int")
+        bad = select_of_int + 1.5
+        _: None = None  # enable type syntax
+        """);
+
+    checkInvalid(
+        "'+' cannot be applied to types 'select[int]' and 'select[str]'",
+        """
+        load("//lib:lib.bzl", "select_of_int", "select_of_str")
+        bad = select_of_int + select_of_str
+        _: None = None  # enable type syntax
+        """);
+
+    checkInvalid(
+        "'+' cannot be applied to types 'select[str]' and 'select[list[str]]'",
+        """
+        load("//lib:lib.bzl", "select_of_str", "select_of_list_of_str")
+        bad = select_of_str + select_of_list_of_str
+        _: None = None  # enable type syntax
+        """);
+
+    checkInvalid(
+        "'|' cannot be applied to types 'select[list[str]]' and 'select[dict[str, int]]'",
+        """
+        load("//lib:lib.bzl", "select_of_list_of_str", "select_of_dict")
+        bad = select_of_list_of_str | select_of_dict
+        _: None = None  # enable type syntax
+        """);
   }
 
   /** Fake type for testing; returns itself when added to the given type on the given side. */
@@ -677,7 +734,7 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     }
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return name;
     }
 
@@ -724,10 +781,6 @@ public class StarlarkTypesTest extends BuildViewTestCase {
             SelectorValue.Type.of(Types.INT).inferBinaryOperator(TokenKind.PLUS, Types.INT, true))
         .isEqualTo(SelectorValue.Type.of(Types.INT));
     assertThat(
-            SelectorValue.Type.of(Types.FLOAT)
-                .inferBinaryOperator(TokenKind.PLUS, Types.INT, false))
-        .isEqualTo(SelectorValue.Type.of(Types.FLOAT));
-    assertThat(
             SelectorValue.Type.of(Types.list(Types.INT))
                 .inferBinaryOperator(TokenKind.PLUS, Types.list(Types.STR), true))
         .isEqualTo(SelectorValue.Type.of(Types.list(Types.union(Types.INT, Types.STR))));
@@ -743,5 +796,253 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     StarlarkType r1orStr = Types.union(r1, Types.STR);
     StarlarkType boolOrNumeric = Types.union(Types.BOOL, Types.NUMERIC);
     assertSelectBinaryOperator(l1or2, TokenKind.PLUS, r1orStr, boolOrNumeric);
+
+    // Special case: adding a select of a numeric type and a different numeric type is a dynamic
+    // error, so we forbid it statically too.
+    assertThat(
+            SelectorValue.Type.of(Types.FLOAT)
+                .inferBinaryOperator(TokenKind.PLUS, Types.INT, false))
+        .isNull();
+    assertThat(
+            SelectorValue.Type.of(Types.INT)
+                .inferBinaryOperator(TokenKind.PLUS, Types.FLOAT, false))
+        .isNull();
+  }
+
+  @Test
+  public void schemalessProvider() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    scratch.file(
+        "lib/provider.bzl",
+        """
+        MyInfo = provider()
+        MyOtherInfo = provider()
+        """);
+    scratch.file("lib/BUILD");
+    Module providerBzl = loadModule("//lib:provider.bzl");
+    StarlarkType myInfoSymbolType = providerBzl.getExportType("MyInfo");
+    StarlarkType myOtherInfoSymbolType = providerBzl.getExportType("MyOtherInfo");
+
+    // Provider symbols can be used as provider symbols, as callables, or as types.
+    assertThat(myInfoSymbolType.typeRepr()).isEqualTo("<Provider[MyInfo]>");
+    assertLtAndGt(myInfoSymbolType, parseType("Provider"));
+    assertStrictLt(myInfoSymbolType, Types.ANY_CALLABLE);
+    assertStrictLt(myInfoSymbolType, Types.TYPE);
+    assertIncomparable(myInfoSymbolType, myOtherInfoSymbolType);
+
+    StarlarkType myInfoType = parseType("MyInfo", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(myInfoType.typeRepr()).isEqualTo("MyInfo");
+    StarlarkType myOtherInfoType =
+        parseType("MyOtherInfo", "load('//lib:provider.bzl', 'MyOtherInfo')");
+
+    assertStrictLt(myInfoType, Types.ANY_STRUCT);
+    assertIncomparable(myInfoType, myOtherInfoType);
+    // Allow all field access.
+    assertThat(myInfoType.getField("nonexistent field", typeContext)).isEqualTo(Types.ANY);
+
+    StarlarkType instanceTypeStatically =
+        revealStaticType("MyInfo(foobar = 'abc')", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeStatically).isEqualTo(myInfoType);
+
+    StarlarkType instanceTypeDynamically =
+        revealExportedType("MyInfo(foobar = 'abc')", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeDynamically).isEqualTo(myInfoType);
+  }
+
+  @Test
+  public void schemafulProvider_noInit() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    scratch.file(
+        "lib/provider.bzl",
+        """
+        MyInfo = provider(fields = ["x", "y"])
+        MyOtherInfo = provider(fields = ["x", "y"])
+        """);
+    scratch.file("lib/BUILD");
+    Module providerBzl = loadModule("//lib:provider.bzl");
+    StarlarkType myInfoSymbolType = providerBzl.getExportType("MyInfo");
+    StarlarkType myOtherInfoSymbolType = providerBzl.getExportType("MyOtherInfo");
+
+    // Provider symbols can be used as provider symbols, as callables, or as types.
+    assertLtAndGt(myInfoSymbolType, parseType("Provider"));
+    assertStrictLt(
+        myInfoSymbolType,
+        revealStaticType(
+            "callable_with_MyInfo_signature",
+            """
+            load("//lib:provider.bzl", "MyInfo")
+
+            def callable_with_MyInfo_signature(*, x=None, y=None) -> MyInfo:
+                return MyInfo(x = x, y = y)
+            """));
+    assertStrictLt(myInfoSymbolType, Types.TYPE);
+    assertIncomparable(myInfoSymbolType, myOtherInfoSymbolType);
+
+    StarlarkType myInfoType = parseType("MyInfo", "load('//lib:provider.bzl', 'MyInfo')");
+    StarlarkType myOtherInfoType =
+        parseType("MyOtherInfo", "load('//lib:provider.bzl', 'MyOtherInfo')");
+
+    assertStrictLt(myInfoType, Types.struct(ImmutableMap.of("x", Types.ANY, "y", Types.ANY)));
+    assertIncomparable(myInfoType, myOtherInfoType);
+    assertThat(myInfoType.getField("y", typeContext)).isEqualTo(Types.ANY);
+    assertThat(myInfoType.getField("nonexistent field", typeContext)).isNull();
+
+    StarlarkType instanceTypeStatically =
+        revealStaticType("MyInfo(x = 1)", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeStatically).isEqualTo(myInfoType);
+
+    StarlarkType instanceTypeDynamically =
+        revealExportedType("MyInfo(x = 1)", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeDynamically).isEqualTo(myInfoType);
+  }
+
+  @Test
+  public void schemafulProvider_withInit() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    scratch.file(
+        "lib/provider.bzl",
+        """
+        def init(a: int, *, b: str = "", **kwargs):
+            return {"x": a, "y": b}
+
+        MyInfo, _new_MyInfo = provider(fields = ["x", "y"], init = init)
+        MyOtherInfo, _new_MyOtherInfo = provider(fields = ["x", "y"], init = init)
+        """);
+    scratch.file("lib/BUILD");
+    Module providerBzl = loadModule("//lib:provider.bzl");
+    StarlarkType myInfoSymbolType = providerBzl.getExportType("MyInfo");
+    StarlarkType myOtherInfoSymbolType = providerBzl.getExportType("MyOtherInfo");
+
+    // Provider symbols can be used as provider symbols, as callables, or as types.
+    assertLtAndGt(myInfoSymbolType, parseType("Provider"));
+    assertStrictLt(
+        myInfoSymbolType,
+        revealStaticType(
+            "callable_with_MyInfo_signature",
+            """
+            load("//lib:provider.bzl", "MyInfo")
+
+            def callable_with_MyInfo_signature(a: int, *, b: str = "", **kwargs) -> MyInfo:
+                return MyInfo(a, b = b, **kwargs)
+            """));
+    assertStrictLt(myInfoSymbolType, Types.TYPE);
+    assertIncomparable(myInfoSymbolType, myOtherInfoSymbolType);
+
+    StarlarkType myInfoType = parseType("MyInfo", "load('//lib:provider.bzl', 'MyInfo')");
+    StarlarkType myOtherInfoType =
+        parseType("MyOtherInfo", "load('//lib:provider.bzl', 'MyOtherInfo')");
+
+    assertIncomparable(myInfoType, myOtherInfoType);
+    // Fields, not init params
+    assertStrictLt(myInfoType, Types.struct(ImmutableMap.of("x", Types.ANY, "y", Types.ANY)));
+    assertThat(myInfoType.getField("y", typeContext)).isEqualTo(Types.ANY);
+    assertThat(myInfoType.getField("nonexistent field", typeContext)).isNull();
+
+    StarlarkType instanceTypeStatically =
+        revealStaticType("MyInfo(1)", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeStatically).isEqualTo(myInfoType);
+
+    StarlarkType instanceTypeDynamically =
+        revealExportedType("MyInfo(2)", "load('//lib:provider.bzl', 'MyInfo')");
+    assertThat(instanceTypeDynamically).isEqualTo(myInfoType);
+  }
+
+  @Test
+  public void nativeRule() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    StarlarkType genruleType = revealStaticType("native.genrule");
+    assertThat(genruleType).isEqualTo(revealExportedType("native.genrule"));
+    assertThat(genruleType.typeRepr()).isEqualTo("rule");
+    assertLt(genruleType, Types.ANY_CALLABLE);
+    Types.CallableType genruleCallableType = Types.toCallableType(genruleType, typeContext);
+    assertThat(genruleCallableType).isNotNull();
+    // TODO: #23730 - add types for rule attributes and return type
+  }
+
+  @Test
+  public void starlarkRule() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    StarlarkType myRuleType =
+        revealStaticType(
+            """
+            rule(
+                implementation = lambda ctx: None,
+                attrs = {
+                    "srcs": attr.label_list(allow_files = True),
+                    "deps": attr.label_list(),
+                },
+            )
+            """);
+
+    assertThat(myRuleType.typeRepr()).isEqualTo("rule");
+    assertLt(myRuleType, Types.ANY_CALLABLE);
+    Types.CallableType myRuleCallableType = Types.toCallableType(myRuleType, typeContext);
+    assertThat(myRuleCallableType).isNotNull();
+    // TODO: #23730 - add types for rule attributes and return type
+  }
+
+  @Test
+  public void subrule() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    StarlarkType subruleType =
+        revealStaticType(
+            """
+            subrule(
+                implementation = _subrule_impl,
+                attrs = {"_tool": attr.label(allow_files = True, default = "//tool")},
+            )
+            """,
+            """
+            def _subrule_impl(ctx, positional_arg, *, _tool, **kwargs) -> list[int]:
+                return [42]
+            """);
+    assertThat(subruleType.typeRepr()).isEqualTo("Subrule");
+    assertLt(subruleType, Types.ANY_CALLABLE);
+    Types.CallableType subruleCallableType = Types.toCallableType(subruleType, typeContext);
+    assertThat(subruleCallableType).isNotNull();
+    // TODO: #23730 - add types for subrule params and return type
+  }
+
+  @Test
+  public void symbolicMacro() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    TypeContext typeContext = getTypeContext();
+
+    StarlarkType macroType =
+        revealStaticType(
+            """
+            macro(
+                implementation = _macro_impl,
+                attrs = {"deps": attr.label_list()},
+            )
+            """,
+            """
+            def _macro_impl(*, deps, visibility, **kwargs):
+                pass
+            """);
+    assertThat(macroType.typeRepr()).isEqualTo("macro");
+    assertLt(macroType, Types.ANY_CALLABLE);
+    Types.CallableType macroCallableType = Types.toCallableType(macroType, typeContext);
+    assertThat(macroCallableType).isNotNull();
+    // TODO: #23730 - add types for macro attributes and return type
   }
 }

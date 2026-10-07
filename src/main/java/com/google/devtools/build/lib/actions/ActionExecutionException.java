@@ -51,7 +51,7 @@ public class ActionExecutionException extends Exception implements DetailedExcep
                   ActionExecutionException::getDetailedExitCode,
                   DetailedExitCodeComparator.INSTANCE)));
 
-  private final ActionAnalysisMetadata action;
+  @Nullable private final ActionAnalysisMetadata action;
   private final NestedSet<Cause> rootCauses;
   private final boolean catastrophe;
   private final DetailedExitCode detailedExitCode;
@@ -173,7 +173,8 @@ public class ActionExecutionException extends Exception implements DetailedExcep
         message, exception, action, exception.isCatastrophic(), code);
   }
 
-  /** Returns the action that failed. */
+  /** Returns the action that failed, or {@code null} if there is no associated action. */
+  @Nullable
   public ActionAnalysisMetadata getAction() {
     return action;
   }
@@ -186,11 +187,10 @@ public class ActionExecutionException extends Exception implements DetailedExcep
     return rootCauses;
   }
 
-  /**
-   * Returns the location of the owner of this action.  May be null.
-   */
+  /** Returns the location of the owner of this action. May be null. */
+  @Nullable
   public Location getLocation() {
-    return action.getOwner().getLocation();
+    return action == null || action.getOwner() == null ? null : action.getOwner().getLocation();
   }
 
   /**

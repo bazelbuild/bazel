@@ -161,11 +161,19 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
     ImmutableList.Builder<TargetPattern> toolchains = ImmutableList.builder();
     for (Module module : bazelDepGraphValue.getDepGraph().values()) {
+      if (module.getToolchainsToRegister().isEmpty()) {
+        continue;
+      }
+      RepositoryName repoName =
+          bazelDepGraphValue.getCanonicalRepoNameLookup().inverse().get(module.getKey());
+      RepositoryMappingValue repoMapping =
+          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
+      if (repoMapping == null) {
+        continue;
+      }
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
-              PathFragment.EMPTY_FRAGMENT,
-              bazelDepGraphValue.getCanonicalRepoNameLookup().inverse().get(module.getKey()),
-              bazelDepGraphValue.getFullRepoMapping(module.getKey()));
+              PathFragment.EMPTY_FRAGMENT, repoName, repoMapping.repositoryMapping());
       for (String pattern : module.getToolchainsToRegister()) {
         try {
           toolchains.add(parser.parse(pattern));
@@ -175,7 +183,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
         }
       }
     }
-    return toolchains.build();
+    return env.valuesMissing() ? null : toolchains.build();
   }
 
   @Nullable

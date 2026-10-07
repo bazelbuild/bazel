@@ -26,6 +26,7 @@ import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
+import static java.lang.Math.max;
 import static java.util.Comparator.comparing;
 import static java.util.Map.entry;
 
@@ -36,6 +37,7 @@ import build.bazel.remote.execution.v2.NodeProperties;
 import build.bazel.remote.execution.v2.NodeProperty;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -71,7 +73,6 @@ import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -146,7 +147,6 @@ public final class MerkleTreeComputer {
           .build();
   private static final ImmutableList<Map.Entry<PathFragment, ActionInput>> END_OF_INPUTS_SENTINEL =
       ImmutableList.of(entry(PathFragment.EMPTY_FRAGMENT, VirtualActionInput.EMPTY_MARKER));
-  private static final PathFragment ROOT_FAKE_PATH_SEGMENT = PathFragment.create("root");
 
   // Building Merkle trees mostly involves computing hashes of protos and is thus CPU-bound.
   // TODO: Source directories are also visited on this pool in a single-threaded manner.
@@ -312,12 +312,10 @@ public final class MerkleTreeComputer {
       Set<PathFragment> toolInputs,
       @Nullable Scrubber scrubber,
       SpawnExecutionContext spawnExecutionContext,
-      RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException, InterruptedException, LostInputsExecException {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTreeComputer.buildForSpawn")) {
-      return doBuildForSpawn(
-          spawn, toolInputs, scrubber, spawnExecutionContext, remotePathResolver, blobPolicy);
+      return doBuildForSpawn(spawn, toolInputs, scrubber, spawnExecutionContext, blobPolicy);
     }
   }
 
@@ -326,7 +324,6 @@ public final class MerkleTreeComputer {
       Set<PathFragment> toolInputs,
       @Nullable Scrubber scrubber,
       SpawnExecutionContext spawnExecutionContext,
-      RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException, InterruptedException, LostInputsExecException {
     // The scrubber is a per-invocation setting and invocations do not overlap, so it can be tracked
@@ -385,7 +382,6 @@ public final class MerkleTreeComputer {
               spawnExecutionContext.getInputMetadataProvider(),
               spawnExecutionContext.getPathResolver(),
               remoteActionExecutionContext,
-              remotePathResolver,
               blobPolicy));
     } catch (BulkTransferException e) {
       e.getLostArtifacts(spawnExecutionContext.getInputMetadataProvider()::getInput)
@@ -428,20 +424,22 @@ public final class MerkleTreeComputer {
    * doesn't matter.
    */
   private static class PathActionInput extends BasicActionInput {
+    private final PathFragment execPath;
     private final Path path;
 
-    PathActionInput(Path path) {
+    PathActionInput(PathFragment execPath, Path path) {
+      this.execPath = execPath;
       this.path = path;
     }
 
     @Override
     public PathFragment getExecPath() {
-      return path.asFragment();
+      return execPath;
     }
 
     @Override
     public String getExecPathString() {
-      return path.asFragment().getPathString();
+      return execPath.getPathString();
     }
 
     Path getPath() {
@@ -483,13 +481,12 @@ public final class MerkleTreeComputer {
                   Lists.transform(
                       ImmutableList.sortedCopyOf(
                           Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
-                      e -> entry(e.getKey(), new PathActionInput(e.getValue()))),
+                      e -> entry(e.getKey(), new PathActionInput(e.getKey(), e.getValue()))),
                   alwaysFalse(),
                   /* spawnScrubber= */ null,
                   StaticInputMetadataProvider.empty(),
                   PATH_ACTION_INPUT_RESOLVER,
                   /* remoteActionExecutionContext= */ null,
-                  /* remotePathResolver= */ null,
                   BlobPolicy.KEEP_AND_REUPLOAD));
     }
   }
@@ -501,7 +498,6 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException {
     return transform(
@@ -511,7 +507,6 @@ public final class MerkleTreeComputer {
             metadataProvider,
             artifactPathResolver,
             remoteActionExecutionContext,
-            remotePathResolver,
             blobPolicy),
         subTreeRoots -> {
           try {
@@ -551,7 +546,7 @@ public final class MerkleTreeComputer {
     var blobs =
         new TreeMap<
             /* Digest | FileArtifactValue */ Object,
-            /* byte[] | Path | VirtualActionInput */ Object>(
+            /* byte[] | ActionInput | DeterministicWriter */ Object>(
             MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR);
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
@@ -584,19 +579,28 @@ public final class MerkleTreeComputer {
         lastSourceDirPath = null;
       }
       ActionInput input = entry.getValue();
-      PathFragment newParent = path.getParentDirectory();
-      if (!currentParent.equals(newParent)) {
-        PathFragment commonPrefix;
-        PathFragment fragmentToPop;
+      if (!isParentDirectory(currentParent, path)) {
+        PathFragment newParent = path.getParentDirectory();
+        String currentParentString = currentParent.getPathString();
+        // The sentinel also pops the root directory, whose path string has length zero.
+        int commonPrefixLength = -1;
         if (newParent != null) {
-          commonPrefix = findCommonPrefix(currentParent, newParent);
-          fragmentToPop = currentParent.relativeTo(commonPrefix);
-        } else {
-          fragmentToPop = ROOT_FAKE_PATH_SEGMENT.getRelative(currentParent);
-          // Unused.
-          commonPrefix = null;
+          String newParentString = newParent.getPathString();
+          commonPrefixLength = currentParent.getCommonPrefixLength(newParent);
+          // Only retain complete common segments, including when one string is a prefix of the
+          // other (e.g. "a/b" and "a/bc").
+          if ((commonPrefixLength < currentParentString.length()
+                  && currentParentString.charAt(commonPrefixLength) != PathFragment.SEPARATOR_CHAR)
+              || (commonPrefixLength < newParentString.length()
+                  && newParentString.charAt(commonPrefixLength) != PathFragment.SEPARATOR_CHAR)) {
+            commonPrefixLength =
+                max(
+                    0,
+                    currentParentString.lastIndexOf(
+                        PathFragment.SEPARATOR_CHAR, commonPrefixLength - 1));
+          }
         }
-        for (String dirToPop : fragmentToPop.splitToListOfSegments().reverse()) {
+        for (int end = currentParentString.length(); end > commonPrefixLength; ) {
           byte[] directoryBlob = directoryStack.pop().build().toByteArray();
           Digest directoryBlobDigest = digestUtil.compute(directoryBlob);
           if (blobPolicy != BlobPolicy.DISCARD && directoryBlobDigest.getSizeBytes() != 0) {
@@ -617,12 +621,17 @@ public final class MerkleTreeComputer {
                   blobs);
             }
           }
+          int start = currentParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1) + 1;
           topDirectory
               .addDirectoriesBuilder()
-              .setName(internalToUnicode(dirToPop))
+              .setName(internalToUnicode(currentParentString.substring(start, end)))
               .setDigest(directoryBlobDigest);
+          end = max(0, start - 1);
         }
-        for (int i = 0; i < newParent.segmentCount() - commonPrefix.segmentCount(); i++) {
+        String newParentString = newParent.getPathString();
+        for (int end = newParentString.length();
+            end > commonPrefixLength;
+            end = max(0, newParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1))) {
           directoryStack.push(Directory.newBuilder());
         }
         currentParent = newParent;
@@ -721,7 +730,8 @@ public final class MerkleTreeComputer {
         default -> {
           // The input is not represented by a known subtype of ActionInput. Bare ActionInputs
           // arise from exploded source directories, repository rules or tests.
-          var digest = digestUtil.compute(artifactPathResolver.toPath(input));
+          var resolvedPath = artifactPathResolver.toPath(input);
+          var digest = digestUtil.compute(resolvedPath, resolvedPath.stat());
           addFile(currentDirectory, name, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
             blobs.putIfAbsent(digest, input);
@@ -744,7 +754,6 @@ public final class MerkleTreeComputer {
           InputMetadataProvider metadataProvider,
           ArtifactPathResolver artifactPathResolver,
           RemoteActionExecutionContext remoteActionExecutionContext,
-          RemotePathResolver remotePathResolver,
           BlobPolicy blobPolicy)
           throws IOException {
     var subTreeFutures =
@@ -760,7 +769,6 @@ public final class MerkleTreeComputer {
               metadataProvider,
               artifactPathResolver,
               remoteActionExecutionContext,
-              remotePathResolver,
               blobPolicy);
       if (future != null) {
         subTreeFutures.add(transform(future, subTree -> entry(entry, subTree), directExecutor()));
@@ -785,7 +793,6 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException {
     return switch (input) {
@@ -798,7 +805,6 @@ public final class MerkleTreeComputer {
               metadataProvider,
               artifactPathResolver,
               remoteActionExecutionContext,
-              remotePathResolver,
               blobPolicy);
       case Artifact artifact when artifact.isRunfilesTree() ->
           computeForRunfilesTreeIfAbsent(
@@ -808,7 +814,6 @@ public final class MerkleTreeComputer {
               metadataProvider,
               artifactPathResolver,
               remoteActionExecutionContext,
-              remotePathResolver,
               blobPolicy);
       case Artifact artifact when artifact.isSourceArtifact() -> {
         var metadata =
@@ -826,7 +831,6 @@ public final class MerkleTreeComputer {
             metadataProvider,
             artifactPathResolver,
             remoteActionExecutionContext,
-            remotePathResolver,
             blobPolicy);
       }
       case null, default -> null;
@@ -840,7 +844,6 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy) {
     // A runfiles tree contains either only tool inputs or only non-tool inputs. It always contains
     // at least one artifact at its canonical location: the executable for which it has been
@@ -876,7 +879,6 @@ public final class MerkleTreeComputer {
         metadataProvider,
         artifactPathResolver,
         remoteActionExecutionContext,
-        remotePathResolver,
         blobPolicy);
   }
 
@@ -888,7 +890,6 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy) {
     // A tree artifact contains either only tool inputs or only non-tool inputs.
     boolean isTool =
@@ -914,7 +915,6 @@ public final class MerkleTreeComputer {
         metadataProvider,
         artifactPathResolver,
         remoteActionExecutionContext,
-        remotePathResolver,
         blobPolicy);
   }
 
@@ -943,7 +943,6 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy) {
     var persistentCache = isTool ? persistentToolSubTreeCache : persistentNonToolSubTreeCache;
     if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
@@ -991,7 +990,6 @@ public final class MerkleTreeComputer {
                     metadataProvider,
                     artifactPathResolver,
                     remoteActionExecutionContext,
-                    remotePathResolver,
                     blobPolicy);
           } catch (IOException e) {
             throw new WrappedException(e);
@@ -1007,8 +1005,7 @@ public final class MerkleTreeComputer {
                       merkleTreeUploader.ensureInputsPresent(
                           remoteActionExecutionContext,
                           uploadable,
-                          blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD,
-                          remotePathResolver);
+                          blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD);
                     }
                   } catch (IOException e) {
                     throw new WrappedException(e);
@@ -1089,20 +1086,17 @@ public final class MerkleTreeComputer {
     }
   }
 
-  private static PathFragment findCommonPrefix(PathFragment path1, PathFragment path2) {
-    int commonSegments = 0;
-    var segments2 = path2.segments().iterator();
-    for (String segment : path1.segments()) {
-      if (!segments2.hasNext()) {
-        break;
-      }
-      String segment2 = segments2.next();
-      if (!segment.equals(segment2)) {
-        break;
-      }
-      commonSegments++;
+  /** Equivalent to {@code parent.equals(path.getParentDirectory())} for relative paths. */
+  @VisibleForTesting
+  static boolean isParentDirectory(PathFragment parent, PathFragment path) {
+    String pathString = path.getPathString();
+    if (pathString.isEmpty()) {
+      return false;
     }
-    return path1.subFragment(0, commonSegments);
+    int lastSeparator = pathString.lastIndexOf(PathFragment.SEPARATOR_CHAR);
+    int parentLength = max(lastSeparator, 0);
+    String parentString = parent.getPathString();
+    return parentString.length() == parentLength && pathString.startsWith(parentString);
   }
 
   private static ImmutableSortedMap<PathFragment, ActionInput> explodeDirectory(

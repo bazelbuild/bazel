@@ -39,6 +39,7 @@ import javax.annotation.Nullable;
 public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   private boolean lockOutputFilesCalled;
+  private boolean bustCaches;
 
   private final Spawn spawn;
   private final InputMetadataProvider inputMetadataProvider;
@@ -66,6 +67,10 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   public boolean isLockOutputFilesCalled() {
     return lockOutputFilesCalled;
+  }
+
+  public void setBustCaches(boolean bustCaches) {
+    this.bustCaches = bustCaches;
   }
 
   @Override
@@ -150,5 +155,10 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   @Override
   public ImmutableMap<String, String> getClientEnv() {
     return ImmutableMap.of();
+  }
+
+  @Override
+  public boolean bustCaches() {
+    return bustCaches;
   }
 }

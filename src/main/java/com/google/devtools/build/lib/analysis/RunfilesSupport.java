@@ -18,9 +18,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -41,13 +43,16 @@ import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.ref.WeakReference;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -737,5 +742,135 @@ public final class RunfilesSupport {
 
   public RunfilesTree getRunfilesTree() {
     return runfilesTree;
+  }
+
+  /**
+   * Adds the runfiles for a particular target and visits the transitive closure of "srcs", "deps"
+   * and "data", collecting all of their respective runfiles.
+   */
+  @CanIgnoreReturnValue
+  public static Runfiles.Builder addRunfiles(
+      Runfiles.Builder builder,
+      RuleContext ruleContext,
+      Function<TransitiveInfoCollection, Runfiles> mapping) {
+    checkNotNull(mapping);
+    checkNotNull(ruleContext);
+    addDataDeps(builder, ruleContext);
+    addNonDataDeps(builder, ruleContext, mapping);
+    return builder;
+  }
+
+  /**
+   * Adds the files specified by a mapping from the transitive info collection to the runfiles.
+   *
+   * <p>Dependencies in {@code srcs} and {@code deps} are considered.
+   */
+  @CanIgnoreReturnValue
+  public static Runfiles.Builder add(
+      Runfiles.Builder builder,
+      RuleContext ruleContext,
+      Function<TransitiveInfoCollection, Runfiles> mapping) {
+    checkNotNull(ruleContext);
+    checkNotNull(mapping);
+    for (TransitiveInfoCollection dep : getNonDataDeps(ruleContext)) {
+      Runfiles runfiles = mapping.apply(dep);
+      if (runfiles != null) {
+        builder.merge(runfiles);
+      }
+    }
+
+    return builder;
+  }
+
+  /** Collects runfiles from data dependencies of a target. */
+  @CanIgnoreReturnValue
+  public static Runfiles.Builder addDataDeps(Runfiles.Builder builder, RuleContext ruleContext) {
+    addTargets(
+        builder,
+        getPrerequisites(ruleContext, "data"),
+        RunfilesProvider.DATA_RUNFILES,
+        ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
+    return builder;
+  }
+
+  /** Collects runfiles from "srcs" and "deps" of a target. */
+  @CanIgnoreReturnValue
+  public static Runfiles.Builder addNonDataDeps(
+      Runfiles.Builder builder,
+      RuleContext ruleContext,
+      Function<TransitiveInfoCollection, Runfiles> mapping) {
+    for (TransitiveInfoCollection target : getNonDataDeps(ruleContext)) {
+      addTargetExceptFileTargets(builder, target, mapping);
+    }
+    return builder;
+  }
+
+  @CanIgnoreReturnValue
+  public static Runfiles.Builder addTargets(
+      Runfiles.Builder builder,
+      Iterable<? extends TransitiveInfoCollection> targets,
+      Function<TransitiveInfoCollection, Runfiles> mapping,
+      boolean alwaysIncludeFilesToBuildInData) {
+    for (TransitiveInfoCollection target : targets) {
+      addTarget(builder, target, mapping, alwaysIncludeFilesToBuildInData);
+    }
+    return builder;
+  }
+
+  @CanIgnoreReturnValue
+  public static Runfiles.Builder addTarget(
+      Runfiles.Builder builder,
+      TransitiveInfoCollection target,
+      Function<TransitiveInfoCollection, Runfiles> mapping,
+      boolean alwaysIncludeFilesToBuildInData) {
+    return addTargetIncludingFileTargets(builder, target, mapping, alwaysIncludeFilesToBuildInData);
+  }
+
+  @CanIgnoreReturnValue
+  private static Runfiles.Builder addTargetExceptFileTargets(
+      Runfiles.Builder builder,
+      TransitiveInfoCollection target,
+      Function<TransitiveInfoCollection, Runfiles> mapping) {
+    Runfiles runfiles = mapping.apply(target);
+    if (runfiles != null) {
+      builder.merge(runfiles);
+    }
+
+    return builder;
+  }
+
+  private static Runfiles.Builder addTargetIncludingFileTargets(
+      Runfiles.Builder builder,
+      TransitiveInfoCollection target,
+      Function<TransitiveInfoCollection, Runfiles> mapping,
+      boolean alwaysIncludeFilesToBuildInData) {
+    if (target.getProvider(RunfilesProvider.class) == null
+        && mapping == RunfilesProvider.DATA_RUNFILES) {
+      builder.addTransitiveArtifacts(target.getProvider(FileProvider.class).getFilesToBuild());
+      return builder;
+    }
+
+    if (alwaysIncludeFilesToBuildInData && mapping == RunfilesProvider.DATA_RUNFILES) {
+      builder.addTransitiveArtifacts(
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(target.getProvider(FileProvider.class).getFilesToBuild())
+              .build());
+    }
+
+    return addTargetExceptFileTargets(builder, target, mapping);
+  }
+
+  private static Iterable<TransitiveInfoCollection> getNonDataDeps(RuleContext ruleContext) {
+    return Iterables.concat(
+        getPrerequisites(ruleContext, "srcs"), getPrerequisites(ruleContext, "deps"));
+  }
+
+  private static Iterable<? extends TransitiveInfoCollection> getPrerequisites(
+      RuleContext ruleContext, String attributeName) {
+    if (ruleContext.getRule().isAttrDefined(attributeName, BuildType.LABEL_LIST)) {
+      return ruleContext.getPrerequisites(attributeName);
+    } else {
+      return Collections.emptyList();
+    }
   }
 }

@@ -825,9 +825,12 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
    */
   private static final class RemoteFileArtifactValueWithMaterializationData
       extends RemoteFileArtifactValue {
-    private long expirationTime;
-    @Nullable private FileContentsProxy proxy;
-    private boolean materializedAsToplevelOutput;
+    // These fields represent per-JVM runtime materialization and lease state. They must remain
+    // transient so DynamicCodec omits them from serialized Skycache entries, avoiding
+    // non-deterministic fingerprints and cross-machine state pollution.
+    private transient long expirationTime;
+    @Nullable private transient FileContentsProxy proxy;
+    private transient boolean materializedAsToplevelOutput;
     private final boolean inMemoryOutput;
 
     private RemoteFileArtifactValueWithMaterializationData(
@@ -842,12 +845,16 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     private static long toEpochMilli(@Nullable Instant expirationTime) {
-      return expirationTime != null ? expirationTime.toEpochMilli() : -1;
+      // Zero serves as the unset sentinel corresponding to default primitive initialization
+      // during deserialization (e.g. via Unsafe.allocateInstance).
+      return expirationTime != null ? expirationTime.toEpochMilli() : 0;
     }
 
     @Nullable
     private static Instant fromEpochMilli(long expirationTime) {
-      return expirationTime >= 0 ? Instant.ofEpochMilli(expirationTime) : null;
+      // Zero serves as the unset sentinel corresponding to default primitive initialization
+      // during deserialization (e.g. via Unsafe.allocateInstance).
+      return expirationTime > 0 ? Instant.ofEpochMilli(expirationTime) : null;
     }
 
     @Override

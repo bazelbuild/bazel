@@ -38,7 +38,9 @@ public class PackageLookupValueCodecTest {
                 BuildFileName.WORKSPACE),
             PackageLookupValue.invalidPackageName("junkjunkjunk"),
             PackageLookupValue.NO_BUILD_FILE_VALUE,
-            PackageLookupValue.DELETED_PACKAGE_VALUE);
+            PackageLookupValue.DELETED_PACKAGE_VALUE,
+            PackageLookupValue.DELETED_BY_BAZELIGNORE_VALUE,
+            PackageLookupValue.DELETED_BY_REPO_BAZEL_VALUE);
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();
   }

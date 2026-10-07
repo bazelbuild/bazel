@@ -16,7 +16,8 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.base.Splitter;
-import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 
 /**
@@ -35,9 +36,12 @@ public class AnalysisTestActionBuilder {
    * status 1 if the test failed.
    */
   public static void writeAnalysisTestAction(
-      RuleContext ruleContext, AnalysisTestResultInfo testResultInfo) {
+      ActionConstructionContext context,
+      boolean isWindows,
+      Artifact outputScriptArtifact,
+      AnalysisTestResultInfo testResultInfo) {
     String escapedMessage =
-        ruleContext.isDefaultExecGroupExecutingOnWindows()
+        isWindows
             ? testResultInfo.getMessage().replace("%", "%%")
             // Prefix each character with \ (double-escaped; once in the string, once in the
             // replacement sequence, which allows backslash-escaping literal "$"). "." is put in
@@ -45,7 +49,7 @@ public class AnalysisTestActionBuilder {
             // always-matching regex (b/201772278).
             : testResultInfo.getMessage().replaceAll("(.)", "\\\\$1");
     StringBuilder sb = new StringBuilder();
-    if (ruleContext.isDefaultExecGroupExecutingOnWindows()) {
+    if (isWindows) {
       sb.append("@echo off\n");
     } else {
       sb.append("#!/bin/sh\n");
@@ -54,16 +58,13 @@ public class AnalysisTestActionBuilder {
       sb.append("echo ").append(line).append("\n");
     }
     sb.append("exit ");
-    if (ruleContext.isDefaultExecGroupExecutingOnWindows()) {
+    if (isWindows) {
       sb.append("/b ");
     }
     sb.append(testResultInfo.getSuccess() ? "0" : "1");
     FileWriteAction action =
         FileWriteAction.create(
-            ruleContext,
-            ruleContext.createOutputArtifactScriptForAnalysisTest(),
-            sb.toString(),
-            /* makeExecutable= */ true);
-    ruleContext.registerAction(action);
+            context, outputScriptArtifact, sb.toString(), /* makeExecutable= */ true);
+    context.registerAction(action);
   }
 }

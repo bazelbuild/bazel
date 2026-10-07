@@ -307,6 +307,148 @@ public class LocalDiffAwarenessTest {
   }
 
   @Test
+  public void testOverflow() throws Exception {
+    captureFirstView(watchFsEnabledProvider);
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    // Give inotify and JVM poller a moment to queue events
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // After recovering from overflow, incremental diffing works immediately on the next view.
+    touch("single.txt");
+    new ModifiedFileSetChecker().modify("single.txt").check();
+  }
+
+  @Test
+  public void testDirectoryCreatedDuringOverflow() throws Exception {
+    captureFirstView(watchFsEnabledProvider);
+    mkdir("newdir");
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // Subdirectories created during overflow are discovered and registered,
+    // so subsequent modifications inside them are tracked incrementally.
+    touch("newdir/inner.txt");
+    new ModifiedFileSetChecker().modify("newdir/inner.txt").check();
+  }
+
+  @Test
+  public void testDirectoryDeletedDuringOverflow() throws Exception {
+    mkdir("deldir");
+    touch("deldir/f.txt");
+    captureFirstView(watchFsEnabledProvider);
+
+    rm("deldir");
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // Subsequent modifications to other files work incrementally without stale key issues.
+    touch("foo.txt");
+    new ModifiedFileSetChecker().modify("foo.txt").check();
+  }
+
+  @Test
+  public void testDirectoryReplacedDuringOverflow() throws Exception {
+    mkdir("dir");
+    touch("dir/old.txt");
+    captureFirstView(watchFsEnabledProvider);
+
+    // Overflow the watch key of the root directory first, so that the move and the re-creation
+    // below are among the events that are dropped.
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    // Move the watched directory out of sight and put a different directory in its place. The
+    // watch key of the old directory stays valid, but it no longer watches what is at "dir" now.
+    move("dir", "ignored-dir/moved");
+    mkdir("dir");
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // Overflow recovery must have registered the replacement directory.
+    touch("dir/new.txt");
+    new ModifiedFileSetChecker().modify("dir/new.txt").check();
+  }
+
+  @Test
+  public void testDirectoryMovedAndReplacedDuringOverflow() throws Exception {
+    mkdir("dir1");
+    touch("dir1/old.txt");
+    captureFirstView(watchFsEnabledProvider);
+
+    // Overflow the watch key of the root directory first, so that the move and the re-creation
+    // below are among the events that are dropped.
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    // Both the moved directory and its replacement remain under the watch root, so the watch key
+    // of the moved directory must be rebound to its new path instead of being cancelled.
+    move("dir1", "dir2");
+    mkdir("dir1");
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    touch("dir1/new.txt");
+    touch("dir2/moved.txt");
+    new ModifiedFileSetChecker().modify("dir1/new.txt").modify("dir2/moved.txt").check();
+  }
+
+  @Test
+  public void testUnreadableDirectory() throws Exception {
+    mkdir("unreadable");
+    Path unreadable = testCaseRoot.getRelative("unreadable");
+    unreadable.chmod(0);
+    try {
+      boolean readable = true;
+      try {
+        var unused = unreadable.getDirectoryEntries();
+      } catch (IOException e) {
+        readable = false;
+      }
+      // Running as root bypasses directory permissions, in which case there is nothing to test.
+      Assume.assumeFalse(readable);
+
+      // A directory that cannot be watched must be reported instead of being silently skipped,
+      // which would make all subsequent diffs miss changes under it.
+      assertThrows(
+          BrokenDiffAwarenessException.class,
+          () -> localDiff.getCurrentView(watchFsEnabledProvider));
+    } finally {
+      unreadable.chmod(0755);
+    }
+  }
+
+  @Test
+  public void testUnreadableIgnoredDirectory() throws Exception {
+    testCaseIgnoredDir.chmod(0);
+    try {
+      boolean readable = true;
+      try {
+        var unused = testCaseIgnoredDir.getDirectoryEntries();
+      } catch (IOException e) {
+        readable = false;
+      }
+      // Running as root bypasses directory permissions, in which case there is nothing to test.
+      Assume.assumeFalse(readable);
+
+      // Not being able to watch a directory that we were told to ignore is fine.
+      captureFirstView(watchFsEnabledProvider);
+      touch("foo.txt");
+      new ModifiedFileSetChecker().modify("foo.txt").check();
+    } finally {
+      testCaseIgnoredDir.chmod(0755);
+    }
+  }
+
+  @Test
   public void modifiedPathIsntUnderWatchRoot() {
     java.nio.file.Path otherRootDirectoryNioPath = Paths.get("/notundertestroot");
     assertThat(otherRootDirectoryNioPath.startsWith(Paths.get(testCaseRoot.getPathString())))
@@ -314,13 +456,17 @@ public class LocalDiffAwarenessTest {
 
     View oldView =
         new LocalDiffAwareness.SequentialView(
-            localDiff, /* position= */ 0, /* modifiedAbsolutePaths= */ ImmutableSet.of());
+            localDiff,
+            /* position= */ 0,
+            /* modifiedAbsolutePaths= */ ImmutableSet.of(),
+            /* isOverflow= */ false);
     View newView =
         new LocalDiffAwareness.SequentialView(
             localDiff,
             /* position= */ 1,
             /* modifiedAbsolutePaths= */ ImmutableSet.of(
-                otherRootDirectoryNioPath.resolve("foo.txt")));
+                otherRootDirectoryNioPath.resolve("foo.txt")),
+            /* isOverflow= */ false);
     Throwable throwable =
         assertThrows(BrokenDiffAwarenessException.class, () -> localDiff.getDiff(oldView, newView));
     assertThat(throwable)
@@ -347,6 +493,10 @@ public class LocalDiffAwarenessTest {
     path.deleteTree();
   }
 
+  private void move(String from, String to) throws IOException {
+    testCaseRoot.getRelative(from).renameTo(testCaseRoot.getRelative(to));
+  }
+
   private void symlink(String from, String to) throws IOException {
     Path fromPath = testCaseRoot.getRelative(from);
     Path toPath = testCaseRoot.getRelative(to);
@@ -356,7 +506,7 @@ public class LocalDiffAwarenessTest {
   private class ModifiedFileSetChecker {
     private final Set<PathFragment> modified = new HashSet<>();
 
-    public void check() throws Exception {
+    void check() throws Exception {
       // Unfortunately, inotify needs a few milliseconds (more than a few in the worst case)
       // after a change to pick up a list of changed files. Trying a few times to make sure.
       for (int i = 0; i < MAX_RETRY_COUNT; i++) {
@@ -375,7 +525,7 @@ public class LocalDiffAwarenessTest {
       assertThat(modified).isEmpty();
     }
 
-    public void checkEverythingModified(OptionsProvider options) throws Exception {
+    void checkEverythingModified(OptionsProvider options) throws Exception {
       DiffAwareness.View newView = localDiff.getCurrentView(options);
       ModifiedFileSet modifiedFileSet = localDiff.getDiff(oldView, newView);
       oldView = newView;
@@ -383,7 +533,7 @@ public class LocalDiffAwarenessTest {
     }
 
     @CanIgnoreReturnValue
-    public ModifiedFileSetChecker modify(String filename) {
+    ModifiedFileSetChecker modify(String filename) {
       modified.add(PathFragment.create(filename));
       return this;
     }

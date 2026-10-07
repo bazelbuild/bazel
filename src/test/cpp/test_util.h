@@ -26,6 +26,7 @@ void ExpectValidNullaryOption(const StartupOptions* options,
                               const std::string& flag_name);
 void ExpectIsUnaryOption(const StartupOptions* options,
                          const std::string& flag_name);
+void ExpectValidBlockForLockOption(const StartupOptions* options);
 void ParseStartupOptionsAndExpectWarning(
     StartupOptions* startup_options,
     const std::vector<std::string>& options_to_parse,

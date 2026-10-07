@@ -24,9 +24,9 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.Hashing;
+import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
@@ -249,7 +249,7 @@ public class NestedSetStore {
       DeserializationContext deserializationContext,
       Object cacheContext)
       throws IOException {
-    SettableFuture<Object[]> future = SettableFuture.create();
+    DeserializationFuture future = new DeserializationFuture();
     Object contents = nestedSetCache.putFutureIfAbsent(fingerprint, future, cacheContext);
     if (contents != null) {
       return contents;
@@ -302,5 +302,29 @@ public class NestedSetStore {
             },
             executor));
     return future;
+  }
+
+  /**
+   * Future representing in-progress {@link NestedSet} deserialization that overrides {@link
+   * #toString} to avoid recursively formatting its {@code setFuture} delegate chain.
+   *
+   * <p>Without this override, {@link AbstractFuture#toString} would traverse pending futures across
+   * the {@link NestedSet} DAG without visited node deduplication, causing exponential string
+   * expansion and OOMs on deep diamond DAGs. Notably, this is called in production code when
+   * constructing a {@link TimeoutException} message in {@link NestedSet#toListWithTimeout}.
+   */
+  private static final class DeserializationFuture extends AbstractFuture<Object[]> {
+
+    @Override // Increase visibility.
+    protected boolean setFuture(ListenableFuture<? extends Object[]> future) {
+      return super.setFuture(future);
+    }
+
+    @Override
+    public String toString() {
+      String status = isCancelled() ? "CANCELLED" : isDone() ? "DONE" : "PENDING";
+      return "DeserializationFuture@%s[status=%s]"
+          .formatted(Integer.toHexString(System.identityHashCode(this)), status);
+    }
   }
 }

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
@@ -126,7 +127,9 @@ import net.starlark.java.eval.Tuple;
  * (such attempts will result in {@link EvalException}s).
  */
 public final class StarlarkRuleContext
-    implements StarlarkRuleContextApi<ConstraintValueInfo>, StarlarkActionContext {
+    implements StarlarkRuleContextApi<ConstraintValueInfo>,
+        StarlarkActionContext,
+        FragmentCollection.FragmentSupplier {
 
   private static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
@@ -196,7 +199,7 @@ public final class StarlarkRuleContext
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.actionFactory = new StarlarkActionFactory(this);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
-    this.fragments = new FragmentCollection(ruleContext);
+    this.fragments = new FragmentCollection(this);
     this.aspectDescriptor = aspectDescriptor;
     this.isForAspect = aspectDescriptor != null;
     this.ruleClassUnderEvaluation = ruleContext.getRule().getRuleClassObject();
@@ -739,6 +742,17 @@ public final class StarlarkRuleContext
   }
 
   @Override
+  @Nullable
+  public Object getStarlarkFragment(String name) throws EvalException {
+    return ruleContext.getStarlarkFragment(name);
+  }
+
+  @Override
+  public ImmutableCollection<String> getStarlarkFragmentNames() {
+    return ruleContext.getStarlarkFragmentNames();
+  }
+
+  @Override
   public BuildConfigurationValue getConfiguration() throws EvalException {
     checkMutable("configuration");
     return ruleContext.getConfiguration();
@@ -1097,10 +1111,10 @@ public final class StarlarkRuleContext
     Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());
     boolean checkConflicts = false;
     if (Starlark.truth(collectData)) {
-      builder.addRunfiles(ruleContext, RunfilesProvider.DATA_RUNFILES);
+      RunfilesSupport.addRunfiles(builder, ruleContext, RunfilesProvider.DATA_RUNFILES);
     }
     if (Starlark.truth(collectDefault)) {
-      builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
+      RunfilesSupport.addRunfiles(builder, ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {
       Sequence<Artifact> artifacts = Sequence.cast(files, Artifact.class, "files");

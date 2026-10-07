@@ -285,9 +285,16 @@ void WriteStatsToFile(struct rusage *rusage, const std::string &stats_path) {
 
   while (remaining_size > 0) {
     ssize_t written = write(fd_out, remaining, remaining_size);
-    if (written < 0 && errno != EINTR && errno != EAGAIN) {
+    if (written < 0) {
+      if (errno == EINTR || errno == EAGAIN) {
+        continue;
+      }
       DIE("could not write resource usage to file '%s': %s",
           stats_path.c_str(), strerror(errno));
+    }
+    if (written == 0) {
+      DIE("could not write resource usage to file '%s': write returned 0 bytes",
+          stats_path.c_str());
     }
 
     remaining_size -= written;

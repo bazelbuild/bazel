@@ -19,6 +19,8 @@ load(":common/java/java_common.bzl", "java_common_export_for_bazel")
 load(":common/objc/apple_common.bzl", "apple_common_bazel")
 load(":common/python/py_internal.bzl", "py_internal")
 
+_: Any  # Enable type checking.
+
 _REMOVED_RULES = [
     "cc_binary",
     "cc_import",
@@ -36,7 +38,7 @@ _REMOVED_RULES = [
     "objc_library",
 ]
 
-def _removed_rule_failure(**_kwargs):
+def _removed_rule_failure(**_kwargs) -> Never:
     fail("""
          This rule has been removed from Bazel. Please add a `load()` statement for it.
          This can also be done automatically by running:
@@ -57,4 +59,4 @@ exported_rules = {
     for rule_name in _REMOVED_RULES
 }
 
-exported_to_java = {}
+exported_to_java: dict[str, Any] = {}

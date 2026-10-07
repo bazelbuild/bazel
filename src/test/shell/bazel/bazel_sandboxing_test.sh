@@ -440,11 +440,9 @@ function test_add_mount_pair_tmp_source() {
 
 
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $mounted" EXIT
-  echo GOOD > "$mounted/data.txt"
-
   local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $tmp_dir" EXIT
+  trap "rm -fr \"$mounted\" \"$tmp_dir\"" EXIT
+  echo GOOD > "$mounted/data.txt"
   setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
@@ -473,11 +471,9 @@ function test_add_mount_pair_tmp_target() {
 
 
   local source_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $source_dir" EXIT
-  echo BAD > "$source_dir/data.txt"
-
   local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $tmp_dir" EXIT
+  trap "rm -fr \"$source_dir\" \"$tmp_dir\"" EXIT
+  echo BAD > "$source_dir/data.txt"
   setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
@@ -508,11 +504,9 @@ function test_add_mount_pair_tmp_target_and_source() {
 
 
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $mounted" EXIT
-  echo GOOD > "$mounted/data.txt"
-
   local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
-  trap "rm -fr $tmp_dir" EXIT
+  trap "rm -fr \"$mounted\" \"$tmp_dir\"" EXIT
+  echo GOOD > "$mounted/data.txt"
   setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg

@@ -36,10 +36,13 @@ import com.google.devtools.build.lib.remote.common.MaybePathBacked;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
+import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -123,6 +126,16 @@ public class DiskCacheClient {
       path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
     } catch (FileNotFoundException e) {
       return false;
+    } catch (FileAccessException e) {
+      // On Windows, setting the last modified time via java.io.File#setLastModified opens the file
+      // with FILE_SHARE_READ | FILE_SHARE_WRITE (without FILE_SHARE_DELETE). If another thread or
+      // process is concurrently replacing the file via renameTo (MoveFileExW), CreateFileW fails
+      // with ERROR_SHARING_VIOLATION or ERROR_ACCESS_DENIED, which JavaIoFileSystem wraps in
+      // FileAccessException after already verifying that the file exists. Since the concurrent
+      // operation already sets a recent mtime, we can treat the entry as present and refreshed.
+      if (OS.getCurrent() != OS.WINDOWS) {
+        throw e;
+      }
     }
     return true;
   }
@@ -353,9 +366,14 @@ public class DiskCacheClient {
   public ListenableFuture<Void> uploadBlob(Digest digest, Blob blob) {
     return executorService.submit(
         () -> {
-          try (InputStream in = blob.get()) {
-            saveFile(digest, Store.CAS, in);
-          }
+          save(
+              digest,
+              Store.CAS,
+              temp -> {
+                try (InputStream in = blob.get()) {
+                  copyToTemp(in, temp);
+                }
+              });
           return null;
         });
   }
@@ -381,19 +399,7 @@ public class DiskCacheClient {
   }
 
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
-    save(
-        digest,
-        store,
-        temp -> {
-          try (OutputStream out = temp.getOutputStream()) {
-            ByteStreams.copy(in, out);
-            // Fsync temp before we rename it to avoid data loss in the case of machine
-            // crashes (the OS may reorder the writes and the rename).
-            if (out instanceof FileOutputStream fos) {
-              fos.getFD().sync();
-            }
-          }
-        });
+    save(digest, store, temp -> copyToTemp(in, temp));
   }
 
   /**
@@ -418,6 +424,19 @@ public class DiskCacheClient {
           // crashes (the OS may reorder the writes and the rename).
           syncFile(temp);
         });
+  }
+
+  private static void copyToTemp(InputStream in, Path temp) throws IOException {
+    try (var out = temp.getOutputStream()) {
+      var bufferedOut = new BufferedOutputStream(out);
+      in.transferTo(bufferedOut);
+      bufferedOut.flush();
+      // Fsync temp before we rename it to avoid data loss in the case of machine
+      // crashes (the OS may reorder the writes and the rename).
+      if (out instanceof FileOutputStream fos) {
+        fos.getFD().sync();
+      }
+    }
   }
 
   /** Writes the contents of a cache entry into a temporary file. */

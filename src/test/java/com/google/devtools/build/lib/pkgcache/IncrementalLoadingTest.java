@@ -509,7 +509,7 @@ public class IncrementalLoadingTest {
                           ImmutableMap.of())))
               .build(ruleClassProvider, fs);
       skyframeExecutor =
-          BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+          SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
               .setPkgFactory(pkgFactory)
               .setFileSystem(fs)
               .setDirectories(directories)

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifacts;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.PrintWriter;
 import javax.annotation.Nullable;
 
@@ -39,7 +37,7 @@ import javax.annotation.Nullable;
 public final class BaselineCoverageAction extends AbstractFileWriteAction {
   private final NestedSet<Artifact> instrumentedFiles;
 
-  private BaselineCoverageAction(
+  BaselineCoverageAction(
       ActionOwner owner, NestedSet<Artifact> instrumentedFiles, Artifact primaryOutput) {
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput);
     this.instrumentedFiles = instrumentedFiles;
@@ -75,17 +73,5 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction {
       }
       writer.flush();
     };
-  }
-
-  static BaselineCoverageAction create(
-      RuleContext ruleContext, NestedSet<Artifact> instrumentedFiles) {
-    // Baseline coverage artifacts will still go into "testlogs" directory.
-    Artifact coverageData =
-        ruleContext.getPackageRelativeArtifact(
-            PathFragment.create(ruleContext.getTarget().getName())
-                .getChild("baseline_coverage.dat"),
-            ruleContext.getTestLogsDirectory());
-    return new BaselineCoverageAction(
-        ruleContext.getActionOwner(), instrumentedFiles, coverageData);
   }
 }

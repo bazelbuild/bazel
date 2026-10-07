@@ -208,9 +208,6 @@ java_library(
     ],
 )
 
-# TODO(kkress, adonovan) Eliminate this target, it is mostly unnecessary. It
-# depends on lib:build-base for BlazeDirectories, which it uses for a type
-# parameter, but the param is unused.
 java_library(
     name = "builder_factory_for_testing",
     srcs = ["BuilderFactoryForTesting.java"],
@@ -268,6 +265,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:abstract-exported-starlark-symbol-codec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
@@ -278,6 +276,7 @@ java_library(
         "//src/main/java/net/starlark/java/lib",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",

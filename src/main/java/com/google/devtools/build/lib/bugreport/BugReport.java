@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
@@ -77,6 +78,18 @@ public final class BugReport {
 
   private static final boolean SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST =
       TestType.isInTest() && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
+
+  private static final ThreadLocal<Boolean> isHalting = new ThreadLocal<>();
+
+  /**
+   * Returns whether the current thread is actively reporting a crash that will halt the JVM.
+   *
+   * <p>If true, logging infrastructure may wish to send bug reports synchronously to ensure they
+   * are sent before halting the JVM.
+   */
+  public static boolean isHaltingOnCurrentThread() {
+    return Objects.equals(isHalting.get(), true);
+  }
 
   private BugReport() {}
 
@@ -305,7 +318,16 @@ public final class BugReport {
           // memory can cause issues. Also, don't try to send a bug report during a crash in a test,
           // it will throw itself.
           if (ctx.shouldSendBugReport() && !isOom && !TestType.isInTest()) {
-            sendBugReport(throwable, ctx.getArgs());
+            if (ctx.shouldHaltJvm()) {
+              isHalting.set(Boolean.TRUE);
+            }
+            try {
+              sendBugReport(throwable, ctx.getArgs());
+            } finally {
+              if (ctx.shouldHaltJvm()) {
+                isHalting.remove();
+              }
+            }
           }
         } finally {
           if (ctx.shouldHaltJvm()) {

@@ -379,6 +379,13 @@ class BazelFetchTest(test_base.TestBase):
     self.assertIn('JUST FETCHED', ''.join(stderr))
 
   def testForceFetchWithRepoCache(self):
+    # The test harness disables the repo contents cache, which this test is
+    # about. Use a private one outside of the workspace.
+    with open(self._test_bazelrc, 'at') as f:
+      f.write(
+          'common --repo_contents_cache=%s\n'
+          % os.path.join(self._temp, 'repo_contents_cache')
+      )
     self.ScratchFile(
         'MODULE.bazel',
         [

@@ -75,9 +75,10 @@ bool stat_file(const char* path, Stat* result) {
     success = true;
     bool is_dir = (info.dwFileAttributes != INVALID_FILE_ATTRIBUTES) &&
                   (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
-    // TODO(laszlocsomor): use info.nFileSizeHigh after we updated total_size to
-    // be u8 type.
-    result->total_size = is_dir ? 0 : info.nFileSizeLow;
+    result->total_size =
+        is_dir ? 0
+               : (static_cast<u8>(info.nFileSizeHigh) << 32) |
+                     info.nFileSizeLow;
     // TODO(laszlocsomor): query the actual permissions and write in file_mode.
     result->file_mode = 0777;
     result->is_directory = is_dir;

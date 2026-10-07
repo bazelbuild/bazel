@@ -217,7 +217,7 @@ public class BzlLoadFunction implements SkyFunction {
    * <p><b>USAGE NOTES:</b>
    *
    * <ul>
-   *   <li>This method is intended to be called from {@link PackageFunction} and {@link
+   *   <li>This method is intended to be called from {@code PackageFunction} and {@link
    *       StarlarkBuiltinsFunction} and probably shouldn't be used anywhere else. If you think you
    *       need inline Starlark computation, consult with the Core subteam and check out
    *       cl/305127325 for an example of correcting a misuse.
@@ -393,7 +393,7 @@ public class BzlLoadFunction implements SkyFunction {
    * An opaque object that holds state for the bzl inlining computation initiated by {@link
    * #computeInline}.
    *
-   * <p>An original caller of {@code computeInline} (e.g., {@link PackageFunction}) should obtain
+   * <p>An original caller of {@code computeInline} (e.g., {@code PackageFunction}) should obtain
    * one of these objects using {@link InliningState#create}. When the same caller makes several
    * calls to {@code computeInline} (e.g., for multiple top-level loads in the same BUILD file), the
    * same object must be passed to each call.
@@ -772,10 +772,11 @@ public class BzlLoadFunction implements SkyFunction {
 
     // Determine dependency BzlLoadValue keys for the load statements in this bzl.
     // Labels are resolved relative to the current repo mapping.
-    RepositoryMapping repoMapping = getRepositoryMapping(key, env);
-    if (repoMapping == null) {
+    RepositoryMappingValue repoMappingValue = getRepositoryMappingValue(key, env);
+    if (repoMappingValue == null || repoMappingValue.repositoryMapping() == null) {
       return null;
     }
+    RepositoryMapping repoMapping = repoMappingValue.repositoryMapping();
     RepositoryMapping mainRepoMapping = getMainRepositoryMapping(key, env);
     if (mainRepoMapping == null) {
       return null;
@@ -789,7 +790,7 @@ public class BzlLoadFunction implements SkyFunction {
             pkg,
             ruleClassProvider::isPackageUnderExperimental,
             ruleClassProvider::isPackageUnderPrototypes,
-            ruleClassProvider::mayPackageDependOnPrototypes,
+            ruleClassProvider::hasHardCodedException,
             builtins.starlarkSemantics.getBool(BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
             repoMapping,
             key.isSclDialect(),
@@ -864,6 +865,7 @@ public class BzlLoadFunction implements SkyFunction {
         BazelModuleContext.create(
             key,
             repoMapping,
+            repoMappingValue.moduleRepoName(),
             prog.getFilename(),
             ImmutableList.copyOf(loadMap.values()),
             transitiveDigest,
@@ -924,26 +926,23 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   @Nullable
-  private static RepositoryMapping getRepositoryMapping(BzlLoadValue.Key key, Environment env)
-      throws InterruptedException {
+  private static RepositoryMappingValue getRepositoryMappingValue(
+      BzlLoadValue.Key key, Environment env) throws InterruptedException {
     RepositoryName repoName = key.getLabel().getRepository();
 
     if (key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
       // Special case: we're only here to get one of the rules in the @bazel_tools repo that
       // load Bazel modules. At this point we can't load from any other modules and thus use a
       // repository mapping that contains only @bazel_tools itself.
-      return RepositoryMapping.create(
-          ImmutableMap.of("bazel_tools", RepositoryName.BAZEL_TOOLS), RepositoryName.BAZEL_TOOLS);
+      return RepositoryMappingValue.createSpecial(
+          RepositoryMapping.create(
+              ImmutableMap.of("bazel_tools", RepositoryName.BAZEL_TOOLS),
+              RepositoryName.BAZEL_TOOLS));
     }
 
     // This is either a .bzl loaded from BUILD files, or a .bzl loaded for bzlmod, so we can just
     // use the full repo mapping from RepositoryMappingFunction.
-    RepositoryMappingValue repositoryMappingValue =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
-    if (repositoryMappingValue == null) {
-      return null;
-    }
-    return repositoryMappingValue.repositoryMapping();
+    return (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
   }
 
   @Nullable
@@ -953,7 +952,8 @@ public class BzlLoadFunction implements SkyFunction {
         || key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
       // For builtins and @bazel_tools, the key's local repo mapping can be used as the main repo
       // mapping.
-      return getRepositoryMapping(key, env);
+      RepositoryMappingValue repoMappingValue = getRepositoryMappingValue(key, env);
+      return repoMappingValue == null ? null : repoMappingValue.repositoryMapping();
     }
     var mainRepositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
@@ -1522,11 +1522,14 @@ public class BzlLoadFunction implements SkyFunction {
         }
       } else {
         // The cache hit may have been populated on behalf of a different BzlLoadValue node with
-        // the same compile key; make sure this node depends on the .bzl file too.
+        // the same compile key; make sure this node depends on the .bzl file (and allowlist file,
+        // if oversized) too.
         var bzlFileKey = key.getBzlFileKey();
         if (bzlFileKey != null) {
           try {
-            if (env.getValueOrThrow(bzlFileKey, IOException.class) == null) {
+            var bzlFileValue = env.getValueOrThrow(bzlFileKey, IOException.class);
+            if (bzlFileValue == null
+                || !BzlCompileFunction.registerAllowlistDepIfOversized(key, bzlFileValue, env)) {
               return null;
             }
           } catch (IOException e) {

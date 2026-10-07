@@ -97,14 +97,15 @@ def get_relnotes_between(base, head, is_patch_release):
 def get_label(issue_id):
   """Get team-X label added to issue."""
   auth = (
-      subprocess.check_output(
-          "gcloud storage cat"
-          " gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc |"
-          " gcloud kms decrypt --project bazel-public --location global"
-          " --keyring buildkite --key github-trusted-token --ciphertext-file"
-          " - --plaintext-file -",
-          shell=True,
-      )
+      subprocess.check_output([
+          "gcloud",
+          "secrets",
+          "versions",
+          "access",
+          "latest",
+          "--secret=github-trusted-token",
+          "--project=bazel-public",
+      ])
       .decode("utf-8")
       .strip()
       .split("\n")[0]
@@ -128,7 +129,12 @@ def get_categorized_relnotes(filtered_notes):
   """Sort release notes by category."""
   categorized_relnotes = {}
   for relnote in filtered_notes:
-    issue_id = re.search(r"\(\#[0-9]+\)$", relnote.strip().split()[-1])
+    parts = relnote.strip().split()
+    if not parts:
+      continue
+    # Safely access the last element now that we know 'parts' is not empty
+    issue_id = re.search(r"\(\#[0-9]+\)$", parts[-1])
+
     category = None
     if issue_id:
       category = get_label(re.sub(r"\(|\#|\)", "", issue_id.group(0).strip()))

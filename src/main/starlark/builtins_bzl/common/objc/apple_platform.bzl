@@ -44,7 +44,14 @@ PLATFORM_TYPE = struct(
 # and i386 architectures.
 # More commonly, however, the apple configuration fragment has fields/methods that allow rules
 # to determine the platform for which a target is being built.
-def _create_platform(name, name_in_plist, platform_type, is_device):
+type _Platform = struct[{
+    "name": str,
+    "name_in_plist": str,
+    "platform_type": str,
+    "is_device": bool,
+}]
+
+def _create_platform(name: str, name_in_plist: str, platform_type: str, is_device: bool) -> _Platform:
     return struct(
         name = name,
         name_in_plist = name_in_plist,
@@ -118,7 +125,7 @@ _TARGET_CPUS_BY_PLATFORM = {
     },
 }
 
-def _for_target_cpu(target_cpu):
+def _for_target_cpu(target_cpu: str) -> _Platform:
     """Returns the platform for the given target CPU.
 
     Args:
@@ -132,12 +139,12 @@ def _for_target_cpu(target_cpu):
             return getattr(PLATFORM, platform)
     fail("No platform found for target CPU %s" % target_cpu)
 
-def _cpu_string_for_target(platform_type, arch):
+def _cpu_string_for_target(platform_type: str, arch: str) -> str:
     if platform_type == PLATFORM_TYPE.macos:
         return "darwin_%s" % arch
     return "%s_%s" % (platform_type, arch)
 
-def _for_target(platform_type, arch):
+def _for_target(platform_type: str, arch: str) -> _Platform:
     """Returns the platform for the given target cpu and platform type.
 
     Args:
@@ -148,7 +155,7 @@ def _for_target(platform_type, arch):
     """
     return _for_target_cpu(_cpu_string_for_target(platform_type, arch))
 
-def _get_target_platform(platform):
+def _get_target_platform(platform: _Platform) -> str:
     """Returns the target platform as it would be represented in a target triple.
 
     Note that the target platform for Catalyst is "ios", despite it being represented here as
@@ -158,7 +165,7 @@ def _get_target_platform(platform):
         return PLATFORM_TYPE.ios
     return platform.platform_type
 
-def _get_target_environment(platform):
+def _get_target_environment(platform: _Platform) -> str:
     """Returns the platform's target environment as it would be represented in a target triple.
 
     Note that the target environment corresponds to the target platform (as returned by

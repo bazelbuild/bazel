@@ -37,6 +37,7 @@ java_library(
         ":memory-use-recorder",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:analysis_graph_stats_event",
+        "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/bugreport",

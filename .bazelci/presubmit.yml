@@ -45,8 +45,13 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
       - "//..."
+    test_flags:
+      - "--config=ci-linux"
+    test_targets:
+      - "//src/test/shell/bazel:bazel_java_toolchain_head_tests"
     include_json_profile:
       - build
+      - test
   fedora39:
     shell_commands:
       - rm -rf $HOME/bazeltest
@@ -178,12 +183,15 @@ tasks:
       - "//src/test/py/bazel:mod_command_test"
       - "//src/test/shell/bazel:bazel_example_test"
       - "//src/test/shell/bazel:bazel_java_test"
+      - "//src/test/shell/bazel:bazel_test_test"
       - "//src/test/shell/bazel:cc_integration_test"
       - "//src/test/shell/bazel:cpp_darwin_integration_test"
       - "//src/test/shell/bazel:external_integration_test"
       - "//src/test/shell/bazel:help_test"
       - "//src/test/shell/bazel/apple:bazel_apple_test"
       - "//src/test/shell/bazel/apple:bazel_objc_test"
+      - "//src/test/shell/bazel/remote:remote_execution_test"
+      - "//src/test/shell/integration:aquery_test"
       - "//src/test/shell/integration:bazel_query_test"
     include_json_profile:
       - build
@@ -219,7 +227,7 @@ tasks:
       - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//third_party/def_parser/..."
-      - "//tools/aquery_differ/..."
+      - "//scripts/aquery_differ/..."
       - "//tools/bash/..."
       - "//tools/build_defs/..."
       - "//tools/java/..."
@@ -229,7 +237,8 @@ tasks:
       # Re-enable the following tests on Windows:
       # https://github.com/bazelbuild/bazel/issues/4292
       - "-//src/test/shell/bazel/remote/..."
-      - "-//tools/python:pywrapper_test"
+      # Too slow for Windows presubmit (24 shards, ~19m wall time on a single VM).
+      - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
     include_json_profile:
       - build
       - test
@@ -274,7 +283,7 @@ tasks:
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/aquery_differ/..."
+      - "//scripts/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
       - "//tools/test/..."

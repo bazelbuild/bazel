@@ -73,6 +73,11 @@ public class InputFile extends FileTarget {
     return false;
   }
 
+  /** Returns true if this input file is the BUILD file of its package. */
+  public boolean isBuildFile() {
+    return getLabel().equals(pkg.getBuildFileLabel());
+  }
+
   @Override
   @Nullable
   public RuleVisibility getRawVisibility() {

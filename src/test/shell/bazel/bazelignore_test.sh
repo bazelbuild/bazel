@@ -333,4 +333,32 @@ EOF
   fi
 }
 
+test_build_ignored_package_reports_bazelignore() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+
+  mkdir -p pkg
+  echo 'filegroup(name="fg")' > pkg/BUILD.bazel
+  echo pkg > .bazelignore
+
+  bazel build //pkg:fg >& "$TEST_log" && fail "expected failure" || true
+  expect_log "Package is considered deleted due to .bazelignore"
+  expect_not_log "--deleted_packages"
+}
+
+test_build_ignored_package_reports_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+
+  mkdir -p pkg
+  echo 'filegroup(name="fg")' > pkg/BUILD.bazel
+  cat > REPO.bazel <<'EOF'
+ignore_directories(["pkg"])
+EOF
+
+  bazel build //pkg:fg >& "$TEST_log" && fail "expected failure" || true
+  expect_log "Package is considered deleted due to ignore_directories() in REPO.bazel"
+  expect_not_log "--deleted_packages"
+}
+
 run_suite "Integration tests for .bazelignore"

@@ -203,7 +203,7 @@ final class Eval {
         // Typecheck the default value
         StarlarkType parameterType = functionType.getParameterTypeByPos(i);
         if (!TypeChecker.isValueSubtypeOf(
-            defaultValue, parameterType, fr.thread.getSemantics(), fn.getModule())) {
+            defaultValue, parameterType, fr.thread.getSemantics(), fr.thread.getTypeContext())) {
           throw Starlark.errorf(
               "%s(): parameter '%s' has default value of type '%s', declares '%s'",
               rfn.getName(),

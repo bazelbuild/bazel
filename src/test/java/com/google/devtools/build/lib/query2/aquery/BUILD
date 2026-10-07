@@ -16,7 +16,7 @@ java_library(
     testonly = 1,
     srcs = ["ActionGraphQueryHelper.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
@@ -33,7 +33,7 @@ java_test(
     name = "ActionGraphQueryTest",
     size = "medium",
     srcs = ["ActionGraphQueryTest.java"],
-    shard_count = 2,
+    shard_count = 6,
     deps = [
         ":action_graph_query_helper",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",

@@ -23,7 +23,7 @@
 namespace devtools_ijar {
 
 u4 ComputeCrcChecksum(u1 *buf, size_t length) {
-  return crc32(0, buf, length);
+  return crc32_z(0, buf, length);
 }
 
 size_t TryDeflate(u1 *buf, size_t length) {

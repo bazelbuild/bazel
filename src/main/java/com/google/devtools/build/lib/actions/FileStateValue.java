@@ -103,7 +103,7 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
               "File " + rootedPath + " found in directory, but stat failed");
         }
         yield createWithStatNoFollow(
-            rootedPath,
+            path,
             checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
             syscallCache,
             tsgm);
@@ -112,12 +112,11 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
   }
 
   public static FileStateValue createWithStatNoFollow(
-      RootedPath rootedPath,
+      Path path,
       FileStatusWithDigest statNoFollow,
       XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
-    Path path = rootedPath.asPath();
     if (statNoFollow.isFile()) {
       return statNoFollow.isSpecialFile()
           ? SpecialFileStateValue.fromStat(path.asFragment(), statNoFollow, tsgm)

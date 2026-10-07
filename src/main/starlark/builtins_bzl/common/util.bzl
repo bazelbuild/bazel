@@ -14,7 +14,7 @@
 
 """Used by top-level exports.bzl."""
 
-def dict_union(*dicts):
+def dict_union(*dicts: dict) -> dict:
     """Returns the strict union of zero or more dicts."""
     result = {}
     for d in dicts:

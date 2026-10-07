@@ -13,17 +13,26 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
+import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
+import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectBuiltEvent;
@@ -32,9 +41,11 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -56,6 +67,8 @@ public class BuildResultListener {
   private final Set<AspectKey> builtAspects = ConcurrentHashMap.newKeySet();
   private final Map<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses =
       new ConcurrentHashMap<>();
+  private final Map<AspectKey, NestedSet<Cause>> aspectRootCauses = new ConcurrentHashMap<>();
+  private final AtomicBoolean hasSandboxedActionFailures = new AtomicBoolean(false);
 
   @GuardedBy("this")
   @Nullable
@@ -102,27 +115,33 @@ public class BuildResultListener {
   }
 
   public ImmutableSet<ConfiguredTarget> getAnalyzedTargets() {
-    return ImmutableSet.copyOf(analyzedTargets);
+    return sortedCopyOf(ConfiguredTarget.ORDERING, analyzedTargets);
   }
 
   public ImmutableSet<ConfiguredTarget> getAnalyzedTests() {
-    return ImmutableSet.copyOf(analyzedTests);
+    return sortedCopyOf(ConfiguredTarget.ORDERING, analyzedTests);
   }
 
   public ImmutableMap<AspectKey, ConfiguredAspect> getAnalyzedAspects() {
-    return ImmutableMap.copyOf(analyzedAspects);
+    return analyzedAspects.entrySet().stream()
+        .sorted(Map.Entry.comparingByKey(AspectKey.ORDERING))
+        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   public ImmutableSet<ConfiguredTarget> getSkippedTargets() {
-    return ImmutableSet.copyOf(skippedTargets);
+    return sortedCopyOf(ConfiguredTarget.ORDERING, skippedTargets);
   }
 
   public ImmutableSet<ConfiguredTargetKey> getBuiltTargets() {
-    return ImmutableSet.copyOf(builtTargets);
+    return sortedCopyOf(ConfiguredTargetKey.ORDERING, builtTargets);
   }
 
   public ImmutableSet<AspectKey> getBuiltAspects() {
-    return ImmutableSet.copyOf(builtAspects);
+    return sortedCopyOf(AspectKey.ORDERING, builtAspects);
+  }
+
+  private static <T> ImmutableSet<T> sortedCopyOf(Comparator<T> comparator, Set<T> set) {
+    return ImmutableSet.copyOf(ImmutableList.sortedCopyOf(comparator, set));
   }
 
   @Subscribe
@@ -133,8 +152,30 @@ public class BuildResultListener {
     }
   }
 
+  @Subscribe
+  @AllowConcurrentEvents
+  public void aspectComplete(AspectCompleteEvent event) {
+    if (event.failed()) {
+      aspectRootCauses.put(event.getAspectKey(), event.getRootCauses());
+    }
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void analysisFailure(AnalysisFailureEvent event) {
+    if (event.getFailedAspect() != null) {
+      aspectRootCauses.put(event.getFailedAspect(), event.getRootCauses());
+    } else {
+      targetRootCauses.put(event.getFailedTarget(), event.getRootCauses());
+    }
+  }
+
   public ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> getTargetRootCauses() {
     return ImmutableMap.copyOf(targetRootCauses);
+  }
+
+  public ImmutableMap<AspectKey, NestedSet<Cause>> getAspectRootCauses() {
+    return ImmutableMap.copyOf(aspectRootCauses);
   }
 
   public synchronized void setAnalysisTimer(Stopwatch timer) {
@@ -165,5 +206,31 @@ public class BuildResultListener {
   @SuppressWarnings("GoodTime") // logged as a long
   public synchronized long getExecutionPhaseTimeInMillis() {
     return executionTimer != null ? executionTimer.elapsed().toMillis() : 0;
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionExecuted(ActionExecutedEvent event) {
+    ActionExecutionException exception = event.getException();
+    if (exception != null && isSandboxFailure(exception)) {
+      hasSandboxedActionFailures.set(true);
+    }
+  }
+
+  private static boolean isSandboxFailure(ActionExecutionException exception) {
+    if (exception instanceof SpawnActionExecutionException spawnException
+        && isSandboxedRunner(spawnException.getSpawnResult().getRunnerName())) {
+      return true;
+    }
+    FailureDetail failureDetail = exception.getDetailedExitCode().getFailureDetail();
+    return failureDetail != null && failureDetail.hasSandbox();
+  }
+
+  public boolean hasSandboxedActionFailures() {
+    return hasSandboxedActionFailures.get();
+  }
+
+  public static boolean isSandboxedRunner(@Nullable String runnerName) {
+    return runnerName != null && (runnerName.endsWith("-sandbox") || runnerName.equals("docker"));
   }
 }

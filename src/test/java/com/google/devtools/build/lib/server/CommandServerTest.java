@@ -154,7 +154,7 @@ public final class CommandServerTest {
               InvocationPolicy invocationPolicy,
               List<String> args,
               OutErr outErr,
-              LockingMode lockingMode,
+              Duration blockForLockTimeout,
               UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
@@ -277,7 +277,7 @@ public final class CommandServerTest {
               InvocationPolicy invocationPolicy,
               List<String> args,
               OutErr outErr,
-              LockingMode lockingMode,
+              Duration blockForLockTimeout,
               UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
@@ -321,6 +321,75 @@ public final class CommandServerTest {
   }
 
   @Test
+  public void testCommandCanFinishAfterClosingClient() throws Exception {
+    // A command whose client went away retries interruptible steps as it terminates, reporting
+    // progress as it goes. Interrupting it again on every report keeps such a retry from ever
+    // converging, holding the command lock: https://github.com/bazelbuild/bazel/issues/30435
+    int maxAttempts = 100;
+    CountDownLatch done = new CountDownLatch(1);
+    AtomicInteger attempts = new AtomicInteger();
+    CommandDispatcher dispatcher =
+        new CommandDispatcher() {
+          @Override
+          public BlazeCommandResult exec(
+              InvocationPolicy invocationPolicy,
+              List<String> args,
+              OutErr outErr,
+              Duration blockForLockTimeout,
+              UiVerbosity uiVerbosity,
+              String clientDescription,
+              long firstContactTimeMillis,
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter) {
+            synchronized (this) {
+              // The client is gone, hence the interrupt telling this command to terminate.
+              assertThrows(InterruptedException.class, this::wait);
+            }
+            OutputStream out = outErr.getOutputStream();
+            try {
+              while (attempts.incrementAndGet() < maxAttempts) {
+                out.write(new byte[1024]);
+                if (!Thread.interrupted()) {
+                  break; // the step went through, this command can return
+                }
+              }
+            } catch (IOException e) {
+              throw new IllegalStateException(e);
+            }
+            done.countDown();
+            return BlazeCommandResult.failureDetail(
+                FailureDetail.newBuilder()
+                    .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED_UNKNOWN))
+                    .build());
+          }
+        };
+
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
+
+    stub.run(
+        createRequest("Foo"),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            server.shutdownNow();
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+    server.awaitTermination();
+    done.await();
+    assertThat(attempts.get()).isLessThan(maxAttempts);
+  }
+
+  @Test
   public void testStream() throws Exception {
     CommandDispatcher dispatcher =
         new CommandDispatcher() {
@@ -329,7 +398,7 @@ public final class CommandServerTest {
               InvocationPolicy invocationPolicy,
               List<String> args,
               OutErr outErr,
-              LockingMode lockingMode,
+              Duration blockForLockTimeout,
               UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
@@ -480,7 +549,7 @@ public final class CommandServerTest {
               InvocationPolicy invocationPolicy,
               List<String> args,
               OutErr outErr,
-              LockingMode lockingMode,
+              Duration blockForLockTimeout,
               UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
@@ -545,7 +614,7 @@ public final class CommandServerTest {
               InvocationPolicy invocationPolicy,
               List<String> args,
               OutErr outErr,
-              LockingMode lockingMode,
+              Duration blockForLockTimeout,
               UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
@@ -639,7 +708,7 @@ public final class CommandServerTest {
               InvocationPolicy invocationPolicy,
               List<String> args,
               OutErr outErr,
-              LockingMode lockingMode,
+              Duration blockForLockTimeout,
               UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
@@ -655,7 +724,7 @@ public final class CommandServerTest {
               InvocationPolicy invocationPolicy,
               List<String> args,
               OutErr outErr,
-              LockingMode lockingMode,
+              Duration blockForLockTimeout,
               UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
@@ -765,7 +834,7 @@ public final class CommandServerTest {
               InvocationPolicy invocationPolicy,
               List<String> args,
               OutErr outErr,
-              LockingMode lockingMode,
+              Duration blockForLockTimeout,
               UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
@@ -864,7 +933,7 @@ public final class CommandServerTest {
               InvocationPolicy invocationPolicy,
               List<String> args,
               OutErr outErr,
-              LockingMode lockingMode,
+              Duration blockForLockTimeout,
               UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
@@ -969,7 +1038,7 @@ public final class CommandServerTest {
               InvocationPolicy invocationPolicy,
               List<String> args,
               OutErr outErr,
-              LockingMode lockingMode,
+              Duration blockForLockTimeout,
               UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
@@ -1063,7 +1132,7 @@ public final class CommandServerTest {
         (invocationPolicy,
             args,
             outErr,
-            lockingMode,
+            blockForLockTimeout,
             uiVerbosity,
             clientDescription,
             firstContactTimeMillis,
@@ -1130,7 +1199,7 @@ public final class CommandServerTest {
     return (invocationPolicy,
         args,
         outErr,
-        lockingMode,
+        blockForLockTimeout,
         uiVerbosity,
         clientDescription,
         firstContactTimeMillis,

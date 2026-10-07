@@ -340,10 +340,18 @@ EOF
       echo "common --experimental_repository_cache_hardlinks" >> $TEST_TMPDIR/bazelrc
     fi
   fi
+  # The repo contents cache defaults to a directory under the repository cache,
+  # which is shared with other tests and test attempts on CI. Tests that
+  # exercise the repo contents cache opt in explicitly.
+  echo "common --repo_contents_cache=" >> $TEST_TMPDIR/bazelrc
 
   if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
-    echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
-    echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
+    local install_base_key
+    install_base_key="$(unzip -p "$PATH_TO_BAZEL_BIN" install_base_key)" || \
+      log_fatal "Could not read install_base_key from the Bazel binary."
+    local shared_install_base="${TEST_INSTALL_BASE}-${install_base_key}"
+    echo "testenv.sh: Using shared install base at $shared_install_base."
+    echo "startup --install_base=$shared_install_base" >> $TEST_TMPDIR/bazelrc
   fi
 
   if is_darwin && has_ipv6_default_route; then
@@ -679,27 +687,56 @@ function setup_clean_workspace() {
 # from a clean workspace
 function cleanup_workspace() {
   if [ -d "${WORKSPACE_DIR:-}" ]; then
+    cd "${WORKSPACE_DIR}"
+  elif [ -d "${TEST_TMPDIR:-}" ]; then
+    cd "${TEST_TMPDIR}"
+  fi
+  for i in "${workspaces[@]+${workspaces[@]}}"; do
+    if [ "$i" != "${WORKSPACE_DIR:-}" ] && [ -d "$i" ]; then
+      # Shut down any Bazel server started in this secondary workspace so it
+      # does not keep directory handles open on Windows during `rm -fr`.
+      # Remove any test-authored `.bazelrc` and ensure `MODULE.bazel` exists
+      # as a regular file first so `bazel shutdown` neither fails on invalid
+      # rc options nor falls back to `--batch` mode (which would cold-start a
+      # JVM instead of checking for an existing server).
+      chmod -R u+rwx "$i" 2>/dev/null || true
+      rm -f "$i/.bazelrc" "$i/MODULE.bazel" && : > "$i/MODULE.bazel" || true
+      (cd "$i" && bazel shutdown >> "$TEST_log" 2>&1) || true
+    fi
+    if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
+      try_with_timeout rm -fr "$i"
+    fi
+  done
+  workspaces=()
+  if [ -d "${WORKSPACE_DIR:-}" ]; then
     log_info "Cleaning up workspace" >> $TEST_log
-    cd ${WORKSPACE_DIR}
-
+    chmod -R u+rwx . 2>/dev/null || true
+    rm -f .bazelrc MODULE.bazel && : > MODULE.bazel || true
     if [[ ${TESTENV_DONT_BAZEL_CLEAN:-0} == 0 ]]; then
-      bazel clean >> "$TEST_log" 2>&1
+      bazel clean >> "$TEST_log" 2>&1 || bazel clean >> "$TEST_log" 2>&1
+      rm -f "${bazel_root}"/*/external/@+*.marker 2>/dev/null || true
+      chmod -R u+rwx "${bazel_root}"/*/external/+* 2>/dev/null || true
+      try_with_timeout rm -fr "${bazel_root}"/*/external/+*
     fi
 
+    # Include hidden files and directories (such as `.bazelignore`) so they do
+    # not leak across test functions when reusing the default workspace.
+    shopt -s dotglob nullglob
     for i in *; do
       if ! is_tools_directory "$i"; then
         try_with_timeout rm -fr "$i"
       fi
     done
+    shopt -u dotglob nullglob
+    for ext in "${bazel_root}"/*/external/*; do
+      if [ -L "$ext" ] && [ ! -e "$ext" ]; then
+        rm -f "$ext" "$(dirname "$ext")/@$(basename "$ext").marker" 2>/dev/null || true
+      fi
+    done
     # Suppress the echo from setup_module_dot_bazel
     setup_module_dot_bazel > /dev/null
+    touch .bazelrc
   fi
-  for i in "${workspaces[@]}"; do
-    if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
-      try_with_timeout rm -fr $i
-    fi
-  done
-  workspaces=()
 }
 
 function testenv_tear_down() {
@@ -708,12 +745,16 @@ function testenv_tear_down() {
 
 # This is called by unittest.bash upon eventual exit of the test suite.
 function cleanup() {
-  if [ -d "${WORKSPACE_DIR:-}" ]; then
-    # Try to shutdown Bazel at the end to prevent a "Cannot delete path" error
-    # on Windows when the outer Bazel tries to delete $TEST_TMPDIR.
-    cd "${WORKSPACE_DIR}"
-    try_with_timeout bazel shutdown || true
-  fi
+  for ws in "${WORKSPACE_DIR:-}" "${TEST_TMPDIR:-}"/workspace.*; do
+    if [ -n "$ws" ] && [ -d "$ws" ]; then
+      # Try to shutdown Bazel at the end to prevent a "Cannot delete path" error
+      # on Windows when the outer Bazel tries to delete $TEST_TMPDIR.
+      cd "$ws"
+      chmod -R u+rwx . 2>/dev/null || true
+      rm -f .bazelrc MODULE.bazel && : > MODULE.bazel || true
+      try_with_timeout bazel shutdown || true
+    fi
+  done
 }
 
 #

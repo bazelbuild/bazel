@@ -89,6 +89,21 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
       String associatedModuleName,
       String associatedModuleVersion)
       throws Exception {
+    return value(
+        repositoryMapping,
+        ownerRepo,
+        associatedModuleName,
+        associatedModuleVersion,
+        associatedModuleName);
+  }
+
+  private static RepositoryMappingValue value(
+      ImmutableMap<String, RepositoryName> repositoryMapping,
+      RepositoryName ownerRepo,
+      String associatedModuleName,
+      String associatedModuleVersion,
+      String moduleRepoName)
+      throws Exception {
     ImmutableMap.Builder<String, RepositoryName> allMappings = ImmutableMap.builder();
     allMappings.putAll(repositoryMapping);
     if (AnalysisMock.get().isThisBazel()) {
@@ -99,22 +114,22 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
     return RepositoryMappingValue.create(
         RepositoryMapping.create(allMappings.buildOrThrow(), ownerRepo),
         associatedModuleName,
-        Version.parse(associatedModuleVersion));
+        Version.parse(associatedModuleVersion),
+        moduleRepoName);
   }
 
   private RepositoryMappingValue valueForRootModule(
       ImmutableMap<String, RepositoryName> repositoryMapping,
       String rootModuleName,
-      String rootModuleVersion)
+      String rootModuleVersion,
+      String rootRepoName)
       throws Exception {
-    ImmutableMap.Builder<String, RepositoryName> allMappings = ImmutableMap.builder();
-    allMappings.putAll(repositoryMapping);
     return value(
-        allMappings.buildOrThrow(), RepositoryName.MAIN, rootModuleName, rootModuleVersion);
+        repositoryMapping, RepositoryName.MAIN, rootModuleName, rootModuleVersion, rootRepoName);
   }
 
   @Test
-  public void testRepoNameMapping_asRootModule() throws Exception {
+  public void testRepoNameMapping_asRootModule_afterModuleChange() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(name='aaa',version='0.1')",
@@ -137,7 +152,27 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     "com_foo_bar_b",
                     RepositoryName.create("bbb+")),
                 "aaa",
-                "0.1"));
+                "0.1",
+                "aaa"));
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0', repo_name = 'renamed')");
+    result = eval(skyKey);
+
+    assertThat(result.hasError()).isFalse();
+    assertThatEvaluationResult(result)
+        .hasEntryThat(skyKey)
+        .isEqualTo(
+            valueForRootModule(
+                ImmutableMap.of(
+                    "", RepositoryName.MAIN,
+                    "aaa", RepositoryName.MAIN,
+                    "renamed", RepositoryName.create("bbb+")),
+                "aaa",
+                "0.1",
+                "aaa"));
   }
 
   @Test
@@ -164,7 +199,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     "com_foo_bar_b",
                     RepositoryName.create("bbb+")),
                 "aaa",
-                "0.1"));
+                "0.1",
+                "haha"));
   }
 
   @Test
@@ -178,7 +214,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')")
         .addModule(
             createModuleKey("ccc", "1.0"),
-            "module(name='ccc', version='1.0')",
+            "module(name='ccc', version='1.0', repo_name='ccc_self')",
             "bazel_dep(name='bbb', version='1.0', repo_name='com_foo_bar_b')");
 
     RepositoryName name = RepositoryName.create("ccc+");
@@ -191,11 +227,12 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             value(
                 ImmutableMap.of(
-                    "ccc", RepositoryName.create("ccc+"),
+                    "ccc_self", RepositoryName.create("ccc+"),
                     "com_foo_bar_b", RepositoryName.create("bbb+")),
                 name,
                 "ccc",
-                "1.0"));
+                "1.0",
+                "ccc_self"));
   }
 
   @Test
@@ -255,7 +292,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     "bbb2",
                     RepositoryName.create("bbb+2.0")),
                 "aaa",
-                "0.1"));
+                "0.1",
+                "aaa"));
   }
 
   @Test

@@ -648,11 +648,6 @@ EOF
 }
 
 function test_run_under_script_script_path() {
-  if is_windows; then
-    # TODO(https://github.com/bazelbuild/bazel/issues/22148): Fix --run_under
-    # paths under windows.
-    return
-  fi
   add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p "$pkg"
@@ -669,11 +664,15 @@ EOF
 echo "hello there $@"
 EOF
   chmod +x "$pkg/greetings.sh"
-  bazel run --script_path="${TEST_TMPDIR}/script.sh" \
+  local script_ext="sh"
+  if is_windows; then
+    script_ext="bat"
+  fi
+  bazel run --script_path="${TEST_TMPDIR}/script.${script_ext}" \
       --run_under="echo -n 'why ' &&" \
       -- "//$pkg:greetings" friend \
       >"$TEST_log" || fail "expected build to succeed"
-  "${TEST_TMPDIR}/script.sh" >"$TEST_log" || fail "expected run script to succeed"
+  "${TEST_TMPDIR}/script.${script_ext}" >"$TEST_log" || fail "expected run script to succeed"
   expect_log "why hello there friend"
 }
 

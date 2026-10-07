@@ -318,7 +318,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         input.setLocation(internalToUnicode(FormatUtils.getLocation(target, relativeLocations)));
       }
 
-      if (inputFile.getName().equals("BUILD")) {
+      if (inputFile.isBuildFile()) {
         Iterable<Label> starlarkLoadLabels =
             aspectResolver == null
                 ? inputFile.getPackageDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles()

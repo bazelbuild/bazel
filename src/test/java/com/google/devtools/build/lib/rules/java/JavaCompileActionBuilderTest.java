@@ -35,8 +35,13 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.remote.RemoteActionFileSystem;
 import com.google.devtools.build.lib.remote.RemoteActionInputFetcher;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
@@ -46,6 +51,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
@@ -475,5 +481,82 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:a.jar");
     List<String> command = getJavacArguments(compileAction);
     assertThat(command).contains("--foo=bar");
+  }
+
+  @Test
+  public void createFullOutputDeps_resolvesRootRelativePaths() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path execRoot = fs.getPath("/exec");
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(
+            execRoot, RootType.OUTPUT, PathFragment.create("blaze-out/k8-opt/bin"));
+
+    Artifact outputDepsProto =
+        ActionsTestUtil.createArtifact(outputRoot, "java/com/google/test/liba.jdeps");
+    Artifact depRootRelative =
+        ActionsTestUtil.createArtifact(outputRoot, "java/com/google/test/libb-hjar.jar");
+    Artifact depMapped =
+        ActionsTestUtil.createArtifact(outputRoot, "java/com/google/test/libc-hjar.jar");
+    Artifact depUnmapped =
+        ActionsTestUtil.createArtifact(outputRoot, "java/com/google/test/libd-hjar.jar");
+    Artifact depAdditionalTransitive =
+        ActionsTestUtil.createArtifact(outputRoot, "java/com/google/test/libe-hjar.jar");
+
+    PathMapper pathMapper =
+        execPath -> {
+          if (execPath.startsWith(PathFragment.create("blaze-out/k8-opt/bin"))) {
+            return PathFragment.create("blaze-out/cfg/bin")
+                .getRelative(execPath.relativeTo(PathFragment.create("blaze-out/k8-opt/bin")));
+          }
+          return execPath;
+        };
+
+    Deps.Dependencies executorJdeps =
+        Deps.Dependencies.newBuilder()
+            .addDependency(
+                Deps.Dependency.newBuilder()
+                    .setKind(Kind.EXPLICIT)
+                    .setPath(depRootRelative.getRootRelativePath().getPathString()))
+            .addDependency(
+                Deps.Dependency.newBuilder()
+                    .setKind(Kind.EXPLICIT)
+                    .setPath(pathMapper.getMappedExecPathString(depMapped)))
+            .addDependency(
+                Deps.Dependency.newBuilder()
+                    .setKind(Kind.EXPLICIT)
+                    .setPath(depUnmapped.getExecPathString()))
+            .addDependency(
+                Deps.Dependency.newBuilder()
+                    .setKind(Kind.EXPLICIT)
+                    .setPath(depAdditionalTransitive.getRootRelativePath().getPathString()))
+            .build();
+
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .setInMemoryOutput(outputDepsProto, executorJdeps.toByteString())
+            .build();
+
+    ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
+    when(actionExecutionContext.getInputPath(outputDepsProto))
+        .thenReturn(fs.getPath("/nonexistent"));
+
+    Deps.Dependencies fullOutputDeps =
+        JavaCompileAction.createFullOutputDeps(
+            spawnResult,
+            outputDepsProto,
+            NestedSetBuilder.create(Order.STABLE_ORDER, depRootRelative, depMapped, depUnmapped),
+            NestedSetBuilder.create(Order.STABLE_ORDER, depAdditionalTransitive),
+            actionExecutionContext,
+            pathMapper);
+
+    assertThat(fullOutputDeps.getDependencyList().stream().map(Deps.Dependency::getPath).toList())
+        .containsExactly(
+            depRootRelative.getExecPathString(),
+            depMapped.getExecPathString(),
+            depUnmapped.getExecPathString(),
+            depAdditionalTransitive.getExecPathString())
+        .inOrder();
   }
 }

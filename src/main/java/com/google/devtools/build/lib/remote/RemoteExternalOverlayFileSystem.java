@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
@@ -402,12 +403,17 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
                 repo.getName(),
                 /* attributes= */ null,
                 /* canJoin= */ unusedAttributes -> true,
-                () ->
-                    materializationExecutor.submit(
-                        () -> {
-                          doMaterialize(repo, reporter);
-                          return null;
-                        })));
+                () -> {
+                  // Another caller may have finished since the presence check above.
+                  if (!markerFileContents.containsKey(repo.getName())) {
+                    return immediateVoidFuture();
+                  }
+                  return materializationExecutor.submit(
+                      () -> {
+                        doMaterialize(repo, reporter);
+                        return null;
+                      });
+                }));
   }
 
   private void doMaterialize(RepositoryName repo, ExtendedEventHandler reporter)

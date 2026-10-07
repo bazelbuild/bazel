@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
@@ -41,12 +42,22 @@ public class RepoOutputFormatter {
   private final PrintWriter printer;
   private final OutputStream outputStream;
   private final OutputFormat outputFormat;
+  private final Path externalDirectory;
 
   public RepoOutputFormatter(
-      PrintWriter printer, OutputStream outputStream, OutputFormat outputFormat) {
+      PrintWriter printer,
+      OutputStream outputStream,
+      OutputFormat outputFormat,
+      Path externalDirectory) {
     this.printer = printer;
     this.outputStream = outputStream;
     this.outputFormat = outputFormat;
+    this.externalDirectory = externalDirectory;
+  }
+
+  /** Returns the root directory of the given repo. */
+  private Path getRepoRoot(RepoDefinition repoDefinition) {
+    return externalDirectory.getRelative(repoDefinition.name());
   }
 
   public void print(String key, RepoDefinitionValue repoDefinition) {
@@ -69,6 +80,7 @@ public class RepoOutputFormatter {
   private void printStarlark(String key, RepoDefinitionValue repoDefinition) {
     if (repoDefinition instanceof RepoDefinitionValue.Found repoDefValue) {
       printer.printf("## %s:\n", key);
+      printer.printf("# Located at: %s\n", getRepoRoot(repoDefValue.repoDefinition()));
       printStarlark(repoDefValue.repoDefinition());
     }
     if (repoDefinition instanceof RepoDefinitionValue.RepoOverride repoOverrideValue) {
@@ -131,6 +143,7 @@ public class RepoOutputFormatter {
     pbBuilder.setRepoRuleName(internalToUnicode(repoRule.id().ruleName()));
     pbBuilder.setRepoRuleBzlLabel(
         internalToUnicode(repoRule.id().bzlFileLabel().getUnambiguousCanonicalForm()));
+    pbBuilder.setRepoRoot(internalToUnicode(getRepoRoot(repoDefinition).getPathString()));
 
     // TODO: record and print the call stack for the repo definition itself?
 

@@ -689,6 +689,33 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   @Test
+  public void testGetModuleFileChecksumMismatchIgnoredWithLockfileModeOff() throws Exception {
+    downloadCache.setPath(scratch.dir("cache"));
+
+    server.serve("/myreg/modules/foo/1.0/MODULE.bazel", "fake");
+    server.start();
+
+    // With --lockfile_mode=off, hashes recorded in the lockfile must not be consulted, so a stale
+    // hash must not cause a checksum mismatch error.
+    var knownFiles =
+        ImmutableMap.of(
+            server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel",
+            Optional.of(sha256("original")));
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl() + "/myreg",
+            LockfileMode.OFF,
+            knownFiles,
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager))
+        .isEqualTo(
+            ModuleFile.create(
+                "fake".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
+  }
+
+  @Test
   public void testGetRepoSpecChecksum() throws Exception {
     downloadCache.setPath(scratch.dir("cache"));
 

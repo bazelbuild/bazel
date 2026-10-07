@@ -29,6 +29,7 @@ py_binary(
     name = "create_release_docs",
     srcs = ["create_release_docs.py"],
     deps = [
+        ":mdx_fixes",
         ":rewriter",
         "//third_party/py/abseil",
     ],
@@ -68,9 +69,15 @@ py_library(
     srcs = ["docs2mdx.py"],
     deps = [
         ":clr_converter",
+        ":mdx_fixes",
         "//third_party/py/abseil",
         requirement("markdownify"),
     ],
+)
+
+py_library(
+    name = "mdx_fixes",
+    srcs = ["mdx_fixes.py"],
 )
 
 py_binary(

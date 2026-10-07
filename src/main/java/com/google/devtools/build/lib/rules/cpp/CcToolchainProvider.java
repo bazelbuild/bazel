@@ -191,6 +191,16 @@ public final class CcToolchainProvider {
               .weakKeys()
               .build(seq -> seq.stream().map(PathFragment::create).collect(toImmutableList()));
 
+  private static final LoadingCache<NestedSet<Artifact>, ImmutableList<Artifact>>
+      generatedCompilerFilesCache =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(
+                  compilerFiles ->
+                      compilerFiles.toList().stream()
+                          .filter(artifact -> !artifact.isSourceArtifact())
+                          .collect(toImmutableList()));
+
   private final StarlarkInfo value;
 
   private CcToolchainProvider(StarlarkInfo value) {
@@ -315,6 +325,14 @@ public final class CcToolchainProvider {
     } catch (TypeException e) {
       throw new EvalException(e);
     }
+  }
+
+  /**
+   * Returns the generated (non-source) files necessary for compilation, cached per compiler_files
+   * NestedSet. For source-file toolchains (e.g. GRTE), this returns an empty list.
+   */
+  public ImmutableList<Artifact> getGeneratedCompilerFiles() throws EvalException {
+    return generatedCompilerFilesCache.get(getCompilerFiles());
   }
 
   /**

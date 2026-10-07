@@ -28,6 +28,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.GuardedValue;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.Structure;
 
 // TODO(adonovan): move skyframe.PackageFunction into lib.packages so we needn't expose this and
 // the other env-building functions.
@@ -305,7 +306,7 @@ public final class BazelStarlarkEnvironment {
   }
 
   /** Constructs a "native" module object with the given contents. */
-  private static Object createNativeModule(Map<String, Object> bindings) {
+  private static Structure createNativeModule(Map<String, Object> bindings) {
     return StructProvider.STRUCT.create(bindings, "no native function or rule '%s'");
   }
 

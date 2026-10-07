@@ -572,9 +572,8 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
       if (result == null) {
         return DONE; // There was an error.
       }
-      // An empty `result` means the entry is skipped due to a missing exec group.
-      if (result.length > 0) {
-        output.putAll(kind, asList(result));
+      for (ConfiguredTargetAndData dependency : result) {
+        output.put(kind, dependency);
       }
     }
 

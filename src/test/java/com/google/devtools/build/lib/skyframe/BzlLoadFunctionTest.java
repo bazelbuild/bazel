@@ -1219,7 +1219,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     SkyKey key = key("//a:bar.bzl");
     SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
-    assertContainsEvent("cannot assign type 'list[int]|list[str]' to 'y' of type 'list[int]'");
+    assertContainsEvent("cannot assign type 'list[int] | list[str]' to 'y' of type 'list[int]'");
   }
 
   @Test

@@ -357,7 +357,6 @@ public class GrpcCacheClientTest {
                 ImmutableSet.of(),
                 /* scrubber= */ null,
                 context.getSpawnExecutionContext(),
-                remotePathResolver,
                 MerkleTreeComputer.BlobPolicy.KEEP);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput);
 
@@ -441,11 +440,7 @@ public class GrpcCacheClientTest {
                 () -> {
                   try {
                     client.ensureInputsPresent(
-                        context,
-                        merkleTree,
-                        ImmutableMap.of(),
-                        /* force= */ true,
-                        remotePathResolver);
+                        context, merkleTree, ImmutableMap.of(), /* force= */ true);
                   } catch (Throwable e) {
                     if (e instanceof InterruptedException) {
                       Thread.currentThread().interrupt();
@@ -623,9 +618,12 @@ public class GrpcCacheClientTest {
     getFromFuture(combinedCache.downloadFile(context, execRoot.getRelative("a/bar"), barDigest));
 
     // assert
-    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
-    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
-    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
+    Path path2 = execRoot.getRelative("a/foo");
+    assertThat(DIGEST_UTIL.compute(path2, path2.stat())).isEqualTo(fooDigest);
+    Path path1 = execRoot.getRelative("b/empty");
+    assertThat(DIGEST_UTIL.compute(path1, path1.stat())).isEqualTo(emptyDigest);
+    Path path = execRoot.getRelative("a/bar");
+    assertThat(DIGEST_UTIL.compute(path, path.stat())).isEqualTo(barDigest);
   }
 
   @Test
@@ -852,7 +850,8 @@ public class GrpcCacheClientTest {
             /* startTime= */ null,
             /* wallTimeInMs= */ 0,
             /* preserveExecutableBit= */ false);
-    return uploadManifest.upload(context, combinedCache, NullEventHandler.INSTANCE);
+    return uploadManifest.upload(
+        context, combinedCache, NullEventHandler.INSTANCE, /* force= */ false);
   }
 
   private ActionResult uploadDirectory(CombinedCache combinedCache, List<Path> outputs)
@@ -973,8 +972,10 @@ public class GrpcCacheClientTest {
     outErr.getErrorStream().write("foo err".getBytes(UTF_8));
     outErr.getOutputStream().close();
 
-    final Digest stdoutDigest = DIGEST_UTIL.compute(outErr.getOutputPath());
-    final Digest stderrDigest = DIGEST_UTIL.compute(outErr.getErrorPath());
+    Path path1 = outErr.getOutputPath();
+    final Digest stdoutDigest = DIGEST_UTIL.compute(path1, path1.stat());
+    Path path = outErr.getErrorPath();
+    final Digest stderrDigest = DIGEST_UTIL.compute(path, path.stat());
 
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {

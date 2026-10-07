@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
@@ -806,6 +807,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
                         BuildOptions.class,
                         BuildOptions.getDefaultBuildOptionsForFragments(
                             ImmutableList.of(CoreOptions.class)))
+                    .put(PlatformConfigurationProvider.class, getPlatformConfigurationProvider())
                     .build()),
             new CompressionServiceImpl(),
             FingerprintValueService.createForTesting(),

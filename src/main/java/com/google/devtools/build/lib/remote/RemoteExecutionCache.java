@@ -35,14 +35,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
@@ -50,7 +48,9 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions.ChunkingFuncti
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -65,13 +65,9 @@ import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -171,11 +167,10 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       RemoteActionExecutionContext context,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
-      boolean force,
-      @Nullable RemotePathResolver remotePathResolver)
+      boolean force)
       throws IOException, InterruptedException {
     Flowable<TransferResult> uploads =
-        createUploadTasks(context, merkleTree, additionalInputs, force, remotePathResolver)
+        createUploadTasks(context, merkleTree, additionalInputs, force)
             .flatMapPublisher(
                 result ->
                     Flowable.using(
@@ -206,20 +201,17 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   @Override
   public void ensureInputsPresent(
-      RemoteActionExecutionContext context,
-      MerkleTree.Uploadable merkleTree,
-      boolean force,
-      RemotePathResolver remotePathResolver)
+      RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force)
       throws IOException, InterruptedException {
-    ensureInputsPresent(context, merkleTree, ImmutableMap.of(), force, remotePathResolver);
+    ensureInputsPresent(context, merkleTree, ImmutableMap.of(), force);
   }
 
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context,
-      RemotePathResolver remotePathResolver,
       Digest digest,
       Path path,
+      PathFragment execPath,
       boolean force) {
     return Futures.transformAsync(
         remotePathChecker.isAvailableLocally(context, path),
@@ -229,14 +221,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             // cache at some point before action execution, but reported to be missing when
             // querying the remote for missing action inputs; possibly because it was evicted in
             // the interim.
-            if (remotePathResolver != null) {
-              throw new CacheNotFoundException(
-                  digest, remotePathResolver.localPathToExecPath(path.asFragment()));
-            } else {
-              // This path should only be taken for RemoteRepositoryRemoteExecutor, which has no
-              // way to handle lost inputs.
-              throw new CacheNotFoundException(digest, path.getPathString());
-            }
+            throw new CacheNotFoundException(digest, execPath);
           }
           return remoteCacheClient.uploadFile(context, digest, path, force);
         },
@@ -244,49 +229,19 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   }
 
   @Override
-  public ListenableFuture<Void> uploadVirtualActionInput(
+  public ListenableFuture<Void> uploadDeterministicWriter(
       RemoteActionExecutionContext context,
       Digest digest,
-      VirtualActionInput virtualActionInput,
+      DeterministicWriter deterministicWriter,
       boolean force) {
     return remoteCacheClient.uploadBlob(
-        context, digest, new VirtualActionInputBlob(virtualActionInput), force);
+        context, digest, new DeterministicWriterBlob(deterministicWriter), force);
   }
 
-  private record VirtualActionInputBlob(VirtualActionInput virtualActionInput) implements Blob {
-
-    private static final ExecutorService VIRTUAL_ACTION_INPUT_PIPE_EXECUTOR =
-        Executors.newThreadPerTaskExecutor(
-            Thread.ofVirtual().name("virtual-action-input-pipe-", 0).factory());
-
+  private record DeterministicWriterBlob(DeterministicWriter deterministicWriter) implements Blob {
     @Override
     public InputStream get() {
-      // Avoid materializing and retaining VirtualActionInput.getBytes() during the upload. This
-      // can result in high memory usage with many parallel actions with large virtual inputs. Limit
-      // this memory usage to the fixed buffer size by using a piped stream.
-      var pipedIn = new PipedInputStream(Chunker.getDefaultChunkSize());
-      PipedOutputStream pipedOut;
-      try {
-        pipedOut = new PipedOutputStream(pipedIn);
-      } catch (IOException e) {
-        throw new IllegalStateException(
-            "PipedOutputStream constructor is not expected to throw", e);
-      }
-      // Note that while Piped{Input,Output}Stream are not directly I/O-bound, bytes read from
-      // pipedIn are sent out via gRPC before more bytes are read. As a result, pipedOut is expected
-      // to block frequently enough to make virtual threads suitable here.
-      var unused =
-          VIRTUAL_ACTION_INPUT_PIPE_EXECUTOR.submit(
-              () -> {
-                try (pipedOut) {
-                  virtualActionInput.writeTo(pipedOut);
-                } catch (IOException e) {
-                  // Since VirtualActionInput#writeTo only throws when pipedOut does, this means
-                  // that the reader has closed pipedIn early, perhaps due to interruption. Since
-                  // the reader is gone, there is no way to propagate this exception back.
-                }
-              });
-      return pipedIn;
+      return deterministicWriter.getInputStream(Chunker.getDefaultChunkSize());
     }
   }
 
@@ -302,9 +257,8 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       Digest digest,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
-      @Nullable RemotePathResolver remotePathResolver,
       boolean force) {
-    var upload = merkleTree.upload(this, context, remotePathResolver, digest, force);
+    var upload = merkleTree.upload(this, context, digest, force);
     if (upload.isPresent()) {
       return upload.get();
     }
@@ -332,8 +286,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       RemoteActionExecutionContext context,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
-      boolean force,
-      @Nullable RemotePathResolver remotePathResolver) {
+      boolean force) {
     var allDigests = Iterables.concat(merkleTree.allDigests(), additionalInputs.keySet());
     if (Iterables.isEmpty(allDigests)) {
       return Single.just(ImmutableList.of());
@@ -344,13 +297,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             Flowable.fromIterable(allDigests)
                 .flatMapMaybe(
                     digest ->
-                        maybeCreateUploadTask(
-                            context,
-                            merkleTree,
-                            additionalInputs,
-                            digest,
-                            force,
-                            remotePathResolver))
+                        maybeCreateUploadTask(context, merkleTree, additionalInputs, digest, force))
                 .collect(toImmutableList()),
         SilentCloseable::close);
   }
@@ -360,8 +307,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
       Digest digest,
-      boolean force,
-      @Nullable RemotePathResolver remotePathResolver) {
+      boolean force) {
     return Maybe.create(
         emitter -> {
           AsyncSubject<Void> completion = AsyncSubject.create();
@@ -406,7 +352,6 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                                         uploadTask.digest,
                                         merkleTree,
                                         additionalInputs,
-                                        remotePathResolver,
                                         force),
                                 directExecutor())
                             // On success, the digest is now present remotely: replace the cached

@@ -359,14 +359,13 @@ public final class Starlark {
    * x}. A Starlark value is iterable if it implements {@link StarlarkIterable}.
    */
   public static Object[] toArray(Object x) throws EvalException {
-    // Specialize Sequence and Dict to avoid allocation and/or indirection.
-    if (x instanceof Sequence) {
-      return ((Sequence<?>) x).toArray();
-    } else if (x instanceof Dict) {
-      return ((Dict<?, ?>) x).keySet().toArray();
-    } else {
-      return Iterables.toArray(toIterable(x), Object.class);
-    }
+    // Specialize common types to avoid allocation and/or indirection.
+    return switch (x) {
+      case Sequence<?> seq -> seq.toArray();
+      case Dict<?, ?> dict -> dict.keySet().toArray();
+      case StarlarkSet<?> set -> set.toArray();
+      case null, default -> Iterables.toArray(toIterable(x), Object.class);
+    };
   }
 
   /**
@@ -375,21 +374,19 @@ public final class Starlark {
    * no length.
    */
   public static int len(Object x) {
-    if (x instanceof String) {
-      return ((String) x).length();
-    } else if (x instanceof Sequence) {
-      return ((Sequence) x).size();
-    } else if (x instanceof Dict) {
-      return ((Dict) x).size();
-    } else if (x instanceof StarlarkSet) {
-      return ((StarlarkSet) x).size();
-    } else if (x instanceof StarlarkIterable) {
+    return switch (x) {
+      case String s -> s.length();
+      case Sequence<?> seq -> seq.size();
+      case Dict<?, ?> dict -> dict.size();
+      case StarlarkSet<?> set -> set.size();
       // Iterables.size runs in constant time if x implements Collection.
-      return Iterables.size((Iterable<?>) x);
-    } else {
-      checkValid(x);
-      return -1; // valid but not a sequence
-    }
+      case StarlarkIterable<?> iterable -> Iterables.size(iterable);
+      case null -> throw new InvalidStarlarkValueException(null);
+      default -> {
+        checkValid(x);
+        yield -1;
+      }
+    };
   }
 
   /** Returns the type of the given Starlark value. */

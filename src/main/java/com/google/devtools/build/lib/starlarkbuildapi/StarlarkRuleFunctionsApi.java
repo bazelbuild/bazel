@@ -261,11 +261,6 @@ function it transitively calls:
   <li>(allowed in rule finalizers only, see <code>finalizer</code> below)
     <a href="../toplevel/native#existing_rules"><code>native.existing_rules()</code></a>,
     <a href="../toplevel/native#existing_rule"><code>native.existing_rule()</code></a>
-  <li>(for <code>WORKSPACE</code> threads)
-    <a href="../globals/workspace#workspace"><code>workspace()</code></a>,
-    <a href="../globals/workspace#register_toolchains"><code>register_toolchains()</code></a>,
-    <a href="../globals/workspace#register_execution_platforms"><code>register_execution_platforms()</code></a>,
-    <a href="../globals/workspace#bind"><code>bind()</code></a>, repository rule instantiation
 </ul>
 """),
         @Param(

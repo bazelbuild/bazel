@@ -189,6 +189,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         java_test(
             name = "java",
             srcs = ["Java.java"],
+            test_class = "Java",
             shard_count = 2,
         )
         """);

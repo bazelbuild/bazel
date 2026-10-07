@@ -122,15 +122,16 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
   }
 
   /**
-   * A view that results in any subsequent getDiff calls returning
-   * {@link ModifiedFileSet#EVERYTHING_MODIFIED}. Use this if --watchFs is disabled.
+   * A view that results in any subsequent getDiff calls returning {@link
+   * ModifiedFileSet#EVERYTHING_MODIFIED}. Use this if --watchFs is disabled.
    *
    * <p>The position is set to -2 in order for {@link #areInSequence} below to always return false
-   * if this view is passed to it. Any negative number would work; we don't use -1 as the other
-   * view may have a position of 0.
+   * if this view is passed to it. Any negative number would work; we don't use -1 as the other view
+   * may have a position of 0.
    */
   protected static final View EVERYTHING_MODIFIED =
-      new SequentialView(/*owner=*/null, /*position=*/-2, ImmutableSet.<Path>of());
+      new SequentialView(
+          /* owner= */ null, /* position= */ -2, ImmutableSet.<Path>of(), /* isOverflow= */ false);
 
   public static boolean areInSequence(SequentialView oldView, SequentialView newView) {
     // Keep this in sync with the EVERYTHING_MODIFIED View above.
@@ -155,17 +156,28 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
     private final LocalDiffAwareness owner;
     private final int position;
     private final Set<Path> modifiedAbsolutePaths;
+    private final boolean isOverflow;
 
-    public SequentialView(LocalDiffAwareness owner, int position, Set<Path> modifiedAbsolutePaths) {
+    public SequentialView(
+        LocalDiffAwareness owner,
+        int position,
+        Set<Path> modifiedAbsolutePaths,
+        boolean isOverflow) {
       this.owner = owner;
       this.position = position;
       this.modifiedAbsolutePaths = modifiedAbsolutePaths;
+      this.isOverflow = isOverflow;
+    }
+
+    public boolean isOverflow() {
+      return isOverflow;
     }
 
     @Override
     public String toString() {
-      return String.format("SequentialView[owner=%s, position=%d, modifiedAbsolutePaths=%s]", owner,
-          position, modifiedAbsolutePaths);
+      return String.format(
+          "SequentialView[owner=%s, position=%d, modifiedAbsolutePaths=%s, isOverflow=%b]",
+          owner, position, modifiedAbsolutePaths, isOverflow);
     }
   }
 
@@ -182,7 +194,19 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
    */
   protected SequentialView newView(Set<Path> modifiedAbsolutePaths) {
     numGetCurrentViewCalls++;
-    return new SequentialView(this, numGetCurrentViewCalls, modifiedAbsolutePaths);
+    return new SequentialView(
+        this, numGetCurrentViewCalls, modifiedAbsolutePaths, /* isOverflow= */ false);
+  }
+
+  /**
+   * Create a new view representing an overflow condition. This increases the view counter so that
+   * sequential ordering is preserved for subsequent calls, but indicates that all files must be
+   * treated as modified for the current diff.
+   */
+  protected SequentialView newOverflowView() {
+    numGetCurrentViewCalls++;
+    return new SequentialView(
+        this, numGetCurrentViewCalls, ImmutableSet.of(), /* isOverflow= */ true);
   }
 
   @Override
@@ -201,6 +225,9 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
       throw new IncompatibleViewException("Given views are not from LocalDiffAwareness");
     }
     if (!areInSequence(oldSequentialView, newSequentialView)) {
+      return ModifiedFileSet.EVERYTHING_MODIFIED;
+    }
+    if (newSequentialView.isOverflow()) {
       return ModifiedFileSet.EVERYTHING_MODIFIED;
     }
 

@@ -30,6 +30,7 @@
 #include "src/main/cpp/server_process_info.h"
 #include "src/main/cpp/util/port.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -165,12 +166,16 @@ std::string GetJavaBinaryUnderJavabase();
 // Start the Bazel server's JVM in the current directory.
 //
 // Note on Windows: 'server_jvm_args' is NOT expected to be escaped for
-// CreateProcessW, and 'run_in_user_cgroup' is ignored.
+// CreateProcessW, and 'run_in_user_cgroup' is ignored. As the arguments can
+// exceed the command line length limit of CreateProcessW, they are passed to
+// the JVM via the argument file 'argfile', which is deleted after the JVM
+// exits. 'argfile' is ignored on other platforms.
 //
 // This function does not return on success.
 ATTRIBUTE_NORETURN void ExecuteServerJvm(
     const blaze_util::Path& exe,
-    const std::vector<std::string>& server_jvm_args, bool run_in_user_cgroup);
+    const std::vector<std::string>& server_jvm_args,
+    const blaze_util::Path& argfile, bool run_in_user_cgroup);
 
 // Execute the "bazel run" request in the current directory.
 //
@@ -218,7 +223,11 @@ enum class LockMode {
 };
 
 // Acquires a `mode` lock on `path`, creating it if doesn't yet exist.
-// If `block` is true, busy-wait until the lock becomes available.
+// If `timeout` is absl::InfiniteDuration(), busy-wait until the lock becomes
+// available.
+// If `timeout <= absl::ZeroDuration()`, exit immediately if the lock cannot be
+// acquired.
+// Otherwise, wait up to `timeout` duration before exiting.
 // If `batch_mode` is false, release the lock on exec.
 // The `path` is guaranteed to exist when this function returns; if it is
 // deleted concurrently with obtaining the lock, we recreate it and try again.
@@ -230,7 +239,8 @@ enum class LockMode {
 std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
                                                   const blaze_util::Path& path,
                                                   LockMode mode,
-                                                  bool batch_mode, bool block);
+                                                  bool batch_mode,
+                                                  absl::Duration timeout);
 
 // Releases a lock previously obtained from AcquireLock.
 void ReleaseLock(LockHandle lock_handle);

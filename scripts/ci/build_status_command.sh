@@ -20,7 +20,7 @@ set -eu
 # the information about the commit being built
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$(dirname ${SCRIPT_DIR})/release/common.sh"
+source "$(dirname "${SCRIPT_DIR}")/release/common.sh"
 
 git_hash=$(git rev-parse --short HEAD)
 echo "RELEASE_GIT_HASH ${git_hash}"

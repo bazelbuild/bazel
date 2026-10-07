@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkBaseExternalContext.ShouldWatch;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -173,6 +174,9 @@ public final class StarlarkPath implements StarlarkValue {
   public boolean exists() throws RepositoryFunctionException {
     try {
       return path.exists();
+    } catch (FileSymlinkLoopException _) {
+      // Treat looping symlink as non-existent.
+      return false;
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -191,6 +195,9 @@ public final class StarlarkPath implements StarlarkValue {
   public boolean isDir() throws RepositoryFunctionException {
     try {
       return path.isDirectory();
+    } catch (FileSymlinkLoopException _) {
+      // Treat looping symlink as not a directory.
+      return false;
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

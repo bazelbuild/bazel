@@ -36,6 +36,7 @@ import net.starlark.java.syntax.Location;
  * should be annotated with {@link StarlarkMethod} with {@link StarlarkMethod#selfCall} set to true,
  * and with {@link StarlarkConstructor} for the info type it constructs.
  */
+// TODO: #27370 - Generate a ProviderType for builtin providers.
 @Immutable
 public abstract class BuiltinProvider<T extends Info> implements Provider {
   private final Key key;

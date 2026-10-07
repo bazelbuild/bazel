@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import java.time.Duration;
@@ -69,6 +70,21 @@ public interface BuildEventTransport {
    */
   default ListenableFuture<Void> getHalfCloseFuture() {
     return close();
+  }
+
+  /**
+   * Returns a future that completes when all events enqueued prior to this call have been processed
+   * and dispatched by the transport's queue, and acknowledged by any remote backend to the extent
+   * possible while the stream remains open.
+   *
+   * <p>Unlike {@link #close}, this does not close or half-close the transport; subsequent events
+   * can still be sent after the returned future completes.
+   *
+   * <p>At most one quiescence check is supported. If called more than once, returns the existing
+   * future that was created on the first call.
+   */
+  default ListenableFuture<Void> getQuiescenceFuture() {
+    return Futures.immediateVoidFuture();
   }
 
   /**

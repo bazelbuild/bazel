@@ -502,38 +502,39 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract void setDiskCache(PathFragment value);
 
   @Option(
-      name = "experimental_disk_cache_gc_idle_delay",
+      name = "disk_cache_gc_idle_delay",
+      oldName = "experimental_disk_cache_gc_idle_delay",
       defaultValue = "5m",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = DurationConverter.class,
       help =
           "How long the server must remain idle before a garbage collection of the disk cache"
-              + " occurs. To specify the garbage collection policy, set"
-              + " --experimental_disk_cache_gc_max_size and/or"
-              + " --experimental_disk_cache_gc_max_age.")
+              + " occurs. To specify the garbage collection policy, set --disk_cache_gc_max_size"
+              + " and/or --disk_cache_gc_max_age.")
   public abstract Duration getDiskCacheGcIdleDelay();
 
   public abstract void setDiskCacheGcIdleDelay(Duration value);
 
   @Option(
-      name = "experimental_disk_cache_gc_max_size",
+      name = "disk_cache_gc_max_size",
+      oldName = "experimental_disk_cache_gc_max_size",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = ByteSizeConverter.class,
       help =
           "If set to a positive value, the disk cache will be periodically garbage collected to"
-              + " stay under this size. If set in conjunction with"
-              + " --experimental_disk_cache_gc_max_age, both criteria are applied. Garbage"
-              + " collection occurrs in the background once the server has become idle, as"
-              + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
+              + " stay under this size. If set in conjunction with --disk_cache_gc_max_age, both"
+              + " criteria are applied. Garbage collection occurrs in the background once the"
+              + " server has become idle, as determined by the --disk_cache_gc_idle_delay flag.")
   public abstract long getDiskCacheGcMaxSize();
 
   public abstract void setDiskCacheGcMaxSize(long value);
 
   @Option(
-      name = "experimental_disk_cache_gc_max_age",
+      name = "disk_cache_gc_max_age",
+      oldName = "experimental_disk_cache_gc_max_age",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -541,9 +542,9 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       help =
           "If set to a positive value, the disk cache will be periodically garbage collected to"
               + " remove entries older than this age. If set in conjunction with"
-              + " --experimental_disk_cache_gc_max_size, both criteria are applied. Garbage"
-              + " collection occurrs in the background once the server has become idle, as"
-              + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
+              + " --disk_cache_gc_max_size, both criteria are applied. Garbage collection occurrs"
+              + " in the background once the server has become idle, as determined by the"
+              + " --disk_cache_gc_idle_delay flag.")
   public abstract Duration getDiskCacheGcMaxAge();
 
   public abstract void setDiskCacheGcMaxAge(Duration value);

@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -35,12 +33,6 @@ public class BazelRuleAnalysisThreadContext extends StarlarkThreadContext {
   public BazelRuleAnalysisThreadContext(RuleContext ruleContext) {
     super(ruleContext.getAnalysisEnvironment()::getMainRepoMapping);
     this.ruleContext = ruleContext;
-  }
-
-  /** Returns the label of the rule. */
-  @Nullable
-  public Label getAnalysisRuleLabel() {
-    return ruleContext.getLabel();
   }
 
   public RuleContext getRuleContext() {

@@ -16,14 +16,18 @@ package com.google.testing.junit.runner.junit4;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory;
+import com.google.testing.junit.runner.internal.junit4.MemoizingRequest;
 import com.google.testing.junit.runner.model.AntXmlResultWriter;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.model.XmlResultWriter;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.util.MemoizingSupplier;
+import com.google.testing.junit.runner.util.SuiteUtil;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.junit.runner.Request;
@@ -58,10 +62,16 @@ public final class JUnit4Bazel {
   }
 
   private void initialize(final Builder<?> builder) {
-    Class<?> topLevelSuite = builder.suiteClass;
-    this.request = JUnit4RunnerBaseModule.provideRequest(topLevelSuite);
+    List<Class<?>> topLevelSuites = builder.suiteClasses;
+    // Request.classes is self-memoizing because it creates the runner eagerly and delegates to
+    // Request.runner(...). Request.aClass only needs MemoizingRequest for compatibility with
+    // pre-4.11 JUnit versions where getRunner() reconstructed the runner on each call.
+    this.request =
+        (topLevelSuites.size() == 1)
+            ? new MemoizingRequest(Request.aClass(topLevelSuites.get(0)))
+            : Request.classes(topLevelSuites.toArray(new Class<?>[0]));
     this.cancellableRequestFactory = builder.module.cancellableRequestFactory();
-    String topLevelSuiteName = topLevelSuite.getCanonicalName();
+    String topLevelSuiteName = SuiteUtil.getTopLevelSuiteName(topLevelSuites);
     ShardingEnvironment shardingEnvironment = builder.module.shardingEnvironment();
     ShardingFilters shardingFilters = builder.module.shardingFilters(shardingEnvironment);
     XmlResultWriter resultWriter = new AntXmlResultWriter();
@@ -89,13 +99,13 @@ public final class JUnit4Bazel {
 
   /** A builder for instantiating {@link JUnit4Bazel}. */
   public static class Builder<B extends Builder<B>> {
-    private Class<?> suiteClass;
+    private List<Class<?>> suiteClasses = new ArrayList<>();
     private JUnit4InstanceModules.Config config;
     protected JUnit4RunnerModule module;
 
     public JUnit4Bazel build() {
-      if (suiteClass == null) {
-        throw new IllegalStateException("suiteClass must be set");
+      if (suiteClasses.isEmpty()) {
+        throw new IllegalStateException("suiteClass or suiteClasses must be set");
       }
       if (module == null) {
         this.module = createModule();
@@ -112,14 +122,21 @@ public final class JUnit4Bazel {
     }
 
     @CanIgnoreReturnValue
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked") // unchecked: safe cast for fluent builder pattern
     public B suiteClass(Class<?> suiteClass) {
-      this.suiteClass = checkNotNull(suiteClass);
+      this.suiteClasses = Collections.singletonList(checkNotNull(suiteClass));
       return (B) this;
     }
 
     @CanIgnoreReturnValue
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked") // Safe cast for fluent builder pattern
+    public B suiteClasses(List<Class<?>> suiteClasses) {
+      this.suiteClasses = new ArrayList<>(checkNotNull(suiteClasses));
+      return (B) this;
+    }
+
+    @CanIgnoreReturnValue
+    @SuppressWarnings("unchecked") // Safe cast for fluent builder pattern
     public B config(JUnit4InstanceModules.Config config) {
       this.config = checkNotNull(config);
       return (B) this;

@@ -68,6 +68,10 @@ public class BazelLockFileFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws BazelLockfileFunctionException, InterruptedException {
+    if (LOCKFILE_MODE.get(env) == LockfileMode.OFF) {
+      return BazelLockFileValue.EMPTY_LOCKFILE;
+    }
+
     boolean forHiddenLockfile = skyKey == BazelLockFileValue.HIDDEN_KEY;
     RootedPath lockfilePath =
         RootedPath.toRootedPath(
@@ -155,15 +159,12 @@ public class BazelLockFileFunction implements SkyFunction {
       return false;
     }
     for (var extensionMap : lockFileValue.getModuleExtensions().values()) {
-      if (extensionMap == null) {
-        return false;
-      }
-      for (LockFileModuleExtension extension : extensionMap.values()) {
-        if (extension == null || extension.getGeneratedRepoSpecs() == null) {
+      for (var extension : extensionMap.values()) {
+        if (extension.getGeneratedRepoSpecs() == null) {
           return false;
         }
-        for (RepoSpec repoSpec : extension.getGeneratedRepoSpecs().values()) {
-          if (repoSpec == null || repoSpec.repoRuleId() == null) {
+        for (var repoSpec : extension.getGeneratedRepoSpecs().values()) {
+          if (repoSpec.repoRuleId() == null) {
             return false;
           }
         }

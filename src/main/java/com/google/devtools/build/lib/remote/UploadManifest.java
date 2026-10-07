@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -195,12 +196,14 @@ public class UploadManifest {
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
-    if (outErr.getErrorPath().exists()) {
-      stderrDigest = digestUtil.compute(outErr.getErrorPath());
+    var errorStat = outErr.getErrorPath().statIfFound();
+    if (errorStat != null) {
+      stderrDigest = digestUtil.compute(outErr.getErrorPath(), errorStat);
       digestToFile.put(stderrDigest, outErr.getErrorPath());
     }
-    if (outErr.getOutputPath().exists()) {
-      stdoutDigest = digestUtil.compute(outErr.getOutputPath());
+    var outputStat = outErr.getOutputPath().statIfFound();
+    if (outputStat != null) {
+      stdoutDigest = digestUtil.compute(outErr.getOutputPath(), outputStat);
       digestToFile.put(stdoutDigest, outErr.getOutputPath());
     }
   }
@@ -388,15 +391,22 @@ public class UploadManifest {
         Multimaps.synchronizedSortedSetMultimap(TreeMultimap.create());
 
     // Maps each directory found during the traversal to its files.
+    // The values in this map are protos and thus retain Strings that do not use Bazel's internal
+    // encoding for Strings (see StringEncoding).
     private final SortedSetMultimap<Path, FileNode> dirToFiles =
         Multimaps.synchronizedSortedSetMultimap(
-            TreeMultimap.<Path, FileNode>create(naturalOrder(), comparing(FileNode::getName)));
+            TreeMultimap.<Path, FileNode>create(
+                naturalOrder(),
+                comparing(FileNode::getName, comparing(StringEncoding::unicodeToInternal))));
 
     // Maps each directory found during the traversal to its symlinks.
+    // The values in this map are protos and thus retain Strings that do not use Bazel's internal
+    // encoding for Strings (see StringEncoding).
     private final SortedSetMultimap<Path, SymlinkNode> dirToSymlinks =
         Multimaps.synchronizedSortedSetMultimap(
             TreeMultimap.<Path, SymlinkNode>create(
-                naturalOrder(), comparing(SymlinkNode::getName)));
+                naturalOrder(),
+                comparing(SymlinkNode::getName, comparing(StringEncoding::unicodeToInternal))));
 
     DirectoryBuilder(Path rootDir) {
       super(
@@ -523,8 +533,9 @@ public class UploadManifest {
 
     private void visitAsFile(Path path) throws IOException {
       Path parentPath = path.getParentDirectory();
-      FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
-      Digest digest = digestUtil.compute(path);
+      // When called, the file is known to exist and is not a symlink.
+      FileStatus stat = path.stat();
+      Digest digest = digestUtil.compute(path, stat);
       FileNode node =
           FileNode.newBuilder()
               .setName(internalToUnicode(path.getBaseName()))
@@ -598,11 +609,17 @@ public class UploadManifest {
     return result.build();
   }
 
-  /** Uploads outputs and action result (if exit code is 0) to the remote and/or disk cache. */
+  /**
+   * Uploads outputs and action result (if exit code is 0) to the remote and/or disk cache.
+   *
+   * @param force whether to upload blobs to the remote cache even if {@code combinedCache} has
+   *     already completed uploads of them, e.g. because they may have been evicted since
+   */
   public ActionResult upload(
       RemoteActionExecutionContext context,
       CombinedCache combinedCache,
-      ExtendedEventHandler reporter)
+      ExtendedEventHandler reporter,
+      boolean force)
       throws IOException, InterruptedException, ExecException {
     ActionExecutionMetadata action = context.getSpawnOwner();
     var allDigests = Sets.union(digestToBlobs.keySet(), digestToFile.keySet()).immutableCopy();
@@ -615,7 +632,7 @@ public class UploadManifest {
       for (var digest : allDigests) {
         uploadFutures.add(
             decorateUploadFuture(
-                uploadSingleDigest(diskContext, combinedCache, digest),
+                uploadSingleDigest(diskContext, combinedCache, digest, force),
                 reporter,
                 action,
                 Store.CAS,
@@ -639,7 +656,7 @@ public class UploadManifest {
         for (var digest : missingDigests) {
           uploadFutures.add(
               decorateUploadFuture(
-                  uploadSingleDigest(remoteContext, combinedCache, digest),
+                  uploadSingleDigest(remoteContext, combinedCache, digest, force),
                   reporter,
                   action,
                   Store.CAS,
@@ -670,10 +687,13 @@ public class UploadManifest {
   }
 
   private ListenableFuture<Void> uploadSingleDigest(
-      RemoteActionExecutionContext context, CombinedCache combinedCache, Digest digest) {
+      RemoteActionExecutionContext context,
+      CombinedCache combinedCache,
+      Digest digest,
+      boolean force) {
     Path file = digestToFile.get(digest);
     if (file != null) {
-      return combinedCache.uploadFile(context, digest, file);
+      return combinedCache.uploadFile(context, digest, file, force);
     }
 
     ByteString blob = digestToBlobs.get(digest);
@@ -682,7 +702,7 @@ public class UploadManifest {
           new IOException("Upload requested for unknown digest: " + digest));
     }
 
-    return combinedCache.uploadBlob(context, digest, blob);
+    return combinedCache.uploadBlob(context, digest, blob::newInput, force);
   }
 
   @CanIgnoreReturnValue

@@ -687,10 +687,8 @@ int main() {
 EOF
 
   bazel build //:main_c \
-    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
     --repo_env=BAZEL_CXXOPTS=-DEXIT_CODE=0 && fail "Expected C compilation to fail"
   bazel run //:main_cpp \
-    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
     --repo_env=BAZEL_CXXOPTS=-DEXIT_CODE=0 || fail "Expected C++ compilation to pass"
 }
 
@@ -721,10 +719,8 @@ int main() {
 EOF
 
   bazel build //:main_cpp \
-    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
     --repo_env=BAZEL_CONLYOPTS=-DEXIT_CODE=0 && fail "Expected C++ compilation to fail"
   bazel run //:main_c \
-    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
     --repo_env=BAZEL_CONLYOPTS=-DEXIT_CODE=0 || fail "Expected C compilation to pass"
 }
 
@@ -1161,6 +1157,7 @@ EOF
 
 function test_cpp20_modules_with_clang() {
   type -P clang || return 0
+  type -P clang-scan-deps || return 0
   # Check if clang version is less than 17
   clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
   if [[ -n "$clang_version" ]]; then

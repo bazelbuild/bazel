@@ -26,6 +26,7 @@ java_test(
         ],
         exclude = [
             "DependencySetWindowsTest.java",
+            "DeterministicWriterTest.java",
             "ResourceFileLoaderTest.java",
             "HeapOffsetHelperTest.java",
             "StringEncodingTest.java",
@@ -214,6 +215,18 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/junit",
         "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "DeterministicWriterTest",
+    size = "small",
+    srcs = ["DeterministicWriterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//third_party/java/junit",
         "//third_party/java/truth",
     ],
 )

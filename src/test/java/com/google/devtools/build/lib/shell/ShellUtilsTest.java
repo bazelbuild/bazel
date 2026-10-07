@@ -127,6 +127,35 @@ public class ShellUtilsTest {
   }
 
   @Test
+  public void testTokenizeWhitespace() throws Exception {
+    assertTokenize(" ");
+    assertTokenize(" \t  \t");
+    assertTokenize("foo", "foo");
+    assertTokenize("  foo\t", "foo");
+    assertTokenize("\tfoo  bar\t\tbaz ", "foo", "bar", "baz");
+    assertTokenize("a b", "a", "b");
+  }
+
+  @Test
+  public void testTokenizeMixedPlainAndQuotedInOneToken() throws Exception {
+    assertTokenize("a'b'c", "abc");
+    assertTokenize("a\"b\"c d", "abc", "d");
+    assertTokenize("x a'b c'd y", "x", "ab cd", "y");
+    assertTokenize("a\\ b c", "a b", "c");
+    assertTokenize("\\a", "a");
+    // The builder is reused across tokens, interleaved with plain tokens.
+    assertTokenize("a'b' c d\\e 'f'", "ab", "c", "de", "f");
+    assertTokenize("'' x \"\"", "", "x", "");
+  }
+
+  @Test
+  public void testTokenizeFailsOnBackslashAtEnd() {
+    assertTokenizeFails("foo\\", "backslash at end of string");
+    assertTokenizeFails("foo \\", "backslash at end of string");
+    assertTokenizeFails("\"foo\\", "backslash at end of string");
+  }
+
+  @Test
   public void testTokenizeFailsOnUnterminatedQuotation() {
     assertTokenizeFails("-Dfoo=\"bar", "unterminated quotation");
     assertTokenizeFails("-Dfoo='bar", "unterminated quotation");

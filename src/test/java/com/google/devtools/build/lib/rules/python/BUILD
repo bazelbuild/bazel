@@ -99,7 +99,7 @@ java_test(
     deps = [
         ":PyExecutableTestBase",
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/junit",
@@ -127,7 +127,7 @@ java_test(
     deps = [
         ":PyBaseTestBase",
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//third_party/java/junit",

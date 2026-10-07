@@ -139,7 +139,8 @@ class OptionProcessor {
   // to the server. The options are returned in the order they should be appear
   // on the command line (later options have precedence over earlier ones).
   static std::vector<BlazercOption> GetBlazercOptions(
-      const std::string& cwd, const std::vector<RcFile*>& blazercs);
+      const std::string& cwd, const std::vector<RcFile*>& blazercs,
+      bool quiet = false);
 
   // Constructs all synthetic command args that should be passed to the
   // server to configure blazerc options and client environment.

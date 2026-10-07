@@ -170,7 +170,7 @@ public class ExternalFilesHelper {
      * and also note that output files do not normally have corresponding {@link
      * com.google.devtools.build.lib.actions.FileValue} instances (and thus also {@link
      * com.google.devtools.build.lib.actions.FileStateValue} instances) in the Skyframe graph
-     * ({@link ArtifactFunction} only uses {@link com.google.devtools.build.lib.actions.FileValue}s
+     * ({@code ArtifactFunction} only uses {@link com.google.devtools.build.lib.actions.FileValue}s
      * for source files). But {@link com.google.devtools.build.lib.actions.FileStateValue}s for
      * output files can still make their way into the Skyframe graph if e.g. a source file is a
      * symlink to an output file.
@@ -195,7 +195,7 @@ public class ExternalFilesHelper {
      * immutably present from the perspective of Skyframe and don't require invalidation.
      *
      * <p>Note: If these directories ever need to be checked for dirtiness during diffing, they have
-     * to be made non-cacheable according to {@link
+     * to be made non-cacheable according to {@code
      * DirtinessCheckerUtils.ExternalDirtinessChecker#isCacheableType} so that they are not locked
      * in as non-existent if they have been removed. This would result in FileValues for files below
      * them (the actual repo contents, of type EXTERNAL_OTHER) being locked in as non-existent too,

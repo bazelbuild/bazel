@@ -26,7 +26,6 @@ import static java.util.Arrays.stream;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -37,7 +36,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
-import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -61,7 +59,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -155,8 +152,6 @@ import java.util.stream.IntStream;
 @SuppressWarnings("IdentifierName") // Using test method naming conventions.
 public class RewindingTestsHelper {
 
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   final ActionEventRecorder recorder;
   final BuildIntegrationTestCase testCase;
   private final SpawnController spawnController = new SpawnController();
@@ -168,12 +163,6 @@ public class RewindingTestsHelper {
     this.lostOutputsModule = createLostOutputsModule();
   }
 
-  protected final boolean precise() {
-    return testCase
-        .getRuntimeWrapper()
-        .getOptions(BuildRequestOptions.class)
-        .getExperimentalPreciseRewinding();
-  }
 
   public final LostImportantOutputHandlerModule getLostOutputsModule() {
     return lostOutputsModule;
@@ -1634,7 +1623,7 @@ public class RewindingTestsHelper {
     testCase.buildTarget("//tree:consumes_tree");
     verifyAllSpawnShimsConsumed();
 
-    if (precise() && lostTreeFileArtifactNames.size() == 1) {
+    if (lostTreeFileArtifactNames.size() == 1) {
       assertThat(lostTreeFileArtifactNames).containsExactly("make_cc_dir/file1.pic.o");
       assertThat(getExecutedSpawnDescriptions())
           .containsExactly(
@@ -1743,7 +1732,7 @@ public class RewindingTestsHelper {
       throws Exception {
     // All consumers and the action that reports the lost input have to run concurrently for the
     // expansion to be rewound while the tree artifact is being read.
-    ensureMinimumJobs(TREE_CONSUMER_COUNT + 1);
+    testCase.ensureMinimumJobs(TREE_CONSUMER_COUNT + 1);
     testCase.addOptions("--experimental_allow_map_directory");
     testCase.write(
         "foo/defs.bzl",
@@ -1867,17 +1856,16 @@ public class RewindingTestsHelper {
         """
             + IntStream.range(0, TREE_CONSUMER_COUNT)
                 .mapToObj(
-                    i ->
-                        """
-                        consumer(
-                            name = "consumer_%d",
-                            srcs = [
-                                "warmup_consumed.out",
-                                ":mapped_tree",
-                            ],
-                        )
-                        """
-                            .formatted(i))
+                    """
+                    consumer(
+                        name = "consumer_%d",
+                        srcs = [
+                            "warmup_consumed.out",
+                            ":mapped_tree",
+                        ],
+                    )
+                    """
+                        ::formatted)
                 .collect(joining("\n")));
 
     // The first rewound action of a build waits for all in-flight actions to finish before it
@@ -1922,16 +1910,8 @@ public class RewindingTestsHelper {
         };
 
     // The expansion actions are the only writers, so they must never observe a reader. (2) runs
-    // twice since its output is lost. (1) runs twice under imprecise rewinding, which rewinds all
-    // template expansion actions.
-    addSpawnShim(
-        "Mapping foo/mapped_dir (1)",
-        (spawn, context) -> {
-          if (!precise()) {
-            addSpawnShim("Mapping foo/mapped_dir (1)", updateMaxConsumers);
-          }
-          return updateMaxConsumers.getExecResult(spawn, context);
-        });
+    // twice since its output is lost.
+    addSpawnShim("Mapping foo/mapped_dir (1)", updateMaxConsumers);
     for (int run = 0; run < 2; run++) {
       addSpawnShim("Mapping foo/mapped_dir (2)", updateMaxConsumers);
     }
@@ -1957,7 +1937,7 @@ public class RewindingTestsHelper {
         .isEqualTo(0);
     // Rewinding an expanded action re-expands the template, so both actions of the chain re-run.
     var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
-    assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (1)", precise() ? 1 : 2);
+    assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (1)", 1);
     assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (2)", 2);
   }
 
@@ -2001,8 +1981,17 @@ public class RewindingTestsHelper {
             )
             return DefaultInfo(files = depset([out_dir]))
 
-        map_dir = rule(implementation = _map_dir_impl)
+        map_dir = rule(
+            implementation = _map_dir_impl,
+            attrs = {
+                "_allowlist_subdirectory": attr.label(
+                    default = "TOOLS_REPOSITORY//tools/allowlists/subdirectory_allowlist",
+                    providers = [PackageSpecificationInfo],
+                ),
+            },
+        )
         """
+            .replace("TOOLS_REPOSITORY", TestConstants.TOOLS_REPOSITORY.toString())
             .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT));
     testCase.write(
         "foo/BUILD",
@@ -2028,7 +2017,93 @@ public class RewindingTestsHelper {
     var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
     assertThat(executedSpawns).hasCount("Creating in_tree", 1);
     assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/a_subdir", 2);
-    assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/b_subdir", precise() ? 1 : 2);
+    assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/b_subdir", 1);
+    assertThat(executedSpawns).hasCount("Executing genrule //foo:consumer", 2);
+  }
+
+  public final void runActionTemplateExpansionRewound_fileUnderSubtreeArtifactInRunfilesLost()
+      throws Exception {
+    testCase.addOptions("--experimental_allow_map_directory");
+    testCase.write(
+        "foo/map.bzl",
+        """
+        def _map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for in_file in input_directories["in"].children:
+                out_subdir = template_ctx.declare_subdirectory(
+                  in_file.basename + "_subdir",
+                  directory = output_directories["out"],
+                )
+                template_ctx.run(
+                    progress_message = "Copying file to %{output}",
+                    inputs = [in_file],
+                    outputs = [out_subdir],
+                    executable = tools["copy_tool"],
+                    arguments = [out_subdir.path + "/file", in_file.path],
+                )
+
+        def _map_dir_impl(ctx):
+            tool = ctx.actions.declare_file(ctx.attr.name + ".bat")
+            ctx.actions.write(tool, r\"\"\"COPY_TOOL_SCRIPT\"\"\", is_executable = True)
+
+            in_dir = ctx.actions.declare_directory("in_tree")
+            ctx.actions.run_shell(
+                progress_message = "Creating in_tree",
+                outputs = [in_dir],
+                command = "echo 1 > $1/a && echo 2 > $1/b",
+                arguments = [in_dir.path],
+            )
+            out_dir = ctx.actions.declare_directory("out_tree")
+            ctx.actions.map_directory(
+                implementation = _map_impl,
+                input_directories = {"in": in_dir},
+                output_directories = {"out": out_dir},
+                tools = {"copy_tool": tool},
+            )
+            return DefaultInfo(files = depset([out_dir]))
+
+        map_dir = rule(
+            implementation = _map_dir_impl,
+            attrs = {
+                "_allowlist_subdirectory": attr.label(
+                    default = "TOOLS_REPOSITORY//tools/allowlists/subdirectory_allowlist",
+                    providers = [PackageSpecificationInfo],
+                ),
+            },
+        )
+        """
+            .replace("TOOLS_REPOSITORY", TestConstants.TOOLS_REPOSITORY.toString())
+            .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT));
+    mockFooBinary("foo/foo_binary.bzl");
+    testCase.write(
+        "foo/BUILD",
+        """
+        load(":map.bzl", "map_dir")
+        load(":foo_binary.bzl", "foo_binary")
+        map_dir(name = "map")
+        foo_binary(name = "tool", srcs = ["tool.sh"], data = [":map"])
+        genrule(name = "consumer", outs = ["consumer.out"], cmd = "touch $@", tools = [":tool"])
+        """);
+    testCase.write("foo/tool.sh", "#!/bin/bash").setExecutable(true);
+
+    addSpawnShim(
+        "Executing genrule //foo:consumer",
+        (spawn, context) -> {
+          Artifact outTree =
+              SpawnInputUtils.getRunfilesArtifactWithName(spawn, context, "out_tree");
+          assertThat(outTree.isTreeArtifact()).isTrue();
+          Artifact lost =
+              SpawnInputUtils.getExpandedToArtifact("a_subdir/file", outTree, spawn, context);
+          assertThat(lost.getParent().isSubTreeArtifact()).isTrue();
+          return createLostInputsExecException(context, lost);
+        });
+
+    testCase.buildTarget("//foo:consumer");
+
+    verifyAllSpawnShimsConsumed();
+    var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
+    assertThat(executedSpawns).hasCount("Creating in_tree [for tool]", 1);
+    assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/a_subdir [for tool]", 2);
+    assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/b_subdir [for tool]", 1);
     assertThat(executedSpawns).hasCount("Executing genrule //foo:consumer", 2);
   }
 
@@ -2042,7 +2117,7 @@ public class RewindingTestsHelper {
     int concurrentActions = 8;
     // All re-executed sibling actions have to run concurrently for the rendezvous below to
     // complete.
-    ensureMinimumJobs(concurrentActions);
+    testCase.ensureMinimumJobs(concurrentActions);
     testCase.addOptions("--experimental_allow_map_directory");
     ImmutableList<String> children =
         IntStream.rangeClosed(1, concurrentActions)
@@ -2148,8 +2223,7 @@ public class RewindingTestsHelper {
             return ExecResult.delegate();
           });
     }
-    // Report all files of the tree artifact as lost so that every sibling action has to re-execute
-    // regardless of how precisely rewinding translates lost files into rewound expanded actions.
+    // Report all files of the tree artifact as lost so that every sibling action has to re-execute.
     addSpawnShim(
         "Executing genrule //foo:losing_consumer",
         (spawn, context) -> {
@@ -2291,7 +2365,7 @@ public class RewindingTestsHelper {
         "Executing genrule //middle:gen1 [for tool]",
         "Executing genrule //middle:gen2 [for tool]",
         "Executing genrule //middle:tool_user");
-    if (precise() && lostRunfiles.size() < 2) {
+    if (lostRunfiles.size() < 2) {
       if (lostRunfiles.contains("gen1.dat")) {
         expectedSpawns.add("Executing genrule //middle:gen1 [for tool]");
       }
@@ -2307,7 +2381,7 @@ public class RewindingTestsHelper {
     assertThat(getExecutedSpawnDescriptions()).containsExactlyElementsIn(expectedSpawns.build());
 
     ImmutableList.Builder<String> expectedCompletedRewound = ImmutableList.builder();
-    if (precise() && lostRunfiles.size() < 2) {
+    if (lostRunfiles.size() < 2) {
       if (lostRunfiles.contains("gen1.dat")) {
         expectedCompletedRewound.add("Executing genrule //middle:gen1 [for tool]");
       }
@@ -2326,93 +2400,43 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(lostRunfiles.size()));
 
     if (buildRunfileManifests()) {
-      if (precise()) {
-        int expectedSize = lostRunfiles.size() + 1;
-        assertThat(rewoundKeys).hasSize(expectedSize);
-        assertActionKey(rewoundKeys.get(expectedSize - 1), "//middle:tool", /* index= */ 3);
-        HashSet<String> expectedGenrules = new HashSet<>();
-        for (String lost : lostRunfiles) {
-          if (lost.equals("gen1.dat")) {
-            expectedGenrules.add("//middle:gen1");
-          } else if (lost.equals("gen2.dat")) {
-            expectedGenrules.add("//middle:gen2");
-          }
+      int expectedSize = lostRunfiles.size() + 1;
+      assertThat(rewoundKeys).hasSize(expectedSize);
+      assertActionKey(rewoundKeys.get(expectedSize - 1), "//middle:tool", /* index= */ 3);
+      HashSet<String> expectedGenrules = new HashSet<>();
+      for (String lost : lostRunfiles) {
+        if (lost.equals("gen1.dat")) {
+          expectedGenrules.add("//middle:gen1");
+        } else if (lost.equals("gen2.dat")) {
+          expectedGenrules.add("//middle:gen2");
         }
-        for (int j = 0; j < expectedSize - 1; j++) {
-          assertThat(rewoundKeys.get(j)).isInstanceOf(ActionLookupData.class);
-          ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(j);
-          assertThat(expectedGenrules.remove(actionKey.getLabel().getCanonicalForm())).isTrue();
-          assertThat(actionKey.getActionIndex()).isEqualTo(0);
-        }
-        assertThat(expectedGenrules).isEmpty();
-      } else {
-        assertThat(rewoundKeys).hasSize(6);
-        HashSet<String> expectedRewoundGenrules =
-            new HashSet<>(ImmutableList.of("//middle:gen1", "//middle:gen2"));
-        int i = 0;
-        boolean sourceManifestActionSeen = false;
-        while (i < 5) {
-          assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
-          ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
-          String actionLabel = actionKey.getLabel().getCanonicalForm();
-          i++;
-          if (actionLabel.equals("//middle:tool")) {
-            switch (actionKey.getActionIndex()) {
-              // SymlinkAction
-              case 0 -> {}
-              case 1 -> sourceManifestActionSeen = true;
-              // SymlinkTreeAction
-              case 2 -> assertThat(sourceManifestActionSeen).isTrue();
-              default ->
-                  fail(
-                      String.format(
-                          "Unexpected action index. actionKey: %s, rewoundKeys: %s",
-                          actionKey, rewoundKeys));
-            }
-          } else {
-            assertThat(expectedRewoundGenrules.remove(actionLabel)).isTrue();
-          }
-        }
-        assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
       }
+      for (int j = 0; j < expectedSize - 1; j++) {
+        assertThat(rewoundKeys.get(j)).isInstanceOf(ActionLookupData.class);
+        ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(j);
+        assertThat(expectedGenrules.remove(actionKey.getLabel().getCanonicalForm())).isTrue();
+        assertThat(actionKey.getActionIndex()).isEqualTo(0);
+      }
+      assertThat(expectedGenrules).isEmpty();
     } else {
-      if (precise()) {
-        int expectedSize = lostRunfiles.size() + 1;
-        assertThat(rewoundKeys).hasSize(expectedSize);
-        assertActionKey(rewoundKeys.get(expectedSize - 1), "//middle:tool", /* index= */ 1);
-        HashSet<String> expectedGenrules = new HashSet<>();
-        for (String lost : lostRunfiles) {
-          if (lost.equals("gen1.dat")) {
-            expectedGenrules.add("//middle:gen1");
-          } else if (lost.equals("gen2.dat")) {
-            expectedGenrules.add("//middle:gen2");
-          }
+      int expectedSize = lostRunfiles.size() + 1;
+      assertThat(rewoundKeys).hasSize(expectedSize);
+      assertActionKey(rewoundKeys.get(expectedSize - 1), "//middle:tool", /* index= */ 1);
+      HashSet<String> expectedGenrules = new HashSet<>();
+      for (String lost : lostRunfiles) {
+        if (lost.equals("gen1.dat")) {
+          expectedGenrules.add("//middle:gen1");
+        } else if (lost.equals("gen2.dat")) {
+          expectedGenrules.add("//middle:gen2");
         }
-        for (int j = 0; j < expectedSize - 1; j++) {
-          assertThat(rewoundKeys.get(j)).isInstanceOf(ActionLookupData.class);
-          ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(j);
-          assertThat(expectedGenrules.remove(actionKey.getLabel().getCanonicalForm())).isTrue();
-          assertThat(actionKey.getActionIndex()).isEqualTo(0);
-        }
-        assertThat(expectedGenrules).isEmpty();
-      } else {
-        assertThat(rewoundKeys).hasSize(4);
-        HashSet<String> expectedRewoundGenrules =
-            new HashSet<>(ImmutableList.of("//middle:gen1", "//middle:gen2"));
-        int i = 0;
-        while (i < 3) {
-          assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
-          ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
-          String actionLabel = actionKey.getLabel().getCanonicalForm();
-          i++;
-          if (actionLabel.equals("//middle:tool")) {
-            assertThat(actionKey.getActionIndex()).isEqualTo(0);
-          } else {
-            assertThat(expectedRewoundGenrules.remove(actionLabel)).isTrue();
-          }
-        }
-        assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 1);
       }
+      for (int j = 0; j < expectedSize - 1; j++) {
+        assertThat(rewoundKeys.get(j)).isInstanceOf(ActionLookupData.class);
+        ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(j);
+        assertThat(expectedGenrules.remove(actionKey.getLabel().getCanonicalForm())).isTrue();
+        assertThat(actionKey.getActionIndex()).isEqualTo(0);
+      }
+      assertThat(expectedGenrules).isEmpty();
     }
   }
 
@@ -2541,57 +2565,13 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     if (buildRunfileManifests()) {
-      if (precise()) {
-        assertThat(rewoundKeys).hasSize(2);
-        assertActionKey(rewoundKeys.get(0), "//test:rule1", /* index= */ 0);
-        assertActionKey(rewoundKeys.get(1), "//test:tool", /* index= */ 3);
-      } else {
-        assertThat(rewoundKeys).hasSize(5);
-        boolean sourceManifestActionSeen = false;
-        for (int i = 0; i < 4; i++) {
-          assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
-          ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
-          String actionLabel = actionKey.getLabel().getCanonicalForm();
-          if (actionLabel.equals("//test:tool")) {
-            switch (actionKey.getActionIndex()) {
-              // SymlinkAction
-              case 0 -> {}
-              case 1 -> sourceManifestActionSeen = true;
-              // SymlinkTreeAction
-              case 2 -> assertThat(sourceManifestActionSeen).isTrue();
-              default ->
-                  fail(
-                      String.format(
-                          "Unexpected action index. actionKey: %s, rewoundKeys: %s",
-                          actionKey, rewoundKeys));
-            }
-          } else {
-            assertThat(actionLabel).isEqualTo("//test:rule1");
-          }
-        }
-        assertActionKey(rewoundKeys.get(4), "//test:tool", /* index= */ 3);
-      }
+      assertThat(rewoundKeys).hasSize(2);
+      assertActionKey(rewoundKeys.get(0), "//test:rule1", /* index= */ 0);
+      assertActionKey(rewoundKeys.get(1), "//test:tool", /* index= */ 3);
     } else {
-      if (precise()) {
-        assertThat(rewoundKeys).hasSize(2);
-        assertActionKey(rewoundKeys.get(0), "//test:rule1", /* index= */ 0);
-        assertActionKey(rewoundKeys.get(1), "//test:tool", /* index= */ 1);
-      } else {
-        assertThat(rewoundKeys).hasSize(3);
-        int i = 0;
-        while (i < 2) {
-          assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
-          ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
-          String actionLabel = actionKey.getLabel().getCanonicalForm();
-          i++;
-          if (actionLabel.equals("//test:tool")) {
-            assertThat(actionKey.getActionIndex()).isEqualTo(0);
-          } else {
-            assertThat(actionLabel).isEqualTo("//test:rule1");
-          }
-        }
-        assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 1);
-      }
+      assertThat(rewoundKeys).hasSize(2);
+      assertActionKey(rewoundKeys.get(0), "//test:rule1", /* index= */ 0);
+      assertActionKey(rewoundKeys.get(1), "//test:tool", /* index= */ 1);
     }
   }
 
@@ -2693,65 +2673,15 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(2));
 
     if (buildRunfileManifests()) {
-      if (precise()) {
-        assertThat(rewoundKeys).hasSize(3);
-        assertActionKey(rewoundKeys.get(0), "//middle:gen_tree", /* index= */ 0);
-        assertArtifactKey(rewoundKeys.get(1), "middle/gen_tree_dir");
-        assertActionKey(rewoundKeys.get(2), "//middle:tool", /* index= */ 3);
-      } else {
-        assertThat(rewoundKeys).hasSize(6);
-        int i = 0;
-        boolean sourceManifestActionSeen = false;
-        while (i < 5) {
-          assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
-          ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
-          String actionLabel = actionKey.getLabel().getCanonicalForm();
-          i++;
-          if (actionLabel.equals("//middle:tool")) {
-            switch (actionKey.getActionIndex()) {
-              // SymlinkAction
-              case 0 -> {}
-              case 1 -> sourceManifestActionSeen = true;
-              // SymlinkTreeAction
-              case 2 -> assertThat(sourceManifestActionSeen).isTrue();
-              default ->
-                  fail(
-                      String.format(
-                          "Unexpected action index. actionKey: %s, rewoundKeys: %s",
-                          actionKey, rewoundKeys));
-            }
-          } else {
-            assertThat(actionLabel).isEqualTo("//middle:gen_tree");
-            assertArtifactKey(rewoundKeys.get(i), "middle/gen_tree_dir");
-            i++;
-          }
-        }
-        assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
-      }
+      assertThat(rewoundKeys).hasSize(3);
+      assertActionKey(rewoundKeys.get(0), "//middle:gen_tree", /* index= */ 0);
+      assertArtifactKey(rewoundKeys.get(1), "middle/gen_tree_dir");
+      assertActionKey(rewoundKeys.get(2), "//middle:tool", /* index= */ 3);
     } else {
-      if (precise()) {
-        assertThat(rewoundKeys).hasSize(3);
-        assertActionKey(rewoundKeys.get(0), "//middle:gen_tree", /* index= */ 0);
-        assertArtifactKey(rewoundKeys.get(1), "middle/gen_tree_dir");
-        assertActionKey(rewoundKeys.get(2), "//middle:tool", /* index= */ 1);
-      } else {
-        assertThat(rewoundKeys).hasSize(4);
-        int i = 0;
-        while (i < 3) {
-          assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
-          ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
-          String actionLabel = actionKey.getLabel().getCanonicalForm();
-          i++;
-          if (actionLabel.equals("//middle:tool")) {
-            assertThat(actionKey.getActionIndex()).isEqualTo(0);
-          } else {
-            assertThat(actionLabel).isEqualTo("//middle:gen_tree");
-            assertArtifactKey(rewoundKeys.get(i), "middle/gen_tree_dir");
-            i++;
-          }
-        }
-        assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 1);
-      }
+      assertThat(rewoundKeys).hasSize(3);
+      assertActionKey(rewoundKeys.get(0), "//middle:gen_tree", /* index= */ 0);
+      assertArtifactKey(rewoundKeys.get(1), "middle/gen_tree_dir");
+      assertActionKey(rewoundKeys.get(2), "//middle:tool", /* index= */ 1);
     }
   }
 
@@ -3826,23 +3756,7 @@ public class RewindingTestsHelper {
    * CPU.
    */
   private void ensureMultipleJobs() throws Exception {
-    ensureMinimumJobs(2);
-  }
-
-  /**
-   * Ensures that the value of the {@code --jobs} flag is at least {@code minJobs}.
-   *
-   * <p>Note that the default value for {@code --jobs} is automatically calculated based on host
-   * CPU.
-   */
-  private void ensureMinimumJobs(int minJobs) throws Exception {
-    int autoJobs = new JobsConverter().convert("auto");
-    if (autoJobs < minJobs) {
-      logger.atInfo().log("Setting --jobs=%s (was %s)", minJobs, autoJobs);
-      testCase.addOptions("--jobs=" + minJobs);
-    } else {
-      logger.atInfo().log("Keeping default value of --jobs=%s", autoJobs);
-    }
+    testCase.ensureMinimumJobs(2);
   }
 
   private boolean keepGoing() {
@@ -3930,7 +3844,7 @@ public class RewindingTestsHelper {
    *
    * <p>Example: bin/pkg/file.out -> bazel-out/k8-fastbuild/bin/pkg/file.out
    */
-  String getExecPath(String rootRelativePath) throws Exception {
+  private String getExecPath(String rootRelativePath) throws Exception {
     if (testCase.getTargetConfigurationFromLastBuildResult() == null) {
       // Need at least one build to get the configuration, so run a null build.
       testCase.buildTarget();

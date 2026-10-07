@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import com.google.common.collect.ImmutableSet;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 
@@ -28,9 +27,6 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
  * com.google.devtools.build.lib.analysis.test.TestTrimmingTransitionFactory}.
  */
 public final class TestTrimmingLogic {
-
-  static final ImmutableSet<Class<? extends FragmentOptions>> REQUIRED_FRAGMENTS =
-      ImmutableSet.of(CoreOptions.class, TestOptions.class);
 
   // This cache is to prevent major slowdowns when using --trim_test_configuration. This
   // transition is always invoked on every target in the top-level invocation. Thus, a wide
@@ -41,36 +37,30 @@ public final class TestTrimmingLogic {
   //
   // Test any caching changes for performance impact in a longwide scenario with
   // --trim_test_configuration on versus off.
-  // LINT.IfChange
-  private static final BuildOptionsCache<Boolean> CACHE =
-      new BuildOptionsCache<>(
-          (options, unused, unusedNonEventHandler) -> {
-            BuildOptions.Builder builder = options.underlying().toBuilder();
-            builder.removeFragmentOptions(TestOptions.class);
-            // Only the label of the --run_under target (if any) needs to be part of the
-            // configuration for non-test targets, all other information is directly obtained
-            // from the options in RunCommand.
-            CoreOptions coreOptions = builder.getFragmentOptions(CoreOptions.class);
-            coreOptions.setRunUnder(
-                RunUnder.trimForNonTestConfiguration(coreOptions.getRunUnder()));
-            return builder.build();
-          });
-
-  // LINT.ThenChange(TestConfiguration.java)
+  private static final Cache<String, BuildOptions> cache =
+      Caffeine.newBuilder().weakValues().build();
 
   /** Returns a new {@link BuildOptions} instance with test configuration removed. */
-  public static BuildOptions trim(BuildOptions buildOptions) {
-    return trim(new BuildOptionsView(buildOptions, REQUIRED_FRAGMENTS));
+  public static BuildOptions trim(BuildOptions options) {
+    return cache.get(
+        options.checksum(),
+        k -> {
+          // LINT.IfChange
+          BuildOptions.Builder builder = options.toBuilder();
+          builder.removeFragmentOptions(TestOptions.class);
+          // Only the label of the --run_under target (if any) needs to be part of the configuration
+          // for non-test targets, all other information is directly obtained from the options in
+          // RunCommand.
+          CoreOptions coreOptions = builder.getFragmentOptions(CoreOptions.class);
+          coreOptions.setRunUnder(RunUnder.trimForNonTestConfiguration(coreOptions.getRunUnder()));
+          return builder.build();
+          // LINT.ThenChange(TestConfiguration.java)
+        });
   }
 
   /** Returns a new {@link BuildOptions} instance with test configuration removed. */
-  static BuildOptions trim(BuildOptionsView buildOptions) {
-    try {
-      return CACHE.applyTransition(buildOptions, Boolean.TRUE, /* eventHandler= */ null);
-    } catch (InterruptedException e) {
-      // The transition logic doesn't throw InterruptedException.
-      throw new IllegalStateException(e);
-    }
+  static BuildOptions trim(BuildOptionsView options) {
+    return trim(options.underlying());
   }
 
   private TestTrimmingLogic() {}

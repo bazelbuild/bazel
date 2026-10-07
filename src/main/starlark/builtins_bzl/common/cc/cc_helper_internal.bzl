@@ -18,6 +18,8 @@ Utility functions for C++ rules that don't depend on cc_common.
 Only use those within C++ implementation. The others need to go through cc_common.
 """
 
+_: Any  # Enable type checking.
+
 CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [
     ("", "devtools/rust/cc_interop"),
     ("", "third_party/crubit"),
@@ -68,4 +70,4 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("", "javatests/com/google/devtools/grok/kythe"),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
-# LINT.ThenChange(@rules_cc//cc/common/cc_helper_internal.bzl:forked_exports)
+# LINT.ThenChange(@rules_cc//cc/common/visibility.bzl:forked_exports)

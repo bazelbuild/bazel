@@ -140,6 +140,54 @@ public class TargetPatternsHelperTest {
         .isEqualTo(Code.TARGET_PATTERN_FILE_READ_FAILURE);
   }
 
+  @Test
+  public void testSpecifyPatternFileAndQueryThrows() throws OptionsParsingException {
+    options.parse("--target_pattern_file=patterns.txt", "--target_query=deps(//...)");
+
+    TargetPatternsHelperException expected =
+        assertThrows(
+            TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
+
+    String message =
+        "--target_pattern_file cannot be combined with --target_query or --target_query_file";
+    assertThat(expected).hasMessageThat().isEqualTo(message);
+    assertThat(expected.getFailureDetail())
+        .isEqualTo(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setTargetPatterns(
+                    TargetPatterns.newBuilder()
+                        .setCode(Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN))
+                .build());
+  }
+
+  @Test
+  public void testSpecifyQueryAndQueryFileThrows() throws OptionsParsingException {
+    options.parse("--target_query=deps(//...)", "--target_query_file=query.txt");
+
+    TargetPatternsHelperException expected =
+        assertThrows(
+            TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
+
+    String message = "--target_query and --target_query_file cannot both be specified";
+    assertThat(expected).hasMessageThat().isEqualTo(message);
+  }
+
+  @Test
+  public void testQueryFileWithNonExistingFileThrows() throws OptionsParsingException {
+    options.parse("--target_query_file=query.txt");
+
+    TargetPatternsHelperException expected =
+        assertThrows(
+            TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
+
+    String regex = "I/O error reading from .*query.txt.*\\(No such file or directory\\)";
+    assertThat(expected).hasMessageThat().matches(regex);
+    assertThat(expected.getFailureDetail().hasTargetPatterns()).isTrue();
+    assertThat(expected.getFailureDetail().getTargetPatterns().getCode())
+        .isEqualTo(Code.TARGET_PATTERN_FILE_READ_FAILURE);
+  }
+
   private static class MockEventBus extends EventBus {
     final Set<InputFileEvent> inputFileEvents = Sets.newConcurrentHashSet();
 

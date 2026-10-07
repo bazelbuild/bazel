@@ -43,7 +43,7 @@
  */
 class InputJar {
  public:
-  InputJar() {}
+  InputJar() : cdh_(nullptr), cen_end_(nullptr), preamble_size_(0) {}
 
   ~InputJar() { Close(); }
 
@@ -64,12 +64,17 @@ class InputJar {
     if (path_.empty()) {
       diag_errx(1, "%s:%d: call Open() first!", __FILE__, __LINE__);
     }
-    if (!cdh_->is()) {
+    if (ziph::byte_ptr(cdh_) >= cen_end_) {
       return nullptr;
+    }
+    if (static_cast<size_t>(cen_end_ - ziph::byte_ptr(cdh_)) < sizeof(CDH) ||
+        !cdh_->is()) {
+      diag_errx(1, "Bad directory record at offset 0x%" PRIx64 " of %s",
+                CentralDirectoryRecordOffset(cdh_), path_.c_str());
     }
     const CDH* current_cdh = cdh_;
     const uint8_t* new_cdr = ziph::byte_ptr(cdh_) + cdh_->size();
-    if (!mapped_file_.mapped(new_cdr)) {
+    if (new_cdr > cen_end_ || !mapped_file_.mapped(new_cdr)) {
       diag_errx(
           1,
           "Bad directory record at offset 0x%" PRIx64
@@ -92,8 +97,57 @@ class InputJar {
   }
 
   const LH* LocalHeader(const CDH* cdh) const {
-    return reinterpret_cast<const LH*>(
-        mapped_file_.address(cdh->local_header_offset() + preamble_size_));
+    uint64_t lh_offset = cdh->local_header_offset() + preamble_size_;
+    if (lh_offset < preamble_size_ || lh_offset > mapped_file_.size() ||
+        mapped_file_.size() - lh_offset < sizeof(LH)) {
+      diag_errx(1,
+                "%s:%d: Bad local header offset 0x%" PRIx64
+                " at central directory record offset 0x%" PRIx64 " of %s",
+                __FILE__, __LINE__, cdh->local_header_offset(),
+                CentralDirectoryRecordOffset(cdh), path_.c_str());
+    }
+    const LH* lh = reinterpret_cast<const LH*>(
+        mapped_file_.address(static_cast<int64_t>(lh_offset)));
+    if (!lh->is() || lh->size() > mapped_file_.size() - lh_offset) {
+      diag_errx(1, "%s:%d: Bad local header at offset 0x%" PRIx64 " of %s",
+                __FILE__, __LINE__, lh_offset, path_.c_str());
+    }
+    uint64_t max_payload = mapped_file_.size() - (lh_offset + lh->size());
+    if (cdh->no_size_in_local_header()) {
+      uint64_t compressed_size = cdh->compressed_file_size();
+      if (compressed_size > max_payload ||
+          (lh->compression_method() == 0 &&
+           cdh->uncompressed_file_size() > max_payload) ||
+          max_payload - compressed_size < sizeof(DDR)) {
+        diag_errx(1,
+                  "%s:%d: Bad entry size at local header offset 0x%" PRIx64
+                  " of %s",
+                  __FILE__, __LINE__, lh_offset, path_.c_str());
+      }
+      const DDR* ddr =
+          reinterpret_cast<const DDR*>(lh->data() + compressed_size);
+      size_t ddr_size =
+          ddr->size(ziph::zfield_has_ext64(cdh->compressed_file_size32()),
+                    ziph::zfield_has_ext64(cdh->uncompressed_file_size32()));
+      if (max_payload - compressed_size < ddr_size) {
+        diag_errx(1,
+                  "%s:%d: Bad data descriptor at local header offset 0x%" PRIx64
+                  " of %s",
+                  __FILE__, __LINE__, lh_offset, path_.c_str());
+      }
+    } else {
+      if (lh->compressed_file_size() > max_payload ||
+          cdh->compressed_file_size() > max_payload ||
+          (lh->compression_method() == 0 &&
+           (lh->uncompressed_file_size() > max_payload ||
+            cdh->uncompressed_file_size() > max_payload))) {
+        diag_errx(1,
+                  "%s:%d: Bad entry size at local header offset 0x%" PRIx64
+                  " of %s",
+                  __FILE__, __LINE__, lh_offset, path_.c_str());
+      }
+    }
+    return lh;
   }
 
   uint64_t LocalHeaderOffset(const LH* lh) const {
@@ -108,6 +162,7 @@ class InputJar {
   std::string path_;
   MappedFile mapped_file_;
   const CDH* cdh_;          // current directory entry
+  const uint8_t* cen_end_;  // end of central directory
   uint64_t preamble_size_;  // Bytes before the Zip proper.
 };
 

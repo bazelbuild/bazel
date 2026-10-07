@@ -257,7 +257,8 @@ public interface SpawnRunner {
     FileOutErr getFileOutErr();
 
     /**
-     * Returns a sorted map from execroot-relative input paths to action inputs.
+     * Returns a map from execroot-relative input paths to action inputs, sorted by {@link
+     * PathFragment#HIERARCHICAL_COMPARATOR}.
      *
      * <p>Resolves cases where a single input of the {@link Spawn} gives rise to multiple files in
      * the input tree, for example, tree artifacts, runfiles trees and {@code Fileset} input

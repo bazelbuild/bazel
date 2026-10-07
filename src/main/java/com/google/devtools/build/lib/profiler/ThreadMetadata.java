@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import static com.google.devtools.build.lib.profiler.JsonTraceFileWriter.INDENT_2;
+import static com.google.devtools.build.lib.profiler.JsonTraceFileWriter.NO_INDENT;
+
 import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
@@ -142,9 +145,9 @@ class ThreadMetadata implements TraceData {
 
   @Override
   public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException {
-    jsonWriter.setIndent("  ");
+    jsonWriter.setFormattingStyle(INDENT_2);
     jsonWriter.beginObject();
-    jsonWriter.setIndent("");
+    jsonWriter.setFormattingStyle(NO_INDENT);
     jsonWriter.name("name").value("thread_name");
     jsonWriter.name("ph").value("M");
     jsonWriter.name("pid").value(1);
@@ -157,9 +160,9 @@ class ThreadMetadata implements TraceData {
 
     jsonWriter.endObject();
 
-    jsonWriter.setIndent("  ");
+    jsonWriter.setFormattingStyle(INDENT_2);
     jsonWriter.beginObject();
-    jsonWriter.setIndent("");
+    jsonWriter.setFormattingStyle(NO_INDENT);
     jsonWriter.name("name").value("thread_sort_index");
     jsonWriter.name("ph").value("M");
     jsonWriter.name("pid").value(1);

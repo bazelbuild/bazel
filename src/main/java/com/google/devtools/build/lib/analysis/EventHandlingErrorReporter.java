@@ -23,8 +23,8 @@ import net.starlark.java.syntax.Location;
  * Base class for implementations of {@link
  * com.google.devtools.build.lib.analysis.RuleErrorConsumer}.
  *
- * <p>Do not create new implementations of this class - instead, use {@link RuleContext} in Native
- * rule definitions, and {@link StarlarkErrorReporter} in Starlark API definitions. For use in
+ * <p>Do not create new implementations of this class - instead, use {@code RuleContext} in Native
+ * rule definitions, and {@code StarlarkErrorReporter} in Starlark API definitions. For use in
  * testing, implement {@link RuleErrorConsumer} instead.
  */
 public abstract class EventHandlingErrorReporter implements RuleErrorConsumer {

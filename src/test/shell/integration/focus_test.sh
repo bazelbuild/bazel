@@ -149,11 +149,6 @@ EOF
 }
 
 function test_focus_emits_profile_data() {
-  if is_windows; then
-    # TODO(b/332825970): fix this
-    return
-  fi
-
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -169,8 +164,8 @@ EOF
 
   bazel build //${pkg}:g \
     --experimental_active_directories=${pkg}/in.txt \
-    --profile=/tmp/profile.log &> "$TEST_log" || fail "expected success"
-  grep '"ph":"X"' /tmp/profile.log > "$TEST_log" \
+    --profile="${TEST_TMPDIR}/profile.log" &> "$TEST_log" || fail "expected success"
+  grep '"ph":"X"' "${TEST_TMPDIR}/profile.log" > "$TEST_log" \
     || fail "Missing profile file."
 
   expect_log '"SkyframeFocuser"'
@@ -359,7 +354,7 @@ EOF
 
 function test_changes_with_symlinks_are_detected() {
   if is_windows; then
-    # TODO(b/332825970): fix this
+    # Can't do 'ln -s' on Windows.
     return
   fi
 
@@ -418,7 +413,7 @@ EOF
 
 function test_symlinks_as_active_directories() {
   if is_windows; then
-    # TODO(b/332825970): fix this
+    # Can't do 'ln -s' on Windows.
     return
   fi
 

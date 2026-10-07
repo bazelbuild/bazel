@@ -664,11 +664,10 @@ final class FileDependencySerializer {
     public ListenableFuture<Void> apply(FileDataInfo realParentData) {
       RootedPath resolvedParentRootedPath;
       switch (realParentData) {
-        case CONSTANT_FILE:
-          // Assumes that symlinks in BundledFileSystem do not escape.
-          resolvedParentRootedPath = parentPath;
-          break;
-        case FileInvalidationDataInfo parentReference:
+        case CONSTANT_FILE ->
+            // Assumes that symlinks in BundledFileSystem do not escape.
+            resolvedParentRootedPath = parentPath;
+        case FileInvalidationDataInfo parentReference -> {
           uploader.addSymlinkParentInfo(parentReference);
           long parentMtsv = parentReference.mtsv();
           if (parentMtsv != LongVersionGetter.MINIMAL) {
@@ -679,7 +678,7 @@ final class FileDependencySerializer {
             return immediateVoidFuture();
           }
           resolvedParentRootedPath = parentReference.realPath();
-          break;
+        }
       }
       return processSymlinkTarget(
           toRootedPath(
@@ -699,10 +698,12 @@ final class FileDependencySerializer {
     }
     var handler = new ListingFileHandler(rootedPath);
     switch (registerDependency(FileValue.key(rootedPath))) {
-      case FileDataInfo info:
+      case FileDataInfo info -> {
         return future.completeWith(handler.apply(info));
-      case FutureFileDataInfo futureInfo:
+      }
+      case FutureFileDataInfo futureInfo -> {
         return future.completeWith(Futures.transformAsync(futureInfo, handler, directExecutor()));
+      }
     }
   }
 
@@ -726,18 +727,19 @@ final class FileDependencySerializer {
       long fileMtsv;
       RootedPath realPath;
       switch (info) {
-        case CONSTANT_FILE: // reached only for the root directory
+        case CONSTANT_FILE -> {
+          // reached only for the root directory
           realPath = rootedPath;
           fileMtsv = LongVersionGetter.MINIMAL;
-          break;
-        case FileInvalidationDataInfo fileInfo:
+        }
+        case FileInvalidationDataInfo fileInfo -> {
           writeStatuses.add(fileInfo.writeStatus());
           fileMtsv = fileInfo.mtsv();
           if (fileMtsv != LongVersionGetter.MINIMAL) {
             data.setFileMtsv(fileMtsv);
           }
           realPath = fileInfo.realPath();
-          break;
+        }
       }
 
       ListenableFuture<Long> dirMtsvFuture =
@@ -967,70 +969,61 @@ final class FileDependencySerializer {
 
     private void addFileKey(FileKey fileKey) {
       switch (registerDependency(fileKey)) {
-        case FileDataInfo info:
-          addFileInfo(info);
-          break;
-        case FutureFileDataInfo futureInfo:
+        case FileDataInfo info -> addFileInfo(info);
+        case FutureFileDataInfo futureInfo -> {
           futureFileDataInfo.add(futureInfo);
           trackFuture(futureInfo);
-          break;
+        }
       }
     }
 
     private void addFileInfo(FileDataInfo info) {
       switch (info) {
-        case CONSTANT_FILE:
-          break;
-        case FileInvalidationDataInfo fileInfo:
+        case CONSTANT_FILE -> {}
+        case FileInvalidationDataInfo fileInfo -> {
           fileKeys.add(fileInfo.cacheKey());
           writeStatusBuilder.add(fileInfo.writeStatus());
-          break;
+        }
       }
     }
 
     private void addListingKey(DirectoryListingKey listingKey) {
       switch (registerDependency(listingKey)) {
-        case ListingDataInfo info:
-          addListingInfo(info);
-          break;
-        case FutureListingDataInfo futureInfo:
+        case ListingDataInfo info -> addListingInfo(info);
+        case FutureListingDataInfo futureInfo -> {
           futureListingDataInfo.add(futureInfo);
           trackFuture(futureInfo);
-          break;
+        }
       }
     }
 
     private void addListingInfo(ListingDataInfo info) {
       switch (info) {
-        case CONSTANT_LISTING:
-          break;
-        case ListingInvalidationDataInfo listingInfo:
+        case CONSTANT_LISTING -> {}
+        case ListingInvalidationDataInfo listingInfo -> {
           listingKeys.add(listingInfo.cacheKey());
           writeStatusBuilder.add(listingInfo.writeStatus());
-          break;
+        }
       }
     }
 
     private void addNodeKey(AbstractNestedFileOpNodes nestedKeys) {
       switch (registerDependency(nestedKeys)) {
-        case NodeDataInfo info:
-          addNodeInfo(info);
-          break;
-        case FutureNodeDataInfo futureInfo:
+        case NodeDataInfo info -> addNodeInfo(info);
+        case FutureNodeDataInfo futureInfo -> {
           futureNodeDataInfo.add(futureInfo);
           trackFuture(futureInfo);
-          break;
+        }
       }
     }
 
     private void addNodeInfo(NodeDataInfo info) {
       switch (info) {
-        case CONSTANT_NODE:
-          break;
-        case NodeInvalidationDataInfo nodeInfo:
+        case CONSTANT_NODE -> {}
+        case NodeInvalidationDataInfo nodeInfo -> {
           nodeDependencies.add(nodeInfo);
           writeStatusBuilder.add(nodeInfo.writeStatus());
-          break;
+        }
       }
     }
 

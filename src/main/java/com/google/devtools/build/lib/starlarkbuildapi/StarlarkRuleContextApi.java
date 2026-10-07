@@ -42,7 +42,7 @@ import net.starlark.java.eval.Tuple;
 @StarlarkBuiltin(
     // TODO: #27370 - make capitalization consistent
     name = "ctx",
-    starlarkTypeName = "Ctx",
+    typeRepr = "Ctx",
     category = DocCategory.BUILTIN,
     doc =
         "A context object that is passed to the implementation function for a rule or aspect. It"

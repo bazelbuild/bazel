@@ -27,7 +27,6 @@ filegroup(
 
 exports_files([
     "xcode_locator.m",
-    "xcode_configure.bzl",
 ])
 
 objc_library(

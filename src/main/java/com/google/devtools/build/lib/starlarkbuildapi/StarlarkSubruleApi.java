@@ -18,7 +18,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import java.util.List;
 import java.util.Optional;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.StarlarkCallable;
 
 /** The interface for Starlark-defined subrules in the Build API. */
 @StarlarkBuiltin(
@@ -28,7 +28,7 @@ import net.starlark.java.eval.StarlarkValue;
         "Experimental: a building block for writing rules with shared code. For more information,"
             + " please see the subrule proposal:"
             + " https://docs.google.com/document/d/1RbNC88QieKvBEwir7iV5zZU08AaMlOzxhVkPnmKDedQ")
-public interface StarlarkSubruleApi extends StarlarkValue {
+public interface StarlarkSubruleApi extends StarlarkCallable {
 
   static Optional<String> getUserDefinedNameIfSubruleAttr(
       List<? extends StarlarkSubruleApi> subrules, String attributeName) {

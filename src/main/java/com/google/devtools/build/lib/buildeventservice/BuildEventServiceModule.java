@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.network.ConnectivityStatus.Status;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
@@ -453,6 +454,24 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     cmdEnv.getEventBus().register(streamer);
     registerOutAndErrOutputStreams();
 
+    if (besOptions.getExperimentalMemoryProfileAwaitBesQuiescence()
+        && parsingResult.getOptions(CommonCommandOptions.class).getMemoryProfilePath() != null) {
+      Duration besTimeout = besOptions.getBesTimeout();
+      MemoryProfiler.instance()
+          .setQuiescenceAwaiter(
+              () -> {
+                try {
+                  if (besTimeout.isPositive()) {
+                    streamer.getQuiescenceFuture().get(besTimeout.toMillis(), MILLISECONDS);
+                  } else {
+                    streamer.getQuiescenceFuture().get();
+                  }
+                } catch (ExecutionException | TimeoutException ignored) {
+                  // Failure or timeout in event transport shouldn't abort memory profiling.
+                }
+              });
+    }
+
     // This event should probably be posted in a more general place (e.g. {@link BuildTool};
     // however, so far the BES module is the only module that requires extra work after the build
     // so we post it here until it's needed for other modules.
@@ -712,6 +731,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     this.reporter = null;
     this.streamer = null;
     this.buildEventOutputStreamFactory = null;
+    MemoryProfiler.instance().resetQuiescenceAwaiter();
   }
 
   private void constructAndMaybeReportInvocationIdUrl() {

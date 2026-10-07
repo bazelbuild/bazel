@@ -1,12 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_import")
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load(":launcher_flag_alias.bzl", "launcher_flag_alias")
-
-exports_files([
-    "BUILD.java_tools",
-])
 
 # A single binary distribution of a JDK (e.g., OpenJDK 17 for Windows arm64) provides three
 # different types of toolchains from the perspective of Bazel:
@@ -136,23 +132,12 @@ alias(
     actual = ":proguard_allowlister",
 )
 
-py_binary(
+cc_binary(
     name = "proguard_allowlister",
     srcs = [
-        "proguard_allowlister.py",
-    ],
-    # See https://github.com/bazel-contrib/rules_python/issues/2945
-    legacy_create_init = 0,
-)
-
-py_test(
-    name = "proguard_allowlister_test",
-    srcs = ["proguard_allowlister_test.py"],
-    data = ["proguard_allowlister_test_input.pgcfg"],
-    # See https://github.com/bazel-contrib/rules_python/issues/2945
-    legacy_create_init = 0,
-    deps = [
-        ":proguard_allowlister",
+        "proguard_allowlister.cc",
+        "proguard_allowlister_lib.cc",
+        "proguard_allowlister_lib.h",
     ],
 )
 

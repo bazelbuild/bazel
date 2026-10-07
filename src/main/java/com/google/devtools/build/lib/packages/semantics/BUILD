@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:starlark_access",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",

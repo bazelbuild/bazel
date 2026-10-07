@@ -82,6 +82,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   }
 
   @Override
+  public ListenableFuture<Void> getQuiescenceFuture() {
+    return besUploader.getQuiescenceFuture();
+  }
+
+  @Override
   public BuildEventArtifactUploader getUploader() {
     return besUploader.getBuildEventUploader();
   }

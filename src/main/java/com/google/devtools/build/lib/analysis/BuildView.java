@@ -990,7 +990,8 @@ public class BuildView {
     }
     List<String> unknownOutputGroups = new ArrayList<>();
     for (String outputGroup : topLevelOptions.outputGroups()) {
-      if (OutputGroupInfo.IGNORED_OUTPUT_GROUPS.contains(outputGroup)) {
+      if (OutputGroupInfo.IGNORED_OUTPUT_GROUPS.contains(outputGroup)
+          || outputGroup.endsWith(OutputGroupInfo.INTERNAL_SUFFIX)) {
         continue;
       }
       boolean found = false;

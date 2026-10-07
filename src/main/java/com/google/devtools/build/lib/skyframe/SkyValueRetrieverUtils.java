@@ -129,7 +129,8 @@ public final class SkyValueRetrieverUtils {
     }
 
     if (value instanceof AnalysisValueWithMtsv(SkyValue innerValue, Version mtsv)) {
-      if (analysisCachingDeps.getSkycacheAnalysisOnly()) {
+      if (analysisCachingDeps.getSkycacheAnalysisOnly()
+          && env.getMaxTransitiveSourceVersionSoFar() != null) {
         env.injectVersion(mtsv);
       }
       return new RetrievedValue(innerValue);

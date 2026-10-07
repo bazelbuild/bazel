@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -289,7 +290,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // influence the evaluation of the extension and the validation also runs when the extension
     // result is taken from the lockfile, we can already populate the lockfile info. This is
     // necessary to prevent the extension from rerunning when only the imports change.
-    if (lockfileMode == LockfileMode.UPDATE || lockfileMode == LockfileMode.REFRESH) {
+    if (lockfileMode != LockfileMode.OFF) {
       lockFileInfo =
           Optional.of(
               new LockFileModuleExtension.WithFactors(
@@ -474,7 +475,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 .get()
                 .generateFixup(
                     usagesValue.getExtensionUsages().get(ModuleKey.ROOT),
-                    generatedRepoSpecs.keySet());
+                    generatedRepoSpecs.keySet(),
+                    usagesValue.getRepoOverrides().entrySet().stream()
+                        .filter(e -> e.getValue().isMain())
+                        .map(e -> e.getKey())
+                        .collect(toImmutableSet()));
       } catch (EvalException e) {
         env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(

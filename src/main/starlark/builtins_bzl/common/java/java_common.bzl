@@ -23,7 +23,7 @@ _ALLOWLIST = [
     ("rules_java", ""),
 ]
 
-def _internal_exports():
+def _internal_exports() -> struct:
     _builtins.internal.cc_internal.check_private_api(allowlist = _ALLOWLIST)
     return struct(
         create_compilation_action = _java_common_internal.create_compilation_action,

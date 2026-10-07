@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.IncrementalInMemoryNodeEntry;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -177,6 +178,41 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
     // Expect removing dirty package node from node map will also weak intern labels associated with
     // its targets. So re-weak intern these `targetLabels` should get its canonical instance.
     assertThat(graph.get(/* requestor= */ null, Reason.OTHER, packageKey)).isNull();
+    targetLabels.forEach(
+        l ->
+            assertThat(Label.createUnvalidated(l.getPackageIdentifier(), l.getName()))
+                .isSameInstanceAs(l));
+  }
+
+  @Test
+  public void labelInterner_clearPackageSkyValueStillWeakInternsItsLabels() throws Exception {
+    write(
+        "hello/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'foo', srcs = ['foo.cc'])");
+    write("hello/foo.cc", "int main() {", "  return 0;", "}");
+    buildTarget("//hello:foo");
+
+    InMemoryGraph graph = skyframeExecutor().getEvaluator().getInMemoryGraph();
+    PackageIdentifier packageKey = PackageIdentifier.createInMainRepo(/* name= */ "hello");
+    NodeEntry nodeEntry = graph.get(/* requestor= */ null, Reason.OTHER, packageKey);
+    assertThat(nodeEntry).isNotNull();
+
+    ImmutableSet<Label> targetLabels =
+        ((PackageValue) nodeEntry.toValue())
+            .getPackage().getTargets().stream().map(Target::getLabel).collect(toImmutableSet());
+
+    ((IncrementalInMemoryNodeEntry) nodeEntry).clearSkyValue();
+
+    // While the cleared package entry is still in the graph, interning its target labels should
+    // fall through to the weak interner and return the canonical instances.
+    targetLabels.forEach(
+        l ->
+            assertThat(Label.createUnvalidated(l.getPackageIdentifier(), l.getName()))
+                .isSameInstanceAs(l));
+
+    // After cleaning up interning pools, the weak interner should still hold the canonical labels.
+    graph.cleanupInterningPools();
     targetLabels.forEach(
         l ->
             assertThat(Label.createUnvalidated(l.getPackageIdentifier(), l.getName()))

@@ -1531,6 +1531,76 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void bazelDep_selfDependencyWithRepoName() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='foo',version='1.0',repo_name='foo_self')",
+        "bazel_dep(name='foo',version='2.0',repo_name='foo_alias')");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("module 'foo' cannot depend on itself");
+  }
+
+  @Test
+  public void bazelDep_selfNodepDependency() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='foo',version='1.0')",
+        "bazel_dep(name='foo',version='2.0',repo_name=None)");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("module 'foo' cannot depend on itself");
+  }
+
+  @Test
+  public void bazelDep_ignoredSelfDevDependency() throws Exception {
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='foo',version='1.0')",
+        "bazel_dep(name='foo',version='2.0',repo_name='foo_alias',dev_dependency=True)");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("module 'foo' cannot depend on itself");
+  }
+
+  @Test
+  public void bazelDep_nonRootSelfDependency() throws Exception {
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("foo", "1.0"),
+                "module(name='foo',version='1.0',repo_name='foo_self')",
+                "bazel_dep(name='foo',version='2.0',repo_name='foo_alias')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.key(createModuleKey("foo", "1.0"))),
+            evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("module 'foo' cannot depend on itself");
+  }
+
+  @Test
   public void badRepoName_module() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),

@@ -198,8 +198,8 @@ public final class TargetPatternValue implements SkyValue {
 
     /**
      * Must be "compatible" with {@link #signedParsedPattern}: if {@link #signedParsedPattern} is a
-     * {@link TargetsBelowDirectory} object, then {@link TargetsBelowDirectory#containedIn} is false
-     * for every element of {@code excludedSubdirectories}.
+     * {@link TargetsBelowDirectory} object, then every element of {@code excludedSubdirectories} is
+     * not an ancestor of or equal to its directory.
      */
     private final ImmutableSet<PathFragment> excludedSubdirectories;
 

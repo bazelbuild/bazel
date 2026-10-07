@@ -51,7 +51,7 @@ public final class PyCommon {
             ruleContext.getPrerequisiteArtifacts("srcs").list(),
             // We must not add the files declared in the srcs of this rule.;
             dependencyTransitivePythonSources,
-            PseudoAction.getDummyOutput(ruleContext)));
+            PseudoAction.getDummyOutput(ruleContext, ruleContext.getLabel())));
   }
 
   /**

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
-import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
 import com.google.devtools.build.lib.runtime.SafeRequestLogging;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -69,6 +68,7 @@ import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -81,7 +81,8 @@ import javax.annotation.Nullable;
  *
  * <p>Each running RPC has a UUID associated with it that is used to identify it when a client wants
  * to cancel it. Cancellation is done by the client sending the server a Cancel RPC, which results
- * in the main thread of the command being interrupted.
+ * in the main thread of the command being interrupted. A client going away without sending one has
+ * the same effect, see {@link GrpcCommandServerImpl.BlockingStreamObserver}.
  */
 public class CommandServer implements GrpcCommandServer.Callback {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -479,7 +480,8 @@ public class CommandServer implements GrpcCommandServer.Callback {
       commandId = command.getId();
 
       try {
-        // Send the client the command id as soon as we know it.
+        // Send the client the command id as soon as we know it, letting the responder capture the
+        // current thread as the one to interrupt if the client goes away.
         responder.onNext(
             RunResponse.newBuilder()
                 .setCookie(responseCookie)
@@ -504,12 +506,16 @@ public class CommandServer implements GrpcCommandServer.Callback {
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
         logger.atInfo().log("Executing command %s", SafeRequestLogging.getRequestLogString(args));
+        Duration blockForLockTimeout =
+            request.hasBlockForLockTimeoutMs()
+                ? Duration.ofMillis(Math.max(0, request.getBlockForLockTimeoutMs()))
+                : (request.getBlockForLock() ? Duration.ofMillis(Long.MAX_VALUE) : Duration.ZERO);
         result =
             dispatcher.exec(
                 policy,
                 args,
                 rpcOutErr,
-                request.getBlockForLock() ? LockingMode.WAIT : LockingMode.ERROR_OUT,
+                blockForLockTimeout,
                 request.getQuiet() ? UiVerbosity.QUIET : UiVerbosity.NORMAL,
                 request.getClientDescription(),
                 clock.currentTimeMillis(),

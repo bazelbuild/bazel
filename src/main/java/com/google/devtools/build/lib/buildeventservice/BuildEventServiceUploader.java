@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -108,7 +109,14 @@ public final class BuildEventServiceUploader implements Runnable {
 
     /** Tells the event loop to retransmit a serialized build event. */
     record SendSerializedBuildEvent(StreamEvent request) implements Command {}
+
+    /**
+     * Tells the event loop to notify the future when all previous events have been acknowledged.
+     */
+    record Quiesce(SettableFuture<Void> future) implements Command {}
   }
+
+  private record PendingQuiesce(SettableFuture<Void> future, long targetSeqNum) {}
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -308,6 +316,31 @@ public final class BuildEventServiceUploader implements Runnable {
     return halfCloseFuture;
   }
 
+  @GuardedBy("lock")
+  private SettableFuture<Void> quiescenceFuture = null;
+
+  /**
+   * Returns a future that completes when all events enqueued prior to this call have been processed
+   * and dispatched to the BES stream.
+   *
+   * <p>If called more than once, returns the existing future that was created on the first call.
+   */
+  public ListenableFuture<Void> getQuiescenceFuture() {
+    synchronized (lock) {
+      if (closeFuture.isDone() || uploadThread == null) {
+        return Futures.immediateVoidFuture();
+      }
+      if (quiescenceFuture != null) {
+        return quiescenceFuture;
+      }
+      SettableFuture<Void> future = SettableFuture.create();
+      quiescenceFuture = future;
+      closeFuture.addListener(() -> future.set(null), directExecutor());
+      commandQueue.addLast(new Command.Quiesce(future));
+      return future;
+    }
+  }
+
   @Override
   public void run() {
     try {
@@ -430,6 +463,7 @@ public final class BuildEventServiceUploader implements Runnable {
     // the build events that have been sent and still have to be acknowledged by the server.
     // The build events are stored in the order they were sent.
     Deque<Command.SendSerializedBuildEvent> ackQueue = new ArrayDeque<>();
+    PendingQuiesce pendingQuiesce = null;
     boolean lastEventSent = false;
     int acksReceived = 0;
     int retryAttempt = 0;
@@ -462,7 +496,6 @@ public final class BuildEventServiceUploader implements Runnable {
           }
           case Command.SendRegularBuildEvent sendRegularBuildEventCmd -> {
             // Invariant: commandQueue may contain commands of any type
-
             PathConverter pathConverter = waitForUploads(sendRegularBuildEventCmd);
 
             BuildEventStreamProtos.BuildEvent serializedRegularBuildEvent =
@@ -494,6 +527,21 @@ public final class BuildEventServiceUploader implements Runnable {
             streamContext.sendOverStream(streamFinishedEvent);
             halfCloseEventUploadingStream();
           }
+          case Command.Quiesce quiesceCmd -> {
+            if (ackQueue.isEmpty()) {
+              quiesceCmd.future().set(null);
+            } else {
+              long targetSeqNum = ackQueue.peekLast().request.sequenceNumber();
+              // BES backend holds back the ACK for the last build event in an open stream
+              // (b/73904614). If only one event is in ackQueue, that single event is the held ACK,
+              // so all prior events are already acknowledged.
+              if (ackQueue.size() == 1) {
+                quiesceCmd.future().set(null);
+              } else {
+                pendingQuiesce = new PendingQuiesce(quiesceCmd.future(), targetSeqNum);
+              }
+            }
+          }
           case Command.AckReceived ackReceivedCmd -> {
             // Invariant: the commandQueue may contain commands of any type
             if (!ackQueue.isEmpty()) {
@@ -517,6 +565,17 @@ public final class BuildEventServiceUploader implements Runnable {
                       ackReceivedCmd.sequenceNumber());
               logger.atInfo().log("%s", message);
               streamContext.abortStream(AbortReason.FAILED_PRECONDITION, message);
+            }
+            if (pendingQuiesce != null) {
+              // Quiescence is satisfied if all events up to targetSeqNum have been acknowledged,
+              // or if targetSeqNum has reached the head of ackQueue (accounting for the withheld
+              // ACK per b/73904614).
+              if (ackQueue.isEmpty()
+                  || ackQueue.peekFirst().request.sequenceNumber()
+                      >= pendingQuiesce.targetSeqNum()) {
+                pendingQuiesce.future().set(null);
+                pendingQuiesce = null;
+              }
             }
           }
           case Command.StreamComplete streamCompleteCmd -> {
@@ -603,16 +662,26 @@ public final class BuildEventServiceUploader implements Runnable {
       logger.atInfo().log("About to cancel all local file uploads");
       try (AutoProfiler ignored =
           GoogleAutoProfilerUtils.logged("local file upload cancellation")) {
-        // If we failed in the middle of an event with uploads, cancel those.
+        // If we failed in the middle of an event with uploads, cancel those, and complete
+        // any active quiescence command.
         if (cmd instanceof Command.SendRegularBuildEvent sendRegularBuildEventCmd) {
           cancelLocalFileUpload(sendRegularBuildEventCmd);
+        } else if (cmd instanceof Command.Quiesce quiesceCmd) {
+          quiesceCmd.future().set(null);
         }
-        // Drain ackQueue and commandQueue, cancelling all pending local file uploads.
+        if (pendingQuiesce != null) {
+          pendingQuiesce.future().set(null);
+          pendingQuiesce = null;
+        }
+        // Drain ackQueue and commandQueue, cancelling all pending local file uploads and completing
+        // any queued quiescence commands.
         ackQueue.clear();
         Command queuedCmd;
         while ((queuedCmd = commandQueue.pollFirst()) != null) {
           if (queuedCmd instanceof Command.SendRegularBuildEvent sendRegularBuildEventCmd) {
             cancelLocalFileUpload(sendRegularBuildEventCmd);
+          } else if (queuedCmd instanceof Command.Quiesce quiesceCmd) {
+            quiesceCmd.future().set(null);
           }
         }
       }

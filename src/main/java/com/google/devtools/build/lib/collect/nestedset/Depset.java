@@ -236,12 +236,11 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
    * @throws TypeException if the type does not accurately describe all elements
    */
   public <T> NestedSet<T> getSet(Class<T> type) throws TypeException {
-    ElementType elemType = getElementType();
-    if (!set.isEmpty() && !elemType.canBeCastTo(type)) {
+    if (!set.isEmpty() && !ElementType.canBeCastTo(elemClass, type)) {
       throw new TypeException(
           String.format(
               "got a depset of '%s', expected a depset of '%s'",
-              elemType, Starlark.classType(type)));
+              getElementType(), Starlark.classType(type)));
     }
     @SuppressWarnings("unchecked")
     NestedSet<T> res = (NestedSet<T>) set;
@@ -539,10 +538,11 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     // getTypeClass calls here and in ElementType.of, and remove the special
     // case for Object.class since isAssignableFrom will allow any supertype
     // of the element type, whether or not it is a Starlark value class.
-    private boolean canBeCastTo(Class<?> cls) {
-      return this.cls == null
+    private static boolean canBeCastTo(@Nullable Class<?> elemClass, Class<?> cls) {
+      return elemClass == null
+          || elemClass == cls
           || cls == Object.class // historical exception
-          || getTypeClass(cls).isAssignableFrom(this.cls);
+          || getTypeClass(cls).isAssignableFrom(elemClass);
     }
 
     @Override

@@ -461,6 +461,81 @@ EOF
   fi
 }
 
+# Kills the client of a build blocked in an action, then reports how many seconds the
+# server took to release the command lock, or nothing at all if it never did.
+function kill_client_of_blocked_build() {
+  local -r extra_flag="$1"
+  # Before anything takes the lock: asking later would queue behind the very command
+  # this function is about to abandon.
+  local -r server_pid_file="$(bazel info output_base)/server/server.pid.txt"
+  local -r ready="${TEST_TMPDIR}/ready"  # entered by the genrule
+  local -r lock="${TEST_TMPDIR}/lock"  # waited on by the genrule
+  mkfifo "${ready}" || fail "couldn't create fifo ready"
+  mkfifo "${lock}" || fail "couldn't create fifo lock"
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(name = "a", outs = ["a.out"], local = True,
+        cmd = "cat ${ready} >/dev/null; cat ${lock} >/dev/null; touch \$@")
+EOF
+
+  # Local strategy, so that the action reaches both fifos.
+  bazel --client_debug build --spawn_strategy=local ${extra_flag} //a:a >"$TEST_log" 2>&1 &
+  local -r client_job_pid="$!"
+
+  # This write returns once the action reads it, which then blocks on the lock fifo.
+  echo entered > "${ready}"
+  local -r client_pid="$(cat "$TEST_log" | scrape_client_pid)"
+
+  # SIGKILL rather than SIGTERM, which would let the client send a Cancel RPC: the server
+  # has always acted upon those, so these tests would then pass either way.
+  kill -9 "${client_pid}" || fail "couldn't kill client ${client_pid}"
+  # Reap the backgrounded job so its "Killed" notice does not surface later.
+  wait "${client_job_pid}" || true
+
+  local exit_code=0
+  local i
+  for i in $(seq 1 30); do
+    exit_code=0
+    bazel --client_debug --noblock_for_lock info >"$TEST_log-2" 2>&1 || exit_code=$?
+    if [[ "${exit_code}" -eq 0 ]]; then
+      break
+    fi
+    sleep 1
+  done
+
+  # Free the slot *before* the caller checks expectations, otherwise the rest of the suite
+  # waits for this very command. Writing to the lock fifo would hang once the action is gone,
+  # leaving the server as the only way to release the lock, as on a CI runner holding a stale one.
+  if [[ -f "${server_pid_file}" ]]; then
+    local -r server_pid="$(cat "${server_pid_file}")"
+    kill -0 "${server_pid}" 2>/dev/null && kill "${server_pid}"
+  fi
+  rm -rf a "${ready}" "${lock}"
+
+  cat "$TEST_log-2" >> "$TEST_log"
+  return "${exit_code}"
+}
+
+function test_command_lock_released_when_client_dies() {
+  # A command whose client is killed must not keep the server's command lock: the next
+  # invocation would then wait for a command nobody waits for, until its own timeout.
+  # Progress reporting gives the server a write, hence a chance to notice the client is
+  # gone, but that interrupt has to reach the command rather than the reporting thread.
+  # See https://github.com/bazelbuild/bazel/issues/30954.
+  local exit_code=0
+  kill_client_of_blocked_build "" || exit_code=$?
+  assert_equals 0 "${exit_code}" # 9 would be LOCK_HELD_NOBLOCK_FOR_LOCK
+}
+
+function test_command_lock_released_when_client_dies_without_further_output() {
+  # Same, for a command that reports nothing at all: with no write left to carry it, the
+  # interrupt has to come from the cancellation itself.
+  # See https://github.com/bazelbuild/bazel/issues/30954.
+  local exit_code=0
+  kill_client_of_blocked_build "--noshow_progress" || exit_code=$?
+  assert_equals 0 "${exit_code}" # 9 would be LOCK_HELD_NOBLOCK_FOR_LOCK
+}
+
 function test_noblock_for_lock_reuse_server() {
   # Use a FIFO to spoonfeed the Bazel server.
   mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
@@ -559,6 +634,92 @@ function test_noblock_for_lock_with_batch() {
       "Exiting because the output base lock is held and --noblock_for_lock was given"
 }
 
+function test_block_for_lock_timeout_reuse_server() {
+  # Use a FIFO to spoonfeed the Bazel server.
+  mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
+  mkdir -p b && mkfifo b/BUILD || fail "couldn't create fifo b"
+  bazel --client_debug build --nobuild //a:a &> "$TEST_log" &
+  local -r subshell_pid="$!"
+
+  # Wait until Bazel reads a/BUILD. After that, it will block on b/BUILD.
+  echo "filegroup(name='a', srcs=['//b:b'])" > a/BUILD
+
+  # Get the client pid from the log.
+  local -r client_pid="$(cat "$TEST_log" | scrape_client_pid)"
+
+  # Run another command in the same workspace with a 1-second lock timeout.
+  local exit_code=0
+  bazel --client_debug --block_for_lock=1s info &> "$TEST_log-2" || exit_code=$?
+
+  # Unstick the first server *before* checking expectations.
+  echo "filegroup(name='b', visibility=['//visibility:public'])" > b/BUILD
+  wait "$subshell_pid" || fail "Couldn't wait"
+  rm -rf a b
+
+  assert_equals 9 "$exit_code" # LOCK_HELD_NOBLOCK_FOR_LOCK
+
+  cat "$TEST_log-2" >> "$TEST_log"
+  expect_log \
+      "Another command (pid=$client_pid) is running. Exiting because --block_for_lock=1000ms timeout expired."
+}
+
+function test_block_for_lock_released_before_timeout() {
+  # Use a FIFO to spoonfeed the Bazel server.
+  mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
+  mkdir -p b && mkfifo b/BUILD || fail "couldn't create fifo b"
+  bazel --client_debug build --nobuild //a:a &> "$TEST_log" &
+  local -r subshell_pid="$!"
+
+  # Wait until Bazel reads a/BUILD. After that, it will block on b/BUILD.
+  echo "filegroup(name='a', srcs=['//b:b'])" > a/BUILD
+
+  # Run another command in the background with a 10-second timeout.
+  bazel --client_debug --block_for_lock=10s info &> "$TEST_log-2" &
+  local -r second_pid="$!"
+
+  # Sleep briefly to ensure the second command is waiting on the lock.
+  sleep 1
+
+  # Unstick the first server so the second command can acquire the lock.
+  echo "filegroup(name='b', visibility=['//visibility:public'])" > b/BUILD
+  wait "$subshell_pid" || fail "First command failed"
+
+  local exit_code=0
+  wait "$second_pid" || exit_code=$?
+  rm -rf a b
+
+  assert_equals 0 "$exit_code"
+}
+
+function test_block_for_lock_timeout_with_batch() {
+  # Use a FIFO to spoonfeed the Bazel server.
+  mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
+  mkdir -p b && mkfifo b/BUILD || fail "couldn't create fifo b"
+  bazel --client_debug --batch build --nobuild //a:a &>"$TEST_log" &
+  local -r subshell_pid="$!"
+
+  # Wait until Bazel reads a/BUILD. After that, it will block on b/BUILD.
+  echo "filegroup(name='a', srcs=['//b:b'])" > a/BUILD
+
+  local -r client_pid="$(cat "$TEST_log" | scrape_client_pid)"
+
+  local exit_code=0
+  bazel --client_debug --batch --block_for_lock=1s info &>"$TEST_log-2" || exit_code=$?
+
+  # Unstick the first server *before* checking expectations.
+  echo "filegroup(name='b', visibility=['//visibility:public'])" > b/BUILD
+  wait "$subshell_pid" || fail "Couldn't wait"
+  rm -rf a b
+
+  assert_equals 9 "$exit_code" # LOCK_HELD_NOBLOCK_FOR_LOCK
+
+  cat "$TEST_log-2" >> "$TEST_log"
+  expect_log "Another command holds the output base lock"
+  expect_log "pid=$client_pid"
+  expect_log \
+      "Exiting because the output base lock is held and --block_for_lock=1000ms timeout expired."
+}
+
 function test_no_arguments() {
   bazel >&$TEST_log || fail "Expected zero exit"
   expect_log "Usage: b\\(laze\\|azel\\)"
@@ -619,6 +780,12 @@ function test_max_idle_secs() {
   expect_log "Starting local.*server (.*) and connecting to it"
   # Ensure the restart was not triggered by different startup options.
   expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
+
+  # Shut down the server started with --max_idle_secs=1 so that subsequent tests
+  # do not reuse it (--max_idle_secs is a volatile startup option that does not
+  # trigger a server restart) and experience an idle shutdown right as they
+  # connect.
+  bazel shutdown
 }
 
 function test_dashdash_before_command() {

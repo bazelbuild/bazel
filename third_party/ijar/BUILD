@@ -79,14 +79,24 @@ cc_binary(
     deps = [":zip"],
 )
 
+cc_library(
+    name = "classfile",
+    srcs = ["classfile.cc"],
+    hdrs = ["common.h"],
+    visibility = ["//third_party/ijar/test:__pkg__"],
+    deps = [":zip"],
+)
+
 cc_binary(
     name = "ijar",
     srcs = [
-        "classfile.cc",
         "ijar.cc",
     ],
     visibility = ["//visibility:public"],
-    deps = [":zip"],
+    deps = [
+        ":classfile",
+        ":zip",
+    ],
 )
 
 filegroup(

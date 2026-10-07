@@ -44,6 +44,11 @@ public abstract class ExecutionInfoModifier {
 
   abstract ImmutableList<Expression> expressions();
 
+  // Configuration checksums repeatedly serialize these immutable modifiers.
+  @Memoized
+  @Override
+  public abstract String toString();
+
   @AutoValue
   abstract static class Expression {
     // Patterns do not have a useful equals(), so compare by the regex and memoize the derived

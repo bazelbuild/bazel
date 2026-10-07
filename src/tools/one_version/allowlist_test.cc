@@ -16,11 +16,11 @@
 
 #include <string>
 
+#include "src/tools/one_version/duplicate_class_collector.h"
 #include "googletest/include/gtest/gtest.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
-#include "src/tools/one_version/duplicate_class_collector.h"
 
 namespace one_version {
 

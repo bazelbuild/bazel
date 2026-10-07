@@ -118,7 +118,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
       return false;
     }
     for (String field : getFieldNames()) {
-      if (!Objects.equal(this.getValueOrNull(field), other.getValueOrNull(field))) {
+      if (!java.util.Objects.equals(this.getValueOrNull(field), other.getValueOrNull(field))) {
         return false;
       }
     }

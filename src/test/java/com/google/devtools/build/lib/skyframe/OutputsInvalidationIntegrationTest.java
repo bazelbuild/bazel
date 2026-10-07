@@ -23,10 +23,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BazelIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BazelServer;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -45,7 +45,7 @@ import org.junit.runner.RunWith;
  * OutputService#startBuild}.
  */
 @RunWith(TestParameterInjector.class)
-public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTestCase {
+public final class OutputsInvalidationIntegrationTest extends BazelIntegrationTestCase {
 
   private final OutputService outputService = mock(OutputService.class);
 
@@ -62,8 +62,8 @@ public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTe
   }
 
   @Override
-  protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    return super.getRuntimeBuilder()
+  protected BazelServer.Builder getServerBuilder() {
+    return super.getServerBuilder()
         .addBlazeModule(
             new BlazeModule() {
               @Override

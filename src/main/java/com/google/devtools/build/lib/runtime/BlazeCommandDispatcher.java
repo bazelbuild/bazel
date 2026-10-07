@@ -164,7 +164,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
-      LockingMode lockingMode,
+      Duration blockForLockTimeout,
       UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
@@ -177,7 +177,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         invocationPolicy,
         args,
         outErr,
-        lockingMode,
+        blockForLockTimeout,
         uiVerbosity,
         clientDescription,
         firstContactTimeMillis,
@@ -194,7 +194,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
-      LockingMode lockingMode,
+      Duration blockForLockTimeout,
       UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
@@ -239,30 +239,42 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     // TODO(ulfjack): Add lock acquisition to the profiler.
     synchronized (commandLock) {
       while (currentClientDescription != null) {
-        switch (lockingMode) {
-          case WAIT -> {
-            if (!otherClientDescription.equals(currentClientDescription)) {
-              String serverDescription =
-                  serverPid == UNKNOWN_SERVER_PID ? "" : (" (server_pid=" + serverPid + ")");
-              outErr.printErrLn(
-                  String.format(
-                      "Another command (%s) is running. Waiting for it to complete on the"
-                          + " server%s...",
-                      currentClientDescription, serverDescription));
-              otherClientDescription = currentClientDescription;
-            }
-            commandLock.wait(500);
-          }
-          case ERROR_OUT -> {
+        if (!blockForLockTimeout.isPositive()) {
+          String message =
+              String.format(
+                  "Another command (%s) is running. Exiting immediately.",
+                  currentClientDescription);
+          outErr.printErrLn(message);
+          return createDetailedCommandResult(
+              message, FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
+        }
+        long waitMillis = 500;
+        if (blockForLockTimeout.compareTo(Duration.ofMillis(Long.MAX_VALUE)) < 0) {
+          long timeoutMillis = blockForLockTimeout.toMillis();
+          long elapsedMillis = (BlazeClock.nanoTime() - clockBefore) / 1_000_000L;
+          if (elapsedMillis >= timeoutMillis) {
             String message =
                 String.format(
-                    "Another command (%s) is running. Exiting immediately.",
-                    currentClientDescription);
+                    "Another command (%s) is running. Exiting because --block_for_lock=%dms"
+                        + " timeout expired.",
+                    currentClientDescription, timeoutMillis);
             outErr.printErrLn(message);
             return createDetailedCommandResult(
                 message, FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
           }
+          waitMillis = Math.min(500, timeoutMillis - elapsedMillis);
         }
+        if (!otherClientDescription.equals(currentClientDescription)) {
+          String serverDescription =
+              serverPid == UNKNOWN_SERVER_PID ? "" : (" (server_pid=" + serverPid + ")");
+          outErr.printErrLn(
+              String.format(
+                  "Another command (%s) is running. Waiting for it to complete on the"
+                      + " server%s...",
+                  currentClientDescription, serverDescription));
+          otherClientDescription = currentClientDescription;
+        }
+        commandLock.wait(waitMillis);
 
         multipleAttempts = true;
       }
@@ -341,8 +353,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   /**
    * For testing ONLY. Same as {@link CommandDispatcher#exec(InvocationPolicy, List, OutErr,
-   * LockingMode, String, long, Optional, List, CommandExtensionReporter)} but automatically uses
-   * the current time.
+   * Duration, UiVerbosity, String, long, Optional, Supplier, List, CommandExtensionReporter)} but
+   * automatically uses the current time.
    */
   @VisibleForTesting
   public BlazeCommandResult exec(List<String> args, String clientDescription, OutErr originalOutErr)
@@ -351,7 +363,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         InvocationPolicy.getDefaultInstance(),
         args,
         originalOutErr,
-        LockingMode.ERROR_OUT,
+        Duration.ZERO,
         UiVerbosity.NORMAL,
         clientDescription,
         runtime.getClock().currentTimeMillis(),

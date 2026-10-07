@@ -170,7 +170,9 @@ class ArgTokenStream {
     int raw_next() { return next_ptr_ < end_ptr_ ? *next_ptr_++ : EOF; }
 
     int peek_raw_next(size_t offset = 0) {
-      return (next_ptr_ + offset) < end_ptr_ ? *(next_ptr_ + offset) : EOF;
+      return static_cast<size_t>(end_ptr_ - next_ptr_) > offset
+                 ? *(next_ptr_ + offset)
+                 : EOF;
     }
 
     MappedFile mapped_file_;

@@ -14,17 +14,21 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Input stream that reconnects on read timeouts and errors.
@@ -45,13 +49,23 @@ class RetryingInputStream extends InputStream {
 
   private InputStream delegate;
   private final Reconnector reconnector;
+  @Nullable private final String contentEncoding;
+  @Nullable private final String contentLength;
   private long toto;
   private int resumes;
   private final ArrayList<Throwable> suppressed = new ArrayList<>();
 
-  RetryingInputStream(InputStream delegate, Reconnector reconnector) {
+  /**
+   * @param delegate the stream of the initial response
+   * @param connection the connection of the initial response; its {@code Content-Encoding} and
+   *     {@code Content-Length} are used to validate full-body responses to range requests
+   * @param reconnector used to reconnect after read errors
+   */
+  RetryingInputStream(InputStream delegate, URLConnection connection, Reconnector reconnector) {
     this.delegate = delegate;
     this.reconnector = reconnector;
+    this.contentEncoding = connection.getContentEncoding();
+    this.contentLength = connection.getHeaderField("Content-Length");
   }
 
   @Override
@@ -122,10 +136,35 @@ class RetryingInputStream extends InputStream {
             reconnector.connect(
                 cause,
                 ImmutableMap.of("Range", ImmutableList.of(String.format("bytes=%d-", amountRead))));
+        // Servers and caches may ignore the Range header and send the full body. See RFC 9110
+        // § 14.2.
+        boolean fullBody =
+            connection instanceof HttpURLConnection httpConnection
+                ? httpConnection.getResponseCode() == HttpURLConnection.HTTP_OK
+                : connection.getHeaderField("Content-Range") == null;
+        if (fullBody) {
+          // We count bytes as sent on the wire, so skipping only lands at the right offset if the
+          // server sent the same representation as before.
+          if (!Ascii.equalsIgnoreCase(
+                  Strings.nullToEmpty(contentEncoding),
+                  Strings.nullToEmpty(connection.getContentEncoding()))
+              || (contentLength != null
+                  && connection.getHeaderField("Content-Length") != null
+                  && !contentLength.equals(connection.getHeaderField("Content-Length")))) {
+            throw new IOException(
+                String.format(
+                    "Tried to reconnect at offset %,d but server sent a different representation",
+                    amountRead));
+          }
+          delegate = new InterruptibleInputStream(connection.getInputStream());
+          ByteStreams.skipFully(delegate, amountRead);
+          return;
+        }
         if (!Strings.nullToEmpty(connection.getHeaderField("Content-Range"))
-                .startsWith(String.format("bytes %d-", amountRead))) {
-          throw new IOException(String.format(
-              "Tried to reconnect at offset %,d but server didn't support it", amountRead));
+            .startsWith(String.format("bytes %d-", amountRead))) {
+          throw new IOException(
+              String.format(
+                  "Tried to reconnect at offset %,d but server didn't support it", amountRead));
         }
       }
       delegate = new InterruptibleInputStream(connection.getInputStream());

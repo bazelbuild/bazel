@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -45,7 +46,7 @@ import java.util.Collection;
  */
 class NamedArtifactGroup implements BuildEvent {
   private final String name;
-  private final CompletionContext completionContext;
+  private final ArtifactPathResolver pathResolver;
   private final NestedSet<?> set; // of Artifact or ExpandedArtifact
 
   /**
@@ -54,7 +55,7 @@ class NamedArtifactGroup implements BuildEvent {
    */
   NamedArtifactGroup(String name, CompletionContext completionContext, NestedSet<?> set) {
     this.name = name;
-    this.completionContext = completionContext;
+    this.pathResolver = completionContext.pathResolver();
     this.set = set;
   }
 
@@ -76,14 +77,14 @@ class NamedArtifactGroup implements BuildEvent {
         case NormalExpandedArtifact(Artifact artifact, FileArtifactValue metadata) -> {
           artifacts.add(
               new LocalFile(
-                  completionContext.pathResolver().toPath(artifact),
+                  pathResolver.toPath(artifact),
                   LocalFileType.forArtifact(artifact, metadata),
                   metadata));
         }
         case FilesetExpandedArtifact(Artifact fileset, FilesetOutputSymlink link) -> {
           artifacts.add(
               new LocalFile(
-                  completionContext.pathResolver().toPath(link.target()),
+                  pathResolver.toPath(link.target()),
                   LocalFileType.forArtifact(link.target(), link.metadata()),
                   link.metadata()));
         }
@@ -103,12 +104,11 @@ class NamedArtifactGroup implements BuildEvent {
       BuildEventStreamProtos.File file =
           switch ((ExpandedArtifact) elem) {
             case NormalExpandedArtifact(Artifact artifact, FileArtifactValue metadata) -> {
-              String uri = pathConverter.apply(completionContext.pathResolver().toPath(artifact));
+              String uri = pathConverter.apply(pathResolver.toPath(artifact));
               yield TargetCompleteEvent.newFile(artifact, metadata, uri);
             }
             case FilesetExpandedArtifact(Artifact fileset, FilesetOutputSymlink link) -> {
-              String uri =
-                  pathConverter.apply(completionContext.pathResolver().toPath(link.target()));
+              String uri = pathConverter.apply(pathResolver.toPath(link.target()));
               yield TargetCompleteEvent.newFile(
                   fileset.getRoot(),
                   fileset.getRootRelativePath().getRelative(link.name()),

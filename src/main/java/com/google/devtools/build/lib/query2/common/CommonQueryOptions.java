@@ -62,6 +62,15 @@ public abstract class CommonQueryOptions extends OptionsBase {
       help = "Whether each format is terminated with \\0 instead of newline.")
   public abstract boolean getLineTerminatorNull();
 
+  @Option(
+      name = "null",
+      defaultValue = "null",
+      expansion = {"--line_terminator_null=true"},
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether each format is terminated with \\0 instead of newline.")
+  public abstract Void getIsNull();
+
   /** Ugly workaround since line terminator option default has to be constant expression. */
   public String getLineTerminator() {
     if (getLineTerminatorNull()) {

@@ -43,7 +43,24 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   /** A {@link Fingerprinter} implementation for non-production use. */
   public static final Fingerprinter NONPROD_FINGERPRINTER =
-      input -> PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
+      new Fingerprinter() {
+        @Override
+        public PackedFingerprint fingerprint(byte[] input) {
+          return PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
+        }
+
+        @Override
+        public PackedFingerprint fingerprint(byte[] input, String salt) {
+          return PackedFingerprint.fromBytes(
+              murmur3_128()
+                  .newHasher()
+                  .putInt(salt.length())
+                  .putUnencodedChars(salt)
+                  .putBytes(input)
+                  .hash()
+                  .asBytes());
+        }
+      };
 
   private final SafeExecutor executor;
   private final FingerprintValueStore store;
@@ -213,6 +230,12 @@ public final class FingerprintValueService implements KeyValueWriter {
   @Override
   public PackedFingerprint fingerprint(byte[] bytes) {
     return fingerprinter.fingerprint(bytes);
+  }
+
+  /** Computes the fingerprint of {@code bytes} with a salt. */
+  @Override
+  public PackedFingerprint fingerprint(byte[] bytes, String salt) {
+    return fingerprinter.fingerprint(bytes, salt);
   }
 
   /** Convenience overload of {@link #fingerprint(byte[])}. */

@@ -50,7 +50,8 @@ public class ParsedFlagsValue implements SkyValue {
       ImmutableList<String> rawFlags,
       PackageContext packageContext,
       boolean includeDefaultValues,
-      ImmutableMap<String, Label> flagAliasMappings)
+      ImmutableMap<String, Label> flagAliasMappings,
+      boolean allowNonFlagBuildSettings)
       implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
@@ -66,27 +67,55 @@ public class ParsedFlagsValue implements SkyValue {
 
     /**
      * Returns a new {@link Key} for the given command-line flags, such as {@code
-     * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
      */
     public static Key create(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
         ImmutableMap<String, Label> flagAliasMappings) {
-      return create(rawFlags, packageContext, /* includeDefaultValues= */ false, flagAliasMappings);
+      return create(
+          rawFlags,
+          packageContext,
+          /* includeDefaultValues= */ false,
+          flagAliasMappings,
+          /* allowNonFlagBuildSettings= */ false);
     }
 
     /**
      * Returns a new {@link Key} for the given command-line flags, such as {@code
-     * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
+     */
+    public static Key create(
+        ImmutableList<String> rawFlags,
+        PackageContext packageContext,
+        boolean includeDefaultValues,
+        ImmutableMap<String, Label> flagAliasMappings) {
+      return create(
+          rawFlags,
+          packageContext,
+          includeDefaultValues,
+          flagAliasMappings,
+          /* allowNonFlagBuildSettings= */ false);
+    }
+
+    /**
+     * Returns a new {@link Key} for the given command-line flags, such as {@code
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
      */
     @AutoCodec.Instantiator
     public static Key create(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
         boolean includeDefaultValues,
-        ImmutableMap<String, Label> flagAliasMappings) {
+        ImmutableMap<String, Label> flagAliasMappings,
+        boolean allowNonFlagBuildSettings) {
       return interner.intern(
-          new Key(rawFlags, packageContext, includeDefaultValues, flagAliasMappings));
+          new Key(
+              rawFlags,
+              packageContext,
+              includeDefaultValues,
+              flagAliasMappings,
+              allowNonFlagBuildSettings));
     }
 
     @Override

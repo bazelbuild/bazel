@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.stream;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,6 +27,11 @@ import com.google.devtools.common.options.OptionMetadataTag;
 
 /** Stores information about a build option gathered via reflection. */
 public final class OptionInfo {
+  private static final LoadingCache<
+          ImmutableSet<Class<? extends FragmentOptions>>, ImmutableMap<String, OptionInfo>>
+      optionInfoCache =
+          CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(OptionInfo::buildMap));
+
   private final Class<? extends FragmentOptions> optionClass;
   private final OptionDefinition definition;
 
@@ -47,12 +54,13 @@ public final class OptionInfo {
 
   /** For all the options in the BuildOptions, build a map from option name to its information. */
   public static ImmutableMap<String, OptionInfo> buildMapFrom(BuildOptions buildOptions) {
-    ImmutableMap.Builder<String, OptionInfo> builder = new ImmutableMap.Builder<>();
+    // Copy the key set so the cache does not retain the option values through a map view.
+    return optionInfoCache.getUnchecked(ImmutableSet.copyOf(buildOptions.getFragmentClasses()));
+  }
 
-    ImmutableSet<Class<? extends FragmentOptions>> optionClasses =
-        buildOptions.getNativeOptions().stream()
-            .map(FragmentOptions::getOptionsClass)
-            .collect(toImmutableSet());
+  private static ImmutableMap<String, OptionInfo> buildMap(
+      ImmutableSet<Class<? extends FragmentOptions>> optionClasses) {
+    ImmutableMap.Builder<String, OptionInfo> builder = new ImmutableMap.Builder<>();
 
     for (Class<? extends FragmentOptions> optionClass : optionClasses) {
       ImmutableList<? extends OptionDefinition> optionDefinitions =

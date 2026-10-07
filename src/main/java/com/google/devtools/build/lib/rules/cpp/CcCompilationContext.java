@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
@@ -302,12 +303,24 @@ public final class CcCompilationContext {
     HeaderInfo headerInfo = getHeaderInfo();
     Collection<HeaderInfo> transitiveHeaderInfos = headerInfo.getTransitiveCollection();
     ArrayList<Artifact> treeArtifacts = new ArrayList<>();
+    int expectedHeaderCount = 0;
+    int expectedModularHeaderCount = 0;
+    for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
+      int modularCount =
+          transitiveHeaderInfo.modularPublicHeaders.size()
+              + transitiveHeaderInfo.modularPrivateHeaders.size()
+              + transitiveHeaderInfo.separateModuleHeaders.size();
+      expectedHeaderCount += modularCount + transitiveHeaderInfo.textualHeaders.size();
+      if (createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null) {
+        expectedModularHeaderCount += modularCount;
+      }
+    }
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
     Map<PathFragment, Artifact> pathToLegalArtifact =
-        CompactHashMap.createWithExpectedSize(transitiveHeaderInfos.size());
+        CompactHashMap.createWithExpectedSize(expectedHeaderCount);
     Set<Artifact> modularHeaders =
-        CompactHashSet.createWithExpectedSize(transitiveHeaderInfos.size());
+        CompactHashSet.createWithExpectedSize(expectedModularHeaderCount);
     // Not using range-based for loops here and below as the additional overhead of the
     // ImmutableList iterators has shown up in profiles.
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
@@ -392,6 +405,46 @@ public final class CcCompilationContext {
     // 2. compiles of other translation units of the same rule.
     modules.remove(separate ? headerInfo.getSeparateModule(usePic) : headerInfo.getModule(usePic));
     return modules;
+  }
+
+  /**
+   * Returns the modules that a compilation in this context could use directly: the modules of its
+   * direct dependencies as well as the separate module of this context (except for the compile of
+   * the separate module itself, which is indicated by {@code separate}).
+   *
+   * <p>Just like in {@link #computeUsedModules}, the main module of this context is never included:
+   * it is either the output of the compilation or, for other compiles of the same rule, its headers
+   * are included textually.
+   *
+   * <p>This is an upper bound for the top-level modules of a compilation, used when include
+   * scanning is disabled and thus the exact set of used headers is unknown.
+   */
+  NestedSet<Artifact> getDirectModules(boolean usePic, boolean separate) {
+    HeaderInfo headerInfo = getHeaderInfo();
+    CompactHashSet<Artifact> modules = CompactHashSet.create();
+    for (HeaderInfo dep : headerInfo.deps) {
+      collectModules(dep, usePic, modules);
+    }
+    // The separate module can be used by all compiles of this context except for its own compile.
+    DerivedArtifact separateModule = headerInfo.getSeparateModule(usePic);
+    if (separateModule != null && !separate) {
+      modules.add(separateModule);
+    }
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER, modules);
+  }
+
+  private static void collectModules(HeaderInfo headerInfo, boolean usePic, Set<Artifact> modules) {
+    DerivedArtifact module = headerInfo.getModule(usePic);
+    if (module == null) {
+      // If we don't have a main module, there is also not going to be a separate module. This is
+      // verified when constructing HeaderInfo instances.
+      return;
+    }
+    modules.add(module);
+    DerivedArtifact separateModule = headerInfo.getSeparateModule(usePic);
+    if (separateModule != null) {
+      modules.add(separateModule);
+    }
   }
 
   private static void removeArtifactsFromSet(Set<Artifact> set, ImmutableList<Artifact> artifacts) {

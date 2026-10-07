@@ -32,6 +32,7 @@ class BazelOverridesTest(test_base.TestBase):
         os.path.join(self.registries_work_dir, 'main')
     )
     self.main_registry.start()
+    self.addCleanup(self.main_registry.stop)
     self.main_registry.createShModule('aaa', '1.0').createShModule(
         'aaa', '1.1'
     ).createShModule('bbb', '1.0', {'aaa': '1.0'}).createShModule(
@@ -57,10 +58,6 @@ class BazelOverridesTest(test_base.TestBase):
             'build --lockfile_mode=update',
         ],
     )
-
-  def tearDown(self):
-    self.main_registry.stop()
-    test_base.TestBase.tearDown(self)
 
   def writeMainProjectFiles(self, aaa_repo_name='aaa'):
     self.ScratchFile(
@@ -213,26 +210,24 @@ class BazelOverridesTest(test_base.TestBase):
         ' from another registry',
     )
     another_registry.start()
-    try:
-      another_registry.createShModule('aaa', '1.0')
-      self.ScratchFile(
-          'MODULE.bazel',
-          [
-              'bazel_dep(name = "aaa", version = "1.0")',
-              'bazel_dep(name = "bbb", version = "1.0")',
-              'single_version_override(',
-              '  module_name = "aaa",',
-              '  registry = "%s",' % another_registry.getURL(),
-              ')',
-          ],
-      )
-      self.AddBazelDep('rules_shell')
-      _, stdout, _ = self.RunBazel(['run', '//:main'])
-      self.assertIn('main function => aaa@1.0 from another registry', stdout)
-      self.assertIn('main function => bbb@1.0', stdout)
-      self.assertIn('bbb@1.0 => aaa@1.0 from another registry', stdout)
-    finally:
-      another_registry.stop()
+    self.addCleanup(another_registry.stop)
+    another_registry.createShModule('aaa', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "bbb", version = "1.0")',
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  registry = "%s",' % another_registry.getURL(),
+            ')',
+        ],
+    )
+    self.AddBazelDep('rules_shell')
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => aaa@1.0 from another registry', stdout)
+    self.assertIn('main function => bbb@1.0', stdout)
+    self.assertIn('bbb@1.0 => aaa@1.0 from another registry', stdout)
 
   def testArchiveOverride(self):
     self.writeMainProjectFiles()

@@ -333,6 +333,7 @@ java_library(
         ":thread_dumper",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -351,8 +352,14 @@ java_library(
 
 java_library(
     name = "deterministic_writer",
-    srcs = ["DeterministicWriter.java"],
-    deps = ["//third_party/java/protobuf"],
+    srcs = [
+        "DeterministicWriter.java",
+        "DeterministicWriterInputStream.java",
+    ],
+    deps = [
+        "//third_party/java/guava:io",
+        "//third_party/java/protobuf",
+    ],
 )
 
 java_library(
@@ -469,12 +476,10 @@ java_library(
 
 java_library(
     name = "exit_code",
-    srcs = [
-        "ExitCode.java",
-    ],
+    srcs = ["ExitCode.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/error_prone:annotations",
-        "//third_party/java/guava:base",
         "//third_party/java/jsr305_annotations",
     ],
 )

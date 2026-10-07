@@ -72,11 +72,9 @@ EOF
 }
 
 # When a target is broken, report an error in the target, not the aspect.
-# This test would be flaky if errors were non-deterministically reported during
-# target and aspect analysis, and would fail outright if aspect failures were
-# preferred.
-# TODO: b/380281737 - Re-enable when not flaky
-function disabled_test_aspect_on_target_with_analysis_failure() {
+# A target analysis error outranks an aspect one in NO_KEEP_GOING_PRECEDENCE, so
+# the outcome does not depend on the order the errors are surfaced in.
+function test_aspect_on_target_with_analysis_failure() {
   mkdir -p test
   cat > test/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
 def _simple_aspect_impl(target, ctx):

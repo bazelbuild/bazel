@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -12,11 +12,13 @@ filegroup(
     visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
-java_test(
-    name = "AllTests",
-    size = "medium",
-    srcs = glob(["*.java"]),
-    shard_count = 10,
+java_library(
+    name = "engine_tests_lib",
+    testonly = 1,
+    srcs = glob(
+        ["*.java"],
+        exclude = ["AllTests.java"],
+    ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -34,12 +36,23 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",
         "//third_party/java/mockito",
         "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "AllTests",
+    size = "medium",
+    srcs = ["AllTests.java"],
+    shard_count = 10,
+    deps = [
+        ":engine_tests_lib",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
+        "//third_party/java/junit",
     ],
 )

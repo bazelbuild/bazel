@@ -28,12 +28,6 @@ public interface PlatformConfigurationProvider {
   BuildOptions getBaseOptionsForPlatform(
       Label platformLabel, boolean isExec, boolean trimTestOptions) throws SerializationException;
 
-  /** Returns whether test options are trimmed away from the given build options. */
-  boolean trimTestOptions(BuildOptions options);
-
-  /** Returns whether platform-based output directory naming is enabled. */
-  boolean usePlatformInOutputDir();
-
   /** Resolves the output directory mnemonic for the given configuration options. */
   String resolveMnemonic(BuildOptions targetOptions);
 }

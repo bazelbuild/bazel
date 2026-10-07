@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultT
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.LinkedHashSet;
@@ -157,8 +158,12 @@ public class AttributeProvider {
    * and the {@code pkgBuilder}.
    *
    * <p>Errors are reported on {@code eventHandler}.
+   *
+   * @return true if all mandatory attributes were present, or false if any mandatory attribute was
+   *     missing a value.
    */
-  <T> void populateRuleAttributeValues(
+  @CanIgnoreReturnValue
+  <T> boolean populateRuleAttributeValues(
       RuleOrMacroInstance ruleOrMacroInstance,
       TargetDefinitionContext targetDefinitionContext,
       AttributeValues<T> attributeValues,
@@ -169,10 +174,12 @@ public class AttributeProvider {
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
             ruleOrMacroInstance, attributeValues, failOnUnknownAttributes, targetDefinitionContext);
-    populateDefaultRuleAttributeValues(
-        ruleOrMacroInstance, targetDefinitionContext, definedAttrIndices, isStarlark);
+    boolean allMandatoryAttributesPresent =
+        populateDefaultRuleAttributeValues(
+            ruleOrMacroInstance, targetDefinitionContext, definedAttrIndices, isStarlark);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(ruleOrMacroInstance);
+    return allMandatoryAttributesPresent;
   }
 
   /**
@@ -294,8 +301,11 @@ public class AttributeProvider {
    * determine whether an attribute was populated.
    *
    * <p>Errors are reported on {@code eventHandler}.
+   *
+   * @return true if all mandatory attributes were present, or false if any mandatory attribute was
+   *     missing a value.
    */
-  private void populateDefaultRuleAttributeValues(
+  private boolean populateDefaultRuleAttributeValues(
       RuleOrMacroInstance ruleOrMacroInstance,
       TargetDefinitionContext targetDefinitionContext,
       BitSet definedAttrIndices,
@@ -303,6 +313,7 @@ public class AttributeProvider {
       throws InterruptedException, CannotPrecomputeDefaultsException {
     // Set defaults; ensure that every mandatory attribute has a value. Use the default if none
     // is specified.
+    boolean allMandatoryAttributesPresent = true;
     List<Attribute> attrsWithComputedDefaults = new ArrayList<>();
     int numAttributes = getAttributeCount();
     for (int attrIndex = 0; attrIndex < numAttributes; ++attrIndex) {
@@ -319,9 +330,7 @@ public class AttributeProvider {
                 owner,
                 ruleOrMacroInstance.isRuleInstance() ? "rule" : "macro"),
             targetDefinitionContext);
-        if (ruleOrMacroInstance instanceof Rule ruleInstance) {
-          ruleInstance.setHasMissingMandatoryAttribute();
-        }
+        allMandatoryAttributesPresent = false;
       }
 
       // Macros don't have computed defaults or special logic for licenses or distributions.
@@ -433,6 +442,7 @@ public class AttributeProvider {
       }
       ruleOrMacroInstance.setAttributeValue(attr, valueToSet, /* explicit= */ false);
     }
+    return allMandatoryAttributesPresent;
   }
 
   /**

@@ -176,6 +176,11 @@ public final class SelectedEntrySerializerTest {
     }
 
     @Override
+    public PackedFingerprint fingerprint(byte[] input, String salt) {
+      return FingerprintValueService.NONPROD_FINGERPRINTER.fingerprint(input, salt);
+    }
+
+    @Override
     public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
       throw new UnsupportedOperationException();
     }
@@ -489,5 +494,15 @@ public final class SelectedEntrySerializerTest {
 
     // Verify that upload future completes without unhandled NullPointerException.
     assertThat(uploadFuture.get()).isNotNull();
+  }
+
+  @Test
+  public void controlledStore_fingerprintDelegatesToNonprodFingerprinter() {
+    ControlledStore store = new ControlledStore();
+    byte[] input = new byte[] {1, 2, 3};
+    assertThat(store.fingerprint(input))
+        .isEqualTo(FingerprintValueService.NONPROD_FINGERPRINTER.fingerprint(input));
+    assertThat(store.fingerprint(input, "salt"))
+        .isEqualTo(FingerprintValueService.NONPROD_FINGERPRINTER.fingerprint(input, "salt"));
   }
 }

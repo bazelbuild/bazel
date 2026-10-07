@@ -26,6 +26,11 @@ import javax.annotation.Nullable;
  */
 public abstract non-sealed class StarlarkType implements TypeConstructor.Term {
 
+  @Override
+  public String toString() {
+    return typeRepr();
+  }
+
   /**
    * Returns the list of supertypes of this type.
    *

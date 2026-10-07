@@ -165,4 +165,46 @@ EOF
   expect_not_log "WARNING: Overflow when watching local filesystem"
 }
 
+function test_overflow_recovery() {
+  if ! is_linux; then
+    return 0
+  fi
+
+  local -r pkg=${FUNCNAME[0]}
+  mkdir $pkg || fail "mkdir $pkg"
+  cat > "$pkg/BUILD" << 'EOF'
+genrule(
+    name = "gen",
+    outs = ["out"],
+    srcs = [":srcs"],
+    cmd = "touch $@",
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*.txt"]),
+)
+EOF
+  touch "$pkg/1.txt"
+  bazel --host_jvm_args=-Djdk.nio.file.WatchService.maxEventsPerPoll=50 build --watchfs "//$pkg:gen" &> "$TEST_log" || fail "Expected success."
+
+  # Touch 60 files to exceed maxEventsPerPoll=50 and trigger an overflow event.
+  for i in {1..60}; do
+    touch "$pkg/overflow_$i.txt"
+  done
+
+  # Build 2: Encountering the overflow. Bazel should recover gracefully without
+  # warning about falling back to manual checking.
+  bazel --host_jvm_args=-Djdk.nio.file.WatchService.maxEventsPerPoll=50 build --watchfs "//$pkg:gen" &> "$TEST_log" || fail "Expected success."
+  expect_not_log "WARNING: Overflow when watching local filesystem"
+  expect_not_log "temporarily falling back to manually checking files for changes"
+
+  # Build 3: Edit a single file. Diff awareness should immediately resume incremental
+  # change detection without oscillating.
+  touch "$pkg/single.txt"
+  bazel --host_jvm_args=-Djdk.nio.file.WatchService.maxEventsPerPoll=50 build --watchfs "//$pkg:gen" &> "$TEST_log" || fail "Expected success."
+  expect_not_log "WARNING: Overflow when watching local filesystem"
+  expect_not_log "temporarily falling back to manually checking files for changes"
+}
+
 run_suite "Integration tests for --watchfs."

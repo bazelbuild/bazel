@@ -17,7 +17,10 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.UnsafeByteOperations;
 import java.io.IOException;
+import java.util.HexFormat;
 import javax.annotation.Nullable;
 
 /**
@@ -32,6 +35,8 @@ import javax.annotation.Nullable;
 public class DigestUtils {
   // Typical size for a digest byte array.
   public static final int ESTIMATED_SIZE = 32;
+
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
 
   /**
    * Keys used to cache the values of the digests for files where we don't have fast digests.
@@ -131,21 +136,8 @@ public class DigestUtils {
   /**
    * Calculates a digest manually (i.e., assuming that a fast digest can't obtained).
    *
-   * <p>Prefer calling {@link #manuallyComputeDigest(Path, FileStatus)} when a recently obtained
-   * {@link FileStatus} is available.
-   *
    * @param path the file path
-   */
-  public static byte[] manuallyComputeDigest(Path path) throws IOException {
-    return manuallyComputeDigest(path, null);
-  }
-
-  /**
-   * Same as {@link #manuallyComputeDigest(Path)}, but providing the ability to reuse a recently
-   * obtained {@link FileStatus}.
-   *
-   * @param path the file path
-   * @param status a recently obtained file status, if available
+   * @param status a recently obtained file status, if available. Used to skip a stat.
    */
   public static byte[] manuallyComputeDigest(Path path, @Nullable FileStatus status)
       throws IOException {
@@ -190,5 +182,15 @@ public class DigestUtils {
       return lhs;
     }
     return combineUnordered(rhs, lhs);
+  }
+
+  /** Returns the lowercase hex encoding of the given bytes. */
+  public static ByteString toHexByteString(byte[] bytes) {
+    byte[] hex = new byte[2 * bytes.length];
+    for (int i = 0; i < bytes.length; i++) {
+      hex[2 * i] = (byte) HEX_FORMAT.toHighHexDigit(bytes[i]);
+      hex[2 * i + 1] = (byte) HEX_FORMAT.toLowHexDigit(bytes[i]);
+    }
+    return UnsafeByteOperations.unsafeWrap(hex);
   }
 }

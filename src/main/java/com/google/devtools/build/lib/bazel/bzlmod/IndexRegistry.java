@@ -104,7 +104,7 @@ public class IndexRegistry implements Registry {
 
   private static final String SOURCE_JSON_FILENAME = "source.json";
   private static final ImmutableList<String> ALLOWED_GIT_SCHEMES =
-      ImmutableList.of("https://", "ssh://", "git://", "file://");
+      ImmutableList.of("https://", "ssh://", "git://", "file://", "git@");
 
   public IndexRegistry(
       URI uri,

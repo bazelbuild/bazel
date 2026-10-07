@@ -20,6 +20,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skyframe.PackageoidValue;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -99,6 +100,9 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
    */
   public void clearSkyValue() {
     Preconditions.checkState(isDone());
+    if (toValue() instanceof PackageoidValue packageoidValue) {
+      InMemoryGraphImpl.weakInternPackageTargetsLabels(packageoidValue);
+    }
     this.value = CLEARED_SKY_VALUE;
   }
 
@@ -403,7 +407,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   /** Returns the version at which this node was last evaluated; see {@link NodeVersion}. */
-  final Version lastEvaluatedVersion() {
+  public final Version lastEvaluatedVersion() {
     return version.lastEvaluated();
   }
 

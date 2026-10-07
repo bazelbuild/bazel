@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.util.TargetDataSubject.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -116,5 +120,34 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
   @Test
   public void reduceForSerialization_hasConsistentValues() {
     assertThat(group).hasSamePropertiesAs(group.reduceForSerialization());
+  }
+
+  @Test
+  public void environmentLabels_roundTrips() throws Exception {
+    EnvironmentLabels labels = group.getEnvironmentLabels();
+    EnvironmentLabels copy = roundTrip(labels);
+
+    assertThat(copy).isNotSameInstanceAs(labels);
+    assertThat(copy).isEqualTo(labels);
+    assertThat(copy.getFulfillers(Label.parseCanonical("//pkg:baz")))
+        .containsExactly(Label.parseCanonical("//pkg:foo"), Label.parseCanonical("//pkg:bar"));
+  }
+
+  @Test
+  public void environmentLabels_serializationIndependentOfInstanceIdentity() throws Exception {
+    EnvironmentLabels labels = group.getEnvironmentLabels();
+    EnvironmentLabels copy = roundTrip(labels);
+    ObjectCodecRegistry registry = AutoRegistry.get();
+
+    // Equal but distinct instances, e.g. one kept alive across commands by an interner, must
+    // serialize the same as a single instance.
+    assertThat(RoundTripping.toBytesMemoized(ImmutableList.of(labels, copy), registry))
+        .isEqualTo(RoundTripping.toBytesMemoized(ImmutableList.of(labels, labels), registry));
+  }
+
+  private static EnvironmentLabels roundTrip(EnvironmentLabels labels) throws Exception {
+    ObjectCodecRegistry registry = AutoRegistry.get();
+    return (EnvironmentLabels)
+        RoundTripping.fromBytesMemoized(RoundTripping.toBytesMemoized(labels, registry), registry);
   }
 }

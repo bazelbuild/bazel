@@ -246,11 +246,18 @@ public interface IncludeScanner {
 
       @CanIgnoreReturnValue
       public Builder addDeclaredHeaders(NestedSet<Artifact> headers) {
+        if (headers.isEmpty()) {
+          return this;
+        }
         // pathToDeclaredHeader is a fresh, per-action mutable CompactHashMap created by
         // CcCompilationContext#createIncludeScanningHeaderData (which intentionally avoids the
         // more expensive ImmutableMap). Mutating it in place here is therefore safe -- it is not
         // shared across actions -- and consistent with that method's performance choice.
-        for (Artifact header : headers.toList()) {
+        // Not using range-based for loops here as the additional overhead of the ImmutableList
+        // iterators has shown up in profiles.
+        ImmutableList<Artifact> headerList = headers.toList();
+        for (int i = 0; i < headerList.size(); i++) {
+          Artifact header = headerList.get(i);
           // Only generated (output-directory) headers need to be registered here. Source
           // headers already resolve via source-artifact lookup in the include scanner, so
           // registering them would be redundant. Skipping them keeps this map empty for the

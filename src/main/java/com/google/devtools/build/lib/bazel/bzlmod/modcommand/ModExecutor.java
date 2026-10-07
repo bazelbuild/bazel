@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultN
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.NodeMetadata;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -172,8 +173,11 @@ public class ModExecutor {
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
-  public void showRepo(ImmutableMap<String, RepoDefinitionValue> targetRepoDefinitions) {
-    var formatter = new RepoOutputFormatter(printer, outputStream, options.getOutputFormat());
+  public void showRepo(
+      ImmutableMap<String, RepoDefinitionValue> targetRepoDefinitions, Path externalDirectory) {
+    var formatter =
+        new RepoOutputFormatter(
+            printer, outputStream, options.getOutputFormat(), externalDirectory);
     for (Map.Entry<String, RepoDefinitionValue> e : targetRepoDefinitions.entrySet()) {
       formatter.print(e.getKey(), e.getValue());
     }

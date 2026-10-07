@@ -2076,10 +2076,12 @@ public class RuleClass implements RuleClassData {
     EventHandler eventHandler = targetDefinitionContext.getLocalEventHandler();
 
     Rule rule = targetDefinitionContext.createRule(ruleLabel, this, callstack);
-    attributeProvider.populateRuleAttributeValues(
-        rule, targetDefinitionContext, attributeValues, failOnUnknownAttributes, isStarlark);
+    boolean computeImplicitOutputs =
+        attributeProvider.populateRuleAttributeValues(
+            rule, targetDefinitionContext, attributeValues, failOnUnknownAttributes, isStarlark);
     checkAspectAllowedValues(rule, eventHandler);
-    rule.populateOutputFiles(eventHandler, targetDefinitionContext.getPackageIdentifier());
+    rule.populateOutputFiles(
+        eventHandler, targetDefinitionContext.getPackageIdentifier(), computeImplicitOutputs);
     checkForDuplicateLabels(rule, eventHandler);
 
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
@@ -2101,9 +2103,11 @@ public class RuleClass implements RuleClassData {
     Rule rule =
         targetDefinitionContext.createRule(
             ruleLabel, this, callstack.toLocation(), callstack.next());
-    attributeProvider.populateRuleAttributeValues(
-        rule, targetDefinitionContext, attributeValues, true, isStarlark);
-    rule.populateOutputFilesUnchecked(targetDefinitionContext, implicitOutputsFunction);
+    boolean computeImplicitOutputs =
+        attributeProvider.populateRuleAttributeValues(
+            rule, targetDefinitionContext, attributeValues, true, isStarlark);
+    rule.populateOutputFilesUnchecked(
+        targetDefinitionContext, implicitOutputsFunction, computeImplicitOutputs);
     return rule;
   }
 

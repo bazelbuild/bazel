@@ -39,7 +39,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
 /** The canonical name of an external repository. */
-public final class RepositoryName {
+public class RepositoryName {
 
   private static final Interner<RepositoryName> interner = BlazeInterners.newWeakInterner();
 

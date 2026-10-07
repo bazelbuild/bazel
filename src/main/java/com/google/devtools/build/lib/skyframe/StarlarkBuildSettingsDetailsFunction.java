@@ -49,8 +49,6 @@ import javax.annotation.Nullable;
 final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
 
   // Use the plain strings rather than reaching into the Alias class and adding a dependency edge.
-  // TODO(blaze-configurability-team): We can probably afford the edge now that this is
-  //   inside of skyframe_cluster.
   private static final String ALIAS_RULE_NAME = "alias";
   private static final String ALIAS_ACTUAL_ATTRIBUTE_NAME = "actual";
 
@@ -364,10 +362,10 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
   }
 
   /**
-   * Given a {@link Label} that could be an {@link com.google.devtools.build.lib.rules.Alias} and a
+   * Given a {@link Label} that could be an {@code com.google.devtools.build.lib.rules.Alias} and a
    * set of packages, find the actual target that {@link Label} ultimately points to.
    *
-   * <p>This method assumes that the packages of the entire {@link
+   * <p>This method assumes that the packages of the entire {@code
    * com.google.devtools.build.lib.rules.Alias} chain (if {@code setting} is indeed an alias) are
    * included in {@code buildSettingPackages}
    *

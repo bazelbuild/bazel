@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -296,6 +296,13 @@ public interface OutputService {
         throws InterruptedException;
 
     /**
+     * Guards an action from the beginning to the end of its {@link Action#discoverInputs input
+     * discovery}, during which it may read any of its inputs and scheduling dependencies.
+     */
+    SilentCloseable enterInputDiscovery(Action action, InputMetadataProvider metadataProvider)
+        throws InterruptedException;
+
+    /**
      * A no-op implementation of {@link RewoundActionSynchronizer}, suitable for action filesystems
      * that support racy access to action outputs.
      */
@@ -309,6 +316,12 @@ public interface OutputService {
           @Override
           public SilentCloseable enterActionExecution(
               Action action, boolean wasRewound, InputMetadataProvider metadataProvider) {
+            return () -> {};
+          }
+
+          @Override
+          public SilentCloseable enterInputDiscovery(
+              Action action, InputMetadataProvider metadataProvider) {
             return () -> {};
           }
         };

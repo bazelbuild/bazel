@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -161,6 +162,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -173,7 +176,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -203,8 +205,10 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.CallUtils;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.TypeContext;
 import org.junit.After;
 import org.junit.Before;
 
@@ -325,7 +329,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       cleanupInterningPools();
     }
     skyframeExecutor =
-        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(pkgFactory)
             .setFileSystem(fileSystem)
             .setDirectories(directories)
@@ -440,6 +444,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected StarlarkSemantics getStarlarkSemantics() {
     return buildLanguageOptions.toStarlarkSemantics();
+  }
+
+  protected TypeContext getTypeContext() {
+    return CallUtils.getBuiltinManager(getStarlarkSemantics());
   }
 
   protected PackageValidator getPackageValidator() {
@@ -1925,6 +1933,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected BuildConfigurationValue getExecConfiguration() {
     return execConfig;
+  }
+
+  protected final PlatformConfigurationProvider getPlatformConfigurationProvider() {
+    Preconditions.checkNotNull(targetConfig);
+    Preconditions.checkNotNull(execConfig);
+    Label topLevelPlatform =
+        targetConfig.getOptions().get(PlatformOptions.class).computeTargetPlatform();
+    return new DefaultPlatformConfigurationProvider(
+        topLevelPlatform, targetConfig.getOptions(), execConfig.getOptions());
   }
 
   private BuildConfigurationValue getConfiguration(String label) {

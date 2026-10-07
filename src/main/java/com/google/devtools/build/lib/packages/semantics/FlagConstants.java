@@ -49,4 +49,7 @@ class FlagConstants {
   public static final String DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT = "true";
   public static final String DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT_NAME =
       "+incompatible_no_implicit_file_export";
+
+  public static final String KNOWN_OVERSIZED_BZL_FILE_VALUE_PATTERN = ".+";
+  public static final String KNOWN_OVERSIZED_BZL_FILE_VALUE_EXAMPLE = "<reason or issue URL>";
 }

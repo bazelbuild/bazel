@@ -133,19 +133,19 @@ public final class StarlarkAnnotations {
   }
 
   /**
-   * Returns the {@link net.starlark.java.syntax.StarlarkType} name provided by the {@link
-   * StarlarkBuiltin} annotation of the given class, or null if the class doesn't have an ancestor
-   * annotated as {@link StarlarkBuiltin}.
+   * Returns the {@link net.starlark.java.syntax.StarlarkType} string representation provided by the
+   * {@link StarlarkBuiltin} annotation of the given class, or null if the class doesn't have an
+   * ancestor annotated as {@link StarlarkBuiltin}.
    */
   @Nullable
-  public static String getStarlarkTypeName(Class<?> classObj) {
+  public static String typeRepr(Class<?> classObj) {
     @Nullable StarlarkBuiltin annotation = getStarlarkBuiltin(classObj);
     if (annotation == null) {
       return null;
     }
-    String typeName = annotation.starlarkTypeName();
-    if (!typeName.isEmpty()) {
-      return typeName;
+    String annotationTypeRepr = annotation.typeRepr();
+    if (!annotationTypeRepr.isEmpty()) {
+      return annotationTypeRepr;
     }
     return annotation.name();
   }

@@ -23,21 +23,44 @@ public final class WindowsParamFileEscaper {
 
   /**
    * Escapes the @argument to be suitable for lld-link. Existing double-quotes are escaped, and
-   * arguments that contain whitespace are surrounded in unescaped double-quotes.
+   * empty arguments and arguments that contain whitespace are surrounded in unescaped
+   * double-quotes. Backslashes immediately before a double-quote are doubled.
    *
    * @see <a
    *     href="https://github.com/llvm/llvm-project/blob/4bc3b3501ff994fb3504ed2b973342821a9c8cea/llvm/lib/Support/CommandLine.cpp#L916">LLVM
    *     Parser Implementation</a>
    */
   public static String escapeString(String argument) {
-    boolean needsSurroundingQuotes = containsWhitespace(argument);
-    StringBuilder out = new StringBuilder();
+    if (!argument.isEmpty() && argument.indexOf('\\') < 0 && argument.indexOf('"') < 0) {
+      return containsWhitespace(argument) ? "\"" + argument + "\"" : argument;
+    }
+    boolean needsSurroundingQuotes = argument.isEmpty() || containsWhitespace(argument);
+    StringBuilder out = new StringBuilder(argument.length() + 2);
     if (needsSurroundingQuotes) {
       out.append("\"");
     }
-    out.append(argument.replace("\"", "\\\""));
+    int backslashes = 0;
+    for (int i = 0; i < argument.length(); i++) {
+      char c = argument.charAt(i);
+      if (c == '\\') {
+        backslashes++;
+        continue;
+      }
+      if (c == '"') {
+        // Each literal backslash needs a pair, followed by one to escape the quote.
+        out.append("\\".repeat(2 * backslashes + 1));
+      } else {
+        out.append("\\".repeat(backslashes));
+      }
+      out.append(c);
+      backslashes = 0;
+    }
     if (needsSurroundingQuotes) {
+      // Keep trailing backslashes from escaping the closing quote.
+      out.append("\\".repeat(2 * backslashes));
       out.append("\"");
+    } else {
+      out.append("\\".repeat(backslashes));
     }
     return out.toString();
   }

@@ -50,6 +50,30 @@ public final class TestUtils {
     }
   }
 
+  /** A minimal {@link TypeContext} implementation for tests. */
+  public static final TypeContext TYPE_CONTEXT =
+      new TypeContext() {
+        @Override
+        public StarlarkType getStrFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getListFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getDictFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getSetFieldType(String name) {
+          return null;
+        }
+      };
+
   /**
    * A static resolver {@link net.starlark.java.syntax.Resolver.Module} implementation, for tests of
    * the resolver and type checker.
@@ -150,30 +174,6 @@ public final class TestUtils {
 
     @Override
     @Nullable
-    public StarlarkType getStrFieldType(String name) {
-      return null;
-    }
-
-    @Override
-    @Nullable
-    public StarlarkType getListFieldType(String name) {
-      return null;
-    }
-
-    @Override
-    @Nullable
-    public StarlarkType getDictFieldType(String name) {
-      return null;
-    }
-
-    @Override
-    @Nullable
-    public StarlarkType getSetFieldType(String name) {
-      return null;
-    }
-
-    @Override
-    @Nullable
     public StarlarkType getPredeclaredSymbolType(String name) {
       return predeclared.contains(name) ? Types.ANY : null;
     }
@@ -182,6 +182,11 @@ public final class TestUtils {
     @Nullable
     public StarlarkType getUniversalSymbolType(String name) {
       throw new UnsupportedOperationException("universal types not supported");
+    }
+
+    @Override
+    public TypeContext getTypeContext() {
+      return TYPE_CONTEXT;
     }
   }
 

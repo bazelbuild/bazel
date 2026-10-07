@@ -332,8 +332,14 @@ EOF
 int b() { return FOO_VALUE; }
 EOF
 
+  # Settle MODULE.bazel.lock before the builds below: a lockfile updated at
+  # the end of the first build would dirty the loading-phase nodes of
+  # @other_repo, which the second build relies on finding done in Skyframe.
+  bazel build --experimental_merged_skyframe_analysis_execution --nobuild \
+      //foo:target_a >& "$TEST_log" \
+      || fail "Warm-up build of target_a failed"
+
   bazel build --experimental_merged_skyframe_analysis_execution \
-      --lockfile_mode=off \
       //foo:target_a >& "$TEST_log" \
       || fail "First build of target_a failed"
 
@@ -345,7 +351,6 @@ EOF
   # header from the execroot. HeaderDiscovery then requires the fallback
   # package root lookup in IncrementalPackageRoots to resolve the package root.
   bazel build --experimental_merged_skyframe_analysis_execution \
-      --lockfile_mode=off \
       --spawn_strategy=standalone \
       --cxxopt=-O3 //foo:target_b >& "$TEST_log" \
       || fail "Second build of target_b failed"

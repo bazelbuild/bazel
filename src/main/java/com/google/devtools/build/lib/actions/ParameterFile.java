@@ -58,8 +58,9 @@ public class ParameterFile {
     GCC_QUOTED,
 
     /**
-     * A parameter file where each parameter is correctly quoted for windows use. Double-quotes are
-     * escaped, and each parameter that contains whitespace is surrounded in double-quotes.
+     * A parameter file where each parameter is correctly quoted for Windows use. Double-quotes are
+     * escaped, backslashes immediately preceding a double-quote are doubled, and empty parameters
+     * as well as parameters containing whitespace are surrounded in double-quotes.
      */
     WINDOWS,
   }

@@ -38,6 +38,7 @@ import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
+import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStats;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
@@ -93,6 +94,12 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   // Null until the first incremental evaluation completes. Always null when not keeping edges.
   @Nullable private IntVersion lastGraphVersion = null;
 
+  // The version of the first evaluation in the latest sequence of evaluations, which ends with a
+  // call to noteEvaluationsAtSameVersionMayBeFinished. Null until the first evaluation starts.
+  // Always null when not keeping edges.
+  @Nullable private IntVersion firstGraphVersionOfSequence = null;
+  private boolean evaluationSequenceFinished = true;
+
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
   private Set<SkyKey> latestTopLevelEvaluations = new HashSet<>();
@@ -125,6 +132,10 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     // NOTE: Performance critical code. See bug "Null build performance parity".
     Version graphVersion = getNextGraphVersion();
     setAndCheckEvaluateState(true, roots);
+    if (keepEdges && evaluationSequenceFinished) {
+      firstGraphVersionOfSequence = (IntVersion) graphVersion;
+      evaluationSequenceFinished = false;
+    }
 
     // Only remember roots for Skyfocus if we're tracking incremental states by keeping edges.
     if (keepEdges && rememberTopLevelEvaluations) {
@@ -496,8 +507,21 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
           // be injected.
           getInMemoryGraph().remove(key);
         }
+      } else if (prevEntry != null && keepEdges && hadDepsLastBuild(prevEntry)) {
+        // The node was dirtied by an earlier invalidation but has not been re-evaluated since, so
+        // it still holds the deps of its last build. Injecting a value would require the same
+        // reverse dep bookkeeping as for a done node with deps, so handle it the same way: just
+        // invalidate it and let it be evaluated freshly.
+        valuesToDirty.add(key);
+        it.remove();
       }
     }
+  }
+
+  /** Returns whether the given not-done entry had at least one dep the last time it was built. */
+  private static boolean hadDepsLastBuild(InMemoryNodeEntry entry) {
+    return entry.getLifecycleState() != LifecycleState.NOT_YET_EVALUATING
+        && !entry.noDepsLastBuild();
   }
 
   /** Injects values in {@code valuesToInject} into the graph. */
@@ -545,6 +569,19 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Override
   public void cleanupLatestTopLevelEvaluations() {
     latestTopLevelEvaluations = new HashSet<>();
+  }
+
+  @Override
+  public void noteEvaluationsAtSameVersionMayBeFinished(ExtendedEventHandler eventHandler)
+      throws InterruptedException {
+    evaluationSequenceFinished = true;
+    MemoizingEvaluator.super.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
+  }
+
+  @Override
+  @Nullable
+  public Version getFirstVersionOfLatestEvaluationSequence() {
+    return firstGraphVersionOfSequence;
   }
 
   @Override

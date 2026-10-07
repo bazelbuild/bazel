@@ -104,6 +104,7 @@ java_library(
         "//third_party/java/guava:hash",
         "//third_party/java/guava:io",
         "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
         "//third_party/java/protobuf:protobuf_lite",
     ],
 )
@@ -116,6 +117,7 @@ java_library(
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",

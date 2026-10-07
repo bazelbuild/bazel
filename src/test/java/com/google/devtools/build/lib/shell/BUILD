@@ -256,6 +256,9 @@ java_test(
         "//src/main/tools:linux-sandbox",
         "//src/test/shell/integration:spend_cpu_time",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
     tags = [
         "no_windows",
         "shell",
