@@ -53,8 +53,8 @@ public class RegistryFunction implements SkyFunction {
       new Precomputed<>("module_mirrors");
 
   /**
-   * URLs of the local registries marked with {@code --registry=watch=file://...}, with {@code
-   * %workspace%} already expanded.
+   * URLs of the local registries passed with {@code --watched_registry}, with {@code %workspace%}
+   * already expanded.
    */
   public static final Precomputed<ImmutableSet<String>> WATCHED_REGISTRIES =
       new Precomputed<>("watched_registries");

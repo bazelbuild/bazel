@@ -103,17 +103,26 @@ public abstract class RepositoryOptions extends OptionsBase {
       name = "registry",
       defaultValue = "null",
       allowMultiple = true,
-      converter = RegistryConverter.class,
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "Specifies the registries to use to locate Bazel module dependencies. The order is"
               + " important: modules will be looked up in earlier registries first, and only fall"
-              + " back to later registries when they're missing from the earlier ones. Prefix a"
-              + " file:// registry with watch= (e.g. --registry=watch=file:///path/to/registry) to"
-              + " have Bazel pick up changes to its files without a shutdown, at the cost of some"
-              + " overhead on every command.")
-  public abstract List<RegistryOption> getRegistries();
+              + " back to later registries when they're missing from the earlier ones.")
+  public abstract List<String> getRegistries();
+
+  @Option(
+      name = "watched_registry",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Watches a local file:// registry for changes, so that edits to its files are picked up"
+              + " without a shutdown, at the cost of some overhead on every command. The registry"
+              + " must also be passed with --registry, e.g."
+              + " --registry=file:///path/to/registry --watched_registry=file:///path/to/registry.")
+  public abstract List<String> getWatchedRegistries();
 
   @Option(
       name = "module_mirrors",
@@ -518,24 +527,6 @@ public abstract class RepositoryOptions extends OptionsBase {
     }
   }
 
-  /** Converts a {@code --registry} value, optionally prefixed with {@code watch=}. */
-  public static class RegistryConverter extends Converter.Contextless<RegistryOption> {
-    public static final String WATCH_PREFIX = "watch=";
-
-    @Override
-    public RegistryOption convert(String input) {
-      if (input.startsWith(WATCH_PREFIX)) {
-        return new RegistryOption(input.substring(WATCH_PREFIX.length()), true);
-      }
-      return new RegistryOption(input, false);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a registry URL, optionally prefixed with watch=";
-    }
-  }
-
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
    */
@@ -628,9 +619,6 @@ public abstract class RepositoryOptions extends OptionsBase {
       return "an equals-separated mapping of module name to path";
     }
   }
-
-  /** A registry URL, and whether its files are watched for changes. */
-  public record RegistryOption(String url, boolean watched) {}
 
   /** A repository override, represented by a name and an absolute path to a repository. */
   public record RepositoryOverride(String repositoryName, String path) {}
