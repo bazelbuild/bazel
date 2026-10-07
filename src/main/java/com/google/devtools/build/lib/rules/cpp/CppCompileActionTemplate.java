@@ -217,6 +217,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
           cppCompileActionBuilder.getExecutionInfo(),
           CppCompileAction.computeCommandLineKey(
               commandLine.getCompilerOptions(/* overwrittenVariables= */ null, PathMapper.NOOP)),
+          CppCompileAction.getParameterFileType(cppCompileActionBuilder.getFeatureConfiguration()),
           cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
           mandatoryInputs,
           mandatoryInputs,

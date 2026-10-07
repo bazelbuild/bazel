@@ -299,6 +299,9 @@ public class CppRuleClasses {
   /** A feature to use gcc quoting for linking param files. */
   public static final String GCC_QUOTING_FOR_PARAM_FILES = "gcc_quoting_for_param_files";
 
+  /** A feature to use Windows quoting for compiler and linker param files. */
+  public static final String WINDOWS_QUOTING_FOR_PARAM_FILES = "windows_quoting_for_param_files";
+
   /**
    * A feature to indicate that this target generates debug symbols for a dSYM file. For Apple
    * platform only.
