@@ -20,6 +20,7 @@ import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,6 +37,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -64,19 +66,26 @@ import sun.misc.Unsafe;
  * <p>The structure is roughly following the canonical Jacoco example:
  * http://www.eclemma.org/jacoco/trunk/doc/examples/java/ReportGenerator.java
  *
+ * <p>The uninstrumented classes to be analyzed and the paths of the covered source files are
+ * collected from the jars on the runtime classpath.
+ *
  * <p>The following environment variables are expected:
  *
  * <ul>
  *   <li>JAVA_COVERAGE_FILE - specifies final location of the generated lcov file.
+ *   <li>JACOCO_MAIN_CLASS - specifies the main class of the code under test if not running from a
+ *       deploy jar with a Coverage-Main-Class manifest attribute.
+ *   <li>CLASSPATH_JAR - specifies the name of the jar on the classpath whose manifest contains the
+ *       actual runtime classpath, if the classpath was too long to be passed directly.
  * </ul>
  */
 public class JacocoCoverageRunner {
 
   private final InputStream executionData;
   private final File reportFile;
+  private final ImmutableMap<String, byte[]> uninstrumentedClasses;
+  private final ImmutableSet<String> pathsForCoverage;
   private ExecFileLoader execFileLoader;
-  private ImmutableMap<String, byte[]> uninstrumentedClasses;
-  private ImmutableSet<String> pathsForCoverage = ImmutableSet.of();
 
   public JacocoCoverageRunner(
       InputStream jacocoExec,
@@ -239,9 +248,9 @@ public class JacocoCoverageRunner {
     }
     if (mainClass == null) {
       throw new IllegalStateException(
-          "JACOCO_METADATA_JAR/JACOCO_MAIN_CLASS environment variables not set, and no"
-              + " META-INF/MANIFEST.MF on the classpath has a Coverage-Main-Class attribute. "
-              + " Cannot determine the name of the main class for the code under test.");
+          "JACOCO_MAIN_CLASS environment variable not set, and no META-INF/MANIFEST.MF on the"
+              + " classpath has a Coverage-Main-Class attribute. Cannot determine the name of the"
+              + " main class for the code under test.");
     }
     return mainClass;
   }
@@ -266,46 +275,56 @@ public class JacocoCoverageRunner {
     }
   }
 
-  private static URL[] getUrls(ClassLoader classLoader, boolean jarIsWrapped, String wrappedJar) {
-    // jarIsWrapped is a legacy parameter; it should be removed once we are sure Bazel will no
-    // longer set JACOCO_IS_JAR_WRAPPED in java_stub_template
+  private static URL[] getUrls(ClassLoader classLoader, String classpathJar)
+      throws MalformedURLException {
     URL[] urls = getClassLoaderUrls(classLoader);
-    if (urls == null || urls.length == 0) {
+    if (urls == null) {
+      // The search path of the system class loader is initialized from java.class.path. Fall back
+      // to it if the class loader can't be inspected, e.g. because a custom system class loader is
+      // used or the memory access methods of sun.misc.Unsafe are unavailable.
+      urls = getJavaClassPathUrls();
+    }
+    if (urls.length == 0 || Strings.isNullOrEmpty(classpathJar)) {
       return urls;
     }
     // If the classpath was too long then a temporary top-level jar is created containing nothing
     // but a manifest with the original classpath. Those are the URLs we are looking for.
     URL classPathUrl = null;
-    if (!Strings.isNullOrEmpty(wrappedJar)) {
-      for (URL url : urls) {
-        if (url.getPath().endsWith(wrappedJar)) {
-          classPathUrl = url;
-        }
+    for (URL url : urls) {
+      if (url.getPath().endsWith(classpathJar)) {
+        classPathUrl = url;
       }
-      if (classPathUrl == null) {
-        System.err.println("Classpath JAR " + wrappedJar + " not provided");
-        return null;
-      }
-    } else if (jarIsWrapped && urls.length == 1) {
-      classPathUrl = urls[0];
     }
-    if (classPathUrl != null) {
-      try {
-        String jarClassPath =
-            new JarInputStream(classPathUrl.openStream())
-                .getManifest()
-                .getMainAttributes()
-                .getValue("Class-Path");
-        String[] urlStrings = jarClassPath.split(" ");
-        URL[] newUrls = new URL[urlStrings.length];
-        for (int i = 0; i < urlStrings.length; i++) {
-          newUrls[i] = new URL(urlStrings[i]);
-        }
-        return newUrls;
-      } catch (Exception e) {
-        e.printStackTrace();
-        return null;
+    if (classPathUrl == null) {
+      System.err.println("Classpath JAR " + classpathJar + " not provided");
+      return null;
+    }
+    try {
+      String jarClassPath =
+          new JarInputStream(classPathUrl.openStream())
+              .getManifest()
+              .getMainAttributes()
+              .getValue("Class-Path");
+      String[] urlStrings = jarClassPath.split(" ");
+      URL[] newUrls = new URL[urlStrings.length];
+      for (int i = 0; i < urlStrings.length; i++) {
+        newUrls[i] = new URL(urlStrings[i]);
       }
+      return newUrls;
+    } catch (Exception e) {
+      e.printStackTrace();
+      return null;
+    }
+  }
+
+  private static URL[] getJavaClassPathUrls() throws MalformedURLException {
+    List<String> entries =
+        Splitter.on(File.pathSeparatorChar)
+            .omitEmptyStrings()
+            .splitToList(System.getProperty("java.class.path", ""));
+    URL[] urls = new URL[entries.size()];
+    for (int i = 0; i < urls.length; i++) {
+      urls[i] = new File(entries.get(i)).toURI().toURL();
     }
     return urls;
   }
@@ -358,23 +377,25 @@ public class JacocoCoverageRunner {
   }
 
   public static void main(String[] args) throws Exception {
-    String jarWrappedValue = System.getenv("JACOCO_IS_JAR_WRAPPED");
-    String wrappedJarValue = System.getenv("CLASSPATH_JAR");
-    boolean wasWrappedJar = jarWrappedValue != null ? !jarWrappedValue.equals("0") : false;
-
-    final HashMap<String, byte[]> uninstrumentedClasses = new HashMap<>();
-    ImmutableSet.Builder<String> pathsForCoverageBuilder = ImmutableSet.builder();
-    ClassLoader classLoader = ClassLoader.getSystemClassLoader();
-    URL[] urls = getUrls(classLoader, wasWrappedJar, wrappedJarValue);
-    if (urls != null) {
-      for (URL url : urls) {
-        try (JarFile jar = new JarFile(new File(url.toURI().getPath()))) {
-          uninstrumentedClasses.putAll(getUninstrumentedClasses(jar));
-          pathsForCoverageBuilder.addAll(getPathsForCoverage(jar));
-        }
-      }
+    URL[] urls = getUrls(ClassLoader.getSystemClassLoader(), System.getenv("CLASSPATH_JAR"));
+    if (urls == null) {
+      throw new IllegalStateException(
+          "Failed to determine the runtime classpath. Cannot collect coverage for the code under"
+              + " test.");
     }
 
+    // Collect
+    // - uninstrumented class files for coverage before starting the actual test
+    // - paths considered for coverage
+    // Collecting these in the shutdown hook is too expensive (we only have a 5s budget).
+    final HashMap<String, byte[]> uninstrumentedClasses = new HashMap<>();
+    ImmutableSet.Builder<String> pathsForCoverageBuilder = ImmutableSet.builder();
+    for (URL url : urls) {
+      try (JarFile jar = new JarFile(new File(url.toURI().getPath()))) {
+        uninstrumentedClasses.putAll(getUninstrumentedClasses(jar));
+        pathsForCoverageBuilder.addAll(getPathsForCoverage(jar));
+      }
+    }
     final ImmutableSet<String> pathsForCoverage = pathsForCoverageBuilder.build();
 
     final String coverageReportBase = System.getenv("JAVA_COVERAGE_FILE");
@@ -392,9 +413,9 @@ public class JacocoCoverageRunner {
     System.setProperty("jacoco-agent.sessionid", "default");
 
     // A JVM shutdown hook has a fixed amount of time (OS-dependent) before it is terminated.
-    // For our purpose, it's more than enough to scan through the instrumented jar and match up
-    // the bytecode with the coverage data. It wouldn't be enough for scanning the entire classpath,
-    // or doing something else terribly inefficient.
+    // For our purpose, it's more than enough to match up the uninstrumented bytecode collected
+    // above with the coverage data. It wouldn't be enough for scanning the entire classpath, or
+    // doing something else terribly inefficient.
     Runtime.getRuntime()
         .addShutdownHook(
             new Thread() {
@@ -443,7 +464,7 @@ public class JacocoCoverageRunner {
               }
             });
 
-    Class<?> mainClass = getMainClass(urls != null && urls.length > 1);
+    Class<?> mainClass = getMainClass(urls.length > 1);
     Method main = mainClass.getMethod("main", String[].class);
     main.setAccessible(true);
     // Another option would be to run the tests in a separate JVM, let Jacoco dump out the coverage
