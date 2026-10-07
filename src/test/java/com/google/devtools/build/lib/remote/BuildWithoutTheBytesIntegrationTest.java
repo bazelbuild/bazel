@@ -157,6 +157,32 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void remoteFileWrite_strategiesAreIndependent(
+      @TestParameter({"expand_template", "write_file"}) String remoteFileWriteRule)
+      throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:expand_template.bzl', 'expand_template')
+        load('//rules:write_file.bzl', 'write_file')
+        expand_template(name = 'expand_template', content = 'hello')
+        write_file(name = 'write_file', content = 'hello')
+        """);
+    setFileWriteStrategy(remoteFileWriteRule, "remote");
+
+    buildTarget("//:expand_template", "//:write_file");
+
+    for (var fileWriteRule : List.of("expand_template", "write_file")) {
+      if (fileWriteRule.equals(remoteFileWriteRule)) {
+        assertOutputsDoNotExist("//:" + fileWriteRule);
+      } else {
+        assertOnlyOutputContent("//:" + fileWriteRule, fileWriteRule, "hello");
+      }
+    }
+  }
+
+  @Test
   public void remoteFileWrite_readOnlyRemoteCache() throws Exception {
     writeFileWriteRules();
     write(

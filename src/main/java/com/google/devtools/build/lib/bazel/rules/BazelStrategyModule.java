@@ -51,15 +51,26 @@ public class BazelStrategyModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.EXECUTION},
         help =
-            "Specifies which strategy to use for file write actions such as ctx.actions.write and"
-                + " ctx.actions.expand_template. 'local' writes the file to disk. 'remote' requires"
-                + " a disk or remote cache and stores the contents there, recording them as a"
-                + " remote output when building without the bytes, so that the file is only"
-                + " written to disk if it is needed by a local action or requested via"
-                + " --remote_download_outputs or --remote_download_regex. If there is no disk cache"
-                + " and Bazel isn't allowed to upload to the remote cache, the file is only kept"
-                + " off disk if the remote cache already contains its contents.")
+            "Specifies which strategy to use for file write actions such as ctx.actions.write."
+                + " 'local' writes the file to disk. 'remote' requires a disk or remote cache and"
+                + " stores the contents there, recording them as a remote output when building"
+                + " without the bytes, so that the file is only written to disk if it is needed by"
+                + " a local action or requested via --remote_download_outputs or"
+                + " --remote_download_regex. If there is no disk cache and Bazel isn't allowed to"
+                + " upload to the remote cache, the file is only kept off disk if the remote cache"
+                + " already contains its contents.")
     public abstract String getFileWriteStrategy();
+
+    @Option(
+        name = "template_expansion_strategy",
+        defaultValue = "local",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help =
+            "Specifies which strategy to use for template expansion actions such as"
+                + " ctx.actions.expand_template. 'local' writes the expanded template to disk."
+                + " 'remote' keeps it off disk in the same way as --file_write_strategy=remote.")
+    public abstract String getTemplateExpansionStrategy();
   }
 
   @Override
@@ -79,7 +90,7 @@ public class BazelStrategyModule extends BlazeModule {
         .restrictTo(CppIncludeExtractionContext.class, "")
         .restrictTo(CppIncludeScanningContext.class, "")
         .restrictTo(FileWriteActionContext.class, options.getFileWriteStrategy())
-        .restrictTo(TemplateExpansionContext.class, "")
+        .restrictTo(TemplateExpansionContext.class, options.getTemplateExpansionStrategy())
         .restrictTo(SpawnCache.class, "");
   }
 
