@@ -46,4 +46,18 @@ public interface BlazeCommand {
    * @param optionsParser the options parser for the current command
    */
   default void editOptions(OptionsParser optionsParser) {}
+
+  /**
+   * Returns whether options have to be parsed again with the main repository mapping before {@link
+   * #exec} runs. Doing so sets up package loading, applies {@code flag_alias()}es from {@code
+   * MODULE.bazel} and parses Starlark options.
+   *
+   * <p>This is required to create a configuration that matches the one used by a build with the
+   * same options.
+   *
+   * @param options the options parsed without the main repository mapping
+   */
+  default boolean needsMainRepoMapping(CommandEnvironment env, OptionsParsingResult options) {
+    return env.getCommand().buildPhase().analyzes();
+  }
 }
