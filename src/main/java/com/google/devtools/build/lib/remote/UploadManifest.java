@@ -196,12 +196,14 @@ public class UploadManifest {
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
-    if (outErr.getErrorPath().exists()) {
-      stderrDigest = digestUtil.compute(outErr.getErrorPath());
+    var errorStat = outErr.getErrorPath().statIfFound();
+    if (errorStat != null) {
+      stderrDigest = digestUtil.compute(outErr.getErrorPath(), errorStat);
       digestToFile.put(stderrDigest, outErr.getErrorPath());
     }
-    if (outErr.getOutputPath().exists()) {
-      stdoutDigest = digestUtil.compute(outErr.getOutputPath());
+    var outputStat = outErr.getOutputPath().statIfFound();
+    if (outputStat != null) {
+      stdoutDigest = digestUtil.compute(outErr.getOutputPath(), outputStat);
       digestToFile.put(stdoutDigest, outErr.getOutputPath());
     }
   }
@@ -531,8 +533,9 @@ public class UploadManifest {
 
     private void visitAsFile(Path path) throws IOException {
       Path parentPath = path.getParentDirectory();
-      FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
-      Digest digest = digestUtil.compute(path);
+      // When called, the file is known to exist and is not a symlink.
+      FileStatus stat = path.stat();
+      Digest digest = digestUtil.compute(path, stat);
       FileNode node =
           FileNode.newBuilder()
               .setName(internalToUnicode(path.getBaseName()))

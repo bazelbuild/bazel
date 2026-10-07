@@ -210,7 +210,7 @@ public class UploadManifestTest {
         new UploadManifest(
             digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
     um.addFiles(ImmutableList.of(link));
-    Digest digest = digestUtil.compute(target);
+    Digest digest = digestUtil.compute(target, target.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -232,7 +232,7 @@ public class UploadManifestTest {
         new UploadManifest(
             digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
     um.addFiles(ImmutableList.of(link));
-    Digest digest = digestUtil.compute(foo);
+    Digest digest = digestUtil.compute(foo, foo.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
 
     Tree tree =
@@ -378,7 +378,7 @@ public class UploadManifestTest {
         new UploadManifest(
             digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
     um.addFiles(ImmutableList.of(dir));
-    Digest digest = digestUtil.compute(target);
+    Digest digest = digestUtil.compute(target, target.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
 
     Tree tree =
@@ -418,7 +418,7 @@ public class UploadManifestTest {
         new UploadManifest(
             digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
     um.addFiles(ImmutableList.of(dir));
-    Digest digest = digestUtil.compute(foo);
+    Digest digest = digestUtil.compute(foo, foo.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("dir/link/foo"));
 
     Directory barDir =
@@ -801,7 +801,7 @@ public class UploadManifestTest {
             /* allowAbsoluteSymlinks= */ false,
             /* preserveExecutableBit= */ true);
     um.addFiles(ImmutableList.of(file));
-    Digest digest = digestUtil.compute(file);
+    Digest digest = digestUtil.compute(file, file.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, file);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -824,7 +824,7 @@ public class UploadManifestTest {
             /* allowAbsoluteSymlinks= */ false,
             /* preserveExecutableBit= */ true);
     um.addFiles(ImmutableList.of(file));
-    Digest digest = digestUtil.compute(file);
+    Digest digest = digestUtil.compute(file, file.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, file);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -853,8 +853,8 @@ public class UploadManifestTest {
             /* preserveExecutableBit= */ true);
     um.addFiles(ImmutableList.of(dir));
 
-    Digest executableDigest = digestUtil.compute(executableFile);
-    Digest nonExecutableDigest = digestUtil.compute(nonExecutableFile);
+    Digest executableDigest = digestUtil.compute(executableFile, executableFile.stat());
+    Digest nonExecutableDigest = digestUtil.compute(nonExecutableFile, nonExecutableFile.stat());
     assertThat(um.getDigestToFile())
         .containsExactly(executableDigest, executableFile, nonExecutableDigest, nonExecutableFile);
 
@@ -910,12 +910,12 @@ public class UploadManifestTest {
             .addFiles(
                 FileNode.newBuilder()
                     .setName("\uE000.txt")
-                    .setDigest(digestUtil.compute(bmpFile))
+                    .setDigest(digestUtil.compute(bmpFile, bmpFile.stat()))
                     .setIsExecutable(true))
             .addFiles(
                 FileNode.newBuilder()
                     .setName("\uD800\uDC00.txt")
-                    .setDigest(digestUtil.compute(supplementaryFile))
+                    .setDigest(digestUtil.compute(supplementaryFile, supplementaryFile.stat()))
                     .setIsExecutable(true))
             .addSymlinks(SymlinkNode.newBuilder().setName("\uE000").setTarget("\uE000.txt"))
             .addSymlinks(
@@ -950,7 +950,7 @@ public class UploadManifestTest {
         new UploadManifest(
             digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
     um.addFiles(ImmutableList.of(dir));
-    Digest fileDigest = digestUtil.compute(file);
+    Digest fileDigest = digestUtil.compute(file, file.stat());
 
     // Build the expected tree with Unicode names.
     Directory subdirDir =
