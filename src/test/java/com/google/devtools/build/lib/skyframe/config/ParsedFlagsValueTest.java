@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsTest;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -32,6 +33,8 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -151,6 +154,22 @@ public final class ParsedFlagsValueTest {
     assertThat(modified.get(DummyTestOptions.class).getBoolOption()).isFalse();
     assertThat(modified.getStarlarkOptions())
         .containsAtLeast(Label.parseCanonicalUnchecked("//custom:flag"), "hello");
+  }
+
+  @Test
+  public void mergeWith_doesNotRetainNoopConfiguration() throws Exception {
+    String option = "--str_option=noop_cache_lifetime";
+    ParsedFlagsValue parsedFlags =
+        ParsedFlagsValue.parseAndCreate(
+            NativeAndStarlarkFlags.builder()
+                .optionsClasses(BUILD_CONFIG_OPTIONS)
+                .nativeFlags(ImmutableList.of(option))
+                .build());
+    WeakReference<BuildConfigurationKey> result =
+        new WeakReference<>(parsedFlags.mergeWith(BuildOptions.of(BUILD_CONFIG_OPTIONS, option)));
+
+    GcFinalization.awaitClear(result);
+    Reference.reachabilityFence(parsedFlags);
   }
 
   @Test
