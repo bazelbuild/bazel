@@ -196,7 +196,7 @@ if __name__ == "__main__":
     try:
       current_release = git("describe", "--tags")[0]
     except subprocess.CalledProcessError:
-      print("Error: Not a release branch.")
+      print("Error: Not a release branch.", file=sys.stderr)
       sys.exit(1)
 
   is_patch = not current_release.endswith(".0")
