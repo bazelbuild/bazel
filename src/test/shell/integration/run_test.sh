@@ -869,6 +869,59 @@ EOF
   expect_log "SET_UNSET_SET: 'set2'"
 }
 
+function test_run_env_workspace_interpolation() {
+  add_rules_shell "MODULE.bazel"
+  add_to_bazelrc 'run --run_env=FROM_BAZELRC=prefix:%bazel_workspace%/a:%bazel_workspace%/b'
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+    name = "foo",
+    srcs = ["foo.sh"],
+    env = {"FROM_TARGET": "%bazel_workspace%/literal"},
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "FROM_BAZELRC: $FROM_BAZELRC"
+echo "FROM_COMMAND: $FROM_COMMAND"
+echo "FROM_TARGET: $FROM_TARGET"
+echo "INHERITED: ${INHERITED:-}"
+EOF
+  chmod +x "$pkg/foo.sh"
+
+  local workspace
+  workspace="$(bazel info workspace)" || fail "bazel info workspace failed"
+  if is_windows; then
+    workspace="${workspace//\//\\}"
+  fi
+  cd "$pkg" || fail "cd $pkg failed"
+  INHERITED='%bazel_workspace%/inherited' bazel run \
+      --run_env='FROM_COMMAND=%bazel_workspace%/tools' \
+      --run_env='FROM_TARGET=%bazel_workspace%/overridden' \
+      --run_env=INHERITED //"$pkg":foo >"$TEST_log" || fail "bazel run failed"
+  grep -Fx "FROM_BAZELRC: prefix:$workspace/a:$workspace/b" "$TEST_log" \
+      || fail "workspace in .bazelrc --run_env was not expanded"
+  grep -Fx "FROM_COMMAND: $workspace/tools" "$TEST_log" \
+      || fail "workspace in command-line --run_env was not expanded"
+  grep -Fx 'FROM_TARGET: %bazel_workspace%/literal' "$TEST_log" \
+      || fail "target environment must override --run_env without expansion"
+  grep -Fx 'INHERITED: %bazel_workspace%/inherited' "$TEST_log" \
+      || fail "inherited --run_env must remain literal"
+
+  bazel run --script_path=script.bat \
+      --run_env='FROM_COMMAND=%bazel_workspace%/tools' //"$pkg":foo \
+      || fail "script generation failed"
+  ./script.bat >"$TEST_log" || fail "generated script failed"
+  grep -Fx "FROM_BAZELRC: prefix:$workspace/a:$workspace/b" "$TEST_log" \
+      || fail "workspace in .bazelrc --run_env was not expanded in script"
+  grep -Fx "FROM_COMMAND: $workspace/tools" "$TEST_log" \
+      || fail "workspace in command-line --run_env was not expanded in script"
+}
+
 function test_test_env() {
   add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
