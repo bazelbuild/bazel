@@ -46,6 +46,11 @@ flags.mark_flag_as_required("out_dir")
 
 _TEMPLATE_RE = re.compile(r"^\{%.+$\n", re.MULTILINE)
 _TAG_RE = re.compile(r"\s?\{:[^}]+\}")
+# Kramdown IDs at the end of a list item: "*   [Foo](url){:#foo}".
+_KRAMDOWN_LIST_ITEM_ID_RE = re.compile(
+    r"^([ \t]*(?:[*+-]|\d+\.)[ \t]+.*?)\{:[ \t]?#([^\s}]+)[ \t]?\}[ \t]*$",
+    re.MULTILINE,
+)
 _METADATA_PATTERN = re.compile(
     "^((Project|Book):.+\n)", re.MULTILINE
 )
@@ -318,7 +323,7 @@ def _pre_markdown_transforms(content):
   Returns:
     The file with invalid content removed.
   """
-  no_tags = _TAG_RE.sub("", content)
+  no_tags = _TAG_RE.sub("", _convert_kramdown_list_item_ids(content))
   no_comments = _HTML_COMMENT_RE.sub("", no_tags)
   # Remove Project: and Book: lines
   no_metadata = _METADATA_PATTERN.sub("", no_comments, count=2).lstrip()
@@ -343,6 +348,25 @@ def _move_flag_links_outside_code(content):
       r'<a href="\1"><code>\2\3</code></a>',
       content,
   )
+
+
+def _convert_kramdown_list_item_ids(content):
+  """Converts Kramdown IDs on list items in Markdown to HTML anchors.
+
+  MDX anchor syntax ({#foo}) is only valid for headings, so list items get an
+  explicit anchor element instead.
+
+  Example: *   [Foo](url){:#foo} -> *   [Foo](url)<a name="foo"></a>
+
+  This has to run before _TAG_RE removes all remaining {:...} attribute lists.
+
+  Args:
+    content: str; content of an HTML or .md file.
+
+  Returns:
+    Content with Kramdown list item IDs converted to anchor elements.
+  """
+  return _KRAMDOWN_LIST_ITEM_ID_RE.sub(r'\1<a name="\2"></a>', content)
 
 
 def _convert_heading_ids_to_mdx_anchors(content):
