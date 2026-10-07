@@ -765,6 +765,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           result = BlazeCommandResult.detailedExitCode(earlyExitCode);
           return result;
         }
+      } else {
+        earlyExitCode = optionHandler.checkUnknownCommandLineOptions(reporter);
+        if (!earlyExitCode.isSuccess()) {
+          reporter.post(
+              new NoBuildEvent(
+                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+          result = BlazeCommandResult.detailedExitCode(earlyExitCode);
+          return result;
+        }
       }
       options = optionHandler.getOptionsResult();
 
@@ -1019,7 +1028,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             .skipStarlarkOptionPrefixes()
             .allowResidue(annotation.allowResidue())
             .withAliasFlag(CoreOptionConverters.BLAZE_ALIASING_FLAG)
-            .isFirstRoundOfParsing(annotation.buildPhase().analyzes() && hasModuleDotBazel)
+            .isFirstRoundOfParsing(hasModuleDotBazel)
             .build();
     return parser;
   }

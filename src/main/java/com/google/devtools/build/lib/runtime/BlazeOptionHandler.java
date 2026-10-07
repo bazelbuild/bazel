@@ -113,6 +113,7 @@ public final class BlazeOptionHandler {
   private final InvocationPolicy invocationPolicy;
   private final List<String> rcfileNotes = new ArrayList<>();
   private final ImmutableList<Class<? extends OptionsBase>> allOptionsClasses;
+  private ImmutableList<String> ignoredCommandLineArgs = ImmutableList.of();
 
   BlazeOptionHandler(
       BlazeRuntime runtime,
@@ -149,6 +150,29 @@ public final class BlazeOptionHandler {
 
   public List<String> getRcfileNotes() {
     return rcfileNotes;
+  }
+
+  /**
+   * Reports the unknown options on the command line.
+   *
+   * <p>If {@code MODULE.bazel} exists, the first round of parsing ignores unknown options since
+   * they may be {@code flag_alias()}es, which are only known once options are parsed with the main
+   * repository mapping. Commands that don't do that call this to still reject unknown options on
+   * the command line. Unknown options from rc files are ignored, as the aliases they may refer to
+   * only matter to commands that create a configuration.
+   */
+  DetailedExitCode checkUnknownCommandLineOptions(ExtendedEventHandler eventHandler) {
+    if (ignoredCommandLineArgs.isEmpty()) {
+      return DetailedExitCode.success();
+    }
+    try {
+      // Parse the unknown options again without ignoring them to get the usual error message.
+      optionsParser.toBuilder().build().parse(ignoredCommandLineArgs);
+    } catch (OptionsParsingException e) {
+      return processOptionsParsingException(
+          eventHandler, e, "Error parsing options", Code.OPTIONS_PARSE_FAILURE);
+    }
+    return DetailedExitCode.success();
   }
 
   /**
@@ -311,7 +335,8 @@ public final class BlazeOptionHandler {
     parseRcOptions(eventHandler, commandToRcArgs);
 
     // Parses the remaining command-line options.
-    optionsParser.parseWithSourceFunction(
+    ignoredCommandLineArgs =
+        optionsParser.parseWithSourceFunction(
         PriorityCategory.COMMAND_LINE,
         commandOptionSourceFunction,
         remainingCmdLine.build(),
