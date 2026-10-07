@@ -58,9 +58,11 @@ import net.starlark.java.eval.Starlark;
 public final class ParameterFileWriteAction extends AbstractFileWriteAction {
 
   private static final String GUID = "45f678d8-e395-401e-8446-e795ccc6361f";
+  private static final ParameterFileType[] TYPES_BY_ORDINAL = ParameterFileType.values();
 
   private final CommandLine commandLine;
-  private final ParameterFileType type;
+  // An ordinal fits beside the booleans and avoids another reference slot.
+  private final int typeOrdinal;
   private final boolean makeExecutable;
   private final String mnemonic;
   private final boolean usePathStripping;
@@ -119,7 +121,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       CoreOptions.OutputPathsMode outputPathsMode) {
     super(owner, inputs, output);
     this.commandLine = commandLine;
-    this.type = type;
+    this.typeOrdinal = type.ordinal();
     this.makeExecutable = makeExecutable;
     this.mnemonic = mnemonic;
     // Save memory by not storing the full execution info, but only what matters for this particular
@@ -132,6 +134,10 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   @Override
   public boolean makeExecutable() {
     return makeExecutable;
+  }
+
+  private ParameterFileType getType() {
+    return TYPES_BY_ORDINAL[typeOrdinal];
   }
 
   @Override
@@ -174,7 +180,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   public String getStringContents()
       throws CommandLineExpansionException, InterruptedException, IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ParameterFile.writeParameterFile(out, getArguments(), type);
+    ParameterFile.writeParameterFile(out, getArguments(), getType());
     return out.toString(ISO_8859_1);
   }
 
@@ -216,7 +222,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
               .setSpawn(Spawn.newBuilder().setCode(Code.COMMAND_LINE_EXPANSION_FAILURE))
               .build());
     }
-    return new ParamFileWriter(arguments, pathMapper, type);
+    return new ParamFileWriter(arguments, pathMapper, getType());
   }
 
   private record ParamFileWriter(ArgChunk arguments, PathMapper pathMapper, ParameterFileType type)
@@ -235,7 +241,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    fp.addString(type.toString());
+    fp.addString(getType().toString());
     commandLine.addToFingerprint(
         actionKeyContext,
         inputMetadataProvider,
@@ -250,7 +256,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     message.append("GUID: ");
     message.append(GUID);
     message.append("\nParam File Type: ");
-    message.append(type);
+    message.append(getType());
     message.append("\nContent digest (approximate): ");
     try {
       // The full contents can be huge, which makes the final error message
