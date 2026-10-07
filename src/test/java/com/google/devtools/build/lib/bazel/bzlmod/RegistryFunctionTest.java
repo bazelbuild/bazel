@@ -42,8 +42,16 @@ public class RegistryFunctionTest {
     assumeTrue(OS.getCurrent() == OS.WINDOWS);
     assertThat(RegistryFunction.getWatchedRegistryPath("file:///C:/path/to/registry"))
         .isEqualTo(PathFragment.create("C:/path/to/registry"));
-    assertThat(RegistryFunction.getWatchedRegistryPath("file://C:/path/to/registry"))
-        .isEqualTo(PathFragment.create("C:/path/to/registry"));
+  }
+
+  @Test
+  public void getWatchedRegistryPath_windowsRejectsDriveLetterAsHost() {
+    assumeTrue(OS.getCurrent() == OS.WINDOWS);
+    var e =
+        assertThrows(
+            URISyntaxException.class,
+            () -> RegistryFunction.getWatchedRegistryPath("file://C:/path/to/registry"));
+    assertThat(e).hasMessageThat().contains("must have an absolute path");
   }
 
   @Test

@@ -151,7 +151,15 @@ public class RegistryFunction implements SkyFunction {
     if (!"file".equals(uri.getScheme())) {
       throw new URISyntaxException(url, "Only file:// registries can be watched");
     }
-    return PathFragment.create(IndexRegistry.getLocalRegistryPath(uri));
+    PathFragment path = PathFragment.create(IndexRegistry.getLocalRegistryPath(uri));
+    if (!path.isAbsolute()) {
+      // For example file://C:/foo on Windows, which should be file:///C:/foo.
+      throw new URISyntaxException(
+          url,
+          "Local registry URL must have an absolute path -- did you mean to use file:///foo/bar"
+              + " or file:///c:/foo/bar for Windows?");
+    }
+    return path;
   }
 
   static final class RegistryException extends SkyFunctionException {

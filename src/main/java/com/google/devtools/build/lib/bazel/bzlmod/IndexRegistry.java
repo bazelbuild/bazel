@@ -428,10 +428,6 @@ public class IndexRegistry implements Registry {
 
   @VisibleForTesting
   static String getLocalRegistryPath(URI uri, OS os) throws URISyntaxException {
-    if (os == OS.WINDOWS && uri.getAuthority() != null && uri.getAuthority().matches("[A-Za-z]:")) {
-      // Windows: file://C:/tmp --> C:/tmp, which is what file://%workspace%/tmp expands to
-      return uri.getAuthority() + uri.getPath();
-    }
     if (uri.getPath() == null || uri.getPath().isEmpty() || !uri.getPath().startsWith("/")) {
       throw new URISyntaxException(
           uri.toString(),

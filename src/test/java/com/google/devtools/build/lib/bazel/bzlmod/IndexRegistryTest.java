@@ -1163,13 +1163,6 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   @Test
-  public void getLocalRegistryPath_windowsDriveAsAuthority() throws Exception {
-    // What file://%workspace%/registry expands to on Windows.
-    assertThat(IndexRegistry.getLocalRegistryPath(new URI("file://C:/ws/registry"), OS.WINDOWS))
-        .isEqualTo("C:/ws/registry");
-  }
-
-  @Test
   public void getLocalRegistryPath_rejectsRelativePath() {
     var e =
         assertThrows(
