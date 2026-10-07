@@ -404,7 +404,6 @@ class BazelLockfileTest(test_base.TestBase):
 
     for url in [
         'file:relative/registry',
-        'file://server/registry',
         'file://',
         'https://bcr.bazel.build',
     ]:

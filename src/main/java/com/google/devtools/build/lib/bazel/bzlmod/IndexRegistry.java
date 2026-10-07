@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -429,26 +428,19 @@ public class IndexRegistry implements Registry {
 
   @VisibleForTesting
   static String getLocalRegistryPath(URI uri, OS os) throws URISyntaxException {
-    String authority = uri.getAuthority();
-    String path = uri.getPath();
-    boolean windows = os == OS.WINDOWS;
-    if (windows && authority != null && authority.matches("[A-Za-z]:")) {
-      // Windows: file://C:/tmp --> C:/tmp, which is what file://%workspace% expands to
-      path = authority + path;
-    } else if (authority != null && !Ascii.equalsIgnoreCase(authority, "localhost")) {
-      throw new URISyntaxException(uri.toString(), "Local registry URL must not have a host");
-    } else if (windows && path != null && path.matches("/[A-Za-z]:/.*")) {
-      // Windows: file:///C:/tmp --> C:/tmp
-      path = path.substring(1);
+    if (os == OS.WINDOWS && uri.getAuthority() != null && uri.getAuthority().matches("[A-Za-z]:")) {
+      // Windows: file://C:/tmp --> C:/tmp, which is what file://%workspace%/tmp expands to
+      return uri.getAuthority() + uri.getPath();
     }
-    // Unix: file:///tmp --> /tmp
-    if (path == null || !path.matches(windows ? "[A-Za-z]:/.*" : "/.*")) {
+    if (uri.getPath() == null || uri.getPath().isEmpty() || !uri.getPath().startsWith("/")) {
       throw new URISyntaxException(
           uri.toString(),
           "Local registry URL must have an absolute path -- did you mean to use file:///foo/bar"
               + " or file:///c:/foo/bar for Windows?");
     }
-    return path;
+    // Unix:    file:///tmp --> /tmp
+    // Windows: file:///C:/tmp --> C:/tmp
+    return uri.getPath().substring(os == OS.WINDOWS ? 1 : 0);
   }
 
   private RepoSpec createLocalPathRepoSpec(
@@ -465,8 +457,8 @@ public class IndexRegistry implements Registry {
           } catch (URISyntaxException e) {
             throw new IOException(
                 String.format(
-                    "Provided invalid local registry URL for module %s: %s",
-                    key, e.getMessage()),
+                    "Provided non absolute local registry path for module %s: %s",
+                    key, uri.getPath()),
                 e);
           }
         } else {
