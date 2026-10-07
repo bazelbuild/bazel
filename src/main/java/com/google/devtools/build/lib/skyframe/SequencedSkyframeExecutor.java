@@ -566,8 +566,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     Map<String, SkyKeyStats> ruleStats = new HashMap<>();
     Map<String, SkyKeyStats> aspectStats = new HashMap<>();
     Multiset<StarlarkProvider> starlarkProviders = HashMultiset.create();
-    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
-        memoizingEvaluator.getDoneValues().entrySet()) {
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue : collectDoneAnalysisValues().entrySet()) {
       SkyValue value = skyKeyAndValue.getValue();
       SkyKey key = skyKeyAndValue.getKey();
       SkyFunctionName functionName = key.functionName();
@@ -603,6 +602,18 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         Multisets.copyHighestCountFirst(starlarkProviders));
   }
 
+  /** Returns the done configured target and aspect values in the graph. */
+  private Map<SkyKey, SkyValue> collectDoneAnalysisValues() {
+    return memoizingEvaluator
+        .getInMemoryGraph()
+        .collectDoneValues(
+            key -> {
+              SkyFunctionName functionName = key.functionName();
+              return functionName.equals(SkyFunctions.CONFIGURED_TARGET)
+                  || functionName.equals(SkyFunctions.ASPECT);
+            });
+  }
+
   private static void addStarlarkProviders(
       TransitiveInfoProviderMap providers, Multiset<StarlarkProvider> starlarkProviders) {
     for (int i = 0; i < providers.getProviderCount(); i++) {
@@ -621,7 +632,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
     try {
       for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
-          memoizingEvaluator.getDoneValues().entrySet()) {
+          collectDoneAnalysisValues().entrySet()) {
         SkyKey key = skyKeyAndValue.getKey();
         SkyValue skyValue = skyKeyAndValue.getValue();
         if (skyValue == null) {
@@ -684,8 +695,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void dumpSkyframeState(ActionGraphDump actionGraphDump)
       throws CommandLineExpansionException, IOException, TemplateExpansionException {
 
-    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
-        memoizingEvaluator.getDoneValues().entrySet()) {
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue : collectDoneAnalysisValues().entrySet()) {
       SkyKey key = skyKeyAndValue.getKey();
       SkyValue skyValue = skyKeyAndValue.getValue();
       if (skyValue == null) {
