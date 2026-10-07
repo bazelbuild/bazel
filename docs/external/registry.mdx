@@ -165,9 +165,11 @@ Using the `--registry` flag stops the Bazel Central Registry from being used by
 default, but you can add it back by adding `--registry=https://bcr.bazel.build`.
 
 You can use a registry on local disk with `--registry=file:///path/to/registry`.
-If you want Bazel to watch the registry for changes, also pass
-`--watched_registry=file:///path/to/registry`, but beware that this incurs some
-overhead on every subsequent Bazel command.
+If you want Bazel to watch the registry for changes, use
+`--watched_registry=file:///path/to/registry` instead, but beware that this
+incurs some overhead on every subsequent Bazel command. Registries passed with
+`--registry` and `--watched_registry` are looked up in the order in which the
+flags are specified.
 
 [bcr-contribution-guidelines]: https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md
 [bcr-repo]: https://github.com/bazelbuild/bazel-central-registry

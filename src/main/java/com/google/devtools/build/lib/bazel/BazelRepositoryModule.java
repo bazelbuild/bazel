@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -112,6 +113,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.ParsedOptionDescription;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -132,6 +134,11 @@ public class BazelRepositoryModule extends BlazeModule {
   // Default list of registries.
   public static final ImmutableSet<String> DEFAULT_REGISTRIES =
       ImmutableSet.of("https://bcr.bazel.build/");
+
+  /** Options whose values, in order, make up the list of registries. */
+  private static final ImmutableSet<String> REGISTRY_OPTION_NAMES =
+      ImmutableSet.of("registry", "watched_registry");
+
   public static final ImmutableMap<String, ImmutableSet<String>> DEFAULT_MODULE_MIRRORS =
       ImmutableMap.of();
 
@@ -623,14 +630,14 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       }
 
-      if (repoOptions.getRegistries() != null && !repoOptions.getRegistries().isEmpty()) {
-        registries = normalizeBaseUrls(repoOptions.getRegistries());
+      List<String> registryUrls = getRegistryUrlsInOrder(env.getOptions());
+      if (!registryUrls.isEmpty()) {
+        registries = normalizeBaseUrls(registryUrls);
       } else {
         registries = DEFAULT_REGISTRIES;
       }
       watchedRegistries =
-          parseWatchedRegistries(
-              repoOptions.getWatchedRegistries(), registries, env.getWorkspace());
+          parseWatchedRegistries(repoOptions.getWatchedRegistries(), env.getWorkspace());
       if (repoOptions.getModuleMirrors() != null && !repoOptions.getModuleMirrors().isEmpty()) {
         var registryToMirrors =
             repoOptions.getModuleMirrors().stream()
@@ -692,13 +699,24 @@ public class BazelRepositoryModule extends BlazeModule {
   }
 
   /**
+   * Returns the values of {@code --registry} and {@code --watched_registry} in the order they were
+   * specified, since a watched registry is also a registry.
+   */
+  private static ImmutableList<String> getRegistryUrlsInOrder(OptionsParsingResult options) {
+    return options.asCompleteListOfParsedOptions().stream()
+        .filter(
+            option ->
+                REGISTRY_OPTION_NAMES.contains(option.getOptionDefinition().getOptionName()))
+        .map(ParsedOptionDescription::getUnconvertedValue)
+        .collect(toImmutableList());
+  }
+
+  /**
    * Returns the normalized URLs of the {@code --watched_registry} registries with {@code
    * %workspace%} expanded, as {@link RegistryFunction} sees them.
    */
   private static ImmutableSet<String> parseWatchedRegistries(
-      @Nullable List<String> watchedRegistryOptions,
-      ImmutableSet<String> registries,
-      @Nullable Path workspace)
+      @Nullable List<String> watchedRegistryOptions, @Nullable Path workspace)
       throws AbruptExitException {
     if (watchedRegistryOptions == null) {
       return ImmutableSet.of();
@@ -706,27 +724,20 @@ public class BazelRepositoryModule extends BlazeModule {
     var watched = ImmutableSet.<String>builder();
     for (String registry : watchedRegistryOptions) {
       String url = normalizeBaseUrl(registry);
-      if (!registries.contains(url)) {
-        throw invalidWatchedRegistry(
-            registry, "it must also be passed with --registry", Code.UNKNOWN_REGISTRY);
-      }
       if (workspace != null) {
         url = url.replace("%workspace%", workspace.getPathString());
       }
       try {
         RegistryFunction.getWatchedRegistryPath(url);
       } catch (URISyntaxException e) {
-        throw invalidWatchedRegistry(registry, e.getMessage(), Code.INVALID_REGISTRY_URL);
+        throw new AbruptExitException(
+            detailedExitCode(
+                "Invalid --watched_registry=%s: %s".formatted(registry, e.getMessage()),
+                Code.INVALID_REGISTRY_URL));
       }
       watched.add(url);
     }
     return watched.build();
-  }
-
-  private static AbruptExitException invalidWatchedRegistry(
-      String registry, String reason, Code code) {
-    return new AbruptExitException(
-        detailedExitCode("Invalid --watched_registry=%s: %s".formatted(registry, reason), code));
   }
 
   private static String normalizeBaseUrl(String baseUrl) {
