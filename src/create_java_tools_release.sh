@@ -77,9 +77,11 @@ mirror_prefix="https://mirror.bazel.build/bazel_java_tools"
 github_prefix="https://github.com/bazelbuild/java_tools/releases/download"
 
 function copy_or_fail_if_target_exists() {
-  src_path=$1
-  target_path=$2
-  gcloud --quiet storage cp "${src_path}" "${target_path}" --if-generation-match=0
+  local src_path="$1"
+  local target_path="$2"
+  if ! gcloud --quiet storage cp "${src_path}" "${target_path}" --if-generation-match=0; then
+    fail "Failed to copy ${src_path} to ${target_path}. If target already exists, did you mean to create a fresh RC / release?"
+  fi
 }
 
 for platform in "linux" "linux_aarch64" "windows" "darwin_x86_64" "darwin_arm64"; do
