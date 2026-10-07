@@ -757,14 +757,14 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
     // For each of the action's generated inputs, revert its mapped path back to its original path.
     HashMap<String, PathFragment> mappedToOriginalPath = new HashMap<>();
-    HashSet<String> originalPaths = new HashSet<>();
+    HashMap<PathFragment, PathFragment> rootRelativeToOriginalPath = new HashMap<>();
     for (Artifact actionInput :
         Iterables.concat(actionInputs.toList(), additionalArtifactsForPathMapping.toList())) {
       if (actionInput.isSourceArtifact()) {
         continue;
       }
       String mappedPath = pathMapper.getMappedExecPathString(actionInput);
-      originalPaths.add(actionInput.getExecPath().getPathString());
+      rootRelativeToOriginalPath.put(actionInput.getRootRelativePath(), actionInput.getExecPath());
       PathFragment previousPath = mappedToOriginalPath.put(mappedPath, actionInput.getExecPath());
       if (previousPath != null && !previousPath.equals(actionInput.getExecPath())) {
         // Multiple inputs from different configs map to the same path. This is allowed when they
@@ -775,28 +775,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
 
     // Rewrite the .jdeps proto with full paths.
-    PathFragment outputRoot = outputDepsProto.getExecPath().subFragment(0, 1);
     Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(executorJdeps);
     for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
       PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
-      PathFragment originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
-      // Source files, which do not lie under the output root, are not mapped. It is also possible
-      // that a jdeps file contains a reference to a transitive classpath element that isn't an
-      // input to the current action (see
-      // https://github.com/google/turbine/commit/f9f2decee04a3c651671f7488a7c9d7952df88c8), just an
-      // additional artifact marked for path mapping, and itself wasn't built with path mapping
-      // enabled (e .g. due to path collisions). In that case, the path will already be unmapped and
-      // we can leave it as is. For entirely unexpected paths, we still report an error.
-      if (originalPath == null
-          && pathOnExecutor.subFragment(0, 1).equals(outputRoot)
-          && !originalPaths.contains(pathOnExecutor.getPathString())) {
-        throw new IllegalStateException(
-            String.format(
-                "Missing original path for mapped path %s in %s%njdeps: %s%npath map: %s",
-                pathOnExecutor,
-                outputDepsProto.getExecPath(),
-                executorJdeps,
-                mappedToOriginalPath));
+      PathFragment originalPath = rootRelativeToOriginalPath.get(pathOnExecutor);
+      if (originalPath == null) {
+        originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
       }
       dep.setPath(
           originalPath == null ? pathOnExecutor.getPathString() : originalPath.getPathString());
