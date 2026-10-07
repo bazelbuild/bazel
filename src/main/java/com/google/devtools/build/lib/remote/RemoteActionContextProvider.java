@@ -19,6 +19,8 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
+import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -221,21 +223,21 @@ final class RemoteActionContextProvider {
   }
 
   /**
-   * Registers a file write strategy that stores file contents in the disk and/or remote cache
-   * under the {@code remote} identifier if this instance was created with a cache, otherwise does
-   * nothing. Whether it is used is up to {@code --file_write_strategy}.
+   * Registers file write and template expansion strategies that store file contents in the disk
+   * and/or remote cache under the {@code remote} identifier if this instance was created with a
+   * cache, otherwise does nothing. Whether they are used is up to {@code --file_write_strategy} and
+   * {@code --template_expansion_strategy}.
    *
-   * @param registryBuilder builder with which to register the strategy
+   * @param registryBuilder builder with which to register the strategies
    */
-  public void registerFileWriteStrategy(ModuleActionContextRegistry.Builder registryBuilder) {
+  public void registerFileWriteStrategies(ModuleActionContextRegistry.Builder registryBuilder) {
     if (combinedCache == null || remoteOutputChecker == null) {
       return;
     }
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
-    registryBuilder.register(
-        FileWriteActionContext.class,
+    var fileWriteStrategy =
         new RemoteFileWriteStrategy(
             new FileWriteStrategy(),
             combinedCache,
@@ -247,7 +249,11 @@ final class RemoteActionContextProvider {
             // Remote execution uploads action inputs regardless of the setting for local results.
             /* remoteUploadEnabled= */ remoteExecutor != null
                 || remoteOptions.getRemoteUploadLocalResults(),
-            executionOptions.getVerboseFailures()),
+            executionOptions.getVerboseFailures());
+    registryBuilder.register(FileWriteActionContext.class, fileWriteStrategy, "remote");
+    registryBuilder.register(
+        TemplateExpansionContext.class,
+        new LocalTemplateExpansionStrategy(fileWriteStrategy),
         "remote");
   }
 

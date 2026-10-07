@@ -1233,7 +1233,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         """
             .formatted(fileWriteRule));
 
-    addOptions("--file_write_strategy=" + fileWriteStrategy);
+    setFileWriteStrategy(fileWriteRule, fileWriteStrategy);
 
     buildTarget("//:foo-link");
 
@@ -1341,7 +1341,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
                     [ -x $(location :foo) ] || { echo "unexpectedly not executable"; exit 1; }
                     """));
 
-    addOptions("--file_write_strategy=" + fileWriteStrategy);
+    setFileWriteStrategy(fileWriteRule, fileWriteStrategy);
 
     buildTarget("//:gen");
     if (fileWriteStrategy.equals("remote")) {
@@ -1372,7 +1372,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         """
             .formatted(fileWriteRule, isExecutable ? "True" : "False"));
 
-    addOptions("--file_write_strategy=" + fileWriteStrategy);
+    setFileWriteStrategy(fileWriteRule, fileWriteStrategy);
 
     buildTarget("//:foo");
 
@@ -2708,6 +2708,20 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     public int recomputed() {
       return recomputed;
     }
+  }
+
+  /**
+   * Selects the strategy for the file write performed by the given rule written by {@link
+   * #writeFileWriteRules}.
+   */
+  protected void setFileWriteStrategy(String fileWriteRule, String strategy) {
+    var flag =
+        switch (fileWriteRule) {
+          case "expand_template" -> "--template_expansion_strategy=";
+          case "write_file" -> "--file_write_strategy=";
+          default -> throw new IllegalArgumentException(fileWriteRule);
+        };
+    addOptions(flag + strategy);
   }
 
   protected void writeFileWriteRules() throws IOException {

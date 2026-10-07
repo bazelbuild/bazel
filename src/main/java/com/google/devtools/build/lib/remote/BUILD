@@ -592,6 +592,7 @@ java_library(
         ":remote_spawn_runner",
         ":remote_spawn_strategy",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:file_write_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
