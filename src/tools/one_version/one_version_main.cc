@@ -28,7 +28,6 @@
 #include "src/tools/singlejar/zip_headers.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/log/die_if_null.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 
@@ -94,17 +93,21 @@ int main(int argc, char *argv[]) {
     std::string jar = pieces[0];
     std::string label = pieces[1];
     InputJar input_jar;
-    if (!input_jar.Open(jar)) {
+    // Only the central directory is read, so don't populate (prefault) the
+    // whole jar; for large classpaths that dominated the runtime.
+    if (!input_jar.Open(jar, /*populate=*/false)) {
       std::cerr << "error: unable to open: " << jar << std::endl;
       return 1;
     }
-    const CDH *dir_entry;
-    const LH *local_header;
-    while ((dir_entry = input_jar.NextEntry(&local_header))) {
-      absl::string_view file_name(ABSL_DIE_IF_NULL(local_header)->file_name(),
-                                  local_header->file_name_length());
-      one_version.Add(file_name, dir_entry,
-                      one_version::Label(label, jar, /*allowlisted=*/false));
+    const one_version::Label jar_label(label, jar, /*allowlisted=*/false);
+    // Use the file name from the central directory rather than the local
+    // header (as singlejar does), and don't ask NextEntry for the local header
+    // at all, to avoid touching the pages of every entry in the jar. The two
+    // names are identical in well-formed jars.
+    while (const CDH* dir_entry = input_jar.NextEntry()) {
+      absl::string_view file_name(dir_entry->file_name(),
+                                  dir_entry->file_name_length());
+      one_version.Add(file_name, dir_entry, jar_label);
     }
     input_jar.Close();
   }

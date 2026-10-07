@@ -22,12 +22,12 @@
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/zip_headers.h"
 
-bool InputJar::Open(const std::string& path) {
+bool InputJar::Open(const std::string& path, bool populate) {
   if (!path_.empty()) {
     diag_errx(1, "%s:%d: This instance is already handling %s\n", __FILE__,
               __LINE__, path_.c_str());
   }
-  if (!mapped_file_.Open(path)) {
+  if (!mapped_file_.Open(path, populate)) {
     diag_warn("%s:%d: Cannot open input jar %s", __FILE__, __LINE__,
               path.c_str());
     mapped_file_.Close();

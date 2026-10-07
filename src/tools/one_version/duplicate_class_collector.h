@@ -17,11 +17,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/inlined_vector.h"
+#include "absl/strings/string_view.h"
 
 namespace one_version {
 
@@ -83,7 +86,7 @@ class DuplicateClassCollector {
   explicit DuplicateClassCollector(size_t file_count_to_reserve_in_maps = 0);
 
   // Records the class name, crc, and label of a classpath entry.
-  void Add(const std::string &class_name, uint32_t crc32, const Label &label);
+  void Add(absl::string_view class_name, uint32_t crc32, const Label& label);
 
   // Returns the collection of one version violations.
   std::vector<Violation> Violations();
@@ -92,7 +95,46 @@ class DuplicateClassCollector {
   static std::string Report(const std::vector<Violation> &violations);
 
  private:
-  absl::flat_hash_map<std::string, Violation> violations_;
+  // A single classpath entry for a class: its crc32 and an index into labels_.
+  // Labels are stored once in labels_ rather than per entry, because a label
+  // (target name and jar path) is shared by every class in a jar and copying
+  // it for each class dominated the runtime on large classpaths.
+  struct Entry {
+    uint32_t crc32;
+    uint32_t label_index;
+  };
+
+  // Most classes appear in exactly one jar, so one inline Entry avoids a heap
+  // allocation per class. Classes that appear in several jars spill to the
+  // heap, which is rare.
+  using Entries = absl::InlinedVector<Entry, 1>;
+
+  // Returns the index of label in labels_, adding it if necessary. Callers
+  // typically add all entries of a jar consecutively, so only the most
+  // recently added label is checked. If a caller interleaves labels, a label
+  // may be stored more than once, which is harmless.
+  uint32_t InternLabel(const Label& label);
+
+  // Returns a copy of s that lives as long as this collector. Class names are
+  // stored in large blocks to avoid a heap allocation (and a deallocation at
+  // exit) per class.
+  absl::string_view CopyToArena(absl::string_view s);
+
+  std::vector<Label> labels_;
+  // Blocks are never moved or freed before the collector is destroyed, so
+  // string_views into them stay valid (also when the collector is moved).
+  std::vector<std::unique_ptr<char[]>> arena_blocks_;
+  char* arena_next_ = nullptr;
+  size_t arena_remaining_ = 0;
+  // Keys point into arena_blocks_.
+  absl::flat_hash_map<absl::string_view, Entries> classes_;
+  // Classes that were seen with more than one crc32, in the order they were
+  // first seen to conflict. Tracking these during Add means Violations() does
+  // not have to scan every class.
+  std::vector<absl::string_view> conflicts_;
+
+  // Lets the unit test observe arena_blocks_ to verify block rollover.
+  friend class DuplicateClassCollectorTest;
 };
 
 }  // namespace one_version

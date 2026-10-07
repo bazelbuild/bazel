@@ -52,15 +52,21 @@ class InputJar {
   int fd() const { return mapped_file_.fd(); }
 #endif
 
-  // Opens the file, memory maps it and locates Central Directory.
-  bool Open(const std::string& path);
+  // Opens the file, memory maps it and locates Central Directory. populate
+  // defaults to true to keep the existing behavior for callers like singlejar
+  // that read every entry; set it to false if only the Central Directory will
+  // be read. See MappedFile::Open.
+  bool Open(const std::string& path, bool populate = true);
 
   // Creates an input jar from data that's already in memory.
   // Requires a non-empty path for use in diagnostics.
   bool Open(const std::string& path, unsigned char* data, size_t length);
 
-  // Returns the next Central Directory Header or nullptr.
-  const CDH* NextEntry(const LH** local_header_ptr) {
+  // Returns the next Central Directory Header or nullptr. If local_header_ptr
+  // is non-null, it is set to the entry's (validated) Local Header. Callers
+  // that only read the Central Directory should pass nullptr, which avoids
+  // touching the local header's page in the mapped file.
+  const CDH* NextEntry(const LH** local_header_ptr = nullptr) {
     if (path_.empty()) {
       diag_errx(1, "%s:%d: call Open() first!", __FILE__, __LINE__);
     }
@@ -85,7 +91,9 @@ class InputJar {
           cdh_->comment_length());
     }
     cdh_ = reinterpret_cast<const CDH*>(new_cdr);
-    *local_header_ptr = LocalHeader(current_cdh);
+    if (local_header_ptr != nullptr) {
+      *local_header_ptr = LocalHeader(current_cdh);
+    }
     return current_cdh;
   }
 
