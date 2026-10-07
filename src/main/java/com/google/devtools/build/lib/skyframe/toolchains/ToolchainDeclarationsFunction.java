@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.toolchains;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
-import com.google.devtools.build.lib.bazel.bzlmod.Module;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -42,17 +41,17 @@ public class ToolchainDeclarationsFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws RegisteredToolchainsFunctionException, InterruptedException {
-    ToolchainDeclarationsValue.Key key = (ToolchainDeclarationsValue.Key) skyKey;
-    RepositoryMappingValue mainRepoMapping =
+    var key = (ToolchainDeclarationsValue.Key) skyKey;
+    var mainRepoMapping =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (mainRepoMapping == null) {
       return null;
     }
 
-    TargetPattern.Parser mainRepoParser =
+    var mainRepoParser =
         new TargetPattern.Parser(
             PathFragment.EMPTY_FRAGMENT, RepositoryName.MAIN, mainRepoMapping.repositoryMapping());
-    ImmutableList.Builder<SignedTargetPattern> targetPatternBuilder = new ImmutableList.Builder<>();
+    var targetPatternBuilder = ImmutableList.<SignedTargetPattern>builder();
 
     // Get the toolchains from the configuration.
     // Reverse the list so the last one defined takes precedences.
@@ -72,45 +71,56 @@ public class ToolchainDeclarationsFunction implements SkyFunction {
     targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodToolchains));
 
     // Expand target patterns.
-    ImmutableSet<Label> toolchainLabels;
     try {
-      toolchainLabels =
+      var toolchainLabels =
           TargetPatternUtil.expandTargetPatterns(
               env, targetPatternBuilder.build(), FilteringPolicies.ruleTypeExplicit("toolchain"));
       if (env.valuesMissing()) {
         return null;
       }
-    } catch (TargetPatternUtil.InvalidTargetPatternException e) {
+      return new ToolchainDeclarationsValue(toolchainLabels.asList());
+    } catch (InvalidTargetPatternException e) {
       throw new RegisteredToolchainsFunctionException(
           new InvalidToolchainLabelException(e), Transience.PERSISTENT);
     }
-
-    return new ToolchainDeclarationsValue(toolchainLabels.asList());
   }
 
   @Nullable
   private static ImmutableList<TargetPattern> getBzlmodToolchains(Environment env)
       throws InterruptedException, RegisteredToolchainsFunctionException {
-    BazelDepGraphValue bazelDepGraphValue =
-        (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
+    var bazelDepGraphValue = (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
     if (bazelDepGraphValue == null) {
       return null;
     }
-    ImmutableList.Builder<TargetPattern> toolchains = ImmutableList.builder();
-    for (Module module : bazelDepGraphValue.getDepGraph().values()) {
-      if (module.getToolchainsToRegister().isEmpty()) {
-        continue;
+    var repoMappingKeyToModule =
+        bazelDepGraphValue.getDepGraph().values().stream()
+            .filter(module -> !module.getToolchainsToRegister().isEmpty())
+            .collect(
+                toImmutableMap(
+                    module ->
+                        RepositoryMappingValue.key(
+                            bazelDepGraphValue
+                                .getCanonicalRepoNameLookup()
+                                .inverse()
+                                .get(module.getKey())),
+                    module -> module));
+    var moduleRepoMappings = env.getValuesAndExceptions(repoMappingKeyToModule.keySet());
+    if (env.valuesMissing()) {
+      return null;
+    }
+    var toolchains = ImmutableList.<TargetPattern>builder();
+    for (var repoMappingKeyAndModule : repoMappingKeyToModule.entrySet()) {
+      var repoMappingKey = repoMappingKeyAndModule.getKey();
+      var module = repoMappingKeyAndModule.getValue();
+      var repoMappingValue = (RepositoryMappingValue) moduleRepoMappings.get(repoMappingKey);
+      if (repoMappingValue == null) {
+        return null;
       }
-      RepositoryName repoName =
-          bazelDepGraphValue.getCanonicalRepoNameLookup().inverse().get(module.getKey());
-      RepositoryMappingValue repoMapping =
-          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
-      if (repoMapping == null) {
-        continue;
-      }
-      TargetPattern.Parser parser =
+      var parser =
           new TargetPattern.Parser(
-              PathFragment.EMPTY_FRAGMENT, repoName, repoMapping.repositoryMapping());
+              PathFragment.EMPTY_FRAGMENT,
+              repoMappingKey.repoName(),
+              repoMappingValue.repositoryMapping());
       for (String pattern : module.getToolchainsToRegister()) {
         try {
           toolchains.add(parser.parse(pattern));
@@ -120,6 +130,6 @@ public class ToolchainDeclarationsFunction implements SkyFunction {
         }
       }
     }
-    return env.valuesMissing() ? null : toolchains.build();
+    return toolchains.build();
   }
 }
