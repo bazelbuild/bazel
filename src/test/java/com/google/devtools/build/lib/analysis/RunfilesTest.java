@@ -251,6 +251,28 @@ public final class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
+  public void merge_repeatedSymlink_preservesLastEntry() {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
+    Artifact first = ActionsTestUtil.createArtifact(root, "first");
+    Artifact middle = ActionsTestUtil.createArtifact(root, "middle");
+    for (boolean rootSymlink : new boolean[] {false, true}) {
+      Runfiles.Builder merged = new Runfiles.Builder("TESTING");
+      for (Artifact artifact : ImmutableList.of(first, middle, first)) {
+        Runfiles.Builder entry = new Runfiles.Builder("TESTING");
+        if (rootSymlink) {
+          entry.addRootSymlink(PathFragment.create("same/path"), artifact);
+        } else {
+          entry.addSymlink(PathFragment.create("same/path"), artifact);
+        }
+        merged.merge(entry.build());
+      }
+      assertThat(merged.build().getRunfilesInputs(/* repoMappingManifest= */ null))
+          .containsEntry(
+              PathFragment.create(rootSymlink ? "same/path" : "TESTING/same/path"), first);
+    }
+  }
+
+  @Test
   public void testMergeEmptyWithNonEmpty() throws Exception {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
