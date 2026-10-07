@@ -1670,11 +1670,8 @@ Strip the given number of leading components from file paths on extraction. Only
       }
       throw Starlark.errorf("attempted to watch path under working directory");
     }
-    if (path.startsWith(directories.getWorkspace())) {
-      // The file is under the workspace root.
-      PathFragment relPath = path.relativeTo(directories.getWorkspace());
-      return RepoCacheFriendlyPath.createInsideWorkspace(RepositoryName.MAIN, relPath);
-    }
+    // The output base may lie inside the workspace, so its external repository directory is
+    // checked before the workspace root.
     Path outputBaseExternal =
         directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
     if (path.startsWith(outputBaseExternal)) {
@@ -1692,6 +1689,11 @@ Strip the given number of leading components from file paths on extraction. Only
             relPath.relativeTo(PathFragment.createAlreadyNormalized(repoName.getName()));
         return RepoCacheFriendlyPath.createInsideWorkspace(repoName, repoRelPath);
       }
+    }
+    if (path.startsWith(directories.getWorkspace())) {
+      // The file is under the workspace root.
+      PathFragment relPath = path.relativeTo(directories.getWorkspace());
+      return RepoCacheFriendlyPath.createInsideWorkspace(RepositoryName.MAIN, relPath);
     }
     // The file is just under a random absolute path.
     if (!allowWatchingPathsOutsideWorkspace) {
