@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.BuiltinRestriction.Allowlist;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
@@ -641,9 +642,22 @@ public class BuildConfigurationValue
     return options.getStampBinaries();
   }
 
+  /**
+   * Allowlist for {@link #stampBinariesForStarlark}: a superset of the default allowlist.
+   *
+   * <p>Note that calling {@link #stampBinariesForStarlark} does not entail a dependency on {@link
+   * com.google.devtools.build.lib.skyframe.PrecomputedValue#STAMP_SETTING_MARKER}, so callers must
+   * be well-behaved (i.e., they should use the return value only to decide whether to add stamp
+   * file inputs, not to diverge other behavior). Consult the owners of b/419546090 prior to adding
+   * to this allowlist.
+   */
+  private static final Allowlist STAMP_BINARIES_ALLOWLIST =
+      Allowlist.defaultPlus(
+          BuiltinRestriction.mainRepoAllowlistEntry("tools/build_defs/gcl/internal"));
+
   @Override
   public boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, STAMP_BINARIES_ALLOWLIST);
     return stampBinaries();
   }
 

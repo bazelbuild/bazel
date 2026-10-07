@@ -53,6 +53,18 @@ public final class BuiltinRestriction {
       return new Allowlist(ImmutableList.copyOf(entries));
     }
 
+    /**
+     * Returns an allowlist containing all entries in {@link #INTERNAL_STARLARK_API_ALLOWLIST} plus
+     * the given entries.
+     */
+    public static Allowlist defaultPlus(AllowlistEntry... entries) {
+      return new Allowlist(
+          ImmutableList.<AllowlistEntry>builder()
+              .addAll(INTERNAL_STARLARK_API_ALLOWLIST.entries)
+              .add(entries)
+              .build());
+    }
+
     private boolean allows(Label label, @Nullable String moduleRepoName) {
       // Hot code path, avoid iterator garbage.
       for (int i = 0; i < entries.size(); i++) {
