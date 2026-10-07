@@ -47,7 +47,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/guava:collect",
-        "//third_party/java/guava:io",
         "@rules_java//java/runfiles",
     ],
 )
