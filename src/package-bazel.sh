@@ -20,11 +20,11 @@ set -euo pipefail
 # starts the server from.
 
 WORKDIR="$(pwd)"
-OUT=$1; shift
-EMBEDDED_TOOLS=$1; shift
-DEPLOY_JAR=$1; shift
-INSTALL_BASE_KEY=$1; shift
-PLATFORMS_ARCHIVE=$1; shift
+OUT="$1"; shift
+EMBEDDED_TOOLS="$1"; shift
+DEPLOY_JAR="$1"; shift
+INSTALL_BASE_KEY="$1"; shift
+PLATFORMS_ARCHIVE="$1"; shift
 
 if [[ "$OUT" == *jdk_allmodules.zip ]]; then
   DEV_BUILD=1
@@ -32,7 +32,7 @@ else
   DEV_BUILD=0
 fi
 
-TMP_DIR=${TMPDIR:-/tmp}
+TMP_DIR="${TMPDIR:-/tmp}"
 ROOT="$(mktemp -d "${TMP_DIR%%/}/bazel.XXXXXXXX")"
 RECOMP="$ROOT/recomp"
 PACKAGE_DIR="$ROOT/pkg"
