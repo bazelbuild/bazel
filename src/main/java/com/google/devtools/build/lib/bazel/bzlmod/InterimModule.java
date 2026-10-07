@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -109,7 +108,6 @@ public abstract class InterimModule extends ModuleBase {
     /** Optional; defaults to {@link ModuleKey#ROOT}. */
     public abstract Builder setKey(ModuleKey value);
 
-
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
 
@@ -179,6 +177,11 @@ public abstract class InterimModule extends ModuleBase {
     abstract Version getVersion();
 
     abstract Optional<String> getRepoName();
+
+    /** Returns repo_name if set, otherwise the module's name. */
+    public String getRepoNameOrName() {
+      return getRepoName().orElse(getName());
+    }
 
     abstract InterimModule autoBuild();
 
