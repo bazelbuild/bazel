@@ -379,9 +379,7 @@ public final class SandboxModule extends BlazeModule {
   // Package-private for testing
   void cleanSandboxBaseOnFirstBuild(Path sandboxBase, Path trashBase, int idleThreads)
       throws IOException {
-    AsynchronousTreeDeleter asyncDeleter =
-        treeDeleter instanceof AsynchronousTreeDeleter atd ? atd : null;
-    if (idleThreads > 0 && asyncDeleter != null) {
+    if (idleThreads > 0 && treeDeleter instanceof AsynchronousTreeDeleter asyncDeleter) {
       asyncDeleter.setThreads(idleThreads);
     }
     try (SilentCloseable c = Profiler.instance().profile("clean sandbox on first build")) {
@@ -435,7 +433,7 @@ public final class SandboxModule extends BlazeModule {
       }
       sandboxBase.deleteTree();
     } finally {
-      if (idleThreads > 0 && asyncDeleter != null) {
+      if (idleThreads > 0 && treeDeleter instanceof AsynchronousTreeDeleter asyncDeleter) {
         asyncDeleter.setThreads(1);
       }
     }
