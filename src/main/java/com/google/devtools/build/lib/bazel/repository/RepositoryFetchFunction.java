@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
@@ -366,28 +365,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
           RootedPath cachedRepoDirRootedPath =
               RootedPath.toRootedPath(
                   Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir);
-          // Don't forget to register a FileStateValue on the cache repo dir, so that we know to
+          // Don't forget to register a FileValue on the cache repo dir, so that we know to
           // refetch if the cache entry gets GC'd from under us or the entire cache is deleted.
-          //
-          // Note that registering a FileValue dependency instead would lead to subtly incorrect
-          // behavior when the repo contents cache directory is deleted between builds:
-          // 1. We register a FileValue dependency on the cache entry.
-          // 2. Before the next build, the repo contents cache directory is deleted.
-          // 3. On the next build, FileSystemValueChecker invalidates the underlying
-          //    FileStateValue, which in turn results in the FileValue and the current
-          //    RepositoryDirectoryValue being marked as dirty.
-          // 4. Skyframe visits the dirty nodes bottom up to check for actual changes. In
-          //    particular, it reevaluates FileFunction before RepositoryFetchFunction and thus
-          //    the FileValue of the repo contents cache directory is locked in as non-existent
-          //    before RepositoryFetchFunction can recreate it.
-          // 5. Any other SkyFunction that depends on the FileValue of a file in the repo (e.g.
-          //    PackageFunction) will report that file as missing since the resolved path has a
-          //    parent that is non-existent.
-          // By using FileStateValue directly, which benefits from special logic built into
-          // DirtinessCheckerUtils that recognizes the repo contents cache directories with
-          // non-UUID names and prevents locking in their value during dirtiness checking, we
-          // avoid 4. and thus the incorrect missing file errors in 5.
-          if (env.getValue(FileStateValue.key(cachedRepoDirRootedPath)) == null) {
+          // The FileValue also depends on the parent directories of the entry, which is only safe
+          // since those in the repo contents cache are never invalidated and thus can't be locked
+          // in as non-existent before a refetch recreates them, see
+          // ExternalFilesHelper.FileType.REPO_CONTENTS_CACHE_DIRS.
+          if (env.getValue(FileValue.key(cachedRepoDirRootedPath)) == null) {
             return null;
           }
         }
