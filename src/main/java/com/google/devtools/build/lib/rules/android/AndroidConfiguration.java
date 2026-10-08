@@ -469,6 +469,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "incompatible_remove_ctx_android_fragment",
+        // TODO(tedx): When this is flipped to true, we need to update MODULE.tools's version of
+        // rules_android to include a release with
+        // https://github.com/bazelbuild/rules_android/commit/6f8a1fa83bcef96c7f80440fac6ec4c5a572271d
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
