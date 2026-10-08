@@ -1225,6 +1225,70 @@ class RemoteRepoContentsCacheTest(
     with open(out) as f:
       self.assertEqual(f.read(), 'hello')
 
+  def testTopLevelSymlinkToRepoFile(self):
+    # A symlink action doesn't read its input, so it creates its output before
+    # the file it points to has been downloaded. On Windows, the output is a
+    # copy of that file unless symlinks are enabled, which can only be made once
+    # the file is available.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/symlink.bzl',
+        [
+            'def _symlink_impl(ctx):',
+            '  out = ctx.actions.declare_file(ctx.label.name + ".txt")',
+            '  ctx.actions.symlink(output = out, target_file = ctx.file.src)',
+            '  return [DefaultInfo(files = depset([out]))]',
+            'symlink = rule(',
+            '  implementation = _symlink_impl,',
+            '  attrs = {"src": attr.label(allow_single_file = True)},',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'load("//main:symlink.bzl", "symlink")',
+            'symlink(name = "link", src = "@my_repo//:data.txt")',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    out = self.Path('bazel-bin/main/link.txt')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '//main:link'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(out) as f:
+      self.assertEqual(f.read(), 'hello')
+
+    # After expunging: cached, with data.txt only being downloaded since the
+    # top-level output points to it.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:link'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+    with open(out) as f:
+      self.assertEqual(f.read(), 'hello')
+
   def testSourceDirectoryWithSymlinkToDirectory_expandedExecutionLog(self):
     # Regression test for https://github.com/bazelbuild/bazel/issues/30264:
     # the expanded execution log walks directory inputs on the overlay file
@@ -2768,6 +2832,181 @@ class RemoteRepoContentsCacheTest(
     _, stdout, stderr = self.RunBazel(args)
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertIn('hello from a source executable', '\n'.join(stdout))
+
+
+  def testSymlinkWithUplevelReferenceAfterDirectorySymlinkStaysNative(self):
+    if self.IsWindows():
+      self.skipTest('needs a symlink target that Bazel normalizes differently')
+    # a/foo -> dirlink/../wanted resolves to a/native/wanted natively (dirlink
+    # points to native/sub), but its normalized target a/wanted is a symlink
+    # into b. Reading a/foo while b is served from the cache must stay native.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'b = use_repo_rule("//:repo.bzl", "b")',
+            'b(name = "b")',
+            'a = use_repo_rule("//:repo.bzl", "a")',
+            'a(name = "a")',
+            'reader = use_repo_rule("//:repo.bzl", "reader")',
+            'reader(name = "reader")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _b_impl(rctx):',
+            '  mode = rctx.getenv("MODE")',
+            '  rctx.file("BUILD", "exports_files([\'wanted\'])")',
+            '  rctx.file("wanted", "WRONG " + mode)',
+            '  print("JUST FETCHED b " + mode)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'b = repository_rule(_b_impl)',
+            'def _a_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'foo\'])")',
+            '  rctx.file("native/sub/.keep", "")',
+            '  rctx.file("native/wanted", "CORRECT")',
+            '  rctx.symlink("native/sub", "dirlink")',
+            '  rctx.symlink(Label("@b//:wanted"), "wanted")',
+            '  rctx.execute(["ln", "-s", "dirlink/../wanted", "foo"])',
+            '  print("JUST FETCHED a")',
+            'a = repository_rule(_a_impl)',
+            'def _reader_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'copy.txt\'])")',
+            '  rctx.file("copy.txt", rctx.read(Label("@a//:foo")))',
+            'reader = repository_rule(_reader_impl)',
+        ],
+    )
+
+    # Fetch a and b, then b for another value of MODE, so that the first
+    # value's b is served from the cache when the reader reads a/foo.
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@a', '--repo_env=MODE=a'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED b a', stderr)
+    self.assertIn('JUST FETCHED a', stderr)
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@b', '--repo_env=MODE=b'])
+    self.assertIn('JUST FETCHED b b', '\n'.join(stderr))
+
+    _, _, stderr = self.RunBazel(
+        ['build', '@reader//:copy.txt', '--repo_env=MODE=a']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(self.RepoDir('reader'), 'copy.txt')) as f:
+      self.assertEqual(f.read(), 'CORRECT')
+
+  def testGlobThroughSymlinkIntoCachedRepo(self):
+    # A repo that isn't cached (its symlink into another repo excludes it)
+    # globs files behind a symlink into a repo that is served from the cache.
+    # The glob runs when the package is loaded for the first time, which is
+    # after the other repo has been retrieved from the cache.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'tree_repo = use_repo_rule("//:repo.bzl", "tree_repo")',
+            'tree_repo(name = "tree_repo")',
+            'agg_repo = use_repo_rule("//:repo.bzl", "agg_repo")',
+            'agg_repo(name = "agg_repo")',
+            'reader = use_repo_rule("//:repo.bzl", "reader")',
+            'reader(name = "reader")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _tree_repo_impl(rctx):',
+            '  mode = rctx.getenv("MODE")',
+            '  rctx.file("BUILD", "")',
+            # The .bzl file is prefetched when the repo is retrieved from the
+            # cache, so the directory exists natively, but incompletely.
+            '  rctx.file("tree/sub/helper.bzl", "")',
+            '  rctx.file("tree/sub/data.txt", "data for " + mode + "\\n")',
+            '  print("JUST FETCHED tree_repo " + mode)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'tree_repo = repository_rule(_tree_repo_impl)',
+            'def _agg_repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'all_txt\','
+                " srcs=glob(['aggregate/**/*.txt']),"
+                " visibility=['//visibility:public'])\")"
+            ),
+            '  rctx.file("aggregate/native.txt", "native\\n")',
+            '  rctx.symlink(Label("@tree_repo//:tree"), "aggregate/linked")',
+            '  print("JUST FETCHED agg_repo")',
+            'agg_repo = repository_rule(_agg_repo_impl)',
+            'def _reader_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'copy.txt\'])")',
+            (
+                '  rctx.file("copy.txt", rctx.read(Label('
+                '"@agg_repo//:aggregate/linked/sub/data.txt")))'
+            ),
+            'reader = repository_rule(_reader_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "cat_all",',
+            '  srcs = ["@agg_repo//:all_txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(SRCS) > $@",',
+            ')',
+        ],
+    )
+
+    # Fetch both repos without loading agg_repo's package, then tree_repo for
+    # another value of MODE, so that the first value's tree_repo is served from
+    # the cache when the package is loaded.
+    _, _, stderr = self.RunBazel(
+        ['fetch', '--repo=@agg_repo', '--repo_env=MODE=a']
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED tree_repo a', stderr)
+    self.assertIn('JUST FETCHED agg_repo', stderr)
+    _, _, stderr = self.RunBazel(
+        ['fetch', '--repo=@tree_repo', '--repo_env=MODE=b']
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED tree_repo b', stderr)
+    self.assertNotIn('JUST FETCHED agg_repo', stderr)
+
+    # The package is loaded for the first time while tree_repo is served from
+    # the cache, so the glob follows the symlink into memory.
+    _, stdout, stderr = self.RunBazel(
+        ['query', 'labels(srcs, @agg_repo//:all_txt)', '--repo_env=MODE=a']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertEqual(
+        [
+            '@agg_repo//:aggregate/linked/sub/data.txt',
+            '@agg_repo//:aggregate/native.txt',
+        ],
+        sorted(stdout),
+    )
+    tree_repo_dir = self.RepoDir('tree_repo')
+    self.assertTrue(
+        os.path.exists(os.path.join(tree_repo_dir, 'tree', 'sub', 'helper.bzl'))
+    )
+    self.assertFalse(
+        os.path.exists(os.path.join(tree_repo_dir, 'tree', 'sub', 'data.txt'))
+    )
+    # A repo rule reads through the symlink without materializing anything.
+    _, _, stderr = self.RunBazel(
+        ['build', '@reader//:copy.txt', '--repo_env=MODE=a']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(self.RepoDir('reader'), 'copy.txt')) as f:
+      self.assertEqual(f.read(), 'data for a\n')
+    self.assertFalse(
+        os.path.exists(os.path.join(tree_repo_dir, 'tree', 'sub', 'data.txt'))
+    )
+    _, _, stderr = self.RunBazel(
+        ['build', '//main:cat_all', '--repo_env=MODE=a']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'data for a\nnative\n')
 
 
 if __name__ == '__main__':
