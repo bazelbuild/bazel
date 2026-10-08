@@ -28,6 +28,7 @@ import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.protobuf.ExtensionRegistryLite;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -784,6 +786,56 @@ public class UploadManifestTest {
     when(dir.getChild(linkName)).thenReturn(link);
 
     return dir;
+  }
+
+  @Test
+  public void getRootDirectoryDigest() throws Exception {
+    Path dir = execRoot.getRelative("dir");
+    dir.getRelative("subdir").createDirectoryAndParents();
+    FileSystemUtils.writeContent(dir.getRelative("subdir/file"), new byte[] {1, 2, 3});
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            ActionResult.newBuilder(),
+            /* allowAbsoluteSymlinks= */ false,
+            /* preserveExecutableBit= */ true);
+    um.addFiles(ImmutableList.of(dir));
+
+    Digest treeDigest =
+        Iterables.getOnlyElement(um.getActionResult().getOutputDirectoriesList()).getTreeDigest();
+    Tree tree = Tree.parseFrom(um.getBlob(treeDigest), ExtensionRegistryLite.getEmptyRegistry());
+    assertThat(um.getRootDirectoryDigest(treeDigest)).isEqualTo(digestUtil.compute(tree.getRoot()));
+  }
+
+  @Test
+  public void relocateFiles() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectoryAndParents();
+    Path fileInDir = dir.getRelative("file");
+    FileSystemUtils.writeContent(fileInDir, new byte[] {1, 2, 3});
+    Path otherFile = execRoot.getRelative("other");
+    FileSystemUtils.writeContent(otherFile, new byte[] {4, 5});
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /* allowAbsoluteSymlinks= */ false,
+            /* preserveExecutableBit= */ true);
+    um.addFiles(ImmutableList.of(dir, otherFile));
+    Digest fileDigest = digestUtil.compute(fileInDir);
+    Digest otherDigest = digestUtil.compute(otherFile);
+    ActionResult resultBeforeRelocation = result.build();
+
+    Path newDir = execRoot.getRelative("new_dir");
+    um.relocateFiles(dir, newDir);
+    otherFile.delete();
+
+    assertThat(um.getDigestToFile()).containsExactly(fileDigest, newDir.getRelative("file"));
+    assertThat(um.getBlob(otherDigest).toByteArray()).isEqualTo(new byte[] {4, 5});
+    assertThat(result.build()).isEqualTo(resultBeforeRelocation);
   }
 
   @Test

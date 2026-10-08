@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -43,6 +45,7 @@ import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -404,7 +407,21 @@ public class RemoteActionFileSystem extends FileSystem {
       }
       throw e;
     }
-    return localFs.getPath(path).getInputStream();
+    try {
+      return localFs.getPath(path).getInputStream();
+    } catch (LostRemoteRepoFileException e) {
+      // A source file in an external repo is not known to this file system by its absolute path and
+      // has thus been read through the underlying file system rather than downloaded as an input.
+      if (action != null) {
+        for (Artifact input : action.getInputs().toList()) {
+          if (input.getPath().asFragment().equals(path)) {
+            lostInputs.add(new LostArtifacts(ImmutableSetMultimap.of(e.getDigest(), input)));
+            break;
+          }
+        }
+      }
+      throw e;
+    }
   }
 
   /** Downloads the file at {@code path} if it is remote. */

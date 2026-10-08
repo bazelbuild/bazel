@@ -27,18 +27,21 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -98,17 +101,26 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
           return lostArtifacts;
         }
       }
-      throw new ImportantOutputException(
-          e,
-          FailureDetail.newBuilder()
-              .setMessage(e.getMessage())
-              .setRemoteExecution(
-                  RemoteExecution.newBuilder()
-                      .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
-                      .build())
-              .build());
+      throw new ImportantOutputException(e, getFailureDetail(e));
     }
     return LostArtifacts.EMPTY;
+  }
+
+  private static FailureDetail getFailureDetail(IOException e) {
+    // Keep the detail of a failure that explains itself, e.g. a file of an external repo that is no
+    // longer available in the remote cache, which lets the command be retried.
+    for (Throwable t : Iterables.concat(ImmutableList.of(e), Arrays.asList(e.getSuppressed()))) {
+      if (t instanceof DetailedIOException detailed) {
+        return detailed.getDetailedExitCode().getFailureDetail();
+      }
+    }
+    return FailureDetail.newBuilder()
+        .setMessage(e.getMessage())
+        .setRemoteExecution(
+            RemoteExecution.newBuilder()
+                .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
+                .build())
+        .build();
   }
 
   @Override
@@ -221,8 +233,18 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
         return;
       }
 
-      if (remoteOutputChecker.shouldDownloadOutput(artifact, metadata)) {
-        ensuredOutputMetadata.add(metadata);
+      // The metadata of a source directory in an external repo doesn't tell whether the files
+      // below it are only available remotely, which is the case as long as the repo is served from
+      // the remote repo contents cache.
+      boolean isSourceDirectory =
+          artifact.isSourceArtifact() && metadata.getType() == FileStateType.DIRECTORY;
+      if (isSourceDirectory
+          ? remoteOutputChecker.shouldDownloadOutput(
+              artifact.getExecPath(), /* treeRootExecPath= */ null)
+          : remoteOutputChecker.shouldDownloadOutput(artifact, metadata)) {
+        if (!isSourceDirectory) {
+          ensuredOutputMetadata.add(metadata);
+        }
         futures.add(
             actionInputPrefetcher.prefetchFiles(
                 artifact instanceof DerivedArtifact derivedArtifact

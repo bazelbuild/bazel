@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.repository;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,20 +54,24 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.F
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
+import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache.NonReproducibleRepoException;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -75,6 +80,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -89,6 +95,13 @@ import net.starlark.java.eval.SymbolGenerator;
 /** A {@link SkyFunction} that fetches the given repository. */
 public final class RepositoryFetchFunction implements SkyFunction {
 
+  // Repos whose files have to be moved into an existing repo are fetched into this directory under
+  // the output base, which lies outside the external directory so that the file system serving
+  // repos doesn't apply to it. Its name is short so that a repo with paths close to the maximum
+  // length still fits, at least for the first 1296 fetches.
+  private static final String STAGING_DIRECTORY_NAME = "stage";
+
+  private final AtomicLong nextStagingDirectoryId = new AtomicLong();
   private final BlazeDirectories directories;
   private final LocalRepoContentsCache repoContentsCache;
   private final Supplier<ImmutableMap<String, String>> repoEnvSupplier;
@@ -187,6 +200,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     workerEnv, repositoryName, starlarkSemantics, repoRoot, repoDefinition);
               });
         } catch (ExecutionException e) {
+          // The repo rule may have read a file of another cached repo that the remote cache has
+          // lost. Rather than failing the build, refetch that repo and run this repo rule again.
+          Reset reset = RepoRewinding.resetForLostRepoFile(skyKey, e);
+          if (reset != null) {
+            return reset;
+          }
           Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
           Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
           Throwables.throwIfUnchecked(e.getCause());
@@ -249,7 +268,25 @@ public final class RepositoryFetchFunction implements SkyFunction {
               || vendorFile.pinnedRepos().contains(repositoryName);
     }
 
-    if (shouldUseCachedRepoContents(env, repoDefinition)) {
+    // The remote repo contents cache may have lost files of a repo that has been retrieved from it
+    // earlier. Such a repo has to be fetched to restore these files, but its remaining contents may
+    // be in use and thus must not be replaced, not even with a matching entry of a cache.
+    boolean restoreLostFiles = false;
+    if (remoteRepoContentsCache != null) {
+      String lostFilesMarkerFile =
+          remoteRepoContentsCache.getLostFilesMarkerFile(repositoryName, repoRoot);
+      if (lostFilesMarkerFile != null) {
+        // The cached contents are only restored if they are still up to date. Otherwise, they are
+        // replaced like any other out-of-date contents, by another cache entry or a fetch.
+        restoreLostFiles =
+            digestWriter.areRecordedInputsUpToDate(env, lostFilesMarkerFile).isEmpty();
+        if (env.valuesMissing()) {
+          return null;
+        }
+      }
+    }
+
+    if (!restoreLostFiles && shouldUseCachedRepoContents(env, repoDefinition)) {
       // Make sure marker file is up-to-date; correctly describes the current repository state
       if (digestWriter.areRepositoryAndMarkerFileConsistent(env).isEmpty()) {
         return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
@@ -303,17 +340,37 @@ public final class RepositoryFetchFunction implements SkyFunction {
     /* At this point: This is a force fetch, a local repository, OR The repository cache is old or
     didn't exist. In any of those cases, we initiate the fetching process UNLESS this is offline
     mode (fetching is disabled) */
+    if (restoreLostFiles) {
+      return restoreLostFiles(
+          env, repositoryName, repoRoot, repoDefinition, digestWriter, excludeRepoFromVendoring);
+    }
     if (!RepositoryDirectoryValue.FETCH_DISABLED.get(env)) {
       // Fetching a repository is a long-running operation that can easily be interrupted. If it
       // is and the marker file exists on disk, a new call of this method may treat this
       // repository as valid even though it is in an inconsistent state. Clear the marker file and
       // only recreate it after fetching is done to prevent this scenario.
       DigestWriter.clearMarkerFile(directories, repositoryName);
-      FetchResult result = fetchAndHandleEvents(repoDefinition, repoRoot, env, repositoryName);
+      FetchResult result;
+      try {
+        result =
+            fetchAndHandleEvents(
+                repoDefinition, repoRoot, env, repositoryName, /* failureIsMoot= */ () -> false);
+      } catch (RepositoryFunctionException e) {
+        // A failure caused by a lost file of another repo is recovered from by rewinding, after
+        // which this repo is fetched again.
+        if (!RepoRewinding.isRecoverableLostRepoFile(e)
+            && repoRoot.getFileSystem() instanceof RewindableRepoFileSystem repoFileSystem) {
+          repoFileSystem.repoRefetchFailed(repositoryName);
+        }
+        throw e;
+      }
       if (result == null) {
         return null;
       }
       digestWriter.writeMarkerFile(result.recordedInputValues());
+      if (repoRoot.getFileSystem() instanceof RewindableRepoFileSystem repoFileSystem) {
+        repoFileSystem.repoRefetched(repositoryName);
+      }
       if (result.reproducible() == Reproducibility.YES && !repoDefinition.repoRule().local()) {
         // This repo may be eligible for the local and remote repo contents cache.
         // Replant symlinks before caching to convert absolute symlinks relative if possible, which
@@ -427,6 +484,169 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     repositoryName)));
 
     return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
+  }
+
+  /**
+   * Fetches a repo that has been retrieved from the remote repo contents cache to restore the files
+   * that the cache has lost since.
+   *
+   * <p>The remaining contents of the repo may be in use while this runs, both by Bazel and by the
+   * actions it executes. The contents are thus obtained in a staging directory, from the local repo
+   * contents cache or by fetching the repo, and only the missing files are moved into the repo,
+   * which requires them to be the very contents that have been retrieved from the cache.
+   */
+  @Nullable
+  private RepositoryDirectoryValue restoreLostFiles(
+      Environment env,
+      RepositoryName repositoryName,
+      Path repoRoot,
+      RepoDefinition repoDefinition,
+      DigestWriter digestWriter,
+      boolean excludeRepoFromVendoring)
+      throws InterruptedException, RepositoryFunctionException {
+    // Every attempt uses its own directory as an earlier attempt that has been interrupted may
+    // still be cleaning up. The repo keeps its name since repo rules may rely on it.
+    Path stagingRoot =
+        directories
+            .getOutputBase()
+            .getRelative(STAGING_DIRECTORY_NAME)
+            .getChild(
+                Long.toString(nextStagingDirectoryId.getAndIncrement(), Character.MAX_RADIX));
+    Path stagingRepoRoot = stagingRoot.getChild(repositoryName.getName());
+    Path stagingMarkerPath = stagingRoot.getChild(repositoryName.getMarkerFileName());
+    var success = new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
+    try {
+      // The local repo contents cache may have the contents by now, e.g. from another output base,
+      // which saves running the repo rule.
+      if (repoContentsCache.isEnabled()) {
+        for (CandidateRepo candidate :
+            repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash)) {
+          Optional<String> inconsistency =
+              digestWriter.areRepositoryAndMarkerFileConsistent(
+                  env, candidate.recordedInputsFile());
+          if (env.valuesMissing()) {
+            return null;
+          }
+          if (inconsistency.isPresent()) {
+            continue;
+          }
+          try {
+            stagingRepoRoot.createDirectoryAndParents();
+            FileSystemUtils.copyTreesBelow(candidate.contentsDir(), stagingRepoRoot);
+            FileSystemUtils.copyFile(candidate.recordedInputsFile(), stagingMarkerPath);
+            restoreFromStagedRepo(
+                env, repositoryName, repoRoot, stagingRepoRoot, stagingMarkerPath, digestWriter);
+            candidate.touch();
+            return success;
+          } catch (NonReproducibleRepoException e) {
+            // The entry doesn't have the cached contents, which fetching the repo may still result
+            // in.
+            env.getListener().handle(Event.debug(e.getMessage()));
+            stagingRoot.deleteTree();
+          }
+        }
+      }
+      if (RepositoryDirectoryValue.FETCH_DISABLED.get(env)) {
+        throw new RepositoryFunctionException(
+            new IOException(
+                "The remote cache has lost files of external repository %s, which can't be"
+                        .formatted(repositoryName)
+                    + " restored since fetching repositories is disabled."),
+            Transience.TRANSIENT);
+      }
+      // The repo may be materialized while it is being fetched, e.g. by a repo rule that accesses
+      // all of its files, in which case the lost files have been restored along with the others
+      // and a failure of the fetch doesn't matter. This is decided once, when the failure would
+      // first be reported.
+      Supplier<Boolean> restoredConcurrently =
+          Suppliers.memoize(
+              () ->
+                  remoteRepoContentsCache.getLostFilesMarkerFile(repositoryName, repoRoot)
+                      == null);
+      FetchResult result;
+      try {
+        result =
+            fetchAndHandleEvents(
+                repoDefinition, stagingRepoRoot, env, repositoryName, restoredConcurrently);
+      } catch (RepositoryFunctionException e) {
+        if (restoredConcurrently.get()) {
+          // The repo has been materialized along with its marker file. Its recorded inputs are
+          // still those of the cached contents and must be depended on like after a fetch.
+          Optional<String> inconsistency = digestWriter.areRepositoryAndMarkerFileConsistent(env);
+          if (env.valuesMissing()) {
+            return null;
+          }
+          if (inconsistency.isEmpty()) {
+            return success;
+          }
+        }
+        throw e;
+      }
+      if (result == null) {
+        return null;
+      }
+      digestWriter.writeMarkerFile(stagingMarkerPath, result.recordedInputValues());
+      try {
+        restoreFromStagedRepo(
+            env, repositoryName, repoRoot, stagingRepoRoot, stagingMarkerPath, digestWriter);
+      } catch (NonReproducibleRepoException e) {
+        env.getListener().handle(Event.error(e.getMessage()));
+        throw new RepositoryFunctionException(
+            new AlreadyReportedRepositoryAccessException(e), Transience.PERSISTENT);
+      }
+      return success;
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "error restoring files of repo %s lost by the remote cache: %s"
+                  .formatted(repositoryName, e.getMessage()),
+              e),
+          Transience.TRANSIENT);
+    } finally {
+      try {
+        stagingRoot.deleteTree();
+      } catch (IOException e) {
+        // The directory is not reused and thus doesn't affect later attempts.
+      }
+    }
+  }
+
+  /**
+   * Restores the lost files of the given repo from the given staged copy of its contents after
+   * validating that it has the same contents and recorded inputs as the repo.
+   *
+   * @throws NonReproducibleRepoException if the staged contents or their recorded inputs differ
+   *     from those of the repo
+   */
+  private void restoreFromStagedRepo(
+      Environment env,
+      RepositoryName repositoryName,
+      Path repoRoot,
+      Path stagingRepoRoot,
+      Path stagingMarkerPath,
+      DigestWriter digestWriter)
+      throws IOException, InterruptedException {
+    var replantSymlinksResult =
+        RepositoryUtils.replantSymlinks(
+            stagingRepoRoot,
+            directories.getWorkspace(),
+            RepositoryUtils.getExternalRepositoryDirectory(directories),
+            PathFragment.create("../..").getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION),
+            /* replantSymlinksIntoMainRepo= */ false);
+    if (!replantSymlinksResult.safeForRemoteCache()) {
+      // The cached contents only had symlinks that are safe to cache. Symlinks that aren't may
+      // also be represented as the files and directories they point to when the contents are
+      // compared, so they have to be rejected here.
+      throw new NonReproducibleRepoException(
+          repositoryName, "the fetched contents have symlinks that can't be cached");
+    }
+    remoteRepoContentsCache.restoreLostFiles(
+        repositoryName,
+        repoRoot,
+        stagingRepoRoot,
+        stagingMarkerPath,
+        digestWriter.predeclaredInputHash,
+        env.getListener());
   }
 
   @Nullable
@@ -552,18 +772,32 @@ public final class RepositoryFetchFunction implements SkyFunction {
     return repoDefinition.repoRule().local() || repoDefinition.repoRule().configure();
   }
 
+  /**
+   * @param failureIsMoot whether a failure of the fetch doesn't have to be reported since the fetch
+   *     is no longer needed. Must return the same value on every call so that all code handling the
+   *     failure agrees on it.
+   */
   @Nullable
   private FetchResult fetchAndHandleEvents(
-      RepoDefinition repoDefinition, Path repoRoot, Environment env, RepositoryName repoName)
+      RepoDefinition repoDefinition,
+      Path repoRoot,
+      Environment env,
+      RepositoryName repoName,
+      Supplier<Boolean> failureIsMoot)
       throws InterruptedException, RepositoryFunctionException {
     env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "starting"));
 
     FetchResult result;
     try {
-      result = fetch(repoDefinition, repoRoot, env, repoName);
+      result = fetch(repoDefinition, repoRoot, env, repoName, failureIsMoot);
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(RepositoryFetchProgress.finished(repoName));
+      if (RepoRewinding.isRecoverableLostRepoFile(e) || failureIsMoot.get()) {
+        // The repo rule read a file of another cached repo that the remote cache has lost. The
+        // build recovers by rewinding that repo's fetch, so this is not a failure to report.
+        throw e;
+      }
       env.getListener().post(new RepositoryFailedEvent(repoName, e.getMessage()));
 
       if (e.getCause() instanceof AlreadyReportedException) {
@@ -608,7 +842,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   @Nullable
   private FetchResult fetch(
-      RepoDefinition repoDefinition, Path outputDirectory, Environment env, RepositoryName repoName)
+      RepoDefinition repoDefinition,
+      Path outputDirectory,
+      Environment env,
+      RepositoryName repoName,
+      Supplier<Boolean> failureIsMoot)
       throws RepositoryFunctionException, InterruptedException {
     setupRepoRoot(outputDirectory);
 
@@ -732,16 +970,19 @@ public final class RepositoryFetchFunction implements SkyFunction {
     } catch (NeedsSkyframeRestartException e) {
       return null;
     } catch (EvalException e) {
-      env.getListener()
-          .handle(
-              Event.error(
-                  e.getInnermostLocation(),
-                  "An error occurred during the fetch of repository '"
-                      + repoDefinition.name()
-                      + "':\n   "
-                      + e.getMessageWithStack()));
-      env.getListener()
-          .handle(Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(repoDefinition)));
+      if (!failureIsMoot.get()) {
+        env.getListener()
+            .handle(
+                Event.error(
+                    e.getInnermostLocation(),
+                    "An error occurred during the fetch of repository '"
+                        + repoDefinition.name()
+                        + "':\n   "
+                        + e.getMessageWithStack()));
+        env.getListener()
+            .handle(
+                Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(repoDefinition)));
+      }
 
       throw new RepositoryFunctionException(
           new AlreadyReportedRepositoryAccessException(e), Transience.TRANSIENT);

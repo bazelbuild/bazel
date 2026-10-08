@@ -59,6 +59,8 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCach
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -1634,7 +1636,11 @@ Strip the given number of leading components from file paths on extraction. Only
       })
   public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath(path);
+    StarlarkPath p =
+        path instanceof Label label
+            // Only the file itself is read, which doesn't require the rest of its repo.
+            ? getPathFromLabel(label, /* materialize= */ false)
+            : getPath(path);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
             p.toString(), identifyingStringForLogging, thread.getCallerLocation());
@@ -1646,6 +1652,10 @@ Strip the given number of leading components from file paths on extraction. Only
     try {
       return FileSystemUtils.readContent(p.getPath(), ISO_8859_1);
     } catch (IOException e) {
+      if (path instanceof Label label
+          && RepoRewinding.findLostRepoFile(e) instanceof LostRemoteRepoFileException lostFile) {
+        e = lostFile.withLabel(label);
+      }
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
   }
@@ -2401,20 +2411,42 @@ func(
     return null;
   }
 
+  /**
+   * Records that the fetch referred to the given repo by Label, so that the repo is fetched before
+   * the recording one is considered up to date.
+   */
+  protected void recordRepoDependency(RepositoryName repo)
+      throws EvalException, InterruptedException {}
+
   // Resolve the label given by value into a file path.
   protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+    return getPathFromLabel(label, /* materialize= */ true);
+  }
+
+  /**
+   * @param materialize whether the repo containing the file has to be available on the native file
+   *     system, which is not required for Bazel to read the file itself
+   */
+  private StarlarkPath getPathFromLabel(Label label, boolean materialize)
+      throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
       throw new NeedsSkyframeRestartException();
     }
-    if (!label.getRepository().isMain()
+    recordRepoDependency(label.getRepository());
+    if (materialize
+        && !label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
             instanceof LazyMaterializer lazyMaterializer) {
       try {
         lazyMaterializer.ensureMaterialized(label.getRepository(), env.getListener());
       } catch (IOException e) {
-        throw Starlark.errorf(
-            "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
+        // Keep a lost repo file as the cause so that the failing node can recover it by rewinding.
+        LostRemoteRepoFileException lostFile = RepoRewinding.findLostRepoFile(e);
+        throw new EvalException(
+            "Failed to materialize remote repo %s: %s"
+                .formatted(label.getRepository(), e.getMessage()),
+            lostFile == null ? e : lostFile.withLabel(label));
       }
     }
     StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());

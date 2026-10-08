@@ -42,6 +42,10 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
@@ -49,11 +53,13 @@ import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
@@ -67,9 +73,13 @@ import com.google.devtools.build.lib.skyframe.proto.ActionRewind.LostInput;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException.FallbackToBuildRewindingException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException.GenericActionRewindException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -96,6 +106,9 @@ public final class ActionRewindStrategy {
 
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BugReporter bugReporter;
+  // The file system that serves repository contents, which is either in use for all files or not at
+  // all. Null if lost source files can't be recovered by rewinding repository fetches.
+  @Nullable private final RewindableRepoFileSystem repoFileSystem;
 
   private Map<SkyKey, Multiset<LostInputRecord>> currentBuildLostInputRecords =
       new ConcurrentHashMap<>();
@@ -113,10 +126,12 @@ public final class ActionRewindStrategy {
   public ActionRewindStrategy(
       SkyframeActionExecutor skyframeActionExecutor,
       BugReporter bugReporter,
-      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier) {
+      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier,
+      @Nullable RewindableRepoFileSystem repoFileSystem) {
     this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
     this.bugReporter = checkNotNull(bugReporter);
     this.cachingDependenciesSupplier = cachingDependenciesSupplier;
+    this.repoFileSystem = repoFileSystem;
   }
 
   /** The result of rewind planning. */
@@ -180,7 +195,13 @@ public final class ActionRewindStrategy {
             ProfilerTask.ACTION_REWINDING)) {
       rewindPlanResult =
           prepareRewindPlan(
-              failedKey, failedKeyDeps, lostOutputsByDigest, owners, env, depsToRewind);
+              failedKey,
+              failedKeyDeps,
+              lostOutputsByDigest,
+              owners,
+              metadataProvider,
+              env,
+              depsToRewind);
     }
     Reset reset = rewindPlanResult.reset;
     if (reset == null) {
@@ -245,7 +266,13 @@ public final class ActionRewindStrategy {
             ProfilerTask.ACTION_REWINDING)) {
       rewindPlanResult =
           prepareRewindPlan(
-              failedKey, failedActionDeps, lostInputsByDigest, owners, env, depsToRewind);
+              failedKey,
+              failedActionDeps,
+              lostInputsByDigest,
+              owners,
+              metadataProvider,
+              env,
+              depsToRewind);
     }
     Reset rewindPlan = rewindPlanResult.reset;
     if (rewindPlan == null) {
@@ -298,13 +325,32 @@ public final class ActionRewindStrategy {
       // can still trigger invocation retries in BlazeCommandDispatcher without passing here.
       return;
     }
+    throw failWithoutRewinding(
+        lostArtifacts,
+        lostType,
+        listener,
+        "Unexpected lost %s (pass --rewind_lost_inputs to enable recovery): %s"
+            .formatted(lostType.description, prettyPrint(lostArtifacts.values())),
+        lostType.codeWhenDisabled);
+  }
+
+  /**
+   * Returns the exception to fail the action with when the given lost artifacts can't be recovered
+   * by rewinding it: a fallback to retrying the build if invocation retries are enabled, otherwise
+   * a failure with the given message and code.
+   */
+  private ActionRewindException failWithoutRewinding(
+      ImmutableSetMultimap<String, ActionInput> lostArtifacts,
+      LostType lostType,
+      ExtendedEventHandler listener,
+      String message,
+      ActionRewinding.Code code) {
     if (skyframeActionExecutor.invocationRetriesEnabled()) {
       // Bazel's (but not Blaze's) remote implementation needs to learn about lost digests so that
       // the retried invocation doesn't accept the same stale action result.
       listener.post(new LostInputsEvent(lostArtifacts.keySet()));
-      // When action rewinding is disabled, recover by retrying the invocation in
-      // BlazeCommandDispatcher instead.
-      throw new FallbackToBuildRewindingException(
+      // Recover by retrying the invocation in BlazeCommandDispatcher instead.
+      return new FallbackToBuildRewindingException(
           lostArtifacts.entries().stream()
               .limit(MAX_LOST_INPUTS_RECORDED)
               .map(lost -> "%s (%s)".formatted(prettyPrint(lost.getValue()), lost.getKey()))
@@ -314,10 +360,7 @@ public final class ActionRewindStrategy {
                       "Lost %s no longer available remotely: ".formatted(lostType.description),
                       "")));
     }
-    throw new GenericActionRewindException(
-        "Unexpected lost %s (pass --rewind_lost_inputs to enable recovery): %s"
-            .formatted(lostType.description, prettyPrint(lostArtifacts.values())),
-        lostType.codeWhenDisabled);
+    return new GenericActionRewindException(message, code);
   }
 
   private RewindPlanResult prepareRewindPlan(
@@ -325,20 +368,24 @@ public final class ActionRewindStrategy {
       Set<SkyKey> failedKeyDeps,
       ImmutableSetMultimap<String, ActionInput> lostInputsByDigest,
       SetMultimap<ActionInput, Artifact> owners,
+      InputMetadataProvider metadataProvider,
       Environment env,
       ImmutableList.Builder<ActionAnalysisMetadata> depsToRewind)
-      throws InterruptedException {
+      throws ActionRewindException, InterruptedException {
     ImmutableList<ActionInput> lostInputs = lostInputsByDigest.values().asList();
 
     Set<ActionInput> lostInputsAndTransitiveOwners = new HashSet<>(lostInputs);
     lostInputsAndTransitiveOwners.addAll(owners.values());
 
+    ImmutableSet<PathFragment> lostRepoPaths = lostRepoPathsOf(lostInputs, metadataProvider);
+
     // This graph tracks which Skyframe nodes must be rewound and the dependency relationships
     // between them.
     MutableGraph<SkyKey> rewindGraph = Reset.newRewindGraphFor(failedKey);
 
-    Set<DerivedArtifact> lostArtifacts =
+    LostInputOwningDirectDeps lostInputOwningDirectDeps =
         getLostInputOwningDirectDeps(failedKey, failedKeyDeps, lostInputs, owners);
+    ImmutableSet<DerivedArtifact> lostArtifacts = lostInputOwningDirectDeps.derivedArtifacts();
 
     // Additional nested sets we may need to invalidate that are the dependencies of an
     // insensitively propagating action, associated with the key that depends on them.
@@ -374,12 +421,43 @@ public final class ActionRewindStrategy {
           rewindGraph,
           depsToRewind,
           nestedSetsForPropagatingActions,
-          lostInputsAndTransitiveOwners)) {
+          lostInputsAndTransitiveOwners,
+          lostRepoPaths)) {
         case SUCCESS:
           break;
         case MISSING_DEPENDENCIES:
           missingDependencies = true;
           break;
+      }
+    }
+
+    for (SourceArtifact lostSource : lostInputOwningDirectDeps.sourceArtifacts()) {
+      // Note that Artifact.key(lostSource) is lostSource itself. As for derived artifacts, it is
+      // possible that it is not actually a direct dep of the action if it is below an
+      // ArtifactNestedSetKey, but this edge is benign since it's always a transitive dep.
+      rewindGraph.putEdge(failedKey, lostSource);
+      FileValue file = fileValueOf(lostSource, env);
+      if (file == null) {
+        missingDependencies = true;
+      } else if (!rewindLostSourceFile(rewindGraph, lostSource, file)) {
+        // The lost file lies in a repository that the action has no Skyframe dependency on, so
+        // only a new command can fetch it again.
+        throw failWithoutRewinding(
+            lostInputsByDigest,
+            LostType.INPUT,
+            env.getListener(),
+            ("lost input %s is a directory in a repository that isn't served from the remote repo"
+                    + " contents cache, so its lost file can't be recovered by rewinding")
+                .formatted(lostSource.getExecPathString()),
+            ActionRewinding.Code.LOST_INPUT_UNRECOVERABLE_SOURCE);
+      }
+      // Aggregation artifacts (e.g. runfiles trees) containing the lost source artifact cache its
+      // metadata, so their rewound nodes must be re-evaluated after the source artifact.
+      for (Artifact owner : owners.get(lostSource)) {
+        SkyKey ownerKey = Artifact.key(owner);
+        if (rewindGraph.nodes().contains(ownerKey)) {
+          rewindGraph.putEdge(ownerKey, lostSource);
+        }
       }
     }
 
@@ -423,7 +501,13 @@ public final class ActionRewindStrategy {
     // This needs to be done after the loop above because addArtifactDepsAndGetNewlyVisitedActions
     // short-circuits when a node is already in the rewind graph.
     ArtifactNestedSetKey.addNestedSetPathsToRewindGraph(
-        rewindGraph, failedKey, failedKeyDeps, lostArtifacts);
+        rewindGraph,
+        failedKey,
+        failedKeyDeps,
+        ImmutableSet.<Artifact>builder()
+            .addAll(lostArtifacts)
+            .addAll(lostInputOwningDirectDeps.sourceArtifacts())
+            .build());
 
     return new RewindPlanResult(Reset.of(rewindGraph));
   }
@@ -664,11 +748,16 @@ public final class ActionRewindStrategy {
     return owners;
   }
 
-  private Set<DerivedArtifact> getLostInputOwningDirectDeps(
+  private record LostInputOwningDirectDeps(
+      ImmutableSet<DerivedArtifact> derivedArtifacts,
+      ImmutableSet<SourceArtifact> sourceArtifacts) {}
+
+  private LostInputOwningDirectDeps getLostInputOwningDirectDeps(
       SkyKey failedKey,
       Set<SkyKey> failedKeyDeps,
       ImmutableList<ActionInput> lostInputs,
-      SetMultimap<ActionInput, Artifact> owners) {
+      SetMultimap<ActionInput, Artifact> owners)
+      throws ActionRewindException {
     // Not all input artifacts' keys are direct deps - they may be below an ArtifactNestedSetKey.
     // Expand all ArtifactNestedSetKey deps to get a flat set with all input artifact keys.
     Set<SkyKey> expandedDeps = new HashSet<>();
@@ -681,6 +770,7 @@ public final class ActionRewindStrategy {
     }
 
     Set<DerivedArtifact> lostInputOwningDirectDeps = new HashSet<>();
+    Set<SourceArtifact> sourceArtifacts = new HashSet<>();
     for (ActionInput lostInput : lostInputs) {
       boolean foundLostInputDepOwner = false;
 
@@ -727,7 +817,27 @@ public final class ActionRewindStrategy {
         }
       }
 
-      if (lostInput instanceof Artifact artifact && expandedDeps.contains(Artifact.key(artifact))) {
+      if (lostInput instanceof SourceArtifact sourceArtifact) {
+        if (!sourceArtifact.getRoot().isExternal()) {
+          // Source files of the main repository are always available locally, unless they are
+          // symlinks into an external repo, which isn't supported.
+          throw new GenericActionRewindException(
+              String.format(
+                  "lost input %s is a source file of the main repository, which can't be"
+                      + " recovered: symlinks into external repositories are not supported",
+                  lostInput.getExecPathString()),
+              ActionRewinding.Code.LOST_INPUT_UNRECOVERABLE_SOURCE);
+        }
+        // Unlike a derived artifact, a lost source artifact is rewound even if an aggregation
+        // artifact owning it is a direct dep: rewinding that aggregation alone would recompute it
+        // from the very file that is gone.
+        if (repoFileSystem != null
+            && (foundLostInputDepOwner || expandedDeps.contains(Artifact.key(sourceArtifact)))) {
+          sourceArtifacts.add(sourceArtifact);
+          foundLostInputDepOwner = true;
+        }
+      } else if (lostInput instanceof Artifact artifact
+          && expandedDeps.contains(Artifact.key(artifact))) {
         checkDerived(artifact);
 
         lostInputOwningDirectDeps.add((DerivedArtifact) lostInput);
@@ -747,11 +857,91 @@ public final class ActionRewindStrategy {
                     lostInput, owners, failedKey)));
       }
     }
-    return lostInputOwningDirectDeps;
+    return new LostInputOwningDirectDeps(
+        ImmutableSet.copyOf(lostInputOwningDirectDeps), ImmutableSet.copyOf(sourceArtifacts));
   }
 
   private static void checkDerived(Artifact artifact) {
     checkState(!artifact.isSourceArtifact(), "Unexpected source artifact: %s", artifact);
+  }
+
+  /**
+   * Returns the file node of the given source artifact, which every action reading it depends on,
+   * or null if another rewind is already rebuilding it.
+   */
+  @Nullable
+  private static FileValue fileValueOf(SourceArtifact source, Environment env)
+      throws InterruptedException {
+    return (FileValue) env.getValue(FileValue.key(source.getRootedPath()));
+  }
+
+  /**
+   * Marks the file that the given lost source artifact resolves to as lost in the repository file
+   * system and adds the chain of Skyframe nodes that must be rewound to recover it. Returns whether
+   * the file can be recovered this way, which requires it to lie in a repository.
+   *
+   * <p>The file can lie in a different repository than the artifact, which may be a symlink into
+   * another repository whose contents are served from the remote repo contents cache. A lost file
+   * below a directory artifact can only be recovered if it lies in the directory's own repository.
+   */
+  private boolean rewindLostSourceFile(
+      MutableGraph<SkyKey> rewindGraph, SourceArtifact lostSource, FileValue file) {
+    RootedPath rootedPath = lostSource.getRootedPath();
+    // FileFunction stats the resolved path, which can also have a different root after following
+    // an ancestor symlink. Rewinding the lexical FileState would leave remote metadata cached.
+    RootedPath realRootedPath = file.realRootedPath(rootedPath);
+    PathFragment realPath = realRootedPath.asPath().asFragment();
+    if (!repoFileSystem.isRepoPath(realPath)) {
+      return false;
+    }
+    RepositoryName repo = repoFileSystem.repoContaining(realPath);
+    if (file.isDirectory() && !repoFileSystem.isServedFromCache(repo)) {
+      // The lost file lies below the directory in another repo, reached through a symlink in the
+      // directory. Rewinding the fetch of the directory's own repo wouldn't restore it.
+      return false;
+    }
+    repoFileSystem.markLostRepoFile(repo);
+    SkyKey fileKey = FileValue.key(rootedPath);
+    SkyKey fileStateKey = FileStateValue.key(realRootedPath);
+    rewindGraph.putEdge(lostSource, fileKey);
+    rewindGraph.putEdge(fileKey, fileStateKey);
+    rewindGraph.putEdge(fileStateKey, RepositoryDirectoryValue.key(repo));
+    return true;
+  }
+
+  /**
+   * Returns the paths inside repositories that the given lost inputs resolve to: a derived artifact
+   * may have been materialized as a symlink to a source file in a repository, e.g. by a symlink
+   * action (see {@link FileArtifactValue#getResolvedPath}), and is then reported lost because the
+   * contents of that file are gone. Empty if lost source files can't be recovered at all.
+   *
+   * <p>The metadata of an input that is first read during input discovery, e.g. a generated header
+   * found by include scanning, is not available here, so such an input is rewound without the
+   * source file it resolves to.
+   */
+  private ImmutableSet<PathFragment> lostRepoPathsOf(
+      ImmutableCollection<ActionInput> lostInputs, InputMetadataProvider metadataProvider) {
+    if (repoFileSystem == null) {
+      return ImmutableSet.of();
+    }
+    ImmutableSet.Builder<PathFragment> repoPaths = ImmutableSet.builder();
+    for (ActionInput lostInput : lostInputs) {
+      if (!(lostInput instanceof DerivedArtifact)) {
+        continue;
+      }
+      FileArtifactValue metadata;
+      try {
+        metadata = metadataProvider.getInputMetadata(lostInput);
+      } catch (IOException e) {
+        // The metadata of a lost input has just been read to report the loss.
+        throw new IllegalStateException(e);
+      }
+      PathFragment resolvedPath = metadata != null ? metadata.getResolvedPath() : null;
+      if (resolvedPath != null && repoFileSystem.isRepoPath(resolvedPath)) {
+        repoPaths.add(resolvedPath);
+      }
+    }
+    return repoPaths.build();
   }
 
   private enum CheckActionsStatus {
@@ -770,7 +960,8 @@ public final class ActionRewindStrategy {
       MutableGraph<SkyKey> rewindGraph,
       ImmutableList.Builder<ActionAnalysisMetadata> depsToRewind,
       SetMultimap<ActionAndLookupData, ArtifactNestedSetKey> nestedSetDeps,
-      Set<ActionInput> lostInputsAndTransitiveOwners)
+      Set<ActionInput> lostInputsAndTransitiveOwners,
+      ImmutableSet<PathFragment> lostRepoPaths)
       throws InterruptedException {
     boolean missingDependencies = false;
     var uncheckedActions = new ArrayDeque<ActionAndLookupData>(actionsToCheck.size());
@@ -780,17 +971,39 @@ public final class ActionRewindStrategy {
       Action action = actionAndLookupData.actionAnalysisMetadata();
       ArrayList<DerivedArtifact> artifactsToCheck = new ArrayList<>();
       ArrayList<ActionLookupData> newlyDiscoveredActions = new ArrayList<>();
+      ArrayList<SourceArtifact> sourceTargetsToCheck = new ArrayList<>();
 
       if (action.mayInsensitivelyPropagateInputs()) {
         // Rewinding this action won't recreate the missing input. We need to also rewind this
-        // action's non-source inputs and the actions which created those inputs.
+        // action's non-source inputs and the actions which created those inputs, as well as the
+        // source inputs that a lost output of this action resolves to.
         addPropagatingActionDepsAndGetNewlyVisitedArtifactsAndActions(
             rewindGraph,
             actionAndLookupData,
             artifactsToCheck,
             newlyDiscoveredActions,
+            sourceTargetsToCheck,
             nestedSetDeps,
-            lostInputsAndTransitiveOwners);
+            lostInputsAndTransitiveOwners,
+            lostRepoPaths);
+      }
+
+      for (SourceArtifact sourceTarget : sourceTargetsToCheck) {
+        FileValue file = fileValueOf(sourceTarget, env);
+        if (file == null) {
+          missingDependencies = true;
+          continue;
+        }
+        // A symlink action records the source's declared path in its output's metadata, while an
+        // action file system records the fully resolved one, which differs below a symlinked
+        // directory.
+        boolean lost =
+            lostRepoPaths.contains(sourceTarget.getPath().asFragment())
+                || lostRepoPaths.contains(
+                    file.realRootedPath(sourceTarget.getRootedPath()).asPath().asFragment());
+        if (lost && rewindLostSourceFile(rewindGraph, sourceTarget, file)) {
+          rewindGraph.putEdge(actionAndLookupData.lookupData(), sourceTarget);
+        }
       }
 
       for (ActionLookupData actionLookupData : newlyDiscoveredActions) {
@@ -843,20 +1056,30 @@ public final class ActionRewindStrategy {
    * For a propagating {@code action} with key {@code actionKey}, add its generated inputs' keys to
    * {@code rewindGraph}, add edges from {@code actionKey} to those keys, add any {@link Artifact}s
    * to {@code newlyVisitedArtifacts}, and add any {@link ActionLookupData}s to {@code
-   * newlyVisitedActions}.
+   * newlyVisitedActions}. External source inputs that a lost input might resolve to are added to
+   * {@code sourceTargetsToCheck} instead.
    */
   private void addPropagatingActionDepsAndGetNewlyVisitedArtifactsAndActions(
       MutableGraph<SkyKey> rewindGraph,
       ActionAndLookupData actionAndLookupData,
       ArrayList<DerivedArtifact> newlyVisitedArtifacts,
       ArrayList<ActionLookupData> newlyVisitedActions,
+      ArrayList<SourceArtifact> sourceTargetsToCheck,
       SetMultimap<ActionAndLookupData, ArtifactNestedSetKey> nestedSetDeps,
-      Set<ActionInput> lostInputsAndTransitiveOwners) {
+      Set<ActionInput> lostInputsAndTransitiveOwners,
+      ImmutableSet<PathFragment> lostRepoPaths) {
     Action action = actionAndLookupData.actionAnalysisMetadata();
     ActionLookupData actionKey = actionAndLookupData.lookupData();
 
     for (Artifact input : action.getInputs().toList()) {
-      if (input.isSourceArtifact()) {
+      if (input instanceof SourceArtifact sourceArtifact) {
+        // A source input can't be recreated, but if a lost input is a symlink to it, e.g. the
+        // output of a symlink action, it is the source file's contents that are gone. A source file
+        // served from the remote repo contents cache is recovered by rewinding the fetch of its
+        // repo, on which this action depends through the source artifact.
+        if (!lostRepoPaths.isEmpty() && sourceArtifact.getRoot().isExternal()) {
+          sourceTargetsToCheck.add(sourceArtifact);
+        }
         continue;
       }
 

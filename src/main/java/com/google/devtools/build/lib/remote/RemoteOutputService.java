@@ -19,17 +19,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -168,9 +172,24 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
-      throws IOException, InterruptedException {
+      throws IOException, LostInputsActionExecutionException, InterruptedException {
     if (actionInputFetcher != null) {
-      actionInputFetcher.finalizeAction(action, outputMetadataStore);
+      try {
+        actionInputFetcher.finalizeAction(action, outputMetadataStore);
+      } catch (BulkTransferException e) {
+        // A symlink action can finish without reading its input, so downloading its output here
+        // may be the first read of that input. The output has the contents of the input, so a lost
+        // blob is attributed to the input regardless of the path recorded on the failure.
+        if (action instanceof SymlinkAction && action.getPrimaryInput() != null) {
+          var lostInputs = e.getLostArtifacts(unusedPath -> action.getPrimaryInput());
+          if (!lostInputs.isEmpty()) {
+            throw (LostInputsActionExecutionException)
+                ActionExecutionException.fromExecException(
+                    new LostInputsExecException(lostInputs.byDigest(), e), action);
+          }
+        }
+        throw e;
+      }
     }
 
     if (leaseService != null) {

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -52,7 +51,11 @@ import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
@@ -61,12 +64,15 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -232,12 +238,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Symlink {
       checkNotNull(linkPath, "linkPath");
       checkNotNull(targetPath, "targetPath");
-      checkArgument(
-          !linkPath.asFragment().equals(targetPath), "linkPath and targetPath must differ");
     }
 
     Path resolveOne() throws IOException {
       return resolveOneSymlink(linkPath, targetPath);
+    }
+
+    /** Resolves the link in the given path, which has to be equal to or lie below the link. */
+    Path resolveOne(Path path) throws IOException {
+      return resolveOne().getRelative(path.relativeTo(linkPath));
     }
   }
 
@@ -478,7 +487,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         // contents may only be available in memory and must be materialized to the local file
         // system for local actions to access them.
         if (inputPath.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
-          lazyMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+          try {
+            lazyMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+          } catch (LostRemoteRepoFileException e) {
+            // The lost file lies below the source directory and thus isn't an input of the action
+            // itself. Report the source directory as lost instead so that rewinding recovers it by
+            // refetching the repo containing it, just like a lost regular file input.
+            throw new BulkTransferException(
+                new CacheNotFoundException(
+                    DigestUtil.fromString(e.getDigest()), input.getExecPath()));
+          }
         }
         return immediateVoidFuture();
       }
@@ -486,7 +504,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       var symlinks = getSymlinks(input, inputPath, metadata, metadataSupplier);
       // On Windows, the type of symlink depends on the target file and the target may have to
       // exist, so we plant symlinks in reverse order and only after any download has completed.
-      var plantSymlinks = concat(Lists.transform(symlinks.reverse(), this::plantSymlink));
+      // A symlink is found repeatedly if the path passes through it more than once. It is planted
+      // before every symlink that was found earlier, as their targets may pass through it.
+      var plantSymlinks =
+          concat(
+              Lists.transform(
+                  ImmutableSet.copyOf(symlinks.reverse()).asList(), this::plantSymlink));
 
       if (!canDownloadFile(inputPath, metadata)) {
         // If the artifact is a declared ("unresolved") symlink, it can't be "downloaded", but the
@@ -494,15 +517,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         return toListenableFuture(plantSymlinks);
       }
 
-      if (!symlinks.isEmpty()) {
-        // Symlink may track the parent of a TreeFileArtifact, so the parent relative path has to be
-        // translated relative to it.
-        var parentRelativePath = inputPath.relativeTo(symlinks.getFirst().linkPath());
-        inputPath =
-            inputPath
-                .getFileSystem()
-                .getPath(
-                    symlinks.getLast().resolveOne().asFragment().getRelative(parentRelativePath));
+      for (var symlink : symlinks) {
+        // A symlink may be located at an ancestor of the path, e.g. at the root of the tree
+        // artifact that a TreeFileArtifact belongs to or at a directory of an external repo, so the
+        // part of the path below it has to be translated relative to its target.
+        inputPath = symlink.resolveOne(inputPath);
       }
 
       @Nullable Path treeRootPath = maybeGetTreeRoot(input, metadataSupplier);
@@ -518,6 +537,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   metadata,
                   priority,
                   reason)
+              .onErrorResumeNext(e -> Completable.error(withInputOfCaller(e, input)))
               .andThen(plantSymlinks);
 
       return toListenableFuture(result);
@@ -595,19 +615,27 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         && !inputPath.startsWith(execRoot)) {
       // A path in an external repo, e.g. a source artifact consumed by an action or a file
       // prefetched during the materialization of an external repo. It may be (part of) a chain of
-      // symlinks created by the repo rule, which has to be reproduced verbatim on disk.
+      // symlinks created by the repo rule, which has to be reproduced verbatim on disk. This
+      // includes symlinks at the directories above it, as these would otherwise be created as
+      // regular directories and thus no longer match the contents of the repo.
       var symlinkChain = ImmutableList.<Symlink>builder();
-      FileStatus stat;
       Path currentPath = inputPath;
+      Path symlinkPath;
+      var seenPaths = new HashSet<Path>();
       var maxAttempt = 32;
-      while ((stat = currentPath.statIfFound(Symlinks.NOFOLLOW)) != null && stat.isSymbolicLink()) {
-        if (maxAttempt-- == 0) {
+      while ((symlinkPath = getFirstSymlinkOnPath(currentPath)) != null) {
+        if (!seenPaths.add(currentPath) || maxAttempt-- == 0) {
+          if (metadata.getType() == FileStateType.SYMLINK) {
+            // A symlink that leads into a symlink loop, which is reproduced verbatim just like a
+            // dangling symlink.
+            break;
+          }
           throw new FileSymlinkLoopException(
               inputPath.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
         }
-        var symlink = new Symlink(currentPath, currentPath.readSymbolicLink());
+        var symlink = new Symlink(symlinkPath, symlinkPath.readSymbolicLink());
         symlinkChain.add(symlink);
-        currentPath = symlink.resolveOne();
+        currentPath = symlink.resolveOne(currentPath);
       }
       return symlinkChain.build();
     }
@@ -616,6 +644,42 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return ImmutableList.of();
     }
     return ImmutableList.of(new Symlink(inputPath, resolvedPath));
+  }
+
+  /**
+   * Returns the topmost symlink among the given path and its ancestors, or null if none of them is
+   * a symlink.
+   */
+  @Nullable
+  private static Path getFirstSymlinkOnPath(Path path) throws IOException {
+    Path parent = checkNotNull(path.getParentDirectory());
+    Path resolvedParent;
+    try {
+      resolvedParent = parent.resolveSymbolicLinks();
+    } catch (IOException e) {
+      // The parent doesn't exist or is reached through a dangling symlink or a symlink loop, which
+      // are reproduced verbatim. Any of its ancestors can be a symlink then.
+      resolvedParent = null;
+    }
+    // Only the path itself and those of its ancestors that aren't also ancestors of the resolved
+    // parent can be symlinks.
+    var candidates = new ArrayDeque<Path>();
+    for (Path candidate = path;
+        candidate != null && (resolvedParent == null || !resolvedParent.startsWith(candidate));
+        candidate = candidate.getParentDirectory()) {
+      candidates.push(candidate);
+    }
+    for (Path candidate : candidates) {
+      // This can't run into a symlink loop itself as none of the ancestors above is a symlink.
+      FileStatus stat = candidate.statIfFound(Symlinks.NOFOLLOW);
+      if (stat == null) {
+        return null;
+      }
+      if (stat.isSymbolicLink()) {
+        return candidate;
+      }
+    }
+    return null;
   }
 
   private static Path resolveOneSymlink(Path path, @Nullable PathFragment targetPathFragment)
@@ -651,6 +715,35 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return path;
   }
 
+  /**
+   * Downloads are shared by all callers that request the same file, possibly through different
+   * inputs, and their failures name the input of the caller that started them. Returns a failure
+   * that names the given input of the current caller instead.
+   */
+  private static Throwable withInputOfCaller(Throwable failure, ActionInput input) {
+    if (failure instanceof CacheNotFoundException e
+        && !input.getExecPath().equals(e.getExecPath())) {
+      var ownFailure = new CacheNotFoundException(e.getMissingDigest(), input.getExecPath());
+      ownFailure.addSuppressed(e);
+      return ownFailure;
+    }
+    return failure;
+  }
+
+  /**
+   * Records the loss of a file in an external repo with the file system serving the repo.
+   *
+   * @param path the fully resolved path of the file on the file system serving the repo, which
+   *     identifies the repo to fetch again: an input can be a symlink to a file in another repo
+   */
+  private static void markLostRepoFile(Throwable failure, Path path) {
+    if (failure instanceof CacheNotFoundException
+        && path.getFileSystem() instanceof RewindableRepoFileSystem fs
+        && fs.isRepoPath(path.asFragment())) {
+      fs.markLostRepoFile(fs.repoContaining(path.asFragment()));
+    }
+  }
+
   private Completable downloadFileNoCheckRx(
       @Nullable ActionExecutionMetadata action,
       ActionInput input,
@@ -677,6 +770,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return Completable.error(e);
     }
 
+    Path resolvedPath = path;
     // Downloads are written to the actual host file system, not any overlays.
     Path finalPath = path.forHostFileSystem();
 
@@ -721,16 +815,18 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           alreadyDeleted.set(true);
                         }));
 
-    return downloadCache.execute(
-        finalPath,
-        Completable.defer(
-            () -> {
-              if (shouldDownloadFile(finalPath, metadata)) {
-                return download;
-              }
-              return Completable.complete();
-            }),
-        forceRefetch(finalPath));
+    return downloadCache
+        .execute(
+            finalPath,
+            Completable.defer(
+                () -> {
+                  if (shouldDownloadFile(finalPath, metadata)) {
+                    return download;
+                  }
+                  return Completable.complete();
+                }),
+            forceRefetch(finalPath))
+        .doOnError(e -> markLostRepoFile(e, resolvedPath));
   }
 
   private void finalizeDownload(
@@ -776,11 +872,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
           // between concurrent calls touching the same directory.
           directoryTracker.setPermanentlyWritable(parentDir);
         }
+        FileSystemUtils.moveFile(tmpPath, finalPath);
       } else {
+        // A file in an external repo, which other actions and Bazel itself may already be reading
+        // if it has been downloaded before. Replace it atomically so that they never observe it
+        // missing or with partial contents.
         parentDir.createDirectoryAndParents();
+        moveIntoRepo(tmpPath, finalPath, metadata);
       }
-
-      FileSystemUtils.moveFile(tmpPath, finalPath);
     } finally {
       if (treeArtifactLock != null) {
         treeArtifactLock.unlock();
@@ -789,6 +888,25 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     // Set the contents proxy when supported, to make future modification checks cheaper.
     metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
+  }
+
+  /**
+   * Moves a file with the given metadata to the given path in an external repo, which replaces an
+   * existing file atomically or not at all.
+   */
+  private static void moveIntoRepo(Path source, Path finalPath, FileArtifactValue metadata)
+      throws IOException {
+    try {
+      source.renameTo(finalPath);
+    } catch (IOException e) {
+      // The file may have been made available at the path in the meantime, e.g. by a concurrent
+      // materialization of the repo. Some platforms can't replace a file while it is in use, which
+      // doesn't matter if it already has the expected contents.
+      if (shouldDownloadFile(finalPath, metadata)) {
+        throw e;
+      }
+      var unused = source.delete();
+    }
   }
 
   private interface TaskWithTempPath {
@@ -835,13 +953,97 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 // exist yet.
                 checkNotNull(linkPath.getParentDirectory()).createDirectoryAndParents();
               }
-              // Delete the link path if it already exists. This is the case for tree artifacts,
-              // whose root directory is created before the action runs.
-              linkPath.delete();
-              linkPath.createSymbolicLink(symlink.targetPath());
+              try {
+                linkPath.createSymbolicLink(symlink.targetPath());
+              } catch (IOException e) {
+                if (isSymlinkTo(linkPath, symlink.targetPath())) {
+                  // The symlink is already in place and may be read concurrently, e.g. by an action
+                  // that shares this input, so it must not be replaced.
+                  return Completable.complete();
+                }
+                if (!symlink.linkPath().asFragment().startsWith(execRoot.asFragment())) {
+                  // Whatever is in place in an external repo may be in use and is never replaced.
+                  throw e;
+                }
+                // Delete the link path if it already exists. This is the case for tree artifacts,
+                // whose root directory is created before the action runs.
+                if (!linkPath.delete()) {
+                  throw e;
+                }
+                linkPath.createSymbolicLink(symlink.targetPath());
+              }
               return Completable.complete();
             }),
         forceRefetch(linkPath));
+  }
+
+  /**
+   * Returns whether the file with the given metadata is available at the given path, e.g. because
+   * it has been downloaded before.
+   */
+  public boolean isAvailable(Path path, FileArtifactValue metadata) throws IOException {
+    return !shouldDownloadFile(path.forHostFileSystem(), metadata);
+  }
+
+  /**
+   * Moves a local file with the given metadata to the given path in an external repo unless the
+   * path already holds that file, e.g. because it has been downloaded before.
+   *
+   * <p>The file keeps its permissions: it may be a hard link to a file outside the repo, which a
+   * repo rule can create, and its permissions are then also those of that file.
+   */
+  public void installFile(Path source, Path path, FileArtifactValue metadata) throws IOException {
+    Path finalPath = path.forHostFileSystem();
+    // A file can have been downloaded as a symlink to a local copy of the remote cache, which can
+    // lose the file just like the cache. Such a symlink can't provide the file and is replaced.
+    boolean isSymlink = finalPath.isSymbolicLink();
+    if (isSymlink || finalPath.exists(Symlinks.NOFOLLOW)) {
+      if (!shouldDownloadFile(finalPath, metadata)) {
+        // The file may be in use and thus has to be left alone.
+        return;
+      }
+      if (!isSymlink) {
+        throw new IOException(
+            "%s exists, but doesn't have the expected contents".formatted(finalPath));
+      }
+    }
+    checkNotNull(finalPath.getParentDirectory()).createDirectoryAndParents();
+    moveIntoRepo(source, finalPath, metadata);
+    metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
+  }
+
+  /**
+   * Returns whether the given path is a symlink to the given target that doesn't have to be
+   * replaced for the target to be reachable through it.
+   */
+  private boolean isSymlinkTo(Path linkPath, PathFragment targetPath) throws IOException {
+    if (!linkPath.isSymbolicLink()) {
+      return false;
+    }
+    if (!linkPath.getFileSystem().supportsSymbolicLinksNatively(linkPath.asFragment())) {
+      // Without native support for symlinks, as on Windows by default, a symlink to a file is a
+      // copy of it. A symlink created while its target didn't exist yet, e.g. by an action whose
+      // input hadn't been downloaded, is a junction instead, which only resolves to a directory.
+      var targetStat =
+          checkNotNull(linkPath.getParentDirectory()).getRelative(targetPath).statIfFound();
+      if (targetStat != null && !targetStat.isDirectory()) {
+        return false;
+      }
+    }
+    PathFragment actualTargetPath = linkPath.readSymbolicLink();
+    if (actualTargetPath.equals(targetPath)) {
+      return true;
+    }
+    if (linkPath.asFragment().startsWith(execRoot.asFragment())) {
+      // A symlink in the output tree is always planted with the given target, even if an action
+      // has created it with a different target that resolves to the same path.
+      return false;
+    }
+    // A symlink in an external repo is reproduced verbatim, but some file systems only support
+    // absolute symlink targets and thus don't preserve a relative one. Compare the paths the
+    // targets resolve to instead.
+    PathFragment parent = checkNotNull(linkPath.getParentDirectory()).asFragment();
+    return parent.getRelative(actualTargetPath).equals(parent.getRelative(targetPath));
   }
 
   /**

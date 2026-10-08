@@ -28,6 +28,8 @@ import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.InconsistencyStats;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.InconsistencyStats.InconsistencyStat;
 import java.util.Collection;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -51,6 +53,12 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
 
   private final Multiset<Inconsistency> selfCounts = ConcurrentHashMultiset.create();
   private final Multiset<Inconsistency> childCounts = ConcurrentHashMultiset.create();
+  // Parents of any type that found a child rewound to recover a lost source file undone. The
+  // evaluator resets such a parent if it had requested the child before, so a reset of it is
+  // accepted once. A parent that found the child undone on its first request is not reset, and
+  // its entry merely lingers until the next command, which weakens this guard for it but doesn't
+  // affect evaluation.
+  private final Set<SkyKey> parentsOfUndoneLostSourceChildren = ConcurrentHashMap.newKeySet();
   private boolean rewindingInitiated = false;
   private final boolean heuristicallyDropNodes;
   private final boolean skymeldInconsistenciesExpected;
@@ -80,7 +88,8 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
     switch (inconsistency) {
       case RESET_REQUESTED:
         checkState(
-            RewindingInconsistencyUtils.isTypeThatDependsOnRewindableNodes(key),
+            RewindingInconsistencyUtils.isTypeThatDependsOnRewindableNodes(key)
+                || parentsOfUndoneLostSourceChildren.remove(key),
             "Unexpected reset requested for: %s",
             key);
         boolean isFirst = noteSelfInconsistency(inconsistency);
@@ -113,8 +122,17 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
         return;
 
       case BUILDING_PARENT_FOUND_UNDONE_CHILD:
+        // Nodes of almost any type may read files and thus depend on the file-related nodes
+        // rewound to recover a lost source file, so the parent type is not constrained if all
+        // undone children are of those types.
         boolean parentDependsOnRewindableNodes =
             RewindingInconsistencyUtils.isTypeThatDependsOnRewindableNodes(key);
+        if (!parentDependsOnRewindableNodes
+            && otherKeys.stream()
+                .allMatch(RewindingInconsistencyUtils::isRewindableForLostSourceFile)) {
+          parentsOfUndoneLostSourceChildren.add(key);
+          parentDependsOnRewindableNodes = true;
+        }
         ImmutableList<SkyKey> unrewindableUndoneChildren =
             otherKeys.stream()
                 .filter(Predicate.not(RewindingInconsistencyUtils::isRewindable))
@@ -216,6 +234,7 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
   public void reset() {
     selfCounts.clear();
     childCounts.clear();
+    parentsOfUndoneLostSourceChildren.clear();
     rewindingInitiated = false;
   }
 }

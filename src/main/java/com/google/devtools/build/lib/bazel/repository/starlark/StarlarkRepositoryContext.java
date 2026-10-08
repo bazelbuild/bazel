@@ -119,6 +119,19 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   @Override
+  protected void recordRepoDependency(RepositoryName repo)
+      throws EvalException, InterruptedException {
+    if (repo.isMain() || repo.getName().equals(repoDefinition.name())) {
+      return;
+    }
+    try {
+      var unused = getValueAndRecordInput(new RepoRecordedInput.Repository(repo));
+    } catch (IOException e) {
+      throw Starlark.errorf("%s", e.getMessage());
+    }
+  }
+
+  @Override
   protected boolean shouldDeleteWorkingDirectoryOnClose(boolean successful) {
     return !successful;
   }

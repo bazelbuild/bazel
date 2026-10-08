@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -27,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /**
  * Exception which represents a collection of IOExceptions for the purpose of distinguishing remote
@@ -105,6 +107,11 @@ public class BulkTransferException extends IOException {
       }
       var actionInput = actionInputResolver.apply(execPath);
       if (actionInput == null) {
+        // A file below a source directory is not an input itself, e.g. when the contents of the
+        // directory are uploaded for remote execution. The directory is the input that is lost.
+        actionInput = getSourceDirectoryContaining(execPath, actionInputResolver);
+      }
+      if (actionInput == null) {
         // This can happen if the lost artifact is not an input of the action, but an output that
         // e.g. failed to be retrieved from the remote cache after a cache hit. This also can't be
         // solved by the rewinding that LostArtifacts would trigger.
@@ -114,6 +121,22 @@ public class BulkTransferException extends IOException {
     }
     var byDigest = byDigestBuilder.build();
     return new LostArtifacts(byDigest);
+  }
+
+  @Nullable
+  private static ActionInput getSourceDirectoryContaining(
+      PathFragment execPath, Function<PathFragment, ActionInput> actionInputResolver) {
+    for (PathFragment dir = execPath.getParentDirectory();
+        dir != null && !dir.isEmpty();
+        dir = dir.getParentDirectory()) {
+      // A source directory in the main repo is available locally and thus never lost itself.
+      if (actionInputResolver.apply(dir) instanceof Artifact artifact
+          && artifact.isSourceArtifact()
+          && artifact.getRoot().isExternal()) {
+        return artifact;
+      }
+    }
+    return null;
   }
 
   @Override

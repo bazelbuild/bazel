@@ -165,9 +165,17 @@ public interface OutputService {
   void finalizeBuild(boolean buildSuccessful)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
-  /** Notify the output service of a completed action. */
+  /**
+   * Notify the output service of a completed action.
+   *
+   * @throws LostInputsActionExecutionException if materializing an output, such as a symlink,
+   *     discovers that an input was lost
+   */
   void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
-      throws IOException, EnvironmentalExecException, InterruptedException;
+      throws IOException,
+          EnvironmentalExecException,
+          LostInputsActionExecutionException,
+          InterruptedException;
 
   @Nullable
   BatchStat getBatchStatter();
