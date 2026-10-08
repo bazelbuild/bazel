@@ -103,12 +103,14 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
       return false;
     }
 
-    return Objects.equals(label, otherConstraint.label);
+    return Objects.equals(label, otherConstraint.label)
+        && Objects.equals(defaultConstraintValueLabel, otherConstraint.defaultConstraintValueLabel)
+        && Objects.equals(refinedConstraintValue, otherConstraint.refinedConstraintValue);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(label);
+    return Objects.hash(label, defaultConstraintValueLabel, refinedConstraintValue);
   }
 
   @Override
