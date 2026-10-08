@@ -625,7 +625,8 @@ class BazelStartupOptionsAotCacheTest : public BazelStartupOptionsTest {
 
     startup_options_->install_base = install_base_;
     startup_options_->output_base = test_tmpdir.GetRelative("output_base");
-    ASSERT_TRUE(blaze_util::MakeDirectories(startup_options_->output_base, 0755));
+    ASSERT_TRUE(
+        blaze_util::MakeDirectories(startup_options_->output_base, 0755));
     // Avoid the embedded JDK detection that the default value triggers.
     startup_options_->use_compact_object_headers_ = false;
     startup_options_
@@ -667,7 +668,6 @@ class BazelStartupOptionsAotCacheTest : public BazelStartupOptionsTest {
   }
 
   void ExpectRecording(const std::vector<std::string> &args) {
-    EXPECT_TRUE(Contains(args, "-XX:-AOTClassLinking"));
     EXPECT_TRUE(
         Contains(args, "-XX:AOTCacheOutput=" + aot_cache_.AsJvmArgument()));
     EXPECT_TRUE(Contains(args, "-XX:AOTConfiguration=" +
@@ -676,7 +676,6 @@ class BazelStartupOptionsAotCacheTest : public BazelStartupOptionsTest {
   }
 
   void ExpectUsingCache(const std::vector<std::string> &args) {
-    EXPECT_TRUE(Contains(args, "-XX:-AOTClassLinking"));
     EXPECT_TRUE(Contains(args, "-XX:AOTCache=" + aot_cache_.AsJvmArgument()));
     for (const std::string &arg : args) {
       EXPECT_EQ(arg.find("-XX:AOTCacheOutput"), std::string::npos) << arg;

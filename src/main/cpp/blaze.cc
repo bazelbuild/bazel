@@ -1056,8 +1056,7 @@ static bool IsVolatileArg(const string &arg) {
       // training run consists of all commands run until the server is shut
       // down. An invocation with the option always restarts the server
       // instead, see KillRunningServerIfDifferentStartupOptions().
-      "-XX:AOTCache=", "-XX:AOTCacheOutput=", "-XX:AOTConfiguration=",
-      "-XX:-AOTClassLinking"};
+      "-XX:AOTCache=", "-XX:AOTCacheOutput=", "-XX:AOTConfiguration="};
 
   // Split arg based on the first "=" if one exists in arg.
   const string::size_type eq_pos = arg.find_first_of('=');

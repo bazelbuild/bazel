@@ -678,17 +678,6 @@ static bool IsCompleteAotCache(const blaze_util::Path& path) {
   return false;
 }
 
-// JDK 26 fails to start when loading a cache with AOT-linked classes if the
-// JDK is a jlinked image with certain sets of modules, which includes the
-// embedded JDK (JDK-8381222, closed as "Won't Fix" for JDK 26 and not present
-// in JDK 25 or 27): jdk.internal.loader.ClassLoaders$AppClassLoader isn't
-// AOT-initialized in this case and its static initializer then throws an
-// InternalError during VM initialization. The cache still contains the parsed
-// and verified classes as well as method profiles, which provides most of the
-// benefit.
-// TODO: Remove this once the embedded JDK is updated to JDK 27.
-static const char kDisableAotClassLinking[] = "-XX:-AOTClassLinking";
-
 blaze_util::Path StartupOptions::GetAotCachePath() const {
   // The cache is a sibling of the install base directory, just like its lock
   // file: it is specific to the exact server jar and JDK in the install base,
@@ -699,20 +688,22 @@ blaze_util::Path StartupOptions::GetAotCachePath() const {
 
 blaze_util::Path StartupOptions::GetAotCacheDisabledMarkerPath() const {
   const blaze_util::Path aot_cache = GetAotCachePath();
-  return aot_cache.GetParent().GetRelative(aot_cache.GetBaseName() + ".disabled");
+  return aot_cache.GetParent().GetRelative(aot_cache.GetBaseName() +
+                                           ".disabled");
 }
 
 bool StartupOptions::IsRecordingAotCache() const {
   // A debugging session isn't a representative training run and the JVM
-  // refuses to load an AOT cache with a JDWP agent attached anyway.
+  // refuses to load an AOT cache with AOT-linked classes with a JDWP agent
+  // attached anyway.
   // Batch mode execs the JVM directly, so its AOT diagnostics would pollute
   // command output and the client couldn't recover from cache loading errors.
   return aot_cache_training_run && !host_jvm_debug && !batch;
 }
 
 bool StartupOptions::IsUsingAotCache() const {
-  // The JVM refuses to load an AOT cache with a JDWP agent attached
-  // (JDK-8349122).
+  // The JVM refuses to load an AOT cache with AOT-linked classes with a JDWP
+  // agent attached (JDK-8349122).
   return !batch && !host_jvm_debug && !aot_cache_training_run &&
          !blaze_util::PathExists(GetAotCacheDisabledMarkerPath()) &&
          IsCompleteAotCache(GetAotCachePath());
@@ -735,7 +726,6 @@ void StartupOptions::AddAotCacheArguments(std::vector<string>* result) const {
     // A new cache is about to be recorded, so an existing one no longer needs
     // to be ignored.
     blaze_util::UnlinkPath(GetAotCacheDisabledMarkerPath());
-    result->push_back(kDisableAotClassLinking);
     // The JVM records the classes it loads and links as well as method
     // profiles and assembles the cache in a child process when the server
     // exits (JEP 514), replacing an existing cache. This delays the exit of
@@ -765,7 +755,6 @@ void StartupOptions::AddAotCacheArguments(std::vector<string>* result) const {
     }
     return;
   }
-  result->push_back(kDisableAotClassLinking);
   // -XX:AOTMode defaults to "auto": if the cache turns out to be unusable
   // (e.g. because --host_jvm_args changed the module graph since it was
   // recorded), the JVM usually logs a warning to jvm.out and starts without
