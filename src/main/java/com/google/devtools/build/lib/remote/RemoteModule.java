@@ -1199,9 +1199,9 @@ public final class RemoteModule extends BlazeModule {
     // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
     // is the last chance to download the missing toplevel outputs in this case before sending out
     // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
-    if (env.withMergedAnalysisAndExecutionSourceOfTruth()
-        && actionInputFetcher != null
-        && remoteOutputChecker != null) {
+    // Source files of repos served from the remote repo contents cache have no generating action
+    // that could download them when it is finalized, so this is the only chance for them.
+    if (actionInputFetcher != null && remoteOutputChecker != null) {
       registryBuilder.register(
           ImportantOutputHandler.class,
           new RemoteImportantOutputHandler(
