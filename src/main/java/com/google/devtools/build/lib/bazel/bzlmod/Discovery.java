@@ -72,7 +72,40 @@ final class Discovery {
           result.depGraph().values().stream().map(InterimModule::getName).collect(toImmutableSet());
       if (discoveryRound.unfulfilledNodepEdgeModuleNames.stream()
           .noneMatch(prevRoundModuleNames::contains)) {
+        checkInjectedModules(result.depGraph(), ModuleFileFunction.INJECTED_MODULES.get(env));
         return result;
+      }
+    }
+  }
+
+  /**
+   * Fails if a module injected via --inject_module is a dependency of any module other than the
+   * root module or another injected module. The injection would otherwise silently override that
+   * dependency, which is what --override_module is for.
+   *
+   * <p>Deps of the root module are already checked by {@link ModuleFileFunction}.
+   */
+  private static void checkInjectedModules(
+      ImmutableMap<ModuleKey, InterimModule> depGraph, Map<String, ?> injectedModules)
+      throws ExternalDepsException {
+    if (injectedModules.isEmpty()) {
+      return;
+    }
+    for (InterimModule module : depGraph.values()) {
+      if (module.getKey().equals(ModuleKey.ROOT)
+          || injectedModules.containsKey(module.getName())) {
+        continue;
+      }
+      for (ModuleKey depKey : module.getOriginalDeps().values()) {
+        if (injectedModules.containsKey(depKey.name())) {
+          throw ExternalDepsException.withMessage(
+              FailureDetails.ExternalDeps.Code.BAD_MODULE,
+              "--inject_module cannot inject '%s' as it is already in the dependency graph: '%s'"
+                  + " depends on '%s'; use --override_module to override it instead",
+              depKey.name(),
+              module.getKey(),
+              depKey);
+        }
       }
     }
   }

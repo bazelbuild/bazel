@@ -282,7 +282,7 @@ public abstract class RepositoryOptions extends OptionsBase {
           relative to the current working directory. If the given path starts with `%workspace%`, it
           is relative to the workspace root, which is the output of `bazel info workspace`. If the
           given path is empty, then remove any previous injections. Use `--override_module` instead
-          to override a module that the root module already depends on.
+          to override a module that is already in the dependency graph.
           """)
   public abstract List<ModuleNameAndPath> getModuleInjections();
 

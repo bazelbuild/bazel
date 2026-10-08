@@ -936,6 +936,31 @@ class BazelOverridesTest(test_base.TestBase):
         '\n'.join(stderr),
     )
 
+  def testInjectModuleOnTransitiveDep(self):
+    # bbb@1.0 depends on aaa@1.0, so aaa is in the dependency graph even though
+    # the root module doesn't depend on it directly.
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "bbb", version = "1.0")']
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile('other_aaa/MODULE.bazel', ['module(name = "aaa")'])
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--inject_module=aaa=%workspace%/other_aaa',
+            '//:all',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "--inject_module cannot inject 'aaa' as it is already in the dependency"
+        " graph: 'bbb@1.0' depends on 'aaa@1.0'; use --override_module to"
+        ' override it instead',
+        '\n'.join(stderr),
+    )
+
   def testInjectModuleOnExistingDep(self):
     self.ScratchFile(
         'MODULE.bazel', ['bazel_dep(name = "aaa", version = "1.0")']
@@ -953,8 +978,9 @@ class BazelOverridesTest(test_base.TestBase):
     )
     self.AssertNotExitCode(exit_code, 0, stderr)
     self.assertIn(
-        "--inject_module cannot inject 'aaa' as the root module already"
-        ' depends on it; use --override_module to override it instead',
+        "--inject_module cannot inject 'aaa' as it is already in the dependency"
+        ' graph: the root module depends on it; use --override_module to'
+        ' override it instead',
         '\n'.join(stderr),
     )
 

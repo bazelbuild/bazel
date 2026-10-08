@@ -914,7 +914,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   @Test
   public void testInjectedModule_bad_existingDep() throws Exception {
     assertInjectedModuleError(
-        "--inject_module cannot inject 'bbb' as the root module already depends on it",
+        "--inject_module cannot inject 'bbb' as it is already in the dependency graph: the root"
+            + " module depends on it",
         "module(name='aaa')",
         "bazel_dep(name='bbb',version='1.0',repo_name='other_b')");
   }
@@ -922,7 +923,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   @Test
   public void testInjectedModule_bad_existingNodepDep() throws Exception {
     assertInjectedModuleError(
-        "--inject_module cannot inject 'bbb' as the root module already depends on it",
+        "--inject_module cannot inject 'bbb' as it is already in the dependency graph: the root"
+            + " module depends on it",
         "module(name='aaa')",
         "bazel_dep(name='bbb',version='1.0',repo_name=None)");
   }
