@@ -236,6 +236,49 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
+  public void subdirectoryPathAffectsDigest() {
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    SpecialArtifact subdirectoryA = createSubdirectory(parent, "a");
+    SpecialArtifact subdirectoryB = createSubdirectory(parent, "b");
+    FileArtifactValue metadata = metadataWithId(1);
+
+    TreeArtifactValue treeA =
+        TreeArtifactValue.newBuilder(parent)
+            .putChild(TreeFileArtifact.createTreeOutput(subdirectoryA, "file"), metadata)
+            .build();
+    TreeArtifactValue treeB =
+        TreeArtifactValue.newBuilder(parent)
+            .putChild(TreeFileArtifact.createTreeOutput(subdirectoryB, "file"), metadata)
+            .build();
+
+    assertThat(treeA.getDigest()).isNotEqualTo(treeB.getDigest());
+  }
+
+  @Test
+  public void subdirectoryDigestMatchesEquivalentFileLayout() {
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    SpecialArtifact subdirectory = createSubdirectory(parent, "sub/dir");
+    FileArtifactValue metadata = metadataWithId(1);
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(subdirectory, "nested/file");
+
+    TreeArtifactValue treeWithSubdirectory =
+        TreeArtifactValue.newBuilder(parent).putChild(child, metadata).build();
+    TreeArtifactValue treeWithDeclaredFile =
+        TreeArtifactValue.newBuilder(parent)
+            .putChild(TreeFileArtifact.createTreeOutput(parent, "sub/dir/nested/file"), metadata)
+            .build();
+    TreeArtifactValue subdirectoryTree =
+        TreeArtifactValue.newBuilder(subdirectory).putChild(child, metadata).build();
+    TreeArtifactValue treeWithRelativeFile =
+        TreeArtifactValue.newBuilder(parent)
+            .putChild(TreeFileArtifact.createTreeOutput(parent, "nested/file"), metadata)
+            .build();
+
+    assertThat(treeWithSubdirectory.getDigest()).isEqualTo(treeWithDeclaredFile.getDigest());
+    assertThat(subdirectoryTree.getDigest()).isEqualTo(treeWithRelativeFile.getDigest());
+  }
+
+  @Test
   public void nullDigests_equal() {
     SpecialArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, "child");
@@ -766,6 +809,14 @@ public final class TreeArtifactValueTest {
   private static SpecialArtifact createTreeArtifact(String execPath, ArtifactRoot root) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         root, PathFragment.create(execPath));
+  }
+
+  private static SpecialArtifact createSubdirectory(SpecialArtifact parent, String path) {
+    SpecialArtifact subdirectory =
+        SpecialArtifact.createSubTreeArtifact(
+            parent, PathFragment.create(path), parent.getArtifactOwner());
+    subdirectory.setGeneratingActionKey(parent.getGeneratingActionKey());
+    return subdirectory;
   }
 
   private static FileArtifactValue metadataWithId(int id) {
