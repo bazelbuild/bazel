@@ -114,3 +114,6 @@ common:ci-windows --test_env=JAVA_HOME
 common:ci-windows --test_env=TEST_INSTALL_BASE=C:/b/bazeltest_install_base
 common:ci-windows --test_env=REPOSITORY_CACHE=C:/b/bazeltest_repo_cache
 common:ci-windows --test_tag_filters=-no_windows,-slow
+# Hide warnings and output of successful actions from external repositories
+# (e.g. MSVC warnings from grpc, protobuf and abseil). Errors still show.
+common:ci-windows --output_filter=^//
