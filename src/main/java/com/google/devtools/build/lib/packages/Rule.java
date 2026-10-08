@@ -171,13 +171,16 @@ public class Rule extends RuleOrMacroInstance implements Target {
 
   /**
    * Returns true iff the outputs of this rule should be created beneath the bin directory, false if
-   * beneath genfiles. For most rule classes, this is constant, but for genrule, it is a property of
-   * the individual target, derived from the 'output_to_bindir' attribute.
+   * beneath genfiles. For most rule classes, this is constant, but for the native genrule, it is a
+   * property of the individual target, derived from the 'output_to_bindir' attribute.
    */
   public boolean outputsToBindir() {
-    return ruleClass.getName().equals("genrule") // this is unfortunate...
-        ? NonconfigurableAttributeMapper.of(this).get("output_to_bindir", Type.BOOLEAN)
-        : ruleClass.outputsToBindir();
+    // A Starlark rule may also be named "genrule", but isn't subject to this special case.
+    if (ruleClass.isStarlark() || !ruleClass.getName().equals("genrule")) {
+      return ruleClass.outputsToBindir();
+    }
+    // This is unfortunate...
+    return NonconfigurableAttributeMapper.of(this).get("output_to_bindir", Type.BOOLEAN);
   }
 
   /** Returns true if this rule is an analysis test (set by analysis_test = true). */
