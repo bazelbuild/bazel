@@ -129,7 +129,12 @@ def get_categorized_relnotes(filtered_notes):
   """Sort release notes by category."""
   categorized_relnotes = {}
   for relnote in filtered_notes:
-    issue_id = re.search(r"\(\#[0-9]+\)$", relnote.strip().split()[-1])
+    parts = relnote.strip().split()
+    if not parts:
+      continue
+    # Safely access the last element now that we know 'parts' is not empty
+    issue_id = re.search(r"\(\#[0-9]+\)$", parts[-1])
+
     category = None
     if issue_id:
       category = get_label(re.sub(r"\(|\#|\)", "", issue_id.group(0).strip()))
