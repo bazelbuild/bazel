@@ -94,5 +94,4 @@ public class RepositoryOptionsTest {
     converter.convert("foo/bar=/baz");
   }
 
-
 }
