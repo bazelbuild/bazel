@@ -156,9 +156,10 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
                   && (getMode() == DynamicMode.REMOTE || options.getCancelRemoteBranchOnLocalWin()))
               || (state == Future.State.FAILED
                   && !(future.exceptionNow() instanceof InterruptedException)
-                  // An input lost while setting up this branch may not be needed by the other one
-                  // at all, e.g. for a remote cache hit, so that one is left to finish.
-                  && !(future.exceptionNow() instanceof LostInputsExecException))) {
+                  // An input lost while setting up the local branch may not be needed by the remote
+                  // one at all, e.g. for a remote cache hit, so that one is left to finish.
+                  && !(getMode() == DynamicMode.LOCAL
+                      && future.exceptionNow() instanceof LostInputsExecException))) {
             otherBranch.cancel();
           }
           if (options.getDebugSpawnScheduler()) {

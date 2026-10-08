@@ -746,6 +746,36 @@ public class DynamicSpawnStrategyUnitTest {
         () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
   }
 
+  @Test
+  public void exec_runAnywhereSpawn_remoteLosesInput_cancelsLocal() throws Exception {
+    Spawn spawn = new SpawnBuilder().withOwnerPrimaryOutput(output1).build();
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, mockGetPostProcessingSpawn);
+    when(mockGetPostProcessingSpawn.apply(any())).thenReturn(Optional.empty());
+    SandboxedSpawnStrategy local = createMockSpawnStrategy("local");
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy("remote");
+    Semaphore localStarted = new Semaphore(0);
+    when(local.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              localStarted.release();
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+              throw new AssertionError("Timed out waiting for interruption");
+            });
+    when(remote.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              localStarted.acquire();
+              throw lostInput();
+            });
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+    when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
+
+    assertThrows(
+        LostInputsExecException.class,
+        () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
+  }
+
   private static LostInputsExecException lostInput() {
     return new LostInputsExecException(
         ImmutableSetMultimap.of("digest", ActionInputHelper.fromPath("lost")));
