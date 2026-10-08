@@ -89,6 +89,60 @@ public final class PatchUtilTest {
   }
 
   @Test
+  public void testAddTwoFilesWithoutSeparator() throws IOException, PatchFailedException {
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/newfile\t1969-12-31 16:00:00.000000000 -0800",
+            "+++ b/newfile\t2019-11-18 09:41:29.206408378 -0800",
+            "@@ -0,0 +1,2 @@",
+            "+I'm a new file",
+            "+hello, world",
+            "--- a/newfile2\t1969-12-31 16:00:00.000000000 -0800",
+            "+++ b/newfile2\t2019-11-18 09:46:48.146505886 -0800",
+            "@@ -0,0 +1,2 @@",
+            "+foo",
+            "+bar");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readLines(root.getRelative("newfile"), UTF_8))
+        .containsExactly("I'm a new file", "hello, world")
+        .inOrder();
+    assertThat(FileSystemUtils.readLines(root.getRelative("newfile2"), UTF_8))
+        .containsExactly("foo", "bar")
+        .inOrder();
+  }
+
+  @Test
+  public void testPatchTwoFilesWithoutSeparator() throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo.cc", "#include <stdio.h>", "", "void main(){", "}");
+    Path bar = scratch.file("/root/bar.cc", "void lib(){", "}");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/foo.cc",
+            "+++ b/foo.cc",
+            "@@ -1,4 +1,5 @@",
+            " #include <stdio.h>",
+            " ",
+            " void main(){",
+            "+  printf(\"Hello foo\");",
+            " }",
+            "--- a/bar.cc",
+            "+++ b/bar.cc",
+            "@@ -1,2 +1,3 @@",
+            " void lib(){",
+            "+  printf(\"Hello bar\");",
+            " }");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readLines(foo, UTF_8))
+        .containsExactly("#include <stdio.h>", "", "void main(){", "  printf(\"Hello foo\");", "}")
+        .inOrder();
+    assertThat(FileSystemUtils.readLines(bar, UTF_8))
+        .containsExactly("void lib(){", "  printf(\"Hello bar\");", "}")
+        .inOrder();
+  }
+
+  @Test
   public void testDeleteFile() throws IOException, PatchFailedException {
     Path oldFile = scratch.file("/root/oldfile", "I'm an old file", "bye, world");
     Path patchFile =
