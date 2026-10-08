@@ -265,6 +265,21 @@ public abstract class BuildRequestOptions extends OptionsBase {
   public abstract List<String> getHideAspectResults();
 
   @Option(
+      name = "hide_output_group_results",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          """
+          Comma-separated list of output group names whose artifacts are not displayed in
+          results (see `--show_result`). The output groups are still built and treated as
+          important outputs; only console output is affected. An artifact that also belongs to
+          a requested output group not in this list is still displayed.
+          """)
+  public abstract List<String> getHideOutputGroupResults();
+
+  @Option(
       name = "symlink_prefix",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,

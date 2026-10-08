@@ -162,6 +162,8 @@ class BuildResultPrinter {
 
     Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
     TopLevelArtifactContext context = request.getTopLevelArtifactContext();
+    ImmutableSet<String> outputGroupsToHide =
+        ImmutableSet.copyOf(request.getBuildOptions().getHideOutputGroupResults());
 
     // `essentialBudget` tracks the number of non-empty successful/skipped results that can be
     // printed under --show_result.
@@ -178,6 +180,7 @@ class BuildResultPrinter {
             targetsToPrint,
             result,
             context,
+            outputGroupsToHide,
             configuredTargetsToSkip,
             partitionedAspectKeys.validationAspects,
             targetRootCauses,
@@ -197,6 +200,7 @@ class BuildResultPrinter {
             partitionedAspectKeys.aspectsToPrint,
             aspects,
             context,
+            outputGroupsToHide,
             result,
             aspectRootCauses,
             successfulAspects,
@@ -266,6 +270,7 @@ class BuildResultPrinter {
       Collection<ConfiguredTarget> configuredTargets,
       BuildResult result,
       TopLevelArtifactContext context,
+      ImmutableSet<String> outputGroupsToHide,
       Collection<ConfiguredTarget> configuredTargetsToSkip,
       ImmutableList<AspectKey> validationAspects,
       ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses,
@@ -296,7 +301,8 @@ class BuildResultPrinter {
       } else if (successfulTargets.contains(target)
           && !unsuccessfulValidationTargets.contains(targetKey)) {
         succeeded.add(target);
-        ArrayList<Artifact> artifactsToPrint = getArtifactsToPrint(target, context);
+        ArrayList<Artifact> artifactsToPrint =
+            getArtifactsToPrint(target, context, outputGroupsToHide);
         artifactsToPrintPerTarget.add(artifactsToPrint);
         if (!artifactsToPrint.isEmpty()) {
           essentialBudget--;
@@ -315,13 +321,15 @@ class BuildResultPrinter {
   }
 
   private static ArrayList<Artifact> getArtifactsToPrint(
-      ProviderCollection target, TopLevelArtifactContext context) {
+      ProviderCollection target,
+      TopLevelArtifactContext context,
+      ImmutableSet<String> outputGroupsToHide) {
     var artifacts = new ArrayList<Artifact>();
     // For up-to-date targets report generated artifacts, but only if they have associated action
     // and not runfiles trees.
     for (Artifact artifact :
         TopLevelArtifactHelper.getAllArtifactsToBuild(target, context)
-            .getImportantArtifacts()
+            .getImportantArtifactsExcluding(outputGroupsToHide)
             .toList()) {
       if (TopLevelArtifactHelper.shouldDisplay(artifact)) {
         artifacts.add(artifact);
@@ -373,6 +381,7 @@ class BuildResultPrinter {
       Collection<AspectKey> aspectsToPrint,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       TopLevelArtifactContext context,
+      ImmutableSet<String> outputGroupsToHide,
       BuildResult result,
       ImmutableMap<AspectKey, NestedSet<Cause>> aspectRootCauses,
       ArrayList<AspectKey> succeeded,
@@ -383,7 +392,8 @@ class BuildResultPrinter {
     for (AspectKey aspect : aspectsToPrint) {
       if (successfulAspects.contains(aspect)) {
         succeeded.add(aspect);
-        ArrayList<Artifact> artifactsToPrint = getArtifactsToPrint(aspects.get(aspect), context);
+        ArrayList<Artifact> artifactsToPrint =
+            getArtifactsToPrint(aspects.get(aspect), context, outputGroupsToHide);
         artifactsToPrintPerAspect.add(artifactsToPrint);
         if (!artifactsToPrint.isEmpty()) {
           essentialBudget--;

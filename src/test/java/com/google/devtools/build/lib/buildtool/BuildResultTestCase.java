@@ -114,6 +114,80 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
         .contains("Target //foo:foo up-to-date (nothing to build except internal output groups)\n");
   }
 
+  /**
+   * Writes {@code //groups:t}, whose default output is {@code t_default.txt} and whose {@code
+   * custom} output group contains {@code t_custom.txt} and {@code t_shared.txt}. {@code
+   * t_shared.txt} is also in the {@code shared} output group.
+   */
+  private void writeOutputGroupsTarget() throws Exception {
+    write(
+        "groups/defs.bzl",
+        """
+        def _impl(ctx):
+            default = ctx.actions.declare_file(ctx.label.name + "_default.txt")
+            custom = ctx.actions.declare_file(ctx.label.name + "_custom.txt")
+            shared = ctx.actions.declare_file(ctx.label.name + "_shared.txt")
+            for f in [default, custom, shared]:
+                ctx.actions.write(f, f.basename)
+            return [
+                DefaultInfo(files = depset([default])),
+                OutputGroupInfo(
+                    custom = depset([custom, shared]),
+                    shared = depset([shared]),
+                ),
+            ]
+
+        groups_rule = rule(implementation = _impl)
+        """);
+    write(
+        "groups/BUILD",
+        """
+        load(":defs.bzl", "groups_rule")
+
+        groups_rule(name = "t")
+        """);
+  }
+
+  @Test
+  public void testHideOutputGroupResults() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=+custom", "--hide_output_group_results=custom");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr)
+        .containsMatch("Target //groups:t up-to-date:\n  .*/groups/t_default\\.txt\n");
+    assertThat(stderr).doesNotContain("t_custom.txt");
+    assertThat(stderr).doesNotContain("t_shared.txt");
+  }
+
+  @Test
+  public void testHideOutputGroupResults_defaultOutputGroup() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=+custom", "--hide_output_group_results=default");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).doesNotContain("t_default.txt");
+    assertThat(stderr).contains("/groups/t_custom.txt\n");
+    assertThat(stderr).contains("/groups/t_shared.txt\n");
+  }
+
+  @Test
+  public void testHideOutputGroupResults_artifactInVisibleGroupStillShown() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=+custom,+shared", "--hide_output_group_results=custom");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("/groups/t_default.txt\n");
+    assertThat(stderr).contains("/groups/t_shared.txt\n");
+    assertThat(stderr).doesNotContain("t_custom.txt");
+  }
+
   @Test
   public void testNoKeepGoingResult() throws Exception {
     write("test/BUILD",
