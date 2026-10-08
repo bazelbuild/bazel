@@ -98,7 +98,8 @@ public final class SandboxModule extends BlazeModule {
    * Therefore, there is no need for their deletion (which can be very expensive) to happen in the
    * critical path -- so if the user so wishes, we process those deletions asynchronously.
    */
-  @Nullable private TreeDeleter treeDeleter;
+  // Package-private for testing
+  @Nullable TreeDeleter treeDeleter;
 
   /**
    * Whether to remove the sandbox worker directories after a build or not. Useful for debugging to
@@ -236,67 +237,7 @@ public final class SandboxModule extends BlazeModule {
     // previous builds. However, on the very first build of an instance of the server, we must
     // wipe old contents to avoid reusing stale directories.
     if (firstBuild && sandboxBase.exists()) {
-      int idleThreads = options.getAsyncTreeDeleteIdleThreads();
-      AsynchronousTreeDeleter asyncDeleter =
-          treeDeleter instanceof AsynchronousTreeDeleter atd ? atd : null;
-      if (idleThreads > 0 && asyncDeleter != null) {
-        asyncDeleter.setThreads(idleThreads);
-      }
-      try (SilentCloseable c = Profiler.instance().profile("clean sandbox on first build")) {
-        if (trashBase.exists()) {
-          // Delete stale trash from a previous server instance.
-          Path staleTrash = getStaleTrashDir(trashBase);
-          trashBase.renameTo(staleTrash);
-          trashBase.createDirectory();
-          for (Dirent dirent : staleTrash.readdir(Symlinks.NOFOLLOW)) {
-            Path childPath = staleTrash.getChild(dirent.getName());
-            if (dirent.getType() == Dirent.Type.DIRECTORY) {
-              treeDeleter.deleteTree(childPath);
-            } else {
-              childPath.delete();
-            }
-          }
-          staleTrash.delete();
-        } else {
-          trashBase.createDirectory();
-        }
-        // We can delete other dirs asynchronously (if the flag is on).
-        for (Dirent dirent : sandboxBase.readdir(Symlinks.NOFOLLOW)) {
-          Path childPath = sandboxBase.getChild(dirent.getName());
-          if (childPath.getBaseName().equals(AsynchronousTreeDeleter.MOVED_TRASH_DIR)) {
-            continue;
-          }
-          if (childPath.getBaseName().equals(SandboxHelpers.INACCESSIBLE_HELPER_DIR)) {
-            childPath.deleteTree();
-          } else if (dirent.getType() == Dirent.Type.DIRECTORY) {
-            treeDeleter.deleteTree(childPath);
-          } else {
-            childPath.delete();
-          }
-        }
-      } catch (IOException e) {
-        // We have observed asynchronous deletion failing when running Bazel under Docker, see
-        // #21719. Different RUN commands with `bazel build` will write to different layers in the
-        // docker image. The overlay filesystem is different and the renaming of the directories
-        // that we need to do for asynchronous deletion will fail. When that happens we fall back to
-        // synchronous deletion here.
-        logger.atWarning().withCause(e).log(
-            "Asynchronous sandbox deletion failed (likely due to overlayfs/container filesystem"
-                + " layers, see https://github.com/bazelbuild/bazel/issues/21719); falling back to"
-                + " synchronous deletion of %s",
-            sandboxBase);
-        if (treeDeleter != null) {
-          treeDeleter.shutdown();
-          if (options.getAsyncTreeDeleteIdleThreads() > 0) {
-            treeDeleter = new AsynchronousTreeDeleter(trashBase);
-          }
-        }
-        sandboxBase.deleteTree();
-      } finally {
-        if (idleThreads > 0 && asyncDeleter != null) {
-          asyncDeleter.setThreads(1);
-        }
-      }
+      cleanSandboxBaseOnFirstBuild(sandboxBase, trashBase, options.getAsyncTreeDeleteIdleThreads());
     }
     firstBuild = false;
     sandboxBase.createDirectoryAndParents();
@@ -432,6 +373,71 @@ public final class SandboxModule extends BlazeModule {
   public void cleanStarting(@SuppressWarnings("unused") CleanStartingEvent event) {
     if (sandboxBase != null) {
       SandboxStash.clean(treeDeleter, sandboxBase);
+    }
+  }
+
+  // Package-private for testing
+  void cleanSandboxBaseOnFirstBuild(Path sandboxBase, Path trashBase, int idleThreads)
+      throws IOException {
+    AsynchronousTreeDeleter asyncDeleter =
+        treeDeleter instanceof AsynchronousTreeDeleter atd ? atd : null;
+    if (idleThreads > 0 && asyncDeleter != null) {
+      asyncDeleter.setThreads(idleThreads);
+    }
+    try (SilentCloseable c = Profiler.instance().profile("clean sandbox on first build")) {
+      if (trashBase.exists()) {
+        // Delete stale trash from a previous server instance.
+        Path staleTrash = getStaleTrashDir(trashBase);
+        trashBase.renameTo(staleTrash);
+        trashBase.createDirectory();
+        for (Dirent dirent : staleTrash.readdir(Symlinks.NOFOLLOW)) {
+          Path childPath = staleTrash.getChild(dirent.getName());
+          if (dirent.getType() == Dirent.Type.DIRECTORY) {
+            treeDeleter.deleteTree(childPath);
+          } else {
+            childPath.delete();
+          }
+        }
+        staleTrash.delete();
+      } else {
+        trashBase.createDirectory();
+      }
+      // We can delete other dirs asynchronously (if the flag is on).
+      for (Dirent dirent : sandboxBase.readdir(Symlinks.NOFOLLOW)) {
+        Path childPath = sandboxBase.getChild(dirent.getName());
+        if (childPath.getBaseName().equals(AsynchronousTreeDeleter.MOVED_TRASH_DIR)) {
+          continue;
+        }
+        if (childPath.getBaseName().equals(SandboxHelpers.INACCESSIBLE_HELPER_DIR)) {
+          childPath.deleteTree();
+        } else if (dirent.getType() == Dirent.Type.DIRECTORY) {
+          treeDeleter.deleteTree(childPath);
+        } else {
+          childPath.delete();
+        }
+      }
+    } catch (IOException e) {
+      // We have observed asynchronous deletion failing when running Bazel under Docker, see
+      // #21719. Different RUN commands with `bazel build` will write to different layers in the
+      // docker image. The overlay filesystem is different and the renaming of the directories
+      // that we need to do for asynchronous deletion will fail. When that happens we fall back to
+      // synchronous deletion here.
+      logger.atWarning().withCause(e).log(
+          "Asynchronous sandbox deletion failed (likely due to overlayfs/container filesystem"
+              + " layers, see https://github.com/bazelbuild/bazel/issues/21719); falling back to"
+              + " synchronous deletion of %s",
+          sandboxBase);
+      if (treeDeleter != null) {
+        treeDeleter.shutdown();
+        if (idleThreads > 0) {
+          treeDeleter = new AsynchronousTreeDeleter(trashBase);
+        }
+      }
+      sandboxBase.deleteTree();
+    } finally {
+      if (idleThreads > 0 && asyncDeleter != null) {
+        asyncDeleter.setThreads(1);
+      }
     }
   }
 
