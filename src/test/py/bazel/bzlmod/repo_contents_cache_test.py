@@ -101,6 +101,20 @@ class RepoContentsCacheTest(test_base.TestBase):
     except OSError:
       pass  # Not a symlink means not cached, which is expected
 
+  def testOutputBaseInsideRepoContentsCache_rejected(self):
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    output_base = stdout[0].strip()
+
+    # The command fails with an error rather than a crash, and the server stays
+    # usable.
+    exit_code, _, stderr = self.RunBazel(
+        ['info', '--repo_contents_cache=' + output_base], allow_failure=True
+    )
+    self.assertNotEqual(exit_code, 0)
+    self.assertNotEqual(exit_code, 37)
+    self.assertIn('is inside the repo contents cache', '\n'.join(stderr))
+    self.RunBazel(['info'])
+
   def testCachedAfterCleanExpunge(self):
     self.ScratchFile(
         'MODULE.bazel',
