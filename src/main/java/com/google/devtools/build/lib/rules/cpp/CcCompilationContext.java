@@ -303,24 +303,18 @@ public final class CcCompilationContext {
     HeaderInfo headerInfo = getHeaderInfo();
     Collection<HeaderInfo> transitiveHeaderInfos = headerInfo.getTransitiveCollection();
     ArrayList<Artifact> treeArtifacts = new ArrayList<>();
-    int expectedHeaderCount = 0;
-    int expectedModularHeaderCount = 0;
-    for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
-      int modularCount =
-          transitiveHeaderInfo.modularPublicHeaders.size()
-              + transitiveHeaderInfo.modularPrivateHeaders.size()
-              + transitiveHeaderInfo.separateModuleHeaders.size();
-      expectedHeaderCount += modularCount + transitiveHeaderInfo.textualHeaders.size();
-      if (createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null) {
-        expectedModularHeaderCount += modularCount;
-      }
-    }
+    // Summing transitive header lists over-allocates due to duplicate exported deps, and large
+    // maps prematurely promote to Old Gen (b/569269228). Estimate capacity from the deduplicated
+    // library count and cap it.
+    int transitiveInfoCount = transitiveHeaderInfos.size();
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
     Map<PathFragment, Artifact> pathToLegalArtifact =
-        CompactHashMap.createWithExpectedSize(expectedHeaderCount);
+        CompactHashMap.createWithExpectedSize(Math.min(transitiveInfoCount * 3, 4096));
     Set<Artifact> modularHeaders =
-        CompactHashSet.createWithExpectedSize(expectedModularHeaderCount);
+        createModularHeaders
+            ? CompactHashSet.createWithExpectedSize(Math.min(transitiveInfoCount * 2, 2048))
+            : CompactHashSet.create();
     // Not using range-based for loops here and below as the additional overhead of the
     // ImmutableList iterators has shown up in profiles.
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
