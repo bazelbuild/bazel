@@ -53,7 +53,8 @@ public interface BlazeCommand {
    * MODULE.bazel} and parses Starlark options.
    *
    * <p>This is required to create a configuration that matches the one used by a build with the
-   * same options.
+   * same options. Commands that do not interpret label-valued flags and don't need a configuration
+   * can return false to avoid the overhead.
    *
    * @param options the options parsed without the main repository mapping
    */
