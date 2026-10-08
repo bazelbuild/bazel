@@ -172,6 +172,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:build_view",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",

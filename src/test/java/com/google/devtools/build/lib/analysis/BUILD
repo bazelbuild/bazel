@@ -358,6 +358,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_result",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_view",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
@@ -718,7 +719,7 @@ java_test(
     name = "OutputFileConfiguredTargetTest",
     srcs = ["OutputFileConfiguredTargetTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party/java/junit",
         "//third_party/java/truth",

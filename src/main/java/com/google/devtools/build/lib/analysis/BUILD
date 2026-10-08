@@ -50,10 +50,7 @@ java_library(
         "SourceManifestAction.java",
         "Util.java",
         "configuredtargets/AbstractConfiguredTarget.java",
-        "configuredtargets/FileConfiguredTarget.java",
-        "configuredtargets/InputFileConfiguredTarget.java",
         "configuredtargets/MergedConfiguredTarget.java",
-        "configuredtargets/OutputFileConfiguredTarget.java",
         "configuredtargets/PackageGroupConfiguredTarget.java",
         "configuredtargets/RuleConfiguredTarget.java",
         "extra/ExtraActionMapProvider.java",
@@ -2196,6 +2193,7 @@ java_library(
         ":analysis_core",
         ":analysis_result",
         ":configured_target",
+        ":configuredtargets/file_configured_target",
         ":file_provider",
         ":provider_collection",
         ":top_level_artifact_context",
@@ -2402,6 +2400,37 @@ java_library(
 )
 
 java_library(
+    name = "configuredtargets/file_configured_target",
+    srcs = [
+        "configuredtargets/FileConfiguredTarget.java",
+        "configuredtargets/InputFileConfiguredTarget.java",
+        "configuredtargets/OutputFileConfiguredTarget.java",
+    ],
+    deps = [
+        ":analysis_core",
+        ":file_provider",
+        ":required_config_fragments_provider",
+        ":test/instrumented_files_info",
+        ":transitive_info_provider",
+        ":visibility_provider",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "configured_target_factory",
     srcs = ["ConfiguredTargetFactory.java"],
     deps = [
@@ -2409,6 +2438,7 @@ java_library(
         ":configured_aspect_factory",
         ":configured_target",
         ":configuredtargets/environment_group_configured_target",
+        ":configuredtargets/file_configured_target",
         ":dependency_kind",
         ":exec_group_collection",
         ":required_config_fragments_provider",
