@@ -1986,6 +1986,7 @@ public class CppCompileAction extends AbstractAction
               includeScanningHeaderData
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+                  .setIsValidUndeclaredHeader(getValidUndeclaredHeaderPredicate())
                   // Register generated prunable/toolchain headers as declared so the include
                   // scanner can resolve them; it never stats output-directory paths. Keep in sync
                   // with the matching call in discoverInputs above. See
