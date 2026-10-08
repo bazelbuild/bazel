@@ -221,6 +221,12 @@ public class ResourceManager implements ResourceEstimator {
   // LocalHostCapacity.getLocalHostCapacity() as an argument.
   @VisibleForTesting public ResourceSet availableResources = null;
 
+  /** Returns the resource capacity most recently configured for the local host. */
+  @Nullable
+  public synchronized ResourceSet getAvailableResources() {
+    return availableResources;
+  }
+
   // Used amount of resources. Corresponds to the resource
   // definition in the ResourceSet class.
   private Map<String, Double> usedResources = new HashMap<>();
