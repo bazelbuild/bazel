@@ -329,8 +329,10 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
           documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
           effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
           help =
-              "If true calls System.gc() after a build to try and get a post-gc peak heap"
-                  + " measurement.")
+              """
+              If true calls `System.gc()` after a build to try and get a post-gc peak heap
+              measurement.
+              """)
       public abstract boolean getExperimentalForceGcAfterBuild();
     }
 
