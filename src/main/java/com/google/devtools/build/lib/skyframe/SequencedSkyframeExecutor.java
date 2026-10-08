@@ -104,12 +104,15 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
+import com.google.devtools.build.skyframe.proto.GraphInconsistency.InconsistencyStats;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -276,7 +279,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       String commandName,
       boolean commandExecutes)
       throws InterruptedException, AbruptExitException {
-    inconsistencyReceiver.setDelegate(getGraphInconsistencyReceiverForCommand(options));
+    inconsistencyReceiver.setDelegate(
+        toleratingRepositoryResets(getGraphInconsistencyReceiverForCommand(options)));
 
     if (diffAwarenessManager != null) {
       for (Root pkgRoot : packageLocator.getPathEntries()) {
@@ -371,6 +375,36 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
           heuristicallyDropNodes, skymeldInconsistenciesExpected);
     }
     return GraphInconsistencyReceiver.THROWING;
+  }
+
+  /**
+   * Returns a receiver that tolerates the reset of a {@code RepositoryDirectoryValue} node, which a
+   * repository fetch requests to drop its dependencies on inputs that it doesn't need, and
+   * delegates all other inconsistencies.
+   */
+  private static GraphInconsistencyReceiver toleratingRepositoryResets(
+      GraphInconsistencyReceiver delegate) {
+    return new GraphInconsistencyReceiver() {
+      @Override
+      public void noteInconsistencyAndMaybeThrow(
+          SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
+        if (inconsistency == Inconsistency.RESET_REQUESTED
+            && key.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY)) {
+          return;
+        }
+        delegate.noteInconsistencyAndMaybeThrow(key, otherKeys, inconsistency);
+      }
+
+      @Override
+      public InconsistencyStats getInconsistencyStats() {
+        return delegate.getInconsistencyStats();
+      }
+
+      @Override
+      public void reset() {
+        delegate.reset();
+      }
+    };
   }
 
   private static boolean rewindingEnabled(OptionsProvider options) {

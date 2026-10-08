@@ -26,6 +26,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -189,6 +190,35 @@ public abstract sealed class RepoRecordedInput {
    * Requests the information from Skyframe that is required by future calls to {@link
    * #isAnyValueOutdated} for the given set of inputs.
    */
+  /**
+   * Requests the Skyframe values of the given recorded inputs like {@link #prefetch}, except that
+   * inputs which may make the requesting node depend on another repo are requested speculatively,
+   * so that a cycle through one of them is broken by cutting that dependency.
+   *
+   * @return the inputs whose dependencies have been cut, whose values can't be requested
+   */
+  public static ImmutableSet<RepoRecordedInput> prefetchSpeculatively(
+      Environment env, BlazeDirectories directories, Collection<RepoRecordedInput> recordedInputs)
+      throws InterruptedException {
+    ImmutableSet<SkyKey> cutKeys = env.getCutSpeculativeDeps();
+    var cut = ImmutableSet.<RepoRecordedInput>builder();
+    var unconditionalKeys = ImmutableSet.<SkyKey>builder();
+    var speculativeKeys = ImmutableSet.<SkyKey>builder();
+    for (RepoRecordedInput input : recordedInputs) {
+      SkyKey key = input.getSkyKey(directories);
+      if (cutKeys.contains(key)) {
+        cut.add(input);
+      } else if (input.canBeRequestedUnconditionally()) {
+        unconditionalKeys.add(key);
+      } else {
+        speculativeKeys.add(key);
+      }
+    }
+    env.getValuesAndExceptions(unconditionalKeys.build());
+    env.getValuesAndExceptionsSpeculatively(speculativeKeys.build());
+    return cut.build();
+  }
+
   public static void prefetch(
       Environment env, BlazeDirectories directories, Collection<RepoRecordedInput> recordedInputs)
       throws InterruptedException {

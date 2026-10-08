@@ -274,6 +274,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+    repositoryFetchFunction.clearPendingResets();
     DownloadManager downloadManager =
         new DownloadManager(
             repositoryCache.getDownloadCache(),

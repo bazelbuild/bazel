@@ -1427,6 +1427,41 @@ public abstract class MemoizingEvaluatorTest {
     }
   }
 
+  @Test
+  public void speculativeDependencyInCycle_isCut() throws Exception {
+    SkyKey aKey = skyKey("a");
+    SkyKey bKey = skyKey("b");
+    tester
+        .getOrCreate(aKey)
+        .setBuilder(
+            (key, env) -> {
+              if (env.getCutSpeculativeDeps().contains(bKey)) {
+                return new StringValue("a without b");
+              }
+              SkyValue b = env.getValuesAndExceptionsSpeculatively(ImmutableList.of(bKey)).get(bKey);
+              if (env.valuesMissing()) {
+                return null;
+              }
+              return new StringValue("a with " + ((StringValue) b).getValue());
+            });
+    tester
+        .getOrCreate(bKey)
+        .setBuilder(
+            (key, env) -> {
+              SkyValue a = env.getValue(aKey);
+              if (env.valuesMissing()) {
+                return null;
+              }
+              return new StringValue("b after " + ((StringValue) a).getValue());
+            });
+
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ false, aKey, bKey);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(aKey).getValue()).isEqualTo("a without b");
+    assertThat(result.get(bKey).getValue()).isEqualTo("b after a without b");
+  }
+
   /** Regression test: "crash in cycle checker with dirty values". */
   @Test
   public void cycleWithDirtyValue() throws Exception {

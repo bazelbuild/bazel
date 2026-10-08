@@ -726,6 +726,127 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
 
+  def testObsoleteAlternatives_notDependedOn(self):
+    # A lookup also requests inputs of alternatives it doesn't end up using,
+    # which must not remain Skyframe dependencies of the repo.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  switch = rctx.getenv("SWITCH")',
+            '  value = rctx.getenv("A") if switch == "a" else rctx.getenv("B")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", value)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible = True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    env = ['--repo_env=A=a', '--repo_env=B=b']
+    target = '@my_repo//:data.txt'
+
+    # Two fetches record the alternatives [SWITCH, A] and [SWITCH, B].
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=a', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=b', target] + env)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # A lookup with SWITCH=b probes A as well, but only depends on SWITCH and B.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--repo_env=SWITCH=b', target] + env)
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    _, stdout, _ = self.RunBazel(
+        ['dump', '--skyframe=deps', '--skykey_filter=REPOSITORY_DIRECTORY:.*my_repo.*']
+    )
+    self.assertTrue(any(line.endswith(':SWITCH') for line in stdout), stdout)
+    self.assertTrue(any(line.endswith(':B') for line in stdout), stdout)
+    self.assertFalse(any(line.endswith(':A') for line in stdout), stdout)
+
+  def testObsoleteAlternativeInCycle_speculativeInputCut(self):
+    # The lookup of a repo probes the alternatives recorded by earlier fetches,
+    # newest first. If an obsolete alternative read a file of another repo that
+    # has since come to depend on this repo, probing it forms a cycle. The
+    # input in the other repo is cut so that the lookup still finds the
+    # current alternative, which becomes the only one the repo depends on.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo_a = use_repo_rule("//:repos.bzl", "repo_a")',
+            'repo_b = use_repo_rule("//:repos.bzl", "repo_b")',
+            'repo_a(name = "a")',
+            'repo_b(name = "b")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel', ['exports_files(["M"])'])
+    self.ScratchFile('M', ['m'])
+    self.ScratchFile(
+        'repos.bzl',
+        [
+            'def _repo_a_impl(rctx):',
+            '  if rctx.os.environ.get("SELECT") == "b":',
+            '    value = rctx.read(Label("@b//:data"))',
+            '  else:',
+            '    value = rctx.read(Label("//:M"))',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", value)',
+            '  print("A FETCHED: " + value.strip())',
+            '  return rctx.repo_metadata(reproducible = True)',
+            'repo_a = repository_rule(_repo_a_impl)',
+            'def _repo_b_impl(rctx):',
+            '  if rctx.getenv("BMODE") == "a":',
+            '    rctx.read(Label("@a//:data.txt"))',
+            '  rctx.file("BUILD", "exports_files([\'data\'])")',
+            '  rctx.file("data", rctx.getenv("BMODE"))',
+            'repo_b = repository_rule(_repo_b_impl)',
+        ],
+    )
+    target = '@a//:data.txt'
+
+    # A fetch records an alternative reading M and, after M changed, a second
+    # fetch records the newer alternative reading b's file.
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=BMODE=none', target], env_add={'SELECT': 'm'}
+    )
+    self.assertIn('A FETCHED: m', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('M', ['changed'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=BMODE=none', target], env_add={'SELECT': 'b'}
+    )
+    self.assertIn('A FETCHED: none', '\n'.join(stderr))
+
+    # With M restored, the alternative reading it is up to date again. b now
+    # reads a, so probing the newer alternative's input in b would form a
+    # cycle; the input is cut and the lookup finds the alternative reading M.
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('M', ['m'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=BMODE=a', target], env_add={'SELECT': 'm'}
+    )
+    self.assertNotIn('A FETCHED', '\n'.join(stderr))
+    _, stdout, _ = self.RunBazel(
+        ['dump', '--skyframe=deps', '--skykey_filter=REPOSITORY_DIRECTORY:.*repo_a.*']
+    )
+    self.assertTrue(any('REPOSITORY_DIRECTORY:' in line for line in stdout), stdout)
+    deps = [
+        line.strip()
+        for line in stdout
+        if line.strip()
+        and not line.strip().startswith('Group ')
+        and 'REPOSITORY_DIRECTORY:' not in line
+    ]
+    self.assertTrue(any(dep.endswith('/[M]') for dep in deps), stdout)
+    self.assertFalse(any('+repo_b+b' in dep for dep in deps), stdout)
+
   def testAccessFromOtherRepo_symlink(self):
     self.ScratchFile(
         'MODULE.bazel',

@@ -40,6 +40,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -69,6 +70,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -226,14 +228,16 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   }
 
   @Override
-  public boolean lookupCache(
+  @Nullable
+  public ImmutableList<RepoRecordedInput> lookupCache(
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
-      SkyFunction.Environment env)
+      SkyFunction.Environment env,
+      Set<RepoRecordedInput> requestedInputs)
       throws IOException, InterruptedException {
     try {
-      return doLookupCache(repoName, repoDir, predeclaredInputHash, env);
+      return doLookupCache(repoName, repoDir, predeclaredInputHash, env, requestedInputs);
     } catch (IOException e) {
       throw new IOException(
           "Failed to look up repo %s in the remote repo contents cache: %s"
@@ -242,23 +246,25 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     }
   }
 
-  private boolean doLookupCache(
+  @Nullable
+  private ImmutableList<RepoRecordedInput> doLookupCache(
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
-      SkyFunction.Environment env)
+      SkyFunction.Environment env,
+      Set<RepoRecordedInput> requestedInputs)
       throws IOException, InterruptedException {
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
-      return false;
+      return null;
     }
 
     var context = buildContext(repoName, CacheOp.DOWNLOAD);
     if (!context.getReadCachePolicy().allowRemoteCache()) {
-      return false;
+      return null;
     }
-    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash);
+    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash, requestedInputs);
     if (env.valuesMissing() || finalEntry == null) {
-      return false;
+      return null;
     }
 
     ListenableFuture<byte[]> markerFileContentFuture;
@@ -285,7 +291,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     String markerFileContent = new String(markerFileContentFuture.resultNow(), ISO_8859_1);
     var maybeRecordedInputs = DigestWriter.readMarkerFile(markerFileContent, predeclaredInputHash);
     if (maybeRecordedInputs.isEmpty()) {
-      return false;
+      return null;
     }
     var outdatedReason =
         RepoRecordedInput.isAnyValueOutdated(env, directories, maybeRecordedInputs.get());
@@ -295,11 +301,16 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
               Event.warn(
                   "Unexpectedly outdated cached repo %s: %s"
                       .formatted(repoName, outdatedReason.orElse("unknown reason"))));
-      return false;
+      return null;
     }
 
-    return remoteFs.injectRemoteRepo(
-        repoName, repoDirectoryContentFuture.resultNow(), markerFileContent);
+    if (!remoteFs.injectRemoteRepo(
+        repoName, repoDirectoryContentFuture.resultNow(), markerFileContent)) {
+      return null;
+    }
+    return maybeRecordedInputs.get().stream()
+        .map(RepoRecordedInput.WithValue::input)
+        .collect(toImmutableList());
   }
 
   private enum CacheOp {
@@ -462,13 +473,14 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private CacheEntry.Final fetchFinalCacheEntry(
       SkyFunction.Environment env,
       RemoteActionExecutionContext context,
-      String predeclaredInputHash)
+      String predeclaredInputHash,
+      Set<RepoRecordedInput> requestedInputs)
       throws IOException, InterruptedException {
     var currentHashes = ImmutableList.of(predeclaredInputHash);
     while (!currentHashes.isEmpty()) {
       var nextHashes = ImmutableList.<String>builder();
       for (var hash : currentHashes) {
-        switch (fetchCacheEntry(env, context, hash)) {
+        switch (fetchCacheEntry(env, context, hash, requestedInputs)) {
           case CacheEntry.Final finalEntry -> {
             return finalEntry;
           }
@@ -492,7 +504,10 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   // Returns null if and only if values are missing.
   @Nullable
   private CacheEntry fetchCacheEntry(
-      SkyFunction.Environment env, RemoteActionExecutionContext context, String inputHash)
+      SkyFunction.Environment env,
+      RemoteActionExecutionContext context,
+      String inputHash,
+      Set<RepoRecordedInput> requestedInputs)
       throws IOException, InterruptedException {
     var actionKey = new ActionKey(digestUtil.compute(buildAction(inputHash)));
     // The marker file is read right after and thus requested to be inlined. If the action result
@@ -543,7 +558,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
             .collect(toImmutableList());
     var uniqueNextInputs =
         nextInputBatches.stream().flatMap(List::stream).collect(toImmutableSet());
-    RepoRecordedInput.prefetch(env, directories, uniqueNextInputs);
+    // Inputs that may make this repo depend on another one are requested speculatively: if such an
+    // input forms a cycle, e.g. because the other repo has come to depend on this one since the
+    // alternative was recorded, the dependency is cut and the alternative skipped.
+    var cutInputs = RepoRecordedInput.prefetchSpeculatively(env, directories, uniqueNextInputs);
+    requestedInputs.addAll(Sets.difference(uniqueNextInputs, cutInputs));
     if (env.valuesMissing()) {
       return null;
     }
@@ -552,6 +571,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     for (var batch : nextInputBatches) {
       var rollingHash = inputHash;
       for (var input : batch) {
+        if (cutInputs.contains(input)) {
+          continue nextBatch;
+        }
         var value = input.getValue(env, directories);
         // Values have been prefetched above.
         Preconditions.checkState(!env.valuesMissing());

@@ -21,7 +21,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
@@ -67,13 +68,19 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -93,6 +100,10 @@ public final class RepositoryFetchFunction implements SkyFunction {
   private final LocalRepoContentsCache repoContentsCache;
   private final Supplier<ImmutableMap<String, String>> repoEnvSupplier;
   private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
+
+  /** The dependencies to request for repos whose nodes have been reset, but not evaluated since. */
+  private final ConcurrentHashMap<RepositoryName, PendingReset> pendingResets =
+      new ConcurrentHashMap<>();
 
   private double timeoutScaling = 1.0;
   @Nullable private DownloadManager downloadManager;
@@ -134,6 +145,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   public void setRemoteRepoContentsCache(RemoteRepoContentsCache remoteRepoContentsCache) {
     this.remoteRepoContentsCache = remoteRepoContentsCache;
+  }
+
+  /** Discards the pending resets that the previous command didn't get to. */
+  public void clearPendingResets() {
+    pendingResets.clear();
   }
 
   @Nullable
@@ -187,6 +203,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     workerEnv, repositoryName, starlarkSemantics, repoRoot, repoDefinition);
               });
         } catch (ExecutionException e) {
+          if (e.getCause() instanceof ResetRequiredException reset) {
+            // Not registered by the worker, which may be cancelled before the node is reset.
+            pendingResets.put(repositoryName, reset.pendingReset);
+            return Reset.selfOnly(skyKey);
+          }
           Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
           Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
           Throwables.throwIfUnchecked(e.getCause());
@@ -218,12 +239,17 @@ public final class RepositoryFetchFunction implements SkyFunction {
       StarlarkSemantics starlarkSemantics,
       Path repoRoot,
       RepoDefinition repoDefinition)
-      throws InterruptedException, RepositoryFunctionException {
+      throws InterruptedException, RepositoryFunctionException, ResetRequiredException {
     var digestWriter =
         DigestWriter.create(env, directories, repositoryName, repoDefinition, starlarkSemantics);
     if (digestWriter == null) {
       return null;
     }
+
+    // The recorded inputs requested while checking candidates for the repo, see
+    // resetIfOtherInputsRequested.
+    var requestedInputs = new HashSet<RepoRecordedInput>();
+    var pendingReset = pendingResets.remove(repositoryName);
 
     boolean excludeRepoFromVendoring = true;
     if (RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).isPresent()) { // If vendor mode is on
@@ -232,10 +258,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
         return null;
       }
       boolean excludeRepoByDefault = isRepoExcludedFromVendoringByDefault(repoDefinition);
-      if (!excludeRepoByDefault && !vendorFile.ignoredRepos().contains(repositoryName)) {
+      if (pendingReset == null
+          && !excludeRepoByDefault
+          && !vendorFile.ignoredRepos().contains(repositoryName)) {
         RepositoryDirectoryValue repositoryDirectoryValue =
             tryGettingValueUsingVendoredRepo(
-                env, repoRoot, repositoryName, digestWriter, vendorFile);
+                env, repoRoot, repositoryName, digestWriter, vendorFile, requestedInputs);
         if (env.valuesMissing()) {
           return null;
         }
@@ -249,11 +277,31 @@ public final class RepositoryFetchFunction implements SkyFunction {
               || vendorFile.pinnedRepos().contains(repositoryName);
     }
 
-    if (shouldUseCachedRepoContents(env, repoDefinition)) {
+    // Requested even with a pending reset so that the node depends on the fetch options.
+    boolean useCachedRepoContents = shouldUseCachedRepoContents(env, repoDefinition);
+    if (pendingReset != null) {
+      // The repo has been found before the reset. Each of its inputs forms its own dependency
+      // group so that a later dirtiness check stops at the first changed input instead of
+      // following an outdated dependency on another repo.
+      for (var input : pendingReset.recordedInputs()) {
+        RepoRecordedInput.prefetch(env, directories, ImmutableList.of(input));
+      }
+      if (pendingReset.cacheDirectoryKey() != null) {
+        var unused = env.getValue(pendingReset.cacheDirectoryKey());
+      }
+      return env.valuesMissing()
+          ? null
+          : new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
+    }
+
+    if (useCachedRepoContents) {
       // Make sure marker file is up-to-date; correctly describes the current repository state
-      if (digestWriter.areRepositoryAndMarkerFileConsistent(env).isEmpty()) {
+      var markerInputs = new ArrayList<RepoRecordedInput>();
+      if (digestWriter.areRepositoryAndMarkerFileConsistent(env, markerInputs).isEmpty()) {
+        resetIfOtherInputsRequested(requestedInputs, markerInputs, /* cacheDirectoryKey= */ null);
         return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
       }
+      requestedInputs.addAll(markerInputs);
       if (env.valuesMissing()) {
         return null;
       }
@@ -263,16 +311,21 @@ public final class RepositoryFetchFunction implements SkyFunction {
         ImmutableList<CandidateRepo> candidateRepos =
             repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash);
         for (CandidateRepo candidate : candidateRepos) {
+          var candidateInputs = new ArrayList<RepoRecordedInput>();
           if (digestWriter
-              .areRepositoryAndMarkerFileConsistent(env, candidate.recordedInputsFile())
+              .areRepositoryAndMarkerFileConsistent(
+                  env, candidate.recordedInputsFile(), candidateInputs)
               .isEmpty()) {
             if (setupOverride(candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
                 == null) {
               return null;
             }
             candidate.touch();
+            resetIfOtherInputsRequested(
+                requestedInputs, candidateInputs, getCacheDirectoryKey(candidate.contentsDir()));
             return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
           }
+          requestedInputs.addAll(candidateInputs);
           if (env.valuesMissing()) {
             return null;
           }
@@ -281,13 +334,19 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
       if (remoteRepoContentsCache != null) {
         try {
-          boolean cacheHit =
+          var recordedInputs =
               remoteRepoContentsCache.lookupCache(
-                  repositoryName, repoRoot, digestWriter.predeclaredInputHash, env);
+                  repositoryName,
+                  repoRoot,
+                  digestWriter.predeclaredInputHash,
+                  env,
+                  requestedInputs);
           if (env.valuesMissing()) {
             return null;
           }
-          if (cacheHit) {
+          if (recordedInputs != null) {
+            resetIfOtherInputsRequested(
+                requestedInputs, recordedInputs, /* cacheDirectoryKey= */ null);
             return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
           }
         } catch (IOException e) {
@@ -314,6 +373,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
         return null;
       }
       digestWriter.writeMarkerFile(result.recordedInputValues());
+      SkyKey cacheDirectoryKey = null;
       if (result.reproducible() == Reproducibility.YES && !repoDefinition.repoRule().local()) {
         // This repo may be eligible for the local and remote repo contents cache.
         // Replant symlinks before caching to convert absolute symlinks relative if possible, which
@@ -362,36 +422,22 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     e),
                 Transience.TRANSIENT);
           }
-          Path cachedRepoDir = newCacheEntry.contentsDir();
-          RootedPath cachedRepoDirRootedPath =
-              RootedPath.toRootedPath(
-                  Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir);
-          // Don't forget to register a FileStateValue on the cache repo dir, so that we know to
+          // Don't forget to register a FileValue on the cache repo dir, so that we know to
           // refetch if the cache entry gets GC'd from under us or the entire cache is deleted.
-          //
-          // Note that registering a FileValue dependency instead would lead to subtly incorrect
-          // behavior when the repo contents cache directory is deleted between builds:
-          // 1. We register a FileValue dependency on the cache entry.
-          // 2. Before the next build, the repo contents cache directory is deleted.
-          // 3. On the next build, FileSystemValueChecker invalidates the underlying
-          //    FileStateValue, which in turn results in the FileValue and the current
-          //    RepositoryDirectoryValue being marked as dirty.
-          // 4. Skyframe visits the dirty nodes bottom up to check for actual changes. In
-          //    particular, it reevaluates FileFunction before RepositoryFetchFunction and thus
-          //    the FileValue of the repo contents cache directory is locked in as non-existent
-          //    before RepositoryFetchFunction can recreate it.
-          // 5. Any other SkyFunction that depends on the FileValue of a file in the repo (e.g.
-          //    PackageFunction) will report that file as missing since the resolved path has a
-          //    parent that is non-existent.
-          // By using FileStateValue directly, which benefits from special logic built into
-          // DirtinessCheckerUtils that recognizes the repo contents cache directories with
-          // non-UUID names and prevents locking in their value during dirtiness checking, we
-          // avoid 4. and thus the incorrect missing file errors in 5.
-          if (env.getValue(FileStateValue.key(cachedRepoDirRootedPath)) == null) {
+          // The FileValue also depends on the parent directories of the entry, which is only safe
+          // since those in the repo contents cache are never invalidated and thus can't be locked
+          // in as non-existent before a refetch recreates them, see
+          // ExternalFilesHelper.FileType.REPO_CONTENTS_CACHE_DIRS.
+          cacheDirectoryKey = getCacheDirectoryKey(newCacheEntry.contentsDir());
+          if (env.getValue(cacheDirectoryKey) == null) {
             return null;
           }
         }
       }
+      resetIfOtherInputsRequested(
+          requestedInputs,
+          Lists.transform(result.recordedInputValues(), RepoRecordedInput.WithValue::input),
+          cacheDirectoryKey);
       return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
     }
 
@@ -435,7 +481,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
       Path repoRoot,
       RepositoryName repositoryName,
       DigestWriter digestWriter,
-      VendorFileValue vendorFile)
+      VendorFileValue vendorFile,
+      Set<RepoRecordedInput> requestedInputs)
       throws RepositoryFunctionException, InterruptedException {
     Path vendorPath = RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).get();
     Path vendorRepoPath = vendorPath.getRelative(repositoryName.getName());
@@ -467,7 +514,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       }
 
       Optional<String> vendoredRepoOutOfDateReason =
-          digestWriter.areRepositoryAndMarkerFileConsistent(env, vendorMarker);
+          digestWriter.areRepositoryAndMarkerFileConsistent(env, vendorMarker, requestedInputs);
       if (env.valuesMissing()) {
         return null;
       }
@@ -923,5 +970,45 @@ public final class RepositoryFetchFunction implements SkyFunction {
           Transience.TRANSIENT);
     }
     return new Success(Root.fromPath(source), /* excludeFromVendoring= */ true);
+  }
+
+  /** Returns the key that a repo in the given local repo contents cache directory depends on. */
+  private static SkyKey getCacheDirectoryKey(Path cacheDirectory) {
+    return FileValue.key(
+        RootedPath.toRootedPath(Root.absoluteRoot(cacheDirectory.getFileSystem()), cacheDirectory));
+  }
+
+  /**
+   * Resets the node of a repo with the given recorded inputs if other inputs have been requested
+   * while looking for it, as those would remain dependencies of the node. The evaluation after the
+   * reset only requests the dependencies of the repo.
+   */
+  private static void resetIfOtherInputsRequested(
+      Set<RepoRecordedInput> requestedInputs,
+      Collection<RepoRecordedInput> recordedInputs,
+      @Nullable SkyKey cacheDirectoryKey)
+      throws ResetRequiredException {
+    var inputs = ImmutableSet.copyOf(recordedInputs);
+    if (!inputs.containsAll(requestedInputs)) {
+      throw new ResetRequiredException(new PendingReset(inputs, cacheDirectoryKey));
+    }
+  }
+
+  /**
+   * The dependencies of a repo to request after the reset of its node.
+   *
+   * @param recordedInputs the recorded inputs of the repo in recorded order
+   * @param cacheDirectoryKey see {@link #getCacheDirectoryKey}, null for a repo not in that cache
+   */
+  private record PendingReset(
+      ImmutableSet<RepoRecordedInput> recordedInputs, @Nullable SkyKey cacheDirectoryKey) {}
+
+  /** Thrown by the worker if the node has to be reset. */
+  private static final class ResetRequiredException extends Exception {
+    private final PendingReset pendingReset;
+
+    private ResetRequiredException(PendingReset pendingReset) {
+      this.pendingReset = pendingReset;
+    }
   }
 }

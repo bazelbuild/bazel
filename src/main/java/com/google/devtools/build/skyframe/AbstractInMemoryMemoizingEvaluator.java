@@ -169,32 +169,44 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
 
       EvaluationResult<T> result;
       try (SilentCloseable c = Profiler.instance().profile("ParallelEvaluator.eval")) {
-        ParallelEvaluator evaluator =
-            new ParallelEvaluator(
-                graph,
-                graphVersion,
-                minimalVersion,
-                skyFunctions,
-                evaluationContext.getEventHandler(),
-                emittedEventState,
-                eventFilter,
-                ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
-                progressReceiver,
-                graphInconsistencyReceiver,
-                evaluationContext
-                    .getExecutor()
-                    .orElseGet(
-                        () ->
-                            AbstractQueueVisitor.create(
-                                "skyframe-evaluator-memoizing",
-                                evaluationContext.getParallelism(),
-                                ParallelEvaluatorErrorClassifier.instance())),
-                evaluationContext.detectCycles()
-                    ? new SimpleCycleDetector(evaluationContext.storeExactCycles())
-                    : new ShortCircuitingCycleDetector(evaluationContext.getParallelism()),
-                evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
-                getKeepGoingPredicate(evaluationContext));
-        result = evaluator.eval(roots);
+        // Prototype of speculative dependencies: a cut ends a round of the evaluation. The nodes
+        // that were in flight are deleted and evaluated again in a new round, in which the node
+        // that requested the cut dependency sees it among its cut dependencies.
+        var speculativeDeps = new SpeculativeDeps();
+        while (true) {
+          ParallelEvaluator evaluator =
+              new ParallelEvaluator(
+                  graph,
+                  graphVersion,
+                  minimalVersion,
+                  skyFunctions,
+                  evaluationContext.getEventHandler(),
+                  emittedEventState,
+                  eventFilter,
+                  ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
+                  progressReceiver,
+                  graphInconsistencyReceiver,
+                  evaluationContext
+                      .getExecutor()
+                      .orElseGet(
+                          () ->
+                              AbstractQueueVisitor.create(
+                                  "skyframe-evaluator-memoizing",
+                                  evaluationContext.getParallelism(),
+                                  ParallelEvaluatorErrorClassifier.instance())),
+                  evaluationContext.detectCycles()
+                      ? new SimpleCycleDetector(evaluationContext.storeExactCycles())
+                      : new ShortCircuitingCycleDetector(evaluationContext.getParallelism()),
+                  evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
+                  getKeepGoingPredicate(evaluationContext),
+                  speculativeDeps);
+          result = evaluator.eval(roots);
+          if (result != null) {
+            break;
+          }
+          valuesToDelete.addAll(progressReceiver.getAndClearInflightKeys());
+          performInvalidation();
+        }
       }
       return EvaluationResult.<T>builder()
           .mergeFrom(result)

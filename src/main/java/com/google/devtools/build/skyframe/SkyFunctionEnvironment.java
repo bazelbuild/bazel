@@ -560,6 +560,27 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
   @CanIgnoreReturnValue
   @Override
+  public SkyframeLookupResult getValuesAndExceptionsSpeculatively(
+      Iterable<? extends SkyKey> depKeys) throws InterruptedException {
+    SpeculativeDeps speculativeDeps = evaluatorContext.speculativeDeps();
+    ImmutableSet<SkyKey> cut = speculativeDeps.getCut(skyKey);
+    ImmutableList.Builder<SkyKey> requested = ImmutableList.builder();
+    for (SkyKey depKey : depKeys) {
+      if (!cut.contains(depKey)) {
+        requested.add(depKey);
+      }
+    }
+    ImmutableList<SkyKey> requestedKeys = requested.build();
+    speculativeDeps.noteRequested(skyKey, requestedKeys);
+    return getValuesAndExceptions(requestedKeys);
+  }
+
+  @Override
+  public ImmutableSet<SkyKey> getCutSpeculativeDeps() {
+    return evaluatorContext.speculativeDeps().getCut(skyKey);
+  }
+
+  @Override
   public SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     checkActive();

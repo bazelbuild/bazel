@@ -14,11 +14,15 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
+import java.util.Set;
+import javax.annotation.Nullable;
 
 /** A remote cache for the contents of external repositories. */
 public interface RemoteRepoContentsCache {
@@ -36,13 +40,17 @@ public interface RemoteRepoContentsCache {
    *
    * <p>Callers have to check {@code env.valuesMissing()} after this method returns.
    *
-   * @return true if there was a cache hit and the repository has been fetched into the given
-   *     directory.
+   * @param requestedInputs collects the recorded inputs that the lookup requests, which include
+   *     those of the cache entries it probes but doesn't use
+   * @return the recorded inputs of the repository if there was a cache hit and the repository has
+   *     been fetched into the given directory, or null otherwise
    */
-  boolean lookupCache(
+  @Nullable
+  ImmutableList<RepoRecordedInput> lookupCache(
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
-      SkyFunction.Environment env)
+      SkyFunction.Environment env,
+      Set<RepoRecordedInput> requestedInputs)
       throws IOException, InterruptedException;
 }

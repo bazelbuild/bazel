@@ -1391,6 +1391,61 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.assertIn('https://unknown-registry.example.com', stderr)
 
+  def testRefetchedRepo_onlyDependsOnNewInputs(self):
+    # Checking whether a fetched repo is up to date requests the inputs listed
+    # in its marker file. Those that the new fetch doesn't record must not
+    # remain Skyframe dependencies of the repo.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "foo")',
+            'repo(name = "bar")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  phase = rctx.getenv("PHASE")',
+            '  value = rctx.original_name',
+            '  if rctx.original_name == "foo":',
+            '    if phase == "old":',
+            '      value += rctx.getenv("OBSOLETE")',
+            '    elif phase == "forward":',
+            '      value += rctx.read(Label("@bar//:data.txt"))',
+            '  elif phase == "backward":',
+            '    value += rctx.read(Label("@foo//:data.txt"))',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", value)',
+            '  print("JUST FETCHED: " + rctx.original_name)',
+            '  return rctx.repo_metadata(reproducible = True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    self.RunBazel(
+        ['build', '@foo//:data.txt', '--repo_env=PHASE=old', '--repo_env=OBSOLETE=x']
+    )
+    # The marker file of foo lists PHASE and OBSOLETE, the new fetch records
+    # PHASE and a file in bar.
+    self.RunBazel(['build', '@foo//:data.txt', '--repo_env=PHASE=forward'])
+    _, stdout, _ = self.RunBazel(
+        ['dump', '--skyframe=deps', '--skykey_filter=REPOSITORY_DIRECTORY:.*foo.*']
+    )
+    self.assertTrue(any(line.endswith(':PHASE') for line in stdout), stdout)
+    self.assertFalse(any(line.endswith(':OBSOLETE') for line in stdout), stdout)
+
+    # Reverse the dependency between the repos without restarting the server.
+    # The check of foo's dependencies has to notice the changed PHASE before it
+    # gets to the file in bar, which depends on foo now.
+    _, _, stderr = self.RunBazel(
+        ['build', '@bar//:data.txt', '--repo_env=PHASE=backward']
+    )
+    self.assertIn('JUST FETCHED: foo', '\n'.join(stderr))
+    self.assertIn('JUST FETCHED: bar', '\n'.join(stderr))
+
   def testInvalidRepoRuleReferencedByTargetDoesNotCrash(self):
     self.ScratchFile(
         'MODULE.bazel',
