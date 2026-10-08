@@ -84,6 +84,11 @@ final class Discovery {
    * dependency, which is what --override_module is for.
    *
    * <p>Deps of the root module are already checked by {@link ModuleFileFunction}.
+   *
+   * <p>Nodep deps are deliberately not checked: they don't make the injected module a dependency,
+   * but only constrain its version if it is in the dependency graph for another reason, so
+   * injecting it does add a new module. --override_module wouldn't even add the module in that
+   * case.
    */
   private static void checkInjectedModules(
       ImmutableMap<ModuleKey, InterimModule> depGraph, Map<String, ?> injectedModules)

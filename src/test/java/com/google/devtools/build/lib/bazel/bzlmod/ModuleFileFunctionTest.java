@@ -921,12 +921,34 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testInjectedModule_bad_existingNodepDep() throws Exception {
-    assertInjectedModuleError(
-        "--inject_module cannot inject 'bbb' as it is already in the dependency graph: the root"
-            + " module depends on it",
-        "module(name='aaa')",
+  public void testInjectedModule_withExistingNodepDep() throws Exception {
+    // A nodep dep doesn't add bbb to the dependency graph, so injecting it is allowed.
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
         "bazel_dep(name='bbb',version='1.0',repo_name=None)");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.INJECTED_MODULES.set(
+        differencer, ImmutableMap.of("bbb", PathFragment.create("/code_for_b")));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    assertThat(rootModuleFileValue.module())
+        .isEqualTo(
+            InterimModuleBuilder.create("aaa", "0.1")
+                .setKey(ModuleKey.ROOT)
+                .addNodepDep(createModuleKey("bbb", "1.0"))
+                .addDep("bbb", createModuleKey("bbb", ""))
+                .build());
+    assertThat(rootModuleFileValue.overrides())
+        .containsExactly(
+            "bbb", new NonRegistryOverride(LocalPathRepoSpecs.create("/code_for_b")));
   }
 
   @Test

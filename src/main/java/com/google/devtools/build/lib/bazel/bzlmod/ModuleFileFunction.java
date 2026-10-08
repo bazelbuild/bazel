@@ -779,7 +779,8 @@ public class ModuleFileFunction implements SkyFunction {
       }
       // Deps of other modules on an injected module are checked in Discovery, as they aren't known
       // yet. The root module's deps are checked here instead: this fails before any other module
-      // files are fetched, covers nodep deps, and doesn't have to tell apart the dep added below.
+      // files are fetched and doesn't have to tell apart the dep added below. Nodep deps are
+      // deliberately not checked, see Discovery#checkInjectedModules.
       if (context.hasDepOnModule(moduleName)) {
         throw Starlark.errorf(
             "--inject_module cannot inject '%s' as it is already in the dependency graph: the root"

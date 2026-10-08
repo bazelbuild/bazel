@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SequencedSet;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -55,7 +54,6 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
   @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
-  private final List<ModuleKey> nodepDeps = new ArrayList<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
@@ -163,7 +161,6 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     if (repoName.isPresent()) {
       deps.put(repoName.get(), depKey);
     } else {
-      nodepDeps.add(depKey);
       module.addNodepDep(depKey);
     }
   }
@@ -382,12 +379,11 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   }
 
   /**
-   * Whether a {@code bazel_dep} on the given module has been added, under any repo name or as a
-   * nodep dep.
+   * Whether a {@code bazel_dep} on the given module has been added, under any repo name. Nodep deps
+   * are not included.
    */
   public boolean hasDepOnModule(String moduleName) {
-    return Stream.concat(deps.values().stream(), nodepDeps.stream())
-        .anyMatch(dep -> dep.name().equals(moduleName));
+    return deps.values().stream().anyMatch(dep -> dep.name().equals(moduleName));
   }
 
   /** Whether an override for the given module has been added. */
