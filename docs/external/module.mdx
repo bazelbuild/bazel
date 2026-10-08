@@ -170,12 +170,12 @@ root module's `MODULE.bazel` file:
     remote execution platforms, into a project you don't want to modify.
 
 Note that these flags may still cause the project's
-[lockfile](/external/lockfile) to change: for example, the registry files of any
-new dependencies they bring in are recorded in `MODULE.bazel.lock`. To avoid
-modifying the lockfile, also pass
-[`--lockfile_mode=off`](/reference/command-line-reference#flag--lockfile_mode).
-With `--lockfile_mode=error`, the build fails if the flags require changes to
-the lockfile.
+[lockfile](/external/lockfile) to change: for example, the registry files of
+any new dependencies they bring in are recorded in `MODULE.bazel.lock`. You may
+also need to pass the flag
+[`--lockfile_mode=update`](/reference/command-line-reference#flag--lockfile_mode).
+With `--lockfile_mode=error`, the build would fail if the changed modules
+require changes to the lockfile.
 
 ## Define repos that don't represent Bazel modules {#use_repo_rule}
 
