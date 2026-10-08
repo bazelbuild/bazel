@@ -252,7 +252,11 @@ class BazelLockfileTest(test_base.TestBase):
         'MODULE.bazel', ['bazel_dep(name = "lll", version = "1.0")']
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
-    registry_flags = ['--watched_registry=' + local_registry.getLocalURL()]
+    registry_url = local_registry.getLocalURL()
+    registry_flags = [
+        '--registry=' + registry_url,
+        '--watch_registry=' + registry_url,
+    ]
     self.RunBazel(['build', '--nobuild', *registry_flags, '//:all'])
     # Run again so that the lockfile is unchanged by the next invocation, which
     # would otherwise invalidate the registry on its own.
@@ -299,7 +303,11 @@ class BazelLockfileTest(test_base.TestBase):
         'MODULE.bazel', ['bazel_dep(name = "mmm", version = "1.0")']
     )
     self.ScratchFile('BUILD')
-    registry_flags = ['--watched_registry=' + local_registry.getLocalURL()]
+    registry_url = local_registry.getLocalURL()
+    registry_flags = [
+        '--registry=' + registry_url,
+        '--watch_registry=' + registry_url,
+    ]
     self.RunBazel(['build', *registry_flags, '@mmm//:v1'])
     # Run again so that the lockfile is unchanged by the next invocation, which
     # would otherwise invalidate the registry on its own.
@@ -322,7 +330,11 @@ class BazelLockfileTest(test_base.TestBase):
         'MODULE.bazel', ['bazel_dep(name = "ooo", version = "1.0")']
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
-    registry_flags = ['--watched_registry=' + local_registry.getLocalURL()]
+    registry_url = local_registry.getLocalURL()
+    registry_flags = [
+        '--registry=' + registry_url,
+        '--watch_registry=' + registry_url,
+    ]
     self.RunBazel(['build', '--nobuild', *registry_flags, '//:all'])
     # Run again so that the lockfile is unchanged by the next invocation, which
     # would otherwise invalidate the registry on its own.
@@ -360,7 +372,11 @@ class BazelLockfileTest(test_base.TestBase):
         'MODULE.bazel', ['bazel_dep(name = "ppp", version = "1.0")']
     )
     self.ScratchFile('BUILD')
-    registry_flags = ['--watched_registry=' + local_registry.getLocalURL()]
+    registry_url = local_registry.getLocalURL()
+    registry_flags = [
+        '--registry=' + registry_url,
+        '--watch_registry=' + registry_url,
+    ]
     self.RunBazel(['build', *registry_flags, '@ppp//:v1'])
     # Run again so that the lockfile is unchanged by the next invocation, which
     # would otherwise invalidate the registry on its own.
@@ -380,7 +396,10 @@ class BazelLockfileTest(test_base.TestBase):
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
     # On Windows, %workspace% is C:/..., so file:///%workspace% is file:///C:/...
-    registry_flags = ['--watched_registry=file:///%workspace%/registry']
+    registry_flags = [
+        '--registry=file:///%workspace%/registry',
+        '--watch_registry=file:///%workspace%/registry',
+    ]
     self.RunBazel(['build', '--nobuild', *registry_flags, '//:all'])
     # Run again so that the lockfile is unchanged by the next invocation, which
     # would otherwise invalidate the registry on its own.
@@ -409,90 +428,64 @@ class BazelLockfileTest(test_base.TestBase):
         'https://bcr.bazel.build',
     ]:
       exit_code, _, stderr = self.RunBazel(
-          ['build', '--nobuild', '--watched_registry=' + url, '//:all'],
+          [
+              'build',
+              '--nobuild',
+              '--registry=' + url,
+              '--watch_registry=' + url,
+              '//:all',
+          ],
           allow_failure=True,
       )
       self.AssertExitCode(exit_code, 2, stderr)
-      self.assertIn('Invalid --watched_registry=' + url, '\n'.join(stderr))
+      self.assertIn('Invalid --watch_registry=' + url, '\n'.join(stderr))
 
-    _, stdout, _ = self.RunBazel(['info', 'server_pid'])
-    self.assertEqual(stdout[0], server_pid)
-
-  def testWatchedRegistryIsLookedUpInFlagOrder(self):
-    good_registry = BazelRegistry(os.path.join(self.registries_work_dir, 'good'))
-    good_registry.createShModule('rrr', '1.0')
-    bad_registry = BazelRegistry(os.path.join(self.registries_work_dir, 'bad'))
-    bad_registry.createShModule('rrr', '1.0')
-    scratchFile(
-        bad_registry.root.joinpath('modules', 'rrr', '1.0', 'MODULE.bazel'),
-        ['whatever!'],
-    )
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rrr", version = "1.0")']
-    )
-    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
-
-    self.RunBazel([
-        'build',
-        '--nobuild',
-        '--watched_registry=' + good_registry.getLocalURL(),
-        '--registry=' + bad_registry.getLocalURL(),
-        '//:all',
-    ])
-
-    # Reordering registries alone does not invalidate the resolved graph.
-    self.RunBazel(['shutdown'])
     exit_code, _, stderr = self.RunBazel(
         [
             'build',
             '--nobuild',
-            '--lockfile_mode=off',
-            '--registry=' + bad_registry.getLocalURL(),
-            '--watched_registry=' + good_registry.getLocalURL(),
+            '--registry=https://bcr.bazel.build',
+            '--watch_registry=file:///path/to/registry',
             '//:all',
         ],
         allow_failure=True,
     )
-    self.AssertExitCode(exit_code, 48, stderr)
+    self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn(
-        'error parsing MODULE.bazel file for rrr@1.0', '\n'.join(stderr)
+        'Invalid --watch_registry=file:///path/to/registry: it must also be'
+        ' passed with --registry',
+        '\n'.join(stderr),
     )
 
-  def testWatchedRegistryIsCombinedWithRegistrySetByInvocationPolicy(self):
+    _, stdout, _ = self.RunBazel(['info', 'server_pid'])
+    self.assertEqual(stdout[0], server_pid)
+
+  def testWatchRegistryChecksRegistriesSetByInvocationPolicy(self):
     local_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'local')
     )
     local_registry.createShModule('rrr', '1.0')
-    overridden_registry = BazelRegistry(
-        os.path.join(self.registries_work_dir, 'overridden')
-    )
-    overridden_registry.createShModule('rrr', '1.0')
-    scratchFile(
-        overridden_registry.root.joinpath(
-            'modules', 'rrr', '1.0', 'MODULE.bazel'
-        ),
-        ['whatever!'],
-    )
     self.ScratchFile(
         'MODULE.bazel', ['bazel_dep(name = "rrr", version = "1.0")']
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    registry_url = local_registry.getLocalURL()
     policy = (
         'flag_policies { flag_name: "registry" set_value { %s'
         ' behavior: FINAL_VALUE_IGNORE_OVERRIDES } }'
         % ' '.join(
             'flag_value: "%s"' % url
-            for url in [self.main_registry.getURL(), 'https://bcr.bazel.build']
+            for url in [registry_url, 'https://bcr.bazel.build']
         )
     )
-    # The policy drops the --registry below, which would otherwise be looked up
-    # first and fail to parse.
+    # The policy replaces the --registry below, so the watched registry is
+    # only known to Bazel through the policy.
     command = [
         '--invocation_policy=' + policy,
         'build',
         '--nobuild',
-        '--registry=' + overridden_registry.getLocalURL(),
-        '--watched_registry=' + local_registry.getLocalURL(),
+        '--registry=https://bcr.bazel.build',
+        '--watch_registry=' + registry_url,
         '//:all',
     ]
     self.RunBazel(command)
