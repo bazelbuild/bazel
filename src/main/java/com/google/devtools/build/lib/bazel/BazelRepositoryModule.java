@@ -735,7 +735,8 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void afterCommand() throws AbruptExitException {
-    if (repositoryCache.getRepoContentsCache().isEnabled()) {
+    // The lock isn't held if beforeCommand rejected the repo contents cache path.
+    if (repositoryCache.getRepoContentsCache().holdsSharedLock()) {
       try {
         repositoryCache.getRepoContentsCache().releaseSharedLock();
       } catch (IOException e) {
