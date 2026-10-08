@@ -237,6 +237,18 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
               + " Linux and macOS only.")
   public abstract boolean getShutdownOnLowSysMem();
 
+  @Option(
+      name = "delete_output_base_on_shutdown",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If true, the server will delete its output base directory upon shutting down (whether"
+              + " via explicit shutdown, idle timeout, low memory, or batch mode completion). Only"
+              + " supported on local filesystems; network filesystems (such as NFS) are not"
+              + " supported.")
+  public abstract boolean getDeleteOutputBaseOnShutdown();
+
   @Deprecated
   @Option(
       name = "batch",

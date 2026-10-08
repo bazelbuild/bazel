@@ -26,6 +26,19 @@ java_library(
 )
 
 java_library(
+    name = "async_directory_cleaner",
+    srcs = ["AsyncDirectoryCleaner.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util:command",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+    ],
+)
+
+java_library(
     name = "safe_request_logging",
     srcs = ["SafeRequestLogging.java"],
     deps = ["//third_party/java/guava:collect"],
@@ -1071,6 +1084,7 @@ java_library(
     ],
     deps = [
         ":after_command_event",
+        ":async_directory_cleaner",
         ":blaze_command_result",
         ":blaze_server_startup_options",
         ":blaze_service",
@@ -1132,6 +1146,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/buildtool:command_precomplete_event",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:output_directory_links_utils",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1173,6 +1188,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
         "//src/main/java/com/google/devtools/build/lib/server:terminal_size_monitor",
         "//src/main/java/com/google/devtools/build/lib/server/signal",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
@@ -1218,7 +1234,6 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party/google/protobuf:any_java_proto",
-        "//third_party/java/auto:auto_value",
         "//third_party/java/caffeine",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/flogger",

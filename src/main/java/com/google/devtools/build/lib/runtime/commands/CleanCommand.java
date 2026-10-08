@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.runtime.AsyncDirectoryCleaner;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -35,8 +36,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.CommandResult;
-import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -51,7 +50,6 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
-import java.util.UUID;
 import java.util.logging.LogManager;
 
 /** Implements 'blaze clean'. */
@@ -184,37 +182,13 @@ public final class CleanCommand implements BlazeCommand {
       return;
     }
 
-    String tempBaseName =
-        path.getBaseName() + "_tmp_" + ProcessHandle.current().pid() + "_" + UUID.randomUUID();
-
-    // Keeping tempOutputBase in the same directory ensures it remains in the
-    // same file system, and therefore the mv will be atomic and fast.
-    Path tempPath = path.getParentDirectory().getChild(tempBaseName);
-    path.renameTo(tempPath);
+    Path tempPath = AsyncDirectoryCleaner.moveToTempDirectory(path);
     env.getReporter()
         .handle(Event.info(null, pathItemName + " moved to " + tempPath + " for deletion"));
 
-    String command =
-        String.format(
-            "/usr/bin/find %s -type d -not -perm -u=rwx -exec /bin/chmod -f u=rwx {} +; /bin/rm"
-                + " -rf %s",
-            tempBaseName, tempBaseName);
-    logger.atInfo().log("Executing daemonic shell command %s", command);
-
-    // Daemonize the shell to ensure that the shell exits even while the "rm
-    // -rf" command continues.
-    CommandResult result =
-        new CommandBuilder(env.getClientEnv())
-            .addArg(
-                env.getBlazeWorkspace().getBinTools().getEmbeddedPath("daemonize").getPathString())
-            .addArgs("-l", "/dev/null")
-            .addArgs("-p", "/dev/null")
-            .addArg("--")
-            .addArgs("/bin/sh", "/bin/sh", "-c", command)
-            .setWorkingDir(tempPath.getParentDirectory())
-            .build()
-            .execute();
-    logger.atInfo().log("Shell command status: %s", result.terminationStatus());
+    Path daemonize = env.getBlazeWorkspace().getBinTools().getEmbeddedPath("daemonize");
+    AsyncDirectoryCleaner.spawnDaemonizedDeletion(
+        daemonize, tempPath.getParentDirectory(), tempPath.getBaseName(), env.getClientEnv());
   }
 
   private static BlazeCommandResult actuallyClean(

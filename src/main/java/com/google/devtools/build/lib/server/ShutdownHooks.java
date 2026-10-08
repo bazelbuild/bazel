@@ -48,11 +48,22 @@ public class ShutdownHooks {
   @GuardedBy("this")
   private Runnable pidFileCleanup = null;
 
+  @GuardedBy("this")
+  private final List<Runnable> finalCleanups = new ArrayList<>();
+
   private ShutdownHooks() {}
 
   /** Schedules the specified file for (attempted) deletion at JVM exit. */
   public synchronized void deleteAtExit(Path path) {
     filesToDeleteAtExit.add(path);
+  }
+
+  /**
+   * Schedules {@code cleanup} to run at JVM exit, after the PID file watcher has been stopped and
+   * all other registered files have been deleted.
+   */
+  public synchronized void runLastAtExit(Runnable cleanup) {
+    finalCleanups.add(cleanup);
   }
 
   /**
@@ -86,11 +97,13 @@ public class ShutdownHooks {
     }
 
     List<Path> files;
+    List<Runnable> cleanups;
     synchronized (this) {
       if (pidFileCleanup != null) {
         pidFileCleanup.run();
       }
       files = new ArrayList<>(filesToDeleteAtExit);
+      cleanups = new ArrayList<>(finalCleanups);
     }
     for (Path path : files) {
       try {
@@ -98,6 +111,9 @@ public class ShutdownHooks {
       } catch (IOException e) {
         printStack(e);
       }
+    }
+    for (Runnable cleanup : cleanups) {
+      cleanup.run();
     }
   }
 

@@ -137,6 +137,29 @@ java_library(
 )
 
 java_library(
+    name = "output_directory_links_utils",
+    srcs = [
+        "ConfigSymlink.java",
+        "OutputDirectoryLinksUtils.java",
+    ],
+    deps = [
+        ":build_request_options",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:symlink_definition",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
     name = "buildtool",
     srcs = glob(
         ["*.java"],
@@ -145,7 +168,9 @@ java_library(
             "BuildRequest.java",
             "BuildResult.java",
             "CommandPrecompleteEvent.java",
+            "ConfigSymlink.java",
             "ExecutionProgressReceiver.java",
+            "OutputDirectoryLinksUtils.java",
             "SymlinkForest.java",
         ],
     ),
@@ -154,6 +179,7 @@ java_library(
         ":build_request_options",
         ":build_result",
         ":execution_progress_receiver",
+        ":output_directory_links_utils",
         ":symlink_forest",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_execution_status_reporter",
@@ -168,7 +194,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_result",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_view",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
@@ -191,7 +216,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_defined_config_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:symlink_definition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:baseline_options_value",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bugreport",

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
@@ -42,6 +43,8 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -52,6 +55,7 @@ import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.BytesValue;
 import com.google.protobuf.StringValue;
+import java.io.FileDescriptor;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
@@ -74,7 +78,10 @@ public class BlazeRuntimeTest {
       OptionsParser.builder()
           .optionsClasses(
               ImmutableList.of(
-                  CommonCommandOptions.class, KeepStateAfterBuildOption.class, ClientOptions.class))
+                  CommonCommandOptions.class,
+                  KeepStateAfterBuildOption.class,
+                  ClientOptions.class,
+                  BuildRequestOptions.class))
           .build();
   private final Thread commandThread = mock(Thread.class);
   private final AtomicReference<String> shutdownReason = new AtomicReference<>();
@@ -377,17 +384,205 @@ public class BlazeRuntimeTest {
     assertThat(runtime.getOptionsSuppliers()).containsAtLeast(module, service);
   }
 
+  @Test
+  public void deleteOutputBase_doesNotDeleteWhenWorkspaceIsNull() throws Exception {
+    Path outputBase = blazeDirectories.getOutputBase();
+    outputBase.createDirectoryAndParents();
+    Path dummyFile = outputBase.getChild("dummy.txt");
+    FileSystemUtils.writeIsoLatin1(dummyFile, "content");
+
+    BlazeRuntime uninitializedRuntime = createRuntime();
+    assertThat(uninitializedRuntime.getWorkspace()).isNull();
+
+    uninitializedRuntime.deleteOutputBase();
+
+    assertThat(outputBase.exists()).isTrue();
+    assertThat(dummyFile.exists()).isTrue();
+  }
+
+  @Test
+  public void deleteOutputBase_deletesDirectoryAndContents() throws Exception {
+    Path outputBase = blazeDirectories.getOutputBase();
+    outputBase.createDirectoryAndParents();
+    Path dummyFile = outputBase.getChild("dummy.txt");
+    FileSystemUtils.writeIsoLatin1(dummyFile, "content");
+    Path subDir = outputBase.getChild("subdir");
+    subDir.createDirectoryAndParents();
+    FileSystemUtils.writeIsoLatin1(subDir.getChild("nested.txt"), "nested");
+
+    BlazeRuntime runtime = createRuntime();
+    runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
+
+    runtime.deleteOutputBase();
+
+    assertThat(outputBase.exists()).isFalse();
+  }
+
+  @Test
+  public void deleteOutputBase_removesDefaultConvenienceSymlinksWhenCommandRanWithoutOption()
+      throws Exception {
+    Path workspaceDir = blazeDirectories.getWorkspace();
+    workspaceDir.createDirectoryAndParents();
+    Path outputBase = blazeDirectories.getOutputBase();
+    outputBase.createDirectoryAndParents();
+    FileSystemUtils.writeIsoLatin1(outputBase.getChild("dummy.txt"), "content");
+
+    BlazeRuntime runtime = createRuntime();
+    CommandEnvironment env = createCommandEnvironment(runtime);
+    runtime.beforeCommand(env, optionsParser.getOptions(CommonCommandOptions.class));
+
+    Path symlink = workspaceDir.getChild(runtime.getProductName() + "-bin");
+    symlink.createSymbolicLink(outputBase);
+    assertThat(symlink.isSymbolicLink()).isTrue();
+
+    runtime.deleteOutputBase();
+
+    assertThat(outputBase.exists()).isFalse();
+    assertThat(symlink.exists(Symlinks.NOFOLLOW)).isFalse();
+  }
+
+  @Test
+  public void deleteOutputBase_removesCustomConvenienceSymlinksFromLastCommand() throws Exception {
+    Path workspaceDir = blazeDirectories.getWorkspace();
+    workspaceDir.createDirectoryAndParents();
+    Path outputBase = blazeDirectories.getOutputBase();
+    outputBase.createDirectoryAndParents();
+    FileSystemUtils.writeIsoLatin1(outputBase.getChild("dummy.txt"), "content");
+
+    BlazeRuntime runtime = createRuntime();
+    BlazeWorkspace workspace =
+        runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
+    optionsParser.parse("--symlink_prefix=custom-");
+    CommandEnvironment buildEnv = createCommandEnvironment(runtime, workspace);
+    runtime.beforeCommand(buildEnv, optionsParser.getOptions(CommonCommandOptions.class));
+
+    // Simulate a subsequent non-build command (e.g. 'shutdown' or 'version') whose options do not
+    // include BuildRequestOptions.
+    OptionsParser nonBuildParser =
+        OptionsParser.builder()
+            .optionsClasses(
+                ImmutableList.of(
+                    CommonCommandOptions.class,
+                    KeepStateAfterBuildOption.class,
+                    ClientOptions.class))
+            .build();
+    CommandEnvironment shutdownEnv = createCommandEnvironment(runtime, workspace, nonBuildParser);
+    runtime.beforeCommand(shutdownEnv, nonBuildParser.getOptions(CommonCommandOptions.class));
+
+    Path customSymlink = workspaceDir.getChild("custom-bin");
+    customSymlink.createSymbolicLink(outputBase);
+    assertThat(customSymlink.isSymbolicLink()).isTrue();
+
+    runtime.deleteOutputBase();
+
+    assertThat(outputBase.exists()).isFalse();
+    assertThat(customSymlink.exists(Symlinks.NOFOLLOW)).isFalse();
+  }
+
+  @Test
+  public void deleteOutputBase_doesNotRemoveConvenienceSymlinksWhenNoCommandRan() throws Exception {
+    Path workspaceDir = blazeDirectories.getWorkspace();
+    workspaceDir.createDirectoryAndParents();
+    Path outputBase = blazeDirectories.getOutputBase();
+    outputBase.createDirectoryAndParents();
+    FileSystemUtils.writeIsoLatin1(outputBase.getChild("dummy.txt"), "content");
+
+    BlazeRuntime runtime = createRuntime();
+    runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
+
+    Path symlink = workspaceDir.getChild(runtime.getProductName() + "-bin");
+    symlink.createSymbolicLink(outputBase);
+    assertThat(symlink.isSymbolicLink()).isTrue();
+
+    runtime.deleteOutputBase();
+
+    assertThat(outputBase.exists()).isFalse();
+    assertThat(symlink.isSymbolicLink()).isTrue();
+  }
+
+  @Test
+  public void deleteOutputBase_deletesReadOnlySubdirectory() throws Exception {
+    Path outputBase = blazeDirectories.getOutputBase();
+    Path subDir = outputBase.getChild("readonly");
+    subDir.createDirectoryAndParents();
+    FileSystemUtils.writeIsoLatin1(subDir.getChild("file.txt"), "content");
+    subDir.setWritable(false);
+
+    BlazeRuntime runtime = createRuntime();
+    runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
+
+    runtime.deleteOutputBase();
+
+    assertThat(outputBase.exists()).isFalse();
+  }
+
+  @Test
+  public void deleteOutputBase_refusesToDeleteRootDirectory() throws Exception {
+    Path rootDir = fs.getPath("/");
+    ServerDirectories rootServerDirs =
+        new ServerDirectories(fs.getPath("/install"), rootDir, fs.getPath("/output_user"));
+    BlazeDirectories rootBlazeDirs =
+        new BlazeDirectories(rootServerDirs, fs.getPath("/workspace"), "blaze");
+    BlazeRuntime rootRuntime = createRuntime(rootServerDirs);
+    rootRuntime.initWorkspace(rootBlazeDirs, BinTools.empty(rootBlazeDirs));
+
+    rootRuntime.deleteOutputBase();
+
+    assertThat(rootDir.exists()).isTrue();
+  }
+
+  @Test
+  public void deleteOutputBase_handlesLongAndHyphenatedBasename() throws Exception {
+    String longHyphenatedName = "-" + "a".repeat(150);
+    Path longOb = fs.getPath("/output_user/" + longHyphenatedName);
+    longOb.createDirectoryAndParents();
+    FileSystemUtils.writeIsoLatin1(longOb.getChild("dummy.txt"), "content");
+
+    ServerDirectories longServerDirs =
+        new ServerDirectories(fs.getPath("/install"), longOb, fs.getPath("/output_user"));
+    BlazeDirectories longBlazeDirs =
+        new BlazeDirectories(longServerDirs, fs.getPath("/workspace"), "blaze");
+    BlazeRuntime longRuntime = createRuntime(longServerDirs);
+    longRuntime.initWorkspace(longBlazeDirs, BinTools.empty(longBlazeDirs));
+
+    longRuntime.deleteOutputBase();
+
+    assertThat(longOb.exists()).isFalse();
+  }
+
+  @Test
+  public void deleteOutputBase_doesNotCloseStandardOutputInTest() throws Exception {
+    Path outputBase = blazeDirectories.getOutputBase();
+    outputBase.createDirectoryAndParents();
+    BlazeRuntime runtime = createRuntime();
+    runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
+
+    assertThat(FileDescriptor.out.valid()).isTrue();
+    runtime.deleteOutputBase();
+    assertThat(FileDescriptor.out.valid()).isTrue();
+  }
+
   private BlazeRuntime createRuntime() throws Exception {
     return createRuntime(ImmutableList.of(), ImmutableList.of());
   }
 
+  private BlazeRuntime createRuntime(ServerDirectories directories) throws Exception {
+    return createRuntime(directories, ImmutableList.of(), ImmutableList.of());
+  }
+
   private BlazeRuntime createRuntime(Iterable<BlazeModule> modules, Iterable<BlazeService> services)
+      throws Exception {
+    return createRuntime(serverDirectories, modules, services);
+  }
+
+  private BlazeRuntime createRuntime(
+      ServerDirectories directories, Iterable<BlazeModule> modules, Iterable<BlazeService> services)
       throws Exception {
     var builder =
         new BlazeRuntime.Builder()
             .setFileSystem(fs)
             .setProductName("foo product")
-            .setServerDirectories(serverDirectories)
+            .setServerDirectories(directories)
             .setStartupOptionsProvider(mock(OptionsParsingResult.class))
             .addBlazeService(new CompressionServiceImpl());
     for (var module : modules) {
@@ -407,13 +602,18 @@ public class BlazeRuntimeTest {
 
   private CommandEnvironment createCommandEnvironment(
       BlazeRuntime runtime, BlazeWorkspace workspace) {
+    return createCommandEnvironment(runtime, workspace, optionsParser);
+  }
+
+  private CommandEnvironment createCommandEnvironment(
+      BlazeRuntime runtime, BlazeWorkspace workspace, OptionsParsingResult options) {
     return new CommandEnvironment(
         runtime,
         workspace,
         mock(EventBus.class),
         commandThread,
         VersionCommand.class.getAnnotation(Command.class),
-        optionsParser,
+        options,
         InvocationPolicy.getDefaultInstance(),
         /* packageLocator= */ null,
         SyscallCache.NO_CACHE,
