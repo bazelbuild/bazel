@@ -458,6 +458,57 @@ class BazelLockfileTest(test_base.TestBase):
         'error parsing MODULE.bazel file for rrr@1.0', '\n'.join(stderr)
     )
 
+  def testWatchedRegistryIsCombinedWithRegistrySetByInvocationPolicy(self):
+    local_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'local')
+    )
+    local_registry.createShModule('rrr', '1.0')
+    overridden_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'overridden')
+    )
+    overridden_registry.createShModule('rrr', '1.0')
+    scratchFile(
+        overridden_registry.root.joinpath(
+            'modules', 'rrr', '1.0', 'MODULE.bazel'
+        ),
+        ['whatever!'],
+    )
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rrr", version = "1.0")']
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    policy = (
+        'flag_policies { flag_name: "registry" set_value { %s'
+        ' behavior: FINAL_VALUE_IGNORE_OVERRIDES } }'
+        % ' '.join(
+            'flag_value: "%s"' % url
+            for url in [self.main_registry.getURL(), 'https://bcr.bazel.build']
+        )
+    )
+    # The policy drops the --registry below, which would otherwise be looked up
+    # first and fail to parse.
+    command = [
+        '--invocation_policy=' + policy,
+        'build',
+        '--nobuild',
+        '--registry=' + overridden_registry.getLocalURL(),
+        '--watched_registry=' + local_registry.getLocalURL(),
+        '//:all',
+    ]
+    self.RunBazel(command)
+    # Run again so that the lockfile is unchanged by the next invocation, which
+    # would otherwise invalidate the registry on its own.
+    self.RunBazel(command)
+
+    module_dir = local_registry.root.joinpath('modules', 'rrr', '1.0')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    exit_code, _, stderr = self.RunBazel(command, allow_failure=True)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'error parsing MODULE.bazel file for rrr@1.0', '\n'.join(stderr)
+    )
+
   def testChangeModuleFileInUnwatchedLocalRegistryIsIgnoredUntilShutdown(self):
     local_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'local')

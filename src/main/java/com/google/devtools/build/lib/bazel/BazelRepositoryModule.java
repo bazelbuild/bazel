@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
@@ -120,6 +121,7 @@ import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -700,13 +702,15 @@ public class BazelRepositoryModule extends BlazeModule {
 
   /**
    * Returns the values of {@code --registry} and {@code --watched_registry} in the order they were
-   * specified, since a watched registry is also a registry.
+   * specified, since a watched registry is also a registry. The canonical instances reflect the
+   * invocation policy, unlike the list of options as originally parsed.
    */
   private static ImmutableList<String> getRegistryUrlsInOrder(OptionsParsingResult options) {
-    return options.asCompleteListOfParsedOptions().stream()
-        .filter(
-            option ->
-                REGISTRY_OPTION_NAMES.contains(option.getOptionDefinition().getOptionName()))
+    return REGISTRY_OPTION_NAMES.stream()
+        .map(options::getOptionValueDescription)
+        .filter(Objects::nonNull)
+        .flatMap(value -> value.getCanonicalInstances().stream())
+        .sorted(comparing(ParsedOptionDescription::getPriority))
         .map(ParsedOptionDescription::getUnconvertedValue)
         .collect(toImmutableList());
   }
