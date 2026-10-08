@@ -4055,6 +4055,120 @@ public class ParallelEvaluatorTest {
     assertThat(key1EvaluationCount.get()).isEqualTo(3);
   }
 
+  @Test
+  public void partialReevaluationUnhandledError() throws InterruptedException {
+    // This test illustrates how the partial reevaluation implementation handles the case in which a
+    // SkyFunction doesn't handle the error of a dep during a keep_going build: as with any other
+    // SkyFunction, the error is propagated to the node once no dep is left to signal it.
+
+    // Graph structure:
+    // * key1 depends on key2
+
+    var key1 = new PartialReevaluationKey("key1");
+    var key2 = new PartialReevaluationKey("key2");
+    var key1EvaluationCount = new AtomicInteger();
+    SkyFunction f =
+        (skyKey, env) -> {
+          var mail =
+              PartialReevaluationMailbox.from(
+                      env.getState(ClassToInstanceMapSkyKeyComputeState::new))
+                  .getMail();
+          if (skyKey.equals(key1)) {
+            int c = key1EvaluationCount.incrementAndGet();
+            var result = env.getValuesAndExceptions(ImmutableList.of(key2));
+            if (c == 1) {
+              assertThat(mail.kind()).isEqualTo(Kind.FRESHLY_INITIALIZED);
+              assertThat(result.get(key2)).isNull();
+              return null;
+            }
+            assertThat(c).isEqualTo(2);
+            assertThat(mail.kind()).isEqualTo(Kind.CAUSES);
+            assertThat(mail.causes().signaledDeps()).containsExactly(key2);
+            if (useQueryDep) {
+              assertThat(result.queryDep(key2, (k, v) -> fail())).isFalse();
+            } else {
+              assertThat(result.get(key2)).isNull();
+            }
+            return null;
+          }
+          assertThat(skyKey).isEqualTo(key2);
+          throw new SkyFunctionExceptionForTest("key2");
+        };
+    tester.putSkyFunction(PartialReevaluationKey.FUNCTION_NAME, f);
+    graph = new InMemoryGraphImpl();
+    EvaluationResult<SkyValue> result = eval(/* keepGoing= */ true, ImmutableList.of(key1));
+    assertThat(result.getError(key1).getException()).isInstanceOf(SomeErrorException.class);
+    assertThat(result.getError(key1).getException()).hasMessageThat().isEqualTo("key2");
+    assertThat(key1EvaluationCount.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void partialReevaluationUnhandledErrorButNotAllDeps() throws InterruptedException {
+    // This test illustrates how the partial reevaluation implementation handles the case in which a
+    // SkyFunction doesn't handle the error of a dep during a keep_going build while another dep has
+    // yet to signal it: since the dep in error won't signal the node again, the next evaluation
+    // starts from scratch so that the SkyFunction observes the error again.
+
+    // Graph structure:
+    // * key1 depends on key2 and key3
+
+    // Evaluation behavior:
+    // * key3 will not finish evaluating until key1 has been restarted with the error of key2
+    // * key1 only requests the deps that signaled it during partial reevaluations
+
+    var key1 = new PartialReevaluationKey("key1");
+    var key2 = new PartialReevaluationKey("key2");
+    var key3 = new PartialReevaluationKey("key3");
+    var key1EvaluationCount = new AtomicInteger();
+    var key1ObservesTheErrorOfKey2 = new CountDownLatch(1);
+    SkyFunction f =
+        (skyKey, env) -> {
+          var mail =
+              PartialReevaluationMailbox.from(
+                      env.getState(ClassToInstanceMapSkyKeyComputeState::new))
+                  .getMail();
+          if (skyKey.equals(key1)) {
+            int c = key1EvaluationCount.incrementAndGet();
+            if (c == 2) {
+              assertThat(mail.kind()).isEqualTo(Kind.CAUSES);
+              assertThat(mail.causes().signaledDeps()).containsExactly(key2);
+              assertThat(env.getValue(key2)).isNull();
+              key1ObservesTheErrorOfKey2.countDown();
+              return null;
+            }
+            assertThat(mail.kind()).isEqualTo(Kind.FRESHLY_INITIALIZED);
+            var result = env.getValuesAndExceptions(ImmutableList.of(key2, key3));
+            assertThat(result.get(key2)).isNull();
+            if (c == 1) {
+              assertThat(result.get(key3)).isNull();
+              return null;
+            }
+            assertThat(c).isEqualTo(3);
+            assertThat(result.get(key3)).isEqualTo(StringValue.of("val3"));
+            return null;
+          }
+          if (skyKey.equals(key2)) {
+            throw new SkyFunctionExceptionForTest("key2");
+          }
+          assertThat(skyKey).isEqualTo(key3);
+          assertThat(
+                  key1ObservesTheErrorOfKey2.await(
+                      TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+              .isTrue();
+          return StringValue.of("val3");
+        };
+    tester.putSkyFunction(PartialReevaluationKey.FUNCTION_NAME, f);
+    graph = new InMemoryGraphImpl();
+    EvaluationResult<SkyValue> result = eval(/* keepGoing= */ true, ImmutableList.of(key1));
+    assertThat(result.getError(key1).getException()).isInstanceOf(SomeErrorException.class);
+    assertThat(result.getError(key1).getException()).hasMessageThat().isEqualTo("key2");
+
+    // key3's signal to key1 races with key1's readiness check after observing the error of key2
+    // during partial reevaluation 2. If the signal wins, then key1 completes with the error right
+    // away. If the signal loses, then key1 evaluates once more from scratch.
+    assertThat(key1EvaluationCount.get()).isIn(ImmutableList.of(2, 3));
+  }
+
   // Regression test for b/225877591 ("Unexpected missing value in PrepareDepsOfPatternsFunction
   // when there's both a dep with a cached cycle and another dep with an error").
   @Test
