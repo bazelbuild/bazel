@@ -65,6 +65,13 @@ function test_server_pid() {
   expect_log '[0-9]*'
 }
 
+function test_external_directory() {
+  bazel info external_directory >$TEST_log \
+    || fail "${PRODUCT_NAME} info failed"
+  local -r output_base="$(bazel info output_base 2>/dev/null)"
+  expect_log "^${output_base}/external\$"
+}
+
 function test_used_heap_size_after_gc() {
   bazel info used-heap-size-after-gc >$TEST_log \
     || fail "${PRODUCT_NAME} info failed"
