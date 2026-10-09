@@ -20,7 +20,9 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -134,6 +136,25 @@ public final class SandboxOptionsTest {
         .hasMessageThat()
         .isEqualTo(
             "While parsing option --sandbox_block_path=foo/bar: Not an absolute path: 'foo/bar'");
+  }
+
+  @Test
+  public void sandboxBackendFlags_parseNameValuePairsInOrder() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(SandboxOptions.class).build();
+    parser.parse(
+        "--sandbox_backend=fskit=/opt/sb",
+        "--sandbox_backend=cfs=/opt/sb2",
+        "--sandbox_backend_opt=fskit=backend=fskit", // value keeps everything after the first '='
+        "--sandbox_backend_opt=fskit=cache_dir=/x");
+    SandboxOptions options = parser.getOptions(SandboxOptions.class);
+
+    assertThat(options.getSandboxBackends())
+        .containsExactly(Map.entry("fskit", "/opt/sb"), Map.entry("cfs", "/opt/sb2"))
+        .inOrder();
+    assertThat(options.getSandboxBackendOpts())
+        .containsExactly(
+            Map.entry("fskit", "backend=fskit"), Map.entry("fskit", "cache_dir=/x"))
+        .inOrder();
   }
 
   private static void assertMountPair(
