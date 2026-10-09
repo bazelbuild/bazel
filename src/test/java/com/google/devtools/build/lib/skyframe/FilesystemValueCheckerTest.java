@@ -677,6 +677,49 @@ public final class FilesystemValueCheckerTest {
   }
 
   @Test
+  public void testTouchedLoadingPhaseFilesNotDirty() throws Exception {
+    var checker =
+        new FilesystemValueChecker(
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST);
+
+    var buildFile = fs.getPath("/pkg/BUILD");
+    var bzlFile = fs.getPath("/pkg/defs.bzl");
+    buildFile.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(buildFile, "filegroup(name = 'foo')");
+    FileSystemUtils.writeContentAsLatin1(bzlFile, "X = 1");
+
+    var buildKey =
+        FileStateValue.key(RootedPath.toRootedPath(Root.absoluteRoot(fs), buildFile.asFragment()));
+    var bzlKey =
+        FileStateValue.key(RootedPath.toRootedPath(Root.absoluteRoot(fs), bzlFile.asFragment()));
+    var skyKeys = ImmutableList.<SkyKey>of(buildKey, bzlKey);
+    var result = evaluator.evaluate(skyKeys, EVALUATION_OPTIONS);
+    assertThat(result.hasError()).isFalse();
+    assertThat(((FileStateValue) result.get(buildKey)).getDigest()).isNotNull();
+    assertThat(((FileStateValue) result.get(bzlKey)).getDigest()).isNotNull();
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
+
+    // Touching the files updates their ctime and mtime, but not their contents.
+    fs.advanceClockMillis(1);
+    buildFile.setLastModifiedTime(42);
+    bzlFile.setLastModifiedTime(42);
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
+
+    // Neither does rewriting the same contents.
+    fs.advanceClockMillis(1);
+    FileSystemUtils.writeContentAsLatin1(bzlFile, "X = 1");
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
+
+    // Changing the contents while keeping the size does.
+    fs.advanceClockMillis(1);
+    FileSystemUtils.writeContentAsLatin1(buildFile, "filegroup(name = 'bar')");
+    assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), buildKey);
+  }
+
+  @Test
   public void testFileWithIOExceptionNotConsideredDirty() throws Exception {
     Path path = fs.getPath("/testroot/foo");
     path.getParentDirectory().createDirectory();
