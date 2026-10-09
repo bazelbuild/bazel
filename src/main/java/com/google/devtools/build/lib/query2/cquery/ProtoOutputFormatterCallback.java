@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -362,7 +363,13 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         if (!shouldIncludeAttribute(rule, attr)) {
           continue;
         }
-        Object attributeValue = attributeMapper.get(attr.getName(), attr.getType());
+        Object attributeValue;
+        try {
+          attributeValue = attributeMapper.getAndValidate(attr.getName(), attr.getType());
+        } catch (ValidationException e) {
+          // Incompatible targets skip analysis, so their selects may not match this configuration.
+          continue;
+        }
         Build.Attribute serializedAttribute =
             AttributeFormatter.getAttributeProto(
                 attr,
