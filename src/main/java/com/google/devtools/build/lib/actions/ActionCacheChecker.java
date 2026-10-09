@@ -187,6 +187,7 @@ public class ActionCacheChecker {
    * @param actionInputs the action inputs; usually action.getInputs(), but might be a previously
    *     cached set of discovered inputs for actions that discover them.
    * @param outputMetadataStore metadata provider for action outputs.
+   * @param mandatoryInputsDigest the digest of mandatory inputs for split cache checking, or null.
    * @param cachedOutputMetadata cached metadata that should be used instead of {@code
    *     outputMetadataStore}.
    * @param outputChecker used to check whether remote metadata should be trusted.
@@ -204,6 +205,7 @@ public class ActionCacheChecker {
       NestedSet<Artifact> actionInputs,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
+      @Nullable byte[] mandatoryInputsDigest,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
       @Nullable OutputChecker outputChecker,
       ImmutableMap<String, String> effectiveEnvironment,
@@ -219,6 +221,9 @@ public class ActionCacheChecker {
             actionExecutionSalt,
             outputPermissions,
             useArchivedTreeArtifacts);
+    if (mandatoryInputsDigest != null) {
+      builder.setMandatoryInputsDigest(mandatoryInputsDigest);
+    }
 
     for (Artifact artifact : action.getOutputs()) {
       if (artifact.isTreeArtifact()) {
@@ -245,9 +250,17 @@ public class ActionCacheChecker {
         }
       }
     }
+    ImmutableSet<Artifact> mandatoryInputs =
+        mandatoryInputsDigest != null ? action.getMandatoryInputs().toSet() : ImmutableSet.of();
     for (Artifact artifact : actionInputs.toList()) {
-      FileArtifactValue inputMetadata = getInputMetadataMaybe(inputMetadataProvider, artifact);
-      builder.addInputFile(artifact, inputMetadata);
+      FileArtifactValue inputMetadata =
+          MandatoryInputsDigestUtils.getInputMetadataMaybe(inputMetadataProvider, artifact);
+      builder.addInputFile(
+          artifact,
+          inputMetadata,
+          /* saveExecPath= */ false,
+          /* includeInDigest= */ mandatoryInputsDigest == null
+              || !mandatoryInputs.contains(artifact));
     }
     // Stash the input digest for reuse when the entry is written after execution. Actions that
     // discover inputs are excluded: their input set may still grow during execution, and their
@@ -475,6 +488,7 @@ public class ActionCacheChecker {
   public Token getTokenIfNeedToExecute(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -534,6 +548,7 @@ public class ActionCacheChecker {
         clientEnv,
         outputPermissions,
         actionExecutionSalt,
+        mandatoryInputsDigest,
         cachedOutputMetadata,
         outputChecker,
         useArchivedTreeArtifacts)) {
@@ -568,6 +583,7 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       String actionExecutionSalt,
+      @Nullable byte[] mandatoryInputsDigest,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
       @Nullable OutputChecker outputChecker,
       boolean useArchivedTreeArtifacts)
@@ -605,6 +621,7 @@ public class ActionCacheChecker {
         actionInputs,
         inputMetadataProvider,
         outputMetadataStore,
+        mandatoryInputsDigest,
         cachedOutputMetadata,
         outputChecker,
         effectiveEnvironment,
@@ -620,14 +637,6 @@ public class ActionCacheChecker {
     return false;
   }
 
-  private static FileArtifactValue getInputMetadataOrConstant(
-      InputMetadataProvider inputMetadataProvider, Artifact artifact) throws IOException {
-    FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(artifact);
-    return (metadata != null && artifact.isConstantMetadata())
-        ? FileArtifactValue.ConstantMetadataValue.INSTANCE
-        : metadata;
-  }
-
   private static FileArtifactValue getOutputMetadataOrConstant(
       OutputMetadataStore outputMetadataStore, Artifact artifact)
       throws IOException, InterruptedException {
@@ -635,19 +644,6 @@ public class ActionCacheChecker {
     return (metadata != null && artifact.isConstantMetadata())
         ? FileArtifactValue.ConstantMetadataValue.INSTANCE
         : metadata;
-  }
-
-  // TODO(ulfjack): It's unclear to me why we're ignoring all IOExceptions. In some cases, we want
-  // to trigger a re-execution, so we should catch the IOException explicitly there. In others, we
-  // should propagate the exception, because it is unexpected (e.g., bad file system state).
-  @Nullable
-  private static FileArtifactValue getInputMetadataMaybe(
-      InputMetadataProvider inputMetadataProvider, Artifact artifact) {
-    try {
-      return getInputMetadataOrConstant(inputMetadataProvider, artifact);
-    } catch (IOException e) {
-      return null;
-    }
   }
 
   // TODO(ulfjack): It's unclear to me why we're ignoring all IOExceptions. In some cases, we want
@@ -683,7 +679,8 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       String actionExecutionSalt,
-      boolean useArchivedTreeArtifacts)
+      boolean useArchivedTreeArtifacts,
+      @Nullable byte[] mandatoryInputsDigest)
       throws IOException, InterruptedException {
     checkState(cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
     Preconditions.checkArgument(token != null, "token unexpectedly null, action: %s", action);
@@ -712,6 +709,9 @@ public class ActionCacheChecker {
                 outputPermissions,
                 useArchivedTreeArtifacts)
             .setPrunedInputs(action.prunedInputs());
+    if (mandatoryInputsDigest != null) {
+      builder.setMandatoryInputsDigest(mandatoryInputsDigest);
+    }
 
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
@@ -740,20 +740,36 @@ public class ActionCacheChecker {
     if (!action.discoversInputs() && tokenInputDigest != null) {
       builder.setInputDigest(tokenInputDigest);
     } else {
-      ImmutableSet<Artifact> excludePathsFromActionCache =
-          action.discoversInputs() && !action.prunedInputs()
+      boolean excludeMandatoryPaths = action.discoversInputs() && !action.prunedInputs();
+      ImmutableSet<Artifact> mandatoryInputs =
+          mandatoryInputsDigest != null || excludeMandatoryPaths
               ? action.getMandatoryInputs().toSet()
               : ImmutableSet.of();
 
       for (Artifact input : action.getInputs().toList()) {
+        boolean isMandatory = mandatoryInputs.contains(input);
         builder.addInputFile(
             input,
-            getInputMetadataMaybe(inputMetadataProvider, input),
-            /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
+            MandatoryInputsDigestUtils.getInputMetadataMaybe(inputMetadataProvider, input),
+            /* saveExecPath= */ !excludeMandatoryPaths || !isMandatory,
+            /* includeInDigest= */ mandatoryInputsDigest == null || !isMandatory);
       }
     }
 
     actionCache.put(key, builder.build());
+  }
+
+  public boolean mandatoryInputsMatch(Action action, byte[] mandatoryInputsDigest) {
+    checkArgument(action.discoversInputs());
+    ActionCache.Entry entry = getCacheEntry(action);
+    return entry != null
+        && !entry.isCorrupted()
+        && entry.getMandatoryInputsDigest() != null
+        && Arrays.equals(entry.getMandatoryInputsDigest(), mandatoryInputsDigest);
+  }
+
+  public boolean useSplitMandatoryInputsActionCacheCheck(Action action) {
+    return action.usesSplitMandatoryInputsActionCacheCheck();
   }
 
   @Nullable
@@ -829,6 +845,7 @@ public class ActionCacheChecker {
   public Token getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -844,6 +861,7 @@ public class ActionCacheChecker {
     return getTokenIfNeedToExecute(
         action,
         resolvedCacheArtifacts,
+        mandatoryInputsDigest,
         clientEnv,
         outputPermissions,
         handler,
@@ -929,5 +947,4 @@ public class ActionCacheChecker {
       this.inputDigest = inputDigest;
     }
   }
-
 }
