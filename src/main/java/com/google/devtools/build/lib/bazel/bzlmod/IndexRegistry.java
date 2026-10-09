@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -421,22 +420,26 @@ public class IndexRegistry implements Registry {
     return bazelRegistryJson;
   }
 
-  /** Returns the local directory of a {@code file://} registry URL. */
-  public static String getLocalRegistryPath(URI uri) throws URISyntaxException {
-    return getLocalRegistryPath(uri, OS.getCurrent());
-  }
-
-  @VisibleForTesting
-  static String getLocalRegistryPath(URI uri, OS os) throws URISyntaxException {
-    if (uri.getPath() == null || uri.getPath().isEmpty() || !uri.getPath().startsWith("/")) {
+  /**
+   * Returns the local directory of a {@code file://} registry URL.
+   *
+   * @throws URISyntaxException if the URL does not have an absolute path
+   */
+  public static PathFragment getLocalRegistryPath(URI uri) throws URISyntaxException {
+    String path = Strings.nullToEmpty(uri.getPath());
+    // Unix:    file:///tmp --> /tmp
+    // Windows: file:///C:/tmp --> C:/tmp
+    if (OS.getCurrent() == OS.WINDOWS && path.startsWith("/")) {
+      path = path.substring(1);
+    }
+    PathFragment localPath = PathFragment.create(path);
+    if (!localPath.isAbsolute()) {
       throw new URISyntaxException(
           uri.toString(),
           "Local registry URL must have an absolute path -- did you mean to use file:///foo/bar"
               + " or file:///c:/foo/bar for Windows?");
     }
-    // Unix:    file:///tmp --> /tmp
-    // Windows: file:///C:/tmp --> C:/tmp
-    return uri.getPath().substring(os == OS.WINDOWS ? 1 : 0);
+    return localPath;
   }
 
   private RepoSpec createLocalPathRepoSpec(
@@ -449,7 +452,7 @@ public class IndexRegistry implements Registry {
       if (!PathFragment.isAbsolute(moduleBase)) {
         if (uri.getScheme().equals("file")) {
           try {
-            path = getLocalRegistryPath(uri) + "/" + path;
+            path = getLocalRegistryPath(uri).getPathString() + "/" + path;
           } catch (URISyntaxException e) {
             throw new IOException(
                 String.format(

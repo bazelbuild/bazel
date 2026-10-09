@@ -38,46 +38,11 @@ public class RegistryFunctionTest {
   }
 
   @Test
-  public void getWatchedRegistryPath_windowsDriveLetter() throws Exception {
-    assumeTrue(OS.getCurrent() == OS.WINDOWS);
-    assertThat(RegistryFunction.getWatchedRegistryPath("file:///C:/path/to/registry"))
-        .isEqualTo(PathFragment.create("C:/path/to/registry"));
-  }
-
-  @Test
-  public void getWatchedRegistryPath_windowsRejectsDriveLetterAsHost() {
-    assumeTrue(OS.getCurrent() == OS.WINDOWS);
-    var e =
-        assertThrows(
-            URISyntaxException.class,
-            () -> RegistryFunction.getWatchedRegistryPath("file://C:/path/to/registry"));
-    assertThat(e).hasMessageThat().contains("must have an absolute path");
-  }
-
-  @Test
   public void getWatchedRegistryPath_rejectsNonFileScheme() {
     var e =
         assertThrows(
             URISyntaxException.class,
             () -> RegistryFunction.getWatchedRegistryPath("https://bcr.bazel.build"));
     assertThat(e).hasMessageThat().contains("Only file:// registries can be watched");
-  }
-
-  @Test
-  public void getWatchedRegistryPath_rejectsRelativePath() {
-    var e =
-        assertThrows(
-            URISyntaxException.class,
-            () -> RegistryFunction.getWatchedRegistryPath("file:relative/registry"));
-    assertThat(e).hasMessageThat().contains("must have an absolute path");
-  }
-
-  @Test
-  public void getWatchedRegistryPath_rejectsEmptyPath() {
-    var e =
-        assertThrows(
-            URISyntaxException.class,
-            () -> RegistryFunction.getWatchedRegistryPath("file://server"));
-    assertThat(e).hasMessageThat().contains("must have an absolute path");
   }
 }
