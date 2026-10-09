@@ -773,6 +773,19 @@ public class RunCommand implements BlazeCommand {
             env.getSkyframeExecutor()
                 .getActionGraph(env.getReporter())
                 .getGeneratingAction(Iterables.getOnlyElement(statusArtifacts));
+    if (testAction.getUnrunnableReason() != null) {
+      // Fail just like executing the test action with `bazel test` would.
+      env.getReporter().handle(Event.error(testAction.getUnrunnableReason()));
+      throw new RunCommandException(
+          BlazeCommandResult.failureDetail(
+              FailureDetail.newBuilder()
+                  .setMessage(testAction.getUnrunnableReason())
+                  .setToolchain(
+                      FailureDetails.Toolchain.newBuilder()
+                          .setCode(FailureDetails.Toolchain.Code.NO_MATCHING_TOOLCHAIN))
+                  .build()),
+          builtTargets.stopTime);
+    }
     TestTargetExecutionSettings settings = testAction.getExecutionSettings();
     // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
     Preconditions.checkState(
