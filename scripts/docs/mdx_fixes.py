@@ -99,6 +99,11 @@ _SELF_CLOSING_TAG_SUB = (
     r"<\1\2/>",
     re.compile(r"<(img|hr|col|br)\b([^>]*?)(/?)>"),
 )
+# ```--output package``` -> fenced block with the content on its own line
+_SINGLE_LINE_FENCE_SUB = (
+    r"\1```\n\1\2\n\1```",
+    re.compile(r"^([ \t]*)```([^`\n]+)```[ \t]*$", re.MULTILINE),
+)
 _CLOSING_BR_SUB = ("", re.compile(r"</br>"))
 _ORPHAN_CLOSING_P_SUB = ("", re.compile(r"\n\n</p>(?=\n+```)"))
 _BAD_LINEBREAK_TD_SUB = (
@@ -146,6 +151,7 @@ _SUBS = [
     _ANGLE_BRACKET_LINK_SUB,
     _BAD_COMMENT_SUB,
     _SELF_CLOSING_TAG_SUB,
+    _SINGLE_LINE_FENCE_SUB,
     _CLOSING_BR_SUB,
     _ORPHAN_CLOSING_P_SUB,
     _BAD_LINEBREAK_TD_SUB,
