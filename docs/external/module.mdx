@@ -153,6 +153,30 @@ Note that setting a version value in the source archive `MODULE.bazel` can have
 downsides when the module is being overridden with a non-registry override. To
 learn more about this [see the `MODULE.bazel` FAQ](/external/faq#module-versioning-best-practices).
 
+### Command-line overrides
+
+Some overrides can also be specified on the command line, without editing the
+root module's `MODULE.bazel` file:
+
+*   [`--override_module`](/reference/command-line-reference#flag--override_module)
+    overrides a module that is already in the dependency graph with a local
+    directory, like `local_path_override`.
+*   [`--inject_module`](/reference/command-line-reference#flag--inject_module)
+    adds a new module from a local directory as a dependency of the root
+    module, as if the root module contained a `bazel_dep` together with a
+    `local_path_override`. The module's own `MODULE.bazel` file is honored, so
+    its dependencies, toolchains, and execution platforms are added to the
+    build. This is useful for injecting machine-specific configuration, such as
+    remote execution platforms, into a project you don't want to modify.
+
+Note that these flags may still cause the project's
+[lockfile](/external/lockfile) to change: for example, the registry files of
+any new dependencies they bring in are recorded in `MODULE.bazel.lock`. You may
+also need to pass the flag
+[`--lockfile_mode=update`](/reference/command-line-reference#flag--lockfile_mode).
+With `--lockfile_mode=error`, the build would fail if the changed modules
+require changes to the lockfile.
+
 ## Define repos that don't represent Bazel modules {#use_repo_rule}
 
 With `bazel_dep`, you can define repos that represent other Bazel modules.

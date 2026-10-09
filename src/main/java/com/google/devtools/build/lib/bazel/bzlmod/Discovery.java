@@ -72,7 +72,45 @@ final class Discovery {
           result.depGraph().values().stream().map(InterimModule::getName).collect(toImmutableSet());
       if (discoveryRound.unfulfilledNodepEdgeModuleNames.stream()
           .noneMatch(prevRoundModuleNames::contains)) {
+        checkInjectedModules(result.depGraph(), ModuleFileFunction.INJECTED_MODULES.get(env));
         return result;
+      }
+    }
+  }
+
+  /**
+   * Fails if a module injected via --inject_module is a dependency of any module other than the
+   * root module or another injected module. The injection would otherwise silently override that
+   * dependency, which is what --override_module is for.
+   *
+   * <p>Deps of the root module are already checked by {@link ModuleFileFunction}.
+   *
+   * <p>Nodep deps are deliberately not checked: they don't make the injected module a dependency,
+   * but only constrain its version if it is in the dependency graph for another reason, so
+   * injecting it does add a new module. --override_module wouldn't even add the module in that
+   * case.
+   */
+  private static void checkInjectedModules(
+      ImmutableMap<ModuleKey, InterimModule> depGraph, Map<String, ?> injectedModules)
+      throws ExternalDepsException {
+    if (injectedModules.isEmpty()) {
+      return;
+    }
+    for (InterimModule module : depGraph.values()) {
+      if (module.getKey().equals(ModuleKey.ROOT)
+          || injectedModules.containsKey(module.getName())) {
+        continue;
+      }
+      for (ModuleKey depKey : module.getOriginalDeps().values()) {
+        if (injectedModules.containsKey(depKey.name())) {
+          throw ExternalDepsException.withMessage(
+              FailureDetails.ExternalDeps.Code.BAD_MODULE,
+              "--inject_module cannot inject '%s' as it is already in the dependency graph: '%s'"
+                  + " depends on '%s'; use --override_module to override it instead",
+              depKey.name(),
+              module.getKey(),
+              depKey);
+        }
       }
     }
   }
