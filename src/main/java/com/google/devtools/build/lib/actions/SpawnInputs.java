@@ -20,6 +20,7 @@ import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import java.util.AbstractCollection;
 import java.util.Iterator;
 import java.util.List;
 
@@ -131,17 +132,17 @@ public final class SpawnInputs {
   /**
    * Flattened representation of {@link SpawnInputs} that is ready for iteration.
    *
-   * <p>This iterable may contain duplicate inputs.
+   * <p>This collection may contain duplicate inputs.
    */
-  public static final class FlattenedInputs implements Iterable<ActionInput> {
-    private final List<? extends ActionInput> list1;
-    private final List<? extends ActionInput> list2;
+  public static final class FlattenedInputs extends AbstractCollection<ActionInput> {
+    private final ImmutableList<? extends ActionInput> list1;
+    private final ImmutableList<? extends ActionInput> list2;
     private final Iterable<? extends ActionInput> rest;
     private final int sizeOfRest;
 
     private FlattenedInputs(
-        List<? extends ActionInput> list1,
-        List<? extends ActionInput> list2,
+        ImmutableList<? extends ActionInput> list1,
+        ImmutableList<? extends ActionInput> list2,
         Iterable<? extends ActionInput> rest,
         int sizeOfRest) {
       this.list1 = list1;
@@ -151,11 +152,13 @@ public final class SpawnInputs {
     }
 
     /** Returns the number of inputs. */
+    @Override
     public int size() {
       return list1.size() + list2.size() + sizeOfRest;
     }
 
     /** Returns true if there are no inputs. */
+    @Override
     public boolean isEmpty() {
       return list1.isEmpty() && list2.isEmpty() && sizeOfRest == 0;
     }
@@ -163,6 +166,28 @@ public final class SpawnInputs {
     @Override
     public Iterator<ActionInput> iterator() {
       return Iterators.concat(list1.iterator(), list2.iterator(), rest.iterator());
+    }
+
+    @Override
+    public Object[] toArray() {
+      if (list2.isEmpty() && sizeOfRest == 0) {
+        return list1.toArray();
+      }
+      if (list1.isEmpty() && sizeOfRest == 0) {
+        return list2.toArray();
+      }
+      Object[] result = new Object[size()];
+      list1.toArray(result);
+      int offset = list1.size();
+      for (ActionInput input : list2) {
+        result[offset++] = input;
+      }
+      if (sizeOfRest > 0) {
+        for (ActionInput input : rest) {
+          result[offset++] = input;
+        }
+      }
+      return result;
     }
   }
 }
