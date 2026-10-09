@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -22,10 +21,11 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** The utility class for {@link AqueryCommand} and {@link CqueryCommand} */
@@ -75,12 +75,6 @@ public final class QueryCommandUtils {
    */
   @VisibleForTesting
   public static void resetDeserializedKeysFromRemoteAnalysisCache(CommandEnvironment env) {
-    var evaluator = env.getSkyframeExecutor().getEvaluator();
-    var deserializedKeysToDelete =
-        evaluator.getDoneValues().entrySet().stream()
-            .filter(e -> e.getValue() instanceof DeserializedSkyValue)
-            .map(Map.Entry::getKey)
-            .collect(toImmutableSet());
-    evaluator.delete(deserializedKeysToDelete::contains);
+    env.getSkyframeExecutor().getEvaluator().delete((k, v) -> v instanceof DeserializedSkyValue);
   }
 }
