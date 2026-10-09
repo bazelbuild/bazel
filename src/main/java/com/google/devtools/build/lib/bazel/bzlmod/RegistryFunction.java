@@ -15,17 +15,24 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
@@ -44,6 +51,13 @@ public class RegistryFunction implements SkyFunction {
 
   public static final Precomputed<ImmutableMap<String, ImmutableSet<String>>> MODULE_MIRRORS =
       new Precomputed<>("module_mirrors");
+
+  /**
+   * URLs of the local registries passed with {@code --watch_registry}, with {@code %workspace%}
+   * already expanded.
+   */
+  public static final Precomputed<ImmutableSet<String>> WATCHED_REGISTRIES =
+      new Precomputed<>("watched_registries");
 
   /**
    * The interval after which the mutable registry contents cached in memory should be refreshed.
@@ -75,9 +89,13 @@ public class RegistryFunction implements SkyFunction {
     }
 
     RegistryKey key = (RegistryKey) skyKey.argument();
+    String url = key.url().replace("%workspace%", workspaceRoot.getPathString());
     try {
+      if (WATCHED_REGISTRIES.get(env).contains(url) && !addLocalRegistryTreeDependency(url, env)) {
+        return null;
+      }
       return registryFactory.createRegistry(
-          key.url().replace("%workspace%", workspaceRoot.getPathString()),
+          url,
           lockfileMode,
           lockfile.getRegistryFileHashes(),
           lockfile.getSelectedYankedVersions(),
@@ -91,6 +109,49 @@ public class RegistryFunction implements SkyFunction {
               "Invalid registry URL: %s",
               key.url()));
     }
+  }
+
+  /**
+   * Local registry files are read outside of Skyframe, so nothing would otherwise invalidate the
+   * {@link Registry} (and the values computed from its files) when they change. For watched
+   * registries, this requests the digest of the registry tree purely to add a Skyframe dependency
+   * on it; the value itself is unused. Other local registries are not watched, since every file in
+   * the tree is then checked for changes on each command.
+   *
+   * @return false if the digest has not been computed yet and the caller must return null
+   */
+  private boolean addLocalRegistryTreeDependency(String url, Environment env)
+      throws URISyntaxException, InterruptedException, RegistryException {
+    RootedPath registryRoot =
+        RootedPath.toRootedPath(
+            Root.absoluteRoot(workspaceRoot.getFileSystem()), getWatchedRegistryPath(url));
+    try {
+      return env.getValueOrThrow(
+              DirectoryTreeDigestValue.key(registryRoot, registryRoot, ImmutableList.of()),
+              IOException.class)
+          != null;
+    } catch (IOException e) {
+      throw new RegistryException(
+          ExternalDepsException.withCauseAndMessage(
+              FailureDetails.ExternalDeps.Code.ERROR_ACCESSING_REGISTRY,
+              e,
+              "Failed to read local registry %s",
+              url));
+    }
+  }
+
+  /**
+   * Returns the absolute path of the directory of a watched registry, given its URL with {@code
+   * %workspace%} expanded.
+   *
+   * @throws URISyntaxException if the URL is not a {@code file://} URL with an absolute path
+   */
+  public static PathFragment getWatchedRegistryPath(String url) throws URISyntaxException {
+    URI uri = new URI(url);
+    if (!"file".equals(uri.getScheme())) {
+      throw new URISyntaxException(url, "Only file:// registries can be watched");
+    }
+    return IndexRegistry.getLocalRegistryPath(uri);
   }
 
   static final class RegistryException extends SkyFunctionException {

@@ -420,6 +420,28 @@ public class IndexRegistry implements Registry {
     return bazelRegistryJson;
   }
 
+  /**
+   * Returns the local directory of a {@code file://} registry URL.
+   *
+   * @throws URISyntaxException if the URL does not have an absolute path
+   */
+  public static PathFragment getLocalRegistryPath(URI uri) throws URISyntaxException {
+    String path = Strings.nullToEmpty(uri.getPath());
+    // Unix:    file:///tmp --> /tmp
+    // Windows: file:///C:/tmp --> C:/tmp
+    if (OS.getCurrent() == OS.WINDOWS && path.startsWith("/")) {
+      path = path.substring(1);
+    }
+    PathFragment localPath = PathFragment.create(path);
+    if (!localPath.isAbsolute()) {
+      throw new URISyntaxException(
+          uri.toString(),
+          "Local registry URL must have an absolute path -- did you mean to use file:///foo/bar"
+              + " or file:///c:/foo/bar for Windows?");
+    }
+    return localPath;
+  }
+
   private RepoSpec createLocalPathRepoSpec(
       LocalPathSourceJson sourceJson, Optional<BazelRegistryJson> bazelRegistryJson, ModuleKey key)
       throws IOException {
@@ -429,15 +451,15 @@ public class IndexRegistry implements Registry {
       path = moduleBase + "/" + path;
       if (!PathFragment.isAbsolute(moduleBase)) {
         if (uri.getScheme().equals("file")) {
-          if (uri.getPath().isEmpty() || !uri.getPath().startsWith("/")) {
+          try {
+            path = getLocalRegistryPath(uri).getPathString() + "/" + path;
+          } catch (URISyntaxException e) {
             throw new IOException(
                 String.format(
                     "Provided non absolute local registry path for module %s: %s",
-                    key, uri.getPath()));
+                    key, uri.getPath()),
+                e);
           }
-          // Unix:    file:///tmp --> /tmp
-          // Windows: file:///C:/tmp --> C:/tmp
-          path = uri.getPath().substring(OS.getCurrent() == OS.WINDOWS ? 1 : 0) + "/" + path;
         } else {
           throw new IOException(String.format("Provided non local registry for module %s", key));
         }

@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -38,10 +39,14 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -1145,5 +1150,47 @@ public class IndexRegistryTest extends FoundationTestCase {
   private static Checksum sha256(String content) throws Checksum.InvalidChecksumException {
     return Checksum.fromString(
         DownloadCache.KeyType.SHA256, Hashing.sha256().hashString(content, UTF_8).toString());
+  }
+
+  @Test
+  public void getLocalRegistryPath_unixAbsolutePath() throws Exception {
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+    assertThat(IndexRegistry.getLocalRegistryPath(new URI("file:///tmp/registry")))
+        .isEqualTo(PathFragment.create("/tmp/registry"));
+  }
+
+  @Test
+  public void getLocalRegistryPath_windowsDriveInPath() throws Exception {
+    assumeTrue(OS.getCurrent() == OS.WINDOWS);
+    assertThat(IndexRegistry.getLocalRegistryPath(new URI("file:///C:/ws/registry")))
+        .isEqualTo(PathFragment.create("C:/ws/registry"));
+  }
+
+  @Test
+  public void getLocalRegistryPath_windowsRejectsDriveLetterAsHost() {
+    assumeTrue(OS.getCurrent() == OS.WINDOWS);
+    var e =
+        assertThrows(
+            URISyntaxException.class,
+            () -> IndexRegistry.getLocalRegistryPath(new URI("file://C:/ws/registry")));
+    assertThat(e).hasMessageThat().contains("must have an absolute path");
+  }
+
+  @Test
+  public void getLocalRegistryPath_rejectsRelativePath() {
+    var e =
+        assertThrows(
+            URISyntaxException.class,
+            () -> IndexRegistry.getLocalRegistryPath(new URI("file:relative/registry")));
+    assertThat(e).hasMessageThat().contains("must have an absolute path");
+  }
+
+  @Test
+  public void getLocalRegistryPath_rejectsEmptyPath() {
+    var e =
+        assertThrows(
+            URISyntaxException.class,
+            () -> IndexRegistry.getLocalRegistryPath(new URI("file://server")));
+    assertThat(e).hasMessageThat().contains("must have an absolute path");
   }
 }
