@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -26,7 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction.PathType;
+import com.google.devtools.build.lib.analysis.LocationExpander.LabelLocationFunction.PathType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -176,49 +177,64 @@ public final class LocationExpander {
     StringBuilder result = new StringBuilder(value.length());
 
     while (true) {
-      // (1) Find '$(<fname> '.
       int start = value.indexOf("$(", restart);
       if (start == -1) {
-        result.append(value.substring(restart));
+        result.append(value, restart, value.length());
         break;
       }
-      int nextWhitespace = value.indexOf(' ', start);
-      if (nextWhitespace == -1) {
-        result.append(value, restart, start + 2);
-        restart = start + 2;
-        continue;
-      }
-      String fname = value.substring(start + 2, nextWhitespace);
-      if (!functions.containsKey(fname)) {
-        result.append(value, restart, start + 2);
-        restart = start + 2;
-        continue;
-      }
-
       result.append(value, restart, start);
 
-      int end = value.indexOf(')', nextWhitespace);
-      if (end == -1) {
-        reporter.report(
-            String.format(
-                "unterminated $(%s) expression", value.substring(start + 2, nextWhitespace)));
-        return value;
+      int fnameStart = start + 2;
+      int fnameEnd = fnameStart;
+      while (fnameEnd < value.length()
+          && !Character.isSpaceChar(value.charAt(fnameEnd))
+          && value.charAt(fnameEnd) != ')') {
+        fnameEnd++;
+      }
+      if (fnameEnd == value.length() || value.charAt(fnameEnd) == ')') {
+        // Not a valid function call, just copy the text.
+        restart = fnameEnd + (fnameEnd < value.length() ? 1 : 0);
+        result.append(value, start, restart);
+        continue;
+      }
+      String fname = value.substring(fnameStart, fnameEnd);
+      if (!functions.containsKey(fname)) {
+        restart = fnameEnd;
+        result.append(value, start, restart);
+        continue;
       }
 
-      // (2) Call appropriate function to obtain string replacement.
-      String functionValue = value.substring(nextWhitespace + 1, end).trim();
+      // Find the matching closing parenthesis, supporting nested $()
+      int argStart = fnameEnd + 1;
+      int depth = 1;
+      int argEnd;
+      for (argEnd = argStart; argEnd < value.length(); argEnd++) {
+        if (value.startsWith("$(", argEnd)) {
+          depth++;
+          argEnd += 1; // Skip the additional character
+        } else if (value.charAt(argEnd) == ')') {
+          depth--;
+          if (depth == 0) {
+            break;
+          }
+        }
+      }
+      if (depth != 0) {
+        reporter.report(String.format("unterminated $(%s) expression", fname));
+        return value;
+      }
+      String functionValue = value.substring(argStart, argEnd).trim();
+      // Recursively expand the argument
+      String expandedArg = expand(functionValue, reporter);
       try {
         String replacement =
-            functions
-                .get(fname)
-                .apply(functionValue, repositoryMapping, workspaceRunfilesDirectory);
+            functions.get(fname).apply(expandedArg, repositoryMapping, workspaceRunfilesDirectory);
         result.append(replacement);
       } catch (IllegalStateException ise) {
         reporter.report(ise.getMessage());
         return value;
       }
-
-      restart = end + 1;
+      restart = argEnd + 1;
     }
 
     return result.toString();
@@ -235,8 +251,23 @@ public final class LocationExpander {
     return expand(attrValue, new AttributeErrorReporter(ruleErrorConsumer, attrName));
   }
 
+  @FunctionalInterface
+  interface LocationFunction {
+    /**
+     * Expands the given string to a path.
+     *
+     * @param arg The string to be expanded, e.g. ":foo" or "//foo:bar"
+     * @param repositoryMapping map of apparent repository names to {@code RepositoryName}s
+     * @param workspaceRunfilesDirectory name of the runfiles directory corresponding to the main
+     *     repository
+     * @return The expanded value
+     */
+    String apply(
+        String arg, RepositoryMapping repositoryMapping, String workspaceRunfilesDirectory);
+  }
+
   @VisibleForTesting
-  static final class LocationFunction {
+  static final class LabelLocationFunction implements LocationFunction {
     enum PathType {
       LOCATION,
       EXEC,
@@ -251,7 +282,7 @@ public final class LocationExpander {
     private final PathType pathType;
     private final boolean multiple;
 
-    LocationFunction(
+    LabelLocationFunction(
         Label root,
         Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier,
         String name,
@@ -373,7 +404,7 @@ public final class LocationExpander {
     return new ImmutableMap.Builder<String, LocationFunction>()
         .put(
             "location",
-            new LocationFunction(
+            new LabelLocationFunction(
                 root,
                 locationMap,
                 "location",
@@ -381,7 +412,7 @@ public final class LocationExpander {
                 EXACTLY_ONE))
         .put(
             "locations",
-            new LocationFunction(
+            new LabelLocationFunction(
                 root,
                 locationMap,
                 "locations",
@@ -389,24 +420,28 @@ public final class LocationExpander {
                 ALLOW_MULTIPLE))
         .put(
             "rootpath",
-            new LocationFunction(root, locationMap, "rootpath", PathType.LOCATION, EXACTLY_ONE))
+            new LabelLocationFunction(
+                root, locationMap, "rootpath", PathType.LOCATION, EXACTLY_ONE))
         .put(
             "rootpaths",
-            new LocationFunction(root, locationMap, "rootpaths", PathType.LOCATION, ALLOW_MULTIPLE))
+            new LabelLocationFunction(
+                root, locationMap, "rootpaths", PathType.LOCATION, ALLOW_MULTIPLE))
         .put(
             "execpath",
-            new LocationFunction(root, locationMap, "execpath", PathType.EXEC, EXACTLY_ONE))
+            new LabelLocationFunction(root, locationMap, "execpath", PathType.EXEC, EXACTLY_ONE))
         .put(
             "execpaths",
-            new LocationFunction(root, locationMap, "execpaths", PathType.EXEC, ALLOW_MULTIPLE))
+            new LabelLocationFunction(
+                root, locationMap, "execpaths", PathType.EXEC, ALLOW_MULTIPLE))
         .put(
             "rlocationpath",
-            new LocationFunction(
+            new LabelLocationFunction(
                 root, locationMap, "rlocationpath", PathType.RLOCATION, EXACTLY_ONE))
         .put(
             "rlocationpaths",
-            new LocationFunction(
+            new LabelLocationFunction(
                 root, locationMap, "rlocationpaths", PathType.RLOCATION, ALLOW_MULTIPLE))
+        .put("dirname", (arg, repositoryMapping, workspaceRunfilesDirectory) -> dirname(arg))
         .buildOrThrow();
   }
 
@@ -511,14 +546,53 @@ public final class LocationExpander {
    * @return the value in the specified map corresponding to 'key'
    */
   private static <K, V> Collection<V> mapGet(Map<K, Collection<V>> map, K key) {
-    Collection<V> values = map.get(key);
-    if (values == null) {
-      // We use sets not lists, because it's conceivable that the same label
-      // could appear twice, in "srcs" and "deps".
-      values = new HashSet<>();
-      map.put(key, values);
+    // We use sets not lists, because it's conceivable that the same label
+    // could appear twice, in "srcs" and "deps".
+    return map.computeIfAbsent(key, k -> new HashSet<>());
+  }
+
+  private static final CharMatcher forwardSlashMatcher = CharMatcher.is('/');
+
+  private static String dirname(String arg) {
+    if (arg.indexOf(' ') != -1) {
+      // Disallow unescaped spaces in dirname arguments so that we can add support for
+      // $(dirname $(execpaths ...)) in the future for well-defined cases, e.g., if all expanded
+      // paths have the same parent directory.
+      boolean isQuoted = false;
+      for (int i = 0; i < arg.length(); i++) {
+        char c = arg.charAt(i);
+        if (c == '\'') {
+          isQuoted = !isQuoted;
+        } else if (c == ' ' && !isQuoted) {
+          throw new IllegalStateException(
+              "$(dirname ...) used with a path containing unquoted spaces, which is not supported: "
+                  + arg);
+        }
+      }
     }
-    return values;
+    arg = ShellEscaper.unescapeString(arg);
+    if (arg.isEmpty()) {
+      throw new IllegalStateException(
+          "$(dirname ...) used with an empty string, which is not a valid path");
+    }
+    if (arg.indexOf('\\') != -1) {
+      // dirname is meant to be combined with other location functions, which exclusively produce
+      // forward slash separated paths. If we allowed backslashes, which are very uncommon in
+      // forward slash separated paths, this would result in potentially confusing behavior in
+      // Windows-focused projects (e.g. `$(dirname C:\foo\bar)` would produce `.`).
+      throw new IllegalStateException(
+          "$(dirname ...) used with a path containing backslashes, which is not supported: " + arg);
+    }
+    int lastSlash = forwardSlashMatcher.lastIndexIn(arg);
+    if (lastSlash == -1) {
+      if (arg.equals(".") || arg.equals("..")) {
+        throw new IllegalStateException(
+            "$(dirname ...) used with '.' or '..', which is not supported: " + arg);
+      }
+      return ".";
+    }
+    return ShellEscaper.escapeString(
+        forwardSlashMatcher.trimTrailingFrom(arg.substring(0, lastSlash)));
   }
 
   private static interface ErrorReporter {
