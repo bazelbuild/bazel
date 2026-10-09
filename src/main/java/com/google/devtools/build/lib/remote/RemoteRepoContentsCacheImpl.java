@@ -49,6 +49,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.common.ActionKey;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -384,7 +386,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                   || currentResult.actionResult().getStdoutDigest().getSizeBytes() == 0) {
                 return immediateFuture("");
               }
-              return fetchStdout(context, currentResult.actionResult());
+              // The stdout may have expired while the action result remained in the cache.
+              return Futures.catching(
+                  fetchStdout(context, currentResult.actionResult()),
+                  CacheNotFoundException.class,
+                  e -> "",
+                  directExecutor());
             },
             directExecutor());
     return Futures.transformAsync(
@@ -526,7 +533,16 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
               .formatted(context.getRequestMetadata().getActionId(), actionResult));
     }
     var stdoutFuture = fetchStdout(context, actionResult);
-    waitForBulkTransfer(ImmutableList.of(stdoutFuture));
+    try {
+      waitForBulkTransfer(ImmutableList.of(stdoutFuture));
+    } catch (BulkTransferException e) {
+      if (e.allCausedByCacheNotFoundException()) {
+        // The stdout has expired while the action result remained in the cache, so the entry can't
+        // be followed. The fetch that follows the miss rebuilds it.
+        return new CacheEntry.Intermediate(ImmutableList.of());
+      }
+      throw e;
+    }
 
     // The action result's stdout contains multiple lines, each representing a batch of
     // RepoRecordedInputs separated by spaces. A given batch is valid only if all inputs in the
