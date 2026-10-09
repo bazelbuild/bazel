@@ -558,10 +558,12 @@ public final class MerkleTreeComputer {
     long inputFiles = 0;
     long inputBytes = 0;
     var blobs =
-        new TreeMap<
-            /* Digest | FileArtifactValue */ Object,
-            /* byte[] | ActionInput | DeterministicWriter */ Object>(
-            MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR);
+        blobPolicy == BlobPolicy.DISCARD
+            ? null
+            : new TreeMap<
+                /* Digest | FileArtifactValue */ Object,
+                /* byte[] | ActionInput | DeterministicWriter */ Object>(
+                MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR);
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
 
@@ -625,7 +627,7 @@ public final class MerkleTreeComputer {
           if (topDirectory == null) {
             if (blobPolicy == BlobPolicy.DISCARD) {
               // Make sure that we didn't unnecessarily retain any blobs.
-              checkState(blobs.isEmpty());
+              checkState(blobs == null);
               return new MerkleTree.RootOnly.BlobsDiscarded(
                   directoryBlobDigest, inputFiles, inputBytes);
             } else {
