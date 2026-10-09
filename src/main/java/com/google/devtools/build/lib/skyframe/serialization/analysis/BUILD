@@ -220,6 +220,20 @@ java_library(
 )
 
 java_library(
+    name = "leaf_id_assignment",
+    srcs = ["LeafIdAssignment.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
+        "//third_party/java/fastutil:object-to-int-open-hash-map",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "file_dependency_serializer",
     srcs = ["FileDependencySerializer.java"],
     visibility = [

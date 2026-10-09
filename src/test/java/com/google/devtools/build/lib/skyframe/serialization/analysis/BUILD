@@ -253,6 +253,24 @@ java_test(
 )
 
 java_test(
+    name = "LeafIdAssignmentTest",
+    size = "small",
+    srcs = ["LeafIdAssignmentTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:leaf_id_assignment",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party/java/fastutil:object-to-int-open-hash-map",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "SelectedEntrySerializerTest",
     size = "small",
     srcs = ["SelectedEntrySerializerTest.java"],
