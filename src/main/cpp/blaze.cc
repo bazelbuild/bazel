@@ -54,8 +54,8 @@
 #include <utility>
 #include <vector>
 
-#include "src/main/cpp/startup_interceptor.h"
 #include "src/main/cpp/command_extension_adder.h"
+#include "src/main/cpp/startup_interceptor.h"
 
 #if !defined(_WIN32)
 #include <sys/stat.h>
@@ -572,6 +572,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("--windows_enable_symlinks");
   } else {
     result.push_back("--nowindows_enable_symlinks");
+  }
+  if (startup_options.delete_output_base_on_shutdown) {
+    result.push_back("--delete_output_base_on_shutdown");
+  } else {
+    result.push_back("--nodelete_output_base_on_shutdown");
   }
   if (startup_options.remote_repo_contents_cache) {
     result.push_back("--experimental_remote_repo_contents_cache");

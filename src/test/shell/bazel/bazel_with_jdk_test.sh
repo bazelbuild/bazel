@@ -92,6 +92,29 @@ function test_bazel_uses_bundled_jdk() {
       fail "bazel's java-home is not inside the install base"
 }
 
+function test_bazel_preserves_heap_shrinking() {
+  bazel --batch --host_jvm_args=-XX:+PrintFlagsFinal info \
+      &> "$TEST_log" || fail "bazel info failed"
+  expect_log '^ *uintx *MinHeapFreeRatio *= *40 '
+  expect_log '^ *uintx *MaxHeapFreeRatio *= *70 '
+}
+
+function test_bazel_heap_shrinking_defaults_can_be_overridden() {
+  bazel --batch --host_jvm_args=-XX:+PrintFlagsFinal \
+      --host_jvm_args=-XX:MinHeapFreeRatio=10 \
+      --host_jvm_args=-XX:MaxHeapFreeRatio=20 info \
+      &> "$TEST_log" || fail "bazel info failed"
+  expect_log '^ *uintx *MinHeapFreeRatio *= *10 '
+  expect_log '^ *uintx *MaxHeapFreeRatio *= *20 '
+}
+
+function test_bazel_disables_compact_object_headers() {
+  bazel --batch --noexperimental_use_compact_object_headers \
+      --host_jvm_args=-XX:+PrintFlagsFinal info \
+      &> "$TEST_log" || fail "bazel info failed"
+  expect_log '^ *bool *UseCompactObjectHeaders *= *false '
+}
+
 # Tests that "bazel license" prints the license of the bundled JDK by grepping for
 # representative strings from those files. If this test breaks after upgrading the version of the
 # bundled JDK, the strings may have to be updated.

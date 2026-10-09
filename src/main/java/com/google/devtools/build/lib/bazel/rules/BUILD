@@ -108,8 +108,8 @@ java_library(
     name = "bazel_strategy_module",
     srcs = ["BazelStrategyModule.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:file_write_action_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",

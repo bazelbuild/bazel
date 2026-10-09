@@ -63,9 +63,12 @@ public interface DeterministicWriter {
    * memory. The pipe buffers at most {@code bufferSize} bytes, in addition to any memory used by
    * the writer itself.
    *
-   * <p>The writer runs on a virtual thread and blocks when the buffer is full. The caller must
-   * close the stream to stop the writer if it does not read to the end. Writer failures are
-   * propagated to the reader as {@link IOException}s.
+   * <p>The writer runs on a virtual thread that is started on the first read and blocks when the
+   * buffer is full. The caller must close the stream to stop the writer if it does not read to the
+   * end. Writer failures are propagated to the reader as {@link IOException}s.
+   *
+   * <p>{@link InputStream#transferTo} on an unread stream bypasses the pipe and runs the writer on
+   * the calling thread.
    */
   default InputStream getInputStream(int bufferSize) {
     return new DeterministicWriterInputStream(this, bufferSize);

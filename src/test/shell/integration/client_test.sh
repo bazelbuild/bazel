@@ -461,6 +461,81 @@ EOF
   fi
 }
 
+# Kills the client of a build blocked in an action, then reports how many seconds the
+# server took to release the command lock, or nothing at all if it never did.
+function kill_client_of_blocked_build() {
+  local -r extra_flag="$1"
+  # Before anything takes the lock: asking later would queue behind the very command
+  # this function is about to abandon.
+  local -r server_pid_file="$(bazel info output_base)/server/server.pid.txt"
+  local -r ready="${TEST_TMPDIR}/ready"  # entered by the genrule
+  local -r lock="${TEST_TMPDIR}/lock"  # waited on by the genrule
+  mkfifo "${ready}" || fail "couldn't create fifo ready"
+  mkfifo "${lock}" || fail "couldn't create fifo lock"
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(name = "a", outs = ["a.out"], local = True,
+        cmd = "cat ${ready} >/dev/null; cat ${lock} >/dev/null; touch \$@")
+EOF
+
+  # Local strategy, so that the action reaches both fifos.
+  bazel --client_debug build --spawn_strategy=local ${extra_flag} //a:a >"$TEST_log" 2>&1 &
+  local -r client_job_pid="$!"
+
+  # This write returns once the action reads it, which then blocks on the lock fifo.
+  echo entered > "${ready}"
+  local -r client_pid="$(cat "$TEST_log" | scrape_client_pid)"
+
+  # SIGKILL rather than SIGTERM, which would let the client send a Cancel RPC: the server
+  # has always acted upon those, so these tests would then pass either way.
+  kill -9 "${client_pid}" || fail "couldn't kill client ${client_pid}"
+  # Reap the backgrounded job so its "Killed" notice does not surface later.
+  wait "${client_job_pid}" || true
+
+  local exit_code=0
+  local i
+  for i in $(seq 1 30); do
+    exit_code=0
+    bazel --client_debug --noblock_for_lock info >"$TEST_log-2" 2>&1 || exit_code=$?
+    if [[ "${exit_code}" -eq 0 ]]; then
+      break
+    fi
+    sleep 1
+  done
+
+  # Free the slot *before* the caller checks expectations, otherwise the rest of the suite
+  # waits for this very command. Writing to the lock fifo would hang once the action is gone,
+  # leaving the server as the only way to release the lock, as on a CI runner holding a stale one.
+  if [[ -f "${server_pid_file}" ]]; then
+    local -r server_pid="$(cat "${server_pid_file}")"
+    kill -0 "${server_pid}" 2>/dev/null && kill "${server_pid}"
+  fi
+  rm -rf a "${ready}" "${lock}"
+
+  cat "$TEST_log-2" >> "$TEST_log"
+  return "${exit_code}"
+}
+
+function test_command_lock_released_when_client_dies() {
+  # A command whose client is killed must not keep the server's command lock: the next
+  # invocation would then wait for a command nobody waits for, until its own timeout.
+  # Progress reporting gives the server a write, hence a chance to notice the client is
+  # gone, but that interrupt has to reach the command rather than the reporting thread.
+  # See https://github.com/bazelbuild/bazel/issues/30954.
+  local exit_code=0
+  kill_client_of_blocked_build "" || exit_code=$?
+  assert_equals 0 "${exit_code}" # 9 would be LOCK_HELD_NOBLOCK_FOR_LOCK
+}
+
+function test_command_lock_released_when_client_dies_without_further_output() {
+  # Same, for a command that reports nothing at all: with no write left to carry it, the
+  # interrupt has to come from the cancellation itself.
+  # See https://github.com/bazelbuild/bazel/issues/30954.
+  local exit_code=0
+  kill_client_of_blocked_build "--noshow_progress" || exit_code=$?
+  assert_equals 0 "${exit_code}" # 9 would be LOCK_HELD_NOBLOCK_FOR_LOCK
+}
+
 function test_noblock_for_lock_reuse_server() {
   # Use a FIFO to spoonfeed the Bazel server.
   mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
@@ -934,6 +1009,132 @@ function test_sigquit() {
 
 function scrape_client_pid() {
   sed -nr 's/.*Running \(pid=([0-9]+)\)/\1/p'
+}
+
+function assert_output_base_deleted() {
+  local prefix="$1"
+  for i in $(seq 1 60); do
+    local found
+    found=$(ls -d "${prefix}"* 2>/dev/null || true)
+    if [[ -z "${found}" ]]; then
+      break
+    fi
+    sleep 0.2
+  done
+  local found
+  found=$(ls -d "${prefix}"* 2>/dev/null || true)
+  if [[ -n "${found}" ]]; then
+    fail "Output base (or temp shutdown dir) was not deleted: ${found}"
+  fi
+}
+
+function test_delete_output_base_on_shutdown() {
+  local my_output_base="${TEST_TMPDIR}/my_ob"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Expected success"
+  assert_output_base_deleted "${my_output_base}"
+}
+
+function test_delete_output_base_on_shutdown_batch() {
+  local my_output_base="${TEST_TMPDIR}/my_ob_batch"
+  bazel --output_base="${my_output_base}" --batch --delete_output_base_on_shutdown info >& "$TEST_log" || fail "Expected success"
+  assert_output_base_deleted "${my_output_base}"
+}
+
+function test_delete_output_base_on_shutdown_removes_convenience_symlinks() {
+  mkdir -p symlink_pkg
+  cat > symlink_pkg/BUILD <<'EOF'
+genrule(
+  name = "dummy",
+  outs = ["dummy.out"],
+  cmd = "touch $@",
+  local = 1,
+)
+EOF
+  local my_output_base="${TEST_TMPDIR}/my_ob_symlinks"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown build --genrule_strategy=local //symlink_pkg:dummy >& "$TEST_log" || fail "Build failed"
+  local bin_link="${PRODUCT_NAME}-bin"
+  if [[ ! -L "${bin_link}" ]]; then
+    fail "Convenience symlink ${bin_link} was not created"
+  fi
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Shutdown failed"
+  assert_output_base_deleted "${my_output_base}"
+  if [[ -L "${bin_link}" || -e "${bin_link}" ]]; then
+    fail "Convenience symlink ${bin_link} was not removed"
+  fi
+
+  local my_custom_ob="${TEST_TMPDIR}/my_ob_custom_symlinks"
+  bazel --output_base="${my_custom_ob}" --delete_output_base_on_shutdown build --symlink_prefix=custom- --genrule_strategy=local //symlink_pkg:dummy >& "$TEST_log" || fail "Build failed"
+  local custom_bin_link="custom-bin"
+  if [[ ! -L "${custom_bin_link}" ]]; then
+    fail "Convenience symlink ${custom_bin_link} was not created"
+  fi
+  bazel --output_base="${my_custom_ob}" shutdown >& "$TEST_log" || fail "Shutdown failed"
+  assert_output_base_deleted "${my_custom_ob}"
+  if [[ -L "${custom_bin_link}" || -e "${custom_bin_link}" ]]; then
+    fail "Convenience symlink ${custom_bin_link} was not removed"
+  fi
+}
+
+function test_delete_output_base_on_shutdown_default_retained() {
+  local my_output_base="${TEST_TMPDIR}/my_ob_retained"
+  bazel --output_base="${my_output_base}" info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Expected success"
+  sleep 1
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should be retained by default when flag is omitted"
+  fi
+}
+
+function test_delete_output_base_on_shutdown_readonly_files() {
+  local my_output_base="${TEST_TMPDIR}/my_ob_readonly"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  mkdir -p "${my_output_base}/readonly_dir"
+  touch "${my_output_base}/readonly_dir/file.txt"
+  chmod 0555 "${my_output_base}/readonly_dir"
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Expected success"
+  assert_output_base_deleted "${my_output_base}"
+}
+
+function test_delete_output_base_on_shutdown_directory_with_spaces() {
+  local my_output_base="${TEST_TMPDIR}/my ob with spaces"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Expected success"
+  assert_output_base_deleted "${my_output_base}"
+}
+
+function test_delete_output_base_on_shutdown_directory_with_quotes() {
+  local my_output_base="${TEST_TMPDIR}/my ob with 'single' and \"double\" quotes"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  mkdir -p "${my_output_base}/readonly_dir"
+  touch "${my_output_base}/readonly_dir/file.txt"
+  chmod 0555 "${my_output_base}/readonly_dir"
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Expected success"
+  assert_output_base_deleted "${my_output_base}"
+}
+
+function test_delete_output_base_on_shutdown_idle_timeout() {
+  local my_output_base="${TEST_TMPDIR}/my_ob_idle"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown --max_idle_secs=1 info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  assert_output_base_deleted "${my_output_base}"
 }
 
 run_suite "Tests of the bazel client."

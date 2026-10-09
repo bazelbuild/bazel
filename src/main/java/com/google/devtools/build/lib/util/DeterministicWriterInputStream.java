@@ -13,42 +13,52 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.common.io.CountingOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * An {@link java.io.InputStream} that reads the bytes written by a {@link DeterministicWriter}
- * through a bounded pipe fed from a virtual thread.
+ * An input stream over the contents produced by a {@link DeterministicWriter}.
  *
- * <p>See {@link DeterministicWriter#getInputStream(int)} for the contract.
+ * <p>Reads pull the contents through a bounded pipe from a writer thread started on the first read.
+ * {@link #transferTo} on an unread stream bypasses the pipe and runs the writer on the calling
+ * thread.
  */
 final class DeterministicWriterInputStream extends FilterInputStream {
   private static final ThreadFactory WRITER_THREAD_FACTORY =
       Thread.ofVirtual().name("deterministic-writer-pipe-", 0).factory();
 
-  private final Thread writerThread;
-  private final AtomicReference<Throwable> failure;
+  private final DeterministicWriter writer;
+  private final PipedOutputStream pipedOut;
+  private final AtomicReference<Throwable> failure = new AtomicReference<>();
+  // Started on the first read.
+  private Thread writerThread;
+  // Set by a direct transferTo.
+  private boolean transferred;
 
   DeterministicWriterInputStream(DeterministicWriter writer, int bufferSize) {
-    var pipedIn = new PipedInputStream(bufferSize);
-    PipedOutputStream pipedOut;
+    super(new PipedInputStream(bufferSize));
+    this.writer = writer;
     try {
-      pipedOut = new PipedOutputStream(pipedIn);
+      this.pipedOut = new PipedOutputStream((PipedInputStream) in);
     } catch (IOException e) {
       throw new IllegalStateException("PipedOutputStream constructor is not expected to throw", e);
     }
-    var failure = new AtomicReference<Throwable>();
-    // The writer only captures locals so that it can't observe this stream before its
-    // construction is complete.
-    var writerThread =
+  }
+
+  private void ensureWriterStarted() {
+    if (writerThread != null) {
+      return;
+    }
+    writerThread =
         WRITER_THREAD_FACTORY.newThread(
             () -> {
               try (pipedOut) {
-                // Publish failures before closing the pipe, so EOF cannot race with the failure.
                 try {
                   writer.writeTo(pipedOut);
                 } catch (Throwable t) {
@@ -58,20 +68,50 @@ final class DeterministicWriterInputStream extends FilterInputStream {
                 failure.compareAndSet(null, e);
               }
             });
-    super(pipedIn);
-    this.failure = failure;
-    this.writerThread = writerThread;
     writerThread.start();
   }
 
   @Override
   public int read() throws IOException {
+    if (transferred) {
+      return -1;
+    }
+    ensureWriterStarted();
     return checkResult(in.read());
   }
 
   @Override
   public int read(byte[] bytes, int offset, int length) throws IOException {
+    if (transferred) {
+      return length == 0 ? 0 : -1;
+    }
+    ensureWriterStarted();
     return checkResult(in.read(bytes, offset, length));
+  }
+
+  @Override
+  public long skip(long n) throws IOException {
+    if (transferred) {
+      return 0;
+    }
+    ensureWriterStarted();
+    return in.skip(n);
+  }
+
+  @Override
+  public long transferTo(OutputStream out) throws IOException {
+    if (transferred) {
+      return 0;
+    }
+    if (writerThread != null) {
+      // Some contents may have been read already, so the rest has to come from the pipe.
+      return super.transferTo(out);
+    }
+    // Nothing has been read yet, so the writer can write to the target directly.
+    transferred = true;
+    var countingOut = new CountingOutputStream(out);
+    writer.writeTo(countingOut);
+    return countingOut.getCount();
   }
 
   private int checkResult(int result) throws IOException {
@@ -86,7 +126,9 @@ final class DeterministicWriterInputStream extends FilterInputStream {
     try {
       super.close();
     } finally {
-      writerThread.interrupt();
+      if (writerThread != null) {
+        writerThread.interrupt();
+      }
     }
   }
 }

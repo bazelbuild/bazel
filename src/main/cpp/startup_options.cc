@@ -84,6 +84,7 @@ StartupOptions::StartupOptions(const string& product_name,
       batch_cpu_scheduling(false),
       io_nice_level(-1),
       shutdown_on_low_sys_mem(false),
+      delete_output_base_on_shutdown(false),
       oom_more_eagerly(false),
       oom_more_eagerly_threshold(100),
       write_command_log(true),
@@ -143,6 +144,8 @@ StartupOptions::StartupOptions(const string& product_name,
   RegisterNullaryStartupFlag("idle_server_tasks", &idle_server_tasks);
   RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
                              &shutdown_on_low_sys_mem);
+  RegisterNullaryStartupFlag("delete_output_base_on_shutdown",
+                             &delete_output_base_on_shutdown);
   RegisterNullaryStartupFlagNoRc("ignore_all_rc_files", &ignore_all_rc_files);
   RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
@@ -691,6 +694,11 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   if (use_compact_headers) {
     result->push_back("-XX:+UnlockExperimentalVMOptions");
     result->push_back("-XX:+UseCompactObjectHeaders");
+  } else if (option_sources.find("experimental_use_compact_object_headers") !=
+             option_sources.end()) {
+    // JDK 27 enables compact object headers by default, so an explicit opt-out
+    // must also be passed to the JVM.
+    result->push_back("-XX:-UseCompactObjectHeaders");
   }
 
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);

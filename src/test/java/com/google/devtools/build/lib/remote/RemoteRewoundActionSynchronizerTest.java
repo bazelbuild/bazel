@@ -164,6 +164,89 @@ public final class RemoteRewoundActionSynchronizerTest {
   }
 
   /**
+   * Shared actions are equivalent actions of different owners generating the same outputs, which
+   * SkyframeActionExecutor executes as one. A consumer of one owner's output excludes the rewinding
+   * of the other owner's action, which deletes the same file, and that rewinding cancels the
+   * uploads registered by either owner.
+   */
+  @Test
+  public void sharedAction_rewoundUnderOtherOwner_waitsForConsumerAndCancelsUpload()
+      throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    var otherOwner = ActionsTestUtil.YET_ANOTHER_NULL_ARTIFACT_OWNER;
+    PathFragment sharedExecPath = root.getExecPath().getRelative("shared");
+    DerivedArtifact output = DerivedArtifact.create(root, sharedExecPath, owner);
+    output.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    Action action = newAction(ImmutableList.of(output), ImmutableList.of());
+    DerivedArtifact otherOutput = DerivedArtifact.create(root, sharedExecPath, otherOwner);
+    otherOutput.setGeneratingActionKey(ActionLookupData.create(otherOwner, 0));
+    Action otherAction = newAction(ImmutableList.of(otherOutput), ImmutableList.of());
+    DerivedArtifact consumerOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
+    consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    Action consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(output));
+    mockActions(owner, ImmutableList.of(action, consumer));
+    mockActions(otherOwner, ImmutableList.of(otherAction));
+    var upload = mock(RemoteRewoundActionSynchronizer.Cancellable.class);
+    var unused = synchronizer.registerOutputUploadTask(action, upload);
+
+    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
+    // exclude every rewound action regardless of which keys guard the consumed output.
+    rewind(newAction());
+
+    var otherPreparation = new TestThread(() -> rewind(otherAction));
+    try (SilentCloseable execution =
+        synchronizer.enterActionExecution(
+            consumer, /* wasRewound= */ false, mock(InputMetadataProvider.class))) {
+      otherPreparation.start();
+      waitUntilBlocked(otherPreparation);
+    }
+    otherPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    verify(upload).requestCancellation();
+    verify(upload).awaitCompletion();
+    assertThat(synchronizer.hasRegisteredOutputUploadTasks(action)).isFalse();
+  }
+
+  /**
+   * Input discovery may read scheduling dependencies (e.g. headers reachable via {@code #include})
+   * that are not declared inputs, so their producers must not be rewound while it is running.
+   */
+  @Test
+  public void inputDiscovery_locksProducersOfSchedulingDependencies() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    DerivedArtifact header = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "header.h");
+    header.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    Action headerProducer = newAction(ImmutableList.of(header), ImmutableList.of());
+    DerivedArtifact source = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "source.cc");
+    source.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    Action sourceProducer = newAction(ImmutableList.of(source), ImmutableList.of());
+    DerivedArtifact object = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "object.o");
+    object.setGeneratingActionKey(ActionLookupData.create(owner, 2));
+    Action compile =
+        newAction(
+            ImmutableList.of(object),
+            /* inputs= */ ImmutableList.of(source),
+            /* schedulingDependencies= */ ImmutableList.of(header));
+    mockActions(owner, ImmutableList.of(headerProducer, sourceProducer, compile));
+    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
+
+    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
+    // exclude every rewound action regardless of which keys guard the discovery.
+    rewind(newAction());
+
+    var headerProducerPreparation = new TestThread(() -> rewind(headerProducer));
+    try (SilentCloseable discovery = synchronizer.enterInputDiscovery(compile, metadataProvider)) {
+      headerProducerPreparation.start();
+      waitUntilBlocked(headerProducerPreparation);
+    }
+    headerProducerPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
+  /**
    * An action consuming a runfiles tree is guarded by the keys of the actions generating the
    * artifacts the tree contains, which are taken from its metadata rather than from all runfiles
    * trees known to the metadata provider. The action generating the runfiles tree itself isn't
@@ -188,6 +271,7 @@ public final class RemoteRewoundActionSynchronizerTest {
         (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
     consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 3));
     Action consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(runfiles));
+    mockActions(owner, ImmutableList.of(producer, unrelatedProducer, runfilesAction, consumer));
 
     RunfilesTree runfilesTree = mock(RunfilesTree.class);
     when(runfilesTree.getArtifacts()).thenReturn(NestedSetBuilder.create(Order.STABLE_ORDER, file));
@@ -482,7 +566,10 @@ public final class RemoteRewoundActionSynchronizerTest {
             ImmutableList.of(downstreamFile), ImmutableList.of(upstreamFile, treeConsumerOutput));
 
     InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
-    mockTemplateExpansion(owner, ImmutableList.of(upstreamAction));
+    mockActions(
+        owner,
+        ImmutableList.of(mock(ActionTemplate.class), treeConsumer, mock(ActionTemplate.class)));
+    mockTemplateExpansion(owner, /* actionIndex= */ 0, ImmutableList.of(upstreamAction));
 
     // C is rewound and prepares for its re-execution, which makes it hold the write lock guarding
     // its output until the end of its execution.
@@ -526,15 +613,21 @@ public final class RemoteRewoundActionSynchronizerTest {
    */
   private void mockTemplateExpansion(ActionLookupKey owner, ImmutableList<Action> expandedActions)
       throws InterruptedException {
-    ActionLookupValue ownerValue = mock(ActionLookupValue.class);
-    when(ownerValue.getActions()).thenReturn(ImmutableList.of(mock(ActionTemplate.class)));
-    when(graph.getValue(owner)).thenReturn(ownerValue);
-    when(graph.getValue(ActionTemplateExpansionValue.key(owner, 0)))
+    mockActions(owner, ImmutableList.of(mock(ActionTemplate.class)));
+    mockTemplateExpansion(owner, /* actionIndex= */ 0, expandedActions);
+  }
+
+  /** Makes the given actions the expansion of the given owner's template at the given index. */
+  private void mockTemplateExpansion(
+      ActionLookupKey owner, int actionIndex, ImmutableList<Action> expandedActions)
+      throws InterruptedException {
+    when(graph.getValue(ActionTemplateExpansionValue.key(owner, actionIndex)))
         .thenReturn(new ActionTemplateExpansionValue(ImmutableList.copyOf(expandedActions)));
   }
 
   /** Makes the given actions, in order, the actions of the given owner. */
-  private void mockActions(ActionLookupKey owner, ImmutableList<Action> actions)
+  private void mockActions(
+      ActionLookupKey owner, ImmutableList<? extends ActionAnalysisMetadata> actions)
       throws InterruptedException {
     ActionLookupValue ownerValue = mock(ActionLookupValue.class);
     when(ownerValue.getActions()).thenReturn(ImmutableList.<ActionAnalysisMetadata>copyOf(actions));
@@ -601,10 +694,19 @@ public final class RemoteRewoundActionSynchronizerTest {
 
   private static Action newAction(
       ImmutableList<? extends Artifact> outputs, ImmutableList<? extends Artifact> inputs) {
+    return newAction(outputs, inputs, /* schedulingDependencies= */ ImmutableList.of());
+  }
+
+  private static Action newAction(
+      ImmutableList<? extends Artifact> outputs,
+      ImmutableList<? extends Artifact> inputs,
+      ImmutableList<? extends Artifact> schedulingDependencies) {
     Action action = mock(Action.class);
     when(action.getPrimaryOutput()).thenReturn(outputs.get(0));
     when(action.getOutputs()).thenReturn(ImmutableList.copyOf(outputs));
     when(action.getInputs()).thenReturn(NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs));
+    when(action.getSchedulingDependencies())
+        .thenReturn(NestedSetBuilder.wrap(Order.STABLE_ORDER, schedulingDependencies));
     return action;
   }
 

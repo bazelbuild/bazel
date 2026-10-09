@@ -282,6 +282,9 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "bazel_dep()");
     context.setNonModuleCalled();
     validateModuleName(name);
+    if (name.equals(context.getModuleBuilder().getName())) {
+      throw Starlark.errorf("module '%s' cannot depend on itself", name);
+    }
     Version parsedVersion;
     try {
       parsedVersion = Version.parse(version);
@@ -492,7 +495,7 @@ public class ModuleFileGlobals {
     // their Label representation. If multiple strings map to the same Label, this would result in a
     // crash.
     // ownName can't change anymore as calling module() after this results in an error.
-    String ownName = module.getRepoName().orElse(module.getName());
+    String ownName = module.getRepoNameOrName();
     RepositoryName ownRepoName = RepositoryName.createUnvalidated(ownName);
     ImmutableMap<String, RepositoryName> repoMapping = ImmutableMap.of();
     if (module.getKey().equals(ModuleKey.ROOT)) {
@@ -525,7 +528,7 @@ public class ModuleFileGlobals {
         RepositoryMapping.create(
             ImmutableMap.<String, RepositoryName>builder()
                 .put("", RepositoryName.MAIN)
-                .put(module.getRepoName().orElse(module.getName()), RepositoryName.MAIN)
+                .put(module.getRepoNameOrName(), RepositoryName.MAIN)
                 .buildKeepingLast(),
             RepositoryName.MAIN);
     Label label;
@@ -685,6 +688,10 @@ public class ModuleFileGlobals {
           Overrides one or more repos defined by the given module extension with the given repos
           visible to the current module. This is ignored if the current module is not the root
           module or `--ignore_dev_dependency` is enabled.
+
+          <p>A repository may be overridden with the root module itself. In that case, the root
+          module must refer to itself by its own repository name instead of importing the
+          overridden repository with <code>use_repo</code>. Other modules may still import it.
 
           <p>Use <a href="#inject_repo"><code>inject_repo</code></a> instead to add a new repo.
           """,

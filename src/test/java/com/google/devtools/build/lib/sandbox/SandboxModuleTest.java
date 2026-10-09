@@ -17,7 +17,12 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -91,5 +96,32 @@ public final class SandboxModuleTest {
     assertThat(sandboxBase.getChild("stale_file.txt").exists()).isFalse();
 
     SandboxModule.checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
+  }
+
+  @Test
+  public void cleanSandboxBaseOnFirstBuild_renameFails_fallsBackToSynchronousDeletion()
+      throws Exception {
+    FileSystem failingRenameFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public void renameTo(PathFragment sourcePath, PathFragment targetPath)
+              throws IOException {
+            throw new IOException("Simulated overlayfs EXDEV on rename");
+          }
+        };
+    Scratch failingScratch = new Scratch(failingRenameFs);
+    Path failingSandboxBase = failingScratch.dir("/sandbox_base");
+    Path trashBase = failingScratch.dir("/sandbox_base/_moved_trash_dir");
+    failingScratch.file("/sandbox_base/_moved_trash_dir/stale_trash.txt", "stale");
+    failingScratch.file("/sandbox_base/stale_sandbox.txt", "stale");
+
+    SandboxModule sandboxModule = new SandboxModule();
+    sandboxModule.treeDeleter = new AsynchronousTreeDeleter(trashBase);
+
+    sandboxModule.cleanSandboxBaseOnFirstBuild(failingSandboxBase, trashBase, /* idleThreads= */ 4);
+
+    assertThat(failingSandboxBase.exists()).isFalse();
+    assertThat(sandboxModule.treeDeleter).isInstanceOf(AsynchronousTreeDeleter.class);
+    sandboxModule.blazeShutdown();
   }
 }

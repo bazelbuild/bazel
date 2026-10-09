@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
+import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -365,9 +366,14 @@ public class DiskCacheClient {
   public ListenableFuture<Void> uploadBlob(Digest digest, Blob blob) {
     return executorService.submit(
         () -> {
-          try (InputStream in = blob.get()) {
-            saveFile(digest, Store.CAS, in);
-          }
+          save(
+              digest,
+              Store.CAS,
+              temp -> {
+                try (InputStream in = blob.get()) {
+                  copyToTemp(in, temp);
+                }
+              });
           return null;
         });
   }
@@ -393,19 +399,7 @@ public class DiskCacheClient {
   }
 
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
-    save(
-        digest,
-        store,
-        temp -> {
-          try (OutputStream out = temp.getOutputStream()) {
-            ByteStreams.copy(in, out);
-            // Fsync temp before we rename it to avoid data loss in the case of machine
-            // crashes (the OS may reorder the writes and the rename).
-            if (out instanceof FileOutputStream fos) {
-              fos.getFD().sync();
-            }
-          }
-        });
+    save(digest, store, temp -> copyToTemp(in, temp));
   }
 
   /**
@@ -430,6 +424,19 @@ public class DiskCacheClient {
           // crashes (the OS may reorder the writes and the rename).
           syncFile(temp);
         });
+  }
+
+  private static void copyToTemp(InputStream in, Path temp) throws IOException {
+    try (var out = temp.getOutputStream()) {
+      var bufferedOut = new BufferedOutputStream(out);
+      in.transferTo(bufferedOut);
+      bufferedOut.flush();
+      // Fsync temp before we rename it to avoid data loss in the case of machine
+      // crashes (the OS may reorder the writes and the rename).
+      if (out instanceof FileOutputStream fos) {
+        fos.getFD().sync();
+      }
+    }
   }
 
   /** Writes the contents of a cache entry into a temporary file. */

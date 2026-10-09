@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.getA
 import static java.util.Arrays.asList;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -108,6 +109,26 @@ public class TopLevelArtifactHelperTest {
     ArtifactsToBuild allArtifacts = getAllArtifactsToBuild(groupProvider, null, ctx);
     assertThat(allArtifacts.getAllArtifacts().toList()).hasSize(3);
     assertThat(allArtifacts.getImportantArtifacts().toList()).hasSize(2);
+  }
+
+  @Test
+  public void importantArtifactsExcluding() {
+    setup(
+        asList(
+            Pair.of(HIDDEN_OUTPUT_GROUP_PREFIX + "notimportant", 1),
+            Pair.of("skipped", 2),
+            Pair.of("kept", 3)));
+
+    ArtifactsToBuild allArtifacts = getAllArtifactsToBuild(groupProvider, null, ctx);
+    assertThat(allArtifacts.getAllArtifacts().toList()).hasSize(6);
+    assertThat(allArtifacts.getImportantArtifacts().toList()).hasSize(5);
+    assertThat(allArtifacts.getImportantArtifactsExcluding(ImmutableSet.of("skipped")).toList())
+        .hasSize(3);
+    assertThat(
+            allArtifacts
+                .getImportantArtifactsExcluding(ImmutableSet.of("skipped", "kept"))
+                .toList())
+        .isEmpty();
   }
 
   private NestedSetBuilder<Artifact> newArtifacts(int num) {

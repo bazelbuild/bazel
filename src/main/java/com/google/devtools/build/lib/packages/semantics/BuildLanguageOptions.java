@@ -20,9 +20,12 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.BoolOrEnumConverter;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
@@ -33,10 +36,12 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.ByteString;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -474,6 +479,62 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract long getMaxComputationSteps();
 
   @Option(
+      name = "max_bzl_file_size",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "The hard maximum size in bytes allowed for an individual .bzl or .scl file. Files"
+              + " exceeding this size fail compilation unless on"
+              + " --bzl_file_size_limit_allowlist (zero means no limit).")
+  public abstract long getMaxBzlFileSize();
+
+  @Option(
+      name = "soft_max_bzl_file_size",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "The soft maximum size in bytes for an individual .bzl or .scl file. Files exceeding"
+              + " this size fail compilation unless they define _KNOWN_OVERSIZED_BZL_FILE at"
+              + " the top level or are on --bzl_file_size_limit_allowlist (zero means no"
+              + " limit).")
+  public abstract long getSoftMaxBzlFileSize();
+
+  /** Converter for {@code --bzl_file_size_limit_allowlist} that validates label syntax. */
+  public static class AllowlistLabelConverter extends Converter.Contextless<String> {
+    @Override
+    public String convert(String input) throws OptionsParsingException {
+      String stripped = input.strip();
+      if (stripped.isEmpty()) {
+        return "";
+      }
+      try {
+        var unused = LabelValidator.validateAbsoluteLabel(stripped);
+      } catch (BadLabelException e) {
+        throw new OptionsParsingException(e.getMessage(), input, e);
+      }
+      return stripped;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a build target label";
+    }
+  }
+
+  @Option(
+      name = "bzl_file_size_limit_allowlist",
+      defaultValue = "",
+      converter = AllowlistLabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "A label to a .scl file defining an ALLOWED list of .bzl/.scl file paths exempt from"
+              + " file size limits.")
+  public abstract String getBzlFileSizeLimitAllowlist();
+
+  @Option(
       name = "nested_set_depth_limit",
       defaultValue = "3500",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -581,7 +642,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_starlark_type_syntax",
-      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_SYNTAX,
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -893,6 +954,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
                 getIncompatibleUnambiguousLabelStringification())
             .set(MAX_COMPUTATION_STEPS, getMaxComputationSteps())
+            .set(MAX_BZL_FILE_SIZE, getMaxBzlFileSize())
+            .set(SOFT_MAX_BZL_FILE_SIZE, getSoftMaxBzlFileSize())
+            .set(BZL_FILE_SIZE_LIMIT_ALLOWLIST, getBzlFileSizeLimitAllowlist().strip())
             .set(NESTED_SET_DEPTH_LIMIT, getNestedSetDepthLimit())
             .setBool(
                 INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS, getIncompatibleSymbolicMacroStrictAttrs())
@@ -1107,8 +1171,10 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME;
   public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
 
+  // Enable annotations, but not actual type checking, with the effect that the parser tolerates
+  // arbitrary expressions in annotations for now.
   public static final String EXPERIMENTAL_STARLARK_TYPE_SYNTAX =
-      FlagConstants.EXPERIMENTAL_STARLARK_TYPE_SYNTAX_FLAG_NAME;
+      "+experimental_starlark_type_syntax";
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =
@@ -1150,6 +1216,16 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
       new StarlarkSemantics.Key<>("max_computation_steps", 0L);
+  public static final StarlarkSemantics.Key<Long> MAX_BZL_FILE_SIZE =
+      new StarlarkSemantics.Key<>("max_bzl_file_size", 0L);
+  public static final StarlarkSemantics.Key<Long> SOFT_MAX_BZL_FILE_SIZE =
+      new StarlarkSemantics.Key<>("soft_max_bzl_file_size", 0L);
+  public static final StarlarkSemantics.Key<String> BZL_FILE_SIZE_LIMIT_ALLOWLIST =
+      new StarlarkSemantics.Key<>("bzl_file_size_limit_allowlist", "");
+  public static final Pattern KNOWN_OVERSIZED_BZL_FILE_VALUE_PATTERN =
+      Pattern.compile(FlagConstants.KNOWN_OVERSIZED_BZL_FILE_VALUE_PATTERN);
+  public static final String KNOWN_OVERSIZED_BZL_FILE_VALUE_EXAMPLE =
+      FlagConstants.KNOWN_OVERSIZED_BZL_FILE_VALUE_EXAMPLE;
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =
       new StarlarkSemantics.Key<>("nested_set_depth_limit", 3500);
 }

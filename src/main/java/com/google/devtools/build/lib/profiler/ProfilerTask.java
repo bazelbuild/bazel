@@ -68,6 +68,7 @@ public enum ProfilerTask {
   SKYFUNCTION("skyfunction"),
   CRITICAL_PATH("critical path"),
   CRITICAL_PATH_COMPONENT("critical path component"),
+  MANUAL_GC("manual GC"),
   HANDLE_GC_NOTIFICATION("gc notification"),
   LOCAL_ACTION_COUNTS("action count (local)"),
   STARLARK_PARSER("Starlark Parser", Threshold.FIFTY_MILLIS),

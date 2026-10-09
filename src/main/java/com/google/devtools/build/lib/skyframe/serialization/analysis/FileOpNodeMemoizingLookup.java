@@ -15,19 +15,28 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.AccumulatingQuiescingFuture;
+import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.FileKey;
@@ -38,12 +47,16 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNod
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.protobuf.ByteString;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
@@ -117,6 +130,9 @@ public final class FileOpNodeMemoizingLookup {
     }
   }
 
+  // Same method used by java.util.stream.AbstractTask.suggestTargetSize.
+  private static final int TARGET_WORK_UNITS = Runtime.getRuntime().availableProcessors() * 4;
+
   private final SafeExecutor executor;
   private final InMemoryGraph graph;
   private final FileOpNodeMap nodes = new FileOpNodeMap();
@@ -125,6 +141,9 @@ public final class FileOpNodeMemoizingLookup {
   private boolean shouldDiscardMemory;
   @Nullable // non-null if shouldDiscardMemory is true
   private ImmutableSet<PackageIdentifier> referencedPackages;
+
+  /** Whether Skyframe direct deps may have been cleared. See {@link #markDirectDepsCleared}. */
+  private boolean directDepsCleared = false;
 
   FileOpNodeMemoizingLookup(
       SafeExecutor executor,
@@ -146,6 +165,17 @@ public final class FileOpNodeMemoizingLookup {
     this.selectedKeys = selectedKeys;
     this.shouldDiscardMemory = shouldDiscardMemory;
     this.referencedPackages = referencedPackages;
+  }
+
+  /**
+   * Records that Skyframe direct deps are about to be cleared.
+   *
+   * <p>Afterwards, a node's deps read from the graph would be empty, so every node must already be
+   * memoized by {@link #materializeNodeGraph}. Computing any other node fails rather than silently
+   * yielding a node with no file dependencies.
+   */
+  void markDirectDepsCleared() {
+    directDepsCleared = true;
   }
 
   FileOpNodeOrFuture computeNode(ActionLookupKey key) {
@@ -180,7 +210,14 @@ public final class FileOpNodeMemoizingLookup {
       try {
         return ownedFuture.completeWith(Futures.getDone(collector));
       } catch (ExecutionException e) {
-        return ownedFuture.failWith(e);
+        // Unwraps the ExecutionException transport envelope so ownedFuture fails with the root
+        // cause. Failing with `e` directly would produce nested layers of ExecutionException across
+        // future-to-future hops.
+        Throwable cause = e.getCause();
+        return ownedFuture.failWith(cause != null ? cause : e);
+      } catch (CancellationException e) {
+        ownedFuture.cancel(/* mayInterruptIfRunning= */ false);
+        return ownedFuture;
       }
     }
     return ownedFuture.completeWith(collector);
@@ -192,6 +229,12 @@ public final class FileOpNodeMemoizingLookup {
       @Nullable SkyValue value,
       @Nullable Iterable<SkyKey> directDeps) {
     if (directDeps == null) {
+      if (directDepsCleared) {
+        collector.failWith(
+            new IllegalStateException(
+                key + " was not materialized before Skyframe direct deps were cleared"));
+        return;
+      }
       InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
       if (nodeEntry == null) {
         collector.failWith(new MissingSkyframeEntryException(key));
@@ -296,7 +339,7 @@ public final class FileOpNodeMemoizingLookup {
       this.sourceFile = sourceFile;
     }
 
-    private void failWith(MissingSkyframeEntryException e) {
+    private void failWith(Throwable e) {
       recordException(e);
     }
 
@@ -314,5 +357,154 @@ public final class FileOpNodeMemoizingLookup {
     // Control only gets here for nodes that have been freshly downloaded. This means that there
     // must be no corresponding entry in the map.
     Verify.verify(old == null);
+  }
+
+  static ActionLookupKey getDependencyKey(SkyKey key) {
+    return switch (key) {
+      case ActionLookupKey alk -> alk;
+      case ActionLookupData ald -> ald.getActionLookupKey();
+      case DerivedArtifact artifact -> artifact.getArtifactOwner();
+      case ActionLookupSummaryKey alsk -> alsk.argument();
+      default -> throw new IllegalStateException("unexpected key: " + key.getCanonicalName());
+    };
+  }
+
+  /**
+   * Materializes the node graph for every key in {@code selection}.
+   *
+   * <p>Failures do not end materialization early. This returns only once every dispatched batch and
+   * every node future it reached has settled, so no work remains in flight afterwards.
+   *
+   * @return all node resolution and evaluation failures accumulated across the graph during
+   *     materialization, or an empty list if graph materialization succeeded completely
+   */
+  @CheckReturnValue
+  public ImmutableList<Throwable> materializeNodeGraph(ImmutableSet<SkyKey> selection)
+      throws InterruptedException {
+    // Parallel root triggering with cached-node filtering.
+    ImmutableList<SkyKey> keys = selection.asList();
+    var quiescence = new LookupQuiescence(keys);
+    int totalKeys = keys.size();
+    int batchSize = max(1, totalKeys / TARGET_WORK_UNITS);
+
+    for (int start = 0; start < totalKeys; start += batchSize) {
+      executor.execute(quiescence.newBatch(start, min(start + batchSize, totalKeys)));
+    }
+
+    // Release the initial pre-increment and wait for global DAG quiescence.
+    quiescence.finishRegistration();
+    try {
+      return quiescence.get();
+    } catch (ExecutionException | CancellationException e) {
+      // LookupQuiescence collects errors instead of failing, and is never exposed for cancellation.
+      throw new AssertionError("LookupQuiescence unexpectedly failed", e);
+    }
+  }
+
+  /** Whether serialization skips {@code key}: absent from the graph, or deserialized from cache. */
+  private boolean isSkipped(SkyKey key) {
+    InMemoryNodeEntry entry = graph.getIfPresent(key);
+    return entry == null || entry.getValue() instanceof DeserializedSkyValue;
+  }
+
+  /**
+   * Waits for root dispatch and every node future it reaches to settle, collecting failures.
+   *
+   * <p>Unlike {@link QuiescingFuture#executeSubtask}, a failure here never completes the future
+   * early, so {@link #get} returns only once no work remains in flight.
+   */
+  private final class LookupQuiescence extends QuiescingFuture<ImmutableList<Throwable>>
+      implements FutureCallback<FileOpNodeOrEmpty> {
+    // Soft bound on the number of errors that we accumlate here. This bound can be exceeded due to
+    // a TOCTOU race condition, but it's of no practical concern.
+    private static final int MAX_ERRORS = 100;
+
+    private final ImmutableList<SkyKey> keys;
+    private final Set<Throwable> errors = Sets.newConcurrentHashSet();
+
+    private LookupQuiescence(ImmutableList<SkyKey> keys) {
+      // Note that this superclass constructor initializes taskCount to 1. That protects against
+      // premature completion while the parallel root loop is still registering tasks.
+      super(safeDirectExecutor());
+      this.keys = keys;
+    }
+
+    @Override
+    protected ImmutableList<Throwable> getValue() {
+      return ImmutableList.copyOf(errors);
+    }
+
+    /**
+     * Creates a task visiting {@code keys[begin, limit)}, holding quiescence open until it ends.
+     */
+    private Batch newBatch(int begin, int limit) {
+      return new Batch(begin, limit);
+    }
+
+    private final class Batch implements RejectionHandlingRunnable {
+      private final int begin;
+      private final int limit;
+
+      private Batch(int begin, int limit) {
+        this.begin = begin;
+        this.limit = limit;
+        increment();
+      }
+
+      @Override
+      public void run() {
+        try {
+          for (int i = begin; i < limit; i++) {
+            SkyKey key = keys.get(i);
+            // Skip keys that are never uploaded (see isSkipped). Materializing their nodes is
+            // wasted work and, for keys absent from the graph, would report a spurious
+            // MissingSkyframeEntryException.
+            if (isSkipped(key)) {
+              continue;
+            }
+
+            ActionLookupKey depKey = getDependencyKey(key);
+            switch (computeNode(depKey)) {
+              // quiescence tracks completion of node dependencies.
+              case FutureFileOpNode future -> track(future);
+              // Nothing needs to be done for already complete nodes.
+              case FileOpNodeOrEmpty _ -> {}
+            }
+          }
+        } catch (Throwable t) {
+          if (errors.size() < MAX_ERRORS) {
+            errors.add(t);
+          }
+        } finally {
+          decrement();
+        }
+      }
+
+      @Override
+      public void handleRejection(Throwable t) {
+        if (errors.size() < MAX_ERRORS) {
+          errors.add(t);
+        }
+        decrement();
+      }
+    }
+
+    private void track(FutureFileOpNode future) {
+      increment();
+      Futures.addCallback(future, this, directExecutor());
+    }
+
+    @Override
+    @DoNotCall("Only called via track")
+    public void onSuccess(FileOpNodeOrEmpty unused) {
+      decrement();
+    }
+
+    @Override
+    @DoNotCall("Only called via track")
+    public void onFailure(Throwable t) {
+      errors.add(t);
+      decrement();
+    }
   }
 }

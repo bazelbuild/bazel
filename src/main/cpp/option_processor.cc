@@ -30,7 +30,10 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor-internal.h"
+#include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/sem_ver.h"
+#include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
@@ -39,9 +42,6 @@
 #include "src/main/cpp/workspace_layout.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_cat.h"
-#include "src/main/cpp/rc_file.h"
-#include "src/main/cpp/startup_options.h"
-#include "src/main/cpp/util/exit_code.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN

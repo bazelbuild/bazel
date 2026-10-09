@@ -33,7 +33,7 @@ java_test(
     name = "ActionGraphQueryTest",
     size = "medium",
     srcs = ["ActionGraphQueryTest.java"],
-    shard_count = 2,
+    shard_count = 6,
     deps = [
         ":action_graph_query_helper",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",

@@ -2483,13 +2483,28 @@ server's idle timer will be reset.
 
 #### `--[no]shutdown_on_low_sys_mem` {#shutdown-on-low-sys-mem}
 
-If enabled and `--max_idle_secs` is set to a positive duration,
-after the build server has been idle for a while, shut down the server when the system is
-low on memory. Linux only.
+If enabled and `--max_idle_secs` is set to a positive duration, shut down an idle
+build server when available system memory falls below critical thresholds.
+Supported on Linux and macOS (no-op on Windows).
 
-In addition to running an idle check corresponding to max_idle_secs, the build server will
-starts monitoring available system memory after the server has been idle for some time.
-If the available system memory becomes critically low, the server will exit.
+To avoid interrupting workflows or thrashing during active development, the server
+only checks memory after it has been continuously idle for at least **5 minutes**
+(any incoming command resets this idle window). While idle past 5 minutes, it checks
+memory every 5 seconds:
+
+*   **Linux:** The server exits if available RAM (from `/proc/meminfo`) drops below
+    **both** 1 GiB and 5% of total system RAM.
+*   **macOS:** The server exits if the kernel signals a memory pressure level of
+    `WARNING` or `CRITICAL` via `dispatch_source_memorypressure`.
+
+This flag is especially useful on multi-project developer workstations where multiple
+idle Bazel servers across different repositories or output bases can cause system-wide
+memory pressure. You can enable it globally in your user configuration file:
+
+```ini
+# ~/.bazelrc
+startup --shutdown_on_low_sys_mem
+```
 
 #### `--[no]block_for_lock` {#block-for-lock}
 

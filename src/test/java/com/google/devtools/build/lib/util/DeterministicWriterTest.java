@@ -20,9 +20,12 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -89,16 +92,78 @@ public final class DeterministicWriterTest {
         out -> {
           try {
             out.write(1);
-            bufferFilled.countDown();
             out.write(2);
+            bufferFilled.countDown();
+            out.write(3);
           } finally {
             writerStopped.countDown();
           }
         };
     try (var in = writer.getInputStream(1)) {
+      assertThat(in.read()).isEqualTo(1);
       assertThat(bufferFilled.await(10, SECONDS)).isTrue();
       assertThat(writerStopped.getCount()).isEqualTo(1);
     }
     assertThat(writerStopped.await(10, SECONDS)).isTrue();
+  }
+
+  @Test
+  public void closeWithoutReadDoesNotStartWriter() throws Exception {
+    var writerCalled = new AtomicBoolean();
+    DeterministicWriter writer = out -> writerCalled.set(true);
+    writer.getInputStream(1).close();
+    assertThat(writerCalled.get()).isFalse();
+  }
+
+  @Test
+  public void transferToWritesDirectlyOnCallingThread() throws Exception {
+    var contents = unicodeToInternal("héllo 🌍".repeat(100)).getBytes(ISO_8859_1);
+    var writerThread = new AtomicReference<Thread>();
+    DeterministicWriter writer =
+        out -> {
+          writerThread.set(Thread.currentThread());
+          out.write(contents);
+        };
+    var out = new ByteArrayOutputStream();
+    try (var in = writer.getInputStream(17)) {
+      assertThat(in.transferTo(out)).isEqualTo(contents.length);
+      assertThat(in.read()).isEqualTo(-1);
+      assertThat(in.transferTo(out)).isEqualTo(0);
+    }
+    assertThat(out.toByteArray()).isEqualTo(contents);
+    assertThat(writerThread.get()).isSameInstanceAs(Thread.currentThread());
+  }
+
+  @Test
+  public void transferToAfterReadContinuesFromPipe() throws Exception {
+    var contents = unicodeToInternal("héllo 🌍".repeat(100)).getBytes(ISO_8859_1);
+    var writerThread = new AtomicReference<Thread>();
+    DeterministicWriter writer =
+        out -> {
+          writerThread.set(Thread.currentThread());
+          out.write(contents);
+        };
+    var out = new ByteArrayOutputStream();
+    try (var in = writer.getInputStream(17)) {
+      assertThat(in.read()).isEqualTo(contents[0]);
+      assertThat(in.transferTo(out)).isEqualTo(contents.length - 1);
+      assertThat(in.read()).isEqualTo(-1);
+    }
+    assertThat(out.toByteArray()).isEqualTo(Arrays.copyOfRange(contents, 1, contents.length));
+    assertThat(writerThread.get()).isNotSameInstanceAs(Thread.currentThread());
+  }
+
+  @Test
+  public void transferToPropagatesWriterFailure() throws Exception {
+    var failure = new IOException("writer failed");
+    DeterministicWriter writer =
+        out -> {
+          out.write(42);
+          throw failure;
+        };
+    try (var in = writer.getInputStream(1)) {
+      assertThat(assertThrows(IOException.class, () -> in.transferTo(new ByteArrayOutputStream())))
+          .isSameInstanceAs(failure);
+    }
   }
 }

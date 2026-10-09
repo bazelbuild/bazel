@@ -176,6 +176,20 @@ public final class StarlarkProviderCodecTest {
   }
 
   @Test
+  public void serializationIndependentOfInstanceIdentity() throws Exception {
+    var provider = StarlarkProvider.builder(Location.BUILTIN).buildExported(providerKey);
+    var equalProvider = StarlarkProvider.builder(Location.BUILTIN).buildExported(providerKey);
+    assertThat(equalProvider).isEqualTo(provider);
+    assertThat(equalProvider).isNotSameInstanceAs(provider);
+    ObjectCodecs objectCodecs = new ObjectCodecs();
+
+    // Equal but distinct instances, e.g. one kept alive across commands by an interner, must
+    // serialize the same as a single instance.
+    assertThat(objectCodecs.serializeMemoized(ImmutableList.of(provider, equalProvider)))
+        .isEqualTo(objectCodecs.serializeMemoized(ImmutableList.of(provider, provider)));
+  }
+
+  @Test
   public void unexportedProvider_cannotBeSerialized() throws Exception {
     var unexportedProvider =
         StarlarkProvider.builder(Location.BUILTIN)

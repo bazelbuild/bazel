@@ -5,7 +5,7 @@
 module(name = "bazel_tools")
 
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
-bazel_dep(name = "buildozer", version = "10.0.1")
+bazel_dep(name = "buildozer", version = "10.1.0.bcr.1")
 bazel_dep(name = "platforms", version = "1.0.0")
 
 # Minimum versions required for compatibility.
@@ -13,6 +13,8 @@ bazel_dep(name = "bazel_features", version = "1.50.0", repo_name = None)  # vers
 bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None)  # version bump, older versions contribute lockfile entries
 bazel_dep(name = "rules_swift", version = "3.1.2", repo_name = None)  # version bump, older versions don't load CcInfo
 bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = None)  # version bump, fixes errors with older compilers
+bazel_dep(name = "rules_android", version = "0.8.0", repo_name = None)  # version bump, bazel 10+ Android builds need flag_alias()es
+
 
 xcode_configure = use_extension("@apple_support//xcode:xcode_configure.bzl", "xcode_configure_extension")
 use_repo(xcode_configure, "local_config_xcode")

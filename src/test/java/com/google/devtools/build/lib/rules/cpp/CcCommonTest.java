@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,6 +44,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -1143,6 +1147,75 @@ public class CcCommonTest extends BuildViewTestCase {
                 .map(x -> removeOutDirectory(x))
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
+  }
+
+  @Test
+  public void testCompilationParameterFileWindowsQuoting() throws Exception {
+    assertCompilationParameterFileQuoting(
+        CppRuleClasses.COMPILER_PARAM_FILE, /* windowsQuoting= */ true);
+  }
+
+  @Test
+  public void testCompilationParameterFileOnDemandWindowsQuoting() throws Exception {
+    assertCompilationParameterFileQuoting(
+        CppRuleClasses.COMPILER_PARAM_FILE_ON_DEMAND, /* windowsQuoting= */ true);
+  }
+
+  @Test
+  public void testCompilationParameterFileGccQuoting() throws Exception {
+    assertCompilationParameterFileQuoting(
+        CppRuleClasses.COMPILER_PARAM_FILE, /* windowsQuoting= */ false);
+  }
+
+  @Test
+  public void testCompilationParameterFileQuotingAffectsActionKey() throws Exception {
+    assertCompilationParameterFileQuoting(
+        CppRuleClasses.COMPILER_PARAM_FILE, /* windowsQuoting= */ true);
+    CppCompileAction windowsAction = getCppCompileAction("//a:foo bar");
+    String windowsKey = windowsAction.getKey(actionKeyContext, /* inputMetadataProvider= */ null);
+
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--features=-" + CppRuleClasses.WINDOWS_QUOTING_FOR_PARAM_FILES);
+    CppCompileAction gccAction = getCppCompileAction("//a:foo bar");
+
+    assertThat(gccAction.getArguments()).isEqualTo(windowsAction.getArguments());
+    assertThat(gccAction.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
+        .isNotEqualTo(windowsKey);
+  }
+
+  private void assertCompilationParameterFileQuoting(
+      String paramFileFeature, boolean windowsQuoting) throws Exception {
+    CcToolchainConfig.Builder config = CcToolchainConfig.builder();
+    if (windowsQuoting) {
+      config.withFeatures(paramFileFeature, CppRuleClasses.WINDOWS_QUOTING_FOR_PARAM_FILES);
+    } else {
+      config.withFeatures(paramFileFeature);
+    }
+    AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig, config);
+    scratch.file(
+        "a/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(name = "foo bar", srcs = ["source with spaces.cc"])
+        """);
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--min_param_file_size=0",
+        "--experimental_use_cpp_compile_action_args_params_file");
+    CppCompileAction action = getCppCompileAction("//a:foo bar");
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    action.getArgumentsForExecute(PathMapper.NOOP).paramFileActionInput().writeTo(out);
+
+    String source = "a/source with spaces.cc";
+    String object = action.getPrimaryOutput().getExecPathString();
+    assertThat(out.toString(UTF_8).lines().toList())
+        .containsAtLeast(
+            windowsQuoting ? "\"" + source + "\"" : source.replace(" ", "\\ "),
+            windowsQuoting ? "\"" + object + "\"" : object.replace(" ", "\\ "));
+    Args args = (Args) action.getStarlarkArgs().get(0);
+    assertThat(args.getParamFileInfo().getFileType())
+        .isEqualTo(windowsQuoting ? ParameterFileType.WINDOWS : ParameterFileType.GCC_QUOTED);
   }
 
   @Test

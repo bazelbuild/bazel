@@ -1036,6 +1036,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return Version.minimal();
   }
 
+  /**
+   * Returns whether the executor supports analysis-only caching (skipping execution nodes).
+   *
+   * <p>Overridden by subclasses that support this mode. Defaults to {@code false}.
+   */
+  public boolean supportsSkycacheAnalysisOnly() {
+    return false;
+  }
+
   protected SkyFunction newActionExecutionFunction() {
     return new ActionExecutionFunction(
         actionRewindStrategy,
@@ -1419,6 +1428,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // b/466388360.
     boolean remoteAnalysisCachingEnabled =
         remoteAnalysisCacheReaderDepsProvider.mode().isRetrievalEnabled();
+
+    getEventBus().post(new AboutToClearAnalysisCacheEvent());
 
     try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
       graph.parallelForEach(
@@ -2264,9 +2275,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Returns every {@link BuildConfigurationKey} in the graph. */
   public Collection<SkyKey> getTransitiveConfigurationKeys() {
-    return memoizingEvaluator.getDoneValues().keySet().stream()
-        .filter(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
-        .collect(toImmutableList());
+    return ImmutableList.copyOf(
+        memoizingEvaluator
+            .getInMemoryGraph()
+            .collectDoneValues(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
+            .keySet());
   }
 
   /**
@@ -4128,7 +4141,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
         batchDirtyResult =
             fsvc.getDirtyKeys(
-                memoizingEvaluator.getDoneValues(),
+                memoizingEvaluator
+                    .getInMemoryGraph()
+                    .collectDoneValues(
+                        DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker()::applies),
                 new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
       }
       if (externalDirtinessChecker != null) {

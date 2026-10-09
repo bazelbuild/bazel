@@ -642,7 +642,10 @@ public final class SkyframeErrorProcessor {
       return ClassifiedError.execution(
           errorKey,
           cause,
-          getExecutionDetailedExitCodeFromCause(result, cause, bugReporter),
+          // A cycle is the only way to fail without an exception (cause == null).
+          cause == null
+              ? CYCLE_CODE
+              : getExecutionDetailedExitCodeFromCause(result, cause, bugReporter),
           cause instanceof ActionExecutionException actionExecutionException
               ? actionExecutionException.getRootCauses()
               : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -939,7 +942,10 @@ public final class SkyframeErrorProcessor {
     if (cause instanceof ActionExecutionException actionExecutionCause) {
       String message = cause.getMessage();
       if (actionExecutionCause.getAction() != null) {
-        message = actionExecutionCause.getAction().describe() + " failed: " + message;
+        message =
+            actionExecutionCause.getAction().describe()
+                + " failed"
+                + (message == null ? "" : ": " + message);
       }
       // Sometimes ActionExecutionExceptions are caused by Actions with no owner.
       if (actionExecutionCause.getLocation() != null) {
@@ -974,8 +980,12 @@ public final class SkyframeErrorProcessor {
     DetailedExitCode unknownExitCode =
         sendBugReportAndCreateUnknownExecutionDetailedExitCode(
             resultForDebugging, cause, bugReporter);
+    // The catastrophe bit is propagated through the ArtifactNestedSetEvalException.
+    boolean catastrophic = cause instanceof ArtifactNestedSetEvalException e && e.isCatastrophic();
     throw new BuildFailedException(
         Preconditions.checkNotNull(unknownExitCode.getFailureDetail()).getMessage(),
+        catastrophic,
+        /* errorAlreadyShown= */ false,
         unknownExitCode);
   }
 

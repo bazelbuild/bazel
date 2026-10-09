@@ -63,6 +63,7 @@ filegroup(
         "//third_party/java/proguard:srcs",
         "//third_party/java/protobuf:srcs",
         "//third_party/java/protobuf/util:srcs",
+        "//third_party/java/roaringbitmap:srcs",
         "//third_party/java/rxjava3:srcs",
         "//third_party/java/snakeyaml:srcs",
         "//third_party/java/testparameterinjector:srcs",

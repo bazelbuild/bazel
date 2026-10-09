@@ -80,18 +80,11 @@ py_binary(
     deps = [":create_embedded_tools_lib"],
 )
 
-# The tools Bazel uses to compile Java.
-# TODO(#6316): Gradually remove the targets here.
-JAVA_TOOLS = [
-    "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-    "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-]
-
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
 # in Starlark rules on Windows has been released.
 [filegroup(
     name = "embedded_tools" + suffix + "_srcs",
-    srcs = JAVA_TOOLS + [
+    srcs = [
                "BUILD.tools",
                "MODULE.tools",
                "//src/conditions:embedded_tools",
@@ -133,7 +126,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 292,
+    expect = 255,
     margin = 5,  # percentage
 )
 
@@ -240,14 +233,32 @@ _JLINK_TOOL_LOCATION = select({
     "//conditions:default": "$(location :jdk_for_jlink)",
 })
 
+# Temurin distributions omit JMODs from the JDK archive. Supply the matching
+# module archive when creating either flavor of the embedded runtime.
+_JMODS_REPOS = {
+    "//src/conditions:linux_ppc64le": "@openjdk_linux_ppc64le_jmods//file",
+    "//src/conditions:linux_riscv64": "@openjdk_linux_riscv64_jmods//file",
+    "//src/conditions:linux_s390x": "@openjdk_linux_s390x_jmods//file",
+}
+
+_JMODS_SRCS = select({
+    condition: [repo]
+    for condition, repo in _JMODS_REPOS.items()
+} | {"//conditions:default": []})
+
+_JMODS_ARG = select({
+    condition: " $(location %s)" % repo
+    for condition, repo in _JMODS_REPOS.items()
+} | {"//conditions:default": ""})
+
 genrule(
     name = "embedded_jdk_minimal",
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + _JMODS_SRCS,
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + _JMODS_ARG,
     tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -257,9 +268,9 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + _JMODS_SRCS,
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + _JMODS_ARG,
     tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -337,7 +348,6 @@ genrule(
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/java:__subpackages__",  # For command line reference generation
         "//src/test:__subpackages__",  # For integration tests
-        "//tools/compliance:__pkg__",  # For license gathering
     ],
 ) for suffix, jdk in [
     ("-dev", "_jdk_allmodules"),

@@ -30,17 +30,21 @@ py_library(
         "//src/test/tools/bzlmod:MODULE.bazel.lock",
     ],
     visibility = [
+        "//scripts/ctexplain:__pkg__",
         "//src/test/py/bazel:__pkg__",
         "//third_party/def_parser:__pkg__",
-        "//tools/android:__pkg__",
-        "//tools/build_rules:__pkg__",
-        "//tools/ctexplain:__pkg__",
-        "//tools/python:__pkg__",
     ],
     deps = [
         "//third_party/py/abseil",
         requirement("bazel-runfiles"),
     ],
+)
+
+py_test(
+    name = "action_stdout_test",
+    size = "medium",
+    srcs = ["action_stdout_test.py"],
+    deps = [":test_base"],
 )
 
 py_test(
@@ -102,9 +106,10 @@ py_test(
         "//src/conditions:windows": "bazel_windows_test.py",
         "//conditions:default": "empty_test.py",
     }),
+    shard_count = 3,
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": [],
+        "//conditions:default": ["//third_party/py/abseil"],
     }),
 )
 
@@ -121,7 +126,7 @@ py_test(
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": [],
+        "//conditions:default": ["//third_party/py/abseil"],
     }),
 )
 
@@ -140,7 +145,7 @@ py_test(
     tags = ["manual"],
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": [],
+        "//conditions:default": ["//third_party/py/abseil"],
     }),
 )
 
@@ -190,7 +195,7 @@ py_test(
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": [],
+        "//conditions:default": ["//third_party/py/abseil"],
     }),
 )
 
@@ -223,7 +228,7 @@ py_test(
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": [],
+        "//conditions:default": ["//third_party/py/abseil"],
     }),
 )
 
@@ -312,7 +317,12 @@ py_test(
     name = "bazel_vendor_test",
     size = "large",
     srcs = ["bzlmod/bazel_vendor_test.py"],
-    data = ["//tools/build_defs/repo:mock_srcs"],
+    data = [
+        "//src:MODULE.tools",
+        "//tools:BUILD.tools",
+        "//tools:build_defs.bzl",
+        "//tools/build_defs/repo:mock_srcs",
+    ],
     shard_count = 5,
     tags = [
         "requires-network",

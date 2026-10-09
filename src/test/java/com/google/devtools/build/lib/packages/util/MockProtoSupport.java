@@ -354,13 +354,16 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/proto/BUILD",
         "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
+        "load('//tools/build_defs/go:go_library.bzl', 'go_library')",
         "package(default_visibility=['//visibility:public'])",
         "genrule(name = 'go_internal_bootstrap_hack',",
         "        srcs = [ 'descriptor.pb.go-prebuilt' ],",
         "        outs = [ 'descriptor.pb.go' ],",
         "        cmd = '')",
         "proto_library(name='descriptor',",
-        "              srcs=['descriptor.proto'])");
+        "              srcs=['descriptor.proto'])",
+        "go_library(name='descriptor_go_proto',",
+        "           srcs=['descriptor.pb.go'])");
     config.create(
         "net/proto2/go/BUILD",
         """
@@ -456,6 +459,71 @@ public final class MockProtoSupport {
         go_library(
             name = "status",
             srcs = ["status.go"],
+        )
+        """);
+    config.create(
+        "third_party/golang/genproto/alias/BUILD",
+        """
+        load("//tools/build_defs/go:go_binary.bzl", "go_binary")
+        package(default_visibility = ["//visibility:public"])
+
+        licenses(["notice"])
+
+        go_binary(
+            name = "aliasgen_bin",
+            srcs = ["main.go"],
+        )
+        """);
+    config.create(
+        "third_party/golang/protobuf/v2/proto/BUILD",
+        """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
+        package(default_visibility = ["//visibility:public"])
+
+        licenses(["notice"])
+
+        go_library(
+            name = "proto",
+            srcs = ["proto.go"],
+        )
+        """);
+    config.create(
+        "third_party/golang/protobuf/v2/reflect/protoreflect/BUILD",
+        """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
+        package(default_visibility = ["//visibility:public"])
+
+        licenses(["notice"])
+
+        go_library(
+            name = "protoreflect",
+            srcs = ["protoreflect.go"],
+        )
+        """);
+    config.create(
+        "third_party/golang/protobuf/v2/reflect/protodesc/BUILD",
+        """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
+        package(default_visibility = ["//visibility:public"])
+
+        licenses(["notice"])
+
+        go_library(
+            name = "protodesc",
+            srcs = ["protodesc.go"],
+        )
+        """);
+    config.create(
+        "third_party/golang/protobuf/v2/reflect/protoregistry/BUILD",
+        """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
+        package(default_visibility = ["//visibility:public"])
+
+        licenses(["notice"])
+
+        go_library(
+            name = "protoregistry",
+            srcs = ["protoregistry.go"],
         )
         """);
   }

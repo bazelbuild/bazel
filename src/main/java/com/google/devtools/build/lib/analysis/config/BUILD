@@ -119,7 +119,6 @@ java_library(
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
-        "//third_party/java/guava:escape",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf:protobuf_lite",
     ],
@@ -347,8 +346,10 @@ java_library(
         "RequiresOptions.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:env_var",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:annotations",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
     ],
@@ -509,7 +510,6 @@ java_library(
     srcs = ["Scope.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
     ],

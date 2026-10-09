@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
@@ -68,6 +69,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.IncrementalInMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
@@ -233,7 +235,7 @@ final class SelectedEntrySerializer {
   @Nullable private final ImmutableMap<PackageIdentifier, AtomicInteger> packageRefcounts;
 
   /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
-  static QuiescingFuture<ImmutableList<Throwable>> uploadSelection(
+  static ListenableFuture<ImmutableList<Throwable>> uploadSelection(
       InMemoryGraph graph,
       LongVersionGetter versionGetter,
       ObjectCodecs codecs,
@@ -269,6 +271,15 @@ final class SelectedEntrySerializer {
     }
     fileOpNodes.setMemoryReclamationParameters(
         selection, shouldDiscardMemory, shouldDiscardMemory ? packageRefcounts.keySet() : null);
+
+    ImmutableList<Throwable> materializeErrors;
+    try (var _ = Profiler.instance().profile("materializeNodeGraph")) {
+      materializeErrors = fileOpNodes.materializeNodeGraph(selection);
+    }
+    if (!materializeErrors.isEmpty()) {
+      return immediateFuture(materializeErrors);
+    }
+
     var fileDependencySerializer =
         new FileDependencySerializer(
             versionGetter,
@@ -303,6 +314,11 @@ final class SelectedEntrySerializer {
     // the majority of the Skyframe graph is not serialized), but does help when serializing a
     // lot of nodes.
     ImmutableList<SkyKey> sortedSelection = sortTopologically(selection, graph);
+
+    if (shouldDiscardMemory) {
+      fileOpNodes.markDirectDepsCleared();
+      clearDirectDeps(graph);
+    }
 
     for (SkyKey selectedKey : sortedSelection) {
       serializer.upload(selectedKey);
@@ -343,7 +359,13 @@ final class SelectedEntrySerializer {
     this.emitUploadedEvents = emitUploadedEvents;
   }
 
-  public void upload(SkyKey key) throws InterruptedException {
+  /**
+   * Uploads one selected entry.
+   *
+   * <p>Private because it relies on {@link FileOpNodeMemoizingLookup#materializeNodeGraph} having
+   * run first, as {@link #uploadSelection} does.
+   */
+  private void upload(SkyKey key) throws InterruptedException {
     InMemoryNodeEntry entry = graph.getIfPresent(key);
     if (entry != null && entry.getValue() instanceof DeserializedSkyValue) {
       return;
@@ -358,10 +380,14 @@ final class SelectedEntrySerializer {
             throw new MissingSkyframeEntryException(actionLookupKey);
           }
           serializationStats.registerAnalysisNode();
-          uploadAnalysisEntry(
+          // materializeNodeGraph already computed this key's node, so its direct deps are unused,
+          // and may have been cleared by clearDirectDeps. The async path, which runs before the
+          // node is committed, passes its deps via uploadAnalysisEntry instead.
+          uploadEntry(
               actionLookupKey,
               entry.getValue(),
-              entry.getDirectDeps(),
+              actionLookupKey,
+              /* dependencyDeps= */ null,
               entry.getMaxTransitiveSourceVersion());
         }
         case ActionLookupData lookupData -> {
@@ -422,7 +448,7 @@ final class SelectedEntrySerializer {
       }
       value = entry.getValue();
     }
-    ActionLookupKey dependencyKey = getDependencyKey(key);
+    ActionLookupKey dependencyKey = FileOpNodeMemoizingLookup.getDependencyKey(key);
 
     // We don't pass directDeps in because the code must be tolerant to those not being available:
     // if we delete nodes as we upload them, the NodeEntry to dependencyKey might not be available
@@ -430,15 +456,6 @@ final class SelectedEntrySerializer {
     // since creating one is a side effect of uploading. If we are not deleting them, it will do
     // a graph lookup anyway.
     uploadEntry(key, value, dependencyKey, null, /* mtsv= */ null);
-  }
-
-  private static ActionLookupKey getDependencyKey(SkyKey key) {
-    return switch (key) {
-      case ActionLookupData ald -> ald.getActionLookupKey();
-      case DerivedArtifact artifact -> artifact.getArtifactOwner();
-      case ActionLookupSummaryKey alsk -> alsk.argument();
-      default -> throw new IllegalStateException("unexpected key: " + key.getCanonicalName());
-    };
   }
 
   /**
@@ -919,6 +936,26 @@ final class SelectedEntrySerializer {
   private static boolean isExecutionValue(SkyKey key) {
     // TODO: b/439060530: consider whether this is correct for ActionTemplateExpansionValue keys.
     return !(key instanceof ActionLookupKey);
+  }
+
+  /**
+   * Clears the direct dep edges of every done node in {@code graph}.
+   *
+   * <p>Like deleting rdeps, this leaves the graph unfit for incremental builds, so it runs only
+   * when discarding memory. It is safe once the node graph is materialized and the upload order is
+   * computed: after that point, uploading reads only values, never Skyframe edges. Unlike deleting
+   * rdeps, clearing a node's deps is a single field write, so the pass costs little more than a
+   * walk over the graph.
+   */
+  private static void clearDirectDeps(InMemoryGraph graph) {
+    try (var _ = Profiler.instance().profile("clearDirectDeps")) {
+      graph.parallelForEach(
+          node -> {
+            if (node instanceof IncrementalInMemoryNodeEntry entry && entry.isDone()) {
+              entry.clearDirectDeps();
+            }
+          });
+    }
   }
 
   /** Sorts {@code selection} topologically based on the edges in {@code graph}. */

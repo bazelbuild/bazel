@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -53,6 +54,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -191,6 +193,25 @@ public class DiskCacheClientTest {
     var unused = getFromFuture(client.uploadBlob(digest, blob));
 
     assertThat(FileSystemUtils.readContent(getCasPath(digest), UTF_8)).isEqualTo("contents");
+  }
+
+  @Test
+  public void uploadBlob_whenPresent_doesNotOpenBlob() throws Exception {
+    Digest digest = getDigest("contents");
+    Path path = populateCas(digest, "contents");
+    var opened = new AtomicBoolean();
+
+    var unused =
+        getFromFuture(
+            client.uploadBlob(
+                digest,
+                () -> {
+                  opened.set(true);
+                  return new ByteArrayInputStream("contents".getBytes(UTF_8));
+                }));
+
+    assertThat(opened.get()).isFalse();
+    assertThat(FileSystemUtils.readContent(path, UTF_8)).isEqualTo("contents");
   }
 
   @Test

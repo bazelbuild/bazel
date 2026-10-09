@@ -53,6 +53,12 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
+  public void executionTransition_cached() throws Exception {
+    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
+    assertThat(getExecTransition(EXECUTION_PLATFORM)).isSameInstanceAs(transition);
+  }
+
+  @Test
   public void executionTransition() throws Exception {
     PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
     assertThat(transition).isNotNull();

@@ -10,9 +10,15 @@ genrule(
     name = "bash_completion",
     outs = ["bazel-complete.bash"],
     cmd = """
+    BAZEL_BIN=$$PWD/$(execpath //src:bazel)
     TMPDIR=$$(mktemp -d)
     trap 'rm -rf $$TMPDIR' EXIT
-    $(location //src:bazel) --batch --output_user_root=$$TMPDIR help completion bash > $@
+    mkdir -p $$TMPDIR/workspace $$TMPDIR/root
+    touch $$TMPDIR/workspace/MODULE.bazel
+    (
+      cd $$TMPDIR/workspace
+      "$$BAZEL_BIN" --ignore_all_rc_files --batch --output_user_root=$$TMPDIR/root help completion bash
+    ) > $@
     """,
     tools = ["//src:bazel"],
     visibility = [
@@ -80,6 +86,8 @@ sh_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//scripts/aquery_differ:srcs",
+        "//scripts/ctexplain:srcs",
         "//scripts/docs:srcs",
         "//scripts/packages:srcs",
         "//scripts/release:srcs",

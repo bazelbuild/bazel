@@ -1,3 +1,46 @@
+## Release 9.3.0 (2026-10-07)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260916.5 (2026-10-02)
+
+```
+Baseline: 6332cd97a4b72907623ae44f32fbc06a00cc9f6f
+
+Cherry picks:
+
+   + 1f39b46f4f3efb0fd4410dab7f776328c88c3753:
+     Avoid storing missing mandatory attribute state as a field on
+     Rule.
+```
+
+New features:
+
+  - `DefaultInfo.executable` exposes the executable of configured
+    targets and directly constructed providers, including providers
+    returned by `ctx.super()`.
+
+Important changes:
+
+  - Skip implicit output generation when mandatory rule attributes
+    are missing to prevent secondary error messages.
+  - Fix crash when evaluating target patterns or paths containing
+    invalid characters or wildcards on Windows.
+  - Facts of reproducible module extensions are now restored to the
+    expected state after external modifications by every Bazel
+    command that updates the lockfile.
+  - Fix for regression in #29284 that caused select builtin actions
+    to incorrectly inherit resource set overrides.
+  - `bazel fetch --force` no longer causes the fetched repos to be
+    fetched again by the next build with a spurious warning about
+    external modifications.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Daniel Burrell, David Zbarsky, Fabian Meumertzheim, Fabian Meumertzheim, Henner Zeller, jdymitarai, Jordan Mele, Keith Smiley, Raiyyan Ur Rahman Mohammed, Son Luong Ngoc.
+
 ## Release 8.8.1 (2026-09-24)
 
 ```

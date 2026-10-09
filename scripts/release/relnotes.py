@@ -129,7 +129,12 @@ def get_categorized_relnotes(filtered_notes):
   """Sort release notes by category."""
   categorized_relnotes = {}
   for relnote in filtered_notes:
-    issue_id = re.search(r"\(\#[0-9]+\)$", relnote.strip().split()[-1])
+    parts = relnote.strip().split()
+    if not parts:
+      continue
+    # Safely access the last element now that we know 'parts' is not empty
+    issue_id = re.search(r"\(\#[0-9]+\)$", parts[-1])
+
     category = None
     if issue_id:
       category = get_label(re.sub(r"\(|\#|\)", "", issue_id.group(0).strip()))
@@ -170,6 +175,14 @@ def get_external_authors_between(base, head):
   return ", ".join(sorted(authors.union(coauthors), key=str.casefold))
 
 
+def parse_version(tag):
+  """Parses a version string into a tuple of ints for semantic comparison."""
+  match = re.search(r"^v?(\d+(?:\.\d+)*)", tag)
+  if match:
+    return tuple(int(x) for x in match.group(1).split("."))
+  return ()
+
+
 def get_filtered_notes(base, previous_release, is_patch_release):
   # Generate notes for all commits from last branch cut to HEAD, but filter out
   # any identical notes from the previous release branch.
@@ -191,7 +204,7 @@ if __name__ == "__main__":
   current_release = git("rev-parse", "--abbrev-ref", "HEAD")[0]
 
   if current_release.startswith("release-"):
-    current_release = re.sub(r"rc\d", "", current_release[len("release-"):])
+    current_release = re.sub(r"rc\d+", "", current_release[len("release-") :])
   else:
     try:
       current_release = git("describe", "--tags")[0]
@@ -201,13 +214,17 @@ if __name__ == "__main__":
 
   is_patch = not current_release.endswith(".0")
 
-  tags = [tag for tag in git("tag", "--sort=refname") if "pre" not in tag]
+  tags = [
+      tag
+      for tag in git("tag", "--sort=version:refname")
+      if "pre" not in tag and "rc" not in tag
+  ]
 
   # Get the baseline for RCs (before release tag is created)
   if current_release not in tags:
     tags.append(current_release)
 
-  tags.sort()
+  tags.sort(key=parse_version)
   last_release = tags[tags.index(current_release) - 1]
 
   # Assuming HEAD is on the current (to-be-released) release, find the merge

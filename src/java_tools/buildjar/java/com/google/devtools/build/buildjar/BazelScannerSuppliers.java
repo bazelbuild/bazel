@@ -129,7 +129,6 @@ import com.google.errorprone.bugpatterns.StreamToString;
 import com.google.errorprone.bugpatterns.StringBuilderInitWithChar;
 import com.google.errorprone.bugpatterns.SubstringOfZero;
 import com.google.errorprone.bugpatterns.SuppressWarningsDeprecated;
-import com.google.errorprone.bugpatterns.TestParametersNotInitialized;
 import com.google.errorprone.bugpatterns.TheoryButNoTheories;
 import com.google.errorprone.bugpatterns.ThrowIfUncheckedKnownChecked;
 import com.google.errorprone.bugpatterns.ThrowNull;
@@ -367,7 +366,6 @@ final class BazelScannerSuppliers {
           SubstringOfZero.class,
           SuppressWarningsDeprecated.class,
           TemporalAccessorGetChronoField.class,
-          TestParametersNotInitialized.class,
           TheoryButNoTheories.class,
           ThrowIfUncheckedKnownChecked.class,
           ThrowNull.class,
@@ -386,15 +384,19 @@ final class BazelScannerSuppliers {
           WrongOneof.class,
           XorPower.class,
           ZoneIdOfZ.class,
-          findMaybeInNullnessSubpackage("AsyncCallableReturnsNull"),
-          findMaybeInNullnessSubpackage("AsyncFunctionReturnsNull")
+          findBugCheckerByName("AsyncCallableReturnsNull"),
+          findBugCheckerByName("AsyncFunctionReturnsNull"),
+          findBugCheckerByName("TestParametersNotInitialized")
           // keep-sorted end
           );
 
-  private static Class<? extends BugChecker> findMaybeInNullnessSubpackage(String simpleName) {
-    for (String packageName :
+  private static Class<? extends BugChecker> findBugCheckerByName(String simpleName) {
+    ImmutableList<String> bugCheckerPackages =
         ImmutableList.of(
-            "com.google.errorprone.bugpatterns", "com.google.errorprone.bugpatterns.nullness")) {
+            "com.google.errorprone.bugpatterns",
+            "com.google.errorprone.bugpatterns.nullness",
+            "com.google.errorprone.bugpatterns.testparameterinjector");
+    for (String packageName : bugCheckerPackages) {
       try {
         return Class.forName(packageName + "." + simpleName).asSubclass(BugChecker.class);
       } catch (ClassNotFoundException e) {

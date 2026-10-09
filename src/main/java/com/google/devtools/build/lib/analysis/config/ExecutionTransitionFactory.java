@@ -66,10 +66,11 @@ public class ExecutionTransitionFactory
    * While that makes this cache seem unnecessary, it still has value. The exec transition uniquely
    * takes an extra parameter: the execution platform label. This is provided by toolchain
    * resolution - the transition can't read it from input build options. So we need to cache on
-   * {@code label, originalTransition} pairs.
+   * {@code label, provider} pairs.
    */
-  private static final Cache<Pair<Label, Integer>, PatchTransition> transitionInstanceCache =
-      Caffeine.newBuilder().weakValues().build();
+  private static final Cache<
+          Pair<Label, TransitionFactory<AttributeTransitionData>>, PatchTransition>
+      transitionInstanceCache = Caffeine.newBuilder().weakValues().build();
 
   @Override
   public PatchTransition create(AttributeTransitionData dataWithTargetAttributes)
@@ -116,7 +117,7 @@ public class ExecutionTransitionFactory
 
     return transitionInstanceCache.get(
         // A Starlark transition keeps the same instance unless we modify its .bzl file.
-        Pair.of(data.executionPlatform(), starlarkExecTransitionProvider.hashCode()),
+        Pair.of(data.executionPlatform(), starlarkExecTransitionProvider),
         (p) ->
             new ExecTransitionFinalizer(
                 data.executionPlatform(), starlarkExecTransitionProvider.create(data)));
