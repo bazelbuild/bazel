@@ -6,6 +6,7 @@ load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
+load("//tools/res:winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
 load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
 load(":package_zip.bzl", "package_zip")
@@ -375,6 +376,23 @@ windows_llvm_alias(
     actual = ":bazel.exe",
     # Keep wildcard builds from fetching the LLVM toolchains.
     tags = ["manual"],
+)
+
+# Compiles Windows resources with llvm-rc from the hermetic LLVM toolchains.
+# Not registered by default; it is only used with the `llvm` config in .bazelrc
+# and by :bazel_windows_llvm.
+windows_resource_compiler_toolchain(
+    name = "llvm_rc",
+    rc_exe = "@llvm//tools:llvm-rc",
+    # Keep wildcard builds from fetching the LLVM toolchains.
+    tags = ["manual"],
+)
+
+toolchain(
+    name = "llvm_rc_toolchain",
+    target_compatible_with = ["@platforms//os:windows"],
+    toolchain = ":llvm_rc",
+    toolchain_type = WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE,
 )
 
 filegroup(

@@ -26,6 +26,6 @@ load("@with_cfg.bzl", "with_cfg")
 windows_llvm_alias, _windows_llvm_alias = (
     with_cfg(native.alias)
         .set("platforms", [Label("@llvm//platforms:windows_x86_64")])
-        .extend("extra_toolchains", ["@llvm//toolchain:all"])
+        .extend("extra_toolchains", ["@llvm//toolchain:all", "//src:llvm_rc_toolchain"])
         .build()
 )

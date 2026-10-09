@@ -36,6 +36,7 @@ common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_wi
 #   bazel build --config=llvm --platforms=@llvm//platforms:macos_aarch64 //src:bazel
 # Keep in sync with //src:windows_llvm_alias.bzl.
 common:llvm --extra_toolchains=@llvm//toolchain:all
+common:llvm --extra_toolchains=//src:llvm_rc_toolchain
 
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
