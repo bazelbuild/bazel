@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 
@@ -25,6 +26,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.chunking.ContentDefinedChunker;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
@@ -56,7 +58,7 @@ public class ChunkedBlobUploader {
   // stack below it, which is what bounds active remote RPC concurrency across blobs.
   private static final int MAX_IN_FLIGHT_CHUNK_UPLOADS = 16;
 
-  private final GrpcCacheClient grpcCacheClient;
+  private final RemoteCacheClient remoteCacheClient;
   private final CombinedCache combinedCache;
   private final ContentDefinedChunker chunker;
   private final ChunkingFunction.Value chunkingFunction;
@@ -65,19 +67,17 @@ public class ChunkedBlobUploader {
   /**
    * Creates a new uploader with the given chunking configuration.
    *
-   * @param grpcCacheClient client used for {@code FindMissingDigests} and {@code SpliceBlob} RPCs
+   * @param remoteCacheClient client used for {@code FindMissingDigests} and {@code SpliceBlob} RPCs
    * @param combinedCache cache used to upload individual chunks
    * @param config chunking parameters negotiated from server capabilities
-   * @param digestUtil utility for computing chunk digests
    */
   public ChunkedBlobUploader(
-      GrpcCacheClient grpcCacheClient,
+      RemoteCacheClient remoteCacheClient,
       CombinedCache combinedCache,
-      ChunkingConfig config,
-      DigestUtil digestUtil) {
-    this.grpcCacheClient = grpcCacheClient;
+      ChunkingConfig config) {
+    this.remoteCacheClient = remoteCacheClient;
     this.combinedCache = combinedCache;
-    this.chunker = config.newChunker(digestUtil);
+    this.chunker = config.newChunker(combinedCache.digestUtil());
     this.chunkingFunction = config.chunkingFunction();
     this.chunkingThreshold = config.chunkingThreshold();
   }
@@ -85,6 +85,11 @@ public class ChunkedBlobUploader {
   /** Returns the minimum blob size for chunked upload. */
   public long getChunkingThreshold() {
     return chunkingThreshold;
+  }
+
+  public void uploadChunked(RemoteActionExecutionContext context, Digest blobDigest, Path file)
+      throws IOException, InterruptedException {
+    uploadChunked(context, blobDigest, file, /* force= */ false);
   }
 
   /**
@@ -107,9 +112,9 @@ public class ChunkedBlobUploader {
     }
 
     ImmutableSet<Digest> missingDigests =
-        getFromFuture(grpcCacheClient.findMissingDigests(context, chunkDigests));
+        getFromFuture(remoteCacheClient.findMissingDigests(context, chunkDigests));
     uploadMissingChunks(context, missingDigests, chunkDigests, file, force);
-    getFromFuture(grpcCacheClient.spliceBlob(context, blobDigest, chunkDigests, chunkingFunction));
+    getFromFuture(remoteCacheClient.spliceBlob(context, blobDigest, chunkDigests, chunkingFunction));
   }
 
   private void uploadMissingChunks(
@@ -160,7 +165,7 @@ public class ChunkedBlobUploader {
           if (inFlightUploads.size() >= MAX_IN_FLIGHT_CHUNK_UPLOADS) {
             awaitCompletedUpload();
           }
-          startUpload(file, chunkOffset, chunkDigest);
+          startUpload(file, chunkOffset, chunkDigest, force);
         }
         while (!inFlightUploads.isEmpty()) {
           awaitCompletedUpload();
@@ -174,7 +179,7 @@ public class ChunkedBlobUploader {
       return missingDigests.contains(chunkDigest) && scheduledDigests.add(chunkDigest);
     }
 
-    private void startUpload(Path file, long chunkOffset, Digest chunkDigest) {
+    private void startUpload(Path file, long chunkOffset, Digest chunkDigest, boolean force) {
       ListenableFuture<Void> upload =
           combinedCache.uploadBlob(
               context, chunkDigest, new ChunkBlob(file, chunkOffset, chunkDigest), force);
