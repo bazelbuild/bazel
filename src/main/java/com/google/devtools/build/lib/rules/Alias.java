@@ -52,6 +52,14 @@ public class Alias implements RuleConfiguredTargetFactory {
               + "https://github.com/bazelbuild/bazel/issues/8622 for details.");
     }
 
+    if (!ruleContext.attributes().get("aspect_hints", BuildType.LABEL_LIST).isEmpty()) {
+      throw ruleContext.throwWithAttributeError(
+          "aspect_hints",
+          "aspect_hints cannot be set on an alias: aspects propagate straight through an alias "
+              + "to its 'actual' target, so the alias is never visited and its aspect_hints "
+              + "would be silently ignored. Set aspect_hints on the 'actual' target instead.");
+    }
+
     return AliasConfiguredTarget.create(ruleContext, actual, ruleContext.getVisibility());
   }
 
