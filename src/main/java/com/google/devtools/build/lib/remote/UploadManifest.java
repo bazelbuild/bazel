@@ -128,7 +128,7 @@ public class UploadManifest {
                 .getSymlinkAbsolutePathStrategy()
                 .equals(SymlinkAbsolutePathStrategy.Value.ALLOWED),
             preserveExecutableBit);
-    manifest.addFiles(outputFiles);
+    manifest.addFiles(outputFiles, /* useOutputSymlinks= */ command.getOutputPathsCount() > 0);
     if (outErr != null) {
       manifest.setStdoutStderr(outErr);
     }
@@ -237,6 +237,11 @@ public class UploadManifest {
    */
   @VisibleForTesting
   void addFiles(Collection<Path> files) throws ExecException, IOException, InterruptedException {
+    addFiles(files, /* useOutputSymlinks= */ true);
+  }
+
+  private void addFiles(Collection<Path> files, boolean useOutputSymlinks)
+      throws ExecException, IOException, InterruptedException {
     for (Path file : files) {
       // TODO(ulfjack): Maybe pass in a SpawnResult here, add a list of output files to that, and
       // rely on the local spawn runner to stat the files, instead of statting here.
@@ -258,7 +263,7 @@ public class UploadManifest {
       }
       if (statNoFollow.isSymbolicLink()) {
         PathFragment target = file.readSymbolicLink();
-        // Need to resolve the symbolic link to know what to add, file or directory.
+        // Resolve the symbolic link to validate its target and dereference absolute links.
         FileStatus statFollow = null;
         try {
           statFollow = file.statIfFound(Symlinks.FOLLOW);
@@ -266,31 +271,27 @@ public class UploadManifest {
           // Treat a looping symlink as a dangling symlink.
         }
         if (statFollow == null) {
-          // Symlink uploaded as a symlink. Report it as a file since we don't know any better.
+          // Dangling and looping symlinks are uploaded as symlinks.
           if (target.isAbsolute()) {
             checkAbsoluteSymlinkAllowed(file, target);
           }
-          addFileSymbolicLink(file, target);
+          addSymbolicLink(file, target, /* directory= */ false, useOutputSymlinks);
+          continue;
+        }
+        if (!target.isAbsolute()
+            && ((statFollow.isFile() && !statFollow.isSpecialFile()) || statFollow.isDirectory())) {
+          addSymbolicLink(
+              file, target, /* directory= */ statFollow.isDirectory(), useOutputSymlinks);
           continue;
         }
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
-          if (target.isAbsolute()) {
-            // Symlink to file uploaded as a file.
-            addFile(digestUtil.compute(file, statFollow), file, statNoFollow);
-          } else {
-            // Symlink to file uploaded as a symlink.
-            addFileSymbolicLink(file, target);
-          }
+          // Absolute symlink to file uploaded as a file.
+          addFile(digestUtil.compute(file, statFollow), file, statNoFollow);
           continue;
         }
         if (statFollow.isDirectory()) {
-          if (target.isAbsolute()) {
-            // Symlink to directory uploaded as a directory.
-            addDirectory(file);
-          } else {
-            // Symlink to directory uploaded as a symlink.
-            addDirectorySymbolicLink(file, target);
-          }
+          // Absolute symlink to directory uploaded as a directory.
+          addDirectory(file);
           continue;
         }
       }
@@ -326,24 +327,21 @@ public class UploadManifest {
     return stderrDigest;
   }
 
-  private void addFileSymbolicLink(Path file, PathFragment target) {
+  private void addSymbolicLink(
+      Path file, PathFragment target, boolean directory, boolean useOutputSymlinks) {
     OutputSymlink outputSymlink =
         OutputSymlink.newBuilder()
             .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
             .setTarget(internalToUnicode(target.toString()))
             .build();
-    result.addOutputFileSymlinks(outputSymlink);
-    result.addOutputSymlinks(outputSymlink);
-  }
-
-  private void addDirectorySymbolicLink(Path file, PathFragment target) {
-    OutputSymlink outputSymlink =
-        OutputSymlink.newBuilder()
-            .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
-            .setTarget(internalToUnicode(target.toString()))
-            .build();
-    result.addOutputDirectorySymlinks(outputSymlink);
-    result.addOutputSymlinks(outputSymlink);
+    // The result fields follow the Command's output declaration, not the server's API version.
+    if (useOutputSymlinks) {
+      result.addOutputSymlinks(outputSymlink);
+    } else if (directory) {
+      result.addOutputDirectorySymlinks(outputSymlink);
+    } else {
+      result.addOutputFileSymlinks(outputSymlink);
+    }
   }
 
   private void addFile(Digest digest, Path file, FileStatus statNoFollow) {

@@ -26,17 +26,16 @@ public class ApiVersion implements Comparable<ApiVersion> {
   // The version of the Remote Execution API that Bazel supports initially.
   public static final ApiVersion twoPointZero =
       new ApiVersion(SemVer.newBuilder().setMajor(2).setMinor(0).build());
-  // The version of the Remote Execution API that starts supporting the
-  // Command.output_paths and ActionResult.output_symlinks fields.
-  public static final ApiVersion twoPointOne =
-      new ApiVersion(SemVer.newBuilder().setMajor(2).setMinor(1).build());
+  // Bazel 10 or newer requires unified output paths and the v2.3 command execution semantics.
+  public static final ApiVersion twoPointThree =
+      new ApiVersion(SemVer.newBuilder().setMajor(2).setMinor(3).build());
   // The latest version of the Remote Execution API that Bazel is compatible with.
   public static final ApiVersion twoPointEleven =
       new ApiVersion(SemVer.newBuilder().setMajor(2).setMinor(11).build());
 
   // The current lowest/highest versions (inclusive) of the Remote Execution API that Bazel
   // supports. These fields will need to be updated together with all version changes.
-  public static final ApiVersion low = twoPointZero;
+  public static final ApiVersion low = twoPointThree;
   public static final ApiVersion high = twoPointEleven;
 
   public ApiVersion(int major, int minor, int patch, String prerelease) {

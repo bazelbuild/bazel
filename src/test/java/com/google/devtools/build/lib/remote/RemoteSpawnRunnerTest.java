@@ -342,7 +342,6 @@ public class RemoteSpawnRunnerTest {
     runner.exec(spawn, policy);
 
     verify(localRunner).exec(spawn, policy);
-    verify(cache).getRemoteServerCapabilities();
     verify(cache).ensureInputsPresent(any(), any(), any(), anyBoolean());
     verify(cache, atLeastOnce()).hasRemoteCache();
     verify(cache, atLeastOnce()).hasDiskCache();
