@@ -51,6 +51,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -90,6 +94,9 @@ public class IndexRegistry implements Registry {
     ENFORCE
   }
 
+  private record GitSchemeEntry(
+      String template, String friendlyName, BiFunction<String, String, Boolean> validator) {}
+
   private final URI uri;
   private final Map<String, String> clientEnv;
   private final Gson gson;
@@ -103,8 +110,16 @@ public class IndexRegistry implements Registry {
   private volatile StoredEventHandler bazelRegistryJsonEvents;
 
   private static final String SOURCE_JSON_FILENAME = "source.json";
-  private static final ImmutableList<String> ALLOWED_GIT_SCHEMES =
-      ImmutableList.of("https://", "ssh://", "git://", "file://", "git@");
+  private static final ImmutableList<GitSchemeEntry> ALLOWED_GIT_SCHEMES =
+      ImmutableList.of(
+          new GitSchemeEntry("https", "https://", IndexRegistry::validateUriGitRepoSpec),
+          new GitSchemeEntry("ssh", "ssh://", IndexRegistry::validateUriGitRepoSpec),
+          new GitSchemeEntry("git", "git://", IndexRegistry::validateUriGitRepoSpec),
+          new GitSchemeEntry("file", "file://", IndexRegistry::validateFileUriGitRepoSpec),
+          new GitSchemeEntry("git@", "git@", IndexRegistry::validateSshGitRepoSpec));
+
+  private static final Pattern GIT_SSH_SCHEME_REGEX =
+      Pattern.compile("^git@[\\w.-]+(?::[/.\\w_-]+)?$");
 
   public IndexRegistry(
       URI uri,
@@ -562,11 +577,16 @@ public class IndexRegistry implements Registry {
       throw new IOException(
           String.format("Missing remote in git_repository source for module %s", key));
     }
-    if (ALLOWED_GIT_SCHEMES.stream().noneMatch(sourceJson.remote::startsWith)) {
+    if (ALLOWED_GIT_SCHEMES.stream()
+        .noneMatch((schema) -> schema.validator.apply(schema.template, sourceJson.remote))) {
       throw new IOException(
           String.format(
               "Invalid remote URL scheme: \"%s\" for module %s. Only %s are allowed.",
-              sourceJson.remote, key, String.join(", ", ALLOWED_GIT_SCHEMES)));
+              sourceJson.remote,
+              key,
+              ALLOWED_GIT_SCHEMES.stream()
+                  .map((schema) -> schema.friendlyName)
+                  .collect(Collectors.joining(", "))));
     }
     if (sourceJson.commit != null && !sourceJson.commit.matches("^[0-9a-fA-F]{7,64}$")) {
       throw new IOException(
@@ -615,6 +635,36 @@ public class IndexRegistry implements Registry {
         .setRemotePatches(remotePatches.buildKeepingLast())
         .setRemotePatchStrip(sourceJson.patchStrip)
         .build();
+  }
+
+  /**
+   * Validates that a given URI-like git repo spec is a valid URI, returning true if valid and false
+   * otherwise.
+   */
+  private static boolean validateUriGitRepoSpec(String template, String uri) {
+    try {
+      URI validated_uri = new URI(uri);
+
+      return Objects.equals(validated_uri.getScheme(), template);
+    } catch (URISyntaxException e) {
+      return false;
+    }
+  }
+
+  /** Validates that the given URI-like git repo spec is a valid file URI. */
+  private static boolean validateFileUriGitRepoSpec(String ignore, String uri) {
+    // These are a bit of a wild west.
+    return uri.startsWith("file:/");
+  }
+
+  /**
+   * Validates that the given URI-like git repo spec is a valid git SSH remote, returning true if
+   * valid and false otherwise.
+   */
+  private static boolean validateSshGitRepoSpec(String ignored, String uri) {
+    Matcher matcher = GIT_SSH_SCHEME_REGEX.matcher(uri);
+
+    return matcher.matches();
   }
 
   @Override

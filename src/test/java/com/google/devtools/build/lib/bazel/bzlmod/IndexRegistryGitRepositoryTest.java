@@ -123,6 +123,26 @@ public final class IndexRegistryGitRepositoryTest extends FoundationTestCase {
         """
         {
           "type": "git_repository",
+          "remote": "ftp://example.com:repo.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """,
+        "Invalid remote URL scheme");
+
+    assertInvalidSourceJson(
+        """
+        {
+          "type": "git_repository",
+          "remote": "git@github.com/foo/bar.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """,
+        "Invalid remote URL scheme");
+
+    assertInvalidSourceJson(
+        """
+        {
+          "type": "git_repository",
           "remote": "https://example.com/repo.git",
           "commit": "invalid commit hash with spaces"
         }
@@ -142,6 +162,24 @@ public final class IndexRegistryGitRepositoryTest extends FoundationTestCase {
 
   @Test
   public void getRepoSpec_validGitRepositoryAttributes_doesNotThrow() throws Exception {
+    assertValidSourceJson(
+        """
+        {
+          "type": "git_repository",
+          "remote": "https://example.com/repo.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """);
+
+    assertValidSourceJson(
+        """
+        {
+          "type": "git_repository",
+          "remote": "ssh://git@example.com/repo.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """);
+
     assertValidSourceJson(
         """
         {
