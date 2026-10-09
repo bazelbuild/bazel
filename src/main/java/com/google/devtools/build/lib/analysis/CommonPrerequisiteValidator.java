@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
@@ -144,6 +145,22 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       Label bzlLabel = getOwnerDefinitionBzl();
       return bzlLabel != null ? bzlLabel.getPackageIdentifier() : null;
     }
+
+    /**
+     * The repository mapping of the consuming target if it lives in the main repository; otherwise
+     * null (canonical form).
+     */
+    @Nullable
+    RepositoryMapping getMainRepositoryMapping() {
+      return CommonPrerequisiteValidator.getMainRepositoryMapping(consumer);
+    }
+  }
+
+  @Nullable
+  private static RepositoryMapping getMainRepositoryMapping(Rule consumer) {
+    return consumer.getLabel().getRepository().isMain()
+        ? consumer.getPackageMetadata().repositoryMapping()
+        : null;
   }
 
   private void validateDirectPrerequisiteVisibility(
@@ -381,6 +398,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       if (!attrName.equals("visibility")
           && !attrName.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)
           && !containsPackageSpecificationProvider) {
+        var mainRepoMapping = getMainRepositoryMapping(rule);
         context.attributeError(
             attrName,
             "in "
@@ -388,23 +406,29 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
                 + " attribute of "
                 + rule.getRuleClass()
                 + " rule "
-                + rule.getLabel()
+                + rule.getDisplayFormLabel()
                 + ": "
-                + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITH_KIND)
+                + AliasProvider.describeTargetWithAliases(
+                    prerequisite, TargetMode.WITH_KIND, mainRepoMapping)
                 + " is misplaced here (they are only allowed in the visibility attribute)");
       }
     }
   }
 
   private String generateVisibilityConflictMessage(VisibilityCheckState state) {
+    var mainRepoMapping = state.getMainRepositoryMapping();
     String errorMessage;
     if (!state.verboseVisibilityErrors) {
       // TODO: https://github.com/bazelbuild/bazel/issues/25941 - Streamline this error message to
       // eliminate redundancy, label quoting, newlines, the recommendation, and alias expansion, and
       // to include a suggestion to pass --verbose_visibility_errors. Also make it so we don't emit
       // "target 'foo.bzl'" when referring to the definition location of an attribute.
-      Label consumerOrOwnerLocation =
-          state.isImplicitDep() ? state.getOwnerDefinitionBzl() : state.consumer.getLabel();
+      // Note: isImplicitDep() is only true for Starlark rules/aspects (line 198), which are
+      // guaranteed to have a non-null definition .bzl label.
+      String consumerOrOwnerLocation =
+          state.isImplicitDep()
+              ? state.getOwnerDefinitionBzl().getDisplayForm(mainRepoMapping)
+              : state.consumer.getDisplayFormLabel();
       errorMessage =
           String.format(
               "Visibility error:\n"
@@ -412,8 +436,9 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
                   + "target '%s'\n"
                   + "Recommendation: modify the visibility declaration if you think the dependency"
                   + " is legitimate. For more info see https://bazel.build/concepts/visibility",
-              AliasProvider.describeTargetWithAliases(state.prerequisite, TargetMode.WITHOUT_KIND),
-              consumerOrOwnerLocation.getCanonicalForm());
+              AliasProvider.describeTargetWithAliases(
+                  state.prerequisite, TargetMode.WITHOUT_KIND, mainRepoMapping),
+              consumerOrOwnerLocation);
       if (state.prerequisite.getTargetKind().equals(InputFile.targetKind())) {
         errorMessage +=
             ". To depend on that source file target, either add it to a filegroup() and depend"
@@ -421,7 +446,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
                 + " source file's visibility";
       }
     } else {
-      String dependencyDesc = state.prerequisite.getTargetLabel().getCanonicalForm();
+      String dependencyDesc = state.prerequisite.getTargetLabel().getDisplayForm(mainRepoMapping);
       errorMessage =
           String.format(
               "dependency on target %s violates its visibility. Additional diagnostics:",
@@ -464,6 +489,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       return;
     }
 
+    var mainRepoMapping = state.getMainRepositoryMapping();
     bullets.add(
         String.format(
             """
@@ -474,12 +500,13 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
             """,
             state.getOwnerKind(),
             state.getOwnerName(),
-            state.getOwnerDefinitionBzl(),
-            state.getOwnerDefinitionLocation().getCanonicalForm()));
+            state.getOwnerDefinitionBzl().getDisplayForm(mainRepoMapping),
+            state.getOwnerDefinitionLocation().getDisplayForm(mainRepoMapping)));
   }
 
   private void addConsumingLocationBullet(VisibilityCheckState state, List<String> bullets) {
     Rule consumer = state.consumer;
+    var mainRepoMapping = state.getMainRepositoryMapping();
     if (state.delegatedThrough.isEmpty()) {
       // Simple case, report that we're checking the target's declaration location, which is the
       // innermost macro or the BUILD file if not in a macro.
@@ -497,7 +524,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
                 defined in %s, the location being checked is this file's package, %s.\
                 """,
                 declaringMacro.getMacroClass().getName(),
-                declaringMacro.getMacroClass().getDefiningBzlLabel().getCanonicalForm(),
+                declaringMacro.getMacroClass().getDefiningBzlLabel().getDisplayForm(mainRepoMapping),
                 consumer.getDeclaringPackage().getCanonicalForm()));
       }
     } else {
@@ -511,14 +538,17 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         consumingLocation =
             String.format(
                 "package %s",
-                outermostDelegated.getPackageMetadata().packageIdentifier().getCanonicalForm());
+                outermostDelegated
+                    .getPackageMetadata()
+                    .packageIdentifier()
+                    .getDisplayForm(mainRepoMapping));
       } else {
         consumingLocation =
             String.format(
                 "the body of the calling macro %s, defined in %s of package %s",
                 delegationParent.getMacroClass().getName(),
-                delegationParent.getMacroClass().getDefiningBzlLabel(),
-                delegationParent.getDefinitionPackage().getCanonicalForm());
+                delegationParent.getMacroClass().getDefiningBzlLabel().getDisplayForm(mainRepoMapping),
+                delegationParent.getDefinitionPackage().getDisplayForm(mainRepoMapping));
       }
       bullets.add(
           String.format(
@@ -528,7 +558,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
               declared: %s.\
               """,
               state.delegatedThrough.size() > 1 ? " transitively" : "",
-              outermostDelegated.getLabel(),
+              outermostDelegated.getLabel().getDisplayForm(mainRepoMapping),
               consumingLocation));
     }
   }
@@ -580,6 +610,8 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       return;
     }
 
+    var mainRepoMapping = state.getMainRepositoryMapping();
+
     // Visibility failed at the delegationParent, so start the search one level up.
     boolean moreThanOneLevelUp = false;
     for (MacroInstance m = delegationParent.getParent(); m != null; m = m.getParent()) {
@@ -604,9 +636,9 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
                 needs to pass in the dependency as an argument?)\
                 """,
                 moreThanOneLevelUp ? " transitive" : "",
-                m.getLabel(),
+                m.getLabel().getDisplayForm(mainRepoMapping),
                 m.getMacroClass().getName(),
-                m.getDefinitionPackage().getCanonicalForm(),
+                m.getDefinitionPackage().getDisplayForm(mainRepoMapping),
                 moreThanOneLevelUp ? "this caller, or an intermediate caller," : "the caller"));
         return;
       }
@@ -627,7 +659,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
               in the dependency as an argument?)\
               """,
               moreThanOneLevelUp ? " transitive" : "",
-              state.consumer.getPackageMetadata().packageIdentifier().getCanonicalForm(),
+              state.consumer.getPackageMetadata().packageIdentifier().getDisplayForm(mainRepoMapping),
               moreThanOneLevelUp ? "this caller, or an intermediate caller," : "the caller"));
     }
   }
@@ -769,22 +801,25 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     }
 
     String message;
+    var mainRepoMapping = getMainRepositoryMapping(rule);
     Label generatingRuleLabel = prerequisite.getGeneratingRuleLabel();
     if (generatingRuleLabel == null) {
       message =
           "non-test target '"
-              + rule.getLabel()
+              + rule.getDisplayFormLabel()
               + "' depends on testonly "
-              + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND)
+              + AliasProvider.describeTargetWithAliases(
+                  prerequisite, TargetMode.WITHOUT_KIND, mainRepoMapping)
               + " and doesn't have testonly attribute set";
     } else if (context.getConfiguration().checkTestonlyForOutputFiles()) {
       message =
           "non-test target '"
-              + rule.getLabel()
+              + rule.getDisplayFormLabel()
               + "' depends on the output file "
-              + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND)
+              + AliasProvider.describeTargetWithAliases(
+                  prerequisite, TargetMode.WITHOUT_KIND, mainRepoMapping)
               + " of a testonly rule "
-              + generatingRuleLabel
+              + generatingRuleLabel.getDisplayForm(mainRepoMapping)
               + " and doesn't have testonly attribute set";
     } else {
       return;
