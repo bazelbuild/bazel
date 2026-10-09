@@ -168,6 +168,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     FileStatus status =
         new FileStatus() {
           @Nullable volatile Boolean isSymbolicLink; // null if not yet known
+          @Nullable volatile Boolean isTransparentDirectory; // null if not yet known
           volatile long lastChangeTime = -1;
 
           @Override
@@ -180,12 +181,25 @@ public class WindowsFileSystem extends JavaIoFileSystem {
             // attributes.isOther() returns false for symlinks but returns true for junctions.
             // Bazel treats junctions like symlinks. So let's return false here for junctions.
             // This fixes https://github.com/bazelbuild/bazel/issues/9176
-            return !isSymbolicLink() && attributes.isOther();
+            return !isSymbolicLink() && attributes.isOther() && !isTransparentDirectory();
           }
 
           @Override
           public boolean isDirectory() {
-            return !isSymbolicLink() && attributes.isDirectory();
+            return !isSymbolicLink() && (attributes.isDirectory() || isTransparentDirectory());
+          }
+
+          /**
+           * Returns true for a reparse point that is not a link but that Windows resolves to a
+           * directory, such as a volume mount point. Java reports it as "other" (and, depending
+           * on the JDK version, also as a directory), but Bazel must see a plain directory.
+           */
+          private boolean isTransparentDirectory() {
+            if (isTransparentDirectory == null) {
+              isTransparentDirectory =
+                  attributes.isOther() && !isSymbolicLink() && Files.isDirectory(nioPath);
+            }
+            return isTransparentDirectory;
           }
 
           @Override
