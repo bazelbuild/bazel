@@ -284,6 +284,22 @@ function test_path_stripping_remote() {
   expect_not_log '[0-9] remote[^ ]'
 }
 
+function test_path_stripping_remote_action_cache() {
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //src/main/java/com/example:Main &> $TEST_log || fail "build failed unexpectedly"
+  expect_log '5 remote'
+
+  bazel shutdown
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //src/main/java/com/example:Main &> $TEST_log || fail "build failed unexpectedly"
+  expect_not_log '[0-9] remote'
+}
+
 function test_path_stripping_remote_multiple_configs() {
   mkdir rules
   cat > rules/defs.bzl <<'EOF'
