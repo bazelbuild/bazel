@@ -126,7 +126,10 @@ public final class SpawnInputs {
       return this;
     }
     return new SpawnInputs(
-        subset1, subset2, Iterables.concat(rest, additional), sizeOfRest + additional.size());
+        subset1,
+        subset2,
+        sizeOfRest == 0 ? additional : Iterables.concat(rest, additional),
+        sizeOfRest + additional.size());
   }
 
   /**
