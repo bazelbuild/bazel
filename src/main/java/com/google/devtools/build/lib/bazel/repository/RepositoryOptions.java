@@ -112,16 +112,16 @@ public abstract class RepositoryOptions extends OptionsBase {
   public abstract List<String> getRegistries();
 
   @Option(
-      name = "watched_registry",
+      name = "watch_registry",
       defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
-          "Like --registry, but for a local file:// registry that Bazel also watches for changes,"
-              + " so that edits to its files are picked up without a shutdown, at the cost of some"
-              + " overhead on every command. Registries are looked up in the order in which"
-              + " --registry and --watched_registry are specified.")
+          "Watches a local file:// registry for changes, so that edits to its files are picked up"
+              + " without a shutdown, at the cost of some overhead on every command. The registry"
+              + " must also be passed with --registry, e.g."
+              + " --registry=file:///path/to/registry --watch_registry=file:///path/to/registry.")
   public abstract List<String> getWatchedRegistries();
 
   @Option(
