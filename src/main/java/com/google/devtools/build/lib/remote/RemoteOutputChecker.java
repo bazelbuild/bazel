@@ -191,6 +191,10 @@ public class RemoteOutputChecker implements OutputChecker {
     if (runfilesSupport == null) {
       return;
     }
+    var repoMappingManifest = runfilesSupport.getRepoMappingManifest();
+    if (repoMappingManifest != null) {
+      addOutputToDownload(repoMappingManifest);
+    }
     var runfiles = runfilesSupport.getRunfiles();
     for (Artifact runfile : runfiles.getArtifacts().toList()) {
       if (mayBeRemote(runfile)) {
