@@ -27,7 +27,9 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -51,6 +53,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -66,6 +69,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithoutChildren;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildeventstream.ReplaceableBuildEvent;
@@ -75,9 +79,12 @@ import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
@@ -381,6 +388,230 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
     while (!handler.transportSet.isEmpty()) {
       LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(100));
     }
+  }
+
+  @Test
+  public void targetPatternChildrenAreSplitIntoProgressEvents(
+      @TestParameter({"0", "10000", "10001", "20001"}) int childCount,
+      @TestParameter boolean abort,
+      @TestParameter boolean announceParsing) {
+    ImmutableList.Builder<String> failedPatterns = ImmutableList.builder();
+    ImmutableList.Builder<BuildEventId> expectedChildrenBuilder = ImmutableList.builder();
+    for (int i = 1; i < childCount; i++) {
+      String pattern = "//missing:target" + i;
+      failedPatterns.add(pattern);
+      expectedChildrenBuilder.add(
+          BuildEventIdUtil.targetPatternExpanded(ImmutableList.of(pattern)));
+    }
+    Target target = mock(Target.class);
+    Label label = Label.parseCanonicalUnchecked("//pkg:target");
+    when(target.getLabel()).thenReturn(label);
+    when(target.getTargetKind()).thenReturn("source file");
+    if (childCount > 0) {
+      expectedChildrenBuilder.add(BuildEventIdUtil.targetConfigured(label));
+    }
+    ImmutableList<BuildEventId> expectedChildren = expectedChildrenBuilder.build();
+    TargetParsingCompleteEvent parsing =
+        new TargetParsingCompleteEvent(
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of("//pkg:all", "//missing:all"),
+            childCount > 0 ? ImmutableList.of(target) : ImmutableList.of(),
+            failedPatterns.build(),
+            ImmutableSetMultimap.of(),
+            ImmutableMap.of(label, ImmutableSet.of(label)));
+    assertThat(parsing.getChildrenEvents()).containsExactlyElementsIn(expectedChildren).inOrder();
+
+    // Splitting must respect the event's build-started ordering constraint.
+    streamer.buildEvent(parsing);
+    assertThat(transport.getEvents()).isEmpty();
+    ImmutableList.Builder<BuildEventId> startChildren =
+        ImmutableList.<BuildEventId>builder()
+            .add(ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished());
+    if (announceParsing) {
+      startChildren.add(parsing.getEventId());
+    }
+    streamer.buildEvent(
+        new GenericBuildEvent(BuildEventIdUtil.buildStartedId(), startChildren.build()));
+
+    List<BuildEventStreamProtos.BuildEvent> protos = transport.getEventProtos();
+    BuildEventStreamProtos.BuildEvent parsed = protos.get(protos.size() - 1);
+    assertThat(parsed.getId()).isEqualTo(parsing.getEventId());
+    assertThat(parsed.getExpanded().getTestSuiteExpansions(0).getTestLabelsList())
+        .containsExactly(label.toString());
+    List<BuildEventId> announcedChildren = new ArrayList<>();
+    for (int i = 1; i < protos.size() - 1; i++) {
+      BuildEventStreamProtos.BuildEvent progress = protos.get(i);
+      assertThat(progress.hasProgress()).isTrue();
+      assertThat(progress.getChildrenCount()).isAtMost(BuildEventStreamer.MAX_CHILDREN_PER_EVENT);
+      for (BuildEventId child :
+          progress.getChildrenList().subList(1, progress.getChildrenCount())) {
+        if (!child.equals(parsing.getEventId())) {
+          announcedChildren.add(child);
+        }
+      }
+    }
+    announcedChildren.addAll(parsed.getChildrenList());
+    assertThat(announcedChildren).containsExactlyElementsIn(expectedChildren).inOrder();
+    if (childCount <= BuildEventStreamer.MAX_CHILDREN_PER_EVENT) {
+      assertThat(protos).hasSize(announceParsing ? 2 : 3);
+      assertThat(transport.getEvents().get(protos.size() - 1)).isSameInstanceAs(parsing);
+      assertThat(parsed.getChildrenList()).containsExactlyElementsIn(expectedChildren).inOrder();
+    } else {
+      assertThat(parsed.getChildrenList()).isEmpty();
+      assertThat(transport.getEvents().get(protos.size() - 1).getChildrenEvents()).isEmpty();
+    }
+    // Repeated reads and serialization of the original event must retain all children.
+    assertThat(parsing.getChildrenEvents()).containsExactlyElementsIn(expectedChildren).inOrder();
+    assertThat(
+            parsing.asStreamProto(getTestBuildEventContext(artifactGroupNamer)).getChildrenList())
+        .containsExactlyElementsIn(expectedChildren)
+        .inOrder();
+
+    if (!abort) {
+      for (BuildEventId child : expectedChildren) {
+        streamer.buildEvent(new GenericBuildEvent(child, ImmutableList.of()));
+      }
+    }
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+    assertCompleteStream();
+  }
+
+  @Test
+  public void largeChildrenAreSplitRegardlessOfEventType(
+      @TestParameter({"generic", "aborted", "completed"}) String eventType) throws Exception {
+    ImmutableList<BuildEventId> children = largeChildList();
+    BuildEvent event =
+        switch (eventType) {
+          case "generic" -> new GenericBuildEvent(testId("large"), children);
+          case "aborted" ->
+              new AbortedEvent(testId("large"), children, AbortReason.INTERNAL, "aborted");
+          case "completed" -> new BuildCompleteEvent(new BuildResult(0), children);
+          default -> throw new AssertionError(eventType);
+        };
+    streamer.buildEvent(
+        new GenericBuildEvent(
+            testId("initial"),
+            ImmutableList.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE,
+                BuildEventIdUtil.buildFinished(),
+                event.getEventId())));
+    streamer.buildEvent(event);
+
+    BuildEvent forwarded =
+        transport.getEvents().stream()
+            .filter(e -> e.getEventId().equals(event.getEventId()))
+            .findFirst()
+            .orElseThrow();
+    assertThat(forwarded).isInstanceOf(BuildEventWithoutChildren.class);
+    assertThat(((BuildEventWithoutChildren) forwarded).originalEvent()).isSameInstanceAs(event);
+    BuildEventContext context = getTestBuildEventContext(artifactGroupNamer);
+    assertThat(forwarded.asStreamProto(context))
+        .isEqualTo(event.asStreamProto(context).toBuilder().clearChildren().build());
+    for (BuildEventStreamProtos.BuildEvent proto : transport.getEventProtos()) {
+      assertThat(proto.getChildrenCount()).isAtMost(BuildEventStreamer.MAX_CHILDREN_PER_EVENT);
+    }
+    for (BuildEventId child : children) {
+      streamer.buildEvent(new GenericBuildEvent(child, ImmutableList.of()));
+    }
+    if (!eventType.equals("completed")) {
+      streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+    }
+    assertCompleteStream();
+  }
+
+  @Test
+  public void firstEventIsNotSplitBeforeProgressChainOpens() {
+    ImmutableList<BuildEventId> children = largeChildList();
+    BuildEvent initial =
+        new GenericBuildEvent(
+            testId("initial"),
+            ImmutableList.<BuildEventId>builder()
+                .add(ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished())
+                .addAll(children)
+                .build());
+    streamer.buildEvent(initial);
+
+    assertThat(transport.getEvents()).containsExactly(initial);
+    assertThat(transport.getEventProtos().get(0).getChildrenList())
+        .containsExactlyElementsIn(initial.getChildrenEvents())
+        .inOrder();
+    // Closing the build must still account for the unsplit event's missing children.
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+    assertCompleteStream();
+  }
+
+  @Test
+  public void lateEventIsNotSplitAfterProgressChainCloses() {
+    ImmutableList<BuildEventId> children = largeChildList();
+    BuildEventId lateId = testId("late");
+    streamer.buildEvent(
+        new GenericBuildEvent(
+            testId("initial"),
+            ImmutableList.<BuildEventId>builder()
+                .add(ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished())
+                .addAll(children)
+                .build()));
+    for (BuildEventId child : children) {
+      streamer.buildEvent(new GenericBuildEvent(child, ImmutableList.of()));
+    }
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0), ImmutableList.of(lateId)));
+    int eventCount = transport.getEvents().size();
+    streamer.buildEvent(new GenericBuildEvent(lateId, children));
+
+    assertThat(transport.getEvents()).hasSize(eventCount + 1);
+    assertThat(transport.getEventProtos().get(eventCount).getChildrenList())
+        .containsExactlyElementsIn(children)
+        .inOrder();
+    assertCompleteStream();
+  }
+
+  @Test
+  public void progressEventsAreNotRecursivelySplit() {
+    ImmutableList<BuildEventId> children = largeChildList();
+    BuildEvent progress = ProgressEvent.progressChainIn(100, children);
+    streamer.buildEvent(
+        new GenericBuildEvent(
+            testId("initial"),
+            ImmutableList.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE,
+                progress.getEventId(),
+                BuildEventIdUtil.buildFinished())));
+    streamer.buildEvent(progress);
+
+    assertThat(transport.getEvents()).hasSize(2);
+    assertThat(transport.getEvents().get(1)).isSameInstanceAs(progress);
+    for (BuildEventId child : children) {
+      streamer.buildEvent(new GenericBuildEvent(child, ImmutableList.of()));
+    }
+    streamer.buildEvent(ProgressEvent.finalProgressUpdate(101));
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+    assertCompleteStream();
+  }
+
+  private static ImmutableList<BuildEventId> largeChildList() {
+    ImmutableList.Builder<BuildEventId> children = ImmutableList.builder();
+    for (int i = 0; i <= BuildEventStreamer.MAX_CHILDREN_PER_EVENT; i++) {
+      children.add(testId("child" + i));
+    }
+    return children.build();
+  }
+
+  private void assertCompleteStream() {
+    assertThat(streamer.isClosed()).isTrue();
+    List<BuildEventStreamProtos.BuildEvent> protos = transport.getEventProtos();
+    Set<BuildEventId> announced = new HashSet<>();
+    Set<BuildEventId> posted = new HashSet<>();
+    announced.add(protos.get(0).getId());
+    for (int i = 0; i < protos.size(); i++) {
+      BuildEventStreamProtos.BuildEvent proto = protos.get(i);
+      assertThat(announced).contains(proto.getId());
+      assertThat(posted.add(proto.getId())).isTrue();
+      announced.addAll(proto.getChildrenList());
+      assertThat(proto.getLastMessage()).isEqualTo(i == protos.size() - 1);
+    }
+    assertThat(posted).containsExactlyElementsIn(announced);
   }
 
   @Test
