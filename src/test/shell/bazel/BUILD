@@ -304,7 +304,9 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     shard_count = 2,
     tags = [
         "requires-network",  # For Bzlmod
@@ -337,7 +339,9 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21", "25")
             "//src:java_tools_zip",
             "@bazel_tools//tools/bash/runfiles",
         ],
-        exec_compatible_with = ["//:highcpu_machine"],
+        exec_group_compatible_with = {
+            "test": ["//:highcpu_machine"],
+        },
         shard_count = 4,
         tags = [
             "requires-network",  # For Bzlmod
@@ -411,7 +415,9 @@ sh_test(
     size = "enormous",
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     shard_count = 2,
     tags = [
         "no_windows",  # Doesn't work on Windows for unknown reason
@@ -909,7 +915,9 @@ sh_test(
         "//src/test/shell/bazel/testdata:git-repos",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     shard_count = 2,
 )
 
@@ -1258,7 +1266,9 @@ sh_test(
     env = {
         "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
     },
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     tags = [
         "block-network",
         "no_presubmit",
@@ -1286,7 +1296,9 @@ sh_test(
     env = {
         "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
     },
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     tags = [
         "block-network",
         "no_presubmit",
@@ -1307,7 +1319,9 @@ sh_test(
         "//:bazel-distfile",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     tags = [
         "no_presubmit",
         "no_windows",
