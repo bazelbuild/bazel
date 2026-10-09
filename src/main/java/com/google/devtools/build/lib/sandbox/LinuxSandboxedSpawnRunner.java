@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -260,7 +261,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
     // the normal execroot does.
     String workspaceName = execRoot.getBaseName();
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(workspaceName);
+    Path sandboxExecRoot = sandboxPath.getRelative(ServerDirectories.EXECROOT).getRelative(workspaceName);
 
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
@@ -269,10 +270,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
+    ImmutableSet<PathFragment> tmpfsDirs = ImmutableSet.copyOf(getSandboxOptions().getSandboxTmpfsPath());
 
     Path sandboxTmp = null;
     ImmutableSet<Path> pathsUnderTmpToMount = ImmutableSet.of();
-    if (useHermeticTmp()) {
+    if (useHermeticTmp()) { // NOTE: implies `!getSandboxOptions().getUseHermetic()`
       // Special paths under /tmp are treated exactly like a user mount under /tmp to ensure that
       // they are visible at the same path after mounting the hermetic tmp.
       pathsUnderTmpToMount = knownPathsToMountUnderHermeticTmp;
@@ -295,6 +297,23 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
     }
 
+    if (getSandboxOptions().getUseHermetic()) {
+      // under hermetic mode, `linux-sandbox` expects tmpfs and writable paths to be paths within
+      // the sandbox root (as opposed to post-chroot paths relative to `/` in the sandbox)
+      //
+      // rewrite `writableDirs` and `tmpfsDirs` accordingly:
+      var root = sandboxExecRoot.getFileSystem().getPath("/");
+      writableDirs = writableDirs.stream()
+          .map(p -> sandboxPath.getRelative(p.relativeTo(root)))
+          .collect(toImmutableSet());
+      tmpfsDirs = tmpfsDirs.stream()
+        .map(p -> sandboxPath.getRelative(p.relativeTo(root.asFragment())).asFragment())
+        .collect(toImmutableSet());
+
+      // note that this is also required so that `AbstractContainerizingSandboxedSpawn` can
+      // correctly create any writable directories that do not already exist
+    }
+
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
     Duration timeout = context.getTimeout();
     SandboxOptions sandboxOptions = getSandboxOptions();
@@ -306,7 +325,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox)
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
-            .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().getSandboxTmpfsPath()))
+            .setTmpfsDirectories(tmpfsDirs)
             .setBindMounts(
                 prepareAndGetBindMounts(sandboxExecRoot, sandboxTmp, pathsUnderTmpToMount))
             .setUseFakeHostname(getSandboxOptions().getSandboxFakeHostname())
@@ -382,16 +401,23 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
       throws IOException {
     Set<Path> writableDirs = new TreeSet<>(super.getWritableDirs(sandboxExecRoot, env));
+    FileSystem fs = sandboxExecRoot.getFileSystem();
     if (getSandboxOptions().getUseHermetic()) {
       // In hermetic sandbox mode, the execution root itself is remounted read-only to prevent
       // actions from writing undeclared files at the root level. Only allow writes to the
       // designated build output directory (<productName>-out) and explicitly declared paths.
       writableDirs.remove(sandboxExecRoot);
-      writableDirs.add(sandboxExecRoot.getRelative(productName + "-out"));
+      Path buildOutputWithinHermeticSandbox =
+          fs.getPath("/" + ServerDirectories.EXECROOT)
+            .getRelative(execRoot.getBaseName())
+            .getRelative(productName + "-out");
+      writableDirs.add(buildOutputWithinHermeticSandbox);
     }
-    FileSystem fs = sandboxExecRoot.getFileSystem();
     Path devShm = fs.getPath("/dev/shm");
-    if (devShm.exists()) {
+    if (getSandboxOptions().getUseHermetic()) {
+      // In hermetic sandbox mode, `/dev/shm` is always present.
+      writableDirs.add(devShm);
+    } else if (devShm.exists()) {
       writableDirs.add(devShm.resolveSymbolicLinks());
     }
     writableDirs.add(fs.getPath("/tmp"));
