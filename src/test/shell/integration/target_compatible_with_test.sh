@@ -1510,6 +1510,31 @@ EOF
   expect_log "//target_skipping:never_compatible (.*)"
 }
 
+# Printing the attributes of an incompatible target must not fail on a select()
+# that has no matching branch in the target's configuration.
+function test_cquery_incompatible_target_with_unmatched_select() {
+  mkdir -p target_skipping
+  cat >> target_skipping/BUILD <<'EOF'
+config_setting(
+    name = "never_set",
+    define_values = {"never_set": "1"},
+)
+filegroup(name = "real")
+alias(
+    name = "unmatched_select",
+    actual = select({":never_set": ":real"}),
+    target_compatible_with = ["@platforms//:incompatible"],
+)
+EOF
+
+  for output in build proto streamed_proto textproto jsonproto; do
+    bazel cquery --output="${output}" //target_skipping:unmatched_select \
+      &> "${TEST_log}" \
+      || fail "Bazel cquery --output=${output} failed unexpectedly."
+    expect_log "unmatched_select"
+  done
+}
+
 # Runs a cquery and makes sure that we can properly distinguish between
 # incompatible targets and compatible targets.
 function test_cquery_with_starlark_formatting() {

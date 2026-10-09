@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfig
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -67,7 +68,13 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
      */
     @Override
     public Iterable<Object> getPossibleValues(Rule rule, Attribute attr) {
-      Object actualValue = attributeMap.get(attr.getName(), attr.getType());
+      Object actualValue;
+      try {
+        actualValue = attributeMap.getAndValidate(attr.getName(), attr.getType());
+      } catch (ValidationException e) {
+        // Incompatible targets skip analysis, so their selects may not match this configuration.
+        return ImmutableList.of();
+      }
       return actualValue == null ? ImmutableList.of() : ImmutableList.of(actualValue);
     }
   }
