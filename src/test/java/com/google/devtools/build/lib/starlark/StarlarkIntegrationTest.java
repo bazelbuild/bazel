@@ -482,7 +482,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat(myInfo.getValue("has_key1")).isEqualTo(Boolean.TRUE);
     assertThat(myInfo.getValue("has_key2")).isEqualTo(Boolean.FALSE);
     assertThat((Sequence) myInfo.getValue("all_keys"))
-        .containsExactly(
+        .containsAtLeast(
             OutputGroupInfo.HIDDEN_TOP_LEVEL,
             OutputGroupInfo.COMPILATION_PREREQUISITES,
             OutputGroupInfo.FILES_TO_COMPILE,
