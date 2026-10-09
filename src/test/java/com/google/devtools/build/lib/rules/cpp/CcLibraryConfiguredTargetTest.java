@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
+import static com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal.MAX_FILENAME_LENGTH;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;

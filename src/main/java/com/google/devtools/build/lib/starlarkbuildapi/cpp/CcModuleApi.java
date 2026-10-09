@@ -2088,18 +2088,6 @@ public interface CcModuleApi<
   }
 
   @StarlarkMethod(
-      name = "get_tool_requirement_for_action",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "action_name", named = true, positional = false),
-      })
-  Sequence<String> getToolRequirementForAction(
-      FeatureConfigurationT featureConfiguration, String actionName, StarlarkThread thread)
-      throws EvalException;
-
-  @StarlarkMethod(
       name = "create_extra_link_time_library",
       documented = false,
       doc =
