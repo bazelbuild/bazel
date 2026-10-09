@@ -22,12 +22,17 @@ public class UrlRewriterParseException extends Exception {
   @Nullable private final Location location;
 
   public UrlRewriterParseException(String message) {
-    this(message, /* location= */ null);
+    this(message, /* location= */ (Location) null);
   }
 
   public UrlRewriterParseException(String message, @Nullable Location location) {
     super(message);
     this.location = location;
+  }
+
+  public UrlRewriterParseException(String message, Throwable cause) {
+    super(message, cause);
+    this.location = null;
   }
 
   @Nullable
