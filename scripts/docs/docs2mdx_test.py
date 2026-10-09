@@ -169,6 +169,29 @@ class Docs2MdxHeadingAnchorTest(parameterized.TestCase):
     result = docs2mdx._transform("test.html", html)
     self.assertIn(expected_heading, result)
 
+  @parameterized.named_parameters(
+      (
+          "hash",
+          "## Target syntax {:#target-syntax}",
+          "## Target syntax {#target-syntax}",
+      ),
+      ("hash_with_space", "### Foo {: #foo }", "### Foo {#foo}"),
+      (
+          "without_hash",
+          "#### `--deleted_packages` {:flag--deleted_packages}",
+          "#### `--deleted_packages` {#flag--deleted_packages}",
+      ),
+  )
+  def test_kramdown_heading_id_converted(self, markdown, expected_heading):
+    result = docs2mdx._transform("test.md", markdown)
+    self.assertIn(expected_heading, result)
+    self.assertNotIn("{:", result)
+
+  def test_kramdown_attribute_list_on_heading_is_dropped(self):
+    result = docs2mdx._transform("test.md", "## Foo {: .external}")
+    self.assertIn("## Foo", result)
+    self.assertNotIn("{", result)
+
   def test_heading_without_id_has_no_anchor(self):
     html = "<h2>Rules</h2>"
     result = docs2mdx._transform("test.html", html)

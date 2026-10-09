@@ -46,6 +46,12 @@ flags.mark_flag_as_required("out_dir")
 
 _TEMPLATE_RE = re.compile(r"^\{%.+$\n", re.MULTILINE)
 _TAG_RE = re.compile(r"\s?\{:[^}]+\}")
+# Kramdown heading IDs: "## Title {:#foo}", "## Title {: #foo}" and (without the
+# hash) "## Title {:foo}". Attribute lists such as {: .external} don't match.
+_KRAMDOWN_HEADING_ID_RE = re.compile(
+    r"^(#{1,6}[ \t].*?)[ \t]*\{:[ \t]?#?([^\s.}][^\s}]*)[ \t]?\}[ \t]*$",
+    re.MULTILINE,
+)
 _METADATA_PATTERN = re.compile(
     "^((Project|Book):.+\n)", re.MULTILINE
 )
@@ -318,7 +324,7 @@ def _pre_markdown_transforms(content):
   Returns:
     The file with invalid content removed.
   """
-  no_tags = _TAG_RE.sub("", content)
+  no_tags = _TAG_RE.sub("", _convert_kramdown_heading_ids(content))
   no_comments = _HTML_COMMENT_RE.sub("", no_tags)
   # Remove Project: and Book: lines
   no_metadata = _METADATA_PATTERN.sub("", no_comments, count=2).lstrip()
@@ -343,6 +349,22 @@ def _move_flag_links_outside_code(content):
       r'<a href="\1"><code>\2\3</code></a>',
       content,
   )
+
+
+def _convert_kramdown_heading_ids(content):
+  """Converts Kramdown heading IDs in Markdown to MDX anchor syntax.
+
+  Example: ## Title {:#foo} -> ## Title {#foo}
+
+  This has to run before _TAG_RE removes all remaining {:...} attribute lists.
+
+  Args:
+    content: str; content of an HTML or .md file.
+
+  Returns:
+    Content with Kramdown heading IDs converted to MDX anchor syntax.
+  """
+  return _KRAMDOWN_HEADING_ID_RE.sub(r"\1 {#\2}", content)
 
 
 def _convert_heading_ids_to_mdx_anchors(content):
