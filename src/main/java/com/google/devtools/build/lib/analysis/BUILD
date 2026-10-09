@@ -529,6 +529,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/constraints:rule_context_constraint_semantics",
         "//src/main/java/com/google/devtools/build/lib/analysis/constraints:top_level_constraint_semantics",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",

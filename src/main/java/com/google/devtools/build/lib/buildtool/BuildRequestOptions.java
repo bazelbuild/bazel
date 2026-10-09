@@ -275,7 +275,10 @@ public abstract class BuildRequestOptions extends OptionsBase {
           Comma-separated list of output group names whose artifacts are not displayed in
           results (see `--show_result`). The output groups are still built and treated as
           important outputs; only console output is affected. An artifact that also belongs to
-          a requested output group not in this list is still displayed.
+          a requested output group not in this list is still displayed. Also suppresses the
+          warning for listed output groups that are requested but not present on any top-level
+          target or aspect (but not the error under
+          `--incompatible_fail_on_unknown_output_groups`).
           """)
   public abstract List<String> getHideOutputGroupResults();
 
