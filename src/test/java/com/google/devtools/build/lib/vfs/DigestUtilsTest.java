@@ -122,6 +122,42 @@ public final class DigestUtilsTest {
   }
 
   @Test
+  public void modifiedFile_staleEntryIsAMissAndIsReplaced() throws Exception {
+    AtomicInteger getDigestCounter = new AtomicInteger(0);
+    FileSystem tracingFileSystem =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public byte[] getDigest(PathFragment path) throws IOException {
+            getDigestCounter.incrementAndGet();
+            return super.getDigest(path);
+          }
+        };
+
+    DigestUtils.configureCache(/* maximumSize= */ 100);
+
+    Path file = tracingFileSystem.getPath("/file.txt");
+    FileSystemUtils.writeContentAsLatin1(file, "some contents");
+    byte[] digest = DigestUtils.manuallyComputeDigest(file, /* status= */ null);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
+    assertThat(DigestUtils.getCacheStats().missCount()).isEqualTo(1);
+
+    // The file changes (in size, so no clock is needed). The entry is present but stale: that is a
+    // miss, the digest is recomputed, and the entry is replaced rather than kept alongside.
+    FileSystemUtils.writeContentAsLatin1(file, "other contents!");
+    byte[] newDigest = DigestUtils.manuallyComputeDigest(file, /* status= */ null);
+    assertThat(newDigest).isNotEqualTo(digest);
+    assertThat(getDigestCounter.get()).isEqualTo(2);
+    assertThat(DigestUtils.getCacheStats().missCount()).isEqualTo(2);
+    assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(0);
+    assertThat(DigestUtils.getCacheStats().evictionCount()).isEqualTo(0);
+
+    // The replaced entry serves the new contents without a further read.
+    assertThat(DigestUtils.manuallyComputeDigest(file, /* status= */ null)).isEqualTo(newDigest);
+    assertThat(getDigestCounter.get()).isEqualTo(2);
+    assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(1);
+  }
+
+  @Test
   public void manuallyComputeDigest() throws Exception {
     byte[] digest = {1, 2, 3};
     FileSystem noDigestFileSystem =
