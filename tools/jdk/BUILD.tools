@@ -46,41 +46,6 @@ java_plugins_flag_alias(
 )
 
 alias(
-    name = "genclass",
-    actual = "@remote_java_tools//:GenClass",
-)
-
-alias(
-    name = "GenClass_deploy.jar",
-    actual = "@remote_java_tools//:GenClass",
-)
-
-alias(
-    name = "turbine_direct",
-    actual = "@remote_java_tools//:TurbineDirect",
-)
-
-alias(
-    name = "turbine_direct_binary_deploy.jar",
-    actual = "@remote_java_tools//:TurbineDirect",
-)
-
-alias(
-    name = "javabuilder",
-    actual = "@remote_java_tools//:JavaBuilder",
-)
-
-alias(
-    name = "JavaBuilder_deploy.jar",
-    actual = "@remote_java_tools//:JavaBuilder",
-)
-
-alias(
-    name = "vanillajavabuilder",
-    actual = "@remote_java_tools//:VanillaJavaBuilder",
-)
-
-alias(
     name = "JacocoCoverageRunner",
     actual = "@remote_java_tools//:jacoco_coverage_runner",
 )
@@ -98,21 +63,6 @@ java_import(
 alias(
     name = "TestRunner_deploy.jar",
     actual = "@remote_java_tools//:Runner",
-)
-
-alias(
-    name = "proguard",
-    actual = "@remote_java_tools//:proguard",
-)
-
-alias(
-    name = "jre",
-    actual = "@local_jdk//:jre",
-)
-
-alias(
-    name = "jdk",
-    actual = "@local_jdk//:jdk",
 )
 
 alias(
@@ -144,7 +94,6 @@ cc_binary(
 #### Aliases to rules_java to keep backward-compatibility (begin) ####
 
 TARGET_NAMES = [
-    "java_runtime_alias",
     "current_host_java_runtime",
     "current_java_runtime",
     "current_java_toolchain",

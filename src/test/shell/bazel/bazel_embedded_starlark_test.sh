@@ -24,54 +24,6 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 
-test_pkg_tar() {
-  rm -rf main
-  mkdir main
-  cd main
-  setup_module_dot_bazel
-  echo Hello World > foo.txt
-  echo Hello World, again > bar.txt
-  cat > BUILD <<'EOF'
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-
-pkg_tar(
-    name = "data",
-    srcs = glob(["*.txt"]),
-)
-EOF
-  bazel build ... &> $TEST_log \
-    || fail "Expect success, even with all upcoming Starlark changes"
-  grep -q 'Hello World' `bazel info bazel-bin `/data.tar \
-    || fail "Output not generated correctly"
-}
-
-test_pkg_tar_quoting() {
-  # Verify that pkg_tar can handle file names that are allowed as labels
-  # but contain characters that could mess up options.
-  rm -rf main out
-  mkdir main
-  cd main
-  setup_module_dot_bazel
-  mkdir data
-  echo 'with equal' > data/'foo=bar'
-  echo 'like an option' > data/--foo
-  cat > BUILD <<'EOF'
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-
-pkg_tar(
-  name = "fancy",
-  srcs = glob(["data/**/*"]),
-)
-EOF
-  bazel build :fancy &> $TEST_log \
-      || fail "Expected success"
-  mkdir ../out
-  tar -C ../out -x -v -f `bazel info bazel-bin `/fancy.tar
-
-  grep equal ../out/data/foo=bar || fail "file with equal sign not packed correctly"
-  grep option ../out/data/--foo || fail "file with double minus not packed correctly"
-}
-
 test_http_archive() {
   mkdir ext
   cat > ext/foo.sh <<'EOF'

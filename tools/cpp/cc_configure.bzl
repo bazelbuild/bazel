@@ -14,8 +14,6 @@
 
 """Redirects for configuring the C++ toolchain."""
 
-load("@rules_cc//cc/private/toolchain:cc_configure.bzl", _cc_configure = "cc_configure")  # buildifier: disable=bzl-visibility
 load("@rules_cc//cc/toolchains:toolchain_config_utils.bzl", _MSVC_ENVVARS = "MSVC_ENVVARS")
 
 MSVC_ENVVARS = _MSVC_ENVVARS
-cc_configure = _cc_configure

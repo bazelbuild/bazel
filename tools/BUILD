@@ -44,7 +44,7 @@ filegroup(
     srcs = [
         "BUILD.tools",
         "build_defs.bzl",
-        "//tools/allowlists:srcs",
+        "//tools/allowlists:embedded_tools",
         "//tools/android:embedded_tools",
         "//tools/bash:embedded_tools",
         "//tools/build_defs:embedded_tools",
@@ -53,7 +53,7 @@ filegroup(
         "//tools/genrule:srcs",
         "//tools/java:embedded_tools",
         "//tools/jdk:embedded_tools",
-        "//tools/launcher:srcs",
+        "//tools/launcher:embedded_tools",
         "//tools/objc:srcs",
         "//tools/osx:srcs",
         "//tools/proto:srcs",

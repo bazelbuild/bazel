@@ -154,7 +154,6 @@ area-EngProd:
   - any-glob-to-any-file:
     - scripts/bootstrap/**/*
     - scripts/release/**/*
-    - tools/build_defs/pkg/**/*
     - .bazelci/**/*
 
 area-Windows:
