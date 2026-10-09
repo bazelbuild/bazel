@@ -165,6 +165,12 @@ public final class SpawnInputs {
 
     @Override
     public Iterator<ActionInput> iterator() {
+      if (list2.isEmpty() && sizeOfRest == 0) {
+        return Iterators.unmodifiableIterator((Iterator<? extends ActionInput>) list1.iterator());
+      }
+      if (list1.isEmpty() && sizeOfRest == 0) {
+        return Iterators.unmodifiableIterator((Iterator<? extends ActionInput>) list2.iterator());
+      }
       return Iterators.concat(list1.iterator(), list2.iterator(), rest.iterator());
     }
 
