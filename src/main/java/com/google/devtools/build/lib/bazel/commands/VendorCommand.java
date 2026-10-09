@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.remote.LazyMaterializer;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -192,6 +194,12 @@ public final class VendorCommand implements BlazeCommand {
           e.getMessage() != null
               ? "Error while vendoring repos: " + e.getMessage()
               : "Error while vendoring repos";
+      if (e instanceof DetailedException detailed) {
+        // Keep the failure's own exit code, e.g. so that the command is retried when a file of a
+        // repo has been evicted from the remote cache.
+        return createFailedBlazeCommandResult(
+            env.getReporter(), message, detailed.getDetailedExitCode());
+      }
       return createFailedBlazeCommandResult(
           env.getReporter(), Code.QUERY_EVALUATION_ERROR, message);
     }
@@ -461,6 +469,12 @@ public final class VendorCommand implements BlazeCommand {
         env.getDirectories()
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
+    if (externalPath.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
+      // Repos that have been retrieved from the remote repo contents cache may not be on disk yet.
+      for (RepositoryName repo : reposToVendor) {
+        lazyMaterializer.ensureMaterialized(repo, env.getReporter());
+      }
+    }
     vendorManager.vendorRepos(externalPath, env.getDirectories().getWorkspace(), reposToVendor);
 
     // 3. Invalidate RepositoryDirectoryValue for vendored repos.
