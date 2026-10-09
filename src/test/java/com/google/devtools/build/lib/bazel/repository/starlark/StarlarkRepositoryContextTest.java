@@ -60,8 +60,10 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCach
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -610,6 +612,173 @@ public final class StarlarkRepositoryContextTest {
     testOutputFile(outputDirectory.getChild("bar"), "foobar");
 
     assertThat(context.getPath("bar").realpath()).isEqualTo(context.getPath("foo"));
+  }
+
+  @Test
+  public void testCopy() throws Exception {
+    setUpRepo("test");
+    var src = scratch.file(root.getRelative("foo").getPathString(), "foobar");
+    src.setExecutable(false);
+    src.setWritable(false);
+    var executableSrc = scratch.file(root.getRelative("foo.sh").getPathString(), "foobar");
+    executableSrc.setExecutable(true);
+
+    context.copy(src.getPathString(), "bar/baz", "auto", thread);
+    context.copy(executableSrc.getPathString(), "bar/baz.sh", "no", thread);
+
+    var dst = outputDirectory.getRelative("bar/baz");
+    testOutputFile(dst, "foobar\n");
+    assertThat(dst.isSymbolicLink()).isFalse();
+    assertThat(dst.isExecutable()).isFalse();
+    assertThat(dst.isWritable()).isTrue();
+    var executableDst = outputDirectory.getRelative("bar/baz.sh");
+    testOutputFile(executableDst, "foobar\n");
+    assertThat(executableDst.isExecutable()).isTrue();
+    assertThat(context.getRecordedInputs().stream().map(RepoRecordedInput.WithValue::input))
+        .containsExactly(
+            new RepoRecordedInput.File(
+                RepoCacheFriendlyPath.createInsideWorkspace(
+                    RepositoryName.MAIN, PathFragment.create("foo"))));
+  }
+
+  @Test
+  public void testCopyOverwritesDestination() throws Exception {
+    setUpRepo("test");
+    var src = scratch.file(root.getRelative("foo").getPathString(), "new");
+    context.createFile(context.getPath("target"), "old", false, false, thread);
+    context.symlink(context.getPath("target"), context.getPath("link"), thread);
+
+    context.copy(src.getPathString(), "link", "auto", thread);
+
+    var dst = outputDirectory.getChild("link");
+    testOutputFile(dst, "new\n");
+    assertThat(dst.isSymbolicLink()).isFalse();
+    testOutputFile(outputDirectory.getChild("target"), "old");
+  }
+
+  @Test
+  public void testCopyDirectory() throws Exception {
+    setUpRepo("test");
+    when(environment.getValue(
+            argThat(
+                key ->
+                    key != null && key.functionName().equals(SkyFunctions.DIRECTORY_TREE_DIGEST))))
+        .thenReturn(DirectoryTreeDigestValue.of("digest"));
+    var srcDir = scratch.dir(root.getRelative("dir").getPathString());
+    var file = scratch.file(srcDir.getRelative("file").getPathString(), "file");
+    file.setExecutable(false);
+    file.setWritable(false);
+    scratch.file(srcDir.getRelative("sub/tool.sh").getPathString(), "tool").setExecutable(true);
+    srcDir.getRelative("empty").createDirectory();
+    var outsideFile = scratch.file(root.getRelative("outside/file").getPathString(), "outside");
+    srcDir.getRelative("file_link").createSymbolicLink(outsideFile);
+    srcDir.getRelative("dir_link").createSymbolicLink(outsideFile.getParentDirectory());
+    srcDir.getRelative("sub/relative_link").createSymbolicLink(PathFragment.create("../file"));
+
+    context.copy(srcDir.getPathString(), "out/dir", "auto", thread);
+
+    var dstDir = outputDirectory.getRelative("out/dir");
+    var dstFile = dstDir.getRelative("file");
+    testOutputFile(dstFile, "file\n");
+    assertThat(dstFile.isExecutable()).isFalse();
+    assertThat(dstFile.isWritable()).isTrue();
+    var dstTool = dstDir.getRelative("sub/tool.sh");
+    testOutputFile(dstTool, "tool\n");
+    assertThat(dstTool.isExecutable()).isTrue();
+    assertThat(dstDir.getRelative("empty").isDirectory(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(dstDir.getRelative("file_link").isSymbolicLink()).isFalse();
+    testOutputFile(dstDir.getRelative("file_link"), "outside\n");
+    assertThat(dstDir.getRelative("dir_link").isSymbolicLink()).isFalse();
+    testOutputFile(dstDir.getRelative("dir_link/file"), "outside\n");
+    assertThat(dstDir.getRelative("sub/relative_link").isSymbolicLink()).isFalse();
+    testOutputFile(dstDir.getRelative("sub/relative_link"), "file\n");
+    var recordedPath =
+        RepoCacheFriendlyPath.createInsideWorkspace(
+            RepositoryName.MAIN, PathFragment.create("dir"));
+    assertThat(context.getRecordedInputs().stream().map(RepoRecordedInput.WithValue::input))
+        .containsExactly(
+            new RepoRecordedInput.File(recordedPath),
+            new RepoRecordedInput.DirTree(recordedPath, ImmutableList.of()));
+  }
+
+  @Test
+  public void testCopyDirectoryMergesWithDestination() throws Exception {
+    setUpRepo("test");
+    var srcDir = scratch.dir(root.getRelative("dir").getPathString());
+    scratch.file(srcDir.getRelative("sub/overwritten").getPathString(), "new");
+    context.createFile(context.getPath("out/sub/overwritten"), "old", false, false, thread);
+    context.createFile(context.getPath("out/sub/kept"), "kept", false, false, thread);
+
+    context.copy(srcDir.getPathString(), "out", "no", thread);
+
+    testOutputFile(outputDirectory.getRelative("out/sub/overwritten"), "new\n");
+    testOutputFile(outputDirectory.getRelative("out/sub/kept"), "kept");
+  }
+
+  @Test
+  public void testCopyDirectoryErrors() throws Exception {
+    setUpRepo("test");
+    var cyclicDir = scratch.dir(root.getRelative("cyclic").getPathString());
+    scratch.dir(cyclicDir.getRelative("sub").getPathString());
+    cyclicDir.getRelative("sub/link").createSymbolicLink(cyclicDir);
+    var danglingDir = scratch.dir(root.getRelative("dangling").getPathString());
+    danglingDir.getRelative("link").createSymbolicLink(PathFragment.create("missing"));
+    context.createFile(context.getPath("nested/file"), "", false, false, thread);
+
+    var cycleException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(cyclicDir.getPathString(), "bar", "no", thread));
+    assertThat(cycleException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /wsRoot/cyclic to /outputDir/bar: /wsRoot/cyclic is part of a symlink"
+                + " cycle");
+
+    var danglingException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(danglingDir.getPathString(), "baz", "no", thread));
+    assertThat(danglingException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .startsWith("Could not copy /wsRoot/dangling to /outputDir/baz: ");
+
+    var overlapException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy("nested", "nested/copy", "no", thread));
+    assertThat(overlapException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /outputDir/nested to /outputDir/nested/copy: /outputDir/nested and"
+                + " /outputDir/nested/copy overlap");
+  }
+
+  @Test
+  public void testCopyErrors() throws Exception {
+    setUpRepo("test");
+    var src = scratch.file(root.getRelative("foo").getPathString(), "foobar");
+
+    var outsideException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(src.getPathString(), "/bar", "auto", thread));
+    assertThat(outsideException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo("Cannot write outside of the repository directory for path /bar");
+
+    var missingException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy("/wsRoot/missing", "bar", "auto", thread));
+    assertThat(missingException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .startsWith("Could not copy /wsRoot/missing to /outputDir/bar: ");
   }
 
   private static void testOutputFile(Path path, String content) throws IOException {

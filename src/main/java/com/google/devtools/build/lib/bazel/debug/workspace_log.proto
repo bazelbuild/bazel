@@ -96,6 +96,14 @@ message ReadEvent {
   string path = 1;
 }
 
+// Information on "copy" event in repository_ctx.
+message CopyEvent {
+  // The path of the existing file to copy.
+  string src = 1;
+  // The path of the copy.
+  string dst = 2;
+}
+
 // Information on "delete" event in repository_ctx.
 message DeleteEvent {
   // Path to the file to delete
@@ -187,5 +195,6 @@ message WorkspaceEvent {
     RenameEvent rename_event = 15;
     LoadWasmEvent load_wasm_event = 16;
     ExecuteWasmEvent execute_wasm_event = 17;
+    CopyEvent copy_event = 18;
   }
 }
