@@ -242,6 +242,31 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void changedRewoundOutputDetected(@TestParameter boolean changeSecondaryOutput)
+      throws Exception {
+    helper.runChangedRewoundOutputDetected(
+        /* producerFromPreviousBuild= */ false, changeSecondaryOutput);
+  }
+
+  @Test
+  public void changedRewoundOutputFromPreviousBuildDetected() throws Exception {
+    helper.runChangedRewoundOutputDetected(
+        /* producerFromPreviousBuild= */ true, /* changeSecondaryOutput= */ false);
+  }
+
+  @Test
+  public void deterministicRewoundOutputCheckSucceeds() throws Exception {
+    addOptions("--experimental_check_rewound_action_outputs");
+    helper.runIntermediateActionRewound();
+  }
+
+  @Test
+  public void sharedRewoundOutputCheckSucceeds() throws Exception {
+    addOptions("--experimental_check_rewound_action_outputs");
+    helper.runParallelTrackSharedActionsRewound();
+  }
+
+  @Test
   public void parallelTrackSharedActionsRewound() throws Exception {
     helper.runParallelTrackSharedActionsRewound();
   }

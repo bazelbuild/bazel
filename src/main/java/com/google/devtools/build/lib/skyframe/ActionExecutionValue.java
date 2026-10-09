@@ -47,7 +47,9 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -219,6 +221,55 @@ public abstract class ActionExecutionValue implements SkyValue {
    * are accessible via {@link #getAllTreeArtifactValues}.
    */
   public abstract ImmutableMap<Artifact, FileArtifactValue> getAllFileValues();
+
+  /**
+   * Returns the first output whose content differs from {@code previous}, or null if none does.
+   *
+   * <p>Compare content rather than metadata equality: regeneration can materialize a remote file
+   * locally, changing its location and filesystem metadata without changing its bytes. Ignore
+   * artifact owners so this also works for shared actions. Tree children are compared by path,
+   * including added/removed children; the tree's transport/archive representation is not compared.
+   * This is not a general determinism check for actions producing rich artifact data or outputs
+   * without content digests.
+   */
+  @Nullable
+  String getFirstOutputWithDifferentContent(ActionExecutionValue previous) {
+    Map<String, FileArtifactValue> oldOutputs = previous.contentMetadata();
+    Map<String, FileArtifactValue> newOutputs = contentMetadata();
+    for (var entry : oldOutputs.entrySet()) {
+      FileArtifactValue oldMetadata = entry.getValue();
+      FileArtifactValue newMetadata = newOutputs.get(entry.getKey());
+      if (newMetadata == null
+          || oldMetadata.getType() != newMetadata.getType()
+          || !Arrays.equals(oldMetadata.getDigest(), newMetadata.getDigest())
+          || (oldMetadata.getDigest() != null && oldMetadata.getSize() != newMetadata.getSize())) {
+        return entry.getKey();
+      }
+    }
+    for (var output : newOutputs.keySet()) {
+      if (!oldOutputs.containsKey(output)) {
+        return output;
+      }
+    }
+    return null;
+  }
+
+  private Map<String, FileArtifactValue> contentMetadata() {
+    Map<String, FileArtifactValue> outputs = new LinkedHashMap<>();
+    getAllFileValues()
+        .forEach((artifact, metadata) -> outputs.put(artifact.getExecPathString(), metadata));
+    getAllTreeArtifactValues()
+        .forEach(
+            (artifact, tree) -> {
+              // Include the root so an empty tree is distinguishable from a missing output.
+              outputs.put(
+                  artifact.getExecPathString(),
+                  FileArtifactValue.createForDirectoryWithHash(new byte[0]));
+              tree.getChildValues()
+                  .forEach((child, metadata) -> outputs.put(child.getExecPathString(), metadata));
+            });
+    return outputs;
+  }
 
   /** Returns a map containing all tree artifacts output by the action. */
   public ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactValues() {

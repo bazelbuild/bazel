@@ -64,6 +64,118 @@ public final class ActionExecutionValueTest {
       ArtifactRoot.asDerivedRoot(new Scratch().resolve("/execroot"), RootType.OUTPUT, "out");
 
   @Test
+  public void regeneratedContent_ignoresLocationProxyAndOwner() {
+    Artifact original = output("file", ACTION_LOOKUP_DATA_1);
+    Artifact regenerated = output("file", ACTION_LOOKUP_DATA_2);
+    var before = createWithArtifactData(ImmutableMap.of(original, VALUE_1_REMOTE));
+    var after =
+        createWithArtifactData(
+            ImmutableMap.of(
+                regenerated,
+                FileArtifactValue.createForNormalFile(
+                    new byte[0], new FileContentsProxy(1, 2, 3), 0)));
+
+    assertThat(after.getFirstOutputWithDifferentContent(before)).isNull();
+  }
+
+  @Test
+  public void regeneratedContent_detectsChangedSecondaryOutput() {
+    Artifact primary = output("primary");
+    Artifact secondary = output("secondary");
+    var before =
+        createWithArtifactData(ImmutableMap.of(primary, VALUE_1_REMOTE, secondary, VALUE_1_REMOTE));
+    var after =
+        createWithArtifactData(
+            ImmutableMap.of(
+                primary,
+                VALUE_2_REMOTE,
+                secondary,
+                FileArtifactValue.createForRemoteFile(new byte[] {1}, 0, 1)));
+
+    assertThat(after.getFirstOutputWithDifferentContent(before))
+        .isEqualTo(secondary.getExecPathString());
+  }
+
+  @Test
+  public void regeneratedContent_detectsChangedSizeAndType() {
+    Artifact file = output("file");
+    var before = createWithArtifactData(ImmutableMap.of(file, VALUE_1_REMOTE));
+    for (FileArtifactValue changed :
+        ImmutableList.of(
+            FileArtifactValue.createForRemoteFile(new byte[0], 1, 1),
+            FileArtifactValue.createForDirectoryWithHash(new byte[0]))) {
+      assertThat(
+              createWithArtifactData(ImmutableMap.of(file, changed))
+                  .getFirstOutputWithDifferentContent(before))
+          .isEqualTo(file.getExecPathString());
+    }
+  }
+
+  @Test
+  public void regeneratedContent_detectsAddedAndRemovedOutputs() {
+    Artifact first = output("first");
+    Artifact second = output("second");
+    var one = createWithArtifactData(ImmutableMap.of(first, VALUE_1_REMOTE));
+    var two =
+        createWithArtifactData(ImmutableMap.of(first, VALUE_1_REMOTE, second, VALUE_1_REMOTE));
+
+    assertThat(one.getFirstOutputWithDifferentContent(two)).isEqualTo(second.getExecPathString());
+    assertThat(two.getFirstOutputWithDifferentContent(one)).isEqualTo(second.getExecPathString());
+  }
+
+  @Test
+  public void regeneratedContent_comparesTreeChildrenByContent() {
+    SpecialArtifact tree = tree("tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
+    var before =
+        createWithTreeArtifactData(
+            ImmutableMap.of(
+                tree, TreeArtifactValue.newBuilder(tree).putChild(child, VALUE_1_REMOTE).build()));
+    var materialized =
+        createWithTreeArtifactData(
+            ImmutableMap.of(
+                tree,
+                TreeArtifactValue.newBuilder(tree)
+                    .putChild(child, FileArtifactValue.createForNormalFile(new byte[0], null, 0))
+                    .build()));
+    var changed =
+        createWithTreeArtifactData(
+            ImmutableMap.of(
+                tree,
+                TreeArtifactValue.newBuilder(tree)
+                    .putChild(child, FileArtifactValue.createForRemoteFile(new byte[] {1}, 0, 1))
+                    .build()));
+    var empty = createWithTreeArtifactData(ImmutableMap.of(tree, TreeArtifactValue.empty()));
+
+    assertThat(materialized.getFirstOutputWithDifferentContent(before)).isNull();
+    assertThat(changed.getFirstOutputWithDifferentContent(before))
+        .isEqualTo(child.getExecPathString());
+    assertThat(empty.getFirstOutputWithDifferentContent(before))
+        .isEqualTo(child.getExecPathString());
+    assertThat(before.getFirstOutputWithDifferentContent(empty))
+        .isEqualTo(child.getExecPathString());
+  }
+
+  @Test
+  public void regeneratedContent_detectsChangedSymlinkTarget() throws Exception {
+    Artifact symlink = output("symlink");
+    var path = symlink.getPath();
+    path.getParentDirectory().createDirectoryAndParents();
+    path.createSymbolicLink(PathFragment.create("first"));
+    var before =
+        createWithArtifactData(
+            ImmutableMap.of(symlink, FileArtifactValue.createForUnresolvedSymlink(path)));
+    path.delete();
+    path.createSymbolicLink(PathFragment.create("second"));
+    var after =
+        createWithArtifactData(
+            ImmutableMap.of(symlink, FileArtifactValue.createForUnresolvedSymlink(path)));
+
+    assertThat(after.getFirstOutputWithDifferentContent(before))
+        .isEqualTo(symlink.getExecPathString());
+  }
+
+  @Test
   public void equality() {
     SpecialArtifact tree1 = tree("tree1");
     TreeArtifactValue tree1Value1 =

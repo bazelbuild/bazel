@@ -163,7 +163,6 @@ public class RewindingTestsHelper {
     this.lostOutputsModule = createLostOutputsModule();
   }
 
-
   public final LostImportantOutputHandlerModule getLostOutputsModule() {
     return lostOutputsModule;
   }
@@ -1081,6 +1080,74 @@ public class RewindingTestsHelper {
     assertOnlyActionsRewound(rewoundKeys);
     assertThat(rewoundArtifactOwnerLabels(rewoundKeys))
         .containsExactly("//test:rule2", "//test:rule1");
+  }
+
+  public final void runChangedRewoundOutputDetected(
+      boolean producerFromPreviousBuild, boolean changeSecondaryOutput) throws Exception {
+    testCase.addOptions("--experimental_check_rewound_action_outputs");
+    testCase.write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "producer",
+            outs = ["lost.inlined", "sibling.inlined"],
+            cmd = "touch $(OUTS)",
+        )
+        genrule(
+            name = "consumer",
+            srcs = ["lost.inlined"],
+            outs = ["result.inlined"],
+            cmd = "cat $< > $@",
+        )
+        """);
+    AtomicInteger executions = new AtomicInteger();
+    SpawnShim producer =
+        (spawn, context) -> {
+          int run = executions.incrementAndGet();
+          for (ActionInput output : spawn.getOutputFiles()) {
+            boolean changes =
+                output
+                    .getExecPathString()
+                    .endsWith(changeSecondaryOutput ? "sibling.inlined" : "lost.inlined");
+            Path path = context.getExecRoot().getRelative(output.getExecPath());
+            path.getParentDirectory().createDirectoryAndParents();
+            writeContent(path, new byte[] {(byte) (changes ? run : 0)});
+          }
+          return ExecResult.of(
+              new SpawnResult.Builder()
+                  .setStatus(SpawnResult.Status.SUCCESS)
+                  .setRunnerName("shim")
+                  .build());
+        };
+    addSpawnShim("Executing genrule //test:producer", producer);
+    addSpawnShim("Executing genrule //test:producer", producer);
+    if (producerFromPreviousBuild) {
+      testCase.buildTarget("//test:producer");
+    }
+    AtomicInteger consumerAttempts = new AtomicInteger();
+    addSpawnShim(
+        "Executing genrule //test:consumer",
+        (spawn, context) -> {
+          consumerAttempts.incrementAndGet();
+          return createLostInputsExecException(spawn, context, "lost.inlined");
+        });
+
+    BuildFailedException failure =
+        assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//test:consumer"));
+
+    assertThat(failure.getDetailedExitCode().getFailureDetail().getExecution().getCode())
+        .isEqualTo(FailureDetails.Execution.Code.REWOUND_ACTION_OUTPUT_CHANGED);
+    assertThat(failure.getDetailedExitCode().getFailureDetail().getMessage())
+        .contains(changeSecondaryOutput ? "sibling.inlined" : "lost.inlined");
+    assertThat(executions.get()).isEqualTo(2);
+    assertThat(consumerAttempts.get()).isEqualTo(1);
+    verifyAllSpawnShimsConsumed();
+    assertThat(getExecutedSpawnDescriptions())
+        .containsExactly(
+            "Executing genrule //test:producer",
+            "Executing genrule //test:consumer",
+            "Executing genrule //test:producer")
+        .inOrder();
   }
 
   public final void runNondeterministicActionRewound() throws Exception {
