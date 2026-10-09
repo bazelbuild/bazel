@@ -15,13 +15,21 @@
 import os
 import re
 from absl.testing import absltest
+from absl.testing import parameterized
 from src.test.py.bazel.bzlmod import remote_repo_contents_cache_test_base
 
 
 class RemoteRepoContentsCacheRewindingTest(
-    remote_repo_contents_cache_test_base.RemoteRepoContentsCacheTestBase
+    remote_repo_contents_cache_test_base.RemoteRepoContentsCacheTestBase,
+    parameterized.TestCase,
 ):
   """Tests recovery of repo files lost from the remote cache."""
+
+  def _useNonVerifyingCacheIfRequested(self, action_cache_integrity_check):
+    # Most remote caches refuse to serve an action result whose blobs they have
+    # lost, but some serve it anyway.
+    if not action_cache_integrity_check:
+      self.RestartRemoteWorker(['--noaction_cache_integrity_check'])
 
   def _setupRepoWithSubpackage(self):
     self.ScratchFile(
@@ -114,7 +122,13 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
-  def testLostRemoteFile_remoteExecutionUpload(self):
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_remoteExecutionUpload(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
     # Regression test for a crash when a file in a remotely cached repo has
     # been evicted after the analysis phase and this is only noticed while
     # uploading the inputs of a remotely executed action.
@@ -154,8 +168,6 @@ class RemoteRepoContentsCacheRewindingTest(
         '//main:use_data',
         '--spawn_strategy=remote',
         '--remote_executor=grpc://localhost:' + str(self._worker_port),
-        # Rewinding of lost repo files isn't supported yet.
-        '--norewind_lost_inputs',
         '--experimental_remote_cache_eviction_retries=1',
     ]
     self.RunBazel(args + ['--nobuild'])
@@ -165,18 +177,135 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
 
     # Analysis is warm, so the eviction is only noticed while uploading the
-    # inputs of the action.
+    # inputs of the action. The retried build fetches the repo again.
     self.DeleteCasEntry(b'hello')
-    exit_code, _, stderr = self.RunBazel(args, allow_failure=True)
-    self.AssertExitCode(exit_code, 39, stderr)
+    _, _, stderr = self.RunBazel(args)
     stderr = '\n'.join(stderr)
-    self.assertIn(
-        'Found transient remote cache error, retrying the build...', stderr
+    self.assertEqual(
+        1,
+        stderr.count('Found transient remote cache error, retrying the build...'),
     )
     self.assertRegex(
         stderr, r'Lost inputs no longer available remotely: data.txt \(.*/5\)'
     )
+    self.assertIn('JUST FETCHED', stderr)
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
 
+
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostIntermediateCacheEntryStdout_rebuilt(
+      self, action_cache_integrity_check
+  ):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
+    # The cache entry for the hash of the predeclared inputs of a repo rule
+    # that records further inputs at runtime is an intermediate entry whose
+    # stdout lists these inputs. If the remote cache has lost the stdout but
+    # not the entry, the entry can neither be followed nor extended.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  mode = rctx.getenv("MODE")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "data for " + mode)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    args = ['build', '--repo_env=MODE=a', '@my_repo//:data.txt']
+    _, _, stderr = self.RunBazel(args)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(args)
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The stdout of the intermediate entry lists the single recorded input.
+    self.DeleteCasEntry(b'ENV:MODE\n')
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(args)
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('Remote repo contents cache lookup failed', stderr)
+    self.assertNotIn('Failed to add', stderr)
+
+    # The fetch has rebuilt the entry.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(args)
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  @parameterized.named_parameters(
+      ('_verifyingCache', True), ('_nonVerifyingCache', False)
+  )
+  def testLostRemoteFile_actionInput_retried(self, action_cache_integrity_check):
+    self._useNonVerifyingCacheIfRequested(action_cache_integrity_check)
+    # A source file that is an input of an action has no generating action
+    # that rewinding could run again, so the build is retried as a whole and
+    # fetches the repo again.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+    args = [
+        'build',
+        '--rewind_lost_inputs',
+        '--experimental_remote_cache_eviction_retries=1',
+        '//main:use_data',
+    ]
+    _, _, stderr = self.RunBazel(args + ['--nobuild'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(args + ['--nobuild'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The input is only downloaded when the action runs.
+    self.DeleteCasEntry(b'hello')
+    _, _, stderr = self.RunBazel(args)
+    stderr = '\n'.join(stderr)
+    self.assertEqual(
+        1,
+        stderr.count('Found transient remote cache error, retrying the build...'),
+    )
+    self.assertIn('JUST FETCHED', stderr)
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
 
 if __name__ == '__main__':
   absltest.main()

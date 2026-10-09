@@ -704,6 +704,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     // Downloads are written to the actual host file system, not any overlays.
     Path finalPath = path.forHostFileSystem();
+    Path resolvedPath = path;
 
     @Nullable
     Path finalTreeRoot =
@@ -746,16 +747,32 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           alreadyDeleted.set(true);
                         }));
 
-    return downloadCache.execute(
-        finalPath,
-        Completable.defer(
-            () -> {
-              if (shouldDownloadFile(finalPath, metadata)) {
-                return download;
-              }
-              return Completable.complete();
-            }),
-        forceRefetch(finalPath));
+    return downloadCache
+        .execute(
+            finalPath,
+            Completable.defer(
+                () -> {
+                  if (shouldDownloadFile(finalPath, metadata)) {
+                    return download;
+                  }
+                  return Completable.complete();
+                }),
+            forceRefetch(finalPath))
+        .doOnError(e -> markLostRepoFile(e, resolvedPath));
+  }
+
+  /**
+   * Records the loss of a file in an external repo with the file system serving the repo so that a
+   * retry of the build fetches the repo again.
+   *
+   * @param path the fully resolved path of the file on the file system serving the repo: an input
+   *     can be a symlink to a file in another repo
+   */
+  private static void markLostRepoFile(Throwable failure, Path path) {
+    if (failure instanceof CacheNotFoundException
+        && path.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
+      lazyMaterializer.markLostRepoFile(path.asFragment());
+    }
   }
 
   private void finalizeDownload(
