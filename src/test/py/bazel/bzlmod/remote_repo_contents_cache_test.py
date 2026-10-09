@@ -2770,5 +2770,80 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('hello from a source executable', '\n'.join(stdout))
 
 
+  def testNoFetchFallsBackToExistingRepoIfCachedRepoHasLostFiles(self):
+    # A repo whose cache entry references files that the remote cache has
+    # lost is a cache miss. With --nofetch, the out-of-date contents of the
+    # repo on disk are used instead, which must thus not be deleted before the
+    # entry has been found to be usable.
+    # Real remote caches serve action results without verifying that the blobs
+    # they reference are still present.
+    self.StopRemoteWorker()
+    self._worker_port = self.StartRemoteWorker(
+        ['--noaction_cache_integrity_check']
+    )
+    self.ScratchFile('.bazelrc', self.BazelrcLines())
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  mode = rctx.os.environ["MODE"]',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("helper.bzl", "MODE = \\"%s\\"" % mode)',
+            '  rctx.file("data.txt", "data for " + mode)',
+            '  print("JUST FETCHED " + mode)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl, environ = ["MODE"])',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+
+    # Cache the repo for MODE=new, then fetch it for MODE=old without caching.
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=MODE=new', '--nobuild', '//main:use_data']
+    )
+    self.assertIn('JUST FETCHED new', '\n'.join(stderr))
+    _, _, stderr = self.RunBazel([
+        'build',
+        '--repo_env=MODE=old',
+        '--noremote_upload_local_results',
+        '--nobuild',
+        '//main:use_data',
+    ])
+    self.assertIn('JUST FETCHED old', '\n'.join(stderr))
+
+    # The entry for MODE=new is unusable since the remote cache has lost the
+    # helper file that is downloaded with it, so the repo for MODE=old is used.
+    self.DeleteCasEntry(b'MODE = "new"')
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=MODE=new', '--nofetch', '//main:use_data']
+    )
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertIn('fetching is disabled', stderr)
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'data for old')
+    with open(os.path.join(repo_dir, 'helper.bzl')) as f:
+      self.assertEqual(f.read(), 'MODE = "old"')
+
+
 if __name__ == '__main__':
   absltest.main()
