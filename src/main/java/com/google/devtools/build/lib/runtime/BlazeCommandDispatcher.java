@@ -670,7 +670,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
-      if (env.getCommand().buildPhase().analyzes()) {
+      if (command.needsMainRepoMapping(env, options)) {
         try {
           env.syncPackageLoading(options);
         } catch (InterruptedException e) {
@@ -752,19 +752,28 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           result = BlazeCommandResult.detailedExitCode(earlyExitCode);
           return result;
         }
-      }
 
-      // Parse starlark options.
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
-        earlyExitCode = optionHandler.parseStarlarkOptions(env, args);
-      }
-      if (!earlyExitCode.isSuccess()) {
-        reporter.post(
-            new NoBuildEvent(
-                commandName, firstContactTime, false, true, env.getCommandId().toString()));
-        result = BlazeCommandResult.detailedExitCode(earlyExitCode);
-        return result;
+        // Parse starlark options.
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
+          earlyExitCode = optionHandler.parseStarlarkOptions(env, args);
+        }
+        if (!earlyExitCode.isSuccess()) {
+          reporter.post(
+              new NoBuildEvent(
+                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+          result = BlazeCommandResult.detailedExitCode(earlyExitCode);
+          return result;
+        }
+      } else {
+        earlyExitCode = optionHandler.checkUnknownCommandLineOptions(reporter);
+        if (!earlyExitCode.isSuccess()) {
+          reporter.post(
+              new NoBuildEvent(
+                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+          result = BlazeCommandResult.detailedExitCode(earlyExitCode);
+          return result;
+        }
       }
       options = optionHandler.getOptionsResult();
 
@@ -1019,7 +1028,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             .skipStarlarkOptionPrefixes()
             .allowResidue(annotation.allowResidue())
             .withAliasFlag(CoreOptionConverters.BLAZE_ALIASING_FLAG)
-            .isFirstRoundOfParsing(annotation.buildPhase().analyzes() && hasModuleDotBazel)
+            .isFirstRoundOfParsing(hasModuleDotBazel)
             .build();
     return parser;
   }
