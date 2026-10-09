@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -47,7 +46,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
@@ -63,7 +61,7 @@ import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnInputs.FlattenedInputs;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -86,12 +84,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.util.AbstractCollection;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Deque;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -149,6 +146,8 @@ public final class MerkleTreeComputer {
       NodeProperties.newBuilder()
           .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input"))
           .build();
+  private static final Comparator<ActionInput> EXEC_PATH_COMPARATOR =
+      comparing(ActionInput::getExecPath, HIERARCHICAL_COMPARATOR);
   private static final ImmutableList<Map.Entry<PathFragment, ActionInput>> END_OF_INPUTS_SENTINEL =
       ImmutableList.of(entry(PathFragment.EMPTY_FRAGMENT, VirtualActionInput.EMPTY_MARKER));
 
@@ -342,22 +341,31 @@ public final class MerkleTreeComputer {
       }
     }
     PathMapper pathMapper = spawn.getPathMapper();
-    var spawnInputs = spawn.getInputFiles().flatten();
+    SpawnInputs inputFiles = spawn.getInputFiles();
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
     // directory, which differs from the behavior of both local and sandboxed execution.
-    ImmutableList<ActionInput> outputDirectories =
-        spawn.getOutputFiles().stream()
-            .filter(output -> output instanceof Artifact artifact && artifact.isTreeArtifact())
-            .map(outputDir -> new EmptyInputDirectory((Artifact) outputDir))
-            .collect(toImmutableList());
+    List<ActionInput> outputDirectories = null;
+    for (ActionInput output : spawn.getOutputFiles()) {
+      if (output instanceof Artifact artifact && artifact.isTreeArtifact()) {
+        if (outputDirectories == null) {
+          outputDirectories = new ArrayList<>(1);
+        }
+        outputDirectories.add(new EmptyInputDirectory(artifact));
+      }
+    }
+    if (outputDirectories != null) {
+      inputFiles = inputFiles.plus(outputDirectories);
+    }
     // Reduce peak memory usage by avoiding the allocation of intermediate arrays and sorted map, as
     // well as the prolonged retention of mapped paths. All of these can be reconstructed on-the-fly
     // while iterating over the inputs, only the sorted order has to be retained.
     var allInputs =
         ImmutableList.sortedCopyOf(
-            comparing(input -> pathMapper.map(input.getExecPath()), HIERARCHICAL_COMPARATOR),
-            concat(spawnInputs, outputDirectories));
+            pathMapper.isNoop()
+                ? EXEC_PATH_COMPARATOR
+                : comparing(input -> pathMapper.map(input.getExecPath()), HIERARCHICAL_COMPARATOR),
+            inputFiles.flatten());
     ActionExecutionMetadata actionMetadata = spawn.getResourceOwner();
     var metadata =
         TracingMetadataUtils.buildMetadata(
@@ -381,7 +389,7 @@ public final class MerkleTreeComputer {
           build(
               Lists.transform(
                   allInputs, input -> entry(pathMapper.map(input.getExecPath()), input)),
-              toolInputs::contains,
+              toolInputs.isEmpty() ? alwaysFalse() : toolInputs::contains,
               scrubber != null ? scrubber.forSpawn(spawn) : null,
               spawnExecutionContext.getInputMetadataProvider(),
               spawnExecutionContext.getPathResolver(),
@@ -1162,30 +1170,6 @@ public final class MerkleTreeComputer {
       }
     }
     return null;
-  }
-
-  /**
-   * Returns an immutable view of the concatenation of inputs and outputs.
-   *
-   * <p>Use this over the unsized {@link Iterators#concat} to avoid intermediate allocations of
-   * ArrayLists in methods such as {@link ImmutableList#sortedCopyOf}.
-   */
-  private static Collection<ActionInput> concat(
-      FlattenedInputs inputs, Collection<ActionInput> outputDirs) {
-    if (inputs.isEmpty()) {
-      return outputDirs;
-    }
-    return new AbstractCollection<>() {
-      @Override
-      public Iterator<ActionInput> iterator() {
-        return Iterators.concat(inputs.iterator(), outputDirs.iterator());
-      }
-
-      @Override
-      public int size() {
-        return inputs.size() + outputDirs.size();
-      }
-    };
   }
 
   private static class EmptyInputDirectory extends BasicActionInput {
