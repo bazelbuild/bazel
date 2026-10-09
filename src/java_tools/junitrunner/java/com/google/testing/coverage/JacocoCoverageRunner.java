@@ -20,12 +20,10 @@ import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -36,15 +34,14 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -53,7 +50,6 @@ import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
 import org.jacoco.agent.rt.IAgent;
 import org.jacoco.agent.rt.RT;
-import org.jacoco.core.analysis.Analyzer;
 import org.jacoco.core.tools.ExecFileLoader;
 import sun.misc.Unsafe;
 
@@ -66,48 +62,34 @@ import sun.misc.Unsafe;
  * <p>The structure is roughly following the canonical Jacoco example:
  * http://www.eclemma.org/jacoco/trunk/doc/examples/java/ReportGenerator.java
  *
+ * <p>The uninstrumented classes to be analyzed and the paths of the covered source files are
+ * collected from the jars on the runtime classpath.
+ *
  * <p>The following environment variables are expected:
  *
  * <ul>
  *   <li>JAVA_COVERAGE_FILE - specifies final location of the generated lcov file.
- *   <li>JACOCO_METADATA_JAR - specifies jar containing uninstrumented classes to be analyzed.
+ *   <li>JACOCO_MAIN_CLASS - specifies the main class of the code under test if not running from a
+ *       deploy jar with a Coverage-Main-Class manifest attribute.
+ *   <li>CLASSPATH_JAR - specifies the name of the jar on the classpath whose manifest contains the
+ *       actual runtime classpath, if the classpath was too long to be passed directly.
  * </ul>
  */
 public class JacocoCoverageRunner {
 
-  private final ImmutableList<File> classesJars;
   private final InputStream executionData;
   private final File reportFile;
+  private final Map<String, byte[]> uninstrumentedClasses;
+  private final ImmutableSet<String> pathsForCoverage;
   private ExecFileLoader execFileLoader;
-  private HashMap<String, byte[]> uninstrumentedClasses;
-  private ImmutableSet<String> pathsForCoverage = ImmutableSet.of();
-  /**
-   * Creates a new coverage runner extracting the classes jars from a wrapper file. Uses
-   * javaRunfilesRoot to compute the absolute path of the jars inside the wrapper file.
-   */
-  public JacocoCoverageRunner(
-      InputStream jacocoExec, String reportPath, File wrapperFile, String javaRunfilesRoot)
-      throws IOException {
-    executionData = jacocoExec;
-    reportFile = new File(reportPath);
-    this.classesJars = getFilesFromFileList(wrapperFile, javaRunfilesRoot);
-  }
-
-  public JacocoCoverageRunner(InputStream jacocoExec, String reportPath, File... metadataJars) {
-    executionData = jacocoExec;
-    reportFile = new File(reportPath);
-    this.classesJars = ImmutableList.copyOf(metadataJars);
-  }
 
   public JacocoCoverageRunner(
       InputStream jacocoExec,
       String reportPath,
-      HashMap<String, byte[]> uninstrumentedClasses,
-      ImmutableSet<String> pathsForCoverage,
-      File... metadataJars) {
+      Map<String, byte[]> uninstrumentedClasses,
+      ImmutableSet<String> pathsForCoverage) {
     executionData = jacocoExec;
     reportFile = new File(reportPath);
-    this.classesJars = ImmutableList.copyOf(metadataJars);
     this.uninstrumentedClasses = uninstrumentedClasses;
     this.pathsForCoverage = pathsForCoverage;
   }
@@ -123,7 +105,7 @@ public class JacocoCoverageRunner {
 
   @VisibleForTesting
   void createReport(final Map<String, CoverageData> coverageData) throws IOException {
-    JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(createPathsSet());
+    JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(pathsForCoverage);
     try (PrintWriter writer =
         new PrintWriter(newBufferedWriter(reportFile.toPath(), UTF_8, CREATE, APPEND))) {
       formatter.writeCoverageData(writer, coverageData);
@@ -132,67 +114,17 @@ public class JacocoCoverageRunner {
 
   private Map<String, CoverageData> analyze() throws IOException {
     final CoverageAnalyzer analyzer = new CoverageAnalyzer(execFileLoader.getExecutionDataStore());
-
-    Map<String, CoverageData> result = new TreeMap<>();
-    Set<String> alreadyInstrumentedClasses = new HashSet<>();
-    if (uninstrumentedClasses == null) {
-      for (File classesJar : classesJars) {
-        analyzeUninstrumentedClassesFromJar(analyzer, classesJar, alreadyInstrumentedClasses);
-        result.putAll(analyzer.getCoverage());
-      }
-    } else {
-      for (Map.Entry<String, byte[]> entry : uninstrumentedClasses.entrySet()) {
-        analyzer.analyzeClass(entry.getValue(), entry.getKey());
-      }
-      result.putAll(analyzer.getCoverage());
+    for (Map.Entry<String, byte[]> entry : uninstrumentedClasses.entrySet()) {
+      analyzer.analyzeClass(entry.getValue(), entry.getKey());
     }
-    return result;
+    return new TreeMap<>(analyzer.getCoverage());
   }
 
   /**
-   * Analyzes all uninstrumented class files found in the given jar.
+   * Collects the uninstrumented class files and the paths of the covered source files from the
+   * given jar.
    *
    * <p>The uninstrumented classes are named using the .class.uninstrumented suffix.
-   */
-  private void analyzeUninstrumentedClassesFromJar(
-      Analyzer analyzer, File jar, Set<String> alreadyInstrumentedClasses) throws IOException {
-    JarFile jarFile = new JarFile(jar);
-    Enumeration<JarEntry> jarFileEntries = jarFile.entries();
-    while (jarFileEntries.hasMoreElements()) {
-      JarEntry jarEntry = jarFileEntries.nextElement();
-      String jarEntryName = jarEntry.getName();
-      if (jarEntryName.endsWith(".class.uninstrumented")
-          && !alreadyInstrumentedClasses.contains(jarEntryName)) {
-        analyzer.analyzeAll(jarFile.getInputStream(jarEntry), jarEntryName);
-        alreadyInstrumentedClasses.add(jarEntryName);
-      }
-    }
-  }
-
-  /**
-   * Creates a {@link Set} containing the paths of the covered Java files.
-   *
-   * <p>The paths are retrieved from a txt file that is found inside each jar containing
-   * uninstrumented classes. Each line of the txt file represents a path to be added to the set.
-   *
-   * <p>This set is needed by {@link JacocoLCOVFormatter} in order to output the correct path for
-   * each covered class.
-   */
-  @VisibleForTesting
-  ImmutableSet<String> createPathsSet() throws IOException {
-    if (!pathsForCoverage.isEmpty()) {
-      return pathsForCoverage;
-    }
-    ImmutableSet.Builder<String> execPathsSetBuilder = ImmutableSet.builder();
-    for (File classJar : classesJars) {
-      addEntriesToExecPathsSet(classJar, execPathsSetBuilder);
-    }
-    ImmutableSet<String> result = execPathsSetBuilder.build();
-    return result;
-  }
-
-  /**
-   * Adds to the given {@link Set} the paths found in a txt file inside the given jar.
    *
    * <p>If a jar contains uninstrumented classes it will also contain a txt file with the paths of
    * each of these classes, called "-paths-for-coverage.txt". This file expects one path per line
@@ -204,20 +136,29 @@ public class JacocoCoverageRunner {
    *       /dir/Foo.java////com/example/Foo.java).
    * </ul>
    */
-  @VisibleForTesting
-  static void addEntriesToExecPathsSet(File jar, ImmutableSet.Builder<String> execPathsSetBuilder)
+  private static void collectCoverageMetadata(
+      File jar,
+      Map<String, byte[]> uninstrumentedClasses,
+      ImmutableSet.Builder<String> pathsForCoverage)
       throws IOException {
-    JarFile jarFile = new JarFile(jar);
-    Enumeration<JarEntry> jarFileEntries = jarFile.entries();
-    while (jarFileEntries.hasMoreElements()) {
-      JarEntry jarEntry = jarFileEntries.nextElement();
-      String jarEntryName = jarEntry.getName();
-      if (jarEntryName.endsWith("-paths-for-coverage.txt")) {
-        BufferedReader bufferedReader =
-            new BufferedReader(new InputStreamReader(jarFile.getInputStream(jarEntry), UTF_8));
-        String line;
-        while ((line = bufferedReader.readLine()) != null) {
-          execPathsSetBuilder.add(line);
+    try (JarFile jarFile = new JarFile(jar)) {
+      Enumeration<JarEntry> jarFileEntries = jarFile.entries();
+      while (jarFileEntries.hasMoreElements()) {
+        JarEntry jarEntry = jarFileEntries.nextElement();
+        String jarEntryName = jarEntry.getName();
+        if (jarEntryName.endsWith(".class.uninstrumented")
+            && !uninstrumentedClasses.containsKey(jarEntryName)) {
+          try (InputStream in = jarFile.getInputStream(jarEntry)) {
+            uninstrumentedClasses.put(jarEntryName, ByteStreams.toByteArray(in));
+          }
+        } else if (jarEntryName.endsWith("-paths-for-coverage.txt")) {
+          try (BufferedReader bufferedReader =
+              new BufferedReader(new InputStreamReader(jarFile.getInputStream(jarEntry), UTF_8))) {
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+              pathsForCoverage.add(line);
+            }
+          }
         }
       }
     }
@@ -257,9 +198,9 @@ public class JacocoCoverageRunner {
       return Class.forName(jacocoMainClass);
     }
     throw new IllegalStateException(
-        "JACOCO_METADATA_JAR/JACOCO_MAIN_CLASS environment variables not set, and no"
-            + " META-INF/MANIFEST.MF on the classpath has a Coverage-Main-Class attribute. "
-            + " Cannot determine the name of the main class for the code under test.");
+        "JACOCO_MAIN_CLASS environment variable not set, and no META-INF/MANIFEST.MF on the"
+            + " classpath has a Coverage-Main-Class attribute. Cannot determine the name of the"
+            + " main class for the code under test.");
   }
 
   private static String getUniquePath(String pathTemplate, String suffix) throws IOException {
@@ -282,60 +223,56 @@ public class JacocoCoverageRunner {
     }
   }
 
-  /**
-   * Returns an immutable list containing all the file paths found in mainFile. It uses the
-   * javaRunfilesRoot prefix for every found file to compute its absolute path.
-   */
-  private static ImmutableList<File> getFilesFromFileList(File mainFile, String javaRunfilesRoot)
-      throws IOException {
-    List<String> metadataFiles = Files.readLines(mainFile, UTF_8);
-    ImmutableList.Builder<File> convertedMetadataFiles = new Builder<>();
-    for (String metadataFile : metadataFiles) {
-      convertedMetadataFiles.add(new File(javaRunfilesRoot + "/" + metadataFile));
-    }
-    return convertedMetadataFiles.build();
-  }
-
-  private static URL[] getUrls(ClassLoader classLoader, boolean jarIsWrapped, String wrappedJar) {
-    // jarIsWrapped is a legacy parameter; it should be removed once we are sure Bazel will no
-    // longer set JACOCO_IS_JAR_WRAPPED in java_stub_template
+  private static URL[] getUrls(ClassLoader classLoader, String classpathJar)
+      throws MalformedURLException {
     URL[] urls = getClassLoaderUrls(classLoader);
-    if (urls == null || urls.length == 0) {
+    if (urls == null) {
+      // The search path of the system class loader is initialized from java.class.path. Fall back
+      // to it if the class loader can't be inspected, e.g. because a custom system class loader is
+      // used or the memory access methods of sun.misc.Unsafe are unavailable.
+      urls = getJavaClassPathUrls();
+    }
+    if (urls.length == 0 || Strings.isNullOrEmpty(classpathJar)) {
       return urls;
     }
     // If the classpath was too long then a temporary top-level jar is created containing nothing
     // but a manifest with the original classpath. Those are the URLs we are looking for.
     URL classPathUrl = null;
-    if (!Strings.isNullOrEmpty(wrappedJar)) {
-      for (URL url : urls) {
-        if (url.getPath().endsWith(wrappedJar)) {
-          classPathUrl = url;
-        }
+    for (URL url : urls) {
+      if (url.getPath().endsWith(classpathJar)) {
+        classPathUrl = url;
       }
-      if (classPathUrl == null) {
-        System.err.println("Classpath JAR " + wrappedJar + " not provided");
-        return null;
-      }
-    } else if (jarIsWrapped && urls.length == 1) {
-      classPathUrl = urls[0];
     }
-    if (classPathUrl != null) {
-      try {
-        String jarClassPath =
-            new JarInputStream(classPathUrl.openStream())
-                .getManifest()
-                .getMainAttributes()
-                .getValue("Class-Path");
-        String[] urlStrings = jarClassPath.split(" ");
-        URL[] newUrls = new URL[urlStrings.length];
-        for (int i = 0; i < urlStrings.length; i++) {
-          newUrls[i] = new URL(urlStrings[i]);
-        }
-        return newUrls;
-      } catch (Exception e) {
-        e.printStackTrace();
-        return null;
+    if (classPathUrl == null) {
+      System.err.println("Classpath JAR " + classpathJar + " not provided");
+      return null;
+    }
+    try {
+      String jarClassPath =
+          new JarInputStream(classPathUrl.openStream())
+              .getManifest()
+              .getMainAttributes()
+              .getValue("Class-Path");
+      String[] urlStrings = jarClassPath.split(" ");
+      URL[] newUrls = new URL[urlStrings.length];
+      for (int i = 0; i < urlStrings.length; i++) {
+        newUrls[i] = new URL(urlStrings[i]);
       }
+      return newUrls;
+    } catch (Exception e) {
+      e.printStackTrace();
+      return null;
+    }
+  }
+
+  private static URL[] getJavaClassPathUrls() throws MalformedURLException {
+    List<String> entries =
+        Splitter.on(File.pathSeparatorChar)
+            .omitEmptyStrings()
+            .splitToList(System.getProperty("java.class.path", ""));
+    URL[] urls = new URL[entries.size()];
+    for (int i = 0; i < urls.length; i++) {
+      urls[i] = new File(entries.get(i)).toURI().toURL();
     }
     return urls;
   }
@@ -388,68 +325,30 @@ public class JacocoCoverageRunner {
   }
 
   public static void main(String[] args) throws Exception {
-    String metadataFile = System.getenv("JACOCO_METADATA_JAR");
-    String jarWrappedValue = System.getenv("JACOCO_IS_JAR_WRAPPED");
-    String wrappedJarValue = System.getenv("CLASSPATH_JAR");
-    boolean wasWrappedJar = jarWrappedValue != null ? !jarWrappedValue.equals("0") : false;
+    URL[] urls = getUrls(ClassLoader.getSystemClassLoader(), System.getenv("CLASSPATH_JAR"));
+    if (urls == null) {
+      throw new IllegalStateException(
+          "Failed to determine the runtime classpath. Cannot collect coverage for the code under"
+              + " test.");
+    }
 
-    File[] metadataFiles = null;
+    // Collect
+    // - uninstrumented class files for coverage before starting the actual test
+    // - paths considered for coverage
+    // Collecting these in the shutdown hook is too expensive (we only have a 5s budget).
     int deployJars = 0;
     final HashMap<String, byte[]> uninstrumentedClasses = new HashMap<>();
-    ImmutableSet.Builder<String> pathsForCoverageBuilder = new ImmutableSet.Builder<>();
-    ClassLoader classLoader = ClassLoader.getSystemClassLoader();
-    URL[] urls = getUrls(classLoader, wasWrappedJar, wrappedJarValue);
-    if (urls != null) {
-      metadataFiles = new File[urls.length];
-      for (int i = 0; i < urls.length; i++) {
-        String file = urls[i].toURI().getPath();
-        metadataFiles[i] = new File(file);
-        // Special case for when there is only one deploy jar on the classpath.
-        if (file.endsWith("_deploy.jar")) {
-          metadataFile = file;
-          deployJars++;
-        }
-        if (file.endsWith(".jar")) {
-          // Collect
-          // - uninstrumented class files for coverage before starting the actual test
-          // - paths considered for coverage
-          // Collecting these in the shutdown hook is too expensive (we only have a 5s budget).
-          JarFile jarFile = new JarFile(file);
-          Enumeration<JarEntry> jarFileEntries = jarFile.entries();
-          while (jarFileEntries.hasMoreElements()) {
-            JarEntry jarEntry = jarFileEntries.nextElement();
-            String jarEntryName = jarEntry.getName();
-            if (jarEntryName.endsWith(".class.uninstrumented")
-                && !uninstrumentedClasses.containsKey(jarEntryName)) {
-              uninstrumentedClasses.put(
-                  jarEntryName, ByteStreams.toByteArray(jarFile.getInputStream(jarEntry)));
-            } else if (jarEntryName.endsWith("-paths-for-coverage.txt")) {
-              BufferedReader bufferedReader =
-                  new BufferedReader(
-                      new InputStreamReader(jarFile.getInputStream(jarEntry), UTF_8));
-              String line;
-              while ((line = bufferedReader.readLine()) != null) {
-                pathsForCoverageBuilder.add(line);
-              }
-            }
-          }
-        }
+    ImmutableSet.Builder<String> pathsForCoverageBuilder = ImmutableSet.builder();
+    for (URL url : urls) {
+      String file = url.toURI().getPath();
+      if (file.endsWith("_deploy.jar")) {
+        deployJars++;
+      }
+      if (file.endsWith(".jar")) {
+        collectCoverageMetadata(new File(file), uninstrumentedClasses, pathsForCoverageBuilder);
       }
     }
-
     final ImmutableSet<String> pathsForCoverage = pathsForCoverageBuilder.build();
-    final String metadataFileFinal = metadataFile;
-    final File[] metadataFilesFinal = metadataFiles;
-    final String javaRunfilesRoot = System.getenv("JACOCO_JAVA_RUNFILES_ROOT");
-
-    boolean hasOneFile = false;
-    if (metadataFile != null
-        && (metadataFile.endsWith("_merged_instr.jar") || metadataFile.endsWith("_deploy.jar"))) {
-      // bazel can set JACOCO_METADATA_JAR to either one file (a deploy jar
-      // or a merged jar) or to multiple jars.
-      hasOneFile = true;
-    }
-    final boolean hasOneFileFinal = hasOneFile;
 
     final String coverageReportBase = System.getenv("JAVA_COVERAGE_FILE");
 
@@ -466,9 +365,9 @@ public class JacocoCoverageRunner {
     System.setProperty("jacoco-agent.sessionid", "default");
 
     // A JVM shutdown hook has a fixed amount of time (OS-dependent) before it is terminated.
-    // For our purpose, it's more than enough to scan through the instrumented jar and match up
-    // the bytecode with the coverage data. It wouldn't be enough for scanning the entire classpath,
-    // or doing something else terribly inefficient.
+    // For our purpose, it's more than enough to match up the uninstrumented bytecode collected
+    // above with the coverage data. It wouldn't be enough for scanning the entire classpath, or
+    // doing something else terribly inefficient.
     Runtime.getRuntime()
         .addShutdownHook(
             new Thread() {
@@ -507,30 +406,9 @@ public class JacocoCoverageRunner {
                     dataInputStream = new ByteArrayInputStream(new byte[0]);
                   }
 
-                  if (metadataFileFinal != null || metadataFilesFinal != null) {
-                    File[] metadataJars;
-                    if (metadataFilesFinal != null) {
-                      metadataJars = metadataFilesFinal;
-                    } else {
-                      metadataJars =
-                          hasOneFileFinal
-                              ? new File[] {new File(metadataFileFinal)}
-                              : getFilesFromFileList(new File(metadataFileFinal), javaRunfilesRoot)
-                                  .toArray(new File[0]);
-                    }
-                    if (uninstrumentedClasses.isEmpty()) {
-                      new JacocoCoverageRunner(dataInputStream, coverageReport, metadataJars)
-                          .create();
-                    } else {
-                      new JacocoCoverageRunner(
-                              dataInputStream,
-                              coverageReport,
-                              uninstrumentedClasses,
-                              pathsForCoverage,
-                              metadataJars)
-                          .create();
-                    }
-                  }
+                  new JacocoCoverageRunner(
+                          dataInputStream, coverageReport, uninstrumentedClasses, pathsForCoverage)
+                      .create();
                 } catch (IOException e) {
                   e.printStackTrace();
                   Runtime.getRuntime().halt(1);
@@ -542,8 +420,7 @@ public class JacocoCoverageRunner {
     // It can happen that multiple deploy jars are on the classpath. In that case we are running
     // from a regular java binary where all the environment (e.g. JACOCO_MAIN_CLASS) is set
     // accordingly.
-    boolean insideDeployJar =
-        (deployJars == 1) && (metadataFilesFinal == null || metadataFilesFinal.length == 1);
+    boolean insideDeployJar = deployJars == 1 && urls.length == 1;
     Class<?> mainClass = getMainClass(insideDeployJar);
     Method main = mainClass.getMethod("main", String[].class);
     main.setAccessible(true);
