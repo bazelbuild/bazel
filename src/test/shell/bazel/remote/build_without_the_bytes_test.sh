@@ -386,6 +386,46 @@ EOF
   || fail "Expected runfile bazel-bin/a/create_bar.sh to be downloaded"
 }
 
+function test_remote_executable_symlink_after_bazel_bin_deletion() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/26877.
+  add_rules_shell "MODULE.bazel"
+  cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+genrule(
+    name = "a",
+    outs = ["subdir/a"],
+    cmd = "printf '#!/bin/sh\\nexit 0\\n' > \"$@\" && chmod +x \"$@\"",
+)
+
+sh_test(
+    name = "b",
+    srcs = [":a"],
+)
+
+sh_test(
+    name = "c",
+    srcs = [":a"],
+)
+EOF
+
+  bazel test \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      -- //:b >& "$TEST_log" || fail "Failed to test //:b"
+
+  local bazel_bin
+  bazel_bin="$(bazel info bazel-bin)"
+  [[ -n "$bazel_bin" && "$bazel_bin" != "/" ]] || fail "Invalid bazel-bin: '$bazel_bin'"
+  bazel shutdown
+  rm -rf -- "$bazel_bin"
+
+  bazel test \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      -- //:c >& "$TEST_log" || fail "Failed to test //:c"
+}
+
 # Test that --remote_download_toplevel fetches inputs to symlink actions. In
 # particular, cc_binary links against a symlinked imported .so file, and only
 # the symlink is in the runfiles.

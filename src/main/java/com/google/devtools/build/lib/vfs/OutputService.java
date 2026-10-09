@@ -208,6 +208,9 @@ public interface OutputService {
    * @param sourceRoots list of directories on the package path (from {@link
    *     com.google.devtools.build.lib.pkgcache.PathPackageLocator})
    * @param inputArtifactData information about required inputs to the action
+   * @param checkedInputs the checked-input part of {@code inputArtifactData}; input discovery may
+   *     add entries between filesystem uses, followed by {@link #updateActionFileSystemContext}
+   *     before the next use. The map must not be modified concurrently with filesystem operations.
    * @param outputArtifacts required outputs of the action
    * @param rewindingEnabled whether to track failed remote reads to enable action rewinding
    */
@@ -218,6 +221,7 @@ public interface OutputService {
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
       InputMetadataProvider inputArtifactData,
+      ActionInputMap checkedInputs,
       Iterable<Artifact> outputArtifacts,
       boolean rewindingEnabled) {
     return null;

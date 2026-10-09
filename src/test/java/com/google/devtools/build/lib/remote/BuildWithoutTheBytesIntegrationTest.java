@@ -188,6 +188,92 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   protected void injectFile(byte[] content) {}
 
   @Test
+  public void cachedRemoteInputBelowLocalFile(
+      @TestParameter({"remote", "local", "template", "symlink"}) String mode,
+      @TestParameter boolean siblingOutput)
+      throws Exception {
+    write(
+        "a/defs.bzl",
+        """
+        def _write_file_impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.path)
+            ctx.actions.run_shell(
+                outputs = [out],
+                command = "echo contents > " + out.path + " && chmod +x " + out.path,
+                execution_requirements = {"local": "1"} if ctx.attr.local else {},
+            )
+            return [DefaultInfo(files = depset([out]))]
+
+        write_file = rule(
+            implementation = _write_file_impl,
+            attrs = {"path": attr.string(), "local": attr.bool()},
+        )
+
+        def _consume_impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.path)
+            if ctx.attr.mode == "template":
+                ctx.actions.expand_template(
+                    template = ctx.file.src,
+                    output = out,
+                    substitutions = {},
+                )
+            elif ctx.attr.mode == "symlink":
+                ctx.actions.symlink(
+                    output = out,
+                    target_file = ctx.file.src,
+                    is_executable = True,
+                )
+            else:
+                ctx.actions.run_shell(
+                    inputs = [ctx.file.src],
+                    outputs = [out],
+                    command = "cat " + ctx.file.src.path + " > " + out.path,
+                    execution_requirements = {"local": "1"} if ctx.attr.mode == "local" else {},
+                )
+            return [DefaultInfo(files = depset([out]))]
+
+        consume = rule(
+            implementation = _consume_impl,
+            attrs = {
+                "src": attr.label(allow_single_file = True),
+                "mode": attr.string(),
+                "path": attr.string(),
+            },
+        )
+        """);
+    String output = siblingOutput ? "blocked/sibling" : "result";
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "consume", "write_file")
+
+        write_file(name = "old", path = "blocked", local = True)
+        write_file(name = "child", path = "blocked/child")
+        consume(name = "consumer", src = ":child", mode = "%s", path = "%s")
+        """
+            .formatted(mode, output));
+
+    buildTarget("//a:child");
+    waitDownloads();
+    assertOutputsDoNotExist("//a:child");
+    buildTarget("//a:old");
+    waitDownloads();
+    assertThat(getOutputPath("a/blocked").isFile()).isTrue();
+
+    buildTarget("//a:consumer");
+    waitDownloads();
+
+    if (mode.equals("template") || mode.equals("local")) {
+      assertOnlyOutputContent("//a:consumer", siblingOutput ? "sibling" : "result", "contents\n");
+    } else if (mode.equals("symlink")) {
+      assertThat(getOutputPath("a/" + output).isSymbolicLink()).isTrue();
+    } else {
+      assertOnlyOutputRemoteContent(
+          "//a:consumer", siblingOutput ? "sibling" : "result", "contents\n");
+    }
+  }
+
+  @Test
   public void executeRemotely_actionFails_outputsAreAvailableLocallyForDebuggingPurpose()
       throws Exception {
     write(
