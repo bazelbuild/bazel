@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -221,8 +222,18 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
         return;
       }
 
-      if (remoteOutputChecker.shouldDownloadOutput(artifact, metadata)) {
-        ensuredOutputMetadata.add(metadata);
+      // The metadata of a source directory in an external repo doesn't tell whether the files
+      // below it are only available remotely, which is the case as long as the repo is served from
+      // the remote repo contents cache.
+      boolean isSourceDirectory =
+          artifact.isSourceArtifact() && metadata.getType() == FileStateType.DIRECTORY;
+      if (isSourceDirectory
+          ? remoteOutputChecker.shouldDownloadOutput(
+              artifact.getExecPath(), /* treeRootExecPath= */ null)
+          : remoteOutputChecker.shouldDownloadOutput(artifact, metadata)) {
+        if (!isSourceDirectory) {
+          ensuredOutputMetadata.add(metadata);
+        }
         futures.add(
             actionInputPrefetcher.prefetchFiles(
                 artifact instanceof DerivedArtifact derivedArtifact

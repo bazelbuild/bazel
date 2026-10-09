@@ -2475,6 +2475,79 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('hello from my_bin', '\n'.join(stdout))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
+  def testRunWithSourceDirectoryInRunfiles(self):
+    if self.IsWindows():
+      self.skipTest('requires a shell script')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'dir\'])")',
+            '  rctx.file("dir/data.txt", "hello from a source directory")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/launcher.bzl',
+        [
+            'def _launcher_impl(ctx):',
+            '  exe = ctx.actions.declare_file(ctx.label.name + ".sh")',
+            '  ctx.actions.write(',
+            '    exe,',
+            '    "#!/bin/sh\\ncat \\"$0.runfiles/data/data.txt\\"\\n",',
+            '    is_executable = True,',
+            '  )',
+            '  return [DefaultInfo(',
+            '    executable = exe,',
+            '    runfiles = ctx.runfiles(root_symlinks = {"data": ctx.file.src}),',
+            '  )]',
+            'launcher = rule(',
+            '  implementation = _launcher_impl,',
+            '  attrs = {"src": attr.label(allow_single_file = True)},',
+            '  executable = True,',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'load("//main:launcher.bzl", "launcher")',
+            'launcher(name = "launcher", src = "@my_repo//:dir")',
+        ],
+    )
+
+    # First fetch: not cached
+    _, stdout, stderr = self.RunBazel(['run', '//main:launcher'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from a source directory', '\n'.join(stdout))
+
+    # After expunging: cached. Building the binary without downloading its
+    # outputs doesn't download the contents of the source directory.
+    repo_dir = self.RepoDir('my_repo')
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '--remote_download_minimal', '//main:launcher']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'dir/data.txt')))
+
+    # Running the binary downloads them since it has the source directory in
+    # its runfiles.
+    _, stdout, stderr = self.RunBazel(['run', '//main:launcher'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from a source directory', '\n'.join(stdout))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'dir/data.txt')))
+
   def testReverseDependencyDirection(self):
     # Set up two repos that retain their predeclared input hashes across two
     # builds but still reverse their dependency direction. Depending on how repo
