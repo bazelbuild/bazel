@@ -142,6 +142,9 @@ public final class FileOpNodeMemoizingLookup {
   @Nullable // non-null if shouldDiscardMemory is true
   private ImmutableSet<PackageIdentifier> referencedPackages;
 
+  /** Whether Skyframe direct deps may have been cleared. See {@link #markDirectDepsCleared}. */
+  private boolean directDepsCleared = false;
+
   FileOpNodeMemoizingLookup(
       SafeExecutor executor,
       InMemoryGraph graph,
@@ -162,6 +165,17 @@ public final class FileOpNodeMemoizingLookup {
     this.selectedKeys = selectedKeys;
     this.shouldDiscardMemory = shouldDiscardMemory;
     this.referencedPackages = referencedPackages;
+  }
+
+  /**
+   * Records that Skyframe direct deps are about to be cleared.
+   *
+   * <p>Afterwards, a node's deps read from the graph would be empty, so every node must already be
+   * memoized by {@link #materializeNodeGraph}. Computing any other node fails rather than silently
+   * yielding a node with no file dependencies.
+   */
+  void markDirectDepsCleared() {
+    directDepsCleared = true;
   }
 
   FileOpNodeOrFuture computeNode(ActionLookupKey key) {
@@ -215,6 +229,12 @@ public final class FileOpNodeMemoizingLookup {
       @Nullable SkyValue value,
       @Nullable Iterable<SkyKey> directDeps) {
     if (directDeps == null) {
+      if (directDepsCleared) {
+        collector.failWith(
+            new IllegalStateException(
+                key + " was not materialized before Skyframe direct deps were cleared"));
+        return;
+      }
       InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
       if (nodeEntry == null) {
         collector.failWith(new MissingSkyframeEntryException(key));
@@ -319,7 +339,7 @@ public final class FileOpNodeMemoizingLookup {
       this.sourceFile = sourceFile;
     }
 
-    private void failWith(MissingSkyframeEntryException e) {
+    private void failWith(Throwable e) {
       recordException(e);
     }
 

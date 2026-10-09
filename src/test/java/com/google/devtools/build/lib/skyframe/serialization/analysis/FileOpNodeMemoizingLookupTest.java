@@ -57,6 +57,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RejectedExecutionException;
@@ -493,6 +494,32 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
 
     assertThat(failures).hasSize(1);
     assertThat(failures.get(0)).isInstanceOf(CancellationException.class);
+  }
+
+  @Test
+  public void computeNode_afterDirectDepsCleared_failsUnlessMaterialized() throws Exception {
+    write("pkg/a.txt", "a");
+    write("pkg/b.txt", "b");
+    write(
+        "pkg/BUILD", genrule("materialized", "['a.txt']") + genrule("unmaterialized", "['b.txt']"));
+    buildTarget("//pkg:materialized", "//pkg:unmaterialized");
+    ConfiguredTargetKey materializedKey = ctKey("//pkg:materialized");
+    ConfiguredTargetKey unmaterializedKey = ctKey("//pkg:unmaterialized");
+    var lookup = newLookup(ImmutableSet.of(materializedKey));
+    assertThat(lookup.materializeNodeGraph(ImmutableSet.of(materializedKey))).isEmpty();
+
+    lookup.markDirectDepsCleared();
+
+    // A memoized node is still served.
+    assertThat(lookup.computeNode(materializedKey)).isInstanceOf(FileOpNodeOrEmpty.class);
+    // Any other node would read empty deps from the graph, so it fails instead.
+    var future = (FutureFileOpNode) lookup.computeNode(unmaterializedKey);
+    var thrown = assertThrows(ExecutionException.class, future::get);
+    assertThat(thrown).hasCauseThat().isInstanceOf(IllegalStateException.class);
+    assertThat(thrown)
+        .hasCauseThat()
+        .hasMessageThat()
+        .contains("was not materialized before Skyframe direct deps were cleared");
   }
 
   @Test
