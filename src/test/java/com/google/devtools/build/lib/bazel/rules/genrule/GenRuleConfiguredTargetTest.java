@@ -484,6 +484,36 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testStarlarkRuleNamedGenrule() throws Exception {
+    useConfiguration("--noincompatible_merge_genfiles_directory");
+    scratch.file(
+        "x/defs.bzl",
+        """
+        def _impl(ctx):
+            for out in ctx.outputs.outs:
+                ctx.actions.write(out, "")
+
+        genrule = rule(
+            implementation = _impl,
+            attrs = {"outs": attr.output_list()},
+        )
+        """);
+    scratch.file(
+        "x/BUILD",
+        """
+        load(":defs.bzl", "genrule")
+
+        genrule(
+            name = "starlark",
+            outs = ["starlark.out"],
+        )
+        """);
+
+    assertThat(getFileConfiguredTarget("//x:starlark.out").getArtifact())
+        .isEqualTo(getBinArtifact("starlark.out", getConfiguredTarget("//x:starlark")));
+  }
+
+  @Test
   public void testMultipleOutsPreservesOrdering() throws Exception {
     scratch.file(
         "multiple/outs/BUILD",
