@@ -729,6 +729,18 @@ public class ActionExecutionFunction implements SkyFunction {
               env.getListener(), state.discoveredInputs != null, action, actionLookupData));
     }
 
+    ActionExecutionValue previousOutputs = null;
+    if (skyframeActionExecutor.shouldCheckRewoundActionOutputs(action)) {
+      // Rewinding retains the prior SkyValue even while this node is being rebuilt. Unlike the
+      // executor's per-build action map, this also covers local/remote cache hits and actions that
+      // completed in a previous invocation. Do not add a Skyframe dependency on our own node.
+      NodeEntry entry =
+          evaluator.get().getExistingEntryAtCurrentlyEvaluatingVersion(actionLookupData);
+      if (entry != null && entry.toValue() instanceof ActionExecutionValue value) {
+        previousOutputs = value;
+      }
+    }
+
     ArtifactPathResolver pathResolver =
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
@@ -770,8 +782,10 @@ public class ActionExecutionFunction implements SkyFunction {
           action instanceof RichDataProducingAction rdpa
               ? rdpa.reconstructRichDataOnActionCacheHit(state.actionInputMetadataProvider)
               : null;
-      return ActionExecutionValue.create(
-          outputMetadataStore, reconstructedRichArtifactData, action);
+      ActionExecutionValue value =
+          ActionExecutionValue.create(outputMetadataStore, reconstructedRichArtifactData, action);
+      skyframeActionExecutor.checkRewoundActionOutputs(action, previousOutputs, value, null);
+      return value;
     }
 
     outputMetadataStore.prepareForActionExecution();
@@ -837,7 +851,8 @@ public class ActionExecutionFunction implements SkyFunction {
         actionLookupData,
         state.actionFileSystem,
         new ActionPostprocessingImpl(state),
-        state.discoveredInputs != null);
+        state.discoveredInputs != null,
+        previousOutputs);
   }
 
   /** Implementation of {@link ActionPostprocessing}. */
