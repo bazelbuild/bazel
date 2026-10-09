@@ -25,12 +25,14 @@ import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
+import com.google.devtools.build.lib.skyframe.AboutToClearAnalysisCacheEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.common.options.Option;
@@ -117,6 +119,8 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   @GuardedBy("this")
   private boolean executionStarted;
 
+  private boolean triggerGcBeforeDiscardAnalysisCache;
+
   @VisibleForTesting
   PostGCMemoryUseRecorder(Iterable<GarbageCollectorMXBean> mxBeans, BugReporter bugReporter) {
     for (GarbageCollectorMXBean mxBean : mxBeans) {
@@ -143,6 +147,20 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   @Subscribe
   private synchronized void executionStartedNonSkymeld(ExecutionStartingEvent event) {
     executionStarted = true;
+  }
+
+  @Subscribe
+  private void aboutToClearAnalysisCache(AboutToClearAnalysisCacheEvent event) {
+    if (triggerGcBeforeDiscardAnalysisCache) {
+      try (var _ =
+          GoogleAutoProfilerUtils.profiledAndLogged(
+              "manual GC before discarding analysis cache", ProfilerTask.MANUAL_GC)) {
+        System.gc();
+      }
+      // Google-internal SkyframeExecutor implementations may trigger multiple discards in the same
+      // build (loading objects, then analysis objects). Only trigger GC the first time.
+      triggerGcBeforeDiscardAnalysisCache = false;
+    }
   }
 
   public synchronized Optional<PeakHeap> getPeakPostGcHeap() {
@@ -318,9 +336,9 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   /** Module to run a full GC after a build is complete on a Blaze server. * */
   public static final class GcAfterBuildModule extends BlazeModule {
 
-    private boolean forceGc = false;
+    private boolean forceGcAfterBuild = false;
 
-    /** Command options for forcing a GC after a build. * */
+    /** Command options for forcing a GC. */
     @OptionsClass
     public abstract static class Options extends OptionsBase {
       @Option(
@@ -329,9 +347,19 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
           documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
           effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
           help =
-              "If true calls System.gc() after a build to try and get a post-gc peak heap"
-                  + " measurement.")
-      public abstract boolean getExperimentalForceGcAfterBuild();
+              "If true calls System.gc() after a build that did not run any full GC in an attempt"
+                  + " to ensure that the peak post-GC heap metric is populated.")
+      public abstract boolean getForceGcAfterBuild();
+
+      @Option(
+          name = "experimental_force_gc_before_discard_analysis_cache",
+          defaultValue = "false",
+          documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+          effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+          help =
+              "If true calls System.gc() before discarding the analysis cache in an attempt to"
+                  + " ensure that the peak post-GC heap metric captures the true peak.")
+      public abstract boolean getForceGcBeforeDiscardAnalysisCache();
     }
 
     @Override
@@ -341,18 +369,20 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
 
     @Override
     public void beforeCommand(CommandEnvironment env) {
-      Options options = env.getOptions().getOptions(Options.class);
-      if (options != null
-          && ("test".equals(env.getCommand().name()) || "build".equals(env.getCommand().name()))) {
-        forceGc = options.getExperimentalForceGcAfterBuild();
+      if (env.getCommand().buildPhase().executes()) {
+        var options = env.getOptions().getOptions(Options.class);
+        forceGcAfterBuild = options.getForceGcAfterBuild();
+        PostGCMemoryUseRecorder.get().triggerGcBeforeDiscardAnalysisCache =
+            options.getForceGcBeforeDiscardAnalysisCache();
       } else {
-        forceGc = false;
+        forceGcAfterBuild = false;
+        PostGCMemoryUseRecorder.get().triggerGcBeforeDiscardAnalysisCache = false;
       }
     }
 
     @Override
     public void afterCommand() {
-      if (forceGc && !PostGCMemoryUseRecorder.get().getPeakPostGcHeap().isPresent()) {
+      if (forceGcAfterBuild && PostGCMemoryUseRecorder.get().getPeakPostGcHeap().isEmpty()) {
         System.gc();
       }
     }

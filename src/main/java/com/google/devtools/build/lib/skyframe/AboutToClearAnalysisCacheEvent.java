@@ -1,4 +1,4 @@
-// Copyright 2022 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,20 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import java.time.Duration;
-
 /**
- * Event posted after the analysis cache has been cleared. Analysis cache clearing is triggered at
- * the beginning of execution phase if {@code --discard_analysis_cache} is set.
+ * Event posted just prior to analysis cache clearing. Analysis cache clearing is triggered at the
+ * beginning of execution phase if {@code --discard_analysis_cache} is set.
+ *
+ * <p>See {@link AnalysisCacheClearEvent} for the event that is posted after the analysis cache is
+ * cleared.
  */
-public final class AnalysisCacheClearEvent {
-  private final Duration clearTime;
-
-  public AnalysisCacheClearEvent(Duration clearTime) {
-    this.clearTime = clearTime;
-  }
-
-  public Duration getClearTime() {
-    return clearTime;
-  }
-}
+public final class AboutToClearAnalysisCacheEvent {}

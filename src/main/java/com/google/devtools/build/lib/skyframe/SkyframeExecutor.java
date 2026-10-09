@@ -1429,6 +1429,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     boolean remoteAnalysisCachingEnabled =
         remoteAnalysisCacheReaderDepsProvider.mode().isRetrievalEnabled();
 
+    getEventBus().post(new AboutToClearAnalysisCacheEvent());
+
     try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
       graph.parallelForEach(
           e -> {

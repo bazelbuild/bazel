@@ -285,6 +285,11 @@ java_library(
 )
 
 java_library(
+    name = "about_to_clear_analysis_cache_event",
+    srcs = ["AboutToClearAnalysisCacheEvent.java"],
+)
+
+java_library(
     name = "analysis_cache_clear_event",
     srcs = ["AnalysisCacheClearEvent.java"],
 )
@@ -3992,6 +3997,7 @@ java_library(
         "SkyframeExecutor.java",
     ],
     deps = [
+        ":about_to_clear_analysis_cache_event",
         ":action_artifact_cycle_reporter",
         ":action_environment_function",
         ":action_execution_function",
