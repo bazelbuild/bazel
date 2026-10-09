@@ -817,9 +817,14 @@ public class DumpCommand implements BlazeCommand {
     }
 
     ImmutableList<BuildConfigurationKey> candidates =
-        env.getSkyframeExecutor().getEvaluator().getDoneValues().entrySet().stream()
-            .filter(e -> e.getKey().functionName().equals(SkyFunctions.BUILD_CONFIGURATION))
-            .map(e -> (BuildConfigurationKey) e.getKey())
+        env
+            .getSkyframeExecutor()
+            .getEvaluator()
+            .getInMemoryGraph()
+            .collectDoneValues(key -> key.functionName().equals(SkyFunctions.BUILD_CONFIGURATION))
+            .keySet()
+            .stream()
+            .map(key -> (BuildConfigurationKey) key)
             .filter(k -> k.getOptions().checksum().startsWith(hash))
             .collect(ImmutableList.toImmutableList());
 
