@@ -16,16 +16,24 @@
 package com.google.devtools.build.lib.blackbox.tests.workspace;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.blackbox.tests.workspace.RepoWithRuleWritingTextGenerator.callRule;
 import static com.google.devtools.build.lib.blackbox.tests.workspace.RepoWithRuleWritingTextGenerator.loadRule;
+import static java.util.Map.entry;
+import static java.util.stream.Collectors.toMap;
 
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
+import com.google.devtools.build.lib.util.OS;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 /**
@@ -300,6 +308,139 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     ProcessResult result = bazel.shouldFail().build("@ext//:write_text");
     assertThat(result.errString()).contains("error running 'git fetch");
     assertThat(result.errString()).contains("fatal: Could not read from remote repository.");
+  }
+
+  /**
+   * Tests that git_repository ignores a host core.autocrlf (the LF-to-CRLF checkout rewrite that is
+   * prevalent on Windows), supplied here via $HOME/.gitconfig. Honoring it would tie the checkout
+   * to the host's git setup (CRLF where autocrlf is set, LF elsewhere), so fetches would not be
+   * reproducible.
+   */
+  @Test
+  public void testCheckoutIgnoresHostAutocrlf() throws Exception {
+    assertCheckoutIgnoresHostGitConfig(
+        scratch -> {
+          Path home = Files.createDirectories(scratch.resolve("home"));
+          Files.writeString(
+              home.resolve(".gitconfig"),
+              """
+              [core]
+              \tautocrlf = true
+              """);
+          return Map.ofEntries(
+              entry("HOME", home.toString()), // git also honors HOME (over USERPROFILE) on Windows
+              entry("GIT_CONFIG_NOSYSTEM", "1")); // neutralize host /etc/gitconfig in this test
+        });
+  }
+
+  /**
+   * Tests that git_repository ignores a host core.eol (which sets the working-tree EOL of
+   * text-marked files on checkout), supplied here via a GIT_CONFIG_SYSTEM file plus a global
+   * text=auto attribute so the files count as text. Honoring it would tie the checkout to the
+   * host's git setup, so fetches would not be reproducible.
+   */
+  @Test
+  public void testCheckoutIgnoresHostEol() throws Exception {
+    assertCheckoutIgnoresHostGitConfig(
+        scratch -> {
+          // core.eol only converts files marked text, so plant an ambient "* text=auto".
+          Path etc = Files.createDirectories(scratch.resolve("etc"));
+          Path gitattributes = etc.resolve("gitattributes");
+          Files.writeString(
+              gitattributes,
+              """
+              * text=auto
+              """);
+          Path gitconfig = etc.resolve("gitconfig");
+          Files.writeString(
+              gitconfig,
+              """
+              [core]
+              \teol = crlf
+              \tattributesFile = %s
+              """
+                  // git config would read backslashes as escapes on Windows.
+                  .formatted(PathUtils.pathForStarlarkFile(gitattributes)));
+          String nullConfig = OS.getCurrent() == OS.WINDOWS ? "NUL" : "/dev/null";
+          return Map.ofEntries(
+              entry("GIT_CONFIG_SYSTEM", gitconfig.toString()),
+              entry("GIT_CONFIG_GLOBAL", nullConfig)); // neutralize host ~/.gitconfig in this test
+        });
+  }
+
+  @FunctionalInterface
+  private interface HostGitConfig {
+    /**
+     * Writes a host git config under {@code scratch} and returns the environment that makes git
+     * read it while neutralizing the other config sources.
+     */
+    Map<String, String> generate(Path scratch) throws Exception;
+  }
+
+  /**
+   * Commits files with assorted line endings, fetches them via git_repository under an ambient host
+   * git config (written per {@code hostGitConfig}), and asserts each checks out byte-for-byte.
+   */
+  private void assertCheckoutIgnoresHostGitConfig(HostGitConfig hostGitConfig) throws Exception {
+    Path repo = context().getTmpDir().resolve("eol_repo");
+    GitRepositoryHelper gitRepository = initGitRepository(context(), repo);
+
+    // Write the files directly as context().write may use OS-specific newlines.
+    Files.writeString(repo.resolve("lf.txt"), "stays\nLF\n");
+    Files.writeString(repo.resolve("crlf.txt"), "stays\r\nCRLF\r\n");
+    Files.writeString(repo.resolve(".gitattributes"), "lf_to_crlf.txt eol=crlf\n");
+    Files.writeString(repo.resolve("lf_to_crlf.txt"), "commit LF\ncheckout CRLF\n");
+
+    gitRepository.config("core.autocrlf", "false"); // ensure newlines are committed verbatim
+    gitRepository.addAll();
+    gitRepository.commit("Add files with assorted line endings");
+    gitRepository.tag("first");
+    context()
+        .write(
+            "MODULE.bazel",
+            "git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\","
+                + " \"git_repository\")",
+            "git_repository(",
+            "  name='ext',",
+            String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
+            "  tag='first',",
+            "  build_file_content='filegroup(name=\"data\", srcs=glob([\"*.txt\"]))',",
+            ")");
+
+    Path scratch = Files.createDirectories(context().getTmpDir().resolve("git_env"));
+    Map<String, String> repoEnv = new HashMap<>(hostGitConfig.generate(scratch));
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // git needs these to run on Windows.
+      repoEnv.put("SYSTEMROOT", System.getenv("SYSTEMROOT"));
+      repoEnv.put("SYSTEMDRIVE", System.getenv("SYSTEMDRIVE"));
+    }
+
+    // Make sure no ambient GIT_CONFIG_*, XDG_CONFIG_HOME, etc. leaks into the test.
+    List<String> flags = new ArrayList<>(List.of("--experimental_strict_repo_env"));
+    repoEnv.forEach((name, value) -> flags.add("--repo_env=" + name + "=" + value));
+
+    BuilderRunner bazel =
+        WorkspaceTestUtils.bazel(context()).withFlags(flags.toArray(new String[0]));
+    bazel.build("@ext//:data");
+    Path execRoot = context().resolveExecRootPath(bazel, "");
+    Map<String, Path> checkout =
+        bazel
+            .cquery("@ext//:data", "--output=files")
+            .outString()
+            .trim()
+            .lines()
+            .map(execPath -> PathUtils.resolve(execRoot, execPath))
+            .collect(toMap(path -> path.getFileName().toString(), path -> path));
+
+    assertWithMessage("host git config must not add CR")
+        .that(Files.readString(checkout.get("lf.txt")))
+        .isEqualTo("stays\nLF\n");
+    assertWithMessage("host git config must not strip CR")
+        .that(Files.readString(checkout.get("crlf.txt")))
+        .isEqualTo("stays\r\nCRLF\r\n");
+    assertWithMessage("git_repository must not shadow in-tree eol=crlf")
+        .that(Files.readString(checkout.get("lf_to_crlf.txt")))
+        .isEqualTo("commit LF\r\ncheckout CRLF\r\n");
   }
 
   private static String setupGitRepository(BlackBoxTestContext context, Path repo)
