@@ -258,7 +258,14 @@ public class BuildView {
 
     skyframeBuildView.resetProgressReceiver();
 
-    ImmutableMap<Label, Target> labelToTargetMap = constructLabelToTargetMap(loadingResult);
+    ImmutableMap<Label, Target> labelToTargetMap =
+        constructLabelToTargetMap(loadingResult.getTargetLabels());
+    // test_suite targets that were expanded into their constituent tests during the loading phase.
+    // They are analyzed, but neither built nor reported as top-level targets, so that the
+    // visibility of the targets referenced by their `tests` attribute is checked, just like it is
+    // with --noexpand_test_suites.
+    ImmutableMap<Label, Target> analysisOnlyLabelToTargetMap =
+        constructLabelToTargetMap(loadingResult.getExpandedTestSuiteLabels());
     eventBus.post(new AnalysisPhaseStartedEvent(labelToTargetMap.values()));
 
     // Prepare the analysis phase
@@ -378,16 +385,10 @@ public class BuildView {
                   + " (--nocheck_visibility)."));
     }
 
-    var configurationKey = topLevelConfig.getKey();
     ImmutableList<ConfiguredTargetKey> topLevelCtKeys =
-        labelToTargetMap.keySet().stream()
-            .map(
-                label ->
-                    ConfiguredTargetKey.builder()
-                        .setLabel(label)
-                        .setConfigurationKey(configurationKey)
-                        .build())
-            .collect(toImmutableList());
+        createConfiguredTargetKeys(labelToTargetMap.keySet(), topLevelConfig);
+    ImmutableList<ConfiguredTargetKey> analysisOnlyCtKeys =
+        createConfiguredTargetKeys(analysisOnlyLabelToTargetMap.keySet(), topLevelConfig);
 
     ImmutableList<TopLevelAspectsKey> aspectKeys =
         createTopLevelAspectKeys(
@@ -428,6 +429,7 @@ public class BuildView {
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,
                 topLevelCtKeys,
+                analysisOnlyCtKeys,
                 aspectKeys,
                 loadingResult.getTestsToRunLabels(),
                 labelToTargetMap,
@@ -459,6 +461,7 @@ public class BuildView {
                 eventHandler,
                 labelToTargetMap,
                 topLevelCtKeys,
+                analysisOnlyCtKeys,
                 aspectKeys,
                 topLevelOptions,
                 eventBus,
@@ -551,9 +554,8 @@ public class BuildView {
     return result;
   }
 
-  private ImmutableMap<Label, Target> constructLabelToTargetMap(
-      TargetPatternPhaseValue loadingResult) throws InterruptedException {
-    ImmutableSet<Label> labels = loadingResult.getTargetLabels();
+  private ImmutableMap<Label, Target> constructLabelToTargetMap(ImmutableSet<Label> labels)
+      throws InterruptedException {
     ImmutableMap.Builder<Label, Target> builder =
         ImmutableMap.builderWithExpectedSize(labels.size());
     for (Label label : labels) {
@@ -563,6 +565,19 @@ public class BuildView {
       builder.put(label, target);
     }
     return builder.buildOrThrow();
+  }
+
+  private static ImmutableList<ConfiguredTargetKey> createConfiguredTargetKeys(
+      ImmutableSet<Label> labels, BuildConfigurationValue configuration) {
+    var configurationKey = configuration.getKey();
+    return labels.stream()
+        .map(
+            label ->
+                ConfiguredTargetKey.builder()
+                    .setLabel(label)
+                    .setConfigurationKey(configurationKey)
+                    .build())
+        .collect(toImmutableList());
   }
 
   private ImmutableList<TopLevelAspectsKey> createTopLevelAspectKeys(
