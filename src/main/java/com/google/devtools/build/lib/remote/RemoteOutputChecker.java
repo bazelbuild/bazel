@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -55,7 +56,6 @@ import javax.annotation.Nullable;
  */
 public class RemoteOutputChecker implements OutputChecker {
   private enum CommandMode {
-    UNKNOWN,
     BUILD,
     TEST,
     RUN,
@@ -87,17 +87,25 @@ public class RemoteOutputChecker implements OutputChecker {
       RemoteOutputChecker lastRemoteOutputChecker) {
     this.commandMode =
         switch (commandName) {
-          case "build" -> CommandMode.BUILD;
           case "test" -> CommandMode.TEST;
           case "run" -> CommandMode.RUN;
           case "coverage" -> CommandMode.COVERAGE;
-          default -> CommandMode.UNKNOWN;
+          // Every other command either downloads outputs like build does or, like info and query,
+          // completes no targets at all, so it neither invalidates completions nor serves as the
+          // reference for the next command.
+          default -> CommandMode.BUILD;
         };
     this.outputsMode = outputsMode;
     this.downloadRegexes = downloadRegexes;
     this.patternsToDownload =
         downloadRegexes.stream().map(RegexPatternOption::matcher).collect(toImmutableList());
     this.lastRemoteOutputChecker = lastRemoteOutputChecker;
+  }
+
+  @VisibleForTesting
+  @Nullable
+  RemoteOutputChecker getLastRemoteOutputChecker() {
+    return lastRemoteOutputChecker;
   }
 
   /** Sets this checker to check the TTL of remote metadata when deciding whether to trust it. */

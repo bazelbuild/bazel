@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.Colle
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -155,25 +157,13 @@ public final class RemoteModuleTest {
       RemoteOptions remoteOptions,
       WorkspaceInitializer workspaceInitializer)
       throws IOException, AbruptExitException {
-    CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
-    CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
-    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    ClientOptions clientOptions = Options.getDefaults(ClientOptions.class);
-    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
-    TestOptions testOptions = Options.getDefaults(TestOptions.class);
+    return initCommand(
+        createTestWorkspace(remoteModule, workspaceInitializer), remoteOptions, BuildCommand.class);
+  }
 
-    AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
-
-    OptionsParsingResult options = mock(OptionsParsingResult.class);
-    when(options.getOptions(CoreOptions.class)).thenReturn(coreOptions);
-    when(options.getOptions(CommonCommandOptions.class)).thenReturn(commonCommandOptions);
-    when(options.getOptions(PackageOptions.class)).thenReturn(packageOptions);
-    when(options.getOptions(ClientOptions.class)).thenReturn(clientOptions);
-    when(options.getOptions(RemoteOptions.class)).thenReturn(remoteOptions);
-    when(options.getOptions(AuthAndTLSOptions.class)).thenReturn(authAndTLSOptions);
-    when(options.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
-    when(options.getOptions(TestOptions.class)).thenReturn(testOptions);
-
+  private static BlazeWorkspace createTestWorkspace(
+      RemoteModule remoteModule, WorkspaceInitializer workspaceInitializer)
+      throws IOException, AbruptExitException {
     String productName = "bazel";
     Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
     ServerDirectories serverDirectories =
@@ -204,10 +194,35 @@ public final class RemoteModuleTest {
 
     BlazeDirectories directories =
         new BlazeDirectories(serverDirectories, workspacePath, productName);
-    BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
-    Command command = BuildCommand.class.getAnnotation(Command.class);
+    return runtime.initWorkspace(directories, BinTools.empty(directories));
+  }
+
+  private static CommandEnvironment initCommand(
+      BlazeWorkspace workspace,
+      RemoteOptions remoteOptions,
+      Class<? extends BlazeCommand> commandClass)
+      throws AbruptExitException {
+    CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
+    CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    ClientOptions clientOptions = Options.getDefaults(ClientOptions.class);
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestOptions testOptions = Options.getDefaults(TestOptions.class);
+
+    AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
+
+    OptionsParsingResult options = mock(OptionsParsingResult.class);
+    when(options.getOptions(CoreOptions.class)).thenReturn(coreOptions);
+    when(options.getOptions(CommonCommandOptions.class)).thenReturn(commonCommandOptions);
+    when(options.getOptions(PackageOptions.class)).thenReturn(packageOptions);
+    when(options.getOptions(ClientOptions.class)).thenReturn(clientOptions);
+    when(options.getOptions(RemoteOptions.class)).thenReturn(remoteOptions);
+    when(options.getOptions(AuthAndTLSOptions.class)).thenReturn(authAndTLSOptions);
+    when(options.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
+    when(options.getOptions(TestOptions.class)).thenReturn(testOptions);
+
     return workspace.initCommand(
-        command,
+        commandClass.getAnnotation(Command.class),
         options,
         InvocationPolicy.getDefaultInstance(),
         /* warnings= */ new ArrayList<>(),
@@ -735,6 +750,42 @@ public final class RemoteModuleTest {
         .isNotNull();
   }
 
+  @Test
+  public void nonExecutingCommand_keepsOutputCheckerOfLastExecutingCommand() throws Exception {
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+
+    try {
+      BlazeWorkspace workspace = createTestWorkspace(remoteModule, scratch -> {});
+
+      remoteOptions =
+          parseRemoteOptions(
+              "--remote_cache=" + CACHE_SERVER_NAME, "--remote_download_outputs=minimal");
+      CommandEnvironment buildEnv = beforeCommand(workspace, BuildCommand.class);
+      RemoteOutputChecker buildChecker = remoteModule.getRemoteOutputChecker();
+      assertThat(buildChecker).isNotNull();
+      afterCommand(buildEnv);
+
+      // The remote options of a command that executes nothing are irrelevant for completed
+      // targets.
+      remoteOptions =
+          parseRemoteOptions("--remote_cache=" + CACHE_SERVER_NAME, "--remote_download_outputs=all");
+      CommandEnvironment infoEnv = beforeCommand(workspace, InfoCommand.class);
+      afterCommand(infoEnv);
+
+      remoteOptions =
+          parseRemoteOptions(
+              "--remote_cache=" + CACHE_SERVER_NAME, "--remote_download_outputs=minimal");
+      CommandEnvironment nextBuildEnv = beforeCommand(workspace, BuildCommand.class);
+      assertThat(remoteModule.getRemoteOutputChecker().getLastRemoteOutputChecker())
+          .isSameInstanceAs(buildChecker);
+      afterCommand(nextBuildEnv);
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
   @CanIgnoreReturnValue
   private CommandEnvironment beforeCommand() throws IOException, AbruptExitException {
     return beforeCommand(scratch -> {});
@@ -743,8 +794,20 @@ public final class RemoteModuleTest {
   @CanIgnoreReturnValue
   private CommandEnvironment beforeCommand(WorkspaceInitializer workspaceInitializer)
       throws IOException, AbruptExitException {
-    CommandEnvironment env =
-        createTestCommandEnvironment(remoteModule, remoteOptions, workspaceInitializer);
+    return beforeCommand(
+        createTestCommandEnvironment(remoteModule, remoteOptions, workspaceInitializer));
+  }
+
+  @CanIgnoreReturnValue
+  private CommandEnvironment beforeCommand(
+      BlazeWorkspace workspace, Class<? extends BlazeCommand> commandClass)
+      throws IOException, AbruptExitException {
+    return beforeCommand(initCommand(workspace, remoteOptions, commandClass));
+  }
+
+  @CanIgnoreReturnValue
+  private CommandEnvironment beforeCommand(CommandEnvironment env)
+      throws IOException, AbruptExitException {
     env.getRuntime().getBlazeModule(BlockWaitingModule.class).beforeCommand(env);
     remoteModule.beforeCommand(env);
     env.throwPendingException();
