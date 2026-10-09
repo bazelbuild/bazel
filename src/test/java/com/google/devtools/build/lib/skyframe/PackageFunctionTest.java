@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static java.util.Arrays.stream;
 import static org.junit.Assert.assertThrows;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -851,6 +853,103 @@ public class PackageFunctionTest extends BuildViewTestCase {
             ModifiedFileSet.builder().modify(PathFragment.create("foo/irrelevant")).build(),
             Root.fromPath(rootDirectory));
     assertThat(validPackageoidWithoutErrors("foo")).isSameInstanceAs(pkg);
+  }
+
+  @Test
+  public void externalPackageNotInvalidatedWhenMainRepoMappingChanges() throws Exception {
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
+    registry.addModule(createModuleKey("bar", "1.0"), "module(name='bar',version='1.0')");
+    scratch.file(moduleRoot.getRelative("foo+1.0/REPO.bazel").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("foo+1.0/pkg/BUILD").getPathString(),
+        """
+        load(":defs.bzl", "my_filegroup")
+
+        my_filegroup(name = "foo")
+        """);
+    scratch.file(
+        moduleRoot.getRelative("foo+1.0/pkg/defs.bzl").getPathString(),
+        """
+        def my_filegroup(name):
+            native.filegroup(
+                name = name,
+                srcs = ["@foo//pkg:file", Label("//pkg:other_file")],
+            )
+        """);
+    scratch.file(moduleRoot.getRelative("bar+1.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("bar+1.0/BUILD").getPathString());
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name = 'foo', version = '1.0')");
+    scratch.file("pkg/BUILD", "filegroup(name = 'main')");
+    invalidatePackages();
+
+    Package externalPkg = getTarget("@@foo+//pkg:foo").getPackage();
+    Package mainPkg = getTarget("//pkg:main").getPackage();
+    RepositoryMapping mainRepoMappingBefore = getSkyframeExecutor().getMainRepoMapping(reporter);
+
+    // Adding a bazel_dep to the root module changes the main repo mapping, but not the mapping of
+    // any other repo.
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'foo', version = '1.0')",
+        "bazel_dep(name = 'bar', version = '1.0')");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("MODULE.bazel")).build(),
+            Root.fromPath(rootDirectory));
+
+    assertThat(getSkyframeExecutor().getMainRepoMapping(reporter))
+        .isNotEqualTo(mainRepoMappingBefore);
+    // Packages in the main repo depend on the main repo mapping and thus have to be reloaded...
+    assertThat(getTarget("//pkg:main").getPackage()).isNotSameInstanceAs(mainPkg);
+    // ... but packages in other repos do not.
+    assertThat(getTarget("@@foo+//pkg:foo").getPackage()).isSameInstanceAs(externalPkg);
+  }
+
+  @Test
+  public void externalPackagePrintingLabelIsInvalidatedWhenMainRepoMappingChanges()
+      throws Exception {
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
+    registry.addModule(createModuleKey("bar", "1.0"), "module(name='bar',version='1.0')");
+    scratch.file(moduleRoot.getRelative("foo+1.0/REPO.bazel").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("foo+1.0/pkg/BUILD").getPathString(),
+        """
+        load(":defs.bzl", "my_filegroup")
+
+        my_filegroup(name = "foo")
+        """);
+    scratch.file(
+        moduleRoot.getRelative("foo+1.0/pkg/defs.bzl").getPathString(),
+        """
+        def my_filegroup(name):
+            print("label:", Label("//pkg:file"))
+            native.filegroup(name = name)
+        """);
+    scratch.file(moduleRoot.getRelative("bar+1.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("bar+1.0/BUILD").getPathString());
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name = 'foo', version = '1.0')");
+    invalidatePackages();
+
+    Package externalPkg = getTarget("@@foo+//pkg:foo").getPackage();
+    // Printed labels use the apparent repo name from the main repo's perspective.
+    assertContainsEvent("label: @foo//pkg:file");
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'foo', version = '1.0')",
+        "bazel_dep(name = 'bar', version = '1.0')");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("MODULE.bazel")).build(),
+            Root.fromPath(rootDirectory));
+    eventCollector.clear();
+
+    // Printing a label makes the package depend on the main repo mapping, so unlike the package in
+    // the test above, it is reloaded when the mapping changes.
+    assertThat(getTarget("@@foo+//pkg:foo").getPackage()).isNotSameInstanceAs(externalPkg);
+    assertContainsEvent("label: @foo//pkg:file");
   }
 
   @Test

@@ -71,8 +71,7 @@ public final class NonFinalizerPackagePiecesFunction implements SkyFunction {
           // All targets are top-level; no non-finalizer macros.
           expander.getPackagePieceForBuildFile().getTargets(),
           ImmutableSortedMap.of(),
-          expander.getStarlarkSemantics(),
-          expander.getMainRepositoryMapping());
+          expander.getStarlarkSemantics());
     }
 
     TargetRecorder targetRecorder =
@@ -98,8 +97,7 @@ public final class NonFinalizerPackagePiecesFunction implements SkyFunction {
         ImmutableList.sortedCopyOf(
             Comparator.comparing(Target::getName), targetRecorder.getTargetMap().values()),
         ImmutableSortedMap.copyOf(targetRecorder.getMacroMap()),
-        expander.getStarlarkSemantics(),
-        expander.getMainRepositoryMapping());
+        expander.getStarlarkSemantics());
   }
 
   /**

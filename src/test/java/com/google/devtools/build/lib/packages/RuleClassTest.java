@@ -283,7 +283,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         Optional.empty(),
         StarlarkSemantics.DEFAULT,
         /* repositoryMapping= */ RepositoryMapping.EMPTY,
-        /* mainRepositoryMapping= */ null,
         /* cpuBoundSemaphore= */ null,
         /* generatorMap= */ null,
         /* configSettingVisibilityPolicy= */ null,

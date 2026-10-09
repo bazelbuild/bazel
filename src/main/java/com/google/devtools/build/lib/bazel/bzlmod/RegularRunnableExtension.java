@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -223,7 +222,6 @@ final class RegularRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping,
       Facts facts,
       RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
       throws InterruptedException, ExternalDepsException {
@@ -240,7 +238,6 @@ final class RegularRunnableExtension implements RunnableExtension {
                     usagesValue,
                     starlarkSemantics,
                     extensionId,
-                    mainRepositoryMapping,
                     facts,
                     requireRepoExtensionMetadataMode));
       } catch (ExecutionException e) {
@@ -262,7 +259,6 @@ final class RegularRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping,
       Facts facts,
       RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
       throws InterruptedException, ExternalDepsException {
@@ -274,7 +270,7 @@ final class RegularRunnableExtension implements RunnableExtension {
             extensionId.bzlFileLabel().getPackageIdentifier(),
             BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
             usagesValue.getRepoOverrides(),
-            mainRepositoryMapping,
+            env,
             env.getListener());
     ModuleExtensionMetadata moduleExtensionMetadata;
     try (Mutability mu =

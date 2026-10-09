@@ -1075,6 +1075,22 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void bootstrapLabelDebugPrint_usesCanonicalRepoNames() throws Exception {
+    scratch.file("embedded_tools/label_debug/BUILD");
+    scratch.file(
+        "embedded_tools/label_debug/defs.bzl", "print(Label('@bazel_tools//label_debug:target'))");
+
+    SkyKey skyKey =
+        BzlLoadValue.keyForBzlmodBootstrap(
+            Label.parseCanonical("@@bazel_tools//label_debug:defs.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(getSkyframeExecutor(), skyKey, false, reporter);
+
+    assertThatEvaluationResult(result).hasNoError();
+    assertContainsEvent("@@bazel_tools//label_debug:target");
+  }
+
+  @Test
   public void testBuiltinsInjectionFailure() throws Exception {
     setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
     scratch.file(

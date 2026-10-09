@@ -180,11 +180,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     return createAttribute(type, doc, arguments, thread, name).buildPartial();
   }
 
-  private static class MaterializationContext extends StarlarkThreadContext {
-    public MaterializationContext() {
-      super(null);
-    }
-  }
+  private record MaterializationContext() implements StarlarkThreadContext {}
 
   /** The object available as the {@code ctx} argument of materializers. */
   @StarlarkBuiltin(name = "starlark_materializer_context", documented = false)

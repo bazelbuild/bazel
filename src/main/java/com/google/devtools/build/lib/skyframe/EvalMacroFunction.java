@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.max;
 
@@ -22,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -50,6 +50,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -153,9 +154,9 @@ public final class EvalMacroFunction implements SkyFunction {
             macroInstance,
             key.getParentIdentifier(),
             packageDeclarationsValue.starlarkSemantics(),
-            packageDeclarationsValue.mainRepositoryMapping(),
             cpuBoundSemaphore.get(),
             existingRulesMapForFinalizer);
+    packagePieceBuilder.setMainRepoMappingSupplier(LazyMainRepoMapping.supplier(env));
     if (nonFinalizerPackagePiecesValue != null && nonFinalizerPackagePiecesValue.containsErrors()) {
       // Error within one non-finalizer package piece or a name conflict between package pieces. It
       // was already reported as an event with stack trace by the computation of the
@@ -178,6 +179,14 @@ public final class EvalMacroFunction implements SkyFunction {
       try {
         MacroClass.executeMacroImplementation(
             macroInstance, packagePieceBuilder, packageDeclarationsValue.starlarkSemantics());
+      } catch (Starlark.UncheckedEvalException e) {
+        if (!LazyMainRepoMapping.isMissingDep(e)) {
+          throw e;
+        }
+        // A label was printed before the main repo mapping was available. Restart and expand the
+        // macro again once it is.
+        checkState(env.valuesMissing());
+        return null;
       } catch (EvalException e) {
         packagePieceBuilder
             .getLocalEventHandler()
@@ -240,9 +249,8 @@ public final class EvalMacroFunction implements SkyFunction {
     private final LinkedHashMap<PackagePieceIdentifier, PackagePiece> packagePieces =
         new LinkedHashMap<>();
     private final LinkedHashSet<PackagePieceIdentifier> errorKeys = new LinkedHashSet<>();
-    // The following two fields are set by a successful expansion of a PackagePiece.ForBuildFile.
+    // Set by a successful expansion of a PackagePiece.ForBuildFile.
     @Nullable private StarlarkSemantics starlarkSemantics;
-    @Nullable private RepositoryMapping mainRepositoryMapping;
 
     @Override
     public ImmutableMap<PackagePieceIdentifier, PackagePiece> getPackagePieces() {
@@ -262,11 +270,6 @@ public final class EvalMacroFunction implements SkyFunction {
     @Nullable
     StarlarkSemantics getStarlarkSemantics() {
       return starlarkSemantics;
-    }
-
-    @Nullable
-    RepositoryMapping getMainRepositoryMapping() {
-      return mainRepositoryMapping;
     }
 
     /**
@@ -336,7 +339,6 @@ public final class EvalMacroFunction implements SkyFunction {
         }
         if (packagePieceValue instanceof PackagePieceValue.ForBuildFile forBuildFileValue) {
           starlarkSemantics = forBuildFileValue.starlarkSemantics();
-          mainRepositoryMapping = forBuildFileValue.mainRepositoryMapping();
         }
         packagePieces.put(key, packagePieceValue.getPackagePiece());
         if (packagePieceValue.getPackagePiece().containsErrors()) {
@@ -391,7 +393,6 @@ public final class EvalMacroFunction implements SkyFunction {
       }
       RecursiveExpander expander = new RecursiveExpander();
       expander.starlarkSemantics = nonFinalizerPackagePieces.starlarkSemantics();
-      expander.mainRepositoryMapping = nonFinalizerPackagePieces.mainRepositoryMapping();
       expander.packagePieces.putAll(nonFinalizerPackagePieces.getPackagePieces());
       expander.errorKeys.addAll(nonFinalizerPackagePieces.getErrorKeys());
       return expander.expand(unexpandedKeys, env, /* expandFinalizers= */ true);
