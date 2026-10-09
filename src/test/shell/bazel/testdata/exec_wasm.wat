@@ -130,4 +130,38 @@
     i32.const 1
     return
   )
+
+  ;; Reports an output length far larger than the module could ever allocate,
+  ;; without allocating a buffer to match it. Used by
+  ;; test_execute_wasm_output_len_exceeds_memory_limit.
+  ;;
+  ;; The host reads the length back out of guest memory and uses it to size a
+  ;; host-side buffer, so a module that lies about it decides how much host
+  ;; memory gets allocated. The length is left as i32 max, which is the value
+  ;; that reached the JVM allocator before the host bounded it.
+  (func (export "run_overflow_len")
+    (param $input_ptr i32)
+    (param $input_len i32)
+    (param $output_ptr_ptr i32)
+    (param $output_len_ptr i32)
+    (result i32)
+
+    ;; *output_len_ptr = 0x7FFFFFFF
+    local.get $output_len_ptr
+    i32.const 0x7FFFFFFF
+    i32.store
+
+    ;; *output_ptr_ptr = 0
+    ;;
+    ;; Deliberately null: the host must reject the length before it dereferences
+    ;; the pointer, so this test fails loudly if the two checks are ever
+    ;; reordered.
+    local.get $output_ptr_ptr
+    i32.const 0
+    i32.store
+
+    ;; return 0
+    i32.const 0
+    return
+  )
 )
