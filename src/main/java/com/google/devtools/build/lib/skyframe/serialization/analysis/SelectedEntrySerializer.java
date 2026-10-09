@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
@@ -233,7 +234,7 @@ final class SelectedEntrySerializer {
   @Nullable private final ImmutableMap<PackageIdentifier, AtomicInteger> packageRefcounts;
 
   /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
-  static QuiescingFuture<ImmutableList<Throwable>> uploadSelection(
+  static ListenableFuture<ImmutableList<Throwable>> uploadSelection(
       InMemoryGraph graph,
       LongVersionGetter versionGetter,
       ObjectCodecs codecs,
@@ -269,6 +270,15 @@ final class SelectedEntrySerializer {
     }
     fileOpNodes.setMemoryReclamationParameters(
         selection, shouldDiscardMemory, shouldDiscardMemory ? packageRefcounts.keySet() : null);
+
+    ImmutableList<Throwable> materializeErrors;
+    try (var _ = Profiler.instance().profile("materializeNodeGraph")) {
+      materializeErrors = fileOpNodes.materializeNodeGraph(selection);
+    }
+    if (!materializeErrors.isEmpty()) {
+      return immediateFuture(materializeErrors);
+    }
+
     var fileDependencySerializer =
         new FileDependencySerializer(
             versionGetter,
@@ -422,7 +432,7 @@ final class SelectedEntrySerializer {
       }
       value = entry.getValue();
     }
-    ActionLookupKey dependencyKey = getDependencyKey(key);
+    ActionLookupKey dependencyKey = FileOpNodeMemoizingLookup.getDependencyKey(key);
 
     // We don't pass directDeps in because the code must be tolerant to those not being available:
     // if we delete nodes as we upload them, the NodeEntry to dependencyKey might not be available
@@ -430,15 +440,6 @@ final class SelectedEntrySerializer {
     // since creating one is a side effect of uploading. If we are not deleting them, it will do
     // a graph lookup anyway.
     uploadEntry(key, value, dependencyKey, null, /* mtsv= */ null);
-  }
-
-  private static ActionLookupKey getDependencyKey(SkyKey key) {
-    return switch (key) {
-      case ActionLookupData ald -> ald.getActionLookupKey();
-      case DerivedArtifact artifact -> artifact.getArtifactOwner();
-      case ActionLookupSummaryKey alsk -> alsk.argument();
-      default -> throw new IllegalStateException("unexpected key: " + key.getCanonicalName());
-    };
   }
 
   /**

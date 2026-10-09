@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
-import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.packages.Package.Metadata;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -275,12 +274,12 @@ public final class SelectedEntrySerializerTest {
     }
   }
 
-  private QuiescingFuture<ImmutableList<Throwable>> uploadSelection(List<SkyKey> keysToSerialize)
+  private ListenableFuture<ImmutableList<Throwable>> uploadSelection(List<SkyKey> keysToSerialize)
       throws Exception {
     return uploadSelection(keysToSerialize, /* shouldDiscardMemory= */ false);
   }
 
-  private QuiescingFuture<ImmutableList<Throwable>> uploadSelection(
+  private ListenableFuture<ImmutableList<Throwable>> uploadSelection(
       List<SkyKey> keysToSerialize, boolean shouldDiscardMemory) throws Exception {
     var fileOpNodeMemoizingLookup =
         new FileOpNodeMemoizingLookup(
@@ -504,5 +503,26 @@ public final class SelectedEntrySerializerTest {
         .isEqualTo(FingerprintValueService.NONPROD_FINGERPRINTER.fingerprint(input));
     assertThat(store.fingerprint(input, "salt"))
         .isEqualTo(FingerprintValueService.NONPROD_FINGERPRINTER.fingerprint(input, "salt"));
+  }
+
+  @Test
+  public void uploadSelection_missingSkyframeEntryInFileOpNode_returnsMaterializationFailure()
+      throws Exception {
+    FileKey fileKey1 = createFileKey("foo1.txt");
+    FileKey fileKey2 = createFileKey("foo2.txt");
+
+    ConfiguredTargetKey targetKey =
+        createConfiguredTarget("//test:target", null, ImmutableList.of(fileKey1, fileKey2));
+
+    // Remove fileKey1 from graph so accumulateTransitiveFileSystemOperations fails with
+    // MissingSkyframeEntryException.
+    graph.remove(fileKey1);
+
+    var uploadFuture = uploadSelection(ImmutableList.of(targetKey));
+
+    ImmutableList<Throwable> errors = uploadFuture.get();
+    assertThat(errors).hasSize(1);
+    assertThat(errors.get(0)).isInstanceOf(MissingSkyframeEntryException.class);
+    assertThat(((MissingSkyframeEntryException) errors.get(0)).key()).isEqualTo(fileKey1);
   }
 }
