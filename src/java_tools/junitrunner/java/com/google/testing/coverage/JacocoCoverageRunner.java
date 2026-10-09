@@ -223,43 +223,64 @@ public class JacocoCoverageRunner {
     }
   }
 
-  private static Class<?> getMainClass(boolean insideDeployJar) throws Exception {
-    Class<?> mainClass;
-    // If we're running inside a deploy jar we have to open the manifest and read the value of
-    // "Coverage-Main-Class", set by bazel.
+  private static Class<?> getMainClassFromClassLoader() throws IOException {
     // Note ClassLoader#getResource() will only return the first result, most likely a manifest
     // from the bootclasspath.
-    if (insideDeployJar) {
-      if (JacocoCoverageRunner.class.getClassLoader() != null) {
-        Enumeration<URL> manifests =
-            JacocoCoverageRunner.class.getClassLoader().getResources("META-INF/MANIFEST.MF");
-        while (manifests.hasMoreElements()) {
-          Manifest manifest = new Manifest(manifests.nextElement().openStream());
-          Attributes attributes = manifest.getMainAttributes();
-          String className = attributes.getValue("Coverage-Main-Class");
-          if (className != null) {
-            // Some test frameworks use dummy Coverage-Main-Class in the deploy jars
-            // which should be ignored by JacocoCoverageRunner.
-            try {
-              mainClass = Class.forName(className);
-              return mainClass;
-            } catch (ClassNotFoundException e) {
-              // ignore this class and move on
-            }
+    if (JacocoCoverageRunner.class.getClassLoader() != null) {
+      Enumeration<URL> manifests =
+          JacocoCoverageRunner.class.getClassLoader().getResources("META-INF/MANIFEST.MF");
+      while (manifests.hasMoreElements()) {
+        Manifest manifest = new Manifest(manifests.nextElement().openStream());
+        Attributes attributes = manifest.getMainAttributes();
+        String className = attributes.getValue("Coverage-Main-Class");
+        if (className != null) {
+          // Some test frameworks use dummy Coverage-Main-Class in the deploy jars
+          // which should be ignored by JacocoCoverageRunner.
+          try {
+            return Class.forName(className);
+          } catch (ClassNotFoundException e) {
+            // ignore this class and move on
           }
         }
       }
     }
-    // Check JACOCO_MAIN_CLASS after making sure we're not running inside a deploy jar, otherwise
-    // the deploy jar will be invoked using the wrong main class.
+    return null;
+  }
+
+  private static Class<?> getMainClass(boolean multipleJars) throws Exception {
+    // There are several cases to consider:
+    //
+    // 1. This is the test executable for a java_test (or similar). Then there will be multiple
+    // jars, including potentially deploy jars from runtime_deps. In this case, JACOCO_MAIN_CLASS
+    // will be set and we should use it.
+    //
+    // 2. There is exactly one jar. This may be a runtime data dependency and we should prioritize
+    // the main class provided by that jar.
+    //
+    // 3. There may be several jars, but JACOCO_MAIN_CLASS is not set. The fallback is to then
+    // return main class specified in the first manifest. This can occur if jars are bundled in
+    // a non java binary
+
     String jacocoMainClass = System.getenv("JACOCO_MAIN_CLASS");
-    if (jacocoMainClass != null) {
-      return Class.forName(jacocoMainClass);
+    boolean jacocoMainClassSpecified = jacocoMainClass != null && !jacocoMainClass.isEmpty();
+    Class<?> mainClass = null;
+
+    if (multipleJars && jacocoMainClassSpecified) {
+      mainClass = Class.forName(jacocoMainClass);
+    } else {
+      mainClass = getMainClassFromClassLoader();
+      if (mainClass == null && jacocoMainClassSpecified) {
+        // If we couldn't find a main class then try the one set in JACOCO_MAIN_CLASS
+        mainClass = Class.forName(jacocoMainClass);
+      }
     }
-    throw new IllegalStateException(
-        "JACOCO_METADATA_JAR/JACOCO_MAIN_CLASS environment variables not set, and no"
-            + " META-INF/MANIFEST.MF on the classpath has a Coverage-Main-Class attribute. "
-            + " Cannot determine the name of the main class for the code under test.");
+    if (mainClass == null) {
+      throw new IllegalStateException(
+          "JACOCO_METADATA_JAR/JACOCO_MAIN_CLASS environment variables not set, and no"
+              + " META-INF/MANIFEST.MF on the classpath has a Coverage-Main-Class attribute. "
+              + " Cannot determine the name of the main class for the code under test.");
+    }
+    return mainClass;
   }
 
   private static String getUniquePath(String pathTemplate, String suffix) throws IOException {
@@ -394,7 +415,6 @@ public class JacocoCoverageRunner {
     boolean wasWrappedJar = jarWrappedValue != null ? !jarWrappedValue.equals("0") : false;
 
     File[] metadataFiles = null;
-    int deployJars = 0;
     final HashMap<String, byte[]> uninstrumentedClasses = new HashMap<>();
     ImmutableSet.Builder<String> pathsForCoverageBuilder = new ImmutableSet.Builder<>();
     ClassLoader classLoader = ClassLoader.getSystemClassLoader();
@@ -407,7 +427,6 @@ public class JacocoCoverageRunner {
         // Special case for when there is only one deploy jar on the classpath.
         if (file.endsWith("_deploy.jar")) {
           metadataFile = file;
-          deployJars++;
         }
         if (file.endsWith(".jar")) {
           // Collect
@@ -538,13 +557,7 @@ public class JacocoCoverageRunner {
               }
             });
 
-    // If running inside a deploy jar the classpath contains only that deploy jar.
-    // It can happen that multiple deploy jars are on the classpath. In that case we are running
-    // from a regular java binary where all the environment (e.g. JACOCO_MAIN_CLASS) is set
-    // accordingly.
-    boolean insideDeployJar =
-        (deployJars == 1) && (metadataFilesFinal == null || metadataFilesFinal.length == 1);
-    Class<?> mainClass = getMainClass(insideDeployJar);
+    Class<?> mainClass = getMainClass(metadataFilesFinal != null && metadataFilesFinal.length > 1);
     Method main = mainClass.getMethod("main", String[].class);
     main.setAccessible(true);
     // Another option would be to run the tests in a separate JVM, let Jacoco dump out the coverage
