@@ -325,4 +325,15 @@ TEST(FileTest, TestCreatSiblingTempDirDoesntClobberParentPerms) {
   ASSERT_EQ(mode_t(0700), filestat.st_mode & 0777);
 }
 
+// WriteFile unlinks its target before creating it. As root that used to
+// replace /dev/null with a regular file; as an ordinary user the unlink
+// fails and nothing shows. Check that the device is still there, so that a
+// run as root fails here instead of corrupting everything after it.
+TEST(FilePosixTest, WriteFileLeavesDevNullAlone) {
+  ASSERT_TRUE(WriteFile("hello", 5, "/dev/null"));
+  struct stat filestat = {};
+  ASSERT_EQ(0, stat("/dev/null", &filestat));
+  ASSERT_TRUE(S_ISCHR(filestat.st_mode));
+}
+
 }  // namespace blaze_util
