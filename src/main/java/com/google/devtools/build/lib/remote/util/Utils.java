@@ -327,6 +327,9 @@ public final class Utils {
     String errorMessage;
     if (error instanceof IOException ioException) {
       errorMessage = grpcAwareErrorMessage(ioException);
+    } else if (error instanceof io.grpc.StatusRuntimeException
+        || error instanceof io.grpc.StatusException) {
+      errorMessage = unicodeToInternal(error.getMessage());
     } else {
       errorMessage = error.getMessage();
     }

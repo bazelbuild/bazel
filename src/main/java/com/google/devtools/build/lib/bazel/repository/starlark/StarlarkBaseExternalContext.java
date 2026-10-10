@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
@@ -29,6 +28,7 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
@@ -76,13 +76,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -352,14 +350,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
                       + " provided.",
                   entry.getKey());
             }
-            String credentials = authMap.get("login") + ":" + authMap.get("password");
             headers.put(
                 url,
                 ImmutableMap.of(
                     "Authorization",
                     ImmutableList.of(
-                        "Basic "
-                            + Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8)))));
+                        BasicHttpAuthenticationEncoder.encode(
+                            String.valueOf(authMap.get("login")),
+                            String.valueOf(authMap.get("password"))))));
           } else if (Objects.equals(authMap.get("type"), "pattern")) {
             if (!authMap.containsKey("pattern")) {
               throw Starlark.errorf(
@@ -1920,8 +1918,8 @@ Strip the given number of leading components from file paths on extraction. Only
               workingDirectory,
               Duration.ofSeconds(timeout));
 
-      String stdout = new String(result.stdout(), StandardCharsets.US_ASCII);
-      String stderr = new String(result.stderr(), StandardCharsets.US_ASCII);
+      String stdout = new String(result.stdout(), ISO_8859_1);
+      String stderr = new String(result.stderr(), ISO_8859_1);
 
       if (!quiet) {
         OutErr outErr = OutErr.SYSTEM_OUT_ERR;

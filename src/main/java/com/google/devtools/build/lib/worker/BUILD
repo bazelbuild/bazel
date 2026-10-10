@@ -395,6 +395,7 @@ java_library(
     name = "recording_input_stream",
     srcs = ["RecordingInputStream.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/guava:base",
         "//third_party/java/guava:io",
         "//third_party/java/guava:primitives",

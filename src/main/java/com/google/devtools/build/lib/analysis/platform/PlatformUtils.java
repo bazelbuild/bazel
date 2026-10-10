@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static java.util.Comparator.comparing;
 
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
@@ -24,7 +25,7 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import java.util.Comparator;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +36,10 @@ import javax.annotation.Nullable;
 public final class PlatformUtils {
 
   private static void sortPlatformProperties(Platform.Builder builder) {
+    // Internal strings sort by UTF-8 bytes, which is the code point order required by the REAPI.
     List<Platform.Property> properties =
-        Ordering.from(Comparator.comparing(Platform.Property::getName))
+        Ordering.from(
+                comparing(Platform.Property::getName, comparing(StringEncoding::unicodeToInternal)))
             .sortedCopy(builder.getPropertiesList());
     builder.clearProperties();
     builder.addAllProperties(properties);

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.util.Objects.requireNonNull;
 
 import com.google.auto.value.AutoBuilder;
@@ -96,11 +98,11 @@ public record GetCredentialsResponse(
         writer.name("headers");
         writer.beginObject();
         for (Map.Entry<String, ImmutableList<String>> entry : headers.entrySet()) {
-          writer.name(entry.getKey());
+          writer.name(internalToUnicode(entry.getKey()));
 
           writer.beginArray();
           for (String value : entry.getValue()) {
-            writer.value(value);
+            writer.value(internalToUnicode(value));
           }
           writer.endArray();
         }
@@ -142,7 +144,7 @@ public record GetCredentialsResponse(
                 reader.beginObject();
 
                 while (reader.hasNext()) {
-                  String headerName = reader.nextName();
+                  String headerName = unicodeToInternal(reader.nextName());
                   ImmutableList.Builder<String> headerValues = ImmutableList.builder();
 
                   if (reader.peek() != JsonToken.BEGIN_ARRAY) {
@@ -164,7 +166,7 @@ public record GetCredentialsResponse(
                               headerName,
                               reader.peek()));
                     }
-                    headerValues.add(reader.nextString());
+                    headerValues.add(unicodeToInternal(reader.nextString()));
                   }
                   reader.endArray();
 

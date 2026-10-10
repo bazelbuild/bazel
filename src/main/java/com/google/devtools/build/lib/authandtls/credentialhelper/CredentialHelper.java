@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
 import static com.google.devtools.build.lib.profiler.ProfilerTask.CREDENTIAL_HELPER;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -89,7 +90,7 @@ public final class CredentialHelper {
       }
 
       try (Reader stdout = new InputStreamReader(process.getInputStream(), UTF_8);
-          Reader stderr = new InputStreamReader(process.getErrorStream(), UTF_8)) {
+          Reader stderr = new InputStreamReader(process.getErrorStream(), ISO_8859_1)) {
         try (Writer stdin = new OutputStreamWriter(process.getOutputStream(), UTF_8)) {
           GSON.toJson(GetCredentialsRequest.newBuilder().setUri(uri).build(), stdin);
         } catch (IOException e) {

@@ -63,7 +63,7 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   protected void addCredentialHeaders(HttpRequest request, URI uri) throws IOException {
     String userInfo = uri.getUserInfo();
     if (userInfo != null) {
-      String value = BaseEncoding.base64Url().encode(userInfo.getBytes(UTF_8));
+      String value = BaseEncoding.base64().encode(userInfo.getBytes(UTF_8));
       request.headers().set(HttpHeaderNames.AUTHORIZATION, "Basic " + value);
       return;
     }

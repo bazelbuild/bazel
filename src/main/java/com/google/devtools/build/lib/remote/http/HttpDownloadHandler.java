@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.remote.http;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auth.Credentials;
 import com.google.common.base.Joiner;
@@ -136,8 +138,10 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
         } else {
           String errorMsg = response.status() + "\n";
           errorMsg +=
-              new String(
-                  ((ByteArrayOutputStream) out).toByteArray(), HttpUtil.getCharset(response));
+              unicodeToInternal(
+                  new String(
+                      ((ByteArrayOutputStream) out).toByteArray(),
+                      HttpUtil.getCharset(response, UTF_8)));
           out.close();
           HttpException error = new HttpException(response, errorMsg, null);
           failAndReset(error, ctx);

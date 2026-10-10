@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
@@ -110,7 +111,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Objects;
@@ -887,7 +887,7 @@ public class ExecutionTool {
     private final PrintWriter log;
 
     private ExplanationHandler(OutputStream log, String optionsDescription) {
-      this.log = new PrintWriter(new OutputStreamWriter(log, StandardCharsets.UTF_8));
+      this.log = new PrintWriter(new OutputStreamWriter(log, ISO_8859_1));
       this.log.println("Build options: " + optionsDescription);
     }
 

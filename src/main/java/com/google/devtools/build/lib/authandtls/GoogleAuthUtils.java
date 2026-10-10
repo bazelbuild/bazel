@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.authandtls;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -190,7 +191,7 @@ public final class GoogleAuthUtils {
         sslContextBuilder.trustManager(new File(internalToPlatform(rootCert)));
       } catch (Exception e) {
         String message = "Failed to init TLS infrastructure using '%s' as root certificate: %s";
-        message = String.format(message, rootCert, e.getMessage());
+        message = String.format(message, rootCert, platformToInternal(e.getMessage()));
         throw new IOException(message, e);
       }
     }
@@ -200,7 +201,7 @@ public final class GoogleAuthUtils {
             new File(internalToPlatform(clientCert)), new File(internalToPlatform(clientKey)));
       } catch (Exception e) {
         String message = "Failed to init TLS infrastructure using '%s' as client certificate: %s";
-        message = String.format(message, clientCert, e.getMessage());
+        message = String.format(message, clientCert, platformToInternal(e.getMessage()));
         throw new IOException(message, e);
       }
     }
@@ -354,7 +355,7 @@ public final class GoogleAuthUtils {
         String message =
             String.format(
                 "Could not open auth credentials file '%s': %s",
-                options.getGoogleCredentials(), e.getMessage());
+                options.getGoogleCredentials(), platformToInternal(e.getMessage()));
         throw new IOException(message, e);
       }
     } else if (options.getUseGoogleDefaultCredentials()) {
