@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.downloader;
 
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
@@ -224,7 +225,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
       if (!remoteDownloaderLocalFallback) {
         if (e instanceof StatusRuntimeException) {
-          throw new IOException(e);
+          throw new IOException(unicodeToInternal(e.toString()), e);
         }
         throw e;
       }
@@ -272,8 +273,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         for (var value : entry.getValue()) {
           requestBuilder.addQualifiers(
               Qualifier.newBuilder()
-                  .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
-                  .setValue(value)
+                  .setName(
+                      QUALIFIER_HTTP_HEADER_URL_PREFIX
+                          + i
+                          + ":"
+                          + internalToUnicode(entry.getKey()))
+                  .setValue(internalToUnicode(value))
                   .build());
         }
       }
