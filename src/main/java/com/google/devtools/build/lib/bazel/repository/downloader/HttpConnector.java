@@ -119,7 +119,7 @@ class HttpConnector {
     }
     URI url = originalUrl;
     if (HttpUtils.isProtocol(url, "file")) {
-      return url.toURL().openConnection();
+      return HttpUtils.openFileConnection(url);
     }
     List<Throwable> suppressions = new ArrayList<>();
     int retries = 0;
