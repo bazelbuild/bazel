@@ -59,7 +59,6 @@ class OptionsParserImpl {
   /** Helper class to create a new instance of {@link OptionsParserImpl}. */
   static final class Builder {
     private OptionsData optionsData;
-    private ArgsPreProcessor argsPreProcessor = args -> args;
     private final ArrayList<String> skippedPrefixes = new ArrayList<>();
     private boolean ignoreInternalOptions = true;
     private boolean isFirstRoundOfParsing = false;
@@ -71,13 +70,6 @@ class OptionsParserImpl {
     @CanIgnoreReturnValue
     public Builder optionsData(OptionsData optionsData) {
       this.optionsData = optionsData;
-      return this;
-    }
-
-    /** Sets the {@link ArgsPreProcessor} to use during processing. */
-    @CanIgnoreReturnValue
-    public Builder argsPreProcessor(ArgsPreProcessor preProcessor) {
-      this.argsPreProcessor = preProcessor;
       return this;
     }
 
@@ -132,7 +124,6 @@ class OptionsParserImpl {
     public OptionsParserImpl build() {
       return new OptionsParserImpl(
           this.optionsData,
-          this.argsPreProcessor,
           this.skippedPrefixes,
           this.ignoreInternalOptions,
           this.aliasFlag,
@@ -189,7 +180,6 @@ class OptionsParserImpl {
   // We want to keep the invariant that warnings are produced as they are encountered, but only
   // show each one once.
   private final Set<String> warnings = new LinkedHashSet<>();
-  private final ArgsPreProcessor argsPreProcessor;
   private final List<String> skippedPrefixes;
   private final boolean ignoreInternalOptions;
   @Nullable private final String aliasFlag;
@@ -225,7 +215,6 @@ class OptionsParserImpl {
 
   OptionsParserImpl(
       OptionsData optionsData,
-      ArgsPreProcessor argsPreProcessor,
       List<String> skippedPrefixes,
       boolean ignoreInternalOptions,
       @Nullable String aliasFlag,
@@ -233,7 +222,6 @@ class OptionsParserImpl {
       Map<String, String> aliases,
       boolean isFirstRoundOfParsing) {
     this.optionsData = optionsData;
-    this.argsPreProcessor = argsPreProcessor;
     this.skippedPrefixes = skippedPrefixes;
     this.ignoreInternalOptions = ignoreInternalOptions;
     this.aliasFlag = aliasFlag;
@@ -257,7 +245,6 @@ class OptionsParserImpl {
     Builder builder =
         builder()
             .optionsData(optionsData)
-            .argsPreProcessor(argsPreProcessor)
             .withAliasFlag(aliasFlag)
             .withAliases(flagAliasMappings)
             .withConversionContext(conversionContext)
@@ -499,8 +486,7 @@ class OptionsParserImpl {
     List<String> unparsedPostDoubleDashArgs = new ArrayList<>();
     List<String> ignoredArgs = new ArrayList<>();
 
-    Iterator<ArgAndFallbackData> argsAndFallbackDataIterator =
-        argsPreProcessor.preProcess(args).iterator();
+    Iterator<ArgAndFallbackData> argsAndFallbackDataIterator = args.iterator();
     Iterator<String> argsIterator = Iterators.transform(argsAndFallbackDataIterator, a -> a.arg);
     while (argsAndFallbackDataIterator.hasNext()) {
       ArgAndFallbackData argAndFallbackData = argsAndFallbackDataIterator.next();
