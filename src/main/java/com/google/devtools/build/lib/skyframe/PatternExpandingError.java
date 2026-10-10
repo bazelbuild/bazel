@@ -74,7 +74,7 @@ public final class PatternExpandingError implements BuildEvent {
     BuildEventStreamProtos.Aborted failure =
         BuildEventStreamProtos.Aborted.newBuilder()
             .setReason(BuildEventStreamProtos.Aborted.AbortReason.LOADING_FAILURE)
-            .setDescription(StringEncoding.internalToUnicode(message))
+            .setDescription(StringEncoding.internalToUnicodeLenient(message))
             .build();
     return GenericBuildEvent.protoChaining(this).setAborted(failure).build();
   }
