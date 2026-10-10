@@ -340,7 +340,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     ImmutableMap.Builder<URI, Map<String, List<String>>> headers = new ImmutableMap.Builder<>();
     for (Map.Entry<String, Dict<?, ?>> entry : auth.entrySet()) {
       try {
-        URI url = new URI(entry.getKey());
+        URI url = HttpUtils.parseUrl(entry.getKey());
         Dict<?, ?> authMap = entry.getValue();
         if (authMap.containsKey("type")) {
           if (Objects.equals(authMap.get("type"), "basic")) {
@@ -474,7 +474,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     for (String urlString : urlStrings) {
       URI url;
       try {
-        url = new URI(urlString);
+        url = HttpUtils.parseUrl(urlString);
       } catch (URISyntaxException e) {
         throw new RepositoryFunctionException(
             new IOException("Bad URL: " + urlString, e), Transience.PERSISTENT);

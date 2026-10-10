@@ -346,10 +346,10 @@ public class UrlRewriter {
   private static URI prefixWithProtocol(String url, String protocol) {
     for (String schemaPrefix : REWRITABLE_SCHEMES) {
       if (url.startsWith(schemaPrefix + "://")) {
-        return URI.create(url);
+        return HttpUtils.toAsciiUri(URI.create(url));
       }
     }
-    return URI.create(protocol + "://" + url);
+    return HttpUtils.toAsciiUri(URI.create(protocol + "://" + url));
   }
 
   /**
