@@ -102,7 +102,9 @@ public class PrintingEventHandler extends AbstractEventHandler
             builder.append(event.getLocation()).append(": ");
           }
           builder.append(event.getMessage()).append("\n");
-          outErr.getErrorStream().write(StringUnsafe.getInternalStringBytes(builder.toString()));
+          outErr
+              .getErrorStream()
+              .write(StringUnsafe.getInternalStringBytesOrUtf8(builder.toString()));
           outErr.getErrorStream().flush();
         }
       }
