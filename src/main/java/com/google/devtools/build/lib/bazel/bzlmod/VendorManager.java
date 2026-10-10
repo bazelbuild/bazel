@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -235,6 +236,9 @@ public class VendorManager {
     if (path.startsWith("/")) {
       path = path.substring(1);
     }
-    return vendorDirectory.getRelative(REGISTRIES_DIR).getRelative(host).getRelative(path);
+    return vendorDirectory
+        .getRelative(REGISTRIES_DIR)
+        .getRelative(host)
+        .getRelative(unicodeToInternal(path));
   }
 }

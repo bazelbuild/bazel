@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.bazel.commands.TargetFetcher.TargetFetcherE
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -67,6 +68,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -412,7 +414,7 @@ public final class VendorCommand implements BlazeCommand {
     // The user has to update the Bazel registries this if such conflicts occur.
     Map<String, String> vendorPathToUrl = new HashMap<>();
     for (Entry<String, Optional<Checksum>> entry : registryFiles.entrySet()) {
-      URI url = URI.create(entry.getKey());
+      URI url = parseRegistryFileUrl(entry.getKey());
       if (Objects.equals(url.getScheme(), "file")) {
         continue;
       }
@@ -430,7 +432,9 @@ public final class VendorCommand implements BlazeCommand {
                     + " cause conflict on case insensitive file systems, please fix by changing the"
                     + " registry URLs!",
                 previousUrl,
-                vendorManager.getVendorPathForUrl(URI.create(previousUrl)).getPathString(),
+                vendorManager
+                    .getVendorPathForUrl(parseRegistryFileUrl(previousUrl))
+                    .getPathString(),
                 entry.getKey(),
                 outputPath));
       }
@@ -470,6 +474,14 @@ public final class VendorCommand implements BlazeCommand {
             k ->
                 k.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY)
                     && reposToVendor.contains(k.argument()));
+  }
+
+  private static URI parseRegistryFileUrl(String url) throws IOException {
+    try {
+      return HttpUtils.parseUrl(url);
+    } catch (URISyntaxException e) {
+      throw new IOException("Invalid registry file URL: " + url, e);
+    }
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
