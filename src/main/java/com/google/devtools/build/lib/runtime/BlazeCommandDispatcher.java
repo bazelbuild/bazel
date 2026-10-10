@@ -502,7 +502,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           return result;
         }
         try {
-          starlarkCpuProfileStarted = Starlark.startCpuProfile(out, Duration.ofMillis(10));
+          starlarkCpuProfileStarted =
+              Starlark.startCpuProfile(out, Duration.ofMillis(10), /* utf8ByteStrings= */ true);
         } catch (IllegalStateException ex) { // e.g. SIGPROF in use
           String message = Strings.nullToEmpty(ex.getMessage());
           outErr.printErrLn(message);
