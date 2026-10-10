@@ -138,6 +138,13 @@ public final class CppCompileActionBuilder implements StarlarkValue {
 
   static ActionOwner getActionOwner(
       ActionConstructionContext actionConstructionContext, String cppToolchainType) {
+    if (actionConstructionContext instanceof RuleContext ruleContext
+        && ruleContext.hasToolchainContext(CppRuleClasses.CPP_COMPILE_EXEC_GROUP)) {
+      ActionOwner actionOwner = ruleContext.getActionOwner(CppRuleClasses.CPP_COMPILE_EXEC_GROUP);
+      if (actionOwner != null) {
+        return actionOwner;
+      }
+    }
     ActionOwner actionOwner = null;
     if (actionConstructionContext instanceof RuleContext ruleContext
         && ruleContext.useAutoExecGroups()) {
