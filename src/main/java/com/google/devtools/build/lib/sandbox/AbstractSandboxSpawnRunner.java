@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
@@ -307,7 +307,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         msg.append("\n");
       }
 
-      outErr.getErrorStream().write(msg.toString().getBytes(UTF_8));
+      outErr.getErrorStream().write(msg.toString().getBytes(ISO_8859_1));
       outErr.getErrorStream().flush();
       String message = makeFailureMessage(originalSpawn, sandbox);
       FailureDetail failureDetail =
@@ -383,7 +383,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     Path sandboxDebugPath = sandbox.getSandboxDebugPath();
     if (sandboxDebugPath != null && sandboxDebugPath.exists()) {
       try (InputStream inputStream = sandboxDebugPath.getInputStream()) {
-        String msg = new String(inputStream.readAllBytes(), UTF_8);
+        String msg = new String(inputStream.readAllBytes(), ISO_8859_1);
         if (!msg.isEmpty()) {
           sandboxDebugOutput = Optional.of(msg);
         }
