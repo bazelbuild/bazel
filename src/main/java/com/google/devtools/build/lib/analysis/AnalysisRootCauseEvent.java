@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.buildEvent;
-import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicodeLenient;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -106,7 +106,7 @@ public final class AnalysisRootCauseEvent implements BuildEventWithConfiguration
         .setAborted(
             BuildEventStreamProtos.Aborted.newBuilder()
                 .setReason(BuildEventStreamProtos.Aborted.AbortReason.ANALYSIS_FAILURE)
-                .setDescription(internalToUnicode(errorMessage))
+                .setDescription(internalToUnicodeLenient(errorMessage))
                 .build())
         .build();
   }
