@@ -499,6 +499,7 @@ java_library(
     name = "custom_failure_detail_publisher",
     srcs = ["CustomFailureDetailPublisher.java"],
     deps = [
+        ":detailed_exit_code",
         ":string_encoding",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:annotations",
@@ -511,6 +512,7 @@ java_library(
     srcs = ["DetailedExitCode.java"],
     deps = [
         ":exit_code",
+        ":string_encoding",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:base",
         "//third_party/java/jsr305_annotations",

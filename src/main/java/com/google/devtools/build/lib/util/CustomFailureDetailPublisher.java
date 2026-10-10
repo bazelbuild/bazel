@@ -48,7 +48,7 @@ public class CustomFailureDetailPublisher {
     Path path = CustomFailureDetailPublisher.failureDetailFilePath;
     if (path != null) {
       try {
-        Files.write(path, failureDetail.toByteArray());
+        Files.write(path, DetailedExitCode.toUnicode(failureDetail).toByteArray());
         return true;
       } catch (IOException ioe) {
         System.err.printf(

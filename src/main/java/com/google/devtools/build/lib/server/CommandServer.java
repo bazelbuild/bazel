@@ -557,12 +557,12 @@ public class CommandServer implements GrpcCommandServer.Callback {
       response.setExitCode(result.getExitCode().getNumericExitCode());
       response.setExecRequest(result.getExecRequest());
       if (result.getFailureDetail() != null) {
-        response.setFailureDetail(result.getFailureDetail());
+        response.setFailureDetail(DetailedExitCode.toUnicode(result.getFailureDetail()));
       }
     } else {
       response.setExitCode(result.getExitCode().getNumericExitCode());
       if (result.getFailureDetail() != null) {
-        response.setFailureDetail(result.getFailureDetail());
+        response.setFailureDetail(DetailedExitCode.toUnicode(result.getFailureDetail()));
       }
     }
 
