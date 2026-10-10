@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.includescanning;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -124,7 +123,7 @@ class IncludeParser {
 
     private Rule(String type, String pattern, String findRoot, String findFilter) {
       this.type = Type.valueOf(type.trim().toUpperCase());
-      this.pattern = Pattern.compile("^" + pattern + "$");
+      this.pattern = Pattern.compile("^" + pattern + "$", Pattern.DOTALL);
       this.findRoot = findRoot.replace('\\', '$');
       this.findFilter = findFilter;
     }
@@ -212,7 +211,7 @@ class IncludeParser {
     static HintsRules getRules(Path hintsFile) throws IOException {
       ImmutableList.Builder<Rule> rules = ImmutableList.builder();
       try (InputStream is = hintsFile.getInputStream()) {
-        for (String line : CharStreams.readLines(new InputStreamReader(is, UTF_8))) {
+        for (String line : CharStreams.readLines(new InputStreamReader(is, ISO_8859_1))) {
           line = line.trim();
           if (line.isEmpty() || line.startsWith("#")) {
             continue;

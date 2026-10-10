@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.buildAction;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -125,17 +126,23 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
 
     Platform platform = PlatformUtils.buildPlatformProto(executionProperties);
 
-    Command.Builder commandBuilder = Command.newBuilder().addAllArguments(arguments);
+    Command.Builder commandBuilder = Command.newBuilder();
+    for (String argument : arguments) {
+      commandBuilder.addArguments(internalToUnicode(argument));
+    }
     // Sorting the environment pairs by variable name.
     TreeSet<String> variables = new TreeSet<>(environment.keySet());
     for (String var : variables) {
-      commandBuilder.addEnvironmentVariablesBuilder().setName(var).setValue(environment.get(var));
+      commandBuilder
+          .addEnvironmentVariablesBuilder()
+          .setName(internalToUnicode(var))
+          .setValue(internalToUnicode(environment.get(var)));
     }
     if (platform != null) {
       commandBuilder.setPlatform(platform);
     }
     if (workingDirectory != null) {
-      commandBuilder.setWorkingDirectory(workingDirectory);
+      commandBuilder.setWorkingDirectory(internalToUnicode(workingDirectory));
     }
 
     Command command = commandBuilder.build();

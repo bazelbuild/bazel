@@ -314,7 +314,8 @@ public final class UnixGlob {
           break;
       }
     }
-    return Pattern.compile(regexp.toString());
+    // DOTALL is needed to match U+0085, which occurs in internal strings (e.g. "х" is D1 85).
+    return Pattern.compile(regexp.toString(), Pattern.DOTALL);
   }
 
   /**
