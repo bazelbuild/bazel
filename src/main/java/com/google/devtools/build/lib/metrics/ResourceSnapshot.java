@@ -25,9 +25,10 @@ import java.time.Instant;
  * @param pidToMemoryInKb Overall memory consumption by all descendant processes including initial
  *     process.
  * @param collectionTime Time when this snapshot was collected.
+ * @param available Whether resource usage could be measured at all.
  */
 public record ResourceSnapshot(
-    ImmutableMap<Long, Integer> pidToMemoryInKb, Instant collectionTime) {
+    ImmutableMap<Long, Integer> pidToMemoryInKb, Instant collectionTime, boolean available) {
   public ResourceSnapshot {
     requireNonNull(pidToMemoryInKb, "pidToMemoryInKb");
     requireNonNull(collectionTime, "collectionTime");
@@ -35,10 +36,14 @@ public record ResourceSnapshot(
 
   public static ResourceSnapshot create(
       ImmutableMap<Long, Integer> pidToMemoryInKb, Instant collectionTime) {
-    return new ResourceSnapshot(pidToMemoryInKb, collectionTime);
+    return new ResourceSnapshot(pidToMemoryInKb, collectionTime, true);
   }
 
   public static ResourceSnapshot createEmpty(Instant collectionTime) {
-    return new ResourceSnapshot(ImmutableMap.of(), collectionTime);
+    return new ResourceSnapshot(ImmutableMap.of(), collectionTime, true);
+  }
+
+  public static ResourceSnapshot createUnavailable(Instant collectionTime) {
+    return new ResourceSnapshot(ImmutableMap.of(), collectionTime, false);
   }
 }
