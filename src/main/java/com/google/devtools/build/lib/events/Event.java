@@ -98,7 +98,7 @@ public final class Event implements Reportable {
   public byte[] getMessageBytes() {
     return message instanceof byte[]
         ? (byte[]) message
-        : StringUnsafe.getInternalStringBytes((String) message);
+        : StringUnsafe.getInternalStringBytesOrUtf8((String) message);
   }
 
   /** Returns the property value associated with {@code type} if any, and {@code null} otherwise. */

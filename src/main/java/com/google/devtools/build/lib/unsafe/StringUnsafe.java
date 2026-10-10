@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unsafe;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Ascii;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -95,6 +97,14 @@ public final class StringUnsafe {
               truncatedString, Arrays.toString(getByteArray(truncatedString))));
     }
     return getByteArray(obj);
+  }
+
+  /**
+   * Like {@link #getInternalStringBytes}, but returns the UTF-8 encoding of a string that can't be
+   * an internal string since it isn't coded in Latin-1.
+   */
+  public static byte[] getInternalStringBytesOrUtf8(String obj) {
+    return getCoder(obj) == LATIN1 ? getByteArray(obj) : obj.getBytes(UTF_8);
   }
 
   /** Returns whether the string is ASCII-only. */
