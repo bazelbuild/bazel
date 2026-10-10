@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStats;
@@ -193,7 +195,7 @@ public class WorkerProcessMetrics {
         WorkerMetrics.newBuilder()
             .addAllWorkerIds(workerIds)
             .setProcessId((int) processId)
-            .setMnemonic(mnemonic)
+            .setMnemonic(internalToUnicode(mnemonic))
             .setIsSandbox(isSandbox)
             .setIsMultiplex(isMultiplex)
             .setIsMeasurable(isMeasurable)

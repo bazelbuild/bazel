@@ -37,11 +37,15 @@ public final class UserUtils {
   }
 
   private static class Holder {
-    static final String USER_NAME_SANITIZED = sanitizeUserName(USER_NAME.value());
+    static final String USER_NAME_SANITIZED =
+        USER_NAME.value() != null
+            ? sanitizeUserName(StringEncoding.platformToInternal(USER_NAME.value()))
+            : null;
   }
 
   /**
-   * Returns the user name as provided by system property 'user.name'.
+   * Returns the user name as provided by system property 'user.name' in Bazel's internal string
+   * encoding.
    */
   public static String getUserName() {
     return Holder.USER_NAME_SANITIZED;

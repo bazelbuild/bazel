@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.RuleClass;
 import java.io.IOException;
 
@@ -25,7 +27,7 @@ public class KnownRuleClassStrings extends BaseCache<String, RuleClass> {
 
   @Override
   RuleClass createProto(String ruleClassString, int id) throws IOException {
-    return RuleClass.newBuilder().setId(id).setName(ruleClassString).build();
+    return RuleClass.newBuilder().setId(id).setName(internalToUnicode(ruleClassString)).build();
   }
 
   @Override

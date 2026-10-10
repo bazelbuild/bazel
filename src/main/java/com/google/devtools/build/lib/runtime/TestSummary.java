@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -665,13 +666,15 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     for (Path path : getFailedLogs()) {
       String uri = pathConverter.apply(path);
       if (uri != null) {
-        summaryBuilder.addFailed(BuildEventStreamProtos.File.newBuilder().setUri(uri).build());
+        summaryBuilder.addFailed(
+            BuildEventStreamProtos.File.newBuilder().setUri(internalToUnicode(uri)).build());
       }
     }
     for (Path path : getPassedLogs()) {
       String uri = pathConverter.apply(path);
       if (uri != null) {
-        summaryBuilder.addPassed(BuildEventStreamProtos.File.newBuilder().setUri(uri).build());
+        summaryBuilder.addPassed(
+            BuildEventStreamProtos.File.newBuilder().setUri(internalToUnicode(uri)).build());
       }
     }
     return GenericBuildEvent.protoChaining(this).setTestSummary(summaryBuilder.build()).build();

@@ -18,6 +18,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.util.stream.Collectors.joining;
 
 import build.bazel.remote.execution.v2.Action;
@@ -293,7 +294,8 @@ public final class Utils {
       // Display error message returned by the remote service.
       try {
         return "Remote Execution Failure:\n"
-            + executionStatusExceptionErrorMessage((ExecutionStatusException) e.getCause());
+            + unicodeToInternal(
+                executionStatusExceptionErrorMessage((ExecutionStatusException) e.getCause()));
       } catch (InvalidProtocolBufferException protoEx) {
         return "Error occurred attempting to format an error message for "
             + errStatus
@@ -306,7 +308,8 @@ public final class Utils {
       StringBuilder sb = new StringBuilder();
       sb.append(errStatus.getCode().name());
       sb.append(": ");
-      sb.append(errStatus.getDescription());
+      String description = errStatus.getDescription();
+      sb.append(description != null ? unicodeToInternal(description) : null);
       // If the error originated from a credential helper, print additional debugging information.
       for (Throwable t = errStatus.getCause(); t != null; t = t.getCause()) {
         if (t instanceof CredentialHelperException) {

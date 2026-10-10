@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.runtime.BuildEventStreamerUtils;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -264,15 +267,17 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     if (testAction.getOwner() != null) {
       pathPrefix =
           ImmutableList.copyOf(
-              testAction.getConfiguration().getTestLogsDirectory().getExecPath().segments());
+              Iterables.transform(
+                  testAction.getConfiguration().getTestLogsDirectory().getExecPath().segments(),
+                  StringEncoding::internalToUnicode));
     }
     for (Map.Entry<String, Path> file : files.entries()) {
       String uri = pathConverter.apply(file.getValue());
       if (uri != null) {
         builder.addTestActionOutput(
             BuildEventStreamProtos.File.newBuilder()
-                .setName(file.getKey())
-                .setUri(uri)
+                .setName(internalToUnicode(file.getKey()))
+                .setUri(internalToUnicode(uri))
                 .addAllPathPrefix(pathPrefix)
                 .build());
       }
