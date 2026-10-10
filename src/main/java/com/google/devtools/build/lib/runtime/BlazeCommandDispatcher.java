@@ -492,7 +492,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             message, FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
       }
       try {
-        success = Starlark.startCpuProfile(out, Duration.ofMillis(10));
+        success = Starlark.startCpuProfile(out, Duration.ofMillis(10), /* utf8ByteStrings= */ true);
       } catch (IllegalStateException ex) { // e.g. SIGPROF in use
         String message = Strings.nullToEmpty(ex.getMessage());
         outErr.printErrLn(message);
