@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import static com.google.devtools.build.lib.query2.aquery.AqueryUtils.getActionInputs;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -177,7 +178,7 @@ public class ActionGraphDump {
             ((RuleConfiguredTarget) configuredTarget).getRuleClassString());
     AnalysisProtosV2.Action.Builder actionBuilder =
         AnalysisProtosV2.Action.newBuilder()
-            .setMnemonic(action.getMnemonic())
+            .setMnemonic(internalToUnicode(action.getMnemonic()))
             .setTargetId(knownTargets.dataToIdAndStreamOutputProto(targetIdentifier));
 
     if (action instanceof ActionExecutionMetadata actionExecutionMetadata) {
@@ -188,7 +189,7 @@ public class ActionGraphDump {
           .setDiscoversInputs(actionExecutionMetadata.discoversInputs());
       String progressMessage = actionExecutionMetadata.getProgressMessage();
       if (progressMessage != null) {
-        actionBuilder.setProgressMessage(progressMessage);
+        actionBuilder.setProgressMessage(internalToUnicode(progressMessage));
       }
     }
 
@@ -205,14 +206,16 @@ public class ActionGraphDump {
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
         actionBuilder.addEnvironmentVariables(
             AnalysisProtosV2.KeyValuePair.newBuilder()
-                .setKey(environmentVariable.getKey())
-                .setValue(environmentVariable.getValue())
+                .setKey(internalToUnicode(environmentVariable.getKey()))
+                .setValue(internalToUnicode(environmentVariable.getValue()))
                 .build());
       }
     }
 
     if (includeActionCmdLine && action instanceof CommandAction commandAction) {
-      actionBuilder.addAllArguments(commandAction.getArguments());
+      for (String argument : commandAction.getArguments()) {
+        actionBuilder.addArguments(internalToUnicode(argument));
+      }
     }
 
     if (action instanceof AbstractFileWriteAction.FileContentsProvider) {
@@ -221,12 +224,13 @@ public class ActionGraphDump {
       if (includeFileWriteContents) {
         String contents =
             ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
-        actionBuilder.setFileContents(contents);
+        actionBuilder.setFileContents(internalToUnicode(contents));
       }
     }
 
     if (action instanceof UnresolvedSymlinkAction) {
-      actionBuilder.setUnresolvedSymlinkTarget(((UnresolvedSymlinkAction) action).getTarget());
+      actionBuilder.setUnresolvedSymlinkTarget(
+          internalToUnicode(((UnresolvedSymlinkAction) action).getTarget()));
     }
 
     // Include the content of param files in output.
@@ -236,12 +240,13 @@ public class ActionGraphDump {
       for (Artifact input : getActionInputs(action, includePrunedInputs).toList()) {
         String inputFileExecPath = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileExecPath)) {
-          AnalysisProtosV2.ParamFile paramFile =
+          AnalysisProtosV2.ParamFile.Builder paramFile =
               AnalysisProtosV2.ParamFile.newBuilder()
-                  .setExecPath(inputFileExecPath)
-                  .addAllArguments(getParamFileNameToContentMap().get(inputFileExecPath))
-                  .build();
-          actionBuilder.addParamFiles(paramFile);
+                  .setExecPath(internalToUnicode(inputFileExecPath));
+          for (String argument : getParamFileNameToContentMap().get(inputFileExecPath)) {
+            paramFile.addArguments(internalToUnicode(argument));
+          }
+          actionBuilder.addParamFiles(paramFile.build());
         }
       }
     }
@@ -249,8 +254,8 @@ public class ActionGraphDump {
     for (Map.Entry<String, String> info : executionInfo.entrySet()) {
       actionBuilder.addExecutionInfo(
           AnalysisProtosV2.KeyValuePair.newBuilder()
-              .setKey(info.getKey())
-              .setValue(info.getValue()));
+              .setKey(internalToUnicode(info.getKey()))
+              .setValue(internalToUnicode(info.getValue())));
     }
 
     ActionOwner actionOwner = action.getOwner();
@@ -258,7 +263,8 @@ public class ActionGraphDump {
       BuildEvent event = actionOwner.getBuildConfigurationEvent();
       actionBuilder.setConfigurationId(knownConfigurations.dataToIdAndStreamOutputProto(event));
       if (actionOwner.getExecutionPlatform() != null) {
-        actionBuilder.setExecutionPlatform(actionOwner.getExecutionPlatform().label().toString());
+        actionBuilder.setExecutionPlatform(
+            internalToUnicode(actionOwner.getExecutionPlatform().label().toString()));
       }
 
       // Store aspects.
@@ -289,14 +295,15 @@ public class ActionGraphDump {
     }
 
     if (action instanceof TemplateExpansionAction templateExpansionAction) {
-      actionBuilder.setTemplateContent(AqueryUtils.getTemplateContent(templateExpansionAction));
+      actionBuilder.setTemplateContent(
+          internalToUnicode(AqueryUtils.getTemplateContent(templateExpansionAction)));
 
       for (Substitution substitution : templateExpansionAction.getSubstitutions()) {
         try {
           actionBuilder.addSubstitutions(
               AnalysisProtosV2.KeyValuePair.newBuilder()
-                  .setKey(substitution.getKey())
-                  .setValue(substitution.getValue()));
+                  .setKey(internalToUnicode(substitution.getKey()))
+                  .setValue(internalToUnicode(substitution.getValue())));
         } catch (EvalException e) {
           throw new TemplateExpansionException("Failed to expand template", e);
         }
