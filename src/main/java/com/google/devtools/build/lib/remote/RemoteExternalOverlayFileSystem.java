@@ -542,7 +542,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // cache requests.
     // The REPO.bazel file, if present, is a dependency of any package and will thus have to be
     // fetched anyway.
-    return path.getFileExtension().equals("bzl") || path.getBaseName().equals("REPO.bazel");
+    // MODULE.bazel and the files it includes are read from the repo of a module with a non-registry
+    // override.
+    String baseName = path.getBaseName();
+    return path.getFileExtension().equals("bzl")
+        || baseName.equals("REPO.bazel")
+        || baseName.equals("MODULE.bazel")
+        || baseName.endsWith(".MODULE.bazel");
   }
 
   @Override
