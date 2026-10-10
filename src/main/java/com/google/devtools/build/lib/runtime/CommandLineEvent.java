@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -31,6 +34,7 @@ import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.Command
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.Option;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.OptionList;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
@@ -165,15 +169,15 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         String combinedForm,
         @Nullable String value) {
       Option.Builder option = Option.newBuilder();
-      option.setCombinedForm(combinedForm);
+      option.setCombinedForm(internalToUnicode(combinedForm));
       option.setOptionName(optionDefinition.getOptionName());
       if (value != null) {
-        option.setOptionValue(value);
+        option.setOptionValue(internalToUnicode(value));
       }
       option.addAllEffectTags(getProtoEffectTags(optionDefinition.getOptionEffectTags()));
       option.addAllMetadataTags(getProtoMetadataTags(optionDefinition.getOptionMetadataTags()));
       if (source != null) {
-        option.setSource(source);
+        option.setSource(internalToUnicode(source));
       }
       return option.build();
     }
@@ -205,10 +209,10 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         }
       }
       Option.Builder option = Option.newBuilder();
-      option.setCombinedForm(sb.toString());
-      option.setOptionName(starlarkFlag);
+      option.setCombinedForm(internalToUnicode(sb.toString()));
+      option.setOptionName(internalToUnicode(starlarkFlag));
       if (value != null) {
-        option.setOptionValue(String.valueOf(value));
+        option.setOptionValue(internalToUnicode(String.valueOf(value)));
       }
       return option.build();
     }
@@ -244,13 +248,15 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
           CommandLineSection.newBuilder().setSectionLabel("residual");
       if (commandName.equals("run") && !includeResidueInRunBepEvent && !residue.isEmpty()) {
         String target = residue.get(0);
-        ChunkList.Builder residual = ChunkList.newBuilder().addChunk(target);
+        ChunkList.Builder residual = ChunkList.newBuilder().addChunk(internalToUnicode(target));
         if (residue.size() > 1) {
           residual.addChunk("REDACTED");
         }
         builder.setChunkList(residual);
       } else {
-        builder.setChunkList(ChunkList.newBuilder().addAllChunk(residue));
+        builder.setChunkList(
+            ChunkList.newBuilder()
+                .addAllChunk(Lists.transform(residue, StringEncoding::internalToUnicode)));
       }
       return builder.build();
     }
@@ -304,7 +310,9 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
           // add all options, tagged with the source, instead of filtering out the rc options.
           if (sourceToOptionPair.first != null && sourceToOptionPair.first.isEmpty()) {
             options.add(
-                Option.newBuilder().setCombinedForm(sourceToOptionPair.getSecond()).build());
+                Option.newBuilder()
+                    .setCombinedForm(internalToUnicode(sourceToOptionPair.getSecond()))
+                    .build());
           }
         }
         return CommandLineSection.newBuilder()
@@ -555,7 +563,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
                   .setCommandLineLabel(LABEL)
                   .addSections(
                       CommandLineSection.newBuilder()
-                          .setChunkList(ChunkList.newBuilder().addChunk(input)))
+                          .setChunkList(ChunkList.newBuilder().addChunk(internalToUnicode(input))))
                   .build();
         } catch (InvalidProtocolBufferException e) {
           throw new OptionsParsingException(

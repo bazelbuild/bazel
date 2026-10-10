@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -59,7 +61,8 @@ public class LicenseCommand implements BlazeCommand {
     outErr.printOutLn("Licenses of all components included in this binary:\n");
 
     try {
-      outErr.printOutLn(ResourceFileLoader.loadResource(this.getClass(), BAZEL_LICENSE));
+      outErr.printOutLn(
+          unicodeToInternal(ResourceFileLoader.loadResource(this.getClass(), BAZEL_LICENSE)));
     } catch (IOException e) {
       throw new IllegalStateException(
           "I/O error while trying to print 'LICENSE' resource: " + e.getMessage(), e);
@@ -101,7 +104,7 @@ public class LicenseCommand implements BlazeCommand {
             public FileVisitResult visitFile(Path path, BasicFileAttributes basicFileAttributes)
                 throws IOException {
               if (JAVA_LICENSE_FILES.contains(path.getFileName().toString())) {
-                outErr.printOutLn(path + ":\n");
+                outErr.printOutLn(platformToInternal(path.toString()) + ":\n");
                 Files.copy(path, outErr.getOutputStream());
                 outErr.printOutLn("\n");
               }

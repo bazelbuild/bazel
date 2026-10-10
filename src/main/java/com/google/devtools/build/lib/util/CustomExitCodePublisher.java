@@ -41,8 +41,10 @@ public class CustomExitCodePublisher {
 
   private CustomExitCodePublisher() {}
 
+  /** Sets the directory to write the exit code file to, as an internal string. */
   public static void setAbruptExitStatusFileDir(String path) {
-    abruptExitCodeFilePath = Paths.get(path).resolve(EXIT_CODE_FILENAME);
+    abruptExitCodeFilePath =
+        Paths.get(StringEncoding.internalToPlatform(path)).resolve(EXIT_CODE_FILENAME);
   }
 
   public static void maybeDeleteAbruptExitStatusFile() {
