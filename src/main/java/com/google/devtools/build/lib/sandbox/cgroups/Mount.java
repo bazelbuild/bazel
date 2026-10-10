@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.sandbox.cgroups;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Splitter;
@@ -21,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.regex.Matcher;
@@ -46,7 +47,12 @@ public record Mount(Path path, String type, ImmutableList<String> opts) {
    * <p>The format is documented in https://man7.org/linux/man-pages/man5/fstab.5.html
    */
   private static final Pattern CGROUPS_MOUNT_PATTERN =
-      Pattern.compile("^[^\\s#]\\S*\\s+(?<file>\\S*)\\s+(?<vfstype>cgroup2?)\\s+(?<mntops>\\S*).*");
+      Pattern.compile(
+          "^[^\\s#]\\S*\\s+(?<file>\\S*)\\s+(?<vfstype>cgroup2?)\\s+(?<mntops>\\S*).*",
+          Pattern.DOTALL);
+
+  /** Matches the octal escape sequences used for special characters in {@code /proc/mounts}. */
+  private static final Pattern OCTAL_ESCAPE_PATTERN = Pattern.compile("\\\\([0-7]{3})");
 
   public boolean isV2() {
     return type().equals("cgroup2");
@@ -65,16 +71,22 @@ public record Mount(Path path, String type, ImmutableList<String> opts) {
   static ImmutableList<Mount> parse(File procMounts) throws IOException {
     ImmutableList.Builder<Mount> mounts = ImmutableList.builder();
 
-    for (String mount : Files.readLines(procMounts, StandardCharsets.UTF_8)) {
+    for (String mount : Files.readLines(procMounts, ISO_8859_1)) {
       Matcher m = CGROUPS_MOUNT_PATTERN.matcher(mount);
       if (!m.matches()) {
         continue;
       }
 
-      String path = m.group("file");
+      String path =
+          OCTAL_ESCAPE_PATTERN
+              .matcher(m.group("file"))
+              .replaceAll(
+                  escape ->
+                      Matcher.quoteReplacement(
+                          String.valueOf((char) Integer.parseInt(escape.group(1), 8))));
       String type = m.group("vfstype");
       ImmutableList<String> opts = ImmutableList.copyOf(Splitter.on(',').split(m.group("mntops")));
-      mounts.add(Mount.create(Paths.get(path), type, opts));
+      mounts.add(Mount.create(Paths.get(internalToPlatform(path)), type, opts));
     }
     return mounts.build();
   }
