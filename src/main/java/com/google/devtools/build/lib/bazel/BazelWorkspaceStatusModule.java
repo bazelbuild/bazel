@@ -14,7 +14,8 @@
 package com.google.devtools.build.lib.bazel;
 
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -61,7 +62,6 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -120,7 +120,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           } catch (IOException e) {
             throw createExecutionException(e, Code.STDERR_IO_EXCEPTION);
           }
-          return stdoutStream.toString(UTF_8);
+          return stdoutStream.toString(ISO_8859_1);
         }
       } catch (BadExitStatusException e) {
         throw createExecutionException(e, Code.NON_ZERO_EXIT);
@@ -157,7 +157,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
               .map(entry -> entry.getKey() + " " + entry.getValue())
               .collect(joining("\n"));
       s += "\n";
-      return s.getBytes(StandardCharsets.UTF_8);
+      return s.getBytes(ISO_8859_1);
     }
 
     @Override
@@ -283,7 +283,10 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       Artifact stableArtifact = env.createStableArtifact("stable-status.txt");
       Artifact volatileArtifact = env.createVolatileArtifact("volatile-status.txt");
       return new BazelWorkspaceStatusAction(
-          stableArtifact, volatileArtifact, USER_NAME.value(), NetUtil.getCachedShortHostName());
+          stableArtifact,
+          volatileArtifact,
+          platformToInternal(USER_NAME.value()),
+          NetUtil.getCachedShortHostName());
     }
   }
 

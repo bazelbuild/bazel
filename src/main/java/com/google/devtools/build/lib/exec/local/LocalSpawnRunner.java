@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.local;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 import static java.util.logging.Level.WARNING;
@@ -327,7 +327,7 @@ public class LocalSpawnRunner implements SpawnRunner {
                         + StringEncoding.unicodeToInternal(
                             localExecutionOptions.getAllowedLocalAction().regexPattern().toString())
                         + "\n")
-                    .getBytes(UTF_8));
+                    .getBytes(ISO_8859_1));
         spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
         return spawnResultBuilder
             .setStatus(Status.EXECUTION_DENIED)
@@ -437,7 +437,8 @@ public class LocalSpawnRunner implements SpawnRunner {
           outErr
               .getErrorStream()
               .write(
-                  ("Action failed to execute: java.io.IOException: " + msg + "\n").getBytes(UTF_8));
+                  ("Action failed to execute: java.io.IOException: " + msg + "\n")
+                      .getBytes(ISO_8859_1));
           outErr.getErrorStream().flush();
           spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
           return spawnResultBuilder
