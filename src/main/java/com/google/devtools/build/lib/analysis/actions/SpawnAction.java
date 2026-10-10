@@ -1257,7 +1257,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder setMnemonic(String mnemonic) {
       checkArgument(
-          !mnemonic.isEmpty() && CharMatcher.javaLetterOrDigit().matchesAllOf(mnemonic),
+          !mnemonic.isEmpty()
+              && CharMatcher.javaLetterOrDigit().matchesAllOf(internalToUnicode(mnemonic)),
           "mnemonic must only contain letters and/or digits, and have non-zero length, was: \"%s\"",
           mnemonic);
       this.mnemonic = mnemonic;
