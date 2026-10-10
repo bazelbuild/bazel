@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -113,6 +114,22 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
 
   @Override
   public ExecutionResult execute(
+      ImmutableList<String> arguments,
+      ImmutableSortedMap<PathFragment, Path> inputFiles,
+      ImmutableMap<String, String> executionProperties,
+      ImmutableMap<String, String> environment,
+      String workingDirectory,
+      Duration timeout)
+      throws IOException, InterruptedException {
+    try {
+      return doExecute(
+          arguments, inputFiles, executionProperties, environment, workingDirectory, timeout);
+    } catch (IOException e) {
+      throw new IOException(Utils.grpcAwareErrorMessage(e, /* verboseFailures= */ false), e);
+    }
+  }
+
+  private ExecutionResult doExecute(
       ImmutableList<String> arguments,
       ImmutableSortedMap<PathFragment, Path> inputFiles,
       ImmutableMap<String, String> executionProperties,
