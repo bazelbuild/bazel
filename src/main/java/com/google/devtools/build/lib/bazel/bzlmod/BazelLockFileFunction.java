@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.actions.FileValue;
@@ -35,6 +36,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.gson.JsonParseException;
+import com.google.gson.JsonSyntaxException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.regex.Matcher;
@@ -94,9 +96,14 @@ public class BazelLockFileFunction implements SkyFunction {
       if (forHiddenLockfile) {
         return BazelLockFileValue.EMPTY_LOCKFILE;
       }
+      // Gson's syntax errors wrap an exception that quotes the JSON input, which is Unicode, but
+      // its duplicate key errors quote keys that have already been read as internal strings.
+      String message =
+          e instanceof JsonSyntaxException && e.getCause() != null
+              ? unicodeToInternal(e.getMessage())
+              : e.getMessage();
       String actionSuffix;
-      if (e.getMessage() != null
-          && POSSIBLE_MERGE_CONFLICT_PATTERN.matcher(e.getMessage()).find()) {
+      if (message != null && POSSIBLE_MERGE_CONFLICT_PATTERN.matcher(message).find()) {
         actionSuffix =
             " This looks like a merge conflict. See"
                 + " https://bazel.build/external/lockfile#merge-conflicts for advice.";
@@ -107,7 +114,7 @@ public class BazelLockFileFunction implements SkyFunction {
           ExternalDepsException.withMessage(
               Code.BAD_LOCKFILE,
               "Failed to read and parse the MODULE.bazel.lock file with error: %s.%s",
-              e.getMessage(),
+              message,
               actionSuffix),
           Transience.PERSISTENT);
     }

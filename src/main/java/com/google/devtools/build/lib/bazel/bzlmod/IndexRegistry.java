@@ -365,8 +365,9 @@ public class IndexRegistry implements Registry {
     try {
       return gson.fromJson(jsonString, klass);
     } catch (JsonParseException e) {
-      throw new IOException(
-          String.format("Unable to parse json at url %s: %s", url, e.getMessage()), e);
+      // See BazelLockFileFunction for why only errors with a cause are converted.
+      String message = e.getCause() != null ? unicodeToInternal(e.getMessage()) : e.getMessage();
+      throw new IOException(String.format("Unable to parse json at url %s: %s", url, message), e);
     }
   }
 
