@@ -2843,5 +2843,67 @@ class RemoteRepoContentsCacheTest(
     self._assertVendored(canonical_repo_name)
 
 
+  def testSymlinkWithUplevelReferenceAfterDirectorySymlink(self):
+    if self.IsWindows():
+      self.skipTest('requires ln')
+    # alias.txt resolves to sub/data.txt since the uplevel reference in its
+    # target refers to the parent of the directory that dirlink points to.
+    # With the uplevel reference resolved against dirlink itself, as it is
+    # when the target is normalized, it would resolve to data.txt instead.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'alias.txt\'])")',
+            '  rctx.file("data.txt", "outer")',
+            '  rctx.file("sub/data.txt", "inner")',
+            '  rctx.file("sub/inner/file.txt")',
+            '  for args in [',
+            '    ["sub/inner", "dirlink"],',
+            '    ["dirlink/../data.txt", "alias.txt"],',
+            '  ]:',
+            '    result = rctx.execute(["ln", "-s"] + args)',
+            '    if result.return_code != 0:',
+            '      fail(result.stderr)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_alias",',
+            '  srcs = ["@my_repo//:alias.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '//main:use_alias'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'inner')
+
+    # After expunging: not cached, as the symlink can't be represented by its
+    # target.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:use_alias'])
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'inner')
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+
 if __name__ == '__main__':
   absltest.main()

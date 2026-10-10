@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -86,6 +87,40 @@ public class RepositoryUtils {
   public record ReplantSymlinksResult(boolean safeForLocalCache, boolean safeForRemoteCache) {}
 
   /**
+   * Returns whether the given symlink resolves to the same file as the given target, which has been
+   * read from it.
+   *
+   * <p>The target of a symlink is only available in normalized form. If it contained an uplevel
+   * reference that followed a symlink to a directory, the reference meant the parent of that
+   * directory, but means the parent of the symlink after normalization.
+   */
+  private static boolean resolvesLikeTarget(Path symlink, PathFragment target) {
+    FileStatus symlinkStat = statOrNull(symlink);
+    FileStatus targetStat = statOrNull(symlink.getParentDirectory().getRelative(target));
+    if (symlinkStat == null || targetStat == null) {
+      // Neither of them resolves, e.g. because the symlink is dangling.
+      return symlinkStat == targetStat;
+    }
+    try {
+      // The node ID alone doesn't identify a file across file systems.
+      return symlinkStat.getNodeId() == targetStat.getNodeId()
+          && symlinkStat.getLastChangeTime() == targetStat.getLastChangeTime();
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
+  @Nullable
+  private static FileStatus statOrNull(Path path) {
+    try {
+      return path.statIfFound();
+    } catch (IOException e) {
+      // The path doesn't resolve, e.g. because of a symlink loop.
+      return null;
+    }
+  }
+
+  /**
    * Replants the symlinks under the specified repository directory.
    *
    * <p>Re-writes symlinks that originally point to a path under the external root to relative
@@ -125,6 +160,13 @@ public class RepositoryUtils {
       }
       for (Path symlink : symlinks) {
         PathFragment target = symlink.readSymbolicLink();
+        if (!resolvesLikeTarget(symlink, target)) {
+          // The symlink can't be recreated from its target, so it is left alone and has to remain
+          // where it is.
+          portableSymlinksOnly = false;
+          symlinksResolveWithinRepo = false;
+          continue;
+        }
         PathFragment originalTarget = target;
         if (target.startsWith(workspace.asFragment())) {
           symlinksResolveWithinRepo = false;
