@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -885,10 +886,10 @@ public abstract class FileSystem {
     }
     String prefix = "";
     if (fileSystemException.getFile() != null) {
-      prefix = fileSystemException.getFile();
+      prefix = StringEncoding.platformToInternal(fileSystemException.getFile());
     }
     if (fileSystemException.getOtherFile() != null) {
-      prefix += " -> " + fileSystemException.getOtherFile();
+      prefix += " -> " + StringEncoding.platformToInternal(fileSystemException.getOtherFile());
     }
     return switch (e) {
       case AccessDeniedException unused -> {
@@ -912,7 +913,9 @@ public abstract class FileSystem {
       // FileSystemExceptions and are thus included in reasonToUnixError.
       case FileSystemException fse -> {
         String unixError = reasonToUnixError.get(fse.getReason());
-        yield unixError != null ? new IOException(prefix + unixError, e) : fileSystemException;
+        yield unixError != null
+            ? new IOException(prefix + unixError, e)
+            : new IOException(StringEncoding.platformToInternal(fse.getMessage()), e);
       }
       default -> fileSystemException;
     };
