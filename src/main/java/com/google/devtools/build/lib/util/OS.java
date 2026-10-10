@@ -72,6 +72,14 @@ public enum OS {
       return OS.UNKNOWN;
     }
 
+    // MidnightBSD is a FreeBSD derivative: its kernel runs FreeBSD binaries,
+    // its compiler defines __FreeBSD__, and its openjdk is the FreeBSD build.
+    // Everything keyed on the OS wants the FreeBSD answer; only the name
+    // differs.
+    if (osName.startsWith("MidnightBSD")) {
+      return OS.FREEBSD;
+    }
+
     for (OS os : OS.values()) {
       // Windows have many names, all starting with "Windows".
       if (osName.startsWith(os.detectionName)) {
