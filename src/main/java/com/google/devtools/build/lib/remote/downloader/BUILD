@@ -27,6 +27,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party/google/rpc:code_java_proto",
         "//third_party/java/auth_kit:credentials",
