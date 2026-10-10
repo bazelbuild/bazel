@@ -299,6 +299,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:memory_accountant",
         "//src/main/java/com/google/devtools/build/lib/util:object_graph_traverser",
         "//src/main/java/com/google/devtools/build/lib/util:shallow_object_size_computer",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",

@@ -17,6 +17,22 @@ filegroup(
 )
 
 java_test(
+    name = "AnalysisPhaseRunnerTest",
+    srcs = ["AnalysisPhaseRunnerTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "JobsConverterTest",
     srcs = [
         "JobsConverterTest.java",
@@ -71,6 +87,7 @@ java_test(
 test_suite(
     name = "BuildtoolTests",
     tests = [
+        ":AnalysisPhaseRunnerTest",
         ":ExecutionProgressReceiverTest",
         ":JobsConverterTest",
         ":SymlinkForestTest",
