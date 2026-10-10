@@ -51,7 +51,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     List<String> argv = Lists.transform(builder.getArgv(), StringEncoding::internalToPlatform);
 
     // DO NOT quote argv0, createProcess will do it for us.
-    String argv0 = processArgv0(argv.get(0));
+    String argv0 = StringEncoding.internalToPlatform(processArgv0(builder.getArgv().get(0)));
     if (isBatchFile(argv0)) {
       for (int i = 1; i < argv.size(); ++i) {
         String arg = argv.get(i);
