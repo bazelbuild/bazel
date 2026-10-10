@@ -529,7 +529,8 @@ public class CompactPersistentActionCacheTest {
       SpecialArtifact parent,
       ImmutableMap<String, FileArtifactValue> children,
       Optional<FileArtifactValue> archivedArtifactValue,
-      Optional<PathFragment> resolvedPath) {
+      Optional<PathFragment> resolvedPath,
+      boolean contentCopy) {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
     for (Map.Entry<String, FileArtifactValue> entry : children.entrySet()) {
       builder.putChild(
@@ -544,6 +545,7 @@ public class CompactPersistentActionCacheTest {
     if (resolvedPath.isPresent()) {
       builder.setResolvedPath(resolvedPath.get());
     }
+    builder.setContentCopy(contentCopy);
     return builder.build();
   }
 
@@ -636,7 +638,7 @@ public class CompactPersistentActionCacheTest {
                             artifact, PathFragment.create("file2")),
                         "content2")),
             /* archivedArtifactValue= */ Optional.empty(),
-            /* resolvedPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false);
     var entry =
         builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
     cache.put("key", entry);
@@ -651,7 +653,7 @@ public class CompactPersistentActionCacheTest {
                     createRemoteMetadata(
                         TreeFileArtifact.createTreeOutput(artifact, "file1"), "content1")),
                 /* archivedFileValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
   }
 
   @Test
@@ -664,7 +666,7 @@ public class CompactPersistentActionCacheTest {
             artifact,
             ImmutableMap.of(),
             Optional.of(createRemoteMetadata(artifact, "content")),
-            /* resolvedPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false);
     var entry =
         builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
     cache.put("key", entry);
@@ -676,7 +678,7 @@ public class CompactPersistentActionCacheTest {
             new SerializableTreeArtifactValue(
                 /* childValues= */ ImmutableMap.of(),
                 /* archivedFileValue= */ Optional.of(createRemoteMetadata(artifact, "content")),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
   }
 
   @Test
@@ -691,7 +693,7 @@ public class CompactPersistentActionCacheTest {
             Optional.of(
                 createLocalMetadata(
                     ActionsTestUtil.createArtifact(artifactRoot, "bin/archive"), "content")),
-            /* resolvedPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false);
     var entry =
         builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
     cache.put("key", entry);
@@ -712,7 +714,8 @@ public class CompactPersistentActionCacheTest {
             artifact,
             ImmutableMap.of(),
             /* archivedArtifactValue= */ Optional.empty(),
-            Optional.of(resolvedPath));
+            Optional.of(resolvedPath),
+            /* contentCopy= */ false);
     var entry =
         builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
 
@@ -725,7 +728,8 @@ public class CompactPersistentActionCacheTest {
             new SerializableTreeArtifactValue(
                 /* childValues= */ ImmutableMap.of(),
                 /* archivedFileValue= */ Optional.empty(),
-                Optional.of(resolvedPath)));
+                Optional.of(resolvedPath),
+                /* contentCopy= */ false));
   }
 
   private static void assertKeyEquals(ActionCache cache1, ActionCache cache2, String key) {
