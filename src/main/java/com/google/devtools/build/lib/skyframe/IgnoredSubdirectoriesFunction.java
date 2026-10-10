@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.VENDOR_DIRECTORY;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -35,7 +37,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import javax.annotation.Nullable;
@@ -76,7 +77,7 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
       RootedPath patternFile, ImmutableSet.Builder<PathFragment> ignoredDirectoriesBuilder)
       throws IgnoredSubdirectoriesFunctionException {
     try (InputStreamReader reader =
-        new InputStreamReader(patternFile.asPath().getInputStream(), StandardCharsets.UTF_8)) {
+        new InputStreamReader(patternFile.asPath().getInputStream(), ISO_8859_1)) {
       for (PathFragment ignored : CharStreams.readLines(reader, new PathFragmentLineProcessor())) {
         if (ignored.isAbsolute()) {
           throw new IgnoredSubdirectoriesFunctionException(
@@ -215,7 +216,7 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
         //
         // This logic would need to be adjusted if wildcards are ever supported
         // (https://github.com/bazelbuild/bazel/issues/7093).
-        var unused = Path.of(line);
+        var unused = Path.of(internalToPlatform(line));
       }
       return true;
     }

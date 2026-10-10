@@ -131,6 +131,8 @@ public abstract class DiskBackedFileSystem extends FileSystem {
     try {
       // TODO: add profiling for read/write operations.
       return Files.newByteChannel(nioPath, READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS);
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     } finally {
       if (profileOpen) {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, path.toString());
