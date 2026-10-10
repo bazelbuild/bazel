@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -26,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -75,6 +78,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -569,7 +573,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       commandLinesBuilder.addCommandLine(extraCommandLine);
     }
     CommandLines commandLinesWithoutExecutable = commandLinesBuilder.build();
-    ImmutableList<String> arguments = commandLinesWithoutExecutable.allArguments();
+    ImmutableList<String> arguments =
+        ImmutableList.copyOf(
+            Lists.transform(
+                commandLinesWithoutExecutable.allArguments(), StringEncoding::internalToUnicode));
     if (mnemonic.equals("Javac")) {
       populateExtraActionInfo(builder, arguments);
     }
@@ -580,7 +587,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       ExtraActionInfo.Builder builder, ImmutableList<String> arguments) {
     JavaCompileInfo.Builder info =
         JavaCompileInfo.newBuilder()
-            .setOutputjar(getPrimaryOutput().getExecPathString())
+            .setOutputjar(internalToUnicode(getPrimaryOutput().getExecPathString()))
             .addAllArgument(arguments);
     PeekingIterator<String> it = Iterators.peekingIterator(arguments.iterator());
     while (it.hasNext()) {
@@ -822,13 +829,13 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     boolean modified = false;
     Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(executorJdeps);
     for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
-      PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
+      PathFragment pathOnExecutor = PathFragment.create(unicodeToInternal(dep.getPath()));
       PathFragment originalPath = rootRelativeToOriginalPath.get(pathOnExecutor);
       if (originalPath == null && !pathMapper.isNoop()) {
         originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
       }
       if (originalPath != null && !originalPath.equals(pathOnExecutor)) {
-        dep.setPath(originalPath.getPathString());
+        dep.setPath(internalToUnicode(originalPath.getPathString()));
         modified = true;
       }
     }
