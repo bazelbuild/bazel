@@ -131,6 +131,16 @@ public final class StringEncoding {
   }
 
   /**
+   * Like {@link #internalToUnicode}, but returns a string with characters outside of Latin-1, which
+   * thus can't be an internal string, unchanged instead of failing.
+   *
+   * <p>Only use this for messages, which may contain unconverted strings from arbitrary sources.
+   */
+  public static String internalToUnicodeLenient(String s) {
+    return StringUnsafe.getCoder(s) == StringUnsafe.LATIN1 ? internalToUnicode(s) : s;
+  }
+
+  /**
    * Transforms a Unicode string into an internal string as efficiently as possible.
    *
    * <p>See the class documentation for more information on the different types of strings.
