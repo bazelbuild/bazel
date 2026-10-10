@@ -235,7 +235,8 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
     for (Path modifiedPath : newSequentialView.modifiedAbsolutePaths) {
       if (!modifiedPath.startsWith(watchRoot)) {
         throw new BrokenDiffAwarenessException(
-            String.format("%s is not under %s", modifiedPath, watchRoot));
+            StringEncoding.platformToInternal(
+                String.format("%s is not under %s", modifiedPath, watchRoot)));
       }
       PathFragment relativePath =
           PathFragment.create(

@@ -31,6 +31,7 @@ java_library(
     ],
     deps = [
         ":options_internal",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party/java/flogger",
         "//third_party/java/guava:base",
