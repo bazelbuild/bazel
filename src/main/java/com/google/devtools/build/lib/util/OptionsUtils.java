@@ -179,7 +179,9 @@ public final class OptionsUtils {
 
   private static PathFragment convertOptionsPathFragment(String path) {
     if (!path.isEmpty() && path.startsWith("~/")) {
-      path = path.replace("~", StandardSystemProperty.USER_HOME.value());
+      path =
+          StringEncoding.platformToInternal(StandardSystemProperty.USER_HOME.value())
+              + path.substring(1);
     }
     return PathFragment.create(path);
   }
