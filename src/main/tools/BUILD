@@ -6,6 +6,10 @@ package(default_visibility = ["//src:__subpackages__"])
 cc_binary(
     name = "daemonize",
     srcs = ["daemonize.cc"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":logging",
         ":process-tools",
@@ -26,6 +30,10 @@ cc_library(
         "//conditions:default": ["process-tools-linux.cc"],
     }),
     hdrs = ["process-tools.h"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":logging",
         "//src/main/protobuf:execution_statistics_cc_proto",

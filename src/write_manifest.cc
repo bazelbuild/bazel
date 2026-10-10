@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef _WIN32
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -54,3 +56,26 @@ int wmain(int argc, wchar_t *argv[]) {
 
   return 0;
 }
+
+#else  // !_WIN32
+
+// Updating the app manifest requires the UpdateResource Windows API, so this
+// is a no-op when cross-compiling for Windows from a non-Windows host.
+// TODO: Patch app manifests when cross-compiling from a non-Windows host.
+int main(int argc, char *argv[]) {
+  if (argc != 2) {
+    fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+    return 1;
+  }
+  // Drain the manifest from stdin so that the writer doesn't get a SIGPIPE.
+  char buf[4096];
+  while (fread(buf, 1, sizeof(buf), stdin) > 0) {
+  }
+  fprintf(stderr,
+          "WARNING: not patching the app manifest of %s: only supported when "
+          "building on Windows\n",
+          argv[1]);
+  return 0;
+}
+
+#endif  // _WIN32
