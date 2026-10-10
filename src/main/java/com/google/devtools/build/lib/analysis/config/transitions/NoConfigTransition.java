@@ -36,10 +36,9 @@ import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransi
  * regardless of configuration. Instead, apply this transition to {@code //:noconfig}.
  *
  * <p>The empty configuration produced by this transition has no native fragments other than {@link
- * CoreOptions}, and even this has only the default values for its options. This can have surprising
- * effects; for instance, {@code --check_visibility} gets reset to {@code true}, making it
- * impossible to disable visibility checking within a {@code constraint_value}'s {@code
- * constraint_setting} attribute.
+ * CoreOptions}, and even this has only the default values for its options, except for the flags
+ * that configure Bazel's analysis phase rather than rule logic, such as {@code --check_visibility}.
+ * See {@link CommonOptions#noConfigOptions}.
  *
  * <p>This is safest for rules that don't produce actions and don't have dependencies. Remember that
  * even if a rule doesn't read configuration, if any of its transitive dependencies read
@@ -70,7 +69,7 @@ public class NoConfigTransition implements PatchTransition {
 
   @Override
   public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-    return CommonOptions.EMPTY_OPTIONS;
+    return CommonOptions.noConfigOptions(options.underlying());
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the transition. */

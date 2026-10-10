@@ -235,18 +235,49 @@ public final class BuildConfigurationKeyBaselineDiffCodecTest {
   }
 
   @Test
-  public void testCodec_emptyOptions_serializesDirectly() throws Exception {
-    BuildOptions emptyOptions = CommonOptions.EMPTY_OPTIONS;
-    BuildConfigurationKey key = BuildConfigurationKey.create(emptyOptions);
+  public void testCodec_noConfig_serializesWithoutDiff() throws Exception {
+    var topLevelOptions = BuildOptions.of(ImmutableList.of(CoreOptions.class));
+    var key = BuildConfigurationKey.create(CommonOptions.noConfigOptions(topLevelOptions));
 
-    // EMPTY_OPTIONS carries CoreOptions but no PlatformOptions, so it cannot be diff encoded and is
-    // written out directly. Supplying no dependencies at all is what proves that: the diff encoding
-    // path requires a PlatformConfigurationProvider dependency and would fail without one.
-    ObjectCodecs codecs = new ObjectCodecs(createRegistry(), ImmutableClassToInstanceMap.of());
+    // The no-config configuration carries CoreOptions but no PlatformOptions, so it cannot be diff
+    // encoded. Supplying no PlatformConfigurationProvider is what proves that: the diff encoding
+    // path requires that dependency and would fail without it.
+    var codecs =
+        new ObjectCodecs(
+            createRegistry(), ImmutableClassToInstanceMap.of(BuildOptions.class, topLevelOptions));
 
-    ByteString serialized = codecs.serializeMemoized(key);
-    BuildConfigurationKey deserialized = (BuildConfigurationKey) deserialize(codecs, serialized);
+    var serialized = codecs.serializeMemoized(key);
+    var deserialized = (BuildConfigurationKey) deserialize(codecs, serialized);
     assertThat(deserialized).isEqualTo(key);
+  }
+
+  @Test
+  public void testCodec_noConfig_inheritsAnalysisPhaseFlagsFromReader() throws Exception {
+    // Skycache writers always run with --check_visibility, so they serialize the default no-config
+    // configuration, whereas a reader with --nocheck_visibility uses the variant that inherits that
+    // flag. The flag isn't written: the reader derives it from its own top-level options, so that
+    // it gets cache hits for no-config nodes and reconstructs the key it would compute itself.
+    var writerOptions = BuildOptions.of(ImmutableList.of(CoreOptions.class));
+    var readerOptions =
+        BuildOptions.of(ImmutableList.of(CoreOptions.class), "--nocheck_visibility");
+    var writerKey = BuildConfigurationKey.create(CommonOptions.noConfigOptions(writerOptions));
+    var readerKey = BuildConfigurationKey.create(CommonOptions.noConfigOptions(readerOptions));
+    assertThat(readerKey).isNotEqualTo(writerKey);
+
+    var writerCodecs =
+        new ObjectCodecs(
+            createRegistry(), ImmutableClassToInstanceMap.of(BuildOptions.class, writerOptions));
+    var readerCodecs =
+        new ObjectCodecs(
+            createRegistry(), ImmutableClassToInstanceMap.of(BuildOptions.class, readerOptions));
+
+    var serialized = writerCodecs.serializeMemoized(writerKey);
+    // Both variants serialize to the same bytes.
+    assertThat(readerCodecs.serializeMemoized(readerKey)).isEqualTo(serialized);
+
+    var deserialized = (BuildConfigurationKey) deserialize(readerCodecs, serialized);
+    assertThat(deserialized).isEqualTo(readerKey);
+    assertThat(deserialized.getOptions().get(CoreOptions.class).getCheckVisibility()).isFalse();
   }
 
   @Test

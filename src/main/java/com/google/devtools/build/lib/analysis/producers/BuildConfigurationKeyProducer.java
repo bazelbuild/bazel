@@ -134,10 +134,7 @@ public final class BuildConfigurationKeyProducer<C>
       //  the first value and ignore any subsequent ones. Remove this check as part of cleanup.
       tasks.enqueue(
           new PlatformProducer(
-              targetPlatforms.getFirst(),
-              options.get(CoreOptions.class).getCommandLineFlagAliasesMap(),
-              this,
-              this::checkTargetPlatformFlags));
+              targetPlatforms.getFirst(), options, this, this::checkTargetPlatformFlags));
       return runAfter;
     } else {
       Verify.verify(targetPlatforms.isEmpty());
