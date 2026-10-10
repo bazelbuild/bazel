@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote.downloader;
 
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
@@ -294,7 +295,10 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
       requestBuilder.addQualifiers(
-          Qualifier.newBuilder().setName(QUALIFIER_CANONICAL_ID).setValue(canonicalId).build());
+          Qualifier.newBuilder()
+              .setName(QUALIFIER_CANONICAL_ID)
+              .setValue(internalToUnicode(canonicalId))
+              .build());
     }
 
     for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
@@ -308,8 +312,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       // merging the field-values with a comma.
       requestBuilder.addQualifiers(
           Qualifier.newBuilder()
-              .setName(QUALIFIER_HTTP_HEADER_PREFIX + entry.getKey())
-              .setValue(String.join(",", entry.getValue()))
+              .setName(QUALIFIER_HTTP_HEADER_PREFIX + internalToUnicode(entry.getKey()))
+              .setValue(internalToUnicode(String.join(",", entry.getValue())))
               .build());
     }
 

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.authandtls;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -185,7 +187,7 @@ public final class GoogleAuthUtils {
     }
     if (rootCert != null) {
       try {
-        sslContextBuilder.trustManager(new File(rootCert));
+        sslContextBuilder.trustManager(new File(internalToPlatform(rootCert)));
       } catch (Exception e) {
         String message = "Failed to init TLS infrastructure using '%s' as root certificate: %s";
         message = String.format(message, rootCert, e.getMessage());
@@ -194,7 +196,8 @@ public final class GoogleAuthUtils {
     }
     if (clientCert != null && clientKey != null) {
       try {
-        sslContextBuilder.keyManager(new File(clientCert), new File(clientKey));
+        sslContextBuilder.keyManager(
+            new File(internalToPlatform(clientCert)), new File(internalToPlatform(clientKey)));
       } catch (Exception e) {
         String message = "Failed to init TLS infrastructure using '%s' as client certificate: %s";
         message = String.format(message, clientCert, e.getMessage());
@@ -225,7 +228,8 @@ public final class GoogleAuthUtils {
   }
 
   private static NettyChannelBuilder newUnixNettyChannelBuilder(String target) throws IOException {
-    DomainSocketAddress address = new DomainSocketAddress(target.replaceFirst("^unix:", ""));
+    DomainSocketAddress address =
+        new DomainSocketAddress(internalToUnicode(target.replaceFirst("^unix:", "")));
     NettyChannelBuilder builder =
         NettyChannelBuilder.forAddress(address)
             .eventLoopGroup(getEventLoopGroup())
@@ -343,7 +347,8 @@ public final class GoogleAuthUtils {
     Preconditions.checkNotNull(options);
     if (options.getGoogleCredentials() != null) {
       // Credentials from file
-      try (InputStream authFile = new FileInputStream(options.getGoogleCredentials())) {
+      try (InputStream authFile =
+          new FileInputStream(internalToPlatform(options.getGoogleCredentials()))) {
         return Optional.of(newGoogleCredentialsFromFile(authFile, options.getGoogleAuthScopes()));
       } catch (FileNotFoundException e) {
         String message =
