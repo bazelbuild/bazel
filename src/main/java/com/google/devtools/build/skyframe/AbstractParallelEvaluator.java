@@ -699,16 +699,36 @@ abstract class AbstractParallelEvaluator {
         env.addTemporaryDirectDepsTo(nodeEntry);
 
         List<ListenableFuture<?>> externalDeps = env.externalDeps;
-        // If the key does not support partial reevaluation and there were no newly requested
-        // dependencies, then at least one of them was in error or there is a bug in the SkyFunction
+        boolean partialReevaluationFailed = false;
+        if (skyKey.supportsPartialReevaluation() && env.hasUnhandledChildError()) {
+          // The dep in error won't signal this node again, so a partial reevaluation that only
+          // looks at newly signaled deps would never observe its error again. The next evaluation
+          // has to start from scratch instead, just like after a thrown error.
+          stateCache.invalidate(skyKey);
+          // Without any dep left to signal this node, the SkyFunction can't make progress anymore.
+          partialReevaluationFailed = !nodeEntry.hasUnsignaledDeps();
+        }
+        // If there were no newly requested dependencies and the key does not support partial
+        // reevaluation, then at least one of them was in error or there is a bug in the SkyFunction
         // implementation. The environment has collected its errors, so we just order it to be
-        // built.
-        if (newDeps.isEmpty() && externalDeps == null && !skyKey.supportsPartialReevaluation()) {
+        // built. The same applies to a failed partial reevaluation.
+        if (newDeps.isEmpty()
+            && externalDeps == null
+            && (!skyKey.supportsPartialReevaluation() || partialReevaluationFailed)) {
           checkState(
               !env.getChildErrorInfos().isEmpty(),
               "Evaluation of SkyKey failed and no dependencies were requested: %s %s",
               skyKey,
               nodeEntry);
+
+          if (partialReevaluationFailed) {
+            try {
+              env.ensurePreviouslyRequestedDepsFetched();
+            } catch (UndonePreviouslyRequestedDeps e) {
+              handleUndonePreviouslyRequestedDep(nodeEntry);
+              return;
+            }
+          }
 
           // If the child error was catastrophic, committing this parent to the graph is not
           // necessary, but since we don't do error bubbling in catastrophes, it doesn't violate any
