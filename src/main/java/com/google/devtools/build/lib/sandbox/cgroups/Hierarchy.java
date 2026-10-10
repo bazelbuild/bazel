@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.sandbox.cgroups;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.regex.Matcher;
@@ -43,7 +44,7 @@ public record Hierarchy(int id, ImmutableList<String> controllers, Path path) {
    * <p>The format is documented in https://man7.org/linux/man-pages/man7/cgroups.7.html
    */
   private static final Pattern PROC_CGROUPS_PATTERN =
-      Pattern.compile("^(?<id>\\d+):(?<controllers>[^:]*):(?<file>.+)");
+      Pattern.compile("^(?<id>\\d+):(?<controllers>[^:]*):(?<file>.+)", Pattern.DOTALL);
 
   static Hierarchy create(int id, ImmutableList<String> controllers, Path path) {
     return new Hierarchy(id, controllers, path);
@@ -51,7 +52,7 @@ public record Hierarchy(int id, ImmutableList<String> controllers, Path path) {
 
   static ImmutableList<Hierarchy> parse(File procCgroup) throws IOException {
     ImmutableList.Builder<Hierarchy> hierarchies = ImmutableList.builder();
-    for (String line : Files.readLines(procCgroup, StandardCharsets.UTF_8)) {
+    for (String line : Files.readLines(procCgroup, ISO_8859_1)) {
       Matcher m = PROC_CGROUPS_PATTERN.matcher(line);
       if (!m.matches()) {
         continue;
@@ -60,7 +61,7 @@ public record Hierarchy(int id, ImmutableList<String> controllers, Path path) {
       Integer id = Integer.parseInt(m.group("id"));
       String path = m.group("file");
       ImmutableList<String> controllers = ImmutableList.copyOf(m.group("controllers").split(","));
-      hierarchies.add(Hierarchy.create(id, controllers, Paths.get(path)));
+      hierarchies.add(Hierarchy.create(id, controllers, Paths.get(internalToPlatform(path))));
     }
     return hierarchies.build();
   }

@@ -35,6 +35,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller:v2",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/proto:cgroups_info_java_proto",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/auto:auto_value",
         "//third_party/java/flogger",
         "//third_party/java/guava:annotations",
