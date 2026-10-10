@@ -248,7 +248,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       throws IOException, InterruptedException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     for (String flagfile : flagfiles) {
-      expandArgument(inputFiles, flagfile, requestBuilder);
+      expandArgument(inputFiles, flagfile, requestBuilder, execRoot);
     }
 
     List<ActionInput> inputs =
@@ -312,7 +312,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * @param requestBuilder the WorkRequest to whose arguments the expanded arguments will be added.
    * @throws java.io.IOException if one of the files containing options cannot be read.
    */
-  static void expandArgument(SandboxInputs inputs, String arg, WorkRequest.Builder requestBuilder)
+  static void expandArgument(
+      SandboxInputs inputs, String arg, WorkRequest.Builder requestBuilder, Path execRoot)
       throws IOException, InterruptedException {
     if (arg.startsWith("@") && !arg.startsWith("@@") && !isExternalRepositoryLabel(arg)) {
       if (Thread.interrupted()) {
@@ -325,9 +326,26 @@ final class WorkerSpawnRunner implements SpawnRunner {
             String.format(
                 "Failed to read @-argument '%s': file is not a declared input", argValue));
       }
+      // Resolve symlinks to prevent escaping execRoot via disk-level symlinks.
+      Path resolvedPath;
       try {
-        for (String line : FileSystemUtils.readLines(path, UTF_8)) {
-          expandArgument(inputs, line, requestBuilder);
+        resolvedPath = path.resolveSymbolicLinks();
+      } catch (IOException e) {
+        throw new IOException(
+            String.format(
+                "Failed to resolve @-argument '%s' (path '%s'): %s",
+                argValue, path.getPathString(), e.getMessage()),
+            e);
+      }
+      if (!resolvedPath.startsWith(execRoot)) {
+        throw new IOException(
+            String.format(
+                "Failed to read @-argument '%s': resolved path '%s' escapes the exec root '%s'",
+                argValue, resolvedPath, execRoot));
+      }
+      try {
+        for (String line : FileSystemUtils.readLines(resolvedPath, UTF_8)) {
+          expandArgument(inputs, line, requestBuilder, execRoot);
         }
       } catch (IOException e) {
         throw new IOException(
