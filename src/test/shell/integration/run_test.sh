@@ -755,6 +755,310 @@ EOF
   expect_log "world"
 }
 
+# Sets up a package with a host and a target platform that differ in a custom
+# "flavor" constraint, a --run_under target that reports the flavor it was
+# built for, a binary and tests. A custom test toolchain allows tests built
+# for the target platform to run on the host platform.
+function setup_run_on_host_pkg() {
+  local -r pkg="$1"
+  add_rules_shell "MODULE.bazel"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+constraint_setting(name = "flavor")
+
+constraint_value(
+    name = "host_flavor",
+    constraint_setting = ":flavor",
+)
+
+constraint_value(
+    name = "target_flavor",
+    constraint_setting = ":flavor",
+)
+
+platform(
+    name = "host_platform",
+    constraint_values = [":host_flavor"],
+    parents = ["@bazel_tools//tools:host_platform"],
+)
+
+platform(
+    name = "target_platform",
+    constraint_values = [":target_flavor"],
+    parents = ["@bazel_tools//tools:host_platform"],
+)
+
+toolchain(
+    name = "host_test_toolchain",
+    exec_compatible_with = [":host_flavor"],
+    target_compatible_with = [":target_flavor"],
+    toolchain = "@bazel_tools//tools/test:empty_toolchain",
+    toolchain_type = "@bazel_tools//tools/test:default_test_toolchain_type",
+)
+
+config_setting(
+    name = "is_host",
+    constraint_values = [":host_flavor"],
+)
+
+sh_binary(
+    name = "runner",
+    srcs = select({
+        ":is_host": ["host_runner.sh"],
+        "//conditions:default": ["target_runner.sh"],
+    }),
+)
+
+sh_binary(
+    name = "farewell",
+    srcs = ["farewell.sh"],
+)
+
+sh_test(
+    name = "greeting_test",
+    srcs = ["greeting_test.sh"],
+)
+
+sh_test(
+    name = "target_only_test",
+    srcs = ["greeting_test.sh"],
+    exec_group_compatible_with = {"test": [":target_flavor"]},
+)
+
+alias(
+    name = "alias_to_test",
+    actual = ":greeting_test",
+)
+
+alias(
+    name = "alias_to_alias",
+    actual = ":alias_to_test",
+)
+
+alias(
+    name = "host_alias",
+    actual = ":host_platform",
+)
+EOF
+  for platform in host target; do
+    cat > "$pkg/${platform}_runner.sh" <<EOF
+#!/bin/sh
+echo "runner built for the ${platform} platform"
+# Let the wrapped target find its own runfiles.
+unset RUNFILES_DIR
+unset RUNFILES_MANIFEST_FILE
+exec "\$@"
+EOF
+    chmod +x "$pkg/${platform}_runner.sh"
+  done
+  cat > "$pkg/farewell.sh" <<'EOF'
+#!/bin/sh
+echo "goodbye"
+EOF
+  chmod +x "$pkg/farewell.sh"
+  cat > "$pkg/greeting_test.sh" <<'EOF'
+#!/bin/sh
+echo "hello from test"
+EOF
+  chmod +x "$pkg/greeting_test.sh"
+}
+
+function test_run_on_host_run_under_for_binary() {
+  local -r pkg="pkg${LINENO}"
+  setup_run_on_host_pkg "$pkg"
+  local -r flags=(
+    "--host_platform=//$pkg:host_platform"
+    "--platforms=//$pkg:target_platform"
+    "--run_under=//$pkg:runner"
+  )
+
+  bazel run "${flags[@]}" --incompatible_bazel_run_on_host "//$pkg:farewell" \
+      >$TEST_log || fail "expected run to succeed"
+  expect_log "runner built for the host platform"
+  expect_log "goodbye"
+  # The --run_under target is built in the exec configuration for the host
+  # platform rather than in the target configuration.
+  [[ ! -e "bazel-bin/$pkg/runner" ]] \
+      || fail "--run_under target was built in the target configuration"
+  [[ $(ls -d bazel-out/*-exec*/bin/$pkg/runner | wc -l) -eq 1 ]] \
+      || fail "--run_under target was not built in exactly one exec configuration"
+
+  bazel run "${flags[@]}" --noincompatible_bazel_run_on_host "//$pkg:farewell" \
+      >$TEST_log || fail "expected run to succeed"
+  expect_log "runner built for the target platform"
+  expect_log "goodbye"
+  [[ -e "bazel-bin/$pkg/runner" ]] \
+      || fail "--run_under target was not built in the target configuration"
+}
+
+function test_run_on_host_test_exec_platform() {
+  local -r pkg="pkg${LINENO}"
+  setup_run_on_host_pkg "$pkg"
+  # Register the target platform as the preferred execution platform, as a
+  # remote execution setup would. The host platform is always registered last.
+  local -r flags=(
+    "--host_platform=//$pkg:host_platform"
+    "--platforms=//$pkg:target_platform"
+    "--extra_execution_platforms=//$pkg:target_platform"
+    "--extra_toolchains=//$pkg:host_test_toolchain"
+    "--run_under=//$pkg:runner"
+    # The test runner looks for the --run_under target in the runfiles tree of
+    # the test, which isn't created on Windows by default.
+    "--enable_runfiles"
+  )
+
+  # Switching from a build to a run with the same flags re-analyzes the test
+  # for the host platform.
+  bazel build "${flags[@]}" --incompatible_bazel_run_on_host "//$pkg:greeting_test" \
+      >$TEST_log || fail "expected build to succeed"
+
+  # The test exec group is resolved to the host platform and the --run_under
+  # target the test depends on is built for it. Aliases to tests keep the test
+  # configuration, so the same applies to them.
+  for target in greeting_test alias_to_alias; do
+    bazel run "${flags[@]}" --incompatible_bazel_run_on_host "//$pkg:$target" \
+        >$TEST_log || fail "expected run of $target to succeed"
+    expect_log "runner built for the host platform"
+    expect_log "hello from test"
+    # The top-level --run_under target shares its configuration with the test's
+    # dependency on it, so it is only built once.
+    [[ ! -e "bazel-bin/$pkg/runner" ]] \
+        || fail "--run_under target was built in the target configuration"
+    [[ $(ls -d bazel-out/*-exec*/bin/$pkg/runner | wc -l) -eq 1 ]] \
+        || fail "--run_under target was not built in exactly one exec configuration"
+  done
+
+  # Repeating a run doesn't analyze anything again.
+  bazel run "${flags[@]}" --incompatible_bazel_run_on_host "//$pkg:greeting_test" \
+      >$TEST_log 2>&1 || fail "expected run to succeed"
+  expect_log "(0 packages loaded, 0 targets configured)"
+
+  # The test exec group is resolved to the first registered execution platform
+  # and the --run_under target is also built in the target configuration.
+  bazel run "${flags[@]}" --noincompatible_bazel_run_on_host "//$pkg:greeting_test" \
+      >$TEST_log || fail "expected run to succeed"
+  expect_log "runner built for the target platform"
+  expect_log "hello from test"
+  [[ -e "bazel-bin/$pkg/runner" ]] \
+      || fail "--run_under target was not built in the target configuration"
+}
+
+function test_run_on_host_rejects_incompatible_host_platform() {
+  local -r pkg="pkg${LINENO}"
+  setup_run_on_host_pkg "$pkg"
+  local -r flags=(
+    "--host_platform=//$pkg:host_platform"
+    "--platforms=//$pkg:target_platform"
+    "--extra_execution_platforms=//$pkg:target_platform"
+    "--extra_toolchains=//$pkg:host_test_toolchain"
+  )
+
+  bazel run "${flags[@]}" --noincompatible_bazel_run_on_host "//$pkg:target_only_test" \
+      >$TEST_log 2>&1 || fail "expected run to succeed"
+  expect_log "hello from test"
+
+  # The test action can only be executed on the target platform.
+  bazel run "${flags[@]}" --incompatible_bazel_run_on_host "//$pkg:target_only_test" \
+      >$TEST_log 2>&1 && fail "expected run to fail"
+  expect_log "executes tests on the host platform //$pkg:host_platform, but the test action of //$pkg:target_only_test is executed on //$pkg:target_platform"
+  expect_not_log "hello from test"
+
+  # The host platform doesn't satisfy the execution constraints even if it is
+  # also the target platform.
+  bazel run "${flags[@]}" --incompatible_bazel_run_on_host \
+      "--platforms=//$pkg:host_platform" "//$pkg:target_only_test" \
+      >$TEST_log 2>&1 && fail "expected run to fail"
+  expect_log "executes tests on the host platform //$pkg:host_platform, but the test action of //$pkg:target_only_test is executed on //$pkg:target_platform"
+  expect_not_log "hello from test"
+}
+
+function test_run_on_host_host_platform_alias() {
+  local -r pkg="pkg${LINENO}"
+  setup_run_on_host_pkg "$pkg"
+  local -r flags=(
+    "--host_platform=//$pkg:host_alias"
+    "--platforms=//$pkg:target_platform"
+    "--extra_execution_platforms=//$pkg:target_platform"
+    "--extra_toolchains=//$pkg:host_test_toolchain"
+    "--run_under=//$pkg:runner"
+    "--enable_runfiles"
+    "--incompatible_bazel_run_on_host"
+  )
+
+  # The host platform is resolved through its alias both for the test's
+  # dependency on the --run_under target and for the top-level target.
+  bazel run "${flags[@]}" "//$pkg:greeting_test" >$TEST_log || fail "expected run to succeed"
+  expect_log "runner built for the host platform"
+  expect_log "hello from test"
+  [[ $(ls -d bazel-out/*-exec*/bin/$pkg/runner | wc -l) -eq 1 ]] \
+      || fail "--run_under target was not built in exactly one exec configuration"
+
+  bazel run "${flags[@]}" "//$pkg:farewell" >$TEST_log || fail "expected run to succeed"
+  expect_log "runner built for the host platform"
+  expect_log "goodbye"
+}
+
+
+function test_run_on_host_run_under_label_for_test_target() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_binary(
+  name = 'runner',
+  srcs = ['runner.sh'],
+)
+
+sh_test(
+  name = 'greeting_test',
+  srcs = ['greeting_test.sh'],
+)
+
+alias(
+  name = 'alias_to_test',
+  actual = ':greeting_test',
+)
+
+alias(
+  name = 'alias_to_alias',
+  actual = ':alias_to_test',
+)
+EOF
+  cat > "$pkg/runner.sh" <<'EOF'
+#!/bin/sh
+echo "running under runner"
+exec "$@"
+EOF
+  chmod +x "$pkg/runner.sh"
+  cat > "$pkg/greeting_test.sh" <<'EOF'
+#!/bin/sh
+echo "hello from test"
+EOF
+  chmod +x "$pkg/greeting_test.sh"
+
+  for target in greeting_test alias_to_alias; do
+    # The test runner looks for the --run_under target in the runfiles tree of
+    # the test, which isn't created on Windows by default.
+    bazel run --incompatible_bazel_run_on_host --enable_runfiles \
+        --run_under="//$pkg:runner" "//$pkg:$target" \
+        >$TEST_log || fail "expected run of $target to succeed"
+    expect_log "running under runner"
+    expect_log "hello from test"
+
+    # The test action runs the --run_under target it depends on. The top-level
+    # --run_under target shares its configuration with that dependency and thus
+    # isn't built in the target configuration, where it would go unused.
+    [[ ! -e "bazel-bin/$pkg/runner${EXE_EXT}" ]] \
+        || fail "--run_under target was built in the target configuration for $target"
+  done
+}
+
 function test_build_id_env_var() {
   add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"

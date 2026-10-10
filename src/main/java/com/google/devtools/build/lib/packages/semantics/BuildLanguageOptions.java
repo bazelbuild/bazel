@@ -556,6 +556,23 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getIncompatibleDisableStarlarkHostTransitions();
 
   @Option(
+      name = "incompatible_bazel_run_on_host",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, `bazel run` builds everything it executes on the machine Bazel runs on"
+              + " for the host platform (`--host_platform`): the \"test\" exec group of a test"
+              + " target, which determines the platform of its test runner and of its"
+              + " `--run_under` target, is resolved to the host platform, and the `--run_under`"
+              + " target of a non-test target is built in the exec configuration for the host"
+              + " platform instead of the target configuration. Since tests are always executed"
+              + " with their \"test\" exec group, the `exec_group` parameter of"
+              + " `testing.ExecutionInfo` is disabled.")
+  public abstract boolean getIncompatibleBazelRunOnHost();
+
+  @Option(
       name = "incompatible_disable_objc_library_transition",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -963,6 +980,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
                 getIncompatibleDisableStarlarkHostTransitions())
+            .setBool(INCOMPATIBLE_BAZEL_RUN_ON_HOST, getIncompatibleBazelRunOnHost())
             .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 getIncompatibleDisableObjcLibraryTransition())
@@ -1155,6 +1173,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "+incompatible_unambiguous_label_stringification";
   public static final String INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS =
       "-incompatible_disable_starlark_host_transitions";
+  public static final String INCOMPATIBLE_BAZEL_RUN_ON_HOST = "-incompatible_bazel_run_on_host";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "+incompatible_disable_objc_library_transition";
   public static final String ADD_GO_EXEC_GROUPS_TO_BINARY_RULES =
