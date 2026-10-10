@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -145,9 +145,15 @@ abstract class ReverseDepsUtility {
   static void removeReverseDepsMatching(
       IncrementalInMemoryNodeEntry entry, Set<SkyKey> deletedKeys) {
     consolidateData(entry);
-    ImmutableSet<SkyKey> currentReverseDeps =
-        ImmutableSet.copyOf(consolidateAndGetReverseDeps(entry, /* checkConsistency= */ true));
-    writeReverseDepsSet(entry, Sets.difference(currentReverseDeps, deletedKeys));
+    ImmutableCollection<SkyKey> currentReverseDeps =
+        consolidateAndGetReverseDeps(entry, /* checkConsistency= */ true);
+    var remainingReverseDeps = new ArrayList<SkyKey>(currentReverseDeps.size());
+    for (SkyKey reverseDep : currentReverseDeps) {
+      if (!deletedKeys.contains(reverseDep)) {
+        remainingReverseDeps.add(reverseDep);
+      }
+    }
+    writeReverseDeps(entry, remainingReverseDeps);
   }
 
   static ImmutableCollection<SkyKey> consolidateAndGetReverseDeps(
@@ -275,7 +281,7 @@ abstract class ReverseDepsUtility {
     }
     if (mutateObject) {
       entry.setReverseDepsDataToConsolidateForReverseDepsUtil(null);
-      writeReverseDepsSet(entry, allRdepsAreNew ? newReverseDeps : allReverseDeps);
+      writeReverseDeps(entry, allRdepsAreNew ? newReverseDeps : allReverseDeps);
     }
     return newReverseDeps;
   }
@@ -356,19 +362,20 @@ abstract class ReverseDepsUtility {
           break;
       }
     }
-    writeReverseDepsSet(entry, reverseDepsAsSet);
+    writeReverseDeps(entry, reverseDepsAsSet);
   }
 
-  private static void writeReverseDepsSet(
-      IncrementalInMemoryNodeEntry entry, Set<SkyKey> reverseDepsAsSet) {
-    if (!entry.keepsEdges() || reverseDepsAsSet.isEmpty()) {
+  /** Stores the given reverse deps, which must not contain duplicates. */
+  private static void writeReverseDeps(
+      IncrementalInMemoryNodeEntry entry, Collection<SkyKey> reverseDeps) {
+    if (!entry.keepsEdges() || reverseDeps.isEmpty()) {
       entry.setReverseDepsForReverseDepsUtil(ImmutableList.of());
-    } else if (reverseDepsAsSet.size() == 1) {
-      entry.setReverseDepsForReverseDepsUtil(Iterables.getOnlyElement(reverseDepsAsSet));
-    } else if (reverseDepsAsSet.size() <= 4) {
-      entry.setReverseDepsForReverseDepsUtil(reverseDepsAsSet.toArray(SkyKey[]::new));
+    } else if (reverseDeps.size() == 1) {
+      entry.setReverseDepsForReverseDepsUtil(Iterables.getOnlyElement(reverseDeps));
+    } else if (reverseDeps.size() <= 4) {
+      entry.setReverseDepsForReverseDepsUtil(reverseDeps.toArray(SkyKey[]::new));
     } else {
-      entry.setReverseDepsForReverseDepsUtil(new ArrayList<>(reverseDepsAsSet));
+      entry.setReverseDepsForReverseDepsUtil(new ArrayList<>(reverseDeps));
     }
   }
 
