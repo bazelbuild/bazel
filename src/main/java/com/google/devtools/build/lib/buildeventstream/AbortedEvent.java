@@ -67,7 +67,7 @@ public final class AbortedEvent extends GenericBuildEvent {
         .setAborted(
             Aborted.newBuilder()
                 .setReason(reason)
-                .setDescription(StringEncoding.internalToUnicode(description))
+                .setDescription(StringEncoding.internalToUnicodeLenient(description))
                 .build())
         .build();
   }
