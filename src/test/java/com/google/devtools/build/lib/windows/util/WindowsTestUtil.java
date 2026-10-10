@@ -66,7 +66,9 @@ public final class WindowsTestUtil {
   public void createSymlinks(Map<String, String> links) throws Exception {
     for (Map.Entry<String, String> entry : links.entrySet()) {
       WindowsFileOperations.createSymlink(
-          scratchRoot + "/" + entry.getKey(), scratchRoot + "/" + entry.getValue());
+          scratchRoot + "/" + entry.getKey(),
+          scratchRoot + "/" + entry.getValue(),
+          /* isDirectory= */ false);
     }
   }
 
