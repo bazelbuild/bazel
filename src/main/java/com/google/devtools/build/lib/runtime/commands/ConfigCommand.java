@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 
@@ -202,7 +202,7 @@ public class ConfigCommand implements BlazeCommand {
 
     try (PrintWriter writer =
         new PrintWriter(
-            new OutputStreamWriter(env.getReporter().getOutErr().getOutputStream(), UTF_8))) {
+            new OutputStreamWriter(env.getReporter().getOutErr().getOutputStream(), ISO_8859_1))) {
 
       ConfigOptions configCommandOptions = options.getOptions(ConfigOptions.class);
       ConfigCommandOutputFormatter outputFormatter =
