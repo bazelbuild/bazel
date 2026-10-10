@@ -119,7 +119,7 @@ public class WorkerProcessMetricsCollector {
       // Default to using ps if cgroups is not enabled.
       return psInfoCollector.collectResourceUsage(alivePids, clock);
     }
-    return ResourceSnapshot.createEmpty(clock.now());
+    return ResourceSnapshot.createUnavailable(clock.now());
   }
 
   public ImmutableList<WorkerProcessMetrics> getLiveWorkerProcessMetrics() {
@@ -130,6 +130,11 @@ public class WorkerProcessMetricsCollector {
 
   public ImmutableList<WorkerProcessMetrics> collectMetrics() {
     ResourceSnapshot resourceSnapshot = collectResourceUsage();
+
+    if (!resourceSnapshot.available()) {
+      // A failed measurement does not mean the workers are dead.
+      return ImmutableList.copyOf(pidToWorkerProcessMetrics.values());
+    }
 
     ImmutableMap<Long, Integer> pidToMemoryInKb = resourceSnapshot.pidToMemoryInKb();
 
