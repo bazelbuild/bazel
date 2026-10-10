@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Timestamp;
@@ -178,7 +180,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     BuildEventStreamProtos.ActionExecuted.Builder actionBuilder =
         BuildEventStreamProtos.ActionExecuted.newBuilder()
             .setSuccess(getException() == null)
-            .setType(action.getMnemonic());
+            .setType(StringEncoding.internalToUnicode(action.getMnemonic()));
     if (startTime != null) {
       actionBuilder.setStartTime(timestampProto(startTime));
       if (endTime != null) {
@@ -202,18 +204,25 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       String uri = pathConverter.apply(stdout);
       if (uri != null) {
         actionBuilder.setStdout(
-            BuildEventStreamProtos.File.newBuilder().setName("stdout").setUri(uri).build());
+            BuildEventStreamProtos.File.newBuilder()
+                .setName("stdout")
+                .setUri(StringEncoding.internalToUnicode(uri))
+                .build());
       }
     }
     if (stderr != null) {
       String uri = pathConverter.apply(stderr);
       if (uri != null) {
         actionBuilder.setStderr(
-            BuildEventStreamProtos.File.newBuilder().setName("stderr").setUri(uri).build());
+            BuildEventStreamProtos.File.newBuilder()
+                .setName("stderr")
+                .setUri(StringEncoding.internalToUnicode(uri))
+                .build());
       }
     }
     if (action.getOwner() != null && action.getOwner().getLabel() != null) {
-      actionBuilder.setLabel(action.getOwner().getLabel().toString());
+      actionBuilder.setLabel(
+          StringEncoding.internalToUnicode(action.getOwner().getLabel().toString()));
     }
     if (action.getOwner() != null) {
       BuildEvent configuration = action.getOwner().getBuildConfigurationEvent();
@@ -226,12 +235,15 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       String uri = pathConverter.apply(primaryOutput);
       if (uri != null) {
         actionBuilder.setPrimaryOutput(
-            BuildEventStreamProtos.File.newBuilder().setUri(uri).build());
+            BuildEventStreamProtos.File.newBuilder()
+                .setUri(StringEncoding.internalToUnicode(uri))
+                .build());
       }
     }
     try {
       if (action instanceof CommandAction commandAction) {
-        actionBuilder.addAllCommandLine(commandAction.getArguments());
+        actionBuilder.addAllCommandLine(
+            Lists.transform(commandAction.getArguments(), StringEncoding::internalToUnicode));
       }
     } catch (CommandLineExpansionException e) {
       // Command-line not available, so just not report it
