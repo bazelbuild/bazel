@@ -59,12 +59,19 @@ import javax.annotation.Nullable;
 /**
  * Creates a manifest file describing a symlink tree.
  *
- * <p>In addition to symlink trees (whose manifests are a tree position -> exec path map), this
- * action can also create manifest consisting of just exec paths for historical reasons.
+ * <p>Each line of the manifest is written as:
+ *
+ * <p>[rootRelativePath] [resolvingSymlink]
+ *
+ * <p>If rootRelativePath contains spaces, then each backslash is replaced with '\b', each space is
+ * replaced with '\s' and the line is prefixed with a space.
+ *
+ * <p>The output is a valid input to {@link
+ * com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction}.
  *
  * <p>This action carefully avoids building the manifest content in memory because it can be large.
  */
-@Immutable // if all ManifestWriter implementations are immutable
+@Immutable
 public final class SourceManifestAction extends AbstractFileWriteAction
     implements AbstractFileWriteAction.FileContentsProvider {
 
@@ -81,46 +88,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction
 
   private final Artifact repoMappingManifest;
 
-  /**
-   * Interface for defining manifest formatting and reporting specifics. Implementations must be
-   * immutable.
-   */
-  interface ManifestWriter {
-
-    /**
-     * Writes a single line of manifest output.
-     *
-     * @param manifestWriter the output stream
-     * @param rootRelativePath path of an entry relative to the manifest's root
-     * @param symlinkTarget target of the entry at {@code rootRelativePath} if it is a symlink,
-     *     otherwise {@code null}
-     */
-    void writeEntry(
-        Writer manifestWriter, PathFragment rootRelativePath, @Nullable PathFragment symlinkTarget)
-        throws IOException;
-
-    /** Fulfills {@link com.google.devtools.build.lib.actions.AbstractAction#getMnemonic()} */
-    String getMnemonic();
-
-    /**
-     * Fulfills {@link com.google.devtools.build.lib.actions.AbstractAction#getRawProgressMessage()}
-     */
-    String getRawProgressMessage();
-
-    /**
-     * Fulfills {@link AbstractFileWriteAction#isRemotable()}.
-     *
-     * @return
-     */
-    boolean isRemotable();
-
-    /** Whether the manifest includes absolute paths to artifacts. */
-    boolean emitsAbsolutePaths();
-  }
-
-  /** The strategy we use to write manifest entries. */
-  private final ManifestWriter manifestWriter;
-
   /** The runfiles for which to create the symlink tree. */
   private final Runfiles runfiles;
 
@@ -133,36 +100,31 @@ public final class SourceManifestAction extends AbstractFileWriteAction
    * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
    * file and with a specified root path for manifest entries.
    *
-   * @param manifestWriter the strategy to use to write manifest entries
    * @param owner the action owner
    * @param primaryOutput the file to which to write the manifest
    * @param runfiles runfiles
    */
   @VisibleForTesting
-  SourceManifestAction(
-      ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
-    this(manifestWriter, owner, primaryOutput, runfiles, null, false);
+  SourceManifestAction(ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
+    this(owner, primaryOutput, runfiles, null, false);
   }
 
   /**
    * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
    * file and with a specified root path for manifest entries.
    *
-   * @param manifestWriter the strategy to use to write manifest entries
    * @param owner the action owner
    * @param primaryOutput the file to which to write the manifest
    * @param runfiles runfiles
    * @param repoMappingManifest the repository mapping manifest for runfiles
    */
   public SourceManifestAction(
-      ManifestWriter manifestWriter,
       ActionOwner owner,
       Artifact primaryOutput,
       Runfiles runfiles,
       @Nullable Artifact repoMappingManifest,
       boolean remotableSourceManifestActions) {
     this(
-        manifestWriter,
         owner,
         primaryOutput,
         runfiles,
@@ -172,7 +134,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   }
 
   public SourceManifestAction(
-      ManifestWriter manifestWriter,
       ActionOwner owner,
       Artifact primaryOutput,
       Runfiles runfiles,
@@ -181,7 +142,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       boolean preferTargetConfigurationRunfiles) {
     // The real set of inputs is computed in #getInputs().
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput);
-    this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
     this.repoMappingManifest = repoMappingManifest;
     this.remotableSourceManifestActions = remotableSourceManifestActions;
@@ -297,7 +257,9 @@ public final class SourceManifestAction extends AbstractFileWriteAction
 
   @Override
   public boolean isRemotable() {
-    return remotableSourceManifestActions || manifestWriter.isRemotable();
+    // There is little gain to remoting these by default, since they include absolute path names
+    // inline.
+    return remotableSourceManifestActions;
   }
 
   /**
@@ -334,7 +296,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       } else {
         symlinkTarget = artifact.getPath().asFragment();
       }
-      manifestWriter.writeEntry(manifestFile, line.getKey(), symlinkTarget);
+      writeEntry(manifestFile, line.getKey(), symlinkTarget);
     }
 
     manifestFile.flush();
@@ -342,12 +304,12 @@ public final class SourceManifestAction extends AbstractFileWriteAction
 
   @Override
   public String getMnemonic() {
-    return manifestWriter.getMnemonic();
+    return "SourceSymlinkManifest";
   }
 
   @Override
   protected String getRawProgressMessage() {
-    return manifestWriter.getRawProgressMessage() + " for " + getOwner().getLabel();
+    return "Creating source manifest for " + getOwner().getLabel();
   }
 
   @Override
@@ -360,7 +322,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
     runfiles.fingerprint(
         actionKeyContext,
         fp,
-        manifestWriter.emitsAbsolutePaths(),
+        /* digestAbsolutePaths= */ true,
         preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null);
     fp.addBoolean(repoMappingManifest != null);
     if (repoMappingManifest != null) {
@@ -375,124 +337,48 @@ public final class SourceManifestAction extends AbstractFileWriteAction
         GUID,
         remotableSourceManifestActions,
         runfiles.describeFingerprint(
-            manifestWriter.emitsAbsolutePaths(),
+            /* digestAbsolutePaths= */ true,
             preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null));
   }
 
-  /** Supported manifest writing strategies. */
-  public enum ManifestType implements ManifestWriter {
-
-    /**
-     * Writes each line as:
-     *
-     * <p>[rootRelativePath] [resolvingSymlink]
-     *
-     * <p>If rootRelativePath contains spaces, then each backslash is replaced with '\b', each space
-     * is replaced with '\s' and the line is prefixed with a space.
-     *
-     * <p>This strategy is suitable for creating an input manifest to a source view tree. Its output
-     * is a valid input to {@link com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction}.
-     */
-    SOURCE_SYMLINKS {
-      @Override
-      public void writeEntry(
-          Writer manifestWriter,
-          PathFragment rootRelativePath,
-          @Nullable PathFragment symlinkTarget)
-          throws IOException {
-        String rootRelativePathString = rootRelativePath.getPathString();
-        // Source paths with spaces require escaping. Target paths with spaces don't as consumers
-        // are expected to split on the first space. Newlines always need to be escaped.
-        // Note that if any of these characters are present, then we also need to escape the escape
-        // character (backslash) in both paths. We avoid doing so if none of the problematic
-        // characters are present for backwards compatibility with existing runfiles libraries. In
-        // particular, entries with a source path that contains neither spaces nor newlines and
-        // target paths that contain both spaces and backslashes require no escaping.
-        boolean needsEscaping =
-            rootRelativePathString.indexOf(' ') != -1
-                || rootRelativePathString.indexOf('\n') != -1
-                || (symlinkTarget != null && symlinkTarget.getPathString().indexOf('\n') != -1);
-        if (needsEscaping) {
-          manifestWriter.append(' ');
-          manifestWriter.append(ROOT_RELATIVE_PATH_ESCAPER.escape(rootRelativePathString));
-        } else {
-          manifestWriter.append(rootRelativePathString);
-        }
-        // This trailing whitespace is REQUIRED to process the single entry line correctly.
-        manifestWriter.append(' ');
-        if (symlinkTarget != null) {
-          if (needsEscaping) {
-            manifestWriter.append(TARGET_PATH_ESCAPER.escape(symlinkTarget.getPathString()));
-          } else {
-            manifestWriter.append(symlinkTarget.getPathString());
-          }
-        }
-        manifestWriter.append('\n');
-      }
-
-      @Override
-      public String getMnemonic() {
-        return "SourceSymlinkManifest";
-      }
-
-      @Override
-      public String getRawProgressMessage() {
-        return "Creating source manifest";
-      }
-
-      @Override
-      public boolean isRemotable() {
-        // There is little gain to remoting these, since they include absolute path names inline.
-        return false;
-      }
-
-      @Override
-      public boolean emitsAbsolutePaths() {
-        return true;
-      }
-    },
-
-    /**
-     * Writes each line as:
-     *
-     * <p>[rootRelativePath]
-     *
-     * <p>This strategy is suitable for an input into a packaging system (notably .par) that
-     * consumes a list of all source files but needs that list to be constant with respect to how
-     * the user has their client laid out on local disk.
-     */
-    SOURCES_ONLY {
-      @Override
-      public void writeEntry(
-          Writer manifestWriter,
-          PathFragment rootRelativePath,
-          @Nullable PathFragment symlinkTarget)
-          throws IOException {
-        manifestWriter.append(rootRelativePath.getPathString());
-        manifestWriter.append('\n');
-        manifestWriter.flush();
-      }
-
-      @Override
-      public String getMnemonic() {
-        return "PackagingSourcesManifest";
-      }
-
-      @Override
-      public String getRawProgressMessage() {
-        return "Creating file sources list";
-      }
-
-      @Override
-      public boolean isRemotable() {
-        // Source-only symlink manifest has root-relative paths and does not include absolute paths.
-        return true;
-      }
-
-      @Override
-      public boolean emitsAbsolutePaths() {
-        return false;
+  /**
+   * Writes a single line of manifest output.
+   *
+   * @param manifestWriter the output stream
+   * @param rootRelativePath path of an entry relative to the manifest's root
+   * @param symlinkTarget target of the entry at {@code rootRelativePath} if it is a symlink,
+   *     otherwise {@code null}
+   */
+  private static void writeEntry(
+      Writer manifestWriter, PathFragment rootRelativePath, @Nullable PathFragment symlinkTarget)
+      throws IOException {
+    String rootRelativePathString = rootRelativePath.getPathString();
+    // Source paths with spaces require escaping. Target paths with spaces don't as consumers
+    // are expected to split on the first space. Newlines always need to be escaped.
+    // Note that if any of these characters are present, then we also need to escape the escape
+    // character (backslash) in both paths. We avoid doing so if none of the problematic
+    // characters are present for backwards compatibility with existing runfiles libraries. In
+    // particular, entries with a source path that contains neither spaces nor newlines and
+    // target paths that contain both spaces and backslashes require no escaping.
+    boolean needsEscaping =
+        rootRelativePathString.indexOf(' ') != -1
+            || rootRelativePathString.indexOf('\n') != -1
+            || (symlinkTarget != null && symlinkTarget.getPathString().indexOf('\n') != -1);
+    if (needsEscaping) {
+      manifestWriter.append(' ');
+      manifestWriter.append(ROOT_RELATIVE_PATH_ESCAPER.escape(rootRelativePathString));
+    } else {
+      manifestWriter.append(rootRelativePathString);
+    }
+    // This trailing whitespace is REQUIRED to process the single entry line correctly.
+    manifestWriter.append(' ');
+    if (symlinkTarget != null) {
+      if (needsEscaping) {
+        manifestWriter.append(TARGET_PATH_ESCAPER.escape(symlinkTarget.getPathString()));
+      } else {
+        manifestWriter.append(symlinkTarget.getPathString());
       }
     }
+    manifestWriter.append('\n');
   }
 }
