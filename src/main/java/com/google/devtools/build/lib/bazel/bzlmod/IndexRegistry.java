@@ -16,6 +16,8 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -41,6 +44,9 @@ import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
@@ -106,6 +112,20 @@ public class IndexRegistry implements Registry {
   private static final ImmutableList<String> ALLOWED_GIT_SCHEMES =
       ImmutableList.of("https://", "ssh://", "git://", "file://", "git@");
 
+  /** Reads JSON strings, which are Unicode, as internal strings. */
+  private static final TypeAdapter<String> INTERNAL_STRING_ADAPTER =
+      new TypeAdapter<String>() {
+        @Override
+        public void write(JsonWriter out, String value) throws IOException {
+          out.value(internalToUnicode(value));
+        }
+
+        @Override
+        public String read(JsonReader in) throws IOException {
+          return unicodeToInternal(in.nextString());
+        }
+      }.nullSafe();
+
   public IndexRegistry(
       URI uri,
       Map<String, String> clientEnv,
@@ -119,6 +139,7 @@ public class IndexRegistry implements Registry {
     this.gson =
         new GsonBuilder()
             .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+            .registerTypeAdapter(String.class, INTERNAL_STRING_ADAPTER)
             .create();
     this.knownFileHashes = knownFileHashes;
     this.knownFileHashesMode = knownFileHashesMode;
@@ -129,7 +150,7 @@ public class IndexRegistry implements Registry {
 
   @Override
   public String getUrl() {
-    return uri.toString();
+    return unicodeToInternal(uri.toString());
   }
 
   private String constructUrl(String base, String... segments) {
@@ -208,7 +229,12 @@ public class IndexRegistry implements Registry {
               + "report at https://github.com/bazelbuild/bazel/issues/new/choose.");
     }
 
-    URI url = URI.create(rawUrl);
+    URI url;
+    try {
+      url = HttpUtils.parseUrl(rawUrl);
+    } catch (URISyntaxException e) {
+      throw new IOException("Invalid registry file URL: " + rawUrl, e);
+    }
     // Don't read the registry URL from the vendor directory in the following cases:
     // 1. vendorUtil is null, which means vendor mode is disabled.
     // 2. The checksum is not present, which means the URL is not vendored or the vendored content
@@ -426,7 +452,7 @@ public class IndexRegistry implements Registry {
    * @throws URISyntaxException if the URL does not have an absolute path
    */
   public static PathFragment getLocalRegistryPath(URI uri) throws URISyntaxException {
-    String path = Strings.nullToEmpty(uri.getPath());
+    String path = unicodeToInternal(Strings.nullToEmpty(uri.getPath()));
     // Unix:    file:///tmp --> /tmp
     // Windows: file:///C:/tmp --> C:/tmp
     if (OS.getCurrent() == OS.WINDOWS && path.startsWith("/")) {
@@ -435,7 +461,7 @@ public class IndexRegistry implements Registry {
     PathFragment localPath = PathFragment.create(path);
     if (!localPath.isAbsolute()) {
       throw new URISyntaxException(
-          uri.toString(),
+          unicodeToInternal(uri.toString()),
           "Local registry URL must have an absolute path -- did you mean to use file:///foo/bar"
               + " or file:///c:/foo/bar for Windows?");
     }
@@ -457,7 +483,7 @@ public class IndexRegistry implements Registry {
             throw new IOException(
                 String.format(
                     "Provided non absolute local registry path for module %s: %s",
-                    key, uri.getPath()),
+                    key, unicodeToInternal(uri.getPath())),
                 e);
           }
         } else {
@@ -487,7 +513,7 @@ public class IndexRegistry implements Registry {
     // Give precedence to mirror specified via the command-line flag.
     var allMirrors =
         Stream.concat(
-                moduleMirrors.stream().map(URI::toString),
+                moduleMirrors.stream().map(mirror -> unicodeToInternal(mirror.toString())),
                 bazelRegistryJson.flatMap(json -> Optional.ofNullable(json.mirrors)).stream()
                     .flatMap(Arrays::stream))
             .collect(toImmutableSet());
@@ -496,19 +522,23 @@ public class IndexRegistry implements Registry {
     // URL concatenated with the source URL.
     for (String mirror : allMirrors) {
       try {
-        var unused = new URI(mirror);
+        var unused = HttpUtils.parseUri(mirror);
       } catch (URISyntaxException e) {
-        throw new IOException("Malformed mirror URL specified in bazel_registry.json of " + uri, e);
+        throw new IOException(
+            "Malformed mirror URL specified in bazel_registry.json of " + getUrl(), e);
       }
       String authority = sourceUrl.getRawAuthority();
       String path = sourceUrl.getRawPath();
       String query = sourceUrl.getRawQuery();
       urls.add(
-          constructUrl(mirror, authority != null ? authority : "", path != null ? path : "")
-              + (query != null ? "?" + query : ""));
+          constructUrl(
+                  mirror,
+                  authority != null ? unicodeToInternal(authority) : "",
+                  path != null ? unicodeToInternal(path) : "")
+              + (query != null ? "?" + unicodeToInternal(query) : ""));
     }
     // Add the original source URL itself.
-    urls.add(sourceUrl.toString());
+    urls.add(unicodeToInternal(sourceUrl.toString()));
 
     // Add mirror_urls from source.json as backups after the primary url.
     if (sourceJson.mirrorUrls != null) {
