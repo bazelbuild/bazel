@@ -320,7 +320,12 @@ public final class Utils {
       }
       return sb.toString();
     }
-    return e.getMessage();
+    // The message may quote the description of a status returned by the server, which is Unicode.
+    String message = e.getMessage();
+    String description = errStatus.getDescription();
+    return message != null && description != null
+        ? message.replace(description, unicodeToInternal(description))
+        : message;
   }
 
   public static String grpcAwareErrorMessage(Throwable error, boolean verboseFailures) {
