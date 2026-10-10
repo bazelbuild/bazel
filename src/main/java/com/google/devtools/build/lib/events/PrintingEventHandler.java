@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import com.google.common.primitives.Bytes;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.IOException;
@@ -101,8 +102,13 @@ public class PrintingEventHandler extends AbstractEventHandler
           if (event.getLocation() != null) {
             builder.append(event.getLocation()).append(": ");
           }
-          builder.append(event.getMessage()).append("\n");
-          outErr.getErrorStream().write(StringUnsafe.getInternalStringBytes(builder.toString()));
+          outErr
+              .getErrorStream()
+              .write(
+                  Bytes.concat(
+                      StringUnsafe.getInternalStringBytesOrUtf8(builder.toString()),
+                      event.getMessageBytes(),
+                      new byte[] {'\n'}));
           outErr.getErrorStream().flush();
         }
       }
