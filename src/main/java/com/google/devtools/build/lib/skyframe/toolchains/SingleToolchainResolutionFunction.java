@@ -73,13 +73,14 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
                 .getFragment(PlatformConfiguration.class)
                 .debugToolchainResolution(key.toolchainType().toolchainType());
 
-    // Get all toolchains.
+    // Get the registered toolchains for this type.
     RegisteredToolchainsValue toolchains;
     try {
       toolchains =
           (RegisteredToolchainsValue)
               env.getValueOrThrow(
-                  RegisteredToolchainsValue.key(key.configurationKey(), debug),
+                  RegisteredToolchainsValue.key(
+                      key.configurationKey(), key.toolchainTypeInfo().typeLabel(), debug),
                   InvalidToolchainLabelException.class);
       if (toolchains == null) {
         return null;
