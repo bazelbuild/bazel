@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -62,7 +63,7 @@ public class JavaCompileActionContext implements ActionContext {
             executor.submit(() -> readAndCacheJdepsFile(jdepsFile, actionExecutionContext)));
       } else {
         for (Deps.Dependency dep : cachedDeps.getDependencyList()) {
-          deps.add(dep.getPath());
+          deps.add(unicodeToInternal(dep.getPath()));
         }
       }
     }
@@ -94,7 +95,7 @@ public class JavaCompileActionContext implements ActionContext {
       }
 
       for (Deps.Dependency dep : result.getDependencyList()) {
-        deps.add(dep.getPath());
+        deps.add(unicodeToInternal(dep.getPath()));
       }
     }
     if (ioException != null) {
