@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLDecoder;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -148,7 +147,7 @@ public class VendorManager {
    *
    * @param url The URL to check.
    * @return true if the URL is vendored, false otherwise.
-   * @throws IOException if the URL decoding fails.
+   * @throws IOException if an I/O error occurs.
    */
   public boolean isUrlVendored(URI url) throws IOException {
     return getVendorPathForUrl(url).isFile();
@@ -223,16 +222,10 @@ public class VendorManager {
    *
    * @param url The URL to get the vendor path for.
    * @return The vendor path.
-   * @throws IOException if the URL decoding fails.
    */
-  public Path getVendorPathForUrl(URI url) throws IOException {
+  public Path getVendorPathForUrl(URI url) {
     String host = url.getHost().toLowerCase(Locale.ROOT); // Host names are case-insensitive
     String path = url.getPath();
-    try {
-      path = URLDecoder.decode(path, UTF_8);
-    } catch (IllegalArgumentException e) {
-      throw new IOException("Failed to decode URL: " + e.getMessage(), e);
-    }
     if (path.startsWith("/")) {
       path = path.substring(1);
     }
