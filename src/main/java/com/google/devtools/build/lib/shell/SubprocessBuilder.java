@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.util.TestType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -122,6 +123,23 @@ public class SubprocessBuilder {
             + " (no directory component)",
         this.argv.get(0));
     return this;
+  }
+
+  /**
+   * Resolves a relative argv[0] with a directory component, which {@link #setArgv} doesn't accept,
+   * against {@code workingDirectory}.
+   */
+  public static ImmutableList<String> makeArgv0Absolute(
+      List<String> argv, @Nullable File workingDirectory) {
+    var argv0 = StringEncoding.internalToPlatform(argv.getFirst());
+    var argv0File = new File(argv0);
+    if (argv0File.isAbsolute() || argv0File.getParent() == null) {
+      return ImmutableList.copyOf(argv);
+    }
+    return ImmutableList.<String>builderWithExpectedSize(argv.size())
+        .add(StringEncoding.platformToInternal(new File(workingDirectory, argv0).getAbsolutePath()))
+        .addAll(argv.subList(1, argv.size()))
+        .build();
   }
 
   public ImmutableMap<String, String> getEnv() {
