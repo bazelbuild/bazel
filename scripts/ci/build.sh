@@ -64,8 +64,6 @@ fi
 #   exit 1
 # fi
 
-export APT_GPG_KEY_ID=$(gcloud secrets versions access latest --secret="release-key-gpg-id" --project="bazel-public")
-
 # Generate a string from a template and a list of substitutions.
 # The first parameter is the template name and each subsequent parameter
 # is taken as a couple: first is the string the substitute and the second
@@ -296,6 +294,11 @@ function release_to_gcs() {
 }
 
 function ensure_gpg_secret_key_imported() {
+  if [[ -z "${APT_GPG_KEY_ID:-}" ]]; then
+    APT_GPG_KEY_ID="$(gcloud secrets versions access latest --secret="release-key-gpg-id" --project="bazel-public")"
+    export APT_GPG_KEY_ID
+  fi
+
   if ! gpg --list-secret-keys | grep "${APT_GPG_KEY_ID}" > /dev/null; then
     keyfile=$(mktemp --tmpdir)
     chmod 0600 "${keyfile}"
