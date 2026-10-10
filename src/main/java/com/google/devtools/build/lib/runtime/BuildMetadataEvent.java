@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.Collection;
 import java.util.Map;
 
@@ -56,7 +57,9 @@ public class BuildMetadataEvent implements BuildEventWithOrderConstraint {
     BuildEventStreamProtos.BuildMetadata.Builder metadataBuilder =
         BuildEventStreamProtos.BuildMetadata.newBuilder();
     for (Map.Entry<String, String> entry : buildMetadata.entrySet()) {
-      metadataBuilder.putMetadata(entry.getKey(), entry.getValue());
+      metadataBuilder.putMetadata(
+          StringEncoding.internalToUnicode(entry.getKey()),
+          StringEncoding.internalToUnicode(entry.getValue()));
     }
     return GenericBuildEvent.protoChaining(this).setBuildMetadata(metadataBuilder.build()).build();
   }
