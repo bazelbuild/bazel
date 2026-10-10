@@ -29,6 +29,7 @@ java_library(
     srcs = ["RemoteGrpcServiceConfig.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party/google/bytestream:bytestream_grpc",
