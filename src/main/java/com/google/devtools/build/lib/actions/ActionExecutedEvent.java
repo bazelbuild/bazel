@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -197,7 +198,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       FailureDetails.FailureDetail failureDetail =
           exception.getDetailedExitCode().getFailureDetail();
       if (failureDetail != null) {
-        actionBuilder.setFailureDetail(failureDetail);
+        actionBuilder.setFailureDetail(DetailedExitCode.toUnicode(failureDetail));
       }
     }
     if (stdout != null) {
