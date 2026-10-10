@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkdebug.server;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
@@ -56,7 +58,7 @@ final class DebugEventHelper {
   static DebugEvent error(long sequenceNumber, String message) {
     return DebugEvent.newBuilder()
         .setSequenceNumber(sequenceNumber)
-        .setError(Error.newBuilder().setMessage(message))
+        .setError(Error.newBuilder().setMessage(internalToUnicode(message)))
         .build();
   }
 
@@ -129,13 +131,13 @@ final class DebugEventHelper {
     return StarlarkDebuggingProtos.Location.newBuilder()
         .setLineNumber(location.line())
         .setColumnNumber(location.column())
-        .setPath(location.file())
+        .setPath(internalToUnicode(location.file()))
         .build();
   }
 
   static StarlarkDebuggingProtos.Frame getFrameProto(ThreadObjectMap objectMap, Debug.Frame frame) {
     return StarlarkDebuggingProtos.Frame.newBuilder()
-        .setFunctionName(frame.getFunction().getName())
+        .setFunctionName(internalToUnicode(frame.getFunction().getName()))
         .addAllScope(getScopes(objectMap, frame))
         .setLocation(getLocationProto(frame.getLocation()))
         .build();

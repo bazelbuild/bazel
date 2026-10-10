@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
@@ -85,7 +87,7 @@ public final class CombinedCacheClientFactory {
     Preconditions.checkNotNull(options.getRemoteCache(), "remoteCache");
 
     try {
-      URI uri = URI.create(options.getRemoteCache());
+      URI uri = URI.create(internalToUnicode(options.getRemoteCache()));
       Preconditions.checkArgument(
           Ascii.toLowerCase(uri.getScheme()).startsWith("http"),
           "remoteCache should start with http");
@@ -93,7 +95,8 @@ public final class CombinedCacheClientFactory {
       if (options.getRemoteProxy() != null) {
         if (options.getRemoteProxy().startsWith("unix:")) {
           return HttpCacheClient.create(
-              new DomainSocketAddress(options.getRemoteProxy().replaceFirst("^unix:", "")),
+              new DomainSocketAddress(
+                  internalToUnicode(options.getRemoteProxy().replaceFirst("^unix:", ""))),
               uri,
               Math.toIntExact(options.getRemoteTimeout().toSeconds()),
               options.getRemoteMaxConnections(),

@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -777,13 +779,16 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     // Rewrite the .jdeps proto with full paths.
     Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(executorJdeps);
     for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
-      PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
+      PathFragment pathOnExecutor = PathFragment.create(unicodeToInternal(dep.getPath()));
       PathFragment originalPath = rootRelativeToOriginalPath.get(pathOnExecutor);
       if (originalPath == null) {
         originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
       }
       dep.setPath(
-          originalPath == null ? pathOnExecutor.getPathString() : originalPath.getPathString());
+          internalToUnicode(
+              originalPath == null
+                  ? pathOnExecutor.getPathString()
+                  : originalPath.getPathString()));
     }
     Deps.Dependencies fullOutputDeps = fullDepsBuilder.build();
 

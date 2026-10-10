@@ -171,6 +171,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",

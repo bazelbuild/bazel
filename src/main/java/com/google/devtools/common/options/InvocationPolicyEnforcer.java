@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.UseDefault;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import java.util.ArrayList;
@@ -159,8 +162,8 @@ public final class InvocationPolicyEnforcer {
           allowValueOperation.apply(
               parser,
               flagPolicy.origin,
-              allowValues.getAllowedValuesList(),
-              allowValues.hasNewValue() ? allowValues.getNewValue() : null,
+              toInternal(allowValues.getAllowedValuesList()),
+              allowValues.hasNewValue() ? unicodeToInternal(allowValues.getNewValue()) : null,
               allowValues.hasUseDefault(),
               valueDescription,
               flagPolicy.description,
@@ -174,8 +177,8 @@ public final class InvocationPolicyEnforcer {
           disallowValueOperation.apply(
               parser,
               flagPolicy.origin,
-              disallowValues.getDisallowedValuesList(),
-              disallowValues.hasNewValue() ? disallowValues.getNewValue() : null,
+              toInternal(disallowValues.getDisallowedValuesList()),
+              disallowValues.hasNewValue() ? unicodeToInternal(disallowValues.getNewValue()) : null,
               disallowValues.hasUseDefault(),
               valueDescription,
               flagPolicy.description,
@@ -439,7 +442,9 @@ public final class InvocationPolicyEnforcer {
 
     // Flag value from the expansion, overridability from the original policy, unless the flag is
     // repeatable, in which case we care about appendability, not overridability.
-    SetValue.Builder setValueExpansion = SetValue.newBuilder().addAllFlagValue(subflagValue);
+    SetValue.Builder setValueExpansion =
+        SetValue.newBuilder()
+            .addAllFlagValue(subflagValue.stream().map(StringEncoding::internalToUnicode).toList());
 
     switch (originalPolicy.policy.getSetValue().getBehavior()) {
       case UNDEFINED:
@@ -600,14 +605,14 @@ public final class InvocationPolicyEnforcer {
                   "User set a value for %s which is not permitted by the invocation policy. This"
                       + " flag value will always be overridden to %s. %s",
                   optionDefinition,
-                  flagPolicy.policy.getSetValue().getFlagValueList(),
-                  flagPolicy.policy.getCustomErrorMessage()));
+                  toInternal(flagPolicy.policy.getSetValue().getFlagValueList()),
+                  unicodeToInternal(flagPolicy.policy.getCustomErrorMessage())));
         }
         break;
     }
 
     // Set all the flag values from the policy.
-    for (String flagValue : setValue.getFlagValueList()) {
+    for (String flagValue : toInternal(setValue.getFlagValueList())) {
       if (valueDescription == null) {
         logger.at(loglevel).log(
             "Setting value for %s from invocation policy to '%s', overriding the default value "
@@ -657,6 +662,12 @@ public final class InvocationPolicyEnforcer {
               clearedFlagName,
               clearedFlagDefaultValue != null ? clearedFlagDefaultValue.toString() : ""));
     }
+  }
+
+  private static ImmutableList<String> toInternal(List<String> unicodeStrings) {
+    return unicodeStrings.stream()
+        .map(StringEncoding::unicodeToInternal)
+        .collect(toImmutableList());
   }
 
   /** Checks the user's flag values against a filtering function. */

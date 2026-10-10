@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.python;
 
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.util.Collection;
 import java.util.List;
@@ -66,8 +68,12 @@ public final class PyCommon {
 
     PythonInfo info =
         PythonInfo.newBuilder()
-            .addAllSourceFile(Artifact.toExecPaths(sources))
-            .addAllDepFile(Artifact.toExecPaths(dependencies.toList()))
+            .addAllSourceFile(
+                Iterables.transform(
+                    Artifact.toExecPaths(sources), StringEncoding::internalToUnicode))
+            .addAllDepFile(
+                Iterables.transform(
+                    Artifact.toExecPaths(dependencies.toList()), StringEncoding::internalToUnicode))
             .build();
 
     return new PyPseudoAction(

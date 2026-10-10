@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Target;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
@@ -38,7 +40,8 @@ public class KnownTargets extends BaseCache<Pair<String, String>, Target> {
       throws IOException, InterruptedException {
     String labelString = targetIdentifier.getFirst();
     String ruleClassString = targetIdentifier.getSecond();
-    Target.Builder targetBuilder = Target.newBuilder().setId(id).setLabel(labelString);
+    Target.Builder targetBuilder =
+        Target.newBuilder().setId(id).setLabel(internalToUnicode(labelString));
     if (ruleClassString != null) {
       targetBuilder.setRuleClassId(
           knownRuleClassStrings.dataToIdAndStreamOutputProto(ruleClassString));

@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.hash.Hashing.md5;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -156,7 +158,8 @@ public class BazelOutputService implements OutputService {
 
   private static PathFragment constructOutputPathTarget(
       PathFragment outputPathPrefix, StartBuildResponse response) throws AbruptExitException {
-    var outputPathSuffix = PathFragment.create(response.getOutputPathSuffix());
+    var outputPathSuffixString = unicodeToInternal(response.getOutputPathSuffix());
+    var outputPathSuffix = PathFragment.create(outputPathSuffixString);
     if (outputPathPrefix.isEmpty() && !outputPathSuffix.isAbsolute()) {
       throw new AbruptExitException(
           DetailedExitCode.of(
@@ -165,9 +168,7 @@ public class BazelOutputService implements OutputService {
                       String.format(
                           "Expect StartBuildResponse.output_path_suffix to be an absolute path"
                               + " (because StartBuildRequest.output_path_prefix is empty), got %s.",
-                          outputPathSuffix.isEmpty()
-                              ? "an empty string"
-                              : response.getOutputPathSuffix()))
+                          outputPathSuffix.isEmpty() ? "an empty string" : outputPathSuffixString))
                   .setExecution(Execution.newBuilder().setCode(Code.EXECUTION_UNKNOWN))
                   .build()));
     } else if (outputPathSuffix.isAbsolute()) {
@@ -178,7 +179,7 @@ public class BazelOutputService implements OutputService {
                       String.format(
                           "Expect StartBuildResponse.output_path_suffix to be a relative path, got"
                               + " %s.",
-                          response.getOutputPathSuffix()))
+                          outputPathSuffixString))
                   .setExecution(Execution.newBuilder().setCode(Code.EXECUTION_UNKNOWN))
                   .build()));
     } else if (outputPathSuffix.containsUplevelReferences()) {
@@ -234,8 +235,8 @@ public class BazelOutputService implements OutputService {
                         .setInstanceName(remoteInstanceName)
                         .setDigestFunction(digestFunction)
                         .build()))
-            .setOutputPathPrefix(outputPathPrefix.toString())
-            .putOutputPathAliases(outputPath.toString(), ".")
+            .setOutputPathPrefix(internalToUnicode(outputPathPrefix.toString()))
+            .putOutputPathAliases(internalToUnicode(outputPath.toString()), ".")
             .build();
 
     StartBuildResponse response;
@@ -302,7 +303,7 @@ public class BazelOutputService implements OutputService {
         }
         request.addArtifacts(
             StageArtifactsRequest.Artifact.newBuilder()
-                .setPath(path)
+                .setPath(internalToUnicode(path))
                 .setLocator(
                     Any.pack(FileArtifactLocator.newBuilder().setDigest(file.digest()).build()))
                 .build());
@@ -458,7 +459,7 @@ public class BazelOutputService implements OutputService {
           requestSize += entrySize;
           builder.addArtifacts(
               FinalizeArtifactsRequest.Artifact.newBuilder()
-                  .setPath(path)
+                  .setPath(internalToUnicode(path))
                   .setLocator(Any.pack(FileArtifactLocator.newBuilder().setDigest(digest).build()))
                   .build());
         }
@@ -673,7 +674,7 @@ public class BazelOutputService implements OutputService {
         if (pathString == null) {
           unsupportedPathIndexSet.add(index);
         } else {
-          request.addPaths(pathString);
+          request.addPaths(internalToUnicode(pathString));
         }
         ++index;
       }
@@ -707,7 +708,8 @@ public class BazelOutputService implements OutputService {
         } else if (stat.hasSymlink()) {
           // TODO(chiwang): The target is currently unused by the call site, instead it resolves the
           //  symlink manually. Optimize it.
-          result.add(new BazelOutputServiceSymlink(stat.getSymlink().getTarget()));
+          result.add(
+              new BazelOutputServiceSymlink(unicodeToInternal(stat.getSymlink().getTarget())));
         } else if (stat.hasDirectory()) {
           result.add(new BazelOutputServiceDirectory());
         } else {
@@ -787,7 +789,10 @@ public class BazelOutputService implements OutputService {
         }
 
         var request =
-            BatchStatRequest.newBuilder().setBuildId(buildId).addPaths(pathString).build();
+            BatchStatRequest.newBuilder()
+                .setBuildId(buildId)
+                .addPaths(internalToUnicode(pathString))
+                .build();
         BatchStatResponse response;
         try {
           response = batchStat(request);

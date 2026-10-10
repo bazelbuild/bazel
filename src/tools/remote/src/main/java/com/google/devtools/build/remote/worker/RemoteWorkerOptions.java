@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
-import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.util.ResourceConverter;
@@ -36,7 +36,7 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   private static final class PathFragmentConverter extends Converter.Contextless<PathFragment> {
     @Override
     public PathFragment convert(String value) {
-      return PathFragment.create(unicodeToInternal(value));
+      return PathFragment.create(platformToInternal(value));
     }
 
     @Override

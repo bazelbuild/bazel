@@ -24,6 +24,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceG
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
@@ -120,9 +122,9 @@ public class BazelBuildEventServiceModule
         ImmutableSet.<String>builder()
             .add("protocol_name=BEP")
             .add("command_name=" + commandName)
-            .addAll(systemKeywords);
+            .addAll(Lists.transform(systemKeywords, StringEncoding::internalToUnicode));
     for (String userKeyword : userKeywords) {
-      builder.add("user_keyword=" + userKeyword);
+      builder.add("user_keyword=" + StringEncoding.internalToUnicode(userKeyword));
     }
     return builder.build();
   }

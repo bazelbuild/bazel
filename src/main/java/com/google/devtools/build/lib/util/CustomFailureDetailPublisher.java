@@ -34,8 +34,9 @@ public class CustomFailureDetailPublisher {
 
   private CustomFailureDetailPublisher() {}
 
+  /** Sets the path of the file to write the failure detail to, as an internal string. */
   public static void setFailureDetailFilePath(String path) {
-    failureDetailFilePath = Paths.get(path);
+    failureDetailFilePath = Paths.get(StringEncoding.internalToPlatform(path));
   }
 
   @VisibleForTesting

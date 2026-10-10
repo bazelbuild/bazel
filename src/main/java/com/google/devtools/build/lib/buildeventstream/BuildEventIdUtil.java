@@ -14,13 +14,17 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ActionCompletedId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -37,11 +41,11 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public final class BuildEventIdUtil {
   private static String internLabel(Label label) {
-    return label.toString().intern();
+    return internalToUnicode(label.toString()).intern();
   }
 
   private static String internLabel(String label) {
-    return label.intern();
+    return internalToUnicode(label).intern();
   }
 
   private static final Interner<ConfigurationId> CONFIGURATION_ID_INTERNER =
@@ -60,7 +64,9 @@ public final class BuildEventIdUtil {
 
   public static BuildEventId unknownBuildEventId(String details) {
     BuildEventId.UnknownBuildEventId id =
-        BuildEventId.UnknownBuildEventId.newBuilder().setDetails(details).build();
+        BuildEventId.UnknownBuildEventId.newBuilder()
+            .setDetails(internalToUnicode(details))
+            .build();
     return BuildEventId.newBuilder().setUnknown(id).build();
   }
 
@@ -156,7 +162,9 @@ public final class BuildEventIdUtil {
 
   private static BuildEventId targetPatternExpanded(List<String> targetPattern, boolean skipped) {
     BuildEventId.PatternExpandedId patternId =
-        BuildEventId.PatternExpandedId.newBuilder().addAllPattern(targetPattern).build();
+        BuildEventId.PatternExpandedId.newBuilder()
+            .addAllPattern(Lists.transform(targetPattern, StringEncoding::internalToUnicode))
+            .build();
     BuildEventId.Builder builder = BuildEventId.newBuilder();
     if (skipped) {
       builder.setPatternSkipped(patternId);
@@ -184,7 +192,7 @@ public final class BuildEventIdUtil {
     BuildEventId.TargetConfiguredId configuredId =
         BuildEventId.TargetConfiguredId.newBuilder()
             .setLabel(internLabel(label))
-            .setAspect(aspect)
+            .setAspect(internalToUnicode(aspect))
             .build();
     return BuildEventId.newBuilder().setTargetConfigured(configuredId).build();
   }
@@ -222,7 +230,7 @@ public final class BuildEventIdUtil {
         BuildEventId.TargetCompletedId.newBuilder()
             .setLabel(internLabel(target))
             .setConfiguration(configId)
-            .setAspect(aspect)
+            .setAspect(internalToUnicode(aspect))
             .build();
     return BuildEventId.newBuilder().setTargetCompleted(targetId).build();
   }
@@ -234,7 +242,7 @@ public final class BuildEventIdUtil {
   public static BuildEventId actionCompleted(
       PathFragment path, @Nullable Label label, @Nullable String configurationChecksum) {
     ActionCompletedId.Builder actionId =
-        ActionCompletedId.newBuilder().setPrimaryOutput(path.toString());
+        ActionCompletedId.newBuilder().setPrimaryOutput(internalToUnicode(path.toString()));
     if (label != null) {
       actionId.setLabel(internLabel(label));
     }

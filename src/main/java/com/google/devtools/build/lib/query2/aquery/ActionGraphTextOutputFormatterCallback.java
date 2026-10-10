@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.aquery;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.query2.aquery.AqueryUtils.getActionInputs;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -184,7 +185,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append(labelPrinter.toString(actionOwner.getLabel()))
           .append('\n')
           .append("  Configuration: ")
-          .append(configProto.getMnemonic())
+          .append(unicodeToInternal(configProto.getMnemonic()))
           .append('\n');
       if (actionOwner.getExecutionPlatform() != null) {
         stringBuilder

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -232,7 +233,9 @@ public final class CanonicalizeCommand implements BlazeCommand {
 
     InvocationPolicy policy;
     try {
-      policy = InvocationPolicyParser.parsePolicy(canonicalizeOptions.getInvocationPolicy());
+      policy =
+          InvocationPolicyParser.parsePolicy(
+              internalToUnicode(canonicalizeOptions.getInvocationPolicy()));
     } catch (OptionsParsingException e) {
       return reportAndCreateCommandFailure(
           env, e.getMessage(), FailureDetails.Command.Code.INVOCATION_POLICY_PARSE_FAILURE);
