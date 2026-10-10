@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
@@ -559,7 +560,7 @@ public class DownloadManager {
               ? ""
               : URI.create(url.getScheme() + ":" + rawPath).getSchemeSpecificPart();
     }
-    return path == null ? "" : PathFragment.create(path).getBaseName();
+    return path == null ? "" : PathFragment.create(unicodeToInternal(path)).getBaseName();
   }
 
   private static class CacheProgress implements ExtendedEventHandler.FetchProgress {
