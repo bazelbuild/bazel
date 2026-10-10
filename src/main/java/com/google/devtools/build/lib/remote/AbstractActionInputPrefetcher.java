@@ -382,25 +382,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataSupplier metadataSupplier,
       Priority priority,
       Reason reason) {
-    List<ActionInput> files = new ArrayList<>();
-
-    for (ActionInput input : inputs) {
-      if (!RemoteOutputChecker.mayBeRemote(input)) {
-        continue;
-      }
-
-      // Skip empty tree artifacts (non-empty tree artifacts should have already been expanded).
-      if (input.isDirectory()) {
-        continue;
-      }
-
-      files.add(input);
-    }
-
-    if (files.isEmpty()) {
-      return immediateVoidFuture();
-    }
-
     // Collect directories whose output permissions must be restored at the end of this call,
     // grouped by tree root for synchronization. Keeping permission restoration scoped to this
     // prefetchFiles call avoids toggling shared ancestors between child finalizations. A concurrent
@@ -409,12 +390,28 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     SetMultimap<Path, Path> directoriesByTreeRoot = HashMultimap.create();
 
     // Using plain futures to avoid RxJava overheads.
-    List<ListenableFuture<Void>> transfers = new ArrayList<>(files.size());
+    List<ListenableFuture<Void>> transfers = new ArrayList<>();
     try (var s = Profiler.instance().profile("compose prefetches")) {
-      for (var file : files) {
-        transfers.add(
-            prefetchFile(action, directoriesByTreeRoot, metadataSupplier, file, priority, reason));
+      for (ActionInput input : inputs) {
+        if (!RemoteOutputChecker.mayBeRemote(input)) {
+          continue;
+        }
+
+        // Skip empty tree artifacts (non-empty tree artifacts should have already been expanded).
+        if (input.isDirectory()) {
+          continue;
+        }
+
+        var transfer =
+            prefetchFile(action, directoriesByTreeRoot, metadataSupplier, input, priority, reason);
+        if (transfer != null) {
+          transfers.add(transfer);
+        }
       }
+    }
+
+    if (transfers.isEmpty()) {
+      return immediateVoidFuture();
     }
 
     ListenableFuture<Void> mergedTransfer;
@@ -446,6 +443,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         directExecutor());
   }
 
+  /**
+   * Prefetches a single input.
+   *
+   * @return a future that is completed once the input has been prefetched, or null if there is
+   *     nothing left to do for it.
+   */
+  @Nullable
   private ListenableFuture<Void> prefetchFile(
       @Nullable ActionExecutionMetadata action,
       SetMultimap<Path, Path> directoriesByTreeRoot,
@@ -456,13 +460,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     try {
       if (input instanceof VirtualActionInput virtualActionInput) {
         prefetchVirtualActionInput(virtualActionInput);
-        return immediateVoidFuture();
+        return null;
       }
 
       // Metadata may legitimately be missing, e.g. if this is an optional test output.
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
       if (metadata == null) {
-        return immediateVoidFuture();
+        return null;
       }
 
       // Regular files that are already present locally and have no symlinks to plant only need to
@@ -473,7 +477,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
           && metadata.getResolvedPath() == null
           && !(input instanceof TreeFileArtifact)
           && rewoundActionOutputs.isEmpty()) {
-        return immediateVoidFuture();
+        return null;
       }
 
       Path inputPath =
@@ -489,7 +493,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         if (inputPath.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
           lazyMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
         }
-        return immediateVoidFuture();
+        return null;
       }
 
       var symlinks = getSymlinks(input, inputPath, metadata, metadataSupplier);
@@ -500,7 +504,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       if (!canDownloadFile(inputPath, metadata)) {
         // If the artifact is a declared ("unresolved") symlink, it can't be "downloaded", but the
         // symlink logic above creates it.
-        return toListenableFuture(plantSymlinks);
+        return symlinks.isEmpty() ? null : toListenableFuture(plantSymlinks);
       }
 
       if (!symlinks.isEmpty()) {

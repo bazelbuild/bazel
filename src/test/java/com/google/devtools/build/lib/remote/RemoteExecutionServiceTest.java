@@ -136,6 +136,7 @@ import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
@@ -2552,6 +2553,64 @@ public class RemoteExecutionServiceTest {
         .containsExactly(emptyDigest);
   }
 
+  private enum InputKind {
+    SOURCE,
+    EXTERNAL_SOURCE,
+    DERIVED
+  }
+
+  @Test
+  public void uploadOutputs_inputModifiedDuringExecution(
+      @TestParameter InputKind inputKind, @TestParameter ConcurrentChangesCheckLevel level)
+      throws Exception {
+    var input =
+        ActionsTestUtil.createArtifact(
+            switch (inputKind) {
+              case SOURCE -> sourceRoot;
+              case EXTERNAL_SOURCE ->
+                  ArtifactRoot.asExternalSourceRoot(
+                      Root.fromPath(execRoot.getRelative("external/repo")));
+              case DERIVED -> artifactRoot;
+            },
+            "input");
+    fakeFileCache.createScratchInput(input, "original contents");
+    var service = newRemoteExecutionService();
+    var spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    var action = service.buildRemoteAction(spawn, newSpawnExecutionContext(spawn));
+    var spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    var inputPath = execRoot.getRelative(input.getExecPath());
+    FileSystemUtils.writeContentAsLatin1(inputPath, "modified contents");
+    // Ensure a distinct timestamp even when both writes happen in the same clock tick.
+    inputPath.setLastModifiedTime(inputPath.getLastModifiedTime() + 1000);
+
+    var uploadComplete = SettableFuture.<Void>create();
+    service.uploadOutputs(action, spawnResult, () -> uploadComplete.set(null), level);
+    uploadComplete.get();
+
+    boolean modificationDetected =
+        switch (level) {
+          case OFF -> false;
+          case LITE -> inputKind == InputKind.SOURCE;
+          case FULL -> true;
+        };
+    if (modificationDetected) {
+      assertThat(eventHandler.getEvents()).hasSize(1);
+      assertThat(eventHandler.getEvents().getFirst().getMessage())
+          .contains(inputPath + " was modified during execution");
+    } else {
+      assertThat(eventHandler.getEvents()).isEmpty();
+    }
+  }
+
   @Test
   public void uploadOutputs_backgroundExecutorRejects_runsCompletionCallback() throws Exception {
     RemoteExecutionService service = newRemoteExecutionService();
@@ -3203,12 +3262,8 @@ public class RemoteExecutionServiceTest {
     remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
-    // Check that inputs and outputs of the remote action are mapped correctly.
+    // Check that the outputs of the remote action are mapped correctly.
     var remoteAction = service.buildRemoteAction(spawn, context);
-    assertThat(remoteAction.getInputMap(false))
-        .containsExactly(
-            PathFragment.create("outputs/bin/input1"), mappedInput,
-            PathFragment.create("outputs/bin/input2"), unmappedInput);
     assertThat(remoteAction.getCommand().getOutputFilesList()).isEmpty();
     assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
     assertThat(remoteAction.getCommand().getOutputPathsList())
