@@ -3443,6 +3443,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
     BazelDepGraphValue depGraphValue = evalResult.get(BazelDepGraphValue.KEY);
+    if (evalResult.hasError() || depGraphValue == null) {
+      return ImmutableMap.of();
+    }
     var bzlmodDepGraph = depGraphValue.getDepGraph();
     EvaluationResult<RepositoryMappingValue> repoMappings =
         evaluate(
