@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -69,15 +71,24 @@ public final class HttpUtils {
 
   /** Opens a {@code file:} URL, whose path the JDK decodes as Unicode. */
   static URLConnection openFileConnection(URI url) throws IOException {
+    URLConnection connection = null;
     String path = url.getPath();
     if (path != null
         && (url.getHost() == null || Ascii.equalsIgnoreCase(url.getHost(), "localhost"))) {
       String platformPath = internalToPlatform(unicodeToInternal(path));
       if (!platformPath.equals(path)) {
-        return new File(platformPath).toURI().toURL().openConnection();
+        connection = new File(platformPath).toURI().toURL().openConnection();
       }
     }
-    return url.toURL().openConnection();
+    if (connection == null) {
+      connection = url.toURL().openConnection();
+    }
+    try {
+      connection.connect();
+    } catch (FileNotFoundException e) {
+      throw new FileNotFoundException(platformToInternal(e.getMessage()));
+    }
+    return connection;
   }
 
   static void checkUrlsArgument(Collection<URI> uris) {
