@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote.chunking;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.RepMaxCdcParams;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -32,6 +34,12 @@ public record RepMaxCdcChunkingConfig(int minChunkSize, int horizonSize) impleme
 
   /** The default horizon size, expressed as a multiple of the minimum chunk size. */
   public static final int DEFAULT_HORIZON_SIZE_FACTOR = 8;
+
+  // Keep server-provided parameters bounded because each chunking session allocates a buffer of
+  // twice (2 * minChunkSize + horizonSize) bytes. These maxima cap that buffer at 320 MiB.
+  private static final int MAX_MIN_CHUNK_SIZE = 16 * 1024 * 1024;
+  private static final int MAX_HORIZON_SIZE =
+      DEFAULT_HORIZON_SIZE_FACTOR * MAX_MIN_CHUNK_SIZE;
 
   @Override
   public ChunkingFunction.Value chunkingFunction() {
@@ -55,22 +63,24 @@ public record RepMaxCdcChunkingConfig(int minChunkSize, int horizonSize) impleme
   }
 
   /**
-   * Creates a configuration from the parameters advertised by the server, replacing values outside
-   * the expected range with defaults.
+   * Creates a configuration from the parameters advertised by the server, failing if values are
+   * outside the expected range.
    */
   static RepMaxCdcChunkingConfig fromParams(RepMaxCdcParams params) {
-    int minSize = DEFAULT_MIN_CHUNK_SIZE;
     long configMinSize = params.getMinChunkSizeBytes();
-    if (configMinSize >= 1024 && configMinSize <= 1024 * 1024) {
-      minSize = (int) configMinSize;
-    }
+    checkArgument(
+        configMinSize >= 1024 && configMinSize <= MAX_MIN_CHUNK_SIZE,
+        "min_chunk_size_bytes must be between 1024 and %s, got %s",
+        MAX_MIN_CHUNK_SIZE,
+        configMinSize);
 
-    int horizonSize = DEFAULT_HORIZON_SIZE_FACTOR * minSize;
     long configHorizonSize = params.getHorizonSizeBytes();
-    if (configHorizonSize >= 0 && configHorizonSize <= 8 * 1024 * 1024) {
-      horizonSize = (int) configHorizonSize;
-    }
+    checkArgument(
+        configHorizonSize >= 0 && configHorizonSize <= MAX_HORIZON_SIZE,
+        "horizon_size_bytes must be between 0 and %s, got %s",
+        MAX_HORIZON_SIZE,
+        configHorizonSize);
 
-    return new RepMaxCdcChunkingConfig(minSize, horizonSize);
+    return new RepMaxCdcChunkingConfig((int) configMinSize, (int) configHorizonSize);
   }
 }
