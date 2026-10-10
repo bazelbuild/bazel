@@ -13,91 +13,85 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.zstd;
 
-import static java.lang.Math.max;
-
 import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
-import com.google.common.base.Preconditions;
-import java.io.FilterInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
+import java.util.Objects;
 
-/** A {@link FilterInputStream} that use zstd to compress the content. */
-public class ZstdCompressingInputStream extends FilterInputStream {
-  // We want the buffer to be able to contain at least:
-  //   - Magic number: 4 bytes
-  //   - FrameHeader 14 bytes
-  //   - Block Header: 3 bytes
-  //   - First block byte
-  // This guarantees that we can always compress at least
-  // 1 byte and write it to the pipe without blocking.
-  public static final int MIN_BUFFER_SIZE = 4 + 14 + 3 + 1;
+/** An {@link InputStream} that uses zstd to compress its input. */
+public class ZstdCompressingInputStream extends InputStream {
+  // Reuse a bounded input buffer. Short reads must not force short compressed blocks.
+  private static final int BUFFER_SIZE = 16 * 1024;
 
-  private final PipedInputStream pis;
+  private final InputStream in;
+  private final byte[] inputBuffer = new byte[BUFFER_SIZE];
+  private final CompressedBuffer compressed = new CompressedBuffer();
+  private ByteArrayInputStream compressedInput = new ByteArrayInputStream(new byte[0]);
   private ZstdOutputStreamNoFinalizer zos;
-  private final int size;
 
   public ZstdCompressingInputStream(InputStream in) throws IOException {
-    this(in, 512);
-  }
-
-  ZstdCompressingInputStream(InputStream in, int size) throws IOException {
-    super(in);
-    Preconditions.checkArgument(
-        size >= MIN_BUFFER_SIZE, "The buffer size must be at least %s bytes", MIN_BUFFER_SIZE);
-    this.size = size;
-    this.pis = new PipedInputStream(size);
-    this.zos = new ZstdOutputStreamNoFinalizer(new PipedOutputStream(pis));
+    this.in = Objects.requireNonNull(in);
+    zos = new ZstdOutputStreamNoFinalizer(compressed);
   }
 
   private void reFill() throws IOException {
-    byte[] buf = new byte[size];
-    int len = super.read(buf, 0, max(0, size - pis.available() - MIN_BUFFER_SIZE + 1));
-    if (len == -1) {
-      zos.close();
-      zos = null;
-    } else {
-      zos.write(buf, 0, len);
-      zos.flush();
+    if (compressedInput.available() > 0 || zos == null) {
+      return;
     }
+    compressed.reset();
+    // A write may consume input without producing output. Keep feeding the compressor until a
+    // natural block is emitted, or finalize the frame at EOF. Stop as soon as there is output:
+    // only one input buffer plus zstd's pending block can accumulate, regardless of blob size.
+    while (compressed.size() == 0 && zos != null) {
+      int len = in.read(inputBuffer);
+      if (len == -1) {
+        zos.close();
+        zos = null;
+      } else {
+        zos.write(inputBuffer, 0, len);
+      }
+    }
+    compressedInput = compressed.inputStream();
   }
 
   @Override
   public int read() throws IOException {
-    if (pis.available() == 0) {
-      if (zos == null) {
-        return -1;
-      }
-      reFill();
-    }
-    return pis.read();
-  }
-
-  @Override
-  public int read(byte[] b) throws IOException {
-    return read(b, 0, b.length);
+    reFill();
+    return compressedInput.read();
   }
 
   @Override
   public int read(byte[] b, int off, int len) throws IOException {
-    int count = 0;
-    int n = len > 0 ? -1 : 0;
-    while (count < len && (pis.available() > 0 || zos != null)) {
-      if (pis.available() == 0) {
-        reFill();
-      }
-      n = pis.read(b, count + off, len - count);
-      count += max(0, n);
+    Objects.checkFromIndexSize(off, len, b.length);
+    if (len == 0) {
+      return 0;
     }
-    return count > 0 ? count : n;
+    reFill();
+    return compressedInput.read(b, off, len);
   }
 
   @Override
   public void close() throws IOException {
-    if (zos != null) {
-      zos.close();
+    try {
+      if (zos != null) {
+        zos.close();
+        zos = null;
+      }
+    } finally {
+      in.close();
     }
-    in.close();
+  }
+
+  private static final class CompressedBuffer extends ByteArrayOutputStream {
+    CompressedBuffer() {
+      super(BUFFER_SIZE);
+    }
+
+    ByteArrayInputStream inputStream() {
+      // The buffer is only reset/reused after this view has been fully consumed.
+      return new ByteArrayInputStream(buf, 0, count);
+    }
   }
 }
