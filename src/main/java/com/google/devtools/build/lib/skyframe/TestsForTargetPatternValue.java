@@ -58,9 +58,11 @@ public final class TestsForTargetPatternValue implements SkyValue {
   @ThreadSafe
   static final class TestsForTargetPatternKey implements SkyKey {
     private final ImmutableSortedSet<Label> targets;
+    private final int hashCode;
 
     TestsForTargetPatternKey(ImmutableSortedSet<Label> targets) {
       this.targets = targets;
+      this.hashCode = targets.hashCode();
     }
 
     @Override
@@ -79,7 +81,7 @@ public final class TestsForTargetPatternValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return targets.hashCode();
+      return hashCode;
     }
 
     @Override
