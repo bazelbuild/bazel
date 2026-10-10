@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -45,14 +47,16 @@ public class AqueryActionFilter {
    * aquery command.
    *
    * @param function the name of the aquery function (inputs, outputs, mnemonic)
-   * @param input the string to be matched against
+   * @param input the internal string to be matched against
    */
   public boolean matchesAllPatternsForFunction(String function, String input) {
     if (!hasFilterForFunction(function)) {
       return false;
     }
 
-    return filterMap.get(function).stream().allMatch(pattern -> pattern.matcher(input).matches());
+    String unicodeInput = internalToUnicode(input);
+    return filterMap.get(function).stream()
+        .allMatch(pattern -> pattern.matcher(unicodeInput).matches());
   }
 
   /** Builder class for {@code AqueryActionFilter} */

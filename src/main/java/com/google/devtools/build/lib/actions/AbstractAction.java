@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -570,20 +572,23 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
       throws CommandLineExpansionException, InterruptedException {
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
-            .setOwner(owner.getLabel().toString())
+            .setOwner(internalToUnicode(owner.getLabel().toString()))
             .setId(getKey(actionKeyContext, /* inputMetadataProvider= */ null))
-            .setMnemonic(getMnemonic());
+            .setMnemonic(internalToUnicode(getMnemonic()));
     ImmutableList<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
     AspectDescriptor lastAspect =
         aspectDescriptors.isEmpty() ? null : Iterables.getLast(aspectDescriptors);
     if (lastAspect != null) {
-      result.setAspectName(lastAspect.getAspectClass().getName());
+      result.setAspectName(internalToUnicode(lastAspect.getAspectClass().getName()));
 
       for (Map.Entry<String, Collection<String>> entry :
           lastAspect.getParameters().getAttributes().asMap().entrySet()) {
         result.putAspectParameters(
-            entry.getKey(),
-            ExtraActionInfo.StringList.newBuilder().addAllValue(entry.getValue()).build());
+            internalToUnicode(entry.getKey()),
+            ExtraActionInfo.StringList.newBuilder()
+                .addAllValue(
+                    Iterables.transform(entry.getValue(), StringEncoding::internalToUnicode))
+                .build());
       }
     }
     return result;

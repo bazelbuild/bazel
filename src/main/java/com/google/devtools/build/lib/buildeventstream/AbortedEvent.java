@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Abo
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -63,7 +64,11 @@ public final class AbortedEvent extends GenericBuildEvent {
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     return GenericBuildEvent.protoChaining(this)
-        .setAborted(Aborted.newBuilder().setReason(reason).setDescription(description).build())
+        .setAborted(
+            Aborted.newBuilder()
+                .setReason(reason)
+                .setDescription(StringEncoding.internalToUnicodeLenient(description))
+                .build())
         .build();
   }
 }

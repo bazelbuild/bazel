@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.OutputFormat;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
@@ -128,7 +129,7 @@ public class RepoOutputFormatter {
   private void printProtoJson(String key, RepoDefinition repoDefinition) {
     Build.Repository serialized = serializeRepoDefinitionAsProto(key, repoDefinition);
     try {
-      printer.println(jsonPrinter.print(serialized));
+      printer.println(unicodeToInternal(jsonPrinter.print(serialized)));
     } catch (InvalidProtocolBufferException e) {
       throw new IllegalArgumentException(e);
     }

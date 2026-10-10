@@ -245,8 +245,10 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
       // Files.createDirectories will handle this case normally, but if the existing
       // file is a symlink to a directory then it still throws. Swallow this.
       if (!isDirectory(path, /* followSymlinks= */ true)) {
-        throw e;
+        throw translateNioToIoException(path, e);
       }
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     }
   }
 
@@ -516,6 +518,8 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
       throws IOException {
     try {
       Files.createLink(getNioPath(linkPath), getNioPath(originalPath));
+    } catch (IOException e) {
+      throw translateNioToIoException(linkPath, e);
     } catch (InvalidPathException e) {
       throw new IOException(linkPath.getPathString() + ERR_NO_SUCH_FILE_OR_DIR, e);
     }

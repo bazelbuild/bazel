@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -53,6 +54,11 @@ public class SynchronizedOutputStream extends OutputStream {
 
   private long count;
 
+  // The bytes of an incomplete UTF-8 sequence at the end of the last read, which are prepended to
+  // the next read.
+  @GuardedBy("this")
+  private byte[] incompleteSuffix = new byte[0];
+
   // The event streamer that is supposed to flush stdout/stderr.
   private BuildEventStreamer streamer;
 
@@ -74,10 +80,35 @@ public class SynchronizedOutputStream extends OutputStream {
    * retained to a constant amount.
    */
   public synchronized Iterable<String> readAndReset() {
-    String content = new String(buf, 0, (int) count, UTF_8);
+    var bytes = buf;
+    var length = (int) count;
+    if (incompleteSuffix.length > 0) {
+      bytes = new byte[incompleteSuffix.length + length];
+      System.arraycopy(incompleteSuffix, 0, bytes, 0, incompleteSuffix.length);
+      System.arraycopy(buf, 0, bytes, incompleteSuffix.length, length);
+      length = bytes.length;
+    }
+    var completeLength = lengthWithoutIncompleteUtf8Suffix(bytes, length);
+    String content = new String(bytes, 0, completeLength, UTF_8);
+    incompleteSuffix = Arrays.copyOfRange(bytes, completeLength, length);
     buf = new byte[64];
     count = 0;
     return content.isEmpty() ? ImmutableList.of() : maxChunkSizeSplitter.split(content);
+  }
+
+  private static int lengthWithoutIncompleteUtf8Suffix(byte[] bytes, int length) {
+    // A UTF-8 sequence is at most four bytes long.
+    for (var i = length - 1; i >= Math.max(0, length - 3); i--) {
+      var b = bytes[i] & 0xFF;
+      if (b < 0x80) {
+        return length;
+      }
+      if (b >= 0xC0) {
+        var sequenceLength = b >= 0xF0 ? 4 : b >= 0xE0 ? 3 : 2;
+        return length - i < sequenceLength ? i : length;
+      }
+    }
+    return length;
   }
 
   @Override

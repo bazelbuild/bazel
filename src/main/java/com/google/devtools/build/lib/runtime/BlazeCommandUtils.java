@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -141,15 +143,16 @@ public class BlazeCommandUtils {
 
     String optionStr = parser.describeOptions(helpVerbosity).replace("%{product}", productName);
 
-    return template
-            .replace("%{product}", productName)
-            .replace("%{command}", topic)
-            .replace("%{options}", optionStr)
-            .trim()
-        + "\n\n"
-        + (helpVerbosity == HelpVerbosity.MEDIUM
-            ? "(Use 'help --long' for full details or --short to just enumerate options.)\n"
-            : "");
+    return unicodeToInternal(
+        template
+                .replace("%{product}", productName)
+                .replace("%{command}", topic)
+                .replace("%{options}", optionStr)
+                .trim()
+            + "\n\n"
+            + (helpVerbosity == HelpVerbosity.MEDIUM
+                ? "(Use 'help --long' for full details or --short to just enumerate options.)\n"
+                : ""));
   }
 
   /**

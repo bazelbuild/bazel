@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.exec;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -388,7 +389,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
 
     if (spawnResult.getExecutorHostName() != null) {
-      executionInfo.setHostname(spawnResult.getExecutorHostName());
+      executionInfo.setHostname(internalToUnicode(spawnResult.getExecutorHostName()));
     }
 
     SpawnMetrics sm = spawnResult.getMetrics();

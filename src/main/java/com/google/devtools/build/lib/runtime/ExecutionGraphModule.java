@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -449,8 +450,8 @@ public class ExecutionGraphModule extends BlazeModule {
                       .setStartTimestampMillis(startMillis)
                       .setDurationMillis((int) (finishMillis - startMillis))
                       .setProcessMillis((int) (finishMillis - startMillis)))
-              .setDescription(action.prettyPrint())
-              .setMnemonic(action.getMnemonic());
+              .setDescription(internalToUnicode(action.prettyPrint()))
+              .setMnemonic(internalToUnicode(action.getMnemonic()));
       if (depType != DependencyInfo.NONE) {
         node.setIndex(index);
       }
@@ -472,10 +473,10 @@ public class ExecutionGraphModule extends BlazeModule {
     private static void setFieldsFromOwner(ExecutionGraph.Node.Builder node, ActionOwner owner) {
       if (owner != null) {
         if (owner.getTargetKind() != null) {
-          node.setRuleClass(owner.getTargetKind());
+          node.setRuleClass(internalToUnicode(owner.getTargetKind()));
         }
         if (owner.getLabel() != null) {
-          node.setTargetLabel(owner.getLabel().toString());
+          node.setTargetLabel(internalToUnicode(owner.getLabel().toString()));
         }
       }
     }
@@ -488,8 +489,8 @@ public class ExecutionGraphModule extends BlazeModule {
       SpawnResult spawnResult = event.getSpawnResult();
       nodeBuilder
           // TODO(vanja) consider switching prettyPrint() to description()
-          .setDescription(event.getActionMetadata().prettyPrint())
-          .setMnemonic(spawn.getMnemonic())
+          .setDescription(internalToUnicode(event.getActionMetadata().prettyPrint()))
+          .setMnemonic(internalToUnicode(spawn.getMnemonic()))
           .setRunner(spawnResult.getRunnerName())
           .setRunnerSubtype(spawnResult.getRunnerSubtype());
       if (event.getSpawnIdentifier() != null) {

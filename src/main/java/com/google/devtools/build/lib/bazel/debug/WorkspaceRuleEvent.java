@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.debug;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExecuteWasmEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExtractEvent;
@@ -56,27 +59,27 @@ public final class WorkspaceRuleEvent implements Postable {
     WorkspaceLogProtos.ExecuteEvent.Builder e =
         WorkspaceLogProtos.ExecuteEvent.newBuilder()
             .setTimeoutSeconds(timeout.intValue())
-            .setOutputDirectory(outputDirectory)
+            .setOutputDirectory(internalToUnicode(outputDirectory))
             .setQuiet(quiet);
     if (commonEnvironment != null) {
-      e = e.putAllEnvironment(commonEnvironment);
+      e = e.putAllEnvironment(toUnicode(commonEnvironment));
     }
     if (customEnvironment != null) {
-      e = e.putAllEnvironment(customEnvironment);
+      e = e.putAllEnvironment(toUnicode(customEnvironment));
     }
 
     for (String a : args) {
-      e.addArguments(a);
+      e.addArguments(internalToUnicode(a));
     }
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setExecuteEvent(e.build());
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -92,7 +95,7 @@ public final class WorkspaceRuleEvent implements Postable {
       Location location) {
     WorkspaceLogProtos.DownloadEvent.Builder e =
         WorkspaceLogProtos.DownloadEvent.newBuilder()
-            .setOutput(output)
+            .setOutput(internalToUnicode(output))
             .setSha256(sha256)
             .setIntegrity(integrity)
             .setExecutable(executable);
@@ -104,10 +107,10 @@ public final class WorkspaceRuleEvent implements Postable {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setDownloadEvent(e.build());
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -122,20 +125,20 @@ public final class WorkspaceRuleEvent implements Postable {
       Location location) {
     ExtractEvent e =
         WorkspaceLogProtos.ExtractEvent.newBuilder()
-            .setArchive(archive)
-            .setOutput(output)
-            .setStripPrefix(stripPrefix)
-            .putAllRenameFiles(renameFiles)
+            .setArchive(internalToUnicode(archive))
+            .setOutput(internalToUnicode(output))
+            .setStripPrefix(internalToUnicode(stripPrefix))
+            .putAllRenameFiles(toUnicode(renameFiles))
             .build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setExtractEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -153,12 +156,12 @@ public final class WorkspaceRuleEvent implements Postable {
       Location location) {
     WorkspaceLogProtos.DownloadAndExtractEvent.Builder e =
         WorkspaceLogProtos.DownloadAndExtractEvent.newBuilder()
-            .setOutput(output)
+            .setOutput(internalToUnicode(output))
             .setSha256(sha256)
             .setIntegrity(integrity)
             .setType(type)
-            .setStripPrefix(stripPrefix)
-            .putAllRenameFiles(renameFiles);
+            .setStripPrefix(internalToUnicode(stripPrefix))
+            .putAllRenameFiles(toUnicode(renameFiles));
     for (URI u : urls) {
       e.addUrl(u.toString());
     }
@@ -167,10 +170,10 @@ public final class WorkspaceRuleEvent implements Postable {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setDownloadAndExtractEvent(e.build());
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -180,8 +183,8 @@ public final class WorkspaceRuleEvent implements Postable {
       String path, String content, boolean executable, String context, Location location) {
     FileEvent e =
         WorkspaceLogProtos.FileEvent.newBuilder()
-            .setPath(path)
-            .setContent(content)
+            .setPath(internalToUnicode(path))
+            .setContent(internalToUnicode(content))
             .setExecutable(executable)
             .build();
 
@@ -189,10 +192,10 @@ public final class WorkspaceRuleEvent implements Postable {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setFileEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -200,16 +203,16 @@ public final class WorkspaceRuleEvent implements Postable {
   /** Creates a new WorkspaceRuleEvent for a file read event. */
   public static WorkspaceRuleEvent newReadEvent(String path, String context, Location location) {
     WorkspaceLogProtos.ReadEvent e =
-        WorkspaceLogProtos.ReadEvent.newBuilder().setPath(path).build();
+        WorkspaceLogProtos.ReadEvent.newBuilder().setPath(internalToUnicode(path)).build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setReadEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -217,16 +220,16 @@ public final class WorkspaceRuleEvent implements Postable {
   /** Creates a new WorkspaceRuleEvent for a file read event. */
   public static WorkspaceRuleEvent newDeleteEvent(String path, String context, Location location) {
     WorkspaceLogProtos.DeleteEvent e =
-        WorkspaceLogProtos.DeleteEvent.newBuilder().setPath(path).build();
+        WorkspaceLogProtos.DeleteEvent.newBuilder().setPath(internalToUnicode(path)).build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setDeleteEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -235,16 +238,19 @@ public final class WorkspaceRuleEvent implements Postable {
   public static WorkspaceRuleEvent newPatchEvent(
       String patchFile, int strip, String context, Location location) {
     WorkspaceLogProtos.PatchEvent e =
-        WorkspaceLogProtos.PatchEvent.newBuilder().setPatchFile(patchFile).setStrip(strip).build();
+        WorkspaceLogProtos.PatchEvent.newBuilder()
+            .setPatchFile(internalToUnicode(patchFile))
+            .setStrip(strip)
+            .build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setPatchEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -257,10 +263,10 @@ public final class WorkspaceRuleEvent implements Postable {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setOsEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -268,16 +274,20 @@ public final class WorkspaceRuleEvent implements Postable {
   /** Creates a new WorkspaceRuleEvent for a rename event. */
   public static WorkspaceRuleEvent newRenameEvent(
       String src, String dst, String context, Location location) {
-    RenameEvent e = WorkspaceLogProtos.RenameEvent.newBuilder().setSrc(src).setDst(dst).build();
+    RenameEvent e =
+        WorkspaceLogProtos.RenameEvent.newBuilder()
+            .setSrc(internalToUnicode(src))
+            .setDst(internalToUnicode(dst))
+            .build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setRenameEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -286,16 +296,19 @@ public final class WorkspaceRuleEvent implements Postable {
   public static WorkspaceRuleEvent newSymlinkEvent(
       String from, String to, String context, Location location) {
     SymlinkEvent e =
-        WorkspaceLogProtos.SymlinkEvent.newBuilder().setTarget(from).setPath(to).build();
+        WorkspaceLogProtos.SymlinkEvent.newBuilder()
+            .setTarget(internalToUnicode(from))
+            .setPath(internalToUnicode(to))
+            .build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setSymlinkEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -310,9 +323,9 @@ public final class WorkspaceRuleEvent implements Postable {
       Location location) {
     TemplateEvent e =
         WorkspaceLogProtos.TemplateEvent.newBuilder()
-            .setPath(path)
-            .setTemplate(template)
-            .putAllSubstitutions(substitutions)
+            .setPath(internalToUnicode(path))
+            .setTemplate(internalToUnicode(template))
+            .putAllSubstitutions(toUnicode(substitutions))
             .setExecutable(executable)
             .build();
 
@@ -320,10 +333,10 @@ public final class WorkspaceRuleEvent implements Postable {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setTemplateEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -331,16 +344,17 @@ public final class WorkspaceRuleEvent implements Postable {
   /** Creates a new WorkspaceRuleEvent for a which event. */
   public static WorkspaceRuleEvent newWhichEvent(
       String program, String context, Location location) {
-    WhichEvent e = WorkspaceLogProtos.WhichEvent.newBuilder().setProgram(program).build();
+    WhichEvent e =
+        WorkspaceLogProtos.WhichEvent.newBuilder().setProgram(internalToUnicode(program)).build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setWhichEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -349,18 +363,18 @@ public final class WorkspaceRuleEvent implements Postable {
       String modulePath, boolean compile, String allocateFn, String context, Location location) {
     LoadWasmEvent e =
         WorkspaceLogProtos.LoadWasmEvent.newBuilder()
-            .setModulePath(modulePath)
+            .setModulePath(internalToUnicode(modulePath))
             .setCompile(compile)
-            .setAllocateFn(allocateFn)
+            .setAllocateFn(internalToUnicode(allocateFn))
             .build();
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setLoadWasmEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -375,8 +389,8 @@ public final class WorkspaceRuleEvent implements Postable {
       Location location) {
     ExecuteWasmEvent e =
         WorkspaceLogProtos.ExecuteWasmEvent.newBuilder()
-            .setModulePath(modulePath)
-            .setFunction(function)
+            .setModulePath(internalToUnicode(modulePath))
+            .setFunction(internalToUnicode(function))
             .setInput(ByteString.copyFrom(input))
             .setTimeoutSeconds(timeout)
             .setMemoryLimitBytes(memoryLimit)
@@ -385,12 +399,18 @@ public final class WorkspaceRuleEvent implements Postable {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setExecuteWasmEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
+  }
+
+  private static ImmutableMap<String, String> toUnicode(Map<String, String> map) {
+    var builder = ImmutableMap.<String, String>builderWithExpectedSize(map.size());
+    map.forEach((k, v) -> builder.put(internalToUnicode(k), internalToUnicode(v)));
+    return builder.buildKeepingLast();
   }
 
   /**

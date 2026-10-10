@@ -19,6 +19,7 @@ import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -239,7 +240,9 @@ public final class InstrumentationOutputFactory {
               buildEventArtifactInstrumentationOutputBuilderSupplier,
               "Cannot create InstrumentationOutputFactory without bepOutputBuilderSupplier"),
           redirectInstrumentationOutputBuilderSupplier,
-          localTempLoggingDirPathStr != null ? localTempLoggingDirPathStr : JAVA_IO_TMPDIR.value());
+          localTempLoggingDirPathStr != null
+              ? localTempLoggingDirPathStr
+              : StringEncoding.platformToInternal(JAVA_IO_TMPDIR.value()));
     }
   }
 }

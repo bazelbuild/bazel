@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -40,6 +42,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
@@ -117,19 +120,25 @@ public final class JavaCompileActionBuilder {
     public void extend(ExtraActionInfo.Builder builder, ImmutableList<String> arguments) {
       JavaCompileInfo.Builder info =
           JavaCompileInfo.newBuilder()
-              .addAllSourceFile(Artifact.toExecPaths(sourceFiles))
-              .addAllClasspath(Artifact.toExecPaths(classpathEntries.toList()))
-              .addAllBootclasspath(Artifact.toExecPaths(bootclasspathEntries.toList()))
-              .addAllSourcepath(Artifact.toExecPaths(sourceJars))
-              .addAllJavacOpt(javacOpts)
-              .addAllProcessor(processorNames.toList())
-              .addAllProcessorpath(Artifact.toExecPaths(processorPath.toList()))
-              .setOutputjar(outputJar.getExecPathString());
+              .addAllSourceFile(toUnicodeExecPaths(sourceFiles))
+              .addAllClasspath(toUnicodeExecPaths(classpathEntries.toList()))
+              .addAllBootclasspath(toUnicodeExecPaths(bootclasspathEntries.toList()))
+              .addAllSourcepath(toUnicodeExecPaths(sourceJars))
+              .addAllJavacOpt(Iterables.transform(javacOpts, StringEncoding::internalToUnicode))
+              .addAllProcessor(
+                  Iterables.transform(processorNames.toList(), StringEncoding::internalToUnicode))
+              .addAllProcessorpath(toUnicodeExecPaths(processorPath.toList()))
+              .setOutputjar(internalToUnicode(outputJar.getExecPathString()));
       if (system.isPresent()) {
-        info.setSystem(system.get().toString());
+        info.setSystem(internalToUnicode(system.get().toString()));
       }
-      info.addAllArgument(arguments);
+      info.addAllArgument(Iterables.transform(arguments, StringEncoding::internalToUnicode));
       builder.setExtension(JavaCompileInfo.javaCompileInfo, info.build());
+    }
+
+    private static Iterable<String> toUnicodeExecPaths(Iterable<Artifact> artifacts) {
+      return Iterables.transform(
+          Artifact.toExecPaths(artifacts), StringEncoding::internalToUnicode);
     }
   }
 

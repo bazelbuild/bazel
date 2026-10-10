@@ -432,10 +432,12 @@ public final class TargetCompleteEvent
       }
       FailureDetails.FailureDetail failureDetail = detailedExitCode.getFailureDetail();
       if (failureDetail != null) {
-        builder.setFailureDetail(failureDetail);
+        builder.setFailureDetail(DetailedExitCode.toUnicode(failureDetail));
       }
     }
-    builder.addAllTag(tags).addAllOutputGroup(getOutputFilesByGroup(converters));
+    builder
+        .addAllTag(Iterables.transform(tags, StringEncoding::internalToUnicode))
+        .addAllOutputGroup(getOutputFilesByGroup(converters));
 
     if (isTest) {
       builder.setTestTimeout(Durations.fromSeconds(testTimeoutSeconds));
@@ -551,7 +553,9 @@ public final class TargetCompleteEvent
       Supplier<NestedSet<Artifact>> artifactsToReport,
       Supplier<List<Artifact>> artifactListSupplier) {
     OutputGroup.Builder builder =
-        OutputGroup.newBuilder().setName(outputGroup).setIncomplete(outputGroupIncomplete);
+        OutputGroup.newBuilder()
+            .setName(StringEncoding.internalToUnicode(outputGroup))
+            .setIncomplete(outputGroupIncomplete);
     OutputGroupFileMode fileMode = converters.getFileModeForOutputGroup(outputGroup);
     if (fileMode == OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY
         || fileMode == OutputGroupFileMode.BOTH) {

@@ -172,7 +172,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
               .getResult()
               .getBuildToolLogCollection()
               .addDirectValue(
-                  "critical path", criticalPath.toString().getBytes(StandardCharsets.UTF_8));
+                  "critical path", criticalPath.toString().getBytes(StandardCharsets.ISO_8859_1));
           logger.atInfo().log("%s", criticalPath);
           logger.atInfo().log(
               "Slowest actions:\n  %s",
@@ -243,7 +243,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
       event
           .getResult()
           .getBuildToolLogCollection()
-          .addDirectValue("process stats", spawnSummaryString.getBytes(StandardCharsets.UTF_8));
+          .addDirectValue(
+              "process stats", spawnSummaryString.getBytes(StandardCharsets.ISO_8859_1));
     } finally {
       if (criticalPathComputer != null) {
         eventBus.unregister(criticalPathComputer);

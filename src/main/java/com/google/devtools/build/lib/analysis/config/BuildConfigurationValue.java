@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
@@ -985,10 +988,15 @@ public class BuildConfigurationValue
         .setId(eventId)
         .setConfiguration(
             BuildEventStreamProtos.Configuration.newBuilder()
-                .setMnemonic(getMnemonic())
-                .setPlatformName(cpu)
-                .putAllMakeVariable(getMakeEnvironment())
-                .setCpu(cpu)
+                .setMnemonic(internalToUnicode(getMnemonic()))
+                .setPlatformName(internalToUnicode(cpu))
+                .putAllMakeVariable(
+                    getMakeEnvironment().entrySet().stream()
+                        .collect(
+                            toImmutableMap(
+                                e -> internalToUnicode(e.getKey()),
+                                e -> internalToUnicode(e.getValue()))))
+                .setCpu(internalToUnicode(cpu))
                 .setIsTool(isToolConfiguration())
                 .build());
     return new BuildConfigurationEvent(eventId, builder.build());

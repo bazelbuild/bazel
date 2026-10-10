@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.http;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
+
 import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
@@ -896,17 +899,26 @@ public final class HttpCacheClient extends RemoteCacheClient {
 
     // Root CA certificate
     if (authAndTlsOptions.getTlsCertificate() != null) {
-      sslContextBuilder =
-          sslContextBuilder.trustManager(new File(authAndTlsOptions.getTlsCertificate()));
+      try {
+        sslContextBuilder =
+            sslContextBuilder.trustManager(
+                new File(internalToPlatform(authAndTlsOptions.getTlsCertificate())));
+      } catch (IllegalArgumentException e) {
+        throw new IOException(platformToInternal(e.getMessage()), e);
+      }
     }
 
     // Optional client TLS authentication
     if (authAndTlsOptions.getTlsClientCertificate() != null
         && authAndTlsOptions.getTlsClientKey() != null) {
-      sslContextBuilder =
-          sslContextBuilder.keyManager(
-              new File(authAndTlsOptions.getTlsClientCertificate()),
-              new File(authAndTlsOptions.getTlsClientKey()));
+      try {
+        sslContextBuilder =
+            sslContextBuilder.keyManager(
+                new File(internalToPlatform(authAndTlsOptions.getTlsClientCertificate())),
+                new File(internalToPlatform(authAndTlsOptions.getTlsClientKey())));
+      } catch (IllegalArgumentException e) {
+        throw new IOException(platformToInternal(e.getMessage()), e);
+      }
     }
 
     return sslContextBuilder.build();

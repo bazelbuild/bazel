@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.query2.aquery;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.query2.aquery.AqueryUtils.getActionInputs;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -161,7 +162,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       case TEXT -> writeText(action, stringBuilder);
       case COMMANDS -> writeCommand(action, stringBuilder);
     }
-    printStream.write(stringBuilder.toString().getBytes(UTF_8));
+    printStream.write(stringBuilder.toString().getBytes(ISO_8859_1));
   }
 
   private void writeText(ActionAnalysisMetadata action, StringBuilder stringBuilder)
@@ -184,7 +185,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append(labelPrinter.toString(actionOwner.getLabel()))
           .append('\n')
           .append("  Configuration: ")
-          .append(configProto.getMnemonic())
+          .append(unicodeToInternal(configProto.getMnemonic()))
           .append('\n');
       if (actionOwner.getExecutionPlatform() != null) {
         stringBuilder
@@ -369,7 +370,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
         String contents = fileAction.getFileContents(eventHandler);
         stringBuilder
             .append("  FileWriteContents: [")
-            .append(Base64.getEncoder().encodeToString(contents.getBytes(UTF_8)))
+            .append(Base64.getEncoder().encodeToString(contents.getBytes(ISO_8859_1)))
             .append("]\n");
       }
     }

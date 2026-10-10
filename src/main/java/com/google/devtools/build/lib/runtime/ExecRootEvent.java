@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 
@@ -36,7 +37,7 @@ public class ExecRootEvent implements BuildEvent {
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext context) {
     BuildEventStreamProtos.WorkspaceConfig workspaceConfigEvent =
         BuildEventStreamProtos.WorkspaceConfig.newBuilder()
-            .setLocalExecRoot(execRoot.getPathString())
+            .setLocalExecRoot(StringEncoding.internalToUnicode(execRoot.getPathString()))
             .build();
     return BuildEventStreamProtos.BuildEvent.newBuilder()
         .setId(getEventId())

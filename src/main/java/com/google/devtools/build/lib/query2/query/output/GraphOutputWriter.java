@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -117,7 +117,7 @@ public final class GraphOutputWriter<T> {
    */
   public void write(
       Digraph<T> graph, @Nullable ConditionalEdges conditionalEdges, OutputStream out) {
-    PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(out, UTF_8));
+    PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(out, ISO_8859_1));
     if (mergeEquivalentNodes) {
       outputFactored(graph, conditionalEdges, printWriter);
     } else {

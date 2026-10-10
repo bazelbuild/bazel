@@ -28,6 +28,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_output_stream",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/auth_kit",
         "//third_party/java/flogger",
         "//third_party/java/guava:base",

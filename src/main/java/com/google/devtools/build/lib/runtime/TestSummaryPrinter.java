@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -242,9 +244,7 @@ public class TestSummaryPrinter {
             + mode
             + Strings.padEnd(testCase.getStatus().toString(), 8, ' ')
             + Mode.DEFAULT
-            + testCase.getClassName()
-            + "."
-            + testCase.getName()
+            + unicodeToInternal(testCase.getClassName() + "." + testCase.getName())
             + timeSummary
             + "\n");
   }

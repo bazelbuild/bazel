@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -354,7 +355,9 @@ public final class SandboxModule extends BlazeModule {
     for (String pathElement : pathSplitter.split(path)) {
       // Sometimes the PATH contains the non-absolute entry "." - this resolves it against the
       // current working directory.
-      pathElement = new File(pathElement).getAbsolutePath();
+      pathElement =
+          StringEncoding.platformToInternal(
+              new File(StringEncoding.internalToPlatform(pathElement)).getAbsolutePath());
       try {
         for (Path dentry : fs.getPath(pathElement).getDirectoryEntries()) {
           if (dentry.getBaseName().replace(".exe", "").equals("docker")) {

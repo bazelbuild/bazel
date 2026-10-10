@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -24,15 +26,19 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.StarlarkUtil;
 import com.google.devtools.common.options.OptionDefinition;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkLibrary;
@@ -147,11 +153,19 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       }
       exceptionMessagePrefix = "invalid --starlark:file: ";
       try {
-        input = ParserInput.readFile(options.getFile());
+        input =
+            StarlarkUtil.createParserInput(
+                Files.readAllBytes(Path.of(internalToPlatform(options.getFile()))),
+                options.getFile(),
+                starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+                eventHandler);
       } catch (IOException ex) {
         throw new QueryException(
-            exceptionMessagePrefix + "failed to read " + ex.getMessage(),
+            exceptionMessagePrefix + "failed to read " + platformToInternal(ex.getMessage()),
             Query.Code.QUERY_FILE_READ_FAILURE);
+      } catch (StarlarkUtil.InvalidUtf8Exception ex) {
+        throw new QueryException(
+            exceptionMessagePrefix + ex.getMessage(), Query.Code.QUERY_FILE_READ_FAILURE);
       }
     } else {
       exceptionMessagePrefix = "invalid --starlark:expr: ";

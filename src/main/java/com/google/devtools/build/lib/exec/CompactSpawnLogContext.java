@@ -598,7 +598,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                   runfilesTree.getRootSymlinksForLogging(), inputMetadataProvider, fileSystem));
           builder.addAllEmptyFiles(
               Iterables.transform(
-                  runfilesTree.getEmptyFilenamesForLogging(), PathFragment::getPathString));
+                  runfilesTree.getEmptyFilenamesForLogging(),
+                  emptyFile -> internalToUnicode(emptyFile.getPathString())));
           Artifact repoMappingManifest = runfilesTree.getRepoMappingManifestForLogging();
           if (repoMappingManifest != null) {
             builder.setRepoMappingManifest(

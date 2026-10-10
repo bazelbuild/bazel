@@ -17,8 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
-import static java.nio.charset.StandardCharsets.US_ASCII;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Comparator.reverseOrder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -106,10 +105,7 @@ public class ModExecutor {
     this.extensionFilter = extensionFilter;
     this.options = options;
     this.outputStream = outputStream;
-    this.printer =
-        new PrintWriter(
-            new OutputStreamWriter(
-                outputStream, options.getCharset() == ModOptions.Charset.UTF8 ? UTF_8 : US_ASCII));
+    this.printer = new PrintWriter(new OutputStreamWriter(outputStream, ISO_8859_1));
     // Easier lookup table for repo imports by module.
     // It is updated after pruneByDepthAndLink to filter out pruned modules.
     this.extensionRepoImports = computeRepoImportsTable(depGraph.keySet());

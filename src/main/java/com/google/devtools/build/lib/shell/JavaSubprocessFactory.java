@@ -180,7 +180,8 @@ public class JavaSubprocessFactory implements SubprocessFactory {
                 + " used at startup. Re-rerunning the blaze invocation should succeed.",
             e);
       }
-      throw e;
+      // The message contains the command line and working directory as platform strings.
+      throw new IOException(StringEncoding.platformToInternal(e.getMessage()), e);
     } finally {
       lock.unlock();
     }

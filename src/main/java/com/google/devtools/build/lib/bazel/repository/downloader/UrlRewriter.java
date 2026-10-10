@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auth.Credentials;
@@ -203,7 +202,7 @@ public class UrlRewriter {
 
       String userInfo = url.url().getUserInfo();
       if (userInfo != null) {
-        String token = "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(ISO_8859_1));
+        String token = "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(UTF_8));
         updatedAuthHeaders.put(
             url.url(), ImmutableMap.of("Authorization", ImmutableList.of(token)));
       } else if (netrcCreds != null) {
@@ -347,10 +346,10 @@ public class UrlRewriter {
   private static URI prefixWithProtocol(String url, String protocol) {
     for (String schemaPrefix : REWRITABLE_SCHEMES) {
       if (url.startsWith(schemaPrefix + "://")) {
-        return URI.create(url);
+        return HttpUtils.toAsciiUri(URI.create(url));
       }
     }
-    return URI.create(protocol + "://" + url);
+    return HttpUtils.toAsciiUri(URI.create(protocol + "://" + url));
   }
 
   /**

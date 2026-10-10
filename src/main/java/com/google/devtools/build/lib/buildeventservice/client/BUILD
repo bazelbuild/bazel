@@ -63,6 +63,7 @@ java_library(
         ":stream_event",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/google/devtools/build/v1:publish_build_event_java_proto",
         "//third_party/google/devtools/build/v1:publish_build_event_proto_grpc",
         "//third_party/java/grpc:core",

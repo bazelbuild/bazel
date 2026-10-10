@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -119,7 +121,8 @@ class UrlRewriterConfig {
     this.allowList = allowList.build();
     this.blockList = blockList.build();
     this.rewrites = rewrites.build();
-    this.allBlockedMessage = allBlockedMessage.isEmpty() ? null : allBlockedMessage.toString();
+    this.allBlockedMessage =
+        allBlockedMessage.isEmpty() ? null : unicodeToInternal(allBlockedMessage.toString());
   }
 
   private static void parseConfig(
@@ -149,33 +152,33 @@ class UrlRewriterConfig {
         switch (parts.get(0)) {
           case "allow" -> {
             if (parts.size() != 2) {
-              throw new UrlRewriterParseException(
+              throw parseException(
                   "Only the host name is allowed after `allow`: " + line, location);
             }
             allowList.add(parts.get(1));
           }
           case "block" -> {
             if (parts.size() != 2) {
-              throw new UrlRewriterParseException(
+              throw parseException(
                   "Only the host name is allowed after `block`: " + line, location);
             }
             blockList.add(parts.get(1));
           }
           case "rewrite" -> {
             if (parts.size() != 3) {
-              throw new UrlRewriterParseException(
+              throw parseException(
                   "Only the matching pattern and rewrite pattern is allowed after `rewrite`: "
                       + line,
                   location);
             }
             if (!UrlRewriter.isValidUrlEncodeSyntax(parts.get(2))) {
-              throw new UrlRewriterParseException(
+              throw parseException(
                   "Invalid urlencode syntax in `rewrite` replacement: " + parts.get(2), location);
             }
             try {
               rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
             } catch (PatternSyntaxException e) {
-              throw new UrlRewriterParseException(
+              throw parseException(
                   "Invalid regex in `rewrite`: "
                       + e.getDescription()
                       + " at index "
@@ -188,21 +191,24 @@ class UrlRewriterConfig {
           }
           case ALL_BLOCKED_MESSAGE_DIRECTIVE -> {
             if (parts.size() == 1) {
-              throw new UrlRewriterParseException(
-                  "all_blocked_message must be followed by a message", location);
+              throw parseException("all_blocked_message must be followed by a message", location);
             }
             if (!allBlockedMessage.isEmpty()) {
-              throw new UrlRewriterParseException(
+              throw parseException(
                   "At most one all_blocked_message directive is allowed", location);
             }
             allBlockedMessage.append(line.substring(ALL_BLOCKED_MESSAGE_DIRECTIVE.length() + 1));
           }
-          default -> throw new UrlRewriterParseException("Unable to parse: " + line, location);
+          default -> throw parseException("Unable to parse: " + line, location);
         }
       }
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+  }
+
+  private static UrlRewriterParseException parseException(String message, Location location) {
+    return new UrlRewriterParseException(unicodeToInternal(message), location);
   }
 
   /** Returns all {@code allow} directives. */

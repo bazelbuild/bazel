@@ -1440,11 +1440,14 @@ public final class Starlark {
    * out}. All running Starlark threads are profiled. May be called concurrent with Starlark
    * execution.
    *
+   * @param utf8ByteStrings whether file and function names are UTF-8 byte strings, see {@link
+   *     StarlarkSemantics#INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS}
    * @throws IllegalStateException exception if the Starlark profiler is already running or if the
    *     operating system's profiling resources for this process are already in use.
    */
-  public static boolean startCpuProfile(OutputStream out, Duration period) {
-    return CpuProfiler.start(out, period);
+  public static boolean startCpuProfile(
+      OutputStream out, Duration period, boolean utf8ByteStrings) {
+    return CpuProfiler.start(out, period, utf8ByteStrings);
   }
 
   /**

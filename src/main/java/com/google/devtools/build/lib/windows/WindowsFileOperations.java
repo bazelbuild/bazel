@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.windows;
 
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
+
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -115,13 +117,14 @@ public class WindowsFileOperations {
       case IS_SYMLINK_OR_JUNCTION_SUCCESS:
         return result[0];
       case IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:
-        throw new FileNotFoundException(path);
+        throw new FileNotFoundException(platformToInternal(path));
       default:
         // This is IS_SYMLINK_OR_JUNCTION_ERROR (1). The JNI code puts a custom message in
         // 'error[0]'.
         break;
     }
-    throw new IOException(String.format("Cannot tell if '%s' is link: %s", path, error[0]));
+    throw new IOException(
+        platformToInternal(String.format("Cannot tell if '%s' is link: %s", path, error[0])));
   }
 
   /** Returns the time at which the file was last changed, including metadata changes. */
@@ -137,14 +140,16 @@ public class WindowsFileOperations {
       case GET_CHANGE_TIME_SUCCESS:
         return result[0];
       case GET_CHANGE_TIME_DOES_NOT_EXIST:
-        throw new FileNotFoundException(path);
+        throw new FileNotFoundException(platformToInternal(path));
       case GET_CHANGE_TIME_ACCESS_DENIED:
-        throw new AccessDeniedException(path);
+        throw new AccessDeniedException(platformToInternal(path));
       default:
         // This is GET_CHANGE_TIME_ERROR (1). The JNI code puts a custom message in 'error[0]'.
         break;
     }
-    throw new IOException(String.format("Cannot get last change time of '%s': %s", path, error[0]));
+    throw new IOException(
+        platformToInternal(
+            String.format("Cannot get last change time of '%s': %s", path, error[0])));
   }
 
   /**
@@ -187,7 +192,9 @@ public class WindowsFileOperations {
         break;
     }
     throw new IOException(
-        String.format("Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
+        platformToInternal(
+            String.format(
+                "Cannot create junction (name=%s, target=%s): %s", name, target, error[0])));
   }
 
   public static void createSymlink(String name, String target) throws IOException {
@@ -206,7 +213,9 @@ public class WindowsFileOperations {
         break;
     }
     throw new IOException(
-        String.format("Cannot create symlink (name=%s, target=%s): %s", name, target, error[0]));
+        platformToInternal(
+            String.format(
+                "Cannot create symlink (name=%s, target=%s): %s", name, target, error[0])));
   }
 
   public static String readSymlinkOrJunction(String name) throws IOException {
@@ -217,15 +226,16 @@ public class WindowsFileOperations {
       case READ_SYMLINK_OR_JUNCTION_SUCCESS:
         return WindowsPathOperations.removeUncPrefixAndUseSlashes(target[0]);
       case READ_SYMLINK_OR_JUNCTION_ACCESS_DENIED:
-        throw new AccessDeniedException(name);
+        throw new AccessDeniedException(platformToInternal(name));
       case READ_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:
-        throw new FileNotFoundException(name);
+        throw new FileNotFoundException(platformToInternal(name));
       case READ_SYMLINK_OR_JUNCTION_NOT_A_LINK:
-        throw new NotASymlinkException(PathFragment.create(name));
+        throw new NotASymlinkException(PathFragment.create(platformToInternal(name)));
       default:
         // This is READ_SYMLINK_OR_JUNCTION_ERROR (1). The JNI code puts a custom message in
         // 'error[0]'.
-        throw new IOException(String.format("Cannot read link (name=%s): %s", name, error[0]));
+        throw new IOException(
+            platformToInternal(String.format("Cannot read link (name=%s): %s", name, error[0])));
     }
   }
 
@@ -238,12 +248,13 @@ public class WindowsFileOperations {
       case DELETE_PATH_DOES_NOT_EXIST:
         return false;
       case DELETE_PATH_DIRECTORY_NOT_EMPTY:
-        throw new java.nio.file.DirectoryNotEmptyException(path);
+        throw new java.nio.file.DirectoryNotEmptyException(platformToInternal(path));
       case DELETE_PATH_ACCESS_DENIED:
-        throw new java.nio.file.AccessDeniedException(path);
+        throw new java.nio.file.AccessDeniedException(platformToInternal(path));
       default:
         // This is DELETE_PATH_ERROR (1). The JNI code puts a custom message in 'error[0]'.
-        throw new IOException(String.format("Cannot delete path '%s': %s", path, error[0]));
+        throw new IOException(
+            platformToInternal(String.format("Cannot delete path '%s': %s", path, error[0])));
     }
   }
 }
