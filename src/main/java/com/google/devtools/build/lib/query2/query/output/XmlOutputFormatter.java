@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -149,7 +151,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     Element elem;
     if (target instanceof Rule rule) {
       elem = doc.createElement("rule");
-      elem.setAttribute("class", getRuleClass(queryOptions, rule));
+      elem.setAttribute("class", internalToUnicode(getRuleClass(queryOptions, rule)));
       for (Attribute attr : rule.getAttributes()) {
         if (rule.isAttributeValueExplicitlySpecified(attr)
             || queryOptions.getXmlShowDefaultValues()) {
@@ -159,7 +161,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
               PossibleAttributeValues.forRuleAndAttribute(
                   rule, attr, /* mayTreatMultipleAsNone= */ false);
           Element attrElem = createValueElement(doc, attr.getType(), values, labelPrinter);
-          attrElem.setAttribute("name", attr.getName());
+          attrElem.setAttribute("name", internalToUnicode(attr.getName()));
           elem.appendChild(attrElem);
         }
       }
@@ -169,7 +171,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       // include implicit outputs, exec-configuration outputs, and default values.
       for (Label label : rule.getSortedLabels(dependencyFilter)) {
         Element inputElem = doc.createElement("rule-input");
-        inputElem.setAttribute("name", labelPrinter.toString(label));
+        inputElem.setAttribute("name", internalToUnicode(labelPrinter.toString(label)));
         elem.appendChild(inputElem);
       }
 
@@ -179,24 +181,25 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
           .forEach(
               label -> {
                 Element inputElem = doc.createElement("rule-input");
-                inputElem.setAttribute("name", labelPrinter.toString(label));
+                inputElem.setAttribute("name", internalToUnicode(labelPrinter.toString(label)));
                 elem.appendChild(inputElem);
               });
 
       for (OutputFile outputFile : rule.getOutputFiles()) {
         Element outputElem = doc.createElement("rule-output");
-        outputElem.setAttribute("name", labelPrinter.toString(outputFile.getLabel()));
+        outputElem.setAttribute(
+            "name", internalToUnicode(labelPrinter.toString(outputFile.getLabel())));
         elem.appendChild(outputElem);
       }
       for (String feature :
           rule.getPackageDeclarations().getPackageArgs().features().toStringList()) {
         Element outputElem = doc.createElement("rule-default-setting");
-        outputElem.setAttribute("name", feature);
+        outputElem.setAttribute("name", internalToUnicode(feature));
         elem.appendChild(outputElem);
       }
     } else if (target instanceof PackageGroup packageGroup) {
       elem = doc.createElement("package-group");
-      elem.setAttribute("name", packageGroup.getName());
+      elem.setAttribute("name", internalToUnicode(packageGroup.getName()));
       Element includes =
           createValueElement(doc, BuildType.LABEL_LIST, packageGroup.getIncludes(), labelPrinter);
       includes.setAttribute("name", "includes");
@@ -212,7 +215,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     } else if (target instanceof OutputFile outputFile) {
       elem = doc.createElement("generated-file");
       elem.setAttribute(
-          "generating-rule", labelPrinter.toString(outputFile.getGeneratingRule().getLabel()));
+          "generating-rule",
+          internalToUnicode(labelPrinter.toString(outputFile.getGeneratingRule().getLabel())));
     } else if (target instanceof InputFile inputFile) {
       elem = doc.createElement("source-file");
       if (inputFile.isBuildFile()) {
@@ -227,7 +231,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       addPackageGroupsToElement(doc, elem, inputFile, labelPrinter);
     } else if (target instanceof EnvironmentGroup envGroup) {
       elem = doc.createElement("environment-group");
-      elem.setAttribute("name", envGroup.getName());
+      elem.setAttribute("name", internalToUnicode(envGroup.getName()));
       Element environments =
           createValueElement(doc, BuildType.LABEL_LIST, envGroup.getEnvironments(), labelPrinter);
       environments.setAttribute("name", "environments");
@@ -242,7 +246,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       throw new IllegalArgumentException(target.toString());
     }
 
-    elem.setAttribute("name", labelPrinter.toString(target.getLabel()));
+    elem.setAttribute("name", internalToUnicode(labelPrinter.toString(target.getLabel())));
     String location = FormatUtils.getLocation(target, relativeLocations);
     if (!queryOptions.getXmlLineNumbers()) {
       int firstColon = location.indexOf(':');
@@ -251,7 +255,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       }
     }
 
-    elem.setAttribute("location", location);
+    elem.setAttribute("location", internalToUnicode(location));
     return elem;
   }
 
@@ -268,13 +272,13 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       Document doc, Element parent, Target target, LabelPrinter labelPrinter) {
     for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
       Element elem = doc.createElement("package-group");
-      elem.setAttribute("name", labelPrinter.toString(visibilityDependency));
+      elem.setAttribute("name", internalToUnicode(labelPrinter.toString(visibilityDependency)));
       parent.appendChild(elem);
     }
 
     for (Label visibilityDeclaration : target.getVisibilityDeclaredLabels()) {
       Element elem = doc.createElement("visibility-label");
-      elem.setAttribute("name", labelPrinter.toString(visibilityDeclaration));
+      elem.setAttribute("name", internalToUnicode(labelPrinter.toString(visibilityDeclaration)));
       parent.appendChild(elem);
     }
   }
@@ -283,7 +287,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     for (String feature :
         inputFile.getPackageDeclarations().getPackageArgs().features().toStringList()) {
       Element elem = doc.createElement("feature");
-      elem.setAttribute("name", feature);
+      elem.setAttribute("name", internalToUnicode(feature));
       parent.appendChild(elem);
     }
   }
@@ -295,7 +299,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
     for (Label starlarkFileDep : dependencies) {
       Element elem = doc.createElement("load");
-      elem.setAttribute("name", labelPrinter.toString(starlarkFileDep));
+      elem.setAttribute("name", internalToUnicode(labelPrinter.toString(starlarkFileDep)));
       parent.appendChild(elem);
     }
   }
@@ -362,9 +366,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         if (value != null) {
           try {
             if (value instanceof Label label) {
-              elem.setAttribute("value", labelPrinter.toString(label));
+              elem.setAttribute("value", internalToUnicode(labelPrinter.toString(label)));
             } else {
-              elem.setAttribute("value", value.toString());
+              elem.setAttribute("value", internalToUnicode(value.toString()));
             }
           } catch (DOMException e) {
             elem.setAttribute("value", "[[[ERROR: could not be encoded as XML]]]");

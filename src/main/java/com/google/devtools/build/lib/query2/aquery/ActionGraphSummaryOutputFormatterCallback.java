@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -104,7 +106,7 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
       BuildEvent configuration = actionOwner.getBuildConfigurationEvent();
       BuildEventStreamProtos.Configuration configProto =
           configuration.asStreamProto(/* context= */ null).getConfiguration();
-      configurationToCount.merge(configProto.getMnemonic(), 1, Integer::sum);
+      configurationToCount.merge(unicodeToInternal(configProto.getMnemonic()), 1, Integer::sum);
 
       if (actionOwner.getExecutionPlatform() != null) {
         execPlatformToCount.merge(

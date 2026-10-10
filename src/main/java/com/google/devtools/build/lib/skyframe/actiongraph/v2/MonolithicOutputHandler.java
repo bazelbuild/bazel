@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Action;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Artifact;
@@ -79,7 +81,7 @@ public class MonolithicOutputHandler implements AqueryOutputHandler {
 
   @Override
   public void close() throws IOException {
-    jsonPrinter.appendTo(actionGraphContainerBuilder.build(), printStream);
+    printStream.print(unicodeToInternal(jsonPrinter.print(actionGraphContainerBuilder.build())));
     printStream.println();
   }
 }
