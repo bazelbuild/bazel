@@ -432,7 +432,7 @@ public final class TargetCompleteEvent
       }
       FailureDetails.FailureDetail failureDetail = detailedExitCode.getFailureDetail();
       if (failureDetail != null) {
-        builder.setFailureDetail(failureDetail);
+        builder.setFailureDetail(DetailedExitCode.toUnicode(failureDetail));
       }
     }
     builder
