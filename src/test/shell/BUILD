@@ -69,6 +69,18 @@ sh_library(
 )
 
 sh_test(
+    name = "combine_derived_java_srcs_test",
+    size = "small",
+    srcs = ["combine_derived_java_srcs_test.sh"],
+    data = [
+        ":bashunit",
+        "//src:combine_derived_java_srcs.sh",
+    ],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "shell_utils_test",
     srcs = ["shell_utils_test.sh"],
     data = [
