@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.devtools.build.lib.bazel.repository.decompressor.StripPrefixedPath.maybeDeprefixSymlink;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -34,6 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.ZipException;
 import javax.annotation.Nullable;
 
 /**
@@ -84,7 +86,8 @@ public class ZipDecompressor implements Decompressor {
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
 
-    try (ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile(), ISO_8859_1)) {
+    var archiveFile = descriptor.archivePath().getPathFile();
+    try (ZipReader reader = new ZipReader(archiveFile, ISO_8859_1)) {
       Collection<ZipFileEntry> entries = reader.entries();
       for (ZipFileEntry entry : entries) {
         String entryName = entry.getName();
@@ -116,6 +119,11 @@ public class ZipDecompressor implements Decompressor {
         }
         throw new CouldNotFindPrefixException(prefix, prefixes);
       }
+    } catch (ZipException e) {
+      // ZipReader quotes the archive's file name as a platform string.
+      var internalMessage =
+          e.getMessage().replace(archiveFile.getName(), platformToInternal(archiveFile.getName()));
+      throw (ZipException) new ZipException(internalMessage).initCause(e);
     }
 
     for (Map.Entry<Path, PathFragment> symlink : symlinks.entrySet()) {
