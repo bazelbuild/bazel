@@ -141,14 +141,16 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
     when(env.getValue(input.getSkyKey(directories))).thenReturn(fileValue);
     DigestUtils.configureCache(100);
     try {
-      var first = new RepoRecordedInput.MaybeValue.Valid(
-          BaseEncoding.base16().lowerCase().encode(target.getDigest()));
+      var first =
+          new RepoRecordedInput.MaybeValue.Valid(
+              BaseEncoding.base16().lowerCase().encode(target.getDigest()));
       assertThat(input.getValueForRecording(env, directories)).isEqualTo(first);
       link.delete();
       link.createSymbolicLink(replacement.asFragment());
       assertThat(input.getValueForRecording(env, directories))
-          .isEqualTo(new RepoRecordedInput.MaybeValue.Valid(
-              BaseEncoding.base16().lowerCase().encode(replacement.getDigest())));
+          .isEqualTo(
+              new RepoRecordedInput.MaybeValue.Valid(
+                  BaseEncoding.base16().lowerCase().encode(replacement.getDigest())));
       link.delete();
       assertThat(input.getValueForRecording(env, directories))
           .isEqualTo(new RepoRecordedInput.MaybeValue.Valid("ENOENT"));
