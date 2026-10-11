@@ -153,6 +153,11 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
+  public boolean hasExactSymlinkTarget(PathFragment path, PathFragment target) throws IOException {
+    return delegateFs.hasExactSymlinkTarget(toDelegatePath(path), target);
+  }
+
+  @Override
   public boolean exists(PathFragment path, boolean followSymlinks) throws IOException {
     return delegateFs.exists(toDelegatePath(path), followSymlinks);
   }
