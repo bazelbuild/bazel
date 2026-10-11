@@ -272,7 +272,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @Nullable
   protected String getValueAndRecordInput(RepoRecordedInput input)
       throws InterruptedException, NeedsSkyframeRestartException, IOException {
-    var maybeValue = input.getValue(env, directories);
+    var maybeValue = input.getValueForRecording(env, directories);
     if (env.valuesMissing()) {
       throw new NeedsSkyframeRestartException();
     }
