@@ -24,11 +24,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -212,6 +215,69 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
           () ->
               overlayFs.injectRemoteRepo(
                   RepositoryName.createUnvalidated("repo"), tree, "MARKER\n"));
+    }
+  }
+
+  @Test
+  public void prefetchFiles_remoteRepository_preservesExecutableBits() throws Exception {
+    byte[] contents = "contents".getBytes(StandardCharsets.UTF_8);
+    var digest = digestUtil.compute(contents);
+    var cache =
+        newCombinedCache(
+            digestUtil, Map.of(HashCode.fromBytes(DigestUtil.toBinaryDigest(digest)), contents));
+    var externalDir = PathFragment.create("/output_base/external");
+    var overlayFs = new RemoteExternalOverlayFileSystem(externalDir, fs);
+    var reporter = new Reporter(new EventBusEventHandler(eventBus));
+    var prefetcher =
+        new RemoteActionInputFetcher(
+            reporter,
+            "none",
+            "none",
+            cache,
+            overlayFs.getPath(execRoot.asFragment()),
+            tempPathGenerator,
+            DUMMY_REMOTE_OUTPUT_CHECKER,
+            ActionOutputDirectoryHelper.createForTesting(),
+            OutputPermissions.WRITABLE);
+    overlayFs.beforeCommand(
+        cache, prefetcher, reporter, "none", "none", null, Duration.ofHours(1));
+    try {
+      var root = Directory.newBuilder();
+      for (String name : ImmutableList.of("plain.txt", "run.sh", "helper.bzl")) {
+        root.addFiles(
+            FileNode.newBuilder()
+                .setName(name)
+                .setDigest(digest)
+                .setIsExecutable(name.equals("run.sh")));
+      }
+      var repo = RepositoryName.create("repo");
+      assertThat(overlayFs.injectRemoteRepo(repo, Tree.newBuilder().setRoot(root).build(), "marker"))
+          .isTrue();
+      // helper.bzl is prefetched before the repository's presence marker is installed.
+      assertThat(fs.getPath(externalDir.getRelative("repo/helper.bzl")).isExecutable()).isFalse();
+      for (var node : root.getFilesList()) {
+        var path = externalDir.getRelative("repo").getRelative(node.getName());
+        var metadata = ((FileStatusWithMetadata) overlayFs.getPath(path).stat()).getMetadata();
+        wait(
+            prefetcher.prefetchFilesInterruptibly(
+                action,
+                ImmutableList.of(ActionInputHelper.fromPath(path)),
+                unused -> metadata,
+                Priority.MEDIUM,
+                Reason.INPUTS));
+        var localPath = fs.getPath(path);
+        assertThat(localPath.isExecutable()).isEqualTo(node.getIsExecutable());
+        assertThat(localPath.isWritable()).isFalse();
+        assertThat(metadata.getContentsProxy())
+            .isEqualTo(FileContentsProxy.create(localPath.stat()));
+      }
+      overlayFs.ensureMaterialized(repo, reporter);
+      assertThat(overlayFs.getPath(externalDir.getRelative("repo/plain.txt")).isExecutable())
+          .isFalse();
+      assertThat(overlayFs.getPath(externalDir.getRelative("repo/run.sh")).isExecutable())
+          .isTrue();
+    } finally {
+      overlayFs.afterCommand();
     }
   }
 

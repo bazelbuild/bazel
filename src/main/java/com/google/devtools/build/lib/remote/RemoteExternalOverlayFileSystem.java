@@ -460,6 +460,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     invalidateRepoDirectories(evaluator, reposToDiscard);
   }
 
+  @Override
+  public int getMaterializationPermissions(PathFragment path, int defaultPermissions)
+      throws IOException {
+    // Injection prefetches .bzl files before installing the repository's presence marker.
+    if (path.startsWith(externalDirectory) && externalFs.isFile(path, /* followSymlinks= */ true)) {
+      return externalFs.isExecutable(path) ? 0555 : 0444;
+    }
+    return defaultPermissions;
+  }
+
   /**
    * Materializes the subtree rooted at the given path to the native file system if it lies in a
    * repo whose contents are currently only available in memory.
