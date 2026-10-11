@@ -19,7 +19,9 @@
 
 set -euo pipefail
 
-REPRESENTATIVE_TARGET="//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster"
+# The target must not use annotation processors as its header compilation would
+# otherwise not use the native image.
+REPRESENTATIVE_TARGET="${1:-//src/main/java/com/google/devtools/build/lib/actions:actions}"
 
 cd "$BUILD_WORKSPACE_DIRECTORY"
 
@@ -39,6 +41,23 @@ TURBINE_PATH="$(
 )"
 
 echo "===== Collecting profile for $REPRESENTATIVE_TARGET ====="
+
+if [[ "$(bazel aquery --output=summary "mnemonic('Turbine', $REPRESENTATIVE_TARGET)" \
+    | sed -n 's/^  Turbine: //p')" != 1 ]]; then
+  echo "ERROR: $REPRESENTATIVE_TARGET is not header compiled with the native image, most likely"
+  echo "because it uses annotation processors. Pass a different target as an argument."
+  exit 1
+fi
+
+# The toolchain defined below is only selected if its source version matches
+# the language version used by Bazel's own build.
+JAVA_LANGUAGE_VERSION="$(bazel cquery --output=starlark \
+  --starlark:expr='build_options(target)["//command_line_option:java_language_version"]' \
+  "$REPRESENTATIVE_TARGET")"
+if [[ ! "$JAVA_LANGUAGE_VERSION" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: failed to determine --java_language_version, got: '$JAVA_LANGUAGE_VERSION'"
+  exit 1
+fi
 
 # The random path serves as a cache breaker for the build below.
 PROFILE="$(pwd)/_turbine_pgo/profile.$(uuidgen).iprof"
@@ -73,8 +92,8 @@ load(":rules.bzl", "build_header_jar")
 load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "turbine_benchmark_toolchain",
-    source_version = "21",
-    target_version = "21",
+    source_version = "$JAVA_LANGUAGE_VERSION",
+    target_version = "$JAVA_LANGUAGE_VERSION",
     header_compiler_direct = "turbine_instrumented",
 )
 
@@ -97,4 +116,8 @@ bazel build \
   --min_param_file_size=100000 \
   //_turbine_pgo:header_jar
 
+if [[ ! -f "$PROFILE" ]]; then
+  echo "ERROR: Turbine did not write a profile, check that the instrumented binary is used"
+  exit 1
+fi
 mv "$PROFILE" src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/profile.iprof

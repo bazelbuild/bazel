@@ -61,6 +61,22 @@ config_setting(
     },
 )
 
+# If disabled, build Turbine with Oracle GraalVM, but without a PGO profile. This is useful to
+# measure the effect of PGO with :turbine_benchmark.
+bool_flag(
+    name = "use_pgo_profile",
+    build_setting_default = True,
+)
+
+config_setting(
+    name = "do_use_pgo_profile",
+    flag_values = {
+        "pgo_instrument": str(False),
+        "use_oracle_graalvm": str(True),
+        "use_pgo_profile": str(True),
+    },
+)
+
 alias(
     name = "turbine_direct_graal",
     actual = select({
@@ -118,8 +134,7 @@ native_image(
         "//conditions:default": None,
     }),
     profiles = select({
-        ":do_pgo_instrument": [],
-        ":do_use_oracle_graalvm": ["profile.iprof"],
+        ":do_use_pgo_profile": ["profile.iprof"],
         "//conditions:default": [],
     }),
     # This provides libz.a on Linux instead of the host system.
@@ -147,7 +162,7 @@ cat $(location turbine_direct_graal.manifest) | $(location //src:write_manifest)
     tools = ["//src:write_manifest"],
 )
 
-# Run with -c opt.
+# Run with -c opt, see turbine_benchmark.sh for usage.
 sh_binary(
     name = "turbine_benchmark",
     srcs = ["turbine_benchmark.sh"],
