@@ -1160,6 +1160,69 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
+  public void testImplicitAspectDepsInCqueryRdeps() throws Exception {
+    writeFile(
+        "donut/test.bzl",
+        """
+        def _test_aspect_impl(target, ctx):
+            return []
+
+        _test_aspect = aspect(
+            implementation = _test_aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {
+                "_test_attr": attr.label(default = Label("//donut:test_filegroup")),
+            },
+        )
+
+        def _test_impl(ctx):
+            pass
+
+        test_rule = rule(
+            _test_impl,
+            attrs = {
+                "deps": attr.label_list(
+                    aspects = [_test_aspect],
+                ),
+            },
+        )
+        """);
+    writeFile(
+        "donut/BUILD",
+        """
+        load(":test.bzl", "test_rule")
+
+        filegroup(
+            name = "test_filegroup",
+            srcs = ["test.bzl"],
+        )
+
+        test_rule(
+            name = "test_rule_dep",
+        )
+
+        test_rule(
+            name = "test_rule",
+            deps = [":test_rule_dep"],
+        )
+        """);
+
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
+    // The aspect's dep is an implicit dep of the target holding the aspect, as in deps().
+    assertThat(
+            eval("rdeps(//donut/..., //donut:test_filegroup)").stream()
+                .map(cf -> cf.getDescription(LabelPrinter.legacy()))
+                .collect(toImmutableList()))
+        .containsExactly("//donut:test_filegroup", "//donut:test_rule");
+    // The aspect attached to //donut:test_rule_dep doesn't make its own deps dependents.
+    assertThat(
+            eval("rdeps(//donut/..., //donut:test_rule_dep)").stream()
+                .map(cf -> cf.getDescription(LabelPrinter.legacy()))
+                .collect(toImmutableList()))
+        .containsExactly("//donut:test_rule_dep", "//donut:test_rule");
+  }
+
+  @Test
   public void testAttrRespectsConfiguration() throws Exception {
     MockRule ruleWithList =
         () -> MockRule.define("rule_with_list", attr("string_values", STRING_LIST));

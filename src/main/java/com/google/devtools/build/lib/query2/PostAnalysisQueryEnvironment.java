@@ -88,6 +88,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -472,7 +473,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> reverseDepsByKey =
         targetifyValues(
             targetsByKey,
-            skipDelegatingAncestors(graph.getReverseDeps(targetsByKey.keySet())).asMap());
+            liftReverseDepsToConfiguredTargets(
+                    skipDelegatingAncestors(graph.getReverseDeps(targetsByKey.keySet())))
+                .asMap());
     if (targetsByKey.size() != reverseDepsByKey.size()) {
       Iterable<ConfiguredTargetKey> missingTargets =
           Sets.difference(targetsByKey.keySet(), reverseDepsByKey.keySet()).stream()
@@ -512,6 +515,45 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       result.addAll(getAllowedDeps(targetAndRdeps.getKey(), ruleDeps.build()));
     }
     return result;
+  }
+
+  /**
+   * Replaces aspect and toolchain resolution keys among reverse dependencies with the configured
+   * targets that depend on them.
+   *
+   * <p>{@link #targetifyValues} expands those keys into their direct dependencies, which is right
+   * for forward dependencies, where they contribute implicit deps to the target that requested
+   * them. Applied to reverse dependencies it would report the aspect's or toolchain's own
+   * dependencies as dependents of the target. Walking up to the requesting configured targets keeps
+   * rdeps consistent with deps.
+   */
+  private ImmutableListMultimap<SkyKey, SkyKey> liftReverseDepsToConfiguredTargets(
+      ImmutableListMultimap<SkyKey, SkyKey> reverseDeps) throws InterruptedException {
+    boolean explicitAspects =
+        settings.containsAll(ImmutableSet.of(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS));
+    var result = ImmutableListMultimap.<SkyKey, SkyKey>builder();
+    for (Map.Entry<SkyKey, Collection<SkyKey>> entry : reverseDeps.asMap().entrySet()) {
+      Set<SkyKey> visited = new HashSet<>();
+      ArrayDeque<SkyKey> pending = new ArrayDeque<>(entry.getValue());
+      while (!pending.isEmpty()) {
+        SkyKey rdep = pending.pop();
+        if (!visited.add(rdep)) {
+          continue;
+        }
+        boolean lift =
+            rdep.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)
+                || (!explicitAspects && rdep.functionName().equals(SkyFunctions.ASPECT));
+        if (!lift) {
+          result.put(entry.getKey(), rdep);
+          continue;
+        }
+        Iterable<SkyKey> parents = graph.getReverseDeps(ImmutableList.of(rdep)).get(rdep);
+        if (parents != null) {
+          Iterables.addAll(pending, parents);
+        }
+      }
+    }
+    return result.build();
   }
 
   /**
