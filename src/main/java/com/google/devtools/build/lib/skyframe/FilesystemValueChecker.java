@@ -63,6 +63,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -561,9 +562,44 @@ public class FilesystemValueChecker {
       }
       return false;
     } catch (IOException e) {
+      if (e instanceof FileNotFoundException
+          && canTrustDanglingSymlink(file, lastKnownData, outputChecker)) {
+        return false;
+      }
       // This is an unexpected failure getting a digest or symlink target.
       modifiedOutputsReceiver.reportModifiedOutputFile(/* maybeModifiedTime= */ -1, file);
       return true;
+    }
+  }
+
+  private static boolean canTrustDanglingSymlink(
+      Artifact file, FileArtifactValue metadata, OutputChecker outputChecker) {
+    PathFragment resolvedPath = metadata.getResolvedPath();
+    if (!metadata.isRemote()
+        || resolvedPath == null
+        || metadata.wasMaterializedAsToplevelOutput()
+        || !outputChecker.shouldTrustMetadata(file, metadata)) {
+      return false;
+    }
+    try {
+      Path path = file.getPath();
+      if (!path.getFileSystem().hasExactSymlinkTarget(path.asFragment(), resolvedPath)) {
+        return false;
+      }
+      Path target = path.getFileSystem().getPath(resolvedPath);
+      if (target.statIfFound(Symlinks.NOFOLLOW) != null) {
+        return false;
+      }
+      // The terminal remote target may be absent, but changing an existing parent
+      // into a symlink must not redirect the recorded canonical destination.
+      Path parent = target.getParentDirectory();
+      FileStatus parentStat;
+      while ((parentStat = parent.statIfFound(Symlinks.NOFOLLOW)) == null) {
+        parent = parent.getParentDirectory();
+      }
+      return parentStat.isDirectory() && parent.resolveSymbolicLinks().equals(parent);
+    } catch (IOException e) {
+      return false;
     }
   }
 
