@@ -529,8 +529,10 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    */
   private ImmutableListMultimap<SkyKey, SkyKey> liftReverseDepsToConfiguredTargets(
       ImmutableListMultimap<SkyKey, SkyKey> reverseDeps) throws InterruptedException {
-    boolean explicitAspects =
-        settings.containsAll(ImmutableSet.of(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS));
+    // Explicit aspects are query nodes of their own, and excluded aspects are dropped by
+    // targetifyValues, so only implicit aspects are lifted.
+    boolean liftAspects =
+        settings.contains(Setting.INCLUDE_ASPECTS) && !settings.contains(Setting.EXPLICIT_ASPECTS);
     var result = ImmutableListMultimap.<SkyKey, SkyKey>builder();
     for (Map.Entry<SkyKey, Collection<SkyKey>> entry : reverseDeps.asMap().entrySet()) {
       Set<SkyKey> visited = new HashSet<>();
@@ -542,7 +544,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         }
         boolean lift =
             rdep.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)
-                || (!explicitAspects && rdep.functionName().equals(SkyFunctions.ASPECT));
+                || (liftAspects && rdep.functionName().equals(SkyFunctions.ASPECT));
         if (!lift) {
           result.put(entry.getKey(), rdep);
           continue;
