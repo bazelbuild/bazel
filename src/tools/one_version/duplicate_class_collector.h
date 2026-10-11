@@ -56,7 +56,7 @@ class Version {
   void Add(const Label &label);
   void Sort();
 
-  const uint32_t crc32() const { return crc32_; }
+  uint32_t crc32() const { return crc32_; }
   const std::vector<Label> &labels() const { return labels_; }
 
  private:
