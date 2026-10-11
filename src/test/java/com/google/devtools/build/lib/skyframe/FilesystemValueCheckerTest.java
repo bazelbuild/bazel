@@ -1528,7 +1528,9 @@ public final class FilesystemValueCheckerTest {
       metadata =
           createRemoteMetadata(
               "remote-content",
-              invalidation == RemoteSymlinkInvalidation.EXPIRED_METADATA ? Instant.EPOCH : null);
+              invalidation == RemoteSymlinkInvalidation.EXPIRED_METADATA
+                  ? Instant.ofEpochMilli(1)
+                  : null);
     }
     if (invalidation != RemoteSymlinkInvalidation.NO_RESOLVED_PATH) {
       metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, target.asFragment());
@@ -1543,6 +1545,8 @@ public final class FilesystemValueCheckerTest {
         fs.getPath("/remote").createSymbolicLink(fs.getPath("/moved").asFragment());
       }
       case PREVIOUSLY_MATERIALIZED -> metadata.setMaterializedAsToplevelOutput(true);
+      case EXPIRED_METADATA ->
+          assertThat(metadata.getExpirationTime()).isEqualTo(Instant.ofEpochMilli(1));
       case READLINK_FAILURE -> fs.readlinkThrowsIoException = true;
       default -> {}
     }
