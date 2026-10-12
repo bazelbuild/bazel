@@ -527,6 +527,11 @@ function test_starlark_cpu_profile_after_output_error() {
 }
 
 function test_starlark_cpu_profile_after_write_error() {
+  if is_windows; then
+    echo "Starlark profiler is not supported on Microsoft Windows."
+    return
+  fi
+
   if [[ ! -c /dev/full ]]; then
     echo "This test needs /dev/full to fail writes after opening the profile."
     return
