@@ -723,10 +723,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha/beta')");
     BuildConfigurationValue config =
         create(
+            "--experimental_platform_in_output_dir",
             "--experimental_use_platforms_in_output_dir_legacy_heuristic",
             "--platforms=//platform:alpha/beta");
 
-    assertThat(config.getOutputDirectory().getRoot().toString())
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(".*/[^/]+-out/alpha_beta-fastbuild");
   }
 
