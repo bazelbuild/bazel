@@ -1511,7 +1511,8 @@ EOF
 }
 
 # Printing the attributes of an incompatible target must not fail on a select()
-# that has no matching branch in the target's configuration.
+# that has no matching branch in the target's configuration. The select() is
+# printed as written instead.
 function test_cquery_incompatible_target_with_unmatched_select() {
   mkdir -p target_skipping
   cat >> target_skipping/BUILD <<'EOF'
@@ -1533,6 +1534,15 @@ EOF
       || fail "Bazel cquery --output=${output} failed unexpectedly."
     expect_log "unmatched_select"
   done
+
+  bazel cquery --output=build //target_skipping:unmatched_select \
+    &> "${TEST_log}" || fail "Bazel cquery --output=build failed unexpectedly."
+  expect_log 'actual = select({"//target_skipping:never_set": "//target_skipping:real"})'
+
+  bazel cquery --output=textproto //target_skipping:unmatched_select \
+    &> "${TEST_log}" || fail "Bazel cquery --output=textproto failed unexpectedly."
+  expect_log "selector_list"
+  expect_log 'label: "//target_skipping:never_set"'
 }
 
 # Runs a cquery and makes sure that we can properly distinguish between

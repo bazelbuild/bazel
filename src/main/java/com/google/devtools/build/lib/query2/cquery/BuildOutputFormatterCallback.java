@@ -38,6 +38,9 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private final LabelPrinter labelPrinter;
 
+  /** The attribute map of the target being printed, read by the preserveSelect predicate. */
+  @Nullable private ConfiguredAttributeMapper currentAttributeMap;
+
   BuildOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
@@ -68,13 +71,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
      */
     @Override
     public Iterable<Object> getPossibleValues(Rule rule, Attribute attr) {
-      Object actualValue;
-      try {
-        actualValue = attributeMap.getAndValidate(attr.getName(), attr.getType());
-      } catch (ValidationException e) {
-        // Incompatible targets skip analysis, so their selects may not match this configuration.
-        return ImmutableList.of();
-      }
+      Object actualValue = attributeMap.get(attr.getName(), attr.getType());
       return actualValue == null ? ImmutableList.of() : ImmutableList.of(actualValue);
     }
   }
@@ -106,15 +103,29 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
         new TargetOutputter(
             printStream,
             // This tells TargetOutputter which attributes to print as selects without resolving
-            // those selects. For cquery we never have to do this since we can always resolve
-            // selects. Going forward we could expand this to show both the complete select
-            // and which path is chosen, which people may find even more informative.
-            (rule, attr) -> false,
+            // those selects. Analysis fails on a select without a matching branch, so cquery can
+            // resolve every select except those of incompatible targets, which skip analysis.
+            // Going forward we could expand this to show both the complete select and which path
+            // is chosen, which people may find even more informative.
+            (rule, attr) -> !resolves(currentAttributeMap, attr),
             "\n",
             labelPrinter);
     for (CqueryNode configuredTarget : partialResult) {
       Target target = accessor.getTarget(configuredTarget);
-      outputter.output(target, new CqueryAttributeReader(getAttributeMap(configuredTarget)));
+      currentAttributeMap = getAttributeMap(configuredTarget);
+      outputter.output(target, new CqueryAttributeReader(currentAttributeMap));
+    }
+  }
+
+  private static boolean resolves(@Nullable ConfiguredAttributeMapper attributeMap, Attribute attr) {
+    if (attributeMap == null) {
+      return true;
+    }
+    try {
+      attributeMap.getAndValidate(attr.getName(), attr.getType());
+      return true;
+    } catch (ValidationException e) {
+      return false;
     }
   }
 }

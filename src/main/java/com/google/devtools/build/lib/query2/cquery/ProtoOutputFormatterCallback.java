@@ -367,8 +367,9 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         try {
           attributeValue = attributeMapper.getAndValidate(attr.getName(), attr.getType());
         } catch (ValidationException e) {
-          // Incompatible targets skip analysis, so their selects may not match this configuration.
-          continue;
+          // Incompatible targets skip analysis, so their selects may not match this
+          // configuration. Such a select is output as written, without a resolved value.
+          attributeValue = attributeMapper.getSelectorList(attr.getName(), attr.getType());
         }
         Build.Attribute serializedAttribute =
             AttributeFormatter.getAttributeProto(
