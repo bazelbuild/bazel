@@ -897,6 +897,49 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         .containsExactly("//donut:ba", "//donut:uses_a", "//donut:uses_b");
   }
 
+  @Test
+  public void testAspectDepMatchingBaseConditionIsKept() throws Exception {
+    writeFile(
+        "donut/test.bzl",
+        """
+        def _walk_impl(target, ctx):
+            return []
+
+        walk = aspect(
+            implementation = _walk_impl,
+            attr_aspects = ["deps"],
+            attrs = {"_setting": attr.label(default = "//donut:a")},
+        )
+
+        def _lib_impl(ctx):
+            pass
+
+        lib = rule(implementation = _lib_impl, attrs = {"deps": attr.label_list()})
+
+        def _top_impl(ctx):
+            pass
+
+        top = rule(_top_impl, attrs = {"deps": attr.label_list(aspects = [walk])})
+        """);
+    writeFile(
+        "donut/BUILD",
+        """
+        load(":test.bzl", "lib", "top")
+
+        config_setting(name = "a", define_values = {"x": "a"})
+
+        lib(name = "uses_a", deps = select({":a": [], "//conditions:default": []}))
+
+        top(name = "top", deps = [":uses_a"])
+        """);
+
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
+    // The aspect's own attribute names the base target's select() condition, so it is a dep of the
+    // aspect and is reported for the top-level target.
+    assertThat(evalLabels("filter(//donut, deps(//donut:top, 1))"))
+        .containsExactly("//donut:top", "//donut:uses_a", "//donut:a");
+  }
+
   private ImmutableList<String> evalLabels(String query) throws Exception {
     return eval(query).stream()
         .map(cf -> cf.getDescription(LabelPrinter.legacy()))

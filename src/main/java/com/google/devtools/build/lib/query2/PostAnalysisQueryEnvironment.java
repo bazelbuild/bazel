@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -82,6 +83,7 @@ import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtrac
 import com.google.devtools.build.lib.skyframe.SimplePackageIdentifierBatchingCallback;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -787,21 +789,38 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    * Drops the aspect's base target's select() conditions from the aspect's direct deps. The aspect
    * depends on them only to evaluate the base target's attributes, so they are deps of the base
    * target, which is reported separately. Without this, which conditions get reported depends on
-   * which instance of the aspect class targetifyValues examines first.
+   * which instance of the aspect class targetifyValues examines first. A condition the aspect also
+   * declares in its own attributes is kept, since the same key then is the aspect's own dep.
    */
   private Iterable<SkyKey> withoutBaseConfigConditions(AspectKey key, Iterable<SkyKey> deps)
       throws InterruptedException {
     T base = getValueFromKey(key.getBaseConfiguredTargetKey());
     RuleConfiguredTarget baseRule = base == null ? null : getRuleConfiguredTarget(base);
-    if (baseRule == null || baseRule.getConfigConditions().isEmpty()) {
+    AspectValue aspectValue = getAspectValue(key);
+    if (baseRule == null
+        || baseRule.getConfigConditions().isEmpty()
+        || aspectValue == null
+        || aspectValue.getAspect() == null) {
       return deps;
     }
-    ImmutableSet<Label> conditions = baseRule.getConfigConditions().keySet();
-    return Iterables.filter(
-        deps,
-        dep ->
-            !(dep.argument() instanceof ConfiguredTargetKey configuredTargetKey
-                && conditions.contains(configuredTargetKey.getLabel())));
+    Set<Label> aspectLabels = new HashSet<>();
+    AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
+        aspectValue.getAspect(),
+        DependencyFilter.ALL_DEPS,
+        (attribute, label) -> aspectLabels.add(label));
+    // Config conditions are evaluated in the base target's configuration.
+    BuildConfigurationKey configuration = getConfiguredTargetKey(base).getConfigurationKey();
+    Set<ConfiguredTargetKey> conditions = new HashSet<>();
+    for (Label condition : baseRule.getConfigConditions().keySet()) {
+      if (!aspectLabels.contains(condition)) {
+        conditions.add(
+            ConfiguredTargetKey.builder()
+                .setLabel(condition)
+                .setConfigurationKey(configuration)
+                .build());
+      }
+    }
+    return Iterables.filter(deps, dep -> !conditions.contains(dep.argument()));
   }
 
   private Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> targetifyValues(
