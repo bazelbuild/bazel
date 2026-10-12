@@ -19,18 +19,24 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.INNER_FOLDER_NAME;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.ROOT_FOLDER_NAME;
 
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.zip.GZIPInputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,6 +45,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CompressedTarFunctionTest {
   @Rule public TestName name = new TestName();
+  @Rule public TemporaryFolder folder = new TemporaryFolder();
 
   /* Tarball, created by "tar -czf <ARCHIVE_NAME> <files...>" */
   private static final String ARCHIVE_NAME = "test_decompress_archive.tar.gz";
@@ -160,7 +167,7 @@ public class CompressedTarFunctionTest {
   public void decompressTarWithSymlinkSharingStripPrefix() throws Exception {
     // Creates the example archive described in https://github.com/bazelbuild/bazel/issues/30015.
     // Also includes an absolute symlink to show it's deprefixed correctly.
-    FileSystem fs = FileSystems.getNativeFileSystem();
+    FileSystem fs = TestArchiveDescriptor.getFileSystem();
     File archive = folder.newFile("symlink_with_same_strip_prefix.tar.gz");
     try (FileOutputStream fos = new FileOutputStream(archive);
         GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);
