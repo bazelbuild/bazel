@@ -59,7 +59,7 @@ public final class RemoteExternalOverlayFileSystemTest {
     overlay.beforeCommand(
         new InMemoryCombinedCache(digestUtil),
         prefetcher,
-        new Reporter(),
+        new Reporter(new EventBus()),
         "build-request",
         "command",
         mock(MemoizingEvaluator.class),
@@ -116,7 +116,7 @@ public final class RemoteExternalOverlayFileSystemTest {
     overlay.beforeCommand(
         new InMemoryCombinedCache(cacheClient, digestUtil),
         prefetcher,
-        new Reporter(),
+        new Reporter(new EventBus()),
         "build-request",
         "command",
         mock(MemoizingEvaluator.class),
