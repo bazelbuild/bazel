@@ -851,6 +851,59 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
+  public void testAspectDepsDoNotDependOnDepOrder() throws Exception {
+    writeFile(
+        "donut/test.bzl",
+        """
+        def _walk_impl(target, ctx):
+            return []
+
+        walk = aspect(implementation = _walk_impl, attr_aspects = ["deps"])
+
+        def _lib_impl(ctx):
+            pass
+
+        lib = rule(implementation = _lib_impl, attrs = {"deps": attr.label_list()})
+
+        def _top_impl(ctx):
+            pass
+
+        top = rule(_top_impl, attrs = {"deps": attr.label_list(aspects = [walk])})
+        """);
+    writeFile(
+        "donut/BUILD",
+        """
+        load(":test.bzl", "lib", "top")
+
+        config_setting(name = "a", define_values = {"x": "a"})
+
+        config_setting(name = "b", define_values = {"x": "b"})
+
+        lib(name = "uses_a", deps = select({":a": [], "//conditions:default": []}))
+
+        lib(name = "uses_b", deps = select({":b": [], "//conditions:default": []}))
+
+        top(name = "ab", deps = [":uses_a", ":uses_b"])
+
+        top(name = "ba", deps = [":uses_b", ":uses_a"])
+        """);
+
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
+    // The aspect on each dep depends on that dep's select() conditions. They belong to the dep,
+    // not to the aspect, so neither order reports them as deps of the top-level target.
+    assertThat(evalLabels("filter(//donut, deps(//donut:ab, 1))"))
+        .containsExactly("//donut:ab", "//donut:uses_a", "//donut:uses_b");
+    assertThat(evalLabels("filter(//donut, deps(//donut:ba, 1))"))
+        .containsExactly("//donut:ba", "//donut:uses_a", "//donut:uses_b");
+  }
+
+  private ImmutableList<String> evalLabels(String query) throws Exception {
+    return eval(query).stream()
+        .map(cf -> cf.getDescription(LabelPrinter.legacy()))
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  @Test
   public void testToolchainPropagatingAspectDepsAppearInCqueryDeps() throws Exception {
     writeFile(
         "donut_toolchains/test_toolchain.bzl",

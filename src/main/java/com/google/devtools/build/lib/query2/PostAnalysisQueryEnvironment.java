@@ -770,13 +770,38 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           resolvedAspectClasses.add(((AspectKey) key).getAspectClass());
         }
         values.addAll(
-            targetifyValues(null, graph.getDirectDeps(key), knownCtDeps, resolvedAspectClasses));
+            targetifyValues(
+                null,
+                withoutBaseConfigConditions((AspectKey) key, graph.getDirectDeps(key)),
+                knownCtDeps,
+                resolvedAspectClasses));
       } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
         values.addAll(
             targetifyValues(null, graph.getDirectDeps(key), knownCtDeps, resolvedAspectClasses));
       }
     }
     return values.build();
+  }
+
+  /**
+   * Drops the aspect's base target's select() conditions from the aspect's direct deps. The aspect
+   * depends on them only to evaluate the base target's attributes, so they are deps of the base
+   * target, which is reported separately. Without this, which conditions get reported depends on
+   * which instance of the aspect class targetifyValues examines first.
+   */
+  private Iterable<SkyKey> withoutBaseConfigConditions(AspectKey key, Iterable<SkyKey> deps)
+      throws InterruptedException {
+    T base = getValueFromKey(key.getBaseConfiguredTargetKey());
+    RuleConfiguredTarget baseRule = base == null ? null : getRuleConfiguredTarget(base);
+    if (baseRule == null || baseRule.getConfigConditions().isEmpty()) {
+      return deps;
+    }
+    ImmutableSet<Label> conditions = baseRule.getConfigConditions().keySet();
+    return Iterables.filter(
+        deps,
+        dep ->
+            !(dep.argument() instanceof ConfiguredTargetKey configuredTargetKey
+                && conditions.contains(configuredTargetKey.getLabel())));
   }
 
   private Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> targetifyValues(
