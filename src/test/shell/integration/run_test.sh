@@ -715,6 +715,61 @@ EOF
   expect_not_log "goodbye"
 }
 
+function test_run_under_label_for_test_target() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_binary(
+  name = 'runner',
+  srcs = ['runner.sh'],
+)
+
+sh_test(
+  name = 'greeting_test',
+  srcs = ['greeting_test.sh'],
+)
+
+alias(
+  name = 'alias_to_test',
+  actual = ':greeting_test',
+)
+
+alias(
+  name = 'alias_to_alias',
+  actual = ':alias_to_test',
+)
+EOF
+  cat > "$pkg/runner.sh" <<'EOF'
+#!/bin/sh
+echo "running under runner"
+exec "$@"
+EOF
+  chmod +x "$pkg/runner.sh"
+  cat > "$pkg/greeting_test.sh" <<'EOF'
+#!/bin/sh
+echo "hello from test"
+EOF
+  chmod +x "$pkg/greeting_test.sh"
+
+  for target in greeting_test alias_to_alias; do
+    # The test runner looks for the --run_under target in the runfiles tree of
+    # the test, which isn't created on Windows by default.
+    bazel run --enable_runfiles --run_under="//$pkg:runner" "//$pkg:$target" \
+        >$TEST_log || fail "expected run of $target to succeed"
+    expect_log "running under runner"
+    expect_log "hello from test"
+
+    # The test action runs the --run_under target it depends on. The target
+    # must not also be built as a top-level target, where it would go unused.
+    [[ ! -e "bazel-bin/$pkg/runner${EXE_EXT}" ]] \
+        || fail "--run_under target was built as an unused top-level target for $target"
+  done
+}
+
 function test_run_under_command_change_preserves_cache() {
   if is_windows; then
     echo "This test requires --run_under to be able to run echo."
