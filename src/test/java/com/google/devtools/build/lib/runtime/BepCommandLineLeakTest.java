@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -24,9 +25,23 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLine;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.DisallowValues;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.FlagPolicy;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
+import com.google.devtools.common.options.CommandNameCache;
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -110,5 +125,120 @@ public final class BepCommandLineLeakTest {
     assertThat(unstructured).doesNotContain(REMOTE_BEARER);
     assertThat(unstructured).contains("--bes_header=<REDACTED>");
     assertThat(unstructured).contains("--remote_header=<REDACTED>");
+  }
+
+  @Test
+  public void invocationPolicy_redactsHeadersInLogs() throws Exception {
+    String secretPolicyValue = "Authorization=Bearer secret_policy_token";
+    InvocationPolicy invocationPolicy =
+        InvocationPolicy.newBuilder()
+            .addFlagPolicies(
+                FlagPolicy.newBuilder()
+                    .setFlagName("bes_header")
+                    .setSetValue(
+                        SetValue.newBuilder()
+                            .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
+                            .addFlagValue(secretPolicyValue)))
+            .build();
+
+    CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(ImmutableSet::of);
+    try {
+      OptionsParser parser = newCommandParser();
+      InvocationPolicyEnforcer enforcer =
+          new InvocationPolicyEnforcer(invocationPolicy, Level.INFO, parser.getConversionContext());
+
+      Logger enforcerLogger = Logger.getLogger(InvocationPolicyEnforcer.class.getName());
+      Level oldLevel = enforcerLogger.getLevel();
+      enforcerLogger.setLevel(Level.INFO);
+      List<String> logMessages = new ArrayList<>();
+      Handler handler =
+          new Handler() {
+            @Override
+            public void publish(LogRecord record) {
+              logMessages.add(record.getMessage());
+            }
+
+            @Override
+            public void flush() {}
+
+            @Override
+            public void close() {}
+          };
+      enforcerLogger.addHandler(handler);
+      try {
+        enforcer.enforce(parser, "build", ImmutableList.builder());
+      } finally {
+        enforcerLogger.setLevel(oldLevel);
+        enforcerLogger.removeHandler(handler);
+      }
+
+      assertThat(logMessages).isNotEmpty();
+      String allLogs = String.join("\n", logMessages);
+      assertThat(allLogs).doesNotContain(BES_BEARER);
+      assertThat(allLogs).doesNotContain(secretPolicyValue);
+      assertThat(allLogs).contains("<REDACTED>");
+    } finally {
+      CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(null);
+    }
+  }
+
+  @Test
+  public void invocationPolicy_disallowValues_redactsHeadersInException() throws Exception {
+    InvocationPolicy invocationPolicy =
+        InvocationPolicy.newBuilder()
+            .addFlagPolicies(
+                FlagPolicy.newBuilder()
+                    .setFlagName("bes_header")
+                    .setDisallowValues(
+                        DisallowValues.newBuilder()
+                            .addDisallowedValues("Authorization=Bearer " + BES_BEARER)))
+            .build();
+
+    CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(ImmutableSet::of);
+    try {
+      OptionsParser parser = newCommandParser();
+      InvocationPolicyEnforcer enforcer =
+          new InvocationPolicyEnforcer(invocationPolicy, Level.INFO, parser.getConversionContext());
+
+      OptionsParsingException e =
+          assertThrows(
+              OptionsParsingException.class,
+              () -> enforcer.enforce(parser, "build", ImmutableList.builder()));
+      assertThat(e.getMessage()).doesNotContain(BES_BEARER);
+      assertThat(e.getMessage()).contains("<REDACTED>");
+    } finally {
+      CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(null);
+    }
+  }
+
+  @Test
+  public void invocationPolicy_throwOnOverride_redactsHeadersInException() throws Exception {
+    String secretPolicyValue = "Authorization=Bearer secret_policy_token";
+    InvocationPolicy invocationPolicy =
+        InvocationPolicy.newBuilder()
+            .addFlagPolicies(
+                FlagPolicy.newBuilder()
+                    .setFlagName("bes_header")
+                    .setSetValue(
+                        SetValue.newBuilder()
+                            .setBehavior(Behavior.FINAL_VALUE_THROW_ON_OVERRIDE)
+                            .addFlagValue(secretPolicyValue)))
+            .build();
+
+    CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(ImmutableSet::of);
+    try {
+      OptionsParser parser = newCommandParser();
+      InvocationPolicyEnforcer enforcer =
+          new InvocationPolicyEnforcer(invocationPolicy, Level.INFO, parser.getConversionContext());
+
+      OptionsParsingException e =
+          assertThrows(
+              OptionsParsingException.class,
+              () -> enforcer.enforce(parser, "build", ImmutableList.builder()));
+      assertThat(e.getMessage()).doesNotContain(secretPolicyValue);
+      assertThat(e.getMessage()).contains("<REDACTED>");
+    } finally {
+      CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(null);
+    }
   }
 }
