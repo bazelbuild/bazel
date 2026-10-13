@@ -261,6 +261,12 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void sharedRewoundOutputChecked(
+      @TestParameter boolean cacheHit, @TestParameter boolean changed) throws Exception {
+    helper.runSharedRewoundOutputChecked(cacheHit, changed);
+  }
+
+  @Test
   public void sharedRewoundOutputCheckSucceeds() throws Exception {
     addOptions("--experimental_check_rewound_action_outputs");
     helper.runParallelTrackSharedActionsRewound();

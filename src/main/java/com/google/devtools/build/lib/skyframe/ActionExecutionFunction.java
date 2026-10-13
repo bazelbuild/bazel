@@ -730,14 +730,24 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     ActionExecutionValue previousOutputs = null;
-    if (skyframeActionExecutor.shouldCheckRewoundActionOutputs(action)) {
-      // Rewinding retains the prior SkyValue even while this node is being rebuilt. Unlike the
+    ActionLookupData rewoundActionKey = skyframeActionExecutor.getRewoundActionKey(action);
+    if (rewoundActionKey != null) {
+      // Rewinding retains the prior SkyValue even while its node is being rebuilt. Unlike the
       // executor's per-build action map, this also covers local/remote cache hits and actions that
-      // completed in a previous invocation. Do not add a Skyframe dependency on our own node.
+      // completed in a previous invocation. Use the original producer's key in case a different
+      // shared owner wins execution. Do not introduce a dependency on ourselves or a shared action.
       NodeEntry entry =
-          evaluator.get().getExistingEntryAtCurrentlyEvaluatingVersion(actionLookupData);
+          evaluator.get().getExistingEntryAtCurrentlyEvaluatingVersion(rewoundActionKey);
       if (entry != null && entry.toValue() instanceof ActionExecutionValue value) {
         previousOutputs = value;
+        if (!rewoundActionKey.equals(actionLookupData)) {
+          try {
+            previousOutputs = value.transformForSharedAction(action);
+          } catch (ActionExecutionValue.ActionTransformException e) {
+            throw new IllegalStateException(
+                String.format("Cannot share %s and %s", rewoundActionKey, actionLookupData), e);
+          }
+        }
       }
     }
 
@@ -774,7 +784,8 @@ public class ActionExecutionFunction implements SkyFunction {
               pathResolver,
               actionStartTime,
               state.allInputs.actionCacheInputs,
-              clientEnv);
+              clientEnv,
+              previousOutputs);
     }
 
     if (state.token == null) {
@@ -782,10 +793,8 @@ public class ActionExecutionFunction implements SkyFunction {
           action instanceof RichDataProducingAction rdpa
               ? rdpa.reconstructRichDataOnActionCacheHit(state.actionInputMetadataProvider)
               : null;
-      ActionExecutionValue value =
-          ActionExecutionValue.create(outputMetadataStore, reconstructedRichArtifactData, action);
-      skyframeActionExecutor.checkRewoundActionOutputs(action, previousOutputs, value, null);
-      return value;
+      return ActionExecutionValue.create(
+          outputMetadataStore, reconstructedRichArtifactData, action);
     }
 
     outputMetadataStore.prepareForActionExecution();

@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.actions.ActionSuccessEvent;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -225,6 +226,10 @@ public final class SkyframeActionExecutor {
   // receiving more than one of those events per action.
   private Set<OwnerlessArtifactWrapper> rewoundActions;
 
+  // Remember the original owner before shared actions race to regenerate the outputs. The winner
+  // may never have completed before and therefore may not have a retained SkyValue of its own.
+  private ConcurrentMap<OwnerlessArtifactWrapper, ActionLookupData> rewoundActionKeys;
+
   private ActionOutputDirectoryHelper outputDirectoryHelper;
 
   private OptionsProvider options;
@@ -340,6 +345,7 @@ public final class SkyframeActionExecutor {
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = new ConcurrentHashMap<>();
     this.rewoundActions = Sets.newConcurrentHashSet();
+    this.rewoundActionKeys = new ConcurrentHashMap<>();
     this.hadExecutionError.set(false);
     this.actionCacheChecker = checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
@@ -503,6 +509,7 @@ public final class SkyframeActionExecutor {
     this.outputService = null;
     this.buildActionMap = null;
     this.rewoundActions = null;
+    this.rewoundActionKeys = null;
     this.actionCacheChecker = null;
     this.bustActionCachesTarget = null;
     this.outputDirectoryHelper = null;
@@ -528,32 +535,26 @@ public final class SkyframeActionExecutor {
         && rewoundActions.contains(new OwnerlessArtifactWrapper(primaryOutput));
   }
 
-  boolean shouldCheckRewoundActionOutputs(Action action) {
-    return checkRewoundActionOutputs && wasRewound(action);
+  @Nullable
+  ActionLookupData getRewoundActionKey(Action action) {
+    return checkRewoundActionOutputs && action.getPrimaryOutput() != null
+        ? rewoundActionKeys.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()))
+        : null;
   }
 
-  void checkRewoundActionOutputs(
-      Action action,
-      @Nullable ActionExecutionValue previous,
-      ActionExecutionValue regenerated,
-      @Nullable FileOutErr fileOutErr)
+  private void reportChangedRewoundOutput(
+      Action action, String changed, @Nullable FileOutErr fileOutErr)
       throws ActionExecutionException {
-    if (previous == null) {
-      return;
-    }
-    String changed = regenerated.getFirstOutputWithDifferentContent(previous);
-    if (changed != null) {
-      throw toActionExecutionException(
-          "Output '"
-              + changed
-              + "' changed while regenerating a rewound action. Previously completed actions may"
-              + " depend on the original contents; refusing to continue with inconsistent outputs."
-              + " Check this action and its inputs for nondeterminism.",
-          null,
-          action,
-          fileOutErr,
-          Code.REWOUND_ACTION_OUTPUT_CHANGED);
-    }
+    throw toActionExecutionException(
+        "Output '"
+            + changed
+            + "' changed while regenerating a rewound action. Previously completed actions may"
+            + " depend on the original contents; refusing to continue with inconsistent outputs."
+            + " Check this action and its inputs for nondeterminism.",
+        null,
+        action,
+        fileOutErr,
+        Code.REWOUND_ACTION_OUTPUT_CHANGED);
   }
 
   /**
@@ -640,6 +641,11 @@ public final class SkyframeActionExecutor {
       checkState(dep instanceof ActionTemplate, "dep of unexpected type %s", dep);
       rewoundActions.add(ownerlessArtifactWrapper);
       return;
+    }
+    if (checkRewoundActionOutputs) {
+      rewoundActionKeys.putIfAbsent(
+          ownerlessArtifactWrapper,
+          ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey());
     }
     ActionExecutionState actionExecutionState = buildActionMap.get(ownerlessArtifactWrapper);
     if (actionExecutionState != null) {
@@ -819,7 +825,8 @@ public final class SkyframeActionExecutor {
       ArtifactPathResolver artifactPathResolver,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
-      Map<String, String> clientEnv)
+      Map<String, String> clientEnv,
+      @Nullable ActionExecutionValue previousOutputs)
       throws ActionExecutionException, InterruptedException {
     Token token;
     EventHandler handler;
@@ -905,7 +912,11 @@ public final class SkyframeActionExecutor {
                 action,
                 outputMetadataStore,
                 /* actionExecutionContext= */ null,
-                /* isActionCacheHitForMetrics= */ true);
+                /* isActionCacheHitForMetrics= */ true,
+                // A shared action can repopulate the cache after rewind eviction. Only check
+                // accepted hits, not hits rejected by NotifyOnActionCacheHit above.
+                token == null ? previousOutputs : null,
+                /* fileOutErr= */ null);
         if (!eventPosted) {
           eventHandler.post(
               new CachedActionEvent(
@@ -1402,22 +1413,15 @@ public final class SkyframeActionExecutor {
             action,
             outputMetadataStore,
             actionExecutionContext,
-            /* isActionCacheHitForMetrics= */ false)) {
+            /* isActionCacheHitForMetrics= */ false,
+            previousOutputs,
+            outputAlreadyDumped ? null : fileOutErr)) {
           throw toActionExecutionException(
               "not all outputs were created or valid",
               null,
               action,
               outputAlreadyDumped ? null : fileOutErr,
               Code.ACTION_OUTPUTS_NOT_CREATED);
-        }
-
-        if (previousOutputs != null) {
-          checkRewoundActionOutputs(
-              action,
-              previousOutputs,
-              ActionExecutionValue.create(
-                  this.outputMetadataStore, actionExecutionContext.getRichArtifactData(), action),
-              outputAlreadyDumped ? null : fileOutErr);
         }
 
         if (finalizeActions) {
@@ -1715,8 +1719,10 @@ public final class SkyframeActionExecutor {
       Action action,
       OutputMetadataStore outputMetadataStore,
       ActionExecutionContext actionExecutionContext,
-      boolean isActionCacheHitForMetrics)
-      throws InterruptedException {
+      boolean isActionCacheHitForMetrics,
+      @Nullable ActionExecutionValue previousOutputs,
+      @Nullable FileOutErr fileOutErr)
+      throws ActionExecutionException, InterruptedException {
     boolean success = true;
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "checkOutputs")) {
       for (Artifact output : action.getOutputs()) {
@@ -1729,6 +1735,20 @@ public final class SkyframeActionExecutor {
 
             if (!checkForUnsoundDirectoryOutput(action, output, metadata)) {
               return false;
+            }
+
+            if (previousOutputs != null) {
+              String changed =
+                  RewoundActionOutputChecker.getChangedOutput(
+                      output,
+                      previousOutputs,
+                      metadata,
+                      output.isTreeArtifact()
+                          ? outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output)
+                          : null);
+              if (changed != null) {
+                reportChangedRewoundOutput(action, changed, fileOutErr);
+              }
             }
 
             FilesetOutputTree filesetOutputTree = null;
@@ -1769,6 +1789,10 @@ public final class SkyframeActionExecutor {
               reportMissingOutputFile(action, output, reporter, isSymlink, e);
             }
           }
+        } else if (previousOutputs != null
+            && (previousOutputs.getAllFileValues().containsKey(output)
+                || previousOutputs.getAllTreeArtifactValues().containsKey(output))) {
+          reportChangedRewoundOutput(action, output.getExecPathString(), fileOutErr);
         }
       }
     }
