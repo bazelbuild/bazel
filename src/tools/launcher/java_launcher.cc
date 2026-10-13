@@ -253,7 +253,7 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
   wstring jar_manifest_file_path =
       binary_base_path + rand_id + L".jar_manifest";
   blaze_util::AddUncPrefixMaybe(&jar_manifest_file_path);
-  wofstream jar_manifest_file{jar_manifest_file_path};
+  wofstream jar_manifest_file{jar_manifest_file_path.c_str()};
   jar_manifest_file << L"Manifest-Version: 1.0\n";
   // No line in the MANIFEST.MF file may be longer than 72 bytes.
   // A space prefix indicates the line is still the content of the last
@@ -313,7 +313,7 @@ wstring JavaBinaryLauncher::CreateClasspathFlagfile(const wstring& classpath) {
   wstring flagfile_path =
       binary_base_path + L"-" + rand_id_ + L"-classpath.txt";
   blaze_util::AddUncPrefixMaybe(&flagfile_path);
-  ofstream flagfile{flagfile_path};
+  ofstream flagfile{flagfile_path.c_str()};
   flagfile << contents_utf8;
   flagfile.close();
   if (flagfile.fail()) {

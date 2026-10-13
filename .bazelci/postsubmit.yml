@@ -117,6 +117,8 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      # Tagged as manual, cross-compiles Bazel for Windows.
+      - "//src:bazel_windows_llvm"
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
