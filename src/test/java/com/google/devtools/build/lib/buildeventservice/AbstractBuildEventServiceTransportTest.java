@@ -440,6 +440,76 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
+  public void retriesAfterFinalAckShouldWork() throws Exception {
+    Instant timestamp = clock.now();
+    fakeBesServer.setStreamCompletionStatuses(ImmutableList.of(Status.UNAVAILABLE));
+    BuildEventServiceTransport transport =
+        newBuildEventServiceTransport(/* publishLifecycleEvents= */ false);
+    transport.sendBuildEvent(started);
+
+    transport.close().get();
+
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
+        .containsExactly(
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                1,
+                started.asStreamProto(buildEventContext).toByteArray()),
+            BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 2),
+            BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 2))
+        .inOrder();
+  }
+
+  @Test(timeout = TIMEOUT_MILLIS)
+  public void repeatedFinalAcksShouldNotResetRetries() throws Exception {
+    // The initial stream makes progress, allowing one retry before the retry budget is consumed.
+    int attempts =
+        Options.getDefaults(BuildEventProtocolOptions.class).getBesUploadMaxRetries() + 2;
+    fakeBesServer.setStreamCompletionStatuses(Collections.nCopies(attempts, Status.UNAVAILABLE));
+    BuildEventServiceTransport transport =
+        newBuildEventServiceTransport(/* publishLifecycleEvents= */ false);
+    transport.sendBuildEvent(started);
+
+    ExecutionException exception =
+        assertThrows(ExecutionException.class, () -> transport.close().get());
+
+    assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE);
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
+        .hasSize(attempts + 1);
+  }
+
+  @Test(timeout = TIMEOUT_MILLIS)
+  public void persistentErrorsAfterFinalAckShouldNotBeRetried() throws Exception {
+    assertPersistentErrorAfterFinalAck(Status.INVALID_ARGUMENT);
+  }
+
+  @Test(timeout = TIMEOUT_MILLIS)
+  public void failedPreconditionAfterFinalAckShouldNotBeRetried() throws Exception {
+    assertPersistentErrorAfterFinalAck(Status.FAILED_PRECONDITION);
+  }
+
+  private void assertPersistentErrorAfterFinalAck(Status status) throws Exception {
+    fakeBesServer.setStreamCompletionStatuses(ImmutableList.of(status));
+    BuildEventServiceTransport transport =
+        newBuildEventServiceTransport(/* publishLifecycleEvents= */ false);
+    transport.sendBuildEvent(started);
+
+    ExecutionException exception =
+        assertThrows(ExecutionException.class, () -> transport.close().get());
+
+    assertPersistentError(exception, BuildProgress.Code.BES_STREAM_COMPLETED_WITH_REMOTE_ERROR);
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
+        .hasSize(2);
+  }
+
+  @Test(timeout = TIMEOUT_MILLIS)
   public void retriesForInvocationStartedEventShouldWork() throws Exception {
     clock.advanceMillis(750L);
     Instant invocationStartedTimestamp = clock.now();

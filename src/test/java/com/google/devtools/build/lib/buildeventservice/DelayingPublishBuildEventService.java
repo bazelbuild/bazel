@@ -103,10 +103,6 @@ public class DelayingPublishBuildEventService extends PublishBuildEventImplBase 
     return observer;
   }
 
-  synchronized void setErrorMessage(String errorMessage) {
-    setErrorMessageAndCode(errorMessage, Status.DATA_LOSS);
-  }
-
   synchronized void setErrorMessageAndCode(String errorMessage, Status code) {
     this.errorMessage = errorMessage;
     this.errorCode = code;
