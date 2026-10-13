@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
-import com.google.devtools.build.lib.remote.LazyMaterializer;
+import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
@@ -178,7 +178,6 @@ public final class VendorCommand implements BlazeCommand {
         result = vendorAll(env, threadsOption);
       }
     } catch (InterruptedException e) {
-
       return createFailedBlazeCommandResult(
           env.getReporter(), "Vendor interrupted: " + e.getMessage());
     } catch (IOException e) {
@@ -186,7 +185,9 @@ public final class VendorCommand implements BlazeCommand {
         // Keep the failure's own exit code, e.g. so that the command is retried when a file of a
         // repo has been evicted from the remote cache.
         return createFailedBlazeCommandResult(
-            env.getReporter(), message, detailed.getDetailedExitCode());
+            env.getReporter(),
+            "Error while vendoring repos: " + e.getMessage(),
+            detailed.getDetailedExitCode());
       }
       return createFailedBlazeCommandResult(
           env.getReporter(), "Error while vendoring repos: " + e.getMessage());
@@ -408,10 +409,10 @@ public final class VendorCommand implements BlazeCommand {
         env.getDirectories()
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    if (externalPath.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
+    if (externalPath.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs) {
       // Repos that have been retrieved from the remote repo contents cache may not be on disk yet.
       for (RepositoryName repo : reposToVendor) {
-        lazyMaterializer.ensureMaterialized(repo, env.getReporter());
+        remoteFs.ensureMaterialized(repo, env.getReporter());
       }
     }
     vendorManager.vendorRepos(externalPath, env.getDirectories().getWorkspace(), reposToVendor);
