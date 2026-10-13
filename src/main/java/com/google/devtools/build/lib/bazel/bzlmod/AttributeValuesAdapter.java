@@ -142,13 +142,17 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
       }
       case STRING -> deserializeStringToObject(in.nextString());
       case BEGIN_OBJECT -> {
+        in.beginObject();
+        if (!in.hasNext()) {
+          in.endObject();
+          yield Dict.empty();
+        }
         // Collapse duplicate JSON names before decoding names, as JsonObject did. Distinct JSON
         // names can decode to the same Starlark key (for example, "foo" and "'foo'").
         Map<String, Object> members = new LinkedHashMap<>();
-        in.beginObject();
-        while (in.hasNext()) {
+        do {
           members.put(in.nextName(), deserializeObject(in));
-        }
+        } while (in.hasNext());
         in.endObject();
         boolean namesUnchanged = true;
         for (var entry : members.entrySet()) {
