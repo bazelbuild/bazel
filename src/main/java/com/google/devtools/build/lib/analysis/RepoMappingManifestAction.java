@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterators;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -57,6 +59,16 @@ import net.starlark.java.eval.EvalException;
 /** Creates a manifest file describing the repos and mappings relevant for a runfile tree. */
 public final class RepoMappingManifestAction extends AbstractFileWriteAction
     implements AbstractFileWriteAction.FileContentsProvider {
+
+  @Override
+  public boolean isProcessFree() {
+    return true;
+  }
+
+  @Override
+  public ImmutableSet<Class<? extends ActionContext>> getProcessFreeActionContexts() {
+    return ImmutableSet.of(FileWriteActionContext.class);
+  }
 
   private static final UUID MY_UUID = UUID.fromString("458e351c-4d30-433d-b927-da6cddd4737f");
 

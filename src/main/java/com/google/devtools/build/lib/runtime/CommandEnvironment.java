@@ -918,10 +918,13 @@ public class CommandEnvironment {
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).getBatch(),
-        keepStateAfterBuildOption.getKeepStateAfterBuild(),
-        commonOptions.getTrackIncrementalState(),
+        ProcessFreeMaterializationOptions.shouldKeepStateAfterBuild(
+            keepStateAfterBuildOption.getKeepStateAfterBuild(), options),
+        ProcessFreeMaterializationOptions.shouldTrackIncrementalState(
+            commonOptions.getTrackIncrementalState(), options),
         commonOptions.getHeuristicallyDropNodes(),
-        analysisOptions != null && analysisOptions.getDiscardAnalysisCache(),
+        ProcessFreeMaterializationOptions.shouldDiscardAnalysisCache(
+            analysisOptions != null && analysisOptions.getDiscardAnalysisCache(), options),
         reporter);
   }
 

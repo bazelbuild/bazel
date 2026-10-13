@@ -41,6 +41,8 @@ public abstract class AnalysisOptions extends OptionsBase {
               + " Reduces memory usage by ~10%, but makes further incremental builds slower.")
   public abstract boolean getDiscardAnalysisCache();
 
+  public abstract void setDiscardAnalysisCache(boolean value);
+
   @Option(
       name = "allow_analysis_cache_discard",
       defaultValue = "true",

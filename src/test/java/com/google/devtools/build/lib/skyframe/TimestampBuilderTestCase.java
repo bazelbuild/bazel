@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
@@ -331,6 +332,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       public void buildArtifacts(
           Reporter reporter,
           Set<Artifact> artifacts,
+          ActionGraph actionGraph,
           Set<ConfiguredTarget> parallelTests,
           Set<ConfiguredTarget> exclusiveTests,
           Set<ConfiguredTarget> targetsToBuild,
@@ -504,6 +506,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       builder.buildArtifacts(
           reporter,
           artifactsToBuild,
+          /* actionGraph= */ null,
           null,
           null,
           null,

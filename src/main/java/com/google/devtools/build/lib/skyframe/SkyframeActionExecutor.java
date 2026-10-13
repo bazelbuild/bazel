@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCached
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.ProcessFreeActionContextRegistry;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -247,6 +248,7 @@ public final class SkyframeActionExecutor {
   private int maxRepeatedLostInputs;
   @Nullable private Label bustActionCachesTarget;
   private boolean invocationRetriesEnabled;
+  private boolean materializeProcessFreeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
   private DiscoveredModulesPruner discoveredModulesPruner;
@@ -350,6 +352,7 @@ public final class SkyframeActionExecutor {
     this.bustActionCachesTarget = buildRequestOptions.getBustActionCachesTarget();
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).getRemoteRetryOnTransientCacheError() > 0;
+    this.materializeProcessFreeActions = buildRequestOptions.getMaterializeProcessFreeActions();
     this.outputService = checkNotNull(outputService);
     this.outputDirectoryHelper = outputDirectoryHelper;
 
@@ -741,6 +744,7 @@ public final class SkyframeActionExecutor {
             && bustActionCachesTarget.equals(actionLookupData.getLabel());
     return new ActionExecutionContext(
         executorEngine,
+        getActionContextRegistry(action),
         compositeInputMetadataProvider,
         actionInputPrefetcher,
         actionKeyContext,
@@ -755,6 +759,12 @@ public final class SkyframeActionExecutor {
         syscallCache,
         threadStateReceiverFactory.apply(actionLookupData),
         bustActionCache);
+  }
+
+  private ActionContextRegistry getActionContextRegistry(Action action) {
+    return materializeProcessFreeActions
+        ? new ProcessFreeActionContextRegistry(action, executorEngine)
+        : executorEngine;
   }
 
   private static void closeContext(
@@ -846,7 +856,9 @@ public final class SkyframeActionExecutor {
 
                 @Override
                 public <T extends ActionContext> T getContext(Class<? extends T> type) {
-                  return executorEngine.getContext(type);
+                  @SuppressWarnings("unchecked")
+                  Class<T> identifyingType = (Class<T>) type;
+                  return getActionContextRegistry(action).getContext(identifyingType);
                 }
               };
           boolean recordActionCacheHit = notify.actionCacheHit(context);
@@ -961,6 +973,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
+            getActionContextRegistry(action),
             compositeInputMetadataProvider,
             actionInputPrefetcher,
             actionKeyContext,

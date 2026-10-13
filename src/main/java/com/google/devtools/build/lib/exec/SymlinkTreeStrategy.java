@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.vfs.LocalOutputService;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -47,6 +49,13 @@ import java.util.concurrent.ExecutionException;
  * create the symlink tree.
  */
 public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
+
+  @Override
+  public boolean isProcessFree(ActionContextRegistry actionContextRegistry) {
+    // Other output services may delegate tree creation to an external implementation.
+    return outputService.getClass() == LocalOutputService.class;
+  }
+
   @VisibleForTesting
   static final Function<Artifact, PathFragment> TO_PATH =
       (artifact) -> artifact == null ? null : artifact.getPath().asFragment();

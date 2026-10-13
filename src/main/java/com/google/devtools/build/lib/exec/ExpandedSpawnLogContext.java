@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -69,6 +70,10 @@ import javax.annotation.Nullable;
 
 /** A {@link SpawnLogContext} implementation that produces a log in expanded format. */
 public class ExpandedSpawnLogContext extends SpawnLogContext {
+  @Override
+  public final boolean isProcessFree(ActionContextRegistry actionContextRegistry) {
+    return getClass() == ExpandedSpawnLogContext.class;
+  }
 
   /** The log encoding. */
   public enum Encoding {

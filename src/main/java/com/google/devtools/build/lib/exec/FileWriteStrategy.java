@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -36,6 +37,11 @@ import java.io.OutputStream;
  * com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction}.
  */
 public final class FileWriteStrategy implements FileWriteActionContext {
+  @Override
+  public boolean isProcessFree(ActionContextRegistry actionContextRegistry) {
+    return true;
+  }
+
   @Override
   public ImmutableList<SpawnResult> writeOutputToFile(
       AbstractAction action,

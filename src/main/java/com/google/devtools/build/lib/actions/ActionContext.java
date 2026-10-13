@@ -19,6 +19,16 @@ import javax.annotation.Nullable;
 public interface ActionContext {
 
   /**
+   * Whether this selected implementation can run without starting a child process.
+   *
+   * <p>The default is false. Implementations that delegate must also check the implementation they
+   * delegate to. This is an execution-phase capability, not a sandbox for arbitrary Java code.
+   */
+  default boolean isProcessFree(ActionContextRegistry actionContextRegistry) {
+    return false;
+  }
+
+  /**
    * Performs any actions conditional on this context not only being registered but triggered as
    * used because its identifier was requested and it was not overridden.
    *

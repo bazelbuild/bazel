@@ -51,6 +51,11 @@ public class UnresolvedSymlinkAction extends AbstractAction {
   private final String target;
   private final SymlinkTargetType targetType;
 
+  @Override
+  public boolean isProcessFree() {
+    return true;
+  }
+
   private UnresolvedSymlinkAction(
       ActionOwner owner, Artifact primaryOutput, String target, SymlinkTargetType targetType) {
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableSet.of(primaryOutput));

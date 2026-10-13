@@ -163,6 +163,8 @@ public abstract class BuildRequestOptions extends OptionsBase {
           """)
   public abstract boolean getPerformAnalysisPhase();
 
+  public abstract void setPerformAnalysisPhase(boolean value);
+
   @Option(
       name = "build",
       defaultValue = "true",
@@ -176,6 +178,39 @@ public abstract class BuildRequestOptions extends OptionsBase {
           successfully; this mode is useful for testing those phases.
           """)
   public abstract boolean getPerformExecutionPhase();
+
+  public abstract void setPerformExecutionPhase(boolean value);
+
+  @Option(
+      name = "experimental_materialize_process_free_actions",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      implicitRequirements = {
+        "--analyze",
+        "--build",
+        "--nocheck_up_to_date",
+        "--keep_state_after_build",
+        "--track_incremental_state",
+        "--nodiscard_analysis_cache"
+      },
+      help =
+          "Materialize only the source-rooted closure of audited Bazel-owned process-free actions."
+              + " All spawn, worker, test, and unknown actions are deferred without being"
+              + " evaluated. Incremental analysis state is retained for the next command."
+              + " Conflicting phase, up-to-date, and state-discard settings are overridden.")
+  public abstract boolean getMaterializeProcessFreeActions();
+
+  @Option(
+      name = "experimental_process_free_action_inventory",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Report process-free planner decisions grouped by action implementation class and"
+              + " mnemonic. This option has an effect only with"
+              + " --experimental_materialize_process_free_actions.")
+  public abstract boolean getProcessFreeActionInventory();
 
   @Option(
       name = "output_groups",

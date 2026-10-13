@@ -48,6 +48,15 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class AbstractFileWriteActionTest {
   @Test
+  public void unauditedSubclassIsNotProcessFree() {
+    AbstractFileWriteAction action =
+        new TestFileWriteAction(ignored -> {}, /* executable= */ false, /* isRemotable= */ false);
+
+    assertThat(action.isProcessFree()).isFalse();
+    assertThat(action.getProcessFreeActionContexts()).isEmpty();
+  }
+
+  @Test
   public void executeAction_successfulWrite_callsAfterWrite() throws Exception {
     DeterministicWriter writer = ignored -> {};
     AbstractFileWriteAction action =

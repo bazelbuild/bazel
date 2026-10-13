@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -37,6 +38,16 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
       LocalTemplateExpansionStrategy.class;
 
   public static LocalTemplateExpansionStrategy INSTANCE = new LocalTemplateExpansionStrategy();
+
+  @Override
+  public final boolean isProcessFree(ActionContextRegistry actionContextRegistry) {
+    // The writer selected for template expansion is part of the capability check. In Bazel
+    // versions where the strategy captures its writer, check that captured instance instead.
+    FileWriteActionContext writer = actionContextRegistry.getContext(FileWriteActionContext.class);
+    return getClass() == LocalTemplateExpansionStrategy.class
+        && writer != null
+        && writer.isProcessFree(actionContextRegistry);
+  }
 
   @Override
   public ImmutableList<SpawnResult> expandTemplate(
