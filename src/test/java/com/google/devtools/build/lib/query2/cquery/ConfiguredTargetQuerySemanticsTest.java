@@ -897,30 +897,38 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         .containsExactly("//donut:ba", "//donut:uses_a", "//donut:uses_b");
   }
 
-  @Test
-  public void testAspectDepMatchingBaseConditionIsKept() throws Exception {
+  /**
+   * Writes an aspect with the given arguments and includes aspects in queries. {@code //donut:ab}
+   * and {@code //donut:ba} apply it in opposite orders to {@code :uses_a}, which selects on {@code
+   * //donut:a}, and to {@code :plain}, which doesn't.
+   */
+  private void writeAspectOnConditionalDep(String definitions, String aspectArgs)
+      throws Exception {
     writeFile(
         "donut/test.bzl",
-        """
-        def _walk_impl(target, ctx):
-            return []
+        definitions
+            + """
 
-        walk = aspect(
-            implementation = _walk_impl,
-            attr_aspects = ["deps"],
-            attrs = {"_setting": attr.label(default = "//donut:a")},
-        )
+            def _walk_impl(target, ctx):
+                return []
 
-        def _lib_impl(ctx):
-            pass
+            walk = aspect(
+                implementation = _walk_impl,
+                attr_aspects = ["deps"],
+                %s
+            )
 
-        lib = rule(implementation = _lib_impl, attrs = {"deps": attr.label_list()})
+            def _lib_impl(ctx):
+                pass
 
-        def _top_impl(ctx):
-            pass
+            lib = rule(implementation = _lib_impl, attrs = {"deps": attr.label_list()})
 
-        top = rule(_top_impl, attrs = {"deps": attr.label_list(aspects = [walk])})
-        """);
+            def _top_impl(ctx):
+                pass
+
+            top = rule(_top_impl, attrs = {"deps": attr.label_list(aspects = [walk])})
+            """
+                .formatted(aspectArgs));
     writeFile(
         "donut/BUILD",
         """
@@ -930,162 +938,193 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
         lib(name = "uses_a", deps = select({":a": [], "//conditions:default": []}))
 
-        top(name = "top", deps = [":uses_a"])
-        """);
+        lib(name = "plain")
 
+        top(name = "ab", deps = [":uses_a", ":plain"])
+
+        top(name = "ba", deps = [":plain", ":uses_a"])
+        """);
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
-    // The aspect's own attribute names the base target's select() condition, so it is a dep of the
-    // aspect and is reported for the top-level target.
-    assertThat(evalLabels("filter(//donut, deps(//donut:top, 1))"))
-        .containsExactly("//donut:top", "//donut:uses_a", "//donut:a");
+  }
+
+  /**
+   * Returns the configurations {@code //donut:a} is reported in among the direct deps of {@code
+   * top}: "base" for the top-level target's configuration, "exec", or "opt".
+   */
+  private ImmutableList<String> conditionLabelConfigurations(String top) throws Exception {
+    BuildConfigurationValue topConfiguration =
+        getConfiguration(Iterables.getOnlyElement(eval(top)));
+    return eval("filter('^//donut:a$', deps(" + top + ", 1))").stream()
+        .map(
+            node -> {
+              BuildConfigurationValue configuration = getConfiguration(node);
+              if (configuration.checksum().equals(topConfiguration.checksum())) {
+                return "base";
+              } else if (configuration.isExecConfiguration()) {
+                return "exec";
+              }
+              return configuration.getMnemonic().contains("-opt") ? "opt" : "other";
+            })
+        .collect(toImmutableList());
+  }
+
+  @Test
+  public void testAspectDepMatchingBaseConditionIsKept() throws Exception {
+    writeAspectOnConditionalDep(
+        "", "attrs = {\"_setting\": attr.label(default = \"//donut:a\")},");
+
+    // The aspect's own attribute names the condition, so the aspect depends on it in either order.
+    assertThat(conditionLabelConfigurations("//donut:ab")).containsExactly("base");
+    assertThat(conditionLabelConfigurations("//donut:ba")).containsExactly("base");
   }
 
   @Test
   public void testAspectExecDepMatchingBaseConditionDropsTargetCondition() throws Exception {
-    writeFile(
-        "donut/test.bzl",
+    writeAspectOnConditionalDep(
+        "", "attrs = {\"_tool\": attr.label(default = \"//donut:a\", cfg = \"exec\")},");
+
+    // Only the exec-configured //donut:a is the aspect's. The one in the base configuration is the
+    // select() condition of :uses_a.
+    assertThat(conditionLabelConfigurations("//donut:ab")).containsExactly("exec");
+    assertThat(conditionLabelConfigurations("//donut:ba")).containsExactly("exec");
+  }
+
+  @Test
+  public void testAspectDepsOnConditionInTwoConfigurationsAreKept() throws Exception {
+    writeAspectOnConditionalDep(
+        "",
         """
-        def _walk_impl(target, ctx):
+        attrs = {
+            "_setting": attr.label(default = "//donut:a"),
+            "_tool": attr.label(default = "//donut:a", cfg = "exec"),
+        },
+        """);
+
+    // The attribute without a transition depends on the condition's key, so it is kept alongside
+    // the exec-configured dep.
+    assertThat(conditionLabelConfigurations("//donut:ab")).containsExactly("base", "exec");
+    assertThat(conditionLabelConfigurations("//donut:ba")).containsExactly("base", "exec");
+  }
+
+  @Test
+  public void testRequiredAspectDepMatchingBaseConditionIsKept() throws Exception {
+    writeAspectOnConditionalDep(
+        """
+        def _setting_impl(target, ctx):
             return []
 
-        walk = aspect(
-            implementation = _walk_impl,
-            attr_aspects = ["deps"],
-            attrs = {"_tool": attr.label(default = "//donut:a", cfg = "exec")},
+        setting_aspect = aspect(
+            implementation = _setting_impl,
+            attrs = {"_setting": attr.label(default = "//donut:a")},
         )
-
-        def _lib_impl(ctx):
-            pass
-
-        lib = rule(implementation = _lib_impl, attrs = {"deps": attr.label_list()})
-
-        def _top_impl(ctx):
-            pass
-
-        top = rule(_top_impl, attrs = {"deps": attr.label_list(aspects = [walk])})
-        """);
-    writeFile(
-        "donut/BUILD",
+        """,
         """
-        load(":test.bzl", "lib", "top")
-
-        config_setting(name = "a", define_values = {"x": "a"})
-
-        lib(name = "uses_a", deps = select({":a": [], "//conditions:default": []}))
-
-        top(name = "top", deps = [":uses_a"])
+        attrs = {"_tool": attr.label(default = "//donut:a", cfg = "exec")},
+        requires = [setting_aspect],
         """);
 
-    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
-    // The aspect's own dep is the exec-configured //donut:a. The target-configured one is only the
-    // base target's select() condition, so it is not reported.
-    CqueryNode condition =
-        Iterables.getOnlyElement(eval("filter(//donut:a, deps(//donut:top, 1))"));
-    assertThat(getConfiguration(condition).isExecConfiguration()).isTrue();
+    // The required aspect's own expansion reports its dep, even though the requiring aspect drops
+    // the shared key.
+    assertThat(conditionLabelConfigurations("//donut:ab")).containsExactly("base", "exec");
+    assertThat(conditionLabelConfigurations("//donut:ba")).containsExactly("base", "exec");
   }
 
   @Test
   public void testAspectIdentityTransitionDepMatchingBaseConditionIsKept() throws Exception {
-    writeFile(
-        "donut/test.bzl",
+    writeAspectOnConditionalDep(
         """
         def _identity_impl(settings, attr):
             return {}
 
         identity = transition(implementation = _identity_impl, inputs = [], outputs = [])
+        """,
+        "attrs = {\"_setting\": attr.label(default = \"//donut:a\", cfg = identity)},");
 
-        def _walk_impl(target, ctx):
-            return []
-
-        walk = aspect(
-            implementation = _walk_impl,
-            attr_aspects = ["deps"],
-            attrs = {"_setting": attr.label(default = "//donut:a", cfg = identity)},
-        )
-
-        def _lib_impl(ctx):
-            pass
-
-        lib = rule(implementation = _lib_impl, attrs = {"deps": attr.label_list()})
-
-        def _top_impl(ctx):
-            pass
-
-        top = rule(_top_impl, attrs = {"deps": attr.label_list(aspects = [walk])})
-        """);
-    writeFile(
-        "donut/BUILD",
-        """
-        load(":test.bzl", "lib", "top")
-
-        config_setting(name = "a", define_values = {"x": "a"})
-
-        lib(name = "uses_a", deps = select({":a": [], "//conditions:default": []}))
-
-        top(name = "top", deps = [":uses_a"])
-        """);
-
-    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
-    assertThat(evalLabels("filter(//donut, deps(//donut:top, 1))"))
-        .containsExactly("//donut:top", "//donut:uses_a", "//donut:a");
+    // The transition leaves the configuration unchanged, so the aspect's dep is the same key as
+    // the condition and is kept.
+    assertThat(conditionLabelConfigurations("//donut:ab")).containsExactly("base");
+    assertThat(conditionLabelConfigurations("//donut:ba")).containsExactly("base");
   }
 
   @Test
-  public void testAspectSplitTransitionDepMatchingBaseConditionIsKept() throws Exception {
+  public void testAspectStarlarkTransitionDepMatchingBaseConditionDropsTargetCondition()
+      throws Exception {
+    writeAspectOnConditionalDep(
+        """
+        def _opt_impl(settings, attr):
+            return {"//command_line_option:compilation_mode": "opt"}
+
+        to_opt = transition(
+            implementation = _opt_impl,
+            inputs = [],
+            outputs = ["//command_line_option:compilation_mode"],
+        )
+        """,
+        "attrs = {\"_setting\": attr.label(default = \"//donut:a\", cfg = to_opt)},");
+
+    // Only the opt-configured //donut:a is the aspect's.
+    assertThat(conditionLabelConfigurations("//donut:ab")).containsExactly("opt");
+    assertThat(conditionLabelConfigurations("//donut:ba")).containsExactly("opt");
+  }
+
+  @Test
+  public void testAspectOnOutputFilesDoesNotReportGeneratingRuleConditions() throws Exception {
     writeFile(
         "donut/test.bzl",
         """
-        def _split_impl(settings, attr):
-            mode = "//command_line_option:compilation_mode"
-            return {"same": {mode: settings[mode]}, "opt": {mode: "opt"}}
-
-        split = transition(
-            implementation = _split_impl,
-            inputs = ["//command_line_option:compilation_mode"],
-            outputs = ["//command_line_option:compilation_mode"],
-        )
-
         def _walk_impl(target, ctx):
             return []
 
         walk = aspect(
             implementation = _walk_impl,
             attr_aspects = ["deps"],
-            attrs = {"_setting": attr.label(default = "//donut:a", cfg = split)},
+            apply_to_generating_rules = True,
         )
 
-        def _lib_impl(ctx):
-            pass
+        def _gen_impl(ctx):
+            ctx.actions.write(ctx.outputs.out, "")
 
-        lib = rule(implementation = _lib_impl, attrs = {"deps": attr.label_list()})
+        gen = rule(
+            implementation = _gen_impl,
+            attrs = {"deps": attr.label_list(), "out": attr.output()},
+        )
 
         def _top_impl(ctx):
             pass
 
-        top = rule(_top_impl, attrs = {"deps": attr.label_list(aspects = [walk])})
+        top = rule(
+            _top_impl,
+            attrs = {"deps": attr.label_list(allow_files = True, aspects = [walk])},
+        )
         """);
     writeFile(
         "donut/BUILD",
         """
-        load(":test.bzl", "lib", "top")
+        load(":test.bzl", "gen", "top")
 
         config_setting(name = "a", define_values = {"x": "a"})
 
-        lib(name = "uses_a", deps = select({":a": [], "//conditions:default": []}))
+        config_setting(name = "b", define_values = {"x": "b"})
 
-        top(name = "top", deps = [":uses_a"])
+        gen(name = "gen_a", out = "a.out", deps = select({":a": [], "//conditions:default": []}))
+
+        gen(name = "gen_b", out = "b.out", deps = select({":b": [], "//conditions:default": []}))
+
+        top(name = "ab", deps = [":a.out", ":b.out"])
+
+        top(name = "ba", deps = [":b.out", ":a.out"])
         """);
 
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
-    // The split puts the aspect's dep in both the base configuration and opt.
-    assertThat(evalLabels("filter(//donut, deps(//donut:top, 1))"))
-        .containsExactly("//donut:top", "//donut:uses_a", "//donut:a", "//donut:a");
+    // The aspect on each output file evaluates the select() conditions of the rule generating it.
+    assertThat(evalLabels("filter('^//donut:[ab]$', deps(//donut:ab, 1))")).isEmpty();
+    assertThat(evalLabels("filter('^//donut:[ab]$', deps(//donut:ba, 1))")).isEmpty();
   }
 
   private ImmutableList<String> evalLabels(String query) throws Exception {
     return eval(query).stream()
         .map(cf -> cf.getDescription(LabelPrinter.legacy()))
-        .collect(ImmutableList.toImmutableList());
+        .collect(toImmutableList());
   }
 
   @Test

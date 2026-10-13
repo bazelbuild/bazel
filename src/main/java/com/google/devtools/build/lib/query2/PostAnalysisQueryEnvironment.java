@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
@@ -789,35 +790,46 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    * Drops the aspect's base target's select() conditions from the aspect's direct deps. The aspect
    * depends on them only to evaluate the base target's attributes, so they are deps of the base
    * target, which is reported separately. Without this, which conditions get reported depends on
-   * which instance of the aspect class targetifyValues examines first.
+   * which instance of the aspect class targetifyValues examines first. A condition's key that the
+   * aspect's own attributes also depend on is kept.
    */
   private Iterable<SkyKey> withoutBaseConfigConditions(AspectKey key, Iterable<SkyKey> deps)
       throws InterruptedException {
     T base = getValueFromKey(key.getBaseConfiguredTargetKey());
-    RuleConfiguredTarget baseRule = base == null ? null : getRuleConfiguredTarget(base);
+    if (base == null) {
+      return deps;
+    }
+    RuleConfiguredTarget baseRule = getRuleConfiguredTarget(base);
+    if (baseRule == null) {
+      // An aspect on an output file evaluates the conditions of the rule generating it.
+      baseRule = getOwningRuleforOutputConfiguredTarget(base);
+    }
+    if (baseRule == null || baseRule.getConfigConditions().isEmpty()) {
+      return deps;
+    }
     AspectValue aspectValue = getAspectValue(key);
-    if (baseRule == null
-        || baseRule.getConfigConditions().isEmpty()
-        || aspectValue == null
-        || aspectValue.getAspect() == null) {
+    if (aspectValue == null || aspectValue.getAspect() == null) {
       return deps;
     }
     Set<Label> aspectLabels = new HashSet<>();
-    Set<Label> splitLabels = new HashSet<>();
+    Set<Label> untransitionedLabels = new HashSet<>();
     AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
         aspectValue.getAspect(),
         DependencyFilter.ALL_DEPS,
         (attribute, label) -> {
           aspectLabels.add(label);
-          if (attribute.getTransitionFactory().isSplit()) {
-            splitLabels.add(label);
+          if (NoTransition.isInstance(attribute.getTransitionFactory())) {
+            untransitionedLabels.add(label);
           }
         });
-    // Config conditions are evaluated in the base target's configuration.
-    BuildConfigurationKey configuration = getConfiguredTargetKey(base).getConfigurationKey();
-    // Skyframe merges equal edges, so an aspect attribute whose transition leaves the configuration
-    // unchanged shares the condition's key. The aspect's own dep on such a label is then the
-    // condition's key unless it shows up in another configuration. A split may produce both.
+    // Conditions are evaluated in the base target's configuration, which is the aspect's.
+    BuildConfigurationKey configuration = key.getConfigurationKey();
+    // Skyframe merges equal edges, so the graph doesn't record whether a condition's key is also
+    // the aspect's own dep. An attribute without a transition depends on the base configuration's
+    // key (barring flag scoping). A label named only by attributes with transitions is taken to be
+    // the aspect's own dep in the base configuration unless it also appears in another one. That
+    // misreads a label those attributes put in both configurations: the base key is dropped,
+    // though it is still reported as a dep of the base target.
     Set<Label> movedLabels = new HashSet<>();
     for (SkyKey dep : deps) {
       if (dep.argument() instanceof ConfiguredTargetKey configuredTargetKey
@@ -826,18 +838,21 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         movedLabels.add(configuredTargetKey.getLabel());
       }
     }
-    Set<ConfiguredTargetKey> conditions = new HashSet<>();
+    Set<ConfiguredTargetKey> droppedConditions = new HashSet<>();
     for (Label condition : baseRule.getConfigConditions().keySet()) {
-      if (!aspectLabels.contains(condition)
-          || (movedLabels.contains(condition) && !splitLabels.contains(condition))) {
-        conditions.add(
+      if (!untransitionedLabels.contains(condition)
+          && (!aspectLabels.contains(condition) || movedLabels.contains(condition))) {
+        droppedConditions.add(
             ConfiguredTargetKey.builder()
                 .setLabel(condition)
                 .setConfigurationKey(configuration)
                 .build());
       }
     }
-    return Iterables.filter(deps, dep -> !conditions.contains(dep.argument()));
+    if (droppedConditions.isEmpty()) {
+      return deps;
+    }
+    return Iterables.filter(deps, dep -> !droppedConditions.contains(dep.argument()));
   }
 
   private Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> targetifyValues(
