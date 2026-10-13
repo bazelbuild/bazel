@@ -106,9 +106,10 @@ py_test(
         "//src/conditions:windows": "bazel_windows_test.py",
         "//conditions:default": "empty_test.py",
     }),
+    shard_count = 3,
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": [],
+        "//conditions:default": ["//third_party/py/abseil"],
     }),
 )
 
@@ -125,7 +126,7 @@ py_test(
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": [],
+        "//conditions:default": ["//third_party/py/abseil"],
     }),
 )
 
@@ -144,7 +145,7 @@ py_test(
     tags = ["manual"],
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": [],
+        "//conditions:default": ["//third_party/py/abseil"],
     }),
 )
 
@@ -194,7 +195,7 @@ py_test(
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": [],
+        "//conditions:default": ["//third_party/py/abseil"],
     }),
 )
 
@@ -227,7 +228,7 @@ py_test(
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": [],
+        "//conditions:default": ["//third_party/py/abseil"],
     }),
 )
 

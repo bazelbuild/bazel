@@ -319,8 +319,7 @@ public class BzlCompileFunction implements SkyFunction {
    * file.
    */
   private static TypeOptions getTypeOptions(StarlarkSemantics semantics, BzlCompileValue.Key key) {
-    boolean typeSyntaxFlag =
-        semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX);
+    boolean typeSyntaxFlag = semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_SYNTAX);
     List<String> allowlist =
         semantics.get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS);
 

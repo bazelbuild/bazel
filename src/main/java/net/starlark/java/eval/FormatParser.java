@@ -179,31 +179,20 @@ final class FormatParser {
    * @return Name or index of the current replacement field
    */
   private String getFieldName(char[] chars, int openingBrace) throws EvalException {
-    StringBuilder result = new StringBuilder();
-    boolean foundClosingBrace = false;
-
     for (int pos = openingBrace + 1; pos < chars.length; ++pos) {
       char current = chars[pos];
 
       if (current == '}') {
-        foundClosingBrace = true;
-        break;
-      } else {
-        if (current == '{') {
-          throw Starlark.errorf("Nested replacement fields are not supported");
-        } else if (ILLEGAL_IN_FIELD.contains(current)) {
-          throw Starlark.errorf("Invalid character '%s' inside replacement field", current);
-        }
-
-        result.append(current);
+        int length = pos - openingBrace - 1;
+        return length == 0 ? "" : new String(chars, openingBrace + 1, length);
+      }
+      if (current == '{') {
+        throw Starlark.errorf("Nested replacement fields are not supported");
+      } else if (ILLEGAL_IN_FIELD.contains(current)) {
+        throw Starlark.errorf("Invalid character '%s' inside replacement field", current);
       }
     }
-
-    if (!foundClosingBrace) {
-      throw Starlark.errorf("Found '{' without matching '}'");
-    }
-
-    return result.toString();
+    throw Starlark.errorf("Found '{' without matching '}'");
   }
 
   /**

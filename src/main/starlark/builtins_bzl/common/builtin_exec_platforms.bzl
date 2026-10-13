@@ -30,11 +30,12 @@ type _Fragment = struct[{
     "custom_logic": _FragmentCustomLogic,
 }]
 
-type _Fragments = dict[str, _Fragment]
+# Read-only view of a fragments map.
+type _Fragments = Mapping[str, _Fragment]
 
 # The fragments that make up Bazel's exec transition. The fragment() calls in
 # this file fill out this map.
-bazel_fragments: _Fragments = {}
+bazel_fragments: dict[str, _Fragment] = {}
 
 def fragment(
         propagate: list[str] = [],
@@ -102,7 +103,8 @@ def _get_inputs_and_outputs(fragments: _Fragments) -> struct[{"inputs": list[str
     """
     inputs = []
     outputs = ["//command_line_option:experimental_action_listener"]
-    for fragment in fragments.values():
+    for name in fragments:
+        fragment = fragments[name]
         inputs.extend(fragment.inputs)
         outputs.extend(fragment.outputs)
     return struct(inputs = inputs, outputs = outputs)
@@ -118,7 +120,8 @@ def _exec_transition_impl(fragments: _Fragments) -> _ExecTransitionImpl:
     # buildifier: disable=unused-variable
     def _impl(settings: dict[str, Any], attr: struct) -> dict[str, Any]:
         ans: dict[str, Any] = {}
-        for fragment in fragments.values():
+        for name in fragments:
+            fragment = fragments[name]
             for option in fragment.propagate:
                 ans[option] = settings[option]
             ans.update(fragment.custom_logic(settings))

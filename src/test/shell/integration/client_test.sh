@@ -1011,4 +1011,130 @@ function scrape_client_pid() {
   sed -nr 's/.*Running \(pid=([0-9]+)\)/\1/p'
 }
 
+function assert_output_base_deleted() {
+  local prefix="$1"
+  for i in $(seq 1 60); do
+    local found
+    found=$(ls -d "${prefix}"* 2>/dev/null || true)
+    if [[ -z "${found}" ]]; then
+      break
+    fi
+    sleep 0.2
+  done
+  local found
+  found=$(ls -d "${prefix}"* 2>/dev/null || true)
+  if [[ -n "${found}" ]]; then
+    fail "Output base (or temp shutdown dir) was not deleted: ${found}"
+  fi
+}
+
+function test_delete_output_base_on_shutdown() {
+  local my_output_base="${TEST_TMPDIR}/my_ob"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Expected success"
+  assert_output_base_deleted "${my_output_base}"
+}
+
+function test_delete_output_base_on_shutdown_batch() {
+  local my_output_base="${TEST_TMPDIR}/my_ob_batch"
+  bazel --output_base="${my_output_base}" --batch --delete_output_base_on_shutdown info >& "$TEST_log" || fail "Expected success"
+  assert_output_base_deleted "${my_output_base}"
+}
+
+function test_delete_output_base_on_shutdown_removes_convenience_symlinks() {
+  mkdir -p symlink_pkg
+  cat > symlink_pkg/BUILD <<'EOF'
+genrule(
+  name = "dummy",
+  outs = ["dummy.out"],
+  cmd = "touch $@",
+  local = 1,
+)
+EOF
+  local my_output_base="${TEST_TMPDIR}/my_ob_symlinks"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown build --genrule_strategy=local //symlink_pkg:dummy >& "$TEST_log" || fail "Build failed"
+  local bin_link="${PRODUCT_NAME}-bin"
+  if [[ ! -L "${bin_link}" ]]; then
+    fail "Convenience symlink ${bin_link} was not created"
+  fi
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Shutdown failed"
+  assert_output_base_deleted "${my_output_base}"
+  if [[ -L "${bin_link}" || -e "${bin_link}" ]]; then
+    fail "Convenience symlink ${bin_link} was not removed"
+  fi
+
+  local my_custom_ob="${TEST_TMPDIR}/my_ob_custom_symlinks"
+  bazel --output_base="${my_custom_ob}" --delete_output_base_on_shutdown build --symlink_prefix=custom- --genrule_strategy=local //symlink_pkg:dummy >& "$TEST_log" || fail "Build failed"
+  local custom_bin_link="custom-bin"
+  if [[ ! -L "${custom_bin_link}" ]]; then
+    fail "Convenience symlink ${custom_bin_link} was not created"
+  fi
+  bazel --output_base="${my_custom_ob}" shutdown >& "$TEST_log" || fail "Shutdown failed"
+  assert_output_base_deleted "${my_custom_ob}"
+  if [[ -L "${custom_bin_link}" || -e "${custom_bin_link}" ]]; then
+    fail "Convenience symlink ${custom_bin_link} was not removed"
+  fi
+}
+
+function test_delete_output_base_on_shutdown_default_retained() {
+  local my_output_base="${TEST_TMPDIR}/my_ob_retained"
+  bazel --output_base="${my_output_base}" info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Expected success"
+  sleep 1
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should be retained by default when flag is omitted"
+  fi
+}
+
+function test_delete_output_base_on_shutdown_readonly_files() {
+  local my_output_base="${TEST_TMPDIR}/my_ob_readonly"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  mkdir -p "${my_output_base}/readonly_dir"
+  touch "${my_output_base}/readonly_dir/file.txt"
+  chmod 0555 "${my_output_base}/readonly_dir"
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Expected success"
+  assert_output_base_deleted "${my_output_base}"
+}
+
+function test_delete_output_base_on_shutdown_directory_with_spaces() {
+  local my_output_base="${TEST_TMPDIR}/my ob with spaces"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Expected success"
+  assert_output_base_deleted "${my_output_base}"
+}
+
+function test_delete_output_base_on_shutdown_directory_with_quotes() {
+  local my_output_base="${TEST_TMPDIR}/my ob with 'single' and \"double\" quotes"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  mkdir -p "${my_output_base}/readonly_dir"
+  touch "${my_output_base}/readonly_dir/file.txt"
+  chmod 0555 "${my_output_base}/readonly_dir"
+  bazel --output_base="${my_output_base}" shutdown >& "$TEST_log" || fail "Expected success"
+  assert_output_base_deleted "${my_output_base}"
+}
+
+function test_delete_output_base_on_shutdown_idle_timeout() {
+  local my_output_base="${TEST_TMPDIR}/my_ob_idle"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown --max_idle_secs=1 info >& "$TEST_log" || fail "Expected success"
+  if [[ ! -d "${my_output_base}" ]]; then
+    fail "Output base should exist while server is running"
+  fi
+  assert_output_base_deleted "${my_output_base}"
+}
+
 run_suite "Tests of the bazel client."

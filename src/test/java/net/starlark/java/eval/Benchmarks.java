@@ -27,7 +27,6 @@ import java.util.regex.PatternSyntaxException;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.lib.json.Json;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 
@@ -169,7 +168,7 @@ for example 'bench_int.star:bench_add32'.
       Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
       try (Mutability mu = Mutability.create("test")) {
         StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
-        Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+        Starlark.execFile(input, module, thread);
       } catch (SyntaxError.Exception ex) {
         for (SyntaxError err : ex.errors()) {
           System.err.println(err); // includes location

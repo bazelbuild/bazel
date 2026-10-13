@@ -105,13 +105,33 @@ class ArgTokenStream {
           next_char();
           return true;
         } else {
-          token->push_back(current_char_);
+          // Fast path: params files can be several MB, and appending one
+          // character at a time was a noticeable part of the runtime. The
+          // current character is always at next_ptr_ - 1 (next_char() only
+          // skips line continuations, which start with a backslash, before
+          // reading it). Append it together with the run of ordinary
+          // characters that follows. The run stops at any character needing
+          // special handling (whitespace, quotes, backslash), which the slow
+          // path above handles on the next iteration.
+          const unsigned char* run_start = next_ptr_ - 1;
+          const unsigned char* run_end = next_ptr_;
+          while (run_end < end_ptr_ && IsOrdinary(*run_end)) {
+            ++run_end;
+          }
+          token->append(reinterpret_cast<const char*>(run_start),
+                        run_end - run_start);
+          next_ptr_ = run_end;
           next_char();
         }
       }
     }
 
    private:
+    // Returns true for characters that need no special handling in a token.
+    static bool IsOrdinary(int c) {
+      return !IsAsciiSpace(c) && c != '\'' && c != '"' && c != '\\';
+    }
+
     // possibly marginally faster than ascii_isspace
     static inline bool IsAsciiSpace(int c) {
       return c == ' ' || (static_cast<unsigned int>(c) - 9 < 5);

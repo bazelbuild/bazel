@@ -26,11 +26,6 @@ class FlagConstants {
       "+experimental_rule_extension_api";
 
 
-  // Enable annotations, but not actual type checking, with the effect that the parser tolerates
-  // arbitrary expressions in annotations for now.
-  public static final String EXPERIMENTAL_STARLARK_TYPE_SYNTAX_FLAG_NAME =
-      "+experimental_starlark_type_syntax";
-  public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPE_SYNTAX = "true";
   public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING = "false";
   public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS = "";
 

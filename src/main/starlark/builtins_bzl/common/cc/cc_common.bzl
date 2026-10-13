@@ -90,7 +90,8 @@ def _register_swig_action(*args, **kwargs) -> None:
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _cc_common_internal.register_swig_action(*args, **kwargs)
 
-def _internal_exports() -> struct:
+# TODO: #27370 - replace `Any` with a more precise type once we support dot expressions in type names
+def _internal_exports() -> Any:
     _cc_internal.check_private_api(allowlist = [
         ("", "third_party/bazel_rules/rules_cc"),
         ("rules_cc", ""),

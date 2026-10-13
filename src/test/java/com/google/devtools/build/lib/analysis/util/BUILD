@@ -49,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_aspect_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:extra_action_artifacts_provider",

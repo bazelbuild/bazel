@@ -642,7 +642,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_starlark_type_syntax",
-      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_SYNTAX,
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -981,7 +981,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 getIncompatibleDisableTargetDefaultProviderFields())
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, getExperimentalRuleExtensionApi())
             .setBool(EXPERIMENTAL_DORMANT_DEPS, getExperimentalDormantDeps())
-            .setBool(EXPERIMENTAL_STARLARK_TYPE_SYNTAX, getExperimentalStarlarkTypeSyntax())
+            .setBool(
+                StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_SYNTAX,
+                getExperimentalStarlarkTypeSyntax())
             .setBool(
                 StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING,
                 getExperimentalStarlarkStaticTypeChecking())
@@ -1171,8 +1173,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME;
   public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
 
-  public static final String EXPERIMENTAL_STARLARK_TYPE_SYNTAX =
-      FlagConstants.EXPERIMENTAL_STARLARK_TYPE_SYNTAX_FLAG_NAME;
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =

@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.common.options;
+package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
-import java.util.List;
-
-/** Defines a preprocessing service for the "args" string list that is executed before parsing. */
-@FunctionalInterface
-interface ArgsPreProcessor {
-  List<ArgAndFallbackData> preProcess(List<ArgAndFallbackData> args) throws OptionsParsingException;
-}
+/**
+ * Event posted just prior to analysis cache clearing. Analysis cache clearing is triggered at the
+ * beginning of execution phase if {@code --discard_analysis_cache} is set.
+ *
+ * <p>See {@link AnalysisCacheClearEvent} for the event that is posted after the analysis cache is
+ * cleared.
+ */
+public final class AboutToClearAnalysisCacheEvent {}

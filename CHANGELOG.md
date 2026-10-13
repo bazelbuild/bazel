@@ -1,3 +1,61 @@
+## Release 10.0.0-pre.20261001.2 (2026-10-12)
+
+```
+Baseline: f2f06562ecb50277a3d2872819fecb197e9348b9
+```
+
+Incompatible changes:
+
+  - `template_ctx.run` now rejects a template's own output
+    directories passed through `tools`, as it already did for
+    `inputs`. Pass individual files produced by sibling actions
+    instead.
+
+New features:
+
+  - Add `--target_query` / `--target_query_file` flags for
+    building the result of a bazel query in a single command
+  - Added Label.repo_root as a replacement for the deprecated
+    Label.workspace_root.
+
+Important changes:
+
+  - The `--disk_cache_gc_idle_delay`, `--disk_cache_gc_max_size` and
+    `--disk_cache_gc_max_age` flags are no longer experimental.
+  - The `--install_base_gc_max_age` flag is no longer experimental.
+  - Fixed excessive native thread accumulation when running commands
+    with remote caching or execution enabled in rapid succession.
+  - Ensure test processes receive the full
+    `--local_termination_grace_seconds` period to handle `SIGTERM`
+    and perform cleanup on timeout.
+  - Windows parameter files now preserve empty arguments and
+    correctly escape backslashes before quotes and at the end of
+    quoted arguments.
+  - The self-extracting installer now correctly creates installation
+    directories when custom paths contain spaces.
+  - Add proper error ordering for bazel mobile-install command
+  - Allows Batchfiles ran by CreateProcessW in tw.exe to work under
+    longpathAware.
+  - Fix an O(N^2 log N) analysis phase performance regression when
+    parsing large numbers of Starlark flags.
+  - The `--action_cache_gc_idle_delay`, `--action_cache_gc_threshold`
+    and `--action_cache_gc_max_age` flags are no longer experimental.
+  - `read_user_netrc` in
+    `@bazel_tools//tools/build_defs/repo:utils.bzl` now honors the
+    `NETRC` environment variable, as the `http_*` repository rules
+    already do.
+  - `bazel mod show_repo` now prints the path of each repo's
+    directory as a `# Located at:` comment in text output and as the
+    new `repo_root` field in proto and JSON output.
+  - Sandboxed actions no longer fail with "File exists" when an input
+    is nested under a source directory input.
+  - Fix `bazel run --run_under=... --script_path=...` on Windows to
+    correctly escape batch script invocations and forward arguments.
+  - Bazel on Windows no longer fails with "Command line too long"
+    when running in batch mode with a large environment.
+
+This release contains contributions from many people at Google, as well as Andrew Hewitson, armandomontanez, Benjamin Peterson, Chi Wang, colbs255, Daniel Pfeifer, David Jyo, David Zbarsky, dependabot[bot], Fabian Meumertzheim, Fabian Meumertzheim, gztong666, iMostfa, Jasmine Tang, Kaylie, Keith Smiley, lg-stripe, Manoj Mahapatra, Salma Samy, Showta Ishizaki, Son Luong Ngoc, Tamir Duberstein, Ulrik Falklof.
+
 ## Release 9.3.0 (2026-10-07)
 
 ```

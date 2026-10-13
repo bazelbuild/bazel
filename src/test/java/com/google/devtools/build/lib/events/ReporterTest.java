@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,7 +46,7 @@ public class ReporterTest extends EventTestTemplate {
 
   @Test
   public void reporterShowOutput() {
-    reporter.setOutputFilter(OutputFilter.RegexOutputFilter.forRegex("naughty"));
+    reporter.setOutputFilter(OutputFilter.RegexOutputFilter.forPattern(Pattern.compile("naughty")));
     EventCollector collector = new EventCollector();
     reporter.addHandler(collector);
     Event interesting = Event.warn(null, "show-me").withTag("naughty");

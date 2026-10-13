@@ -285,6 +285,11 @@ java_library(
 )
 
 java_library(
+    name = "about_to_clear_analysis_cache_event",
+    srcs = ["AboutToClearAnalysisCacheEvent.java"],
+)
+
+java_library(
     name = "analysis_cache_clear_event",
     srcs = ["AnalysisCacheClearEvent.java"],
 )
@@ -3495,9 +3500,9 @@ java_library(
         ":rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -3796,9 +3801,9 @@ java_library(
         ":skyframe_action_executor",
         ":target_completion_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_helper",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -3992,6 +3997,7 @@ java_library(
         "SkyframeExecutor.java",
     ],
     deps = [
+        ":about_to_clear_analysis_cache_event",
         ":action_artifact_cycle_reporter",
         ":action_environment_function",
         ":action_execution_function",

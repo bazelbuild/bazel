@@ -139,10 +139,13 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:missing_skyframe_entry_exception",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
@@ -253,6 +256,24 @@ java_test(
 )
 
 java_test(
+    name = "LeafIdAssignmentTest",
+    size = "small",
+    srcs = ["LeafIdAssignmentTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:leaf_id_assignment",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party/java/fastutil:object-to-int-open-hash-map",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "SelectedEntrySerializerTest",
     size = "small",
     srcs = ["SelectedEntrySerializerTest.java"],
@@ -264,7 +285,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
@@ -277,6 +297,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:frontier_serializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:missing_skyframe_entry_exception",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

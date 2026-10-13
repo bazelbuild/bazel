@@ -14,7 +14,6 @@
 
 #include "src/tools/one_version/one_version.h"
 
-#include <string>
 #include <vector>
 
 #include "src/tools/one_version/duplicate_class_collector.h"
@@ -47,9 +46,8 @@ void OneVersion::Add(absl::string_view file_name_of_entry, const CDH *jar_entry,
         // android binary build. Once the depot is migrated to Android
         // databinding v2 (see b/73782031), this will no longer be necessary.
         !absl::EndsWith(file_name_of_entry, "/BR")) {
-      duplicate_class_collector_.Add(std::string(file_name_of_entry),
-                                     ABSL_DIE_IF_NULL(jar_entry)->crc32(),
-                                     label);
+      duplicate_class_collector_.Add(
+          file_name_of_entry, ABSL_DIE_IF_NULL(jar_entry)->crc32(), label);
     }
   }
 }

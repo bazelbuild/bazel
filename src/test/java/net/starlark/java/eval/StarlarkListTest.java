@@ -37,11 +37,109 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class StarlarkListTest {
 
+  private static final class CountingStarlarkValue implements StarlarkValue {
+    private final int id;
+    private final int hash;
+    private int hashCalls;
+
+    CountingStarlarkValue(int id, int hash) {
+      this.id = id;
+      this.hash = hash;
+    }
+
+    int hashCalls() {
+      return hashCalls;
+    }
+
+    @Override
+    public int hashCode() {
+      hashCalls++;
+      return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof CountingStarlarkValue other && this.id == other.id;
+    }
+  }
+
   @Test
   public void listAfterRemoveHasExpectedEqualsAndHashCode() throws Exception {
     StarlarkList<String> l = StarlarkList.of(Mutability.create(), "1", "2", "3");
     l.removeElement("3");
     assertThat(l.hashCode()).isEqualTo(StarlarkList.immutableOf("1", "2").hashCode());
+  }
+
+  @Test
+  public void hashCodeMemoizedOnImmutableLists() {
+    CountingStarlarkValue elem1 = new CountingStarlarkValue(1, 42);
+    StarlarkList<Object> immutableSingleton = StarlarkList.immutableOf(elem1);
+    StarlarkList<Object> mutableSingleton = StarlarkList.of(Mutability.create("test"), elem1);
+    int expectedSingletonHash = mutableSingleton.hashCode();
+    assertThat(elem1.hashCalls()).isEqualTo(1);
+
+    assertThat(immutableSingleton.hashCode()).isEqualTo(expectedSingletonHash);
+    assertThat(elem1.hashCalls()).isEqualTo(2);
+    assertThat(immutableSingleton.hashCode()).isEqualTo(expectedSingletonHash);
+    assertThat(elem1.hashCalls()).isEqualTo(2); // Memoized on second call.
+
+    CountingStarlarkValue elem2 = new CountingStarlarkValue(2, 99);
+    StarlarkList<Object> immutableRegular = StarlarkList.immutableOf(elem1, elem2);
+    StarlarkList<Object> mutableRegular = StarlarkList.of(Mutability.create("test"), elem1, elem2);
+    int expectedRegularHash = mutableRegular.hashCode();
+    int callsBeforeRegular = elem2.hashCalls();
+
+    assertThat(immutableRegular.hashCode()).isEqualTo(expectedRegularHash);
+    assertThat(elem2.hashCalls()).isEqualTo(callsBeforeRegular + 1);
+    assertThat(immutableRegular.hashCode()).isEqualTo(expectedRegularHash);
+    assertThat(elem2.hashCalls()).isEqualTo(callsBeforeRegular + 1); // Memoized.
+
+    CountingStarlarkValue elem3 = new CountingStarlarkValue(3, 123);
+    StarlarkList<Object> lazy = StarlarkList.lazyImmutable(() -> ImmutableList.of(elem3));
+    assertThat(lazy.hashCode()).isEqualTo(6047 + 4673 * (31 + 123));
+    assertThat(elem3.hashCalls()).isEqualTo(1);
+    assertThat(lazy.hashCode()).isEqualTo(6047 + 4673 * (31 + 123));
+    assertThat(elem3.hashCalls()).isEqualTo(1); // Memoized.
+  }
+
+  @Test
+  public void zeroRawHashCodeRemappedConsistentlyAcrossAllListTypes() {
+    // Element whose raw hash produces 0 via 6047 + 4673 * (31 + hash) == 0 (mod 2^32).
+    CountingStarlarkValue elem = new CountingStarlarkValue(1, 1132334594);
+    StarlarkList<Object> immutableSingleton = StarlarkList.immutableOf(elem);
+    StarlarkList<Object> lazySingleton = StarlarkList.lazyImmutable(() -> ImmutableList.of(elem));
+    StarlarkList<Object> mutableSingleton = StarlarkList.of(Mutability.create("test"), elem);
+
+    // Raw hash 0 is remapped to non-zero sentinel 1 and cached.
+    assertThat(immutableSingleton.hashCode()).isEqualTo(1);
+    assertThat(immutableSingleton.hashCode()).isEqualTo(1); // Cached
+    assertThat(elem.hashCalls()).isEqualTo(1);
+    assertThat(lazySingleton.hashCode()).isEqualTo(1);
+    assertThat(mutableSingleton.hashCode()).isEqualTo(1);
+    assertThat(immutableSingleton.equals(mutableSingleton)).isTrue();
+
+    // Multi-element list where 6047 + 4673 * (31 * (31 + 0) + 1132333664) == 0 (mod 2^32).
+    CountingStarlarkValue pairElem0 = new CountingStarlarkValue(10, 0);
+    CountingStarlarkValue pairElem1 = new CountingStarlarkValue(11, 1132333664);
+    StarlarkList<Object> immutableRegular = StarlarkList.immutableOf(pairElem0, pairElem1);
+    assertThat(immutableRegular.hashCode()).isEqualTo(1);
+  }
+
+  @Test
+  public void singletonListContainsKey() throws Exception {
+    StarlarkList<String> singleton = StarlarkList.immutableOf("a");
+    assertThat(singleton.containsKey(StarlarkSemantics.DEFAULT, "a")).isTrue();
+    assertThat(singleton.containsKey(StarlarkSemantics.DEFAULT, "b")).isFalse();
+  }
+
+  @Test
+  public void mutableListContainsKeyRespectsSizeNotCapacity() throws Exception {
+    Mutability mu = Mutability.create("test");
+    StarlarkList<String> list = StarlarkList.of(mu, "a", "b", "c");
+    list.removeElement("c"); // elems.length (3) > size (2), elems[2] == null
+    assertThat(list.containsKey(StarlarkSemantics.DEFAULT, "a")).isTrue();
+    assertThat(list.containsKey(StarlarkSemantics.DEFAULT, "c")).isFalse();
+    assertThat(list.containsKey(StarlarkSemantics.DEFAULT, null)).isFalse();
   }
 
   @Test

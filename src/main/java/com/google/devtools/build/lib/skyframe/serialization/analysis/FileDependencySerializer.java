@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -74,6 +73,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.Invalidatio
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureFileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureListingDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureNodeDataInfo;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.InvalidationDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ListingDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ListingDataInfoOrFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ListingInvalidationDataInfo;
@@ -97,6 +97,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -513,8 +514,7 @@ final class FileDependencySerializer {
 
     @Override
     public ListenableFuture<Void> apply(FileDataInfo parentData) {
-      RootedPath realParentPath;
-      realParentPath =
+      RootedPath realParentPath =
           switch (parentData) {
             case CONSTANT_FILE ->
                 // Assumes that BundledFileSystem does not symlink outside of BundledFileSystem.
@@ -821,17 +821,6 @@ final class FileDependencySerializer {
       implements FutureCallback<Object> {
     private final AbstractNestedFileOpNodes node;
 
-    private final ArrayList<String> fileKeys = new ArrayList<>();
-    private final ArrayList<String> listingKeys = new ArrayList<>();
-    private final ArrayList<NodeInvalidationDataInfo> nodeDependencies = new ArrayList<>();
-    @Nullable private FileDataInfoOrFuture sourceFileOrFuture;
-
-    private final WriteStatusBuilder writeStatusBuilder = new WriteStatusBuilder();
-
-    private final ArrayList<FutureFileDataInfo> futureFileDataInfo = new ArrayList<>();
-    private final ArrayList<FutureListingDataInfo> futureListingDataInfo = new ArrayList<>();
-    private final ArrayList<FutureNodeDataInfo> futureNodeDataInfo = new ArrayList<>();
-
     private NodeDependencyHandler(AbstractNestedFileOpNodes node) {
       super(executor);
       this.node = node;
@@ -842,38 +831,98 @@ final class FileDependencySerializer {
       // Loops through all node dependencies, registering them with this handler. This triggers
       // recursive registration, keeping track of immediate results and any futures.
       for (int i = 0; i < node.analysisDependenciesCount(); i++) {
-        switch (node.getAnalysisDependency(i)) {
-          case FileKey fileKey -> addFileKey(fileKey);
-          case DirectoryListingKey listingKey -> addListingKey(listingKey);
-          case AbstractNestedFileOpNodes nestedKeys -> addNodeKey(nestedKeys);
-          case RemoteFileOpNode remoteNode -> addRemoteNode(remoteNode);
+        switch (registerDependency(node.getAnalysisDependency(i))) {
+          case InvalidationDataInfo _ -> {} // Synchronously resolved; no future to track.
+          case FutureFileDataInfo future -> trackFuture(future);
+          case FutureListingDataInfo future -> trackFuture(future);
+          case FutureNodeDataInfo future -> trackFuture(future);
         }
       }
 
       switch (node) {
-        case NestedFileOpNodes plainNodes -> {}
-        case NestedFileOpNodesWithSource withSource -> setSourceFile(withSource.source());
+        case NestedFileOpNodes _ -> {} // Node has no immediate source file dependency.
+        case NestedFileOpNodesWithSource withSource -> {
+          switch (registerDependency(withSource.source())) {
+            case FileDataInfo _ -> {} // Synchronously resolved; no future to track.
+            case FutureFileDataInfo future -> trackFuture(future);
+          }
+        }
       }
     }
 
     @Override
     protected NodeDataInfo getValue() {
-      @Nullable String sourceFileKey;
-      try {
-        for (FutureFileDataInfo futureInfo : futureFileDataInfo) {
-          addFileInfo(Futures.getDone(futureInfo));
+      var writeStatusBuilder = new WriteStatusBuilder();
+      var nodeDependencies = new ArrayList<NodeInvalidationDataInfo>();
+      for (int i = 0; i < node.analysisDependenciesCount(); i++) {
+        switch (node.getAnalysisDependency(i)) {
+          case AbstractNestedFileOpNodes nestedKeys -> {
+            switch (getSuccessfulNodeDataInfo(nestedKeys)) {
+              case CONSTANT_NODE -> {} // Constant nodes have no invalidation dependencies.
+              case NodeInvalidationDataInfo nodeInfo -> {
+                nodeDependencies.add(nodeInfo);
+                writeStatusBuilder.add(nodeInfo.writeStatus());
+              }
+            }
+          }
+          case RemoteFileOpNode remoteNode -> {
+            switch (registerDependency(remoteNode)) {
+              case CONSTANT_NODE -> {}
+              case NodeInvalidationDataInfo remoteInfo -> {
+                nodeDependencies.add(remoteInfo);
+                writeStatusBuilder.add(remoteInfo.writeStatus());
+              }
+            }
+          }
+          // Direct leaf files and listings are evaluated in the second walk below.
+          case FileKey _, DirectoryListingKey _ -> {}
         }
-        for (FutureListingDataInfo futureInfo : futureListingDataInfo) {
-          addListingInfo(Futures.getDone(futureInfo));
+      }
+
+      // Second walk of node.getAnalysisDependency: Evaluate direct FileKey and DirectoryListingKey
+      // leaves
+      var fileKeys = new ArrayList<String>();
+      var listingKeys = new ArrayList<String>();
+      for (int i = 0; i < node.analysisDependenciesCount(); i++) {
+        switch (node.getAnalysisDependency(i)) {
+          case FileKey fileKey -> {
+            switch (getSuccessfulFileDataInfo(fileKey)) {
+              // Constant files never change; no invalidation data needed.
+              case CONSTANT_FILE -> {}
+              case FileInvalidationDataInfo fileInfo -> {
+                fileKeys.add(fileInfo.cacheKey());
+                writeStatusBuilder.add(fileInfo.writeStatus());
+              }
+            }
+          }
+          case DirectoryListingKey listingKey -> {
+            switch (getSuccessfulListingDataInfo(listingKey)) {
+              // Constant listings never change; no invalidation data needed.
+              case CONSTANT_LISTING -> {}
+              case ListingInvalidationDataInfo listingInfo -> {
+                listingKeys.add(listingInfo.cacheKey());
+                writeStatusBuilder.add(listingInfo.writeStatus());
+              }
+            }
+          }
+          // Composite and remote child nodes were evaluated in the first walk above.
+          case AbstractNestedFileOpNodes _, RemoteFileOpNode _ -> {}
         }
-        for (FutureNodeDataInfo futureInfo : futureNodeDataInfo) {
-          addNodeInfo(Futures.getDone(futureInfo));
+      }
+
+      // Integrate source file.
+      @Nullable String sourceFileKey = null;
+      switch (node) {
+        case NestedFileOpNodes _ -> {} // Node has no immediate source file dependency.
+        case NestedFileOpNodesWithSource withSource -> {
+          switch (getSuccessfulFileDataInfo(withSource.source())) {
+            case CONSTANT_FILE -> {} // Source file is constant; no invalidation data needed.
+            case FileInvalidationDataInfo fileInfo -> {
+              sourceFileKey = fileInfo.cacheKey();
+              writeStatusBuilder.add(fileInfo.writeStatus());
+            }
+          }
         }
-        sourceFileKey = getSourceFileKey();
-      } catch (ExecutionException e) {
-        // The QuiescingFutureTask setup guarantees that ExecutionException will not be thrown if
-        // getValue is called.
-        throw new AssertionError("unexpected failure", e);
       }
 
       if (fileKeys.isEmpty() && listingKeys.isEmpty() && sourceFileKey == null) {
@@ -963,80 +1012,40 @@ final class FileDependencySerializer {
       counters.nodesWithProcessingErrors.incrementAndGet();
     }
 
-    private void addRemoteNode(RemoteFileOpNode remoteNode) {
-      addNodeInfo(registerDependency(remoteNode));
+    private FileDataInfo getSuccessfulFileDataInfo(FileKey fileKey) {
+      return switch (registerDependency(fileKey)) {
+        case FileDataInfo fileInfo -> fileInfo;
+        case FutureFileDataInfo futureInfo -> getDoneUnchecked(futureInfo);
+      };
     }
 
-    private void addFileKey(FileKey fileKey) {
-      switch (registerDependency(fileKey)) {
-        case FileDataInfo info -> addFileInfo(info);
-        case FutureFileDataInfo futureInfo -> {
-          futureFileDataInfo.add(futureInfo);
-          trackFuture(futureInfo);
-        }
-      }
+    private ListingDataInfo getSuccessfulListingDataInfo(DirectoryListingKey listingKey) {
+      return switch (registerDependency(listingKey)) {
+        case ListingDataInfo listingInfo -> listingInfo;
+        case FutureListingDataInfo futureInfo -> getDoneUnchecked(futureInfo);
+      };
     }
 
-    private void addFileInfo(FileDataInfo info) {
-      switch (info) {
-        case CONSTANT_FILE -> {}
-        case FileInvalidationDataInfo fileInfo -> {
-          fileKeys.add(fileInfo.cacheKey());
-          writeStatusBuilder.add(fileInfo.writeStatus());
-        }
-      }
+    private NodeDataInfo getSuccessfulNodeDataInfo(AbstractNestedFileOpNodes nestedKeys) {
+      return switch (registerDependency(nestedKeys)) {
+        case NodeDataInfo nodeInfo -> nodeInfo;
+        case FutureNodeDataInfo futureInfo -> getDoneUnchecked(futureInfo);
+      };
     }
 
-    private void addListingKey(DirectoryListingKey listingKey) {
-      switch (registerDependency(listingKey)) {
-        case ListingDataInfo info -> addListingInfo(info);
-        case FutureListingDataInfo futureInfo -> {
-          futureListingDataInfo.add(futureInfo);
-          trackFuture(futureInfo);
-        }
-      }
-    }
-
-    private void addListingInfo(ListingDataInfo info) {
-      switch (info) {
-        case CONSTANT_LISTING -> {}
-        case ListingInvalidationDataInfo listingInfo -> {
-          listingKeys.add(listingInfo.cacheKey());
-          writeStatusBuilder.add(listingInfo.writeStatus());
-        }
-      }
-    }
-
-    private void addNodeKey(AbstractNestedFileOpNodes nestedKeys) {
-      switch (registerDependency(nestedKeys)) {
-        case NodeDataInfo info -> addNodeInfo(info);
-        case FutureNodeDataInfo futureInfo -> {
-          futureNodeDataInfo.add(futureInfo);
-          trackFuture(futureInfo);
-        }
-      }
-    }
-
-    private void addNodeInfo(NodeDataInfo info) {
-      switch (info) {
-        case CONSTANT_NODE -> {}
-        case NodeInvalidationDataInfo nodeInfo -> {
-          nodeDependencies.add(nodeInfo);
-          writeStatusBuilder.add(nodeInfo.writeStatus());
-        }
-      }
-    }
-
-    private void setSourceFile(FileKey sourceFile) {
-      checkState(
-          sourceFileOrFuture == null,
-          "Attempting to set source file to %s, but it was already set to %s",
-          sourceFile,
-          sourceFileOrFuture);
-      this.sourceFileOrFuture = registerDependency(sourceFile);
-      switch (sourceFileOrFuture) {
-        case FileDataInfo immediateSource -> {}
-        case FutureFileDataInfo futureSource -> trackFuture(futureSource);
+    /**
+     * Returns the completed result of {@code future}.
+     *
+     * <p>Only called from {@link #getValue}, which is invoked only after quiescence when there were
+     * no cancellations or errors across any tracked subtask. Therefore, the future is guaranteed to
+     * be completed successfully, and {@link CancellationException} or {@link ExecutionException} is
+     * impossible.
+     */
+    private static <T> T getDoneUnchecked(ListenableFuture<T> future) {
+      try {
+        return Futures.getDone(future);
+      } catch (ExecutionException e) {
+        throw new AssertionError("unexpected failure", e);
       }
     }
 
@@ -1069,23 +1078,6 @@ final class FileDependencySerializer {
         throw new AssertionError("Unexpected IOException during in-memory compression", e);
       }
       return outputStream.toByteArray();
-    }
-
-    @Nullable
-    private String getSourceFileKey() throws ExecutionException {
-      if (sourceFileOrFuture == null) {
-        return null;
-      }
-      return switch (switch (sourceFileOrFuture) {
-        case FileDataInfo sourceInfo -> sourceInfo;
-        case FutureFileDataInfo futureSourceInfo -> Futures.getDone(futureSourceInfo);
-      }) {
-        case CONSTANT_FILE -> null;
-        case FileInvalidationDataInfo fileInfo -> {
-          writeStatusBuilder.add(fileInfo.writeStatus());
-          yield fileInfo.cacheKey();
-        }
-      };
     }
   }
 
