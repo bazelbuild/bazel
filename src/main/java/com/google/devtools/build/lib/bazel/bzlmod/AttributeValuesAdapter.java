@@ -169,11 +169,15 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
         yield Dict.immutableCopyOf(dict);
       }
       case BEGIN_ARRAY -> {
-        List<Object> list = new ArrayList<>();
         in.beginArray();
-        while (in.hasNext()) {
-          list.add(deserializeObject(in));
+        if (!in.hasNext()) {
+          in.endArray();
+          yield StarlarkList.empty();
         }
+        List<Object> list = new ArrayList<>();
+        do {
+          list.add(deserializeObject(in));
+        } while (in.hasNext());
         in.endArray();
         for (Object value : list) {
           if (value instanceof RuntimeException) {
