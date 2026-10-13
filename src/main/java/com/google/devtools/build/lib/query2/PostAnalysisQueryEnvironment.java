@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
@@ -790,9 +789,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    * Drops the aspect's base target's select() conditions from the aspect's direct deps. The aspect
    * depends on them only to evaluate the base target's attributes, so they are deps of the base
    * target, which is reported separately. Without this, which conditions get reported depends on
-   * which instance of the aspect class targetifyValues examines first. A condition the aspect also
-   * declares in an attribute without a transition is kept, since the same key then is the aspect's
-   * own dep.
+   * which instance of the aspect class targetifyValues examines first.
    */
   private Iterable<SkyKey> withoutBaseConfigConditions(AspectKey key, Iterable<SkyKey> deps)
       throws InterruptedException {
@@ -806,19 +803,33 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       return deps;
     }
     Set<Label> aspectLabels = new HashSet<>();
+    Set<Label> splitLabels = new HashSet<>();
     AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
         aspectValue.getAspect(),
         DependencyFilter.ALL_DEPS,
         (attribute, label) -> {
-          if (NoTransition.isInstance(attribute.getTransitionFactory())) {
-            aspectLabels.add(label);
+          aspectLabels.add(label);
+          if (attribute.getTransitionFactory().isSplit()) {
+            splitLabels.add(label);
           }
         });
     // Config conditions are evaluated in the base target's configuration.
     BuildConfigurationKey configuration = getConfiguredTargetKey(base).getConfigurationKey();
+    // Skyframe merges equal edges, so an aspect attribute whose transition leaves the configuration
+    // unchanged shares the condition's key. The aspect's own dep on such a label is then the
+    // condition's key unless it shows up in another configuration. A split may produce both.
+    Set<Label> movedLabels = new HashSet<>();
+    for (SkyKey dep : deps) {
+      if (dep.argument() instanceof ConfiguredTargetKey configuredTargetKey
+          && aspectLabels.contains(configuredTargetKey.getLabel())
+          && !configuration.equals(configuredTargetKey.getConfigurationKey())) {
+        movedLabels.add(configuredTargetKey.getLabel());
+      }
+    }
     Set<ConfiguredTargetKey> conditions = new HashSet<>();
     for (Label condition : baseRule.getConfigConditions().keySet()) {
-      if (!aspectLabels.contains(condition)) {
+      if (!aspectLabels.contains(condition)
+          || (movedLabels.contains(condition) && !splitLabels.contains(condition))) {
         conditions.add(
             ConfiguredTargetKey.builder()
                 .setLabel(condition)

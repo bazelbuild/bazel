@@ -984,6 +984,104 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertThat(getConfiguration(condition).isExecConfiguration()).isTrue();
   }
 
+  @Test
+  public void testAspectIdentityTransitionDepMatchingBaseConditionIsKept() throws Exception {
+    writeFile(
+        "donut/test.bzl",
+        """
+        def _identity_impl(settings, attr):
+            return {}
+
+        identity = transition(implementation = _identity_impl, inputs = [], outputs = [])
+
+        def _walk_impl(target, ctx):
+            return []
+
+        walk = aspect(
+            implementation = _walk_impl,
+            attr_aspects = ["deps"],
+            attrs = {"_setting": attr.label(default = "//donut:a", cfg = identity)},
+        )
+
+        def _lib_impl(ctx):
+            pass
+
+        lib = rule(implementation = _lib_impl, attrs = {"deps": attr.label_list()})
+
+        def _top_impl(ctx):
+            pass
+
+        top = rule(_top_impl, attrs = {"deps": attr.label_list(aspects = [walk])})
+        """);
+    writeFile(
+        "donut/BUILD",
+        """
+        load(":test.bzl", "lib", "top")
+
+        config_setting(name = "a", define_values = {"x": "a"})
+
+        lib(name = "uses_a", deps = select({":a": [], "//conditions:default": []}))
+
+        top(name = "top", deps = [":uses_a"])
+        """);
+
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
+    assertThat(evalLabels("filter(//donut, deps(//donut:top, 1))"))
+        .containsExactly("//donut:top", "//donut:uses_a", "//donut:a");
+  }
+
+  @Test
+  public void testAspectSplitTransitionDepMatchingBaseConditionIsKept() throws Exception {
+    writeFile(
+        "donut/test.bzl",
+        """
+        def _split_impl(settings, attr):
+            mode = "//command_line_option:compilation_mode"
+            return {"same": {mode: settings[mode]}, "opt": {mode: "opt"}}
+
+        split = transition(
+            implementation = _split_impl,
+            inputs = ["//command_line_option:compilation_mode"],
+            outputs = ["//command_line_option:compilation_mode"],
+        )
+
+        def _walk_impl(target, ctx):
+            return []
+
+        walk = aspect(
+            implementation = _walk_impl,
+            attr_aspects = ["deps"],
+            attrs = {"_setting": attr.label(default = "//donut:a", cfg = split)},
+        )
+
+        def _lib_impl(ctx):
+            pass
+
+        lib = rule(implementation = _lib_impl, attrs = {"deps": attr.label_list()})
+
+        def _top_impl(ctx):
+            pass
+
+        top = rule(_top_impl, attrs = {"deps": attr.label_list(aspects = [walk])})
+        """);
+    writeFile(
+        "donut/BUILD",
+        """
+        load(":test.bzl", "lib", "top")
+
+        config_setting(name = "a", define_values = {"x": "a"})
+
+        lib(name = "uses_a", deps = select({":a": [], "//conditions:default": []}))
+
+        top(name = "top", deps = [":uses_a"])
+        """);
+
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
+    // The split puts the aspect's dep in both the base configuration and opt.
+    assertThat(evalLabels("filter(//donut, deps(//donut:top, 1))"))
+        .containsExactly("//donut:top", "//donut:uses_a", "//donut:a", "//donut:a");
+  }
+
   private ImmutableList<String> evalLabels(String query) throws Exception {
     return eval(query).stream()
         .map(cf -> cf.getDescription(LabelPrinter.legacy()))
