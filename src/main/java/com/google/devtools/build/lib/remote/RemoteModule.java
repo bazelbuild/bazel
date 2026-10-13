@@ -560,7 +560,12 @@ public final class RemoteModule extends BlazeModule {
             remoteOptions.getRemoteOutputsMode(),
             downloadRegexes,
             lastRemoteOutputChecker);
-    remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
+    // Only commands that execute actions complete targets and thus download outputs. Other commands
+    // neither invalidate completed targets nor become the reference that the next executing
+    // command compares its download settings against.
+    if (env.getCommand().buildPhase().executes()) {
+      remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
+    }
 
     env.getEventBus().register(this);
     String invocationId = env.getCommandId().toString();
@@ -1111,8 +1116,11 @@ public final class RemoteModule extends BlazeModule {
                   rpcLogFileRef));
     }
 
-    lastRemoteOutputChecker = remoteOutputChecker;
-    lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
+    Preconditions.checkNotNull(env);
+    if (env.getCommand().buildPhase().executes()) {
+      lastRemoteOutputChecker = remoteOutputChecker;
+    }
+    lastBuildId = env.getCommandId().toString();
 
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteHelpersFactoryDelegate.reset();
@@ -1425,6 +1433,12 @@ public final class RemoteModule extends BlazeModule {
       }
       return delegate.createRepoContentsCache();
     }
+  }
+
+  @VisibleForTesting
+  @Nullable
+  RemoteOutputChecker getRemoteOutputChecker() {
+    return remoteOutputChecker;
   }
 
   @VisibleForTesting

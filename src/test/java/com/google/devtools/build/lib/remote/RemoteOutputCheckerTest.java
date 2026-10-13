@@ -106,6 +106,25 @@ public class RemoteOutputCheckerTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  public void maybeInvalidateSkyframeValues_nonBuildCommandBetweenBuilds_keepsCompletions() {
+    var previousBuildChecker =
+        new RemoteOutputChecker("build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
+    var infoChecker =
+        new RemoteOutputChecker(
+            "info", RemoteOutputsMode.MINIMAL, ImmutableList.of(), previousBuildChecker);
+    var nextBuildChecker =
+        new RemoteOutputChecker(
+            "build", RemoteOutputsMode.MINIMAL, ImmutableList.of(), infoChecker);
+    MemoizingEvaluator evaluator = mock(MemoizingEvaluator.class);
+
+    infoChecker.maybeInvalidateSkyframeValues(evaluator);
+    nextBuildChecker.maybeInvalidateSkyframeValues(evaluator);
+
+    verify(evaluator, never()).delete(any(Predicate.class));
+  }
+
+  @Test
   public void shouldTrustMetadata_previousBuildDownloadedAll_trusted() {
     // Outputs that the current build does not want downloaded must not be distrusted
     // due to a previous invocation using a broader download policy.
