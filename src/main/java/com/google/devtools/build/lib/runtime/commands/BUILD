@@ -144,6 +144,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:serialized_abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

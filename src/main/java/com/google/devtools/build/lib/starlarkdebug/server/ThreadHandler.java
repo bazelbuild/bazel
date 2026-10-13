@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.starlarkdebug.server;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -156,7 +158,7 @@ final class ThreadHandler {
 
   ImmutableSet<String> getBreakpointFilePaths() {
     return breakpoints.keySet().stream()
-        .map(StarlarkDebuggingProtos.Location::getPath)
+        .map(location -> unicodeToInternal(location.getPath()))
         .collect(toImmutableSet());
   }
 
@@ -222,7 +224,7 @@ final class ThreadHandler {
       pauseReason = shouldPauseCurrentThread(thread, location);
     } catch (ConditionalBreakpointException e) {
       pauseReason = PauseReason.CONDITIONAL_BREAKPOINT_ERROR;
-      error = Error.newBuilder().setMessage(e.getMessage()).build();
+      error = Error.newBuilder().setMessage(internalToUnicode(e.getMessage())).build();
     }
     if (pauseReason == null) {
       return;
@@ -311,7 +313,7 @@ final class ThreadHandler {
 
       // TODO(adonovan): opt: don't parse and resolve the expression every time we hit a breakpoint
       // (!).
-      ParserInput input = ParserInput.fromString(content, "<debug eval>");
+      ParserInput input = ParserInput.fromString(unicodeToInternal(content), "<debug eval>");
       // TODO(adonovan): the module or call frame should be a parameter to doEvaluate.
       Module module = Module.ofInnermostEnclosingStarlarkFunction(thread);
       return Starlark.execFile(input, FileOptions.DEFAULT, module, thread);

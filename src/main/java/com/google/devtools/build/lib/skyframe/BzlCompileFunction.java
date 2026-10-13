@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
@@ -626,7 +628,7 @@ public class BzlCompileFunction implements SkyFunction {
           && id.getName().equals(KNOWN_OVERSIZED_BZL_FILE_SYMBOL)
           && assignment.getRHS() instanceof StringLiteral str
           && BuildLanguageOptions.KNOWN_OVERSIZED_BZL_FILE_VALUE_PATTERN
-              .matcher(str.getValue())
+              .matcher(internalToUnicode(str.getValue()))
               .matches()) {
         return true;
       }

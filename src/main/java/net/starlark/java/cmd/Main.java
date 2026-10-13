@@ -207,7 +207,7 @@ class Main {
 
     if (cpuprofile != null) {
       FileOutputStream out = new FileOutputStream(cpuprofile);
-      Starlark.startCpuProfile(out, Duration.ofMillis(10));
+      Starlark.startCpuProfile(out, Duration.ofMillis(10), /* utf8ByteStrings= */ false);
     }
 
     int exit;

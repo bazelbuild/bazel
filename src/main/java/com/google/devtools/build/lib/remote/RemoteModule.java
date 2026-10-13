@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -1467,7 +1468,9 @@ public final class RemoteModule extends BlazeModule {
     try {
       if (remoteOptions.getRemoteCache() != null
           && Ascii.toLowerCase(remoteOptions.getRemoteCache()).startsWith("http://")
-          && !credentials.getRequestMetadata(new URI(remoteOptions.getRemoteCache())).isEmpty()) {
+          && !credentials
+              .getRequestMetadata(new URI(internalToUnicode(remoteOptions.getRemoteCache())))
+              .isEmpty()) {
         // TODO(yannic): Make this a error aborting the build.
         credentialHelperEnvironment
             .eventReporter()

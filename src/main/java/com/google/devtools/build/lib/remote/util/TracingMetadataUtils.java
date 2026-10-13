@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ToolDetails;
 import com.google.common.annotations.VisibleForTesting;
@@ -75,10 +77,10 @@ public class TracingMetadataUtils {
                     .setToolName("bazel")
                     .setToolVersion(BlazeVersionInfo.instance().getVersion()));
     if (mnemonic != null) {
-      builder.setActionMnemonic(mnemonic);
+      builder.setActionMnemonic(internalToUnicode(mnemonic));
     }
     if (label != null) {
-      builder.setTargetId(label);
+      builder.setTargetId(internalToUnicode(label));
     }
     if (configurationId != null) {
       builder.setConfigurationId(configurationId);

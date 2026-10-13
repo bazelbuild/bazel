@@ -28,20 +28,16 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
-import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.errorprone.annotations.concurrent.LazyInit;
-import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -223,17 +219,8 @@ public class WorkerMultiplexer {
                 this.destroyMultiplexer();
               });
       Runtime.getRuntime().addShutdownHook(shutdownHook);
-      ImmutableList<String> args = workerKey.getArgs();
-      File executable = new File(StringEncoding.internalToPlatform(args.get(0)));
-      if (!executable.isAbsolute() && executable.getParent() != null) {
-        List<String> newArgs = new ArrayList<>(args);
-        newArgs.set(
-            0,
-            StringEncoding.platformToInternal(
-                new File(workDir.getPathFile(), StringEncoding.internalToPlatform(newArgs.get(0)))
-                    .getAbsolutePath()));
-        args = ImmutableList.copyOf(newArgs);
-      }
+      ImmutableList<String> args =
+          SubprocessBuilder.makeArgv0Absolute(workerKey.getArgs(), workDir.getPathFile());
       SubprocessBuilder processBuilder =
           subprocessFactory != null
               ? new SubprocessBuilder(clientEnv, subprocessFactory)

@@ -15,6 +15,9 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -53,12 +56,12 @@ public class FactsAdapter extends TypeAdapter<Facts> {
           e);
     }
     // Round-trip the JSON through Gson to ensure it is properly indented.
-    gson.toJson(gson.fromJson(json, JsonElement.class), out);
+    gson.toJson(gson.fromJson(internalToUnicode(json), JsonElement.class), out);
   }
 
   @Override
   public Facts read(JsonReader in) throws IOException {
-    var jsonString = gson.toJson(JsonParser.parseReader(in));
+    var jsonString = unicodeToInternal(gson.toJson(JsonParser.parseReader(in)));
     try (var mu = Mutability.create("FactsAdapter")) {
       var starlarkThread = StarlarkThread.createTransient(mu, semantics);
       return Facts.validateAndCreate(

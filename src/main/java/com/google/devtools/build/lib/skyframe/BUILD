@@ -495,6 +495,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -540,6 +541,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -1721,6 +1723,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/guava:collect",
     ],
 )

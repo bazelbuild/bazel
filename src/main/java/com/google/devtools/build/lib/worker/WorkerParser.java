@@ -55,12 +55,14 @@ public class WorkerParser {
    * Pattern for @flagfile.txt and --flagfile=flagfile.txt. This doesn't handle @@-escapes, those
    * are checked for separately.
    */
-  private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
+  private static final Pattern FLAG_FILE_PATTERN =
+      Pattern.compile("(?:@|--?flagfile=)(.+)", Pattern.DOTALL);
 
   /**
    * Legacy pattern for @flagfile.txt and --flagfile=flagfile.txt. This doesn't handle @@-escapes.
    */
-  private static final Pattern LEGACY_FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
+  private static final Pattern LEGACY_FLAG_FILE_PATTERN =
+      Pattern.compile("(?:@|--?flagfile=)(.+)", Pattern.DOTALL);
 
   /** The global execRoot. */
   private final Path execRoot;

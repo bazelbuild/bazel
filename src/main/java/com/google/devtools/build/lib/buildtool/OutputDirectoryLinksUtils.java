@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Con
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -239,8 +240,10 @@ public final class OutputDirectoryLinksUtils {
             : directories.getBlazeExecRoot().getRelative(target.relativeTo(execRoot));
     symlinksBuilder.add(
         ConvenienceSymlink.newBuilder()
-            .setPath(name)
-            .setTarget(targetForEvent.relativeTo(outputBase).getPathString())
+            .setPath(StringEncoding.internalToUnicode(name))
+            .setTarget(
+                StringEncoding.internalToUnicode(
+                    targetForEvent.relativeTo(outputBase).getPathString()))
             .setAction(Action.CREATE)
             .build());
 
@@ -286,7 +289,10 @@ public final class OutputDirectoryLinksUtils {
       ImmutableList.Builder<ConvenienceSymlink> symlinksBuilder,
       boolean logOnly) {
     symlinksBuilder.add(
-        ConvenienceSymlink.newBuilder().setPath(name).setAction(Action.DELETE).build());
+        ConvenienceSymlink.newBuilder()
+            .setPath(StringEncoding.internalToUnicode(name))
+            .setAction(Action.DELETE)
+            .build());
     if (logOnly) {
       return;
     }

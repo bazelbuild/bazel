@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.windows.WindowsPathOperations;
 import java.io.IOException;
 
@@ -48,7 +49,8 @@ class WindowsOsPathPolicy implements OsPathPolicy {
         return path;
       }
       try {
-        return WindowsPathOperations.getLongPath(path);
+        return StringEncoding.platformToInternal(
+            WindowsPathOperations.getLongPath(StringEncoding.internalToPlatform(path)));
       } catch (IOException e) {
         return path;
       }

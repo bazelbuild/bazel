@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.Collection;
 import java.util.List;
 
@@ -53,7 +55,9 @@ public class OriginalUnstructuredCommandLineEvent implements BuildEventWithOrder
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     return GenericBuildEvent.protoChaining(this)
         .setUnstructuredCommandLine(
-            BuildEventStreamProtos.UnstructuredCommandLine.newBuilder().addAllArgs(args).build())
+            BuildEventStreamProtos.UnstructuredCommandLine.newBuilder()
+                .addAllArgs(Lists.transform(args, StringEncoding::internalToUnicode))
+                .build())
         .build();
   }
 }

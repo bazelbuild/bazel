@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -126,8 +128,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         for (Map.Entry<String, String> option : fragmentOptionsForOutput.getOptions().entrySet()) {
           AnalysisProtosV2.Option optionProto =
               AnalysisProtosV2.Option.newBuilder()
-                  .setName(option.getKey())
-                  .setValue(option.getValue())
+                  .setName(internalToUnicode(option.getKey()))
+                  .setValue(internalToUnicode(option.getValue()))
                   .build();
           fragmentOptions.addOptions(optionProto);
         }
@@ -251,7 +253,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       case DELIMITED_BINARY -> message.writeDelimitedTo(outputStream);
       case TEXT -> TextFormat.printer().print(message, printStream);
       case JSON -> {
-        jsonPrinter.appendTo(message, printStream);
+        printStream.append(unicodeToInternal(jsonPrinter.print(message)));
         printStream.append('\n');
       }
     }
@@ -292,7 +294,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         for (CqueryNode dep : accessor.getPrerequisites(keyedConfiguredTarget)) {
           ConfiguredRuleInput.Builder configuredRuleInput =
               Build.ConfiguredRuleInput.newBuilder()
-                  .setLabel(labelPrinter.toString(dep.getOriginalLabel()));
+                  .setLabel(internalToUnicode(labelPrinter.toString(dep.getOriginalLabel())));
           if (dep.getConfigurationChecksum() != null) {
             configuredRuleInput
                 .setConfigurationChecksum(dep.getConfigurationChecksum())

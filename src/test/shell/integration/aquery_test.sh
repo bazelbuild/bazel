@@ -2054,9 +2054,7 @@ EOF
   fi
 }
 
-# TODO(bazel-team): The non-text aquery output formats don't correctly handle
-# non-ASCII fields (input/output paths, environment variables, etc).
-function DISABLED_test_unicode_textproto() {
+function test_unicode_textproto() {
   # Bazel relies on the JVM for filename encoding, and can only support
   # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
   if ! is_windows; then

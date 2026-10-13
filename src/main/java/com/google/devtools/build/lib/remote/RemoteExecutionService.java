@@ -704,7 +704,7 @@ public class RemoteExecutionService {
      * may be displayed to the user upon failure or when requested explicitly.
      */
     public String getMessage() {
-      return executeResponse != null ? executeResponse.getMessage() : "";
+      return executeResponse != null ? unicodeToInternal(executeResponse.getMessage()) : "";
     }
 
     /** Returns the details of the execution that originally produced this result. */
@@ -812,7 +812,9 @@ public class RemoteExecutionService {
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {
       inlineOutputFiles =
-          ImmutableSet.of(action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath));
+          ImmutableSet.of(
+              internalToUnicode(
+                  action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath)));
     }
 
     CachedActionResult cachedActionResult =
@@ -909,14 +911,14 @@ public class RemoteExecutionService {
       ListenableFuture<Void> future =
           combinedCache.downloadFile(
               context,
-              internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
+              remotePathResolver.localPathToOutputPath(file.path()),
               remotePathResolver.localPathToExecPath(file.path().asFragment()),
               tmpPath,
               /* finalPath= */ file.path(),
               file.digest(),
               new CombinedCache.DownloadProgressReporter(
                   progressStatusListener,
-                  internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
+                  remotePathResolver.localPathToOutputPath(file.path()),
                   file.digest().getSizeBytes()));
       return transform(future, (d) -> file, directExecutor());
     } catch (IOException e) {
@@ -1195,8 +1197,8 @@ public class RemoteExecutionService {
     Map<Path, ListenableFuture<Tree>> dirMetadataDownloads =
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectoriesList()) {
-      var outputPath = dir.getPath();
-      var localPath = remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputPath));
+      var outputPath = unicodeToInternal(dir.getPath());
+      var localPath = remotePathResolver.outputPathToLocalPath(outputPath);
       if (dir.getTreeDigest().getSizeBytes() == 2) {
         // A valid Tree message contains at least a non-empty root field. The only way for a Tree
         // message to have a size of 2 bytes is if the root field is the only non-empty field and
@@ -2188,13 +2190,14 @@ public class RemoteExecutionService {
       context = context.withReadCachePolicy(context.getReadCachePolicy().addRemoteCache());
       for (Map.Entry<String, LogFile> e : resp.getServerLogsMap().entrySet()) {
         if (e.getValue().getHumanReadable()) {
-          Path lastLogPath = serverLogs.directory.getRelative(e.getKey());
+          String key = unicodeToInternal(e.getKey());
+          Path lastLogPath = serverLogs.directory.getRelative(key);
           if (!lastLogPath.startsWith(serverLogs.directory)) {
             throw new IOException(
                 String.format(
                     "Path traversal detected in server log key: %s (resolved: %s, expected"
                         + " descendant of %s)",
-                    e.getKey(), lastLogPath, serverLogs.directory));
+                    key, lastLogPath, serverLogs.directory));
           }
           serverLogs.lastLogPath = lastLogPath;
           serverLogs.logCount++;

@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
@@ -22,6 +23,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -103,8 +105,8 @@ public final class CpuProfiler {
     CpuProfiler.nativeSupport = nativeSupport;
   }
 
-  private CpuProfiler(OutputStream out, Duration period) {
-    this.pprof = new PprofWriter(out, period);
+  private CpuProfiler(OutputStream out, Duration period, boolean utf8ByteStrings) {
+    this.pprof = new PprofWriter(out, period, utf8ByteStrings ? ISO_8859_1 : UTF_8);
   }
 
   // The active profiler, if any.
@@ -135,7 +137,7 @@ public final class CpuProfiler {
   }
 
   /** Start the profiler. */
-  static boolean start(OutputStream out, Duration period) {
+  static boolean start(OutputStream out, Duration period, boolean utf8ByteStrings) {
     if (nativeSupport == null) {
       logger.atWarning().log("--starlark_cpu_profile is unsupported on this platform");
       return false;
@@ -149,7 +151,7 @@ public final class CpuProfiler {
       throw new IllegalStateException("profile signal handler already in use");
     }
 
-    instance = new CpuProfiler(out, period);
+    instance = new CpuProfiler(out, period, utf8ByteStrings);
     return true;
   }
 
@@ -245,12 +247,14 @@ public final class CpuProfiler {
   private static final class PprofWriter {
 
     private final Duration period;
+    private final Charset stringCharset;
     private final long startNano;
     private GZIPOutputStream gz;
     private IOException error; // the first write error, if any; reported during stop()
 
-    PprofWriter(OutputStream out, Duration period) {
+    PprofWriter(OutputStream out, Duration period, Charset stringCharset) {
       this.period = period;
+      this.stringCharset = stringCharset;
       this.startNano = System.nanoTime();
 
       try {
@@ -308,11 +312,6 @@ public final class CpuProfiler {
     private static void writeLong(OutputStream out, int fieldNumber, long x) throws IOException {
       writeVarint(out, (fieldNumber << 3) | 0); // wire type 0 = varint
       writeVarint(out, x);
-    }
-
-    private static void writeString(OutputStream out, int fieldNumber, String x)
-        throws IOException {
-      writeByteArray(out, fieldNumber, x.getBytes(UTF_8));
     }
 
     private static void writeByteArray(OutputStream out, int fieldNumber, byte[] x)
@@ -373,7 +372,7 @@ public final class CpuProfiler {
     private long getStringID(String s) throws IOException {
       Long i = stringIDs.putIfAbsent(s, Long.valueOf(stringIDs.size()));
       if (i == null) {
-        writeString(gz, PROFILE_STRING_TABLE, s);
+        writeByteArray(gz, PROFILE_STRING_TABLE, s.getBytes(stringCharset));
         return stringIDs.size() - 1L;
       }
       return i;

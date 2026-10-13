@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -60,17 +63,18 @@ public interface PathConverter {
         path = "/" + path;
       }
       try {
-        return new URI(
-                "file",
-                // Needs to be "" instead of null, so that toString() will append "//" after the
-                // scheme.
-                // We need this for backwards compatibility reasons as some consumers of the BEP are
-                // broken.
-                "",
-                path,
-                null,
-                null)
-            .toString();
+        return unicodeToInternal(
+            new URI(
+                    "file",
+                    // Needs to be "" instead of null, so that toString() will append "//" after the
+                    // scheme.
+                    // We need this for backwards compatibility reasons as some consumers of the BEP
+                    // are broken.
+                    "",
+                    internalToUnicode(path),
+                    null,
+                    null)
+                .toString());
       } catch (URISyntaxException e) {
         throw new IllegalStateException(e);
       }
@@ -79,6 +83,8 @@ public interface PathConverter {
 
   /**
    * Return the URI corresponding to the given path.
+   *
+   * <p>The returned URI is an internal string.
    *
    * <p>This method may return null, in which case the associated {@link BuildEventArtifactUploader}
    * was permanently unable to upload the file. The file should be omitted from the BEP stream.

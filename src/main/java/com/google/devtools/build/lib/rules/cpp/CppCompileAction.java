@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
@@ -87,6 +88,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ShellEscaper;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1066,30 +1068,34 @@ public class CppCompileAction extends AbstractAction
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
       throws CommandLineExpansionException, InterruptedException {
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
-    info.setTool(compileCommandLine.getToolPath());
+    info.setTool(internalToUnicode(compileCommandLine.getToolPath()));
 
     List<String> options =
         compileCommandLine.getCompilerOptions(getOverwrittenVariables(), PathMapper.NOOP);
 
     for (String option : options) {
-      info.addCompilerOption(option);
+      info.addCompilerOption(internalToUnicode(option));
     }
-    info.setOutputFile(getPrimaryOutput().getExecPathString());
-    info.setSourceFile(getSourceFile().getExecPathString());
+    info.setOutputFile(internalToUnicode(getPrimaryOutput().getExecPathString()));
+    info.setSourceFile(internalToUnicode(getSourceFile().getExecPathString()));
     if (inputsKnown()) {
-      info.addAllSourcesAndHeaders(Artifact.toExecPaths(getInputs().toList()));
-    } else {
-      info.addSourcesAndHeaders(getSourceFile().getExecPathString());
       info.addAllSourcesAndHeaders(
-          Artifact.toExecPaths(ccCompilationContext.getDeclaredIncludeSrcs().toList()));
+          Iterables.transform(
+              Artifact.toExecPaths(getInputs().toList()), StringEncoding::internalToUnicode));
+    } else {
+      info.addSourcesAndHeaders(internalToUnicode(getSourceFile().getExecPathString()));
+      info.addAllSourcesAndHeaders(
+          Iterables.transform(
+              Artifact.toExecPaths(ccCompilationContext.getDeclaredIncludeSrcs().toList()),
+              StringEncoding::internalToUnicode));
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
         getEffectiveEnvironment(/* clientEnv= */ ImmutableMap.of(), PathMapper.NOOP).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
-              .setName(envVariable.getKey())
-              .setValue(envVariable.getValue())
+              .setName(internalToUnicode(envVariable.getKey()))
+              .setValue(internalToUnicode(envVariable.getValue()))
               .build());
     }
 

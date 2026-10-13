@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.remote.http;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
@@ -76,7 +78,8 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
         if (response.content().readableBytes() > 0) {
           byte[] data = new byte[response.content().readableBytes()];
           response.content().readBytes(data);
-          errorMsg += "\n" + new String(data, HttpUtil.getCharset(response));
+          errorMsg +=
+              "\n" + unicodeToInternal(new String(data, HttpUtil.getCharset(response, UTF_8)));
         }
         promise.setFailure(new HttpException(response, errorMsg, null));
       } else {

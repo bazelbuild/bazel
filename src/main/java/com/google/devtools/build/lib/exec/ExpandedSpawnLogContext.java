@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -39,6 +41,7 @@ import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageInputStream;
 import com.google.devtools.build.lib.util.io.MessageInputStreamWrapper.BinaryInputStreamWrapper;
@@ -166,7 +169,8 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
     }
     try (SilentCloseable c = Profiler.instance().profile("logSpawn")) {
       SpawnExec.Builder builder = SpawnExec.newBuilder();
-      builder.addAllCommandArgs(spawn.getArguments());
+      builder.addAllCommandArgs(
+          Lists.transform(spawn.getArguments(), StringEncoding::internalToUnicode));
       builder.addAllEnvironmentVariables(getEnvironmentVariables(spawn));
 
       ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
@@ -189,7 +193,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
             // Do not include a digest, as it's a waste of space.
             builder
                 .addInputsBuilder()
-                .setPath(displayPath.getPathString())
+                .setPath(internalToUnicode(displayPath.getPathString()))
                 .setIsTool(toolRunfilesDirectories.stream().anyMatch(displayPath::startsWith));
             continue;
           }
@@ -213,8 +217,8 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
             checkState(metadata.getType().isSymlink(), metadata);
             builder
                 .addInputsBuilder()
-                .setPath(displayPath.getPathString())
-                .setSymlinkTargetPath(metadata.getUnresolvedSymlinkTarget())
+                .setPath(internalToUnicode(displayPath.getPathString()))
+                .setSymlinkTargetPath(internalToUnicode(metadata.getUnresolvedSymlinkTarget()))
                 .setIsTool(isTool);
             continue;
           }
@@ -230,7 +234,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
 
           builder
               .addInputsBuilder()
-              .setPath(displayPath.getPathString())
+              .setPath(internalToUnicode(displayPath.getPathString()))
               .setDigest(digest)
               .setIsTool(isTool);
         }
@@ -243,14 +247,15 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
           outputPaths.add(output.getExecPathString());
         }
         Collections.sort(outputPaths);
-        builder.addAllListedOutputs(outputPaths);
+        builder.addAllListedOutputs(
+            Lists.transform(outputPaths, StringEncoding::internalToUnicode));
         try {
           for (ActionInput output : spawn.getOutputFiles()) {
             Path path = fileSystem.getPath(execRoot.getRelative(output.getExecPathString()));
             if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
               builder
                   .addActualOutputsBuilder()
-                  .setPath(output.getExecPathString())
+                  .setPath(internalToUnicode(output.getExecPathString()))
                   .setDigest(
                       computeDigest(
                           output,
@@ -269,8 +274,8 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
             } else if (output.isSymlink() && path.isSymbolicLink()) {
               builder
                   .addActualOutputsBuilder()
-                  .setPath(output.getExecPathString())
-                  .setSymlinkTargetPath(path.readSymbolicLink().getPathString());
+                  .setPath(internalToUnicode(output.getExecPathString()))
+                  .setSymlinkTargetPath(internalToUnicode(path.readSymbolicLink().getPathString()));
             }
           }
         } catch (IOException ex) {
@@ -299,10 +304,10 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
         builder.setDigest(result.getDigest());
       }
 
-      builder.setMnemonic(spawn.getMnemonic());
+      builder.setMnemonic(internalToUnicode(spawn.getMnemonic()));
 
       if (spawn.getTargetLabel() != null) {
-        builder.setTargetLabel(spawn.getTargetLabel().toString());
+        builder.setTargetLabel(internalToUnicode(spawn.getTargetLabel().toString()));
       }
 
       builder.setMetrics(getSpawnMetricsProto(result));
@@ -379,7 +384,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
 
       addFile.accept(
           File.newBuilder()
-              .setPath(childDisplayPath.getPathString())
+              .setPath(internalToUnicode(childDisplayPath.getPathString()))
               .setDigest(
                   computeDigest(
                       null,

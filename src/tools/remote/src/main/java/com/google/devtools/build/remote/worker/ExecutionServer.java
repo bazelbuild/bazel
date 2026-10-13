@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import build.bazel.remote.execution.v2.Action;
@@ -32,6 +34,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -104,6 +107,13 @@ final class ExecutionServer extends ExecutionImplBase {
 
   private static final int LOCAL_EXEC_ERROR = -1;
 
+  /** The environment of the worker process in Bazel's internal string encoding. */
+  static final ImmutableMap<String, String> CLIENT_ENV =
+      System.getenv().entrySet().stream()
+          .collect(
+              toImmutableMap(
+                  e -> platformToInternal(e.getKey()), e -> platformToInternal(e.getValue())));
+
   private final Path workPath;
   private final Path sandboxPath;
   private final RemoteWorkerOptions workerOptions;
@@ -146,7 +156,7 @@ final class ExecutionServer extends ExecutionImplBase {
     // Allow the core threads to die.
     realExecutor.allowCoreThreadTimeOut(true);
     this.executorService = MoreExecutors.listeningDecorator(realExecutor);
-    this.localEnvProvider = LocalEnvProvider.forCurrentOs(System.getenv());
+    this.localEnvProvider = LocalEnvProvider.forCurrentOs(CLIENT_ENV);
     String xcodeLocator;
     try {
       xcodeLocator =
@@ -504,7 +514,7 @@ final class ExecutionServer extends ExecutionImplBase {
             /* environmentVariables= */ null,
             /* workingDirectory= */ null,
             uidTimeout,
-            System.getenv());
+            CLIENT_ENV);
     try {
       ByteArrayOutputStream stdout = new ByteArrayOutputStream();
       ByteArrayOutputStream stderr = new ByteArrayOutputStream();
@@ -614,7 +624,7 @@ final class ExecutionServer extends ExecutionImplBase {
           newCommandLineElements,
           null,
           new File(internalToPlatform(workingDirectory.getPathString())),
-          System.getenv());
+          CLIENT_ENV);
     } else if (sandboxPath != null) {
       // Run command with sandboxing.
       ArrayList<String> newCommandLineElements = new ArrayList<>(arguments.size());
@@ -636,14 +646,14 @@ final class ExecutionServer extends ExecutionImplBase {
           newCommandLineElements,
           environmentVariables,
           new File(internalToPlatform(workingDirectory.getPathString())),
-          System.getenv());
+          CLIENT_ENV);
     } else {
       // Just run the command.
       return new com.google.devtools.build.lib.shell.Command(
           arguments,
           environmentVariables,
           new File(internalToPlatform(workingDirectory.getPathString())),
-          System.getenv());
+          CLIENT_ENV);
     }
   }
 }

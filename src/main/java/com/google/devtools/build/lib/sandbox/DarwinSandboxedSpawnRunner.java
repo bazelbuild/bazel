@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -271,7 +271,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     try (PrintWriter out =
         new PrintWriter(
             new BufferedWriter(
-                new OutputStreamWriter(sandboxConfigPath.getOutputStream(), UTF_8)))) {
+                new OutputStreamWriter(sandboxConfigPath.getOutputStream(), ISO_8859_1)))) {
       // Note: In Apple's sandbox configuration language, the *last* matching rule wins.
       out.println("(version 1)");
       out.println("(debug deny)");
