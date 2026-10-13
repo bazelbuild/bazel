@@ -874,6 +874,73 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testOverrideExecGroupDisallowedByFlag() throws Exception {
+    setBuildLanguageOptions("--incompatible_bazel_run_on_host");
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+                testing.ExecutionInfo({}, exec_group = "custom_group"),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            exec_groups = {"custom_group": exec_group()},
+            test = True,
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        "some_test(name = 'custom_exec_group_test')");
+    reporter.removeHandler(failFastHandler);
+
+    assertThat(getConfiguredTarget("//:custom_exec_group_test")).isNull();
+
+    assertContainsEvent("exec_group");
+    assertContainsEvent(
+        "It may be temporarily re-enabled by setting --incompatible_bazel_run_on_host=false");
+  }
+
+  @Test
+  public void testDeclaredTestExecGroupWithFlag() throws Exception {
+    setBuildLanguageOptions("--incompatible_bazel_run_on_host");
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+                testing.ExecutionInfo({}),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            exec_groups = {"test": exec_group()},
+            test = True,
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        "some_test(",
+        "    name = 'declared_test_exec_group_test',",
+        "    exec_properties = {'test.key': 'good'},",
+        ")");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList =
+        getTestStatusArtifacts("//:declared_test_exec_group_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+
+    assertThat(testAction.getExecutionInfo()).containsExactly("key", "good");
+  }
+
+  @Test
   public void testNonExecutableCoverageReportGenerator() throws Exception {
     useConfiguration(
         "--coverage_report_generator=//bad_gen:bad_cov_gen", "--collect_code_coverage");

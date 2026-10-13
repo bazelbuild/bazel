@@ -373,8 +373,8 @@ public class BuildTool {
                     BuildEventIdUtil.structuredCommandlineId(
                         CommandLineEvent.CanonicalCommandLineEvent.LABEL)));
       }
-      buildOptions = runtime.createBuildOptions(optionsParser);
-      buildOptions = addPlatformFlags(request, buildOptions);
+      BuildOptions optionsWithoutPlatformFlags = runtime.createBuildOptions(optionsParser);
+      buildOptions = addPlatformFlags(request, optionsWithoutPlatformFlags);
 
       if (request.needsInstrumentationFilter()) {
         applyHeuristicInstrumentationFilter(buildOptions, targetPatternPhaseValue);
@@ -387,7 +387,8 @@ public class BuildTool {
               BuildView.getTopLevelConfigurationTrimmedOfTestOptions(
                   buildOptions, env.getReporter()),
               request.getUserOptions(),
-              projectEvaluationResult.buildOptions());
+              projectEvaluationResult.buildOptions(),
+              request.runOnHost());
       analysisCachingDeps = analysisDeps.deps();
       analysisCacheReaderDeps = analysisDeps.readerDeps();
       serializationDependenciesProvider = analysisDeps.serializationDeps();

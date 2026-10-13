@@ -255,6 +255,9 @@ public class SkyfocusExecutor {
             // like stamping, but retains a lot of memory (100MB of retained heap for a 9+GB build).
             // Figure out a way to not include it.
             .add(PrecomputedValue.BUILD_ID.getKey())
+            // Keeps the configured test targets incrementally correct when switching between
+            // `bazel run` and other commands.
+            .add(PrecomputedValue.RUN_ON_HOST.getKey())
             .addAll(activeDirectories)
             .build();
 

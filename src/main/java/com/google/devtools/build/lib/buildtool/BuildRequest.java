@@ -21,11 +21,13 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -84,6 +86,8 @@ public class BuildRequest implements OptionsProvider {
     private boolean runTests;
     private boolean checkForActionConflicts = true;
     private boolean reportIncompatibleTargets = true;
+    private ImmutableSet<Label> hostExecTopLevelTargets = ImmutableSet.of();
+    private boolean runOnHost;
 
     private Builder() {}
 
@@ -162,6 +166,29 @@ public class BuildRequest implements OptionsProvider {
       return this;
     }
 
+    /**
+     * Sets the labels of top-level targets to configure in the exec configuration for the host
+     * platform (as given by {@code --host_platform}) instead of the target configuration, i.e.
+     * like a dependency of a top-level target through an attribute with an exec transition for an
+     * exec group that resolved to the host platform.
+     */
+    @CanIgnoreReturnValue
+    public Builder setHostExecTopLevelTargets(ImmutableSet<Label> hostExecTopLevelTargets) {
+      this.hostExecTopLevelTargets = hostExecTopLevelTargets;
+      return this;
+    }
+
+    /**
+     * Sets whether the command executes the targets it builds on the host machine. If so, the test
+     * exec group of test targets is resolved to the host platform (as given by {@code
+     * --host_platform}).
+     */
+    @CanIgnoreReturnValue
+    public Builder setRunOnHost(boolean runOnHost) {
+      this.runOnHost = runOnHost;
+      return this;
+    }
+
     public BuildRequest build() {
       return new BuildRequest(
           commandName,
@@ -174,7 +201,9 @@ public class BuildRequest implements OptionsProvider {
           needsInstrumentationFilter,
           runTests,
           checkForActionConflicts,
-          reportIncompatibleTargets);
+          reportIncompatibleTargets,
+          hostExecTopLevelTargets,
+          runOnHost);
     }
   }
 
@@ -201,6 +230,8 @@ public class BuildRequest implements OptionsProvider {
   private final boolean runTests;
   private final boolean checkForActionConflicts;
   private final boolean reportIncompatibleTargets;
+  private final ImmutableSet<Label> hostExecTopLevelTargets;
+  private final boolean runOnHost;
   private final ImmutableMap<String, String> userOptions;
 
   private BuildRequest(
@@ -214,7 +245,9 @@ public class BuildRequest implements OptionsProvider {
       boolean needsInstrumentationFilter,
       boolean runTests,
       boolean checkForActionConflicts,
-      boolean reportIncompatibleTargets) {
+      boolean reportIncompatibleTargets,
+      ImmutableSet<Label> hostExecTopLevelTargets,
+      boolean runOnHost) {
     this.commandName = commandName;
     this.optionsDescription = OptionsUtils.asShellEscapedString(options);
     this.outErr = outErr;
@@ -244,6 +277,8 @@ public class BuildRequest implements OptionsProvider {
     this.runTests = runTests;
     this.checkForActionConflicts = checkForActionConflicts;
     this.reportIncompatibleTargets = reportIncompatibleTargets;
+    this.hostExecTopLevelTargets = hostExecTopLevelTargets;
+    this.runOnHost = runOnHost;
 
     for (Class<? extends OptionsBase> optionsClass : MANDATORY_OPTIONS) {
       Preconditions.checkNotNull(getOptions(optionsClass));
@@ -480,5 +515,21 @@ public class BuildRequest implements OptionsProvider {
 
   public boolean reportIncompatibleTargets() {
     return reportIncompatibleTargets;
+  }
+
+  /**
+   * Returns the labels of top-level targets to configure in the exec configuration for the host
+   * platform instead of the target configuration.
+   */
+  public ImmutableSet<Label> getHostExecTopLevelTargets() {
+    return hostExecTopLevelTargets;
+  }
+
+  /**
+   * Returns whether the command executes the targets it builds on the host machine, which requires
+   * the test exec group of test targets to be resolved to the host platform.
+   */
+  public boolean runOnHost() {
+    return runOnHost;
   }
 }

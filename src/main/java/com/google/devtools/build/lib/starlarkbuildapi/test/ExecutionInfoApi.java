@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.test;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
@@ -75,7 +76,14 @@ public interface ExecutionInfoApi extends StructApi {
               defaultValue = "'test'",
               named = true,
               positional = true,
-              doc = "The name of the exec group that is used to execute the test.")
+              disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_BAZEL_RUN_ON_HOST,
+              doc =
+                  "This parameter has been deprecated and is disabled by"
+                      + " <code>--incompatible_bazel_run_on_host</code>. With that flag, tests are"
+                      + " always executed with the <code>\"test\"</code> exec group, which a test"
+                      + " rule may declare itself to customize its toolchains and execution"
+                      + " constraints. <p>The name of the exec group that is used to execute the"
+                      + " test.")
         },
         selfCall = true)
     @StarlarkConstructor

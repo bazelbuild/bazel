@@ -161,6 +161,7 @@ java_library(
     srcs = ["UnloadedToolchainContextsInputs.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
         "//third_party/java/auto:auto_value",

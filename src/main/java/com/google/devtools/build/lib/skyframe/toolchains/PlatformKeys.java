@@ -252,19 +252,31 @@ record PlatformKeys(
         .build(execConstraintLabels);
   }
 
+  /**
+   * Returns the key of the execution platform that the given label refers to, possibly through an
+   * alias, or null if it isn't one of the execution platforms that satisfy the execution
+   * constraints.
+   */
   @Nullable
   public ConfiguredTargetKey find(Label platformLabel) {
-    if (platformLabel.equals(targetPlatformKey.getLabel())) {
-      return targetPlatformKey();
-    }
-
     for (ConfiguredTargetKey configuredTargetKey : executionPlatformKeys) {
       if (platformLabel.equals(configuredTargetKey.getLabel())) {
         return configuredTargetKey;
       }
     }
 
-    return null;
+    // The label may be an alias of an execution platform, such as the default --host_platform.
+    return platformInfos.entrySet().stream()
+        .filter(entry -> entry.getKey().getLabel().equals(platformLabel))
+        .map(entry -> entry.getValue().label())
+        .filter(label -> !label.equals(platformLabel))
+        .findFirst()
+        .flatMap(
+            label ->
+                executionPlatformKeys.stream()
+                    .filter(key -> label.equals(key.getLabel()))
+                    .findFirst())
+        .orElse(null);
   }
 
   @Nullable

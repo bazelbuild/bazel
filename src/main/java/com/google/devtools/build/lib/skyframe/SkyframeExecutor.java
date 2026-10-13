@@ -1191,6 +1191,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected final void init() {
     progressReceiver = newSkyframeProgressReceiver();
     memoizingEvaluator = createEvaluator(skyFunctions(), progressReceiver, emittedEventState);
+    // Commands that run tests on the host inject the value before analysis.
+    setRunOnHost(false);
     skyframeExecutorConsumerOnInit.accept(this);
     isCleanBuild = true;
   }
@@ -1622,6 +1624,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private void setStampSettingMarker() {
     PrecomputedValue.STAMP_SETTING_MARKER.inject(injectable());
+  }
+
+  /**
+   * Sets whether the current command executes the tests it builds on the host, see {@link
+   * PrecomputedValue#RUN_ON_HOST}.
+   */
+  public void setRunOnHost(boolean runOnHost) {
+    PrecomputedValue.RUN_ON_HOST.set(injectable(), runOnHost);
   }
 
   @CanIgnoreReturnValue

@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.toolchains.NoMatchingPlatformException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
@@ -59,6 +61,7 @@ public final class UnloadedToolchainContextsProducer implements StateMachine {
   // -------------------- Internal State --------------------
   private ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContextsBuilder;
   private boolean toolchainContextsHasError = false;
+  private boolean runOnHost = false;
 
   UnloadedToolchainContextsProducer(
       UnloadedToolchainContextsInputs unloadedToolchainContextsInputs,
@@ -87,8 +90,7 @@ public final class UnloadedToolchainContextsProducer implements StateMachine {
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
-    var defaultToolchainContextKey = unloadedToolchainContextsInputs.targetToolchainContextKey();
-    if (defaultToolchainContextKey == null) {
+    if (unloadedToolchainContextsInputs.targetToolchainContextKey() == null) {
       // Doesn't use toolchain resolution and short-circuits.
       // TODO(bazel-team): return empty {@link ToolchainCollection} instead of {@code null} to help
       // consumers distinguish between not yet evaluated collections and collections evaluated to be
@@ -96,7 +98,18 @@ public final class UnloadedToolchainContextsProducer implements StateMachine {
       sink.acceptUnloadedToolchainContexts(null);
       return runAfter;
     }
+    if (unloadedToolchainContextsInputs.runOnHostExecutionPlatforms().isEmpty()) {
+      return lookupToolchainContexts(tasks);
+    }
+    tasks.lookUp(
+        PrecomputedValue.RUN_ON_HOST.getKey(),
+        value -> runOnHost = (Boolean) ((PrecomputedValue) value).get());
+    return this::lookupToolchainContexts;
+  }
 
+
+  private StateMachine lookupToolchainContexts(Tasks tasks) throws InterruptedException {
+    var defaultToolchainContextKey = unloadedToolchainContextsInputs.targetToolchainContextKey();
     this.toolchainContextsBuilder =
         ToolchainCollection.builderWithExpectedSize(
             unloadedToolchainContextsInputs.execGroups().size() + 1);
@@ -115,8 +128,19 @@ public final class UnloadedToolchainContextsProducer implements StateMachine {
     for (Map.Entry<String, DeclaredExecGroup> entry :
         unloadedToolchainContextsInputs.execGroups().entrySet()) {
       var execGroup = entry.getValue();
+      Label forcedExecutionPlatform =
+          runOnHost
+              ? unloadedToolchainContextsInputs.runOnHostExecutionPlatforms().get(entry.getKey())
+              : null;
+      var execGroupKeyBuilder =
+          forcedExecutionPlatform == null
+              ? keyBuilder
+              : ToolchainContextKey.key()
+                  .configurationKey(defaultToolchainContextKey.configurationKey())
+                  .debugTarget(defaultToolchainContextKey.debugTarget())
+                  .forceExecutionPlatform(forcedExecutionPlatform);
       var key =
-          keyBuilder
+          execGroupKeyBuilder
               .toolchainTypes(execGroup.toolchainTypes())
               .execConstraintLabels(execGroup.execCompatibleWith())
               .build();

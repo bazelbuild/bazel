@@ -215,6 +215,7 @@ public final class AnalysisCacheInvalidatorTest {
             IntVersion.of(9000),
             "distinguisher",
             /* useFakeStampData= */ true,
+            /* runOnHost= */ false,
             Optional.of(new SnapshotClientId("for_testing", 123)));
     var currentVersion =
         new FrontierNodeVersion(
@@ -224,6 +225,7 @@ public final class AnalysisCacheInvalidatorTest {
             IntVersion.of(9001), // changed
             "distinguisher",
             /* useFakeStampData= */ true,
+            /* runOnHost= */ false,
             Optional.of(new SnapshotClientId("for_testing", 123)));
     AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(
@@ -261,6 +263,7 @@ public final class AnalysisCacheInvalidatorTest {
             IntVersion.of(9000),
             "distinguisher",
             /* useFakeStampData= */ true,
+            /* runOnHost= */ false,
             Optional.of(new SnapshotClientId("for_testing", 123)));
     var currentVersion =
         new FrontierNodeVersion(
@@ -270,6 +273,7 @@ public final class AnalysisCacheInvalidatorTest {
             IntVersion.of(9000),
             "distinguisher",
             /* useFakeStampData= */ true,
+            /* runOnHost= */ false,
             Optional.of(new SnapshotClientId("for_testing", 123)));
     AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(
