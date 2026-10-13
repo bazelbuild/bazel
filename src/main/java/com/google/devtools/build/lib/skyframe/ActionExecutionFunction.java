@@ -730,24 +730,17 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     ActionExecutionValue previousOutputs = null;
-    ActionLookupData rewoundActionKey = skyframeActionExecutor.getRewoundActionKey(action);
-    if (rewoundActionKey != null) {
+    if (skyframeActionExecutor.checkRewoundActionOutputs()
+        && evaluator.get().isRewinding(actionLookupData)) {
       // Rewinding retains the prior SkyValue even while its node is being rebuilt. Unlike the
       // executor's per-build action map, this also covers local/remote cache hits and actions that
-      // completed in a previous invocation. Use the original producer's key in case a different
-      // shared owner wins execution. Do not introduce a dependency on ourselves or a shared action.
+      // completed in a previous invocation. This is best effort: if another shared owner wins
+      // execution, the shared-result shortcut above can bypass the check. Only inspect this key's
+      // retained value, without introducing a dependency on ourselves.
       NodeEntry entry =
-          evaluator.get().getExistingEntryAtCurrentlyEvaluatingVersion(rewoundActionKey);
+          evaluator.get().getExistingEntryAtCurrentlyEvaluatingVersion(actionLookupData);
       if (entry != null && entry.toValue() instanceof ActionExecutionValue value) {
         previousOutputs = value;
-        if (!rewoundActionKey.equals(actionLookupData)) {
-          try {
-            previousOutputs = value.transformForSharedAction(action);
-          } catch (ActionExecutionValue.ActionTransformException e) {
-            throw new IllegalStateException(
-                String.format("Cannot share %s and %s", rewoundActionKey, actionLookupData), e);
-          }
-        }
       }
     }
 

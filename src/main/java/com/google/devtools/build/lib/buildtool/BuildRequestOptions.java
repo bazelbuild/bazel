@@ -435,7 +435,8 @@ public abstract class BuildRequestOptions extends OptionsBase {
       help =
           "Fail if regenerating a rewound action changes its recorded output contents. This detects"
               + " nondeterministic regeneration before dependent actions consume the new result."
-              + " Only applies when the previous output metadata is available.")
+              + " Best effort: requires previous output metadata and may miss changes when another"
+              + " shared action regenerates the outputs.")
   public abstract boolean getCheckRewoundActionOutputs();
 
   @Option(

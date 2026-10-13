@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.actions.ActionSuccessEvent;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -226,10 +225,6 @@ public final class SkyframeActionExecutor {
   // receiving more than one of those events per action.
   private Set<OwnerlessArtifactWrapper> rewoundActions;
 
-  // Remember the original owner before shared actions race to regenerate the outputs. The winner
-  // may never have completed before and therefore may not have a retained SkyValue of its own.
-  private ConcurrentMap<OwnerlessArtifactWrapper, ActionLookupData> rewoundActionKeys;
-
   private ActionOutputDirectoryHelper outputDirectoryHelper;
 
   private OptionsProvider options;
@@ -345,7 +340,6 @@ public final class SkyframeActionExecutor {
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = new ConcurrentHashMap<>();
     this.rewoundActions = Sets.newConcurrentHashSet();
-    this.rewoundActionKeys = new ConcurrentHashMap<>();
     this.hadExecutionError.set(false);
     this.actionCacheChecker = checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
@@ -509,7 +503,6 @@ public final class SkyframeActionExecutor {
     this.outputService = null;
     this.buildActionMap = null;
     this.rewoundActions = null;
-    this.rewoundActionKeys = null;
     this.actionCacheChecker = null;
     this.bustActionCachesTarget = null;
     this.outputDirectoryHelper = null;
@@ -535,11 +528,8 @@ public final class SkyframeActionExecutor {
         && rewoundActions.contains(new OwnerlessArtifactWrapper(primaryOutput));
   }
 
-  @Nullable
-  ActionLookupData getRewoundActionKey(Action action) {
-    return checkRewoundActionOutputs && action.getPrimaryOutput() != null
-        ? rewoundActionKeys.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()))
-        : null;
+  boolean checkRewoundActionOutputs() {
+    return checkRewoundActionOutputs;
   }
 
   private void reportChangedRewoundOutput(
@@ -641,11 +631,6 @@ public final class SkyframeActionExecutor {
       checkState(dep instanceof ActionTemplate, "dep of unexpected type %s", dep);
       rewoundActions.add(ownerlessArtifactWrapper);
       return;
-    }
-    if (checkRewoundActionOutputs) {
-      rewoundActionKeys.putIfAbsent(
-          ownerlessArtifactWrapper,
-          ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey());
     }
     ActionExecutionState actionExecutionState = buildActionMap.get(ownerlessArtifactWrapper);
     if (actionExecutionState != null) {

@@ -1151,7 +1151,7 @@ public class RewindingTestsHelper {
         .inOrder();
   }
 
-  public final void runSharedRewoundOutputChecked(boolean cacheHit, boolean changed)
+  public final void runSharedRewoundOutputCheckIsBestEffort(boolean cacheHit, boolean changed)
       throws Exception {
     ensureMultipleJobs();
     testCase.addOptions(
@@ -1251,7 +1251,10 @@ public class RewindingTestsHelper {
     addSpawnShim(
         "Executing genrule //shared:consumer",
         (spawn, context) -> createLostInputsExecException(spawn, context, "shared.out"));
-    if (changed) {
+    // Only the first owner was rewound. Its cache-hit path checks the retained metadata, but
+    // reusing the second owner's execution result bypasses this best-effort check.
+    boolean detectsChange = cacheHit && changed;
+    if (detectsChange) {
       BuildFailedException failure =
           assertThrows(
               BuildFailedException.class,
@@ -1271,7 +1274,7 @@ public class RewindingTestsHelper {
     assertThat(
             Collections.frequency(
                 getExecutedSpawnDescriptions(), "Executing genrule //shared:consumer"))
-        .isEqualTo(changed ? 1 : 2);
+        .isEqualTo(detectsChange ? 1 : 2);
     verifyAllSpawnShimsConsumed();
   }
 
