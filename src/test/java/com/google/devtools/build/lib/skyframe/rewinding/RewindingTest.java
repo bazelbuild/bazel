@@ -261,6 +261,12 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void omittedRewoundOutputCheckSucceeds(@TestParameter boolean omittedBeforeRewind)
+      throws Exception {
+    helper.runOmittedRewoundOutputCheckSucceeds(omittedBeforeRewind);
+  }
+
+  @Test
   public void sharedRewoundOutputCheckIsBestEffort(
       @TestParameter boolean cacheHit, @TestParameter boolean changed) throws Exception {
     helper.runSharedRewoundOutputCheckIsBestEffort(cacheHit, changed);

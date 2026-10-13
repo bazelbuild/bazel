@@ -1151,6 +1151,67 @@ public class RewindingTestsHelper {
         .inOrder();
   }
 
+  public final void runOmittedRewoundOutputCheckSucceeds(boolean omittedBeforeRewind)
+      throws Exception {
+    testCase.addOptions("--experimental_check_rewound_action_outputs");
+    testCase.write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "producer",
+            outs = ["lost.inlined", "sibling.inlined"],
+            cmd = "touch $(OUTS)",
+        )
+        genrule(
+            name = "consumer",
+            srcs = ["lost.inlined"],
+            outs = ["result.inlined"],
+            cmd = "cat $< > $@",
+        )
+        """);
+    AtomicInteger executions = new AtomicInteger();
+    SpawnShim producer =
+        (spawn, context) -> {
+          int run = executions.incrementAndGet();
+          for (ActionInput output : spawn.getOutputFiles()) {
+            if (output.getExecPathString().endsWith("sibling.inlined")
+                && (omittedBeforeRewind || run > 1)) {
+              // Remote execution can retain metadata for an orphaned output without downloading it.
+              var metadataStore = context.getOutputMetadataStore();
+              metadataStore.injectFile(
+                  (Artifact) output, FileArtifactValue.createForRemoteFile(new byte[] {1}, 1, 0));
+              metadataStore.markOmitted((Artifact) output);
+            } else {
+              Path path = context.getExecRoot().getRelative(output.getExecPath());
+              path.getParentDirectory().createDirectoryAndParents();
+              writeContent(path, new byte[] {0});
+            }
+          }
+          return ExecResult.of(
+              new SpawnResult.Builder()
+                  .setStatus(SpawnResult.Status.SUCCESS)
+                  .setRunnerName("shim")
+                  .build());
+        };
+    addSpawnShim("Executing genrule //test:producer", producer);
+    addSpawnShim("Executing genrule //test:producer", producer);
+    addSpawnShim(
+        "Executing genrule //test:consumer",
+        (spawn, context) -> createLostInputsExecException(spawn, context, "lost.inlined"));
+
+    testCase.buildTarget("//test:consumer");
+
+    assertThat(executions.get()).isEqualTo(2);
+    verifyAllSpawnShimsConsumed();
+    assertThat(getExecutedSpawnDescriptions())
+        .containsExactly(
+            "Executing genrule //test:producer",
+            "Executing genrule //test:consumer",
+            "Executing genrule //test:producer",
+            "Executing genrule //test:consumer")
+        .inOrder();
+  }
+
   public final void runSharedRewoundOutputCheckIsBestEffort(boolean cacheHit, boolean changed)
       throws Exception {
     ensureMultipleJobs();

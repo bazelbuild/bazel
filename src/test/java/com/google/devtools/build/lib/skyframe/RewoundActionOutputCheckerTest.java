@@ -142,16 +142,16 @@ public final class RewoundActionOutputCheckerTest {
   }
 
   @Test
-  public void regeneratedContent_distinguishesEmptyTreeFromOmittedTree() {
+  public void regeneratedContent_distinguishesEmptyTreeFromMissingMetadata() {
     SpecialArtifact tree = tree("tree");
     var empty = createWithTreeArtifactData(ImmutableMap.of(tree, TreeArtifactValue.empty()));
-    var omitted = createWithArtifactData(ImmutableMap.of(output("other"), VALUE_1_REMOTE));
+    var missingMetadata = createWithArtifactData(ImmutableMap.of(output("other"), VALUE_1_REMOTE));
 
     assertThat(RewoundActionOutputChecker.getChangedOutput(tree, empty, null, null))
         .isEqualTo(tree.getExecPathString());
     assertThat(
             RewoundActionOutputChecker.getChangedOutput(
-                tree, omitted, null, TreeArtifactValue.empty()))
+                tree, missingMetadata, null, TreeArtifactValue.empty()))
         .isEqualTo(tree.getExecPathString());
     assertThat(
             RewoundActionOutputChecker.getChangedOutput(

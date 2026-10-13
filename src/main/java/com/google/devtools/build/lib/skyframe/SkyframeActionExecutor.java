@@ -813,6 +813,7 @@ public final class SkyframeActionExecutor {
       Map<String, String> clientEnv,
       @Nullable ActionExecutionValue previousOutputs)
       throws ActionExecutionException, InterruptedException {
+    checkState(checkRewoundActionOutputs || previousOutputs == null);
     Token token;
     EventHandler handler;
     OutputChecker outputChecker = null;
@@ -1774,10 +1775,6 @@ public final class SkyframeActionExecutor {
               reportMissingOutputFile(action, output, reporter, isSymlink, e);
             }
           }
-        } else if (previousOutputs != null
-            && (previousOutputs.getAllFileValues().containsKey(output)
-                || previousOutputs.getAllTreeArtifactValues().containsKey(output))) {
-          reportChangedRewoundOutput(action, output.getExecPathString(), fileOutErr);
         }
       }
     }
