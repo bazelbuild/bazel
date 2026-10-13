@@ -18,11 +18,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -30,6 +33,13 @@ import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
+import com.google.devtools.build.skyframe.GroupedDeps;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -42,6 +52,67 @@ import org.junit.runners.JUnit4;
 public class TimestampBuilderTest extends TimestampBuilderTestCase {
   private static NestedSet<Artifact> asNestedSet(Artifact... artifacts) {
     return NestedSetBuilder.create(Order.STABLE_ORDER, artifacts);
+  }
+
+  @Test
+  public void sharedDiscoveredInputs_preserveNestedDependencies() throws Exception {
+    Artifact first = createSourceArtifact("first.h");
+    Artifact second = createSourceArtifact("second.h");
+    BlazeTestUtils.makeEmptyFile(first.getPath());
+    BlazeTestUtils.makeEmptyFile(second.getPath());
+    NestedSet<Artifact> discovered = asNestedSet(first, second);
+    Artifact one = createDerivedArtifact("one");
+    Artifact two = createDerivedArtifact("two");
+    AtomicInteger counter = new AtomicInteger();
+    for (Artifact output : ImmutableSet.of(one, two)) {
+      registerAction(
+          new TestAction(counter::incrementAndGet, emptyNestedSet, ImmutableSet.of(output)) {
+            @Override
+            public boolean discoversInputs() {
+              return true;
+            }
+
+            @Override
+            public NestedSet<Artifact> discoverInputs(ActionExecutionContext context) {
+              updateInputs(discovered);
+              return discovered;
+            }
+          });
+    }
+
+    var actionDeps = new ConcurrentLinkedQueue<ImmutableSet<SkyKey>>();
+    Builder builder =
+        createBuilder(
+            inMemoryCache,
+            2,
+            false,
+            new EvaluationProgressReceiver() {
+              @Override
+              public void evaluated(
+                  SkyKey key,
+                  EvaluationState state,
+                  SkyValue value,
+                  ErrorInfo error,
+                  GroupedDeps deps) {
+                if (key instanceof ActionLookupData && deps != null) {
+                  actionDeps.add(ImmutableSet.copyOf(deps.getAllElementsAsIterable()));
+                }
+              }
+            });
+    buildArtifacts(builder, one, two);
+
+    assertThat(counter.get()).isEqualTo(2);
+    assertThat(actionDeps).hasSize(2);
+    for (ImmutableSet<SkyKey> deps : actionDeps) {
+      assertThat(deps).contains(ArtifactNestedSetKey.create(discovered));
+      assertThat(deps).containsNoneOf(Artifact.key(first), Artifact.key(second));
+    }
+
+    buildArtifacts(cachingBuilder(), one, two);
+    assertThat(counter.get()).isEqualTo(2);
+    FileSystemUtils.writeContentAsLatin1(first.getPath(), "changed");
+    buildArtifacts(cachingBuilder(), one, two);
+    assertThat(counter.get()).isEqualTo(4);
   }
 
   @Test
