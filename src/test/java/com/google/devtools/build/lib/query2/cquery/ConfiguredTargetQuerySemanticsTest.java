@@ -940,6 +940,50 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         .containsExactly("//donut:top", "//donut:uses_a", "//donut:a");
   }
 
+  @Test
+  public void testAspectExecDepMatchingBaseConditionDropsTargetCondition() throws Exception {
+    writeFile(
+        "donut/test.bzl",
+        """
+        def _walk_impl(target, ctx):
+            return []
+
+        walk = aspect(
+            implementation = _walk_impl,
+            attr_aspects = ["deps"],
+            attrs = {"_tool": attr.label(default = "//donut:a", cfg = "exec")},
+        )
+
+        def _lib_impl(ctx):
+            pass
+
+        lib = rule(implementation = _lib_impl, attrs = {"deps": attr.label_list()})
+
+        def _top_impl(ctx):
+            pass
+
+        top = rule(_top_impl, attrs = {"deps": attr.label_list(aspects = [walk])})
+        """);
+    writeFile(
+        "donut/BUILD",
+        """
+        load(":test.bzl", "lib", "top")
+
+        config_setting(name = "a", define_values = {"x": "a"})
+
+        lib(name = "uses_a", deps = select({":a": [], "//conditions:default": []}))
+
+        top(name = "top", deps = [":uses_a"])
+        """);
+
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
+    // The aspect's own dep is the exec-configured //donut:a. The target-configured one is only the
+    // base target's select() condition, so it is not reported.
+    CqueryNode condition =
+        Iterables.getOnlyElement(eval("filter(//donut:a, deps(//donut:top, 1))"));
+    assertThat(getConfiguration(condition).isExecConfiguration()).isTrue();
+  }
+
   private ImmutableList<String> evalLabels(String query) throws Exception {
     return eval(query).stream()
         .map(cf -> cf.getDescription(LabelPrinter.legacy()))

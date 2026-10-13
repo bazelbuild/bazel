@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
@@ -790,7 +791,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    * depends on them only to evaluate the base target's attributes, so they are deps of the base
    * target, which is reported separately. Without this, which conditions get reported depends on
    * which instance of the aspect class targetifyValues examines first. A condition the aspect also
-   * declares in its own attributes is kept, since the same key then is the aspect's own dep.
+   * declares in an attribute without a transition is kept, since the same key then is the aspect's
+   * own dep.
    */
   private Iterable<SkyKey> withoutBaseConfigConditions(AspectKey key, Iterable<SkyKey> deps)
       throws InterruptedException {
@@ -807,7 +809,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
         aspectValue.getAspect(),
         DependencyFilter.ALL_DEPS,
-        (attribute, label) -> aspectLabels.add(label));
+        (attribute, label) -> {
+          if (NoTransition.isInstance(attribute.getTransitionFactory())) {
+            aspectLabels.add(label);
+          }
+        });
     // Config conditions are evaluated in the base target's configuration.
     BuildConfigurationKey configuration = getConfiguredTargetKey(base).getConfigurationKey();
     Set<ConfiguredTargetKey> conditions = new HashSet<>();
