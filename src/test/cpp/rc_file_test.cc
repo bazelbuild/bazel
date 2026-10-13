@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdlib>
 #include <optional>
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -24,19 +25,20 @@
 #include <string>
 #include <vector>
 
+#include "absl/strings/str_cat.h"
+#include "googlemock/include/gmock/gmock.h"
+#include "googletest/include/gtest/gtest.h"
 #include "src/main/cpp/bazel_startup_options.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/sem_ver.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/workspace_layout.h"
-#include "googlemock/include/gmock/gmock.h"
-#include "googletest/include/gtest/gtest.h"
-#include "absl/strings/str_cat.h"
 
 namespace blaze {
 using ::testing::AllOf;

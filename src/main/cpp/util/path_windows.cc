@@ -21,6 +21,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cctype>
 #include <memory>
 #include <sstream>
 #include <string>

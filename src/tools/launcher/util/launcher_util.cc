@@ -26,6 +26,8 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cctype>
+#include <iostream>
 #include <random>
 #include <sstream>
 #include <string>
