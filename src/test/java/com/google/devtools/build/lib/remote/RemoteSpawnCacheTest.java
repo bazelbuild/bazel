@@ -52,6 +52,8 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -293,10 +295,9 @@ public class RemoteSpawnCacheTest {
             ImmutableList.of("tool"),
             ImmutableMap.of("VARIABLE", "value"),
             ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, ""),
-            SpawnInputs.of(
-                NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-                ImmutableList.of(
-                    ActionInputHelper.fromPath("bazel-bin/%s/bin/input".formatted(configSegment)))),
+            /* inputs= */ NestedSetBuilder.create(
+                Order.STABLE_ORDER,
+                ActionInputHelper.fromPath("bazel-bin/%s/bin/input".formatted(configSegment))),
             /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* outputs= */ ImmutableSet.of(stdoutOutput),
             /* mandatoryOutputs= */ null,
@@ -931,8 +932,7 @@ public class RemoteSpawnCacheTest {
             outputRoot, execRoot.getRelative("bazel-bin/k8-fastbuild/bin/stdout"));
     Spawn firstSpawn = pathMappedSpawnWithStdout("k8-fastbuild", firstStdout);
     FakeActionInputFileCache firstFakeFileCache = new FakeActionInputFileCache(execRoot);
-    firstFakeFileCache.createScratchInput(
-        Iterables.getOnlyElement(firstSpawn.getInputFiles().flatten()), "xyz");
+    firstFakeFileCache.createScratchInput(firstSpawn.getInputFiles().getSingleton(), "xyz");
     SpawnExecutionContext firstPolicy =
         createSpawnExecutionContext(firstSpawn, execRoot, firstFakeFileCache, outErr);
 
@@ -941,8 +941,7 @@ public class RemoteSpawnCacheTest {
             outputRoot, execRoot.getRelative("bazel-bin/k8-opt/bin/stdout"));
     Spawn secondSpawn = pathMappedSpawnWithStdout("k8-opt", secondStdout);
     FakeActionInputFileCache secondFakeFileCache = new FakeActionInputFileCache(execRoot);
-    secondFakeFileCache.createScratchInput(
-        Iterables.getOnlyElement(secondSpawn.getInputFiles().flatten()), "xyz");
+    secondFakeFileCache.createScratchInput(secondSpawn.getInputFiles().getSingleton(), "xyz");
     SpawnExecutionContext secondPolicy =
         createSpawnExecutionContext(secondSpawn, execRoot, secondFakeFileCache, outErr);
 
