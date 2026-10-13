@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -43,12 +42,12 @@ import javax.annotation.Nullable;
 public final class PlatformFunction implements SkyFunction {
 
   /** Returns the {@link ConfiguredTargetKey} requested when evaluating the given platform. */
-  public static ConfiguredTargetKey configuredTargetDep(Label platformLabel) {
+  public static ConfiguredTargetKey configuredTargetDep(PlatformValue.Key key) {
     // Platforms do not rely on the configuration. Use a dummy blank configuration to reduce the
     // number of skyframe nodes created.
     return ConfiguredTargetKey.builder()
-        .setLabel(platformLabel)
-        .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
+        .setLabel(key.label())
+        .setConfigurationKey(BuildConfigurationKey.create(key.noConfigOptions()))
         .build();
   }
 
@@ -84,7 +83,7 @@ public final class PlatformFunction implements SkyFunction {
       var configuredTargetValue =
           (ConfiguredTargetValue)
               env.getValueOrThrow(
-                  configuredTargetDep(platformLabel), ConfiguredValueCreationException.class);
+                  configuredTargetDep(params), ConfiguredValueCreationException.class);
       if (configuredTargetValue == null) {
         return null;
       }

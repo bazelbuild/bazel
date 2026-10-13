@@ -39,12 +39,12 @@ import java.io.IOException;
  * with different configurations while allowing the diff-based serialization optimization to save
  * space.
  *
- * <p>The wire format is a single {@code byte} of bit flags encoding {@code isEmptyOptions}, {@code
+ * <p>The wire format is a single {@code byte} of bit flags encoding {@code isNoConfig}, {@code
  * isExec}, {@code trimTestOptions}, and {@code isTopLevelPlatform}, followed by:
  *
  * <ul>
- *   <li>if {@code isEmptyOptions}: nothing; the key represents {@link CommonOptions#EMPTY_OPTIONS}
- *       and the other flags are unset
+ *   <li>if {@code isNoConfig}: nothing; the key represents the no-config configuration (see {@link
+ *       CommonOptions#noConfigOptions}) and the other flags are unset
  *   <li>otherwise: the platform {@link Label} (only when {@code !isTopLevelPlatform}), and the
  *       {@link OptionsDiff}
  * </ul>
@@ -55,10 +55,7 @@ public class BuildConfigurationKeyBaselineDiffCodec
   private static final int IS_EXEC_MASK = 1;
   private static final int TRIM_TEST_OPTIONS_MASK = 2;
   private static final int IS_TOP_LEVEL_PLATFORM_MASK = 4;
-  private static final int IS_EMPTY_OPTIONS_MASK = 8;
-
-  private static final DeferredObjectCodec.DeferredValue<BuildConfigurationKey> EMPTY_OPTIONS_KEY =
-      () -> BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS);
+  private static final int IS_NO_CONFIG_MASK = 8;
 
   @Override
   public boolean autoRegister() {
@@ -75,8 +72,17 @@ public class BuildConfigurationKeyBaselineDiffCodec
       SerializationContext context, BuildConfigurationKey obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     BuildOptions options = obj.getOptions();
-    if (options.equals(CommonOptions.EMPTY_OPTIONS)) {
-      codedOut.writeRawByte((byte) IS_EMPTY_OPTIONS_MASK);
+    if (options.hasNoConfig()) {
+      // The no-config configuration has no PlatformOptions and thus no baseline to diff against.
+      // It only varies in the analysis phase flags inherited from the configuration it is reached
+      // from (see CommonOptions#noConfigOptions), which aren't written: the reader derives them
+      // from its own top-level options, just like the CoreOptions codec does for
+      // --check_visibility. This is sound because a writer and a reader that share a
+      // FrontierNodeVersion agree on all of these flags except --check_visibility, which is
+      // excluded from the top-level configuration checksum and which the reader applies to its own
+      // no-config configuration anyway. Variants that a transition introduces below the top level
+      // collapse onto the reader's top-level variant.
+      codedOut.writeRawByte((byte) IS_NO_CONFIG_MASK);
       return;
     }
 
@@ -122,8 +128,11 @@ public class BuildConfigurationKeyBaselineDiffCodec
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     byte flags = codedIn.readRawByte();
-    if ((flags & IS_EMPTY_OPTIONS_MASK) != 0) {
-      return EMPTY_OPTIONS_KEY;
+    if ((flags & IS_NO_CONFIG_MASK) != 0) {
+      // The writer elided the inherited analysis phase flags; derive them from our top-level
+      // options.
+      var topLevelOptions = context.getDependency(BuildOptions.class);
+      return () -> BuildConfigurationKey.create(CommonOptions.noConfigOptions(topLevelOptions));
     }
 
     PlatformConfigurationProvider provider =
