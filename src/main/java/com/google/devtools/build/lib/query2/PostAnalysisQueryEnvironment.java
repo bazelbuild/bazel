@@ -825,11 +825,12 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     // Conditions are evaluated in the base target's configuration, which is the aspect's.
     BuildConfigurationKey configuration = key.getConfigurationKey();
     // Skyframe merges equal edges, so the graph doesn't record whether a condition's key is also
-    // the aspect's own dep. An attribute without a transition depends on the base configuration's
-    // key (barring flag scoping). A label named only by attributes with transitions is taken to be
-    // the aspect's own dep in the base configuration unless it also appears in another one. That
-    // misreads a label those attributes put in both configurations: the base key is dropped,
-    // though it is still reported as a dep of the base target.
+    // the aspect's own dep. An attribute without a transition resolves to the same configured
+    // target as the condition, since flag scoping re-scopes both alike, so that key is kept. A
+    // label named only by attributes with transitions is taken to be the aspect's own dep in the
+    // base configuration unless it also appears in another one. That misreads a label those
+    // attributes put in both configurations: the base key is dropped, though it is still reported
+    // as a dep of the base target.
     Set<Label> movedLabels = new HashSet<>();
     for (SkyKey dep : deps) {
       if (dep.argument() instanceof ConfiguredTargetKey configuredTargetKey
