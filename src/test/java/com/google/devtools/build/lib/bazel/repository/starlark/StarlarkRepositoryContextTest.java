@@ -89,7 +89,6 @@ import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
@@ -150,8 +149,7 @@ public final class StarlarkRepositoryContextTest {
 
   private static Object exec(String... lines) {
     try {
-      return Starlark.execFile(
-          ParserInput.fromLines(lines), FileOptions.DEFAULT, Module.create(), thread);
+      return Starlark.execFile(ParserInput.fromLines(lines), Module.create(), thread);
     } catch (Exception ex) { // SyntaxError | EvalException | InterruptedException
       throw new AssertionError("exec failed", ex);
     }

@@ -981,7 +981,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 getIncompatibleDisableTargetDefaultProviderFields())
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, getExperimentalRuleExtensionApi())
             .setBool(EXPERIMENTAL_DORMANT_DEPS, getExperimentalDormantDeps())
-            .setBool(EXPERIMENTAL_STARLARK_TYPE_SYNTAX, getExperimentalStarlarkTypeSyntax())
+            .setBool(
+                StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_SYNTAX,
+                getExperimentalStarlarkTypeSyntax())
             .setBool(
                 StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING,
                 getExperimentalStarlarkStaticTypeChecking())
@@ -1171,10 +1173,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME;
   public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
 
-  // Enable annotations, but not actual type checking, with the effect that the parser tolerates
-  // arbitrary expressions in annotations for now.
-  public static final String EXPERIMENTAL_STARLARK_TYPE_SYNTAX =
-      "+experimental_starlark_type_syntax";
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =

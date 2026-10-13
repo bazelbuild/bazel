@@ -35,6 +35,13 @@ public final class EvaluationTest {
   private final EvaluationTestCase ev = new EvaluationTestCase();
 
   @Test
+  public void testDefaultStarlarkSemanticsAndDefaultFileOptionsConsistent() {
+    assertThat(StarlarkSemantics.DEFAULT.getDefaultFileOptions()).isEqualTo(FileOptions.DEFAULT);
+    assertThat(StarlarkSemantics.DEFAULT.updateFileOptions(FileOptions.builder()).build())
+        .isEqualTo(FileOptions.DEFAULT);
+  }
+
+  @Test
   public void testExecutionStopsAtFirstError() throws Exception {
     List<String> printEvents = new ArrayList<>();
     ParserInput input = ParserInput.fromLines("print('hello'); x = 1//0; print('goodbye')");

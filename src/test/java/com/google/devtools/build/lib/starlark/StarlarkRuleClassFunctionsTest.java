@@ -127,7 +127,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
@@ -7493,7 +7492,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   private Object eval(Module module, String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return Starlark.eval(input, FileOptions.DEFAULT, module, ev.getStarlarkThread());
+    return Starlark.eval(input, module, ev.getStarlarkThread());
   }
 
   @Test

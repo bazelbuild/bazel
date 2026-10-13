@@ -1841,7 +1841,7 @@ public final class StarlarkEvaluationTest {
       StarlarkSemantics semantics =
           StarlarkSemantics.builder().setBool(StarlarkSemantics.ALLOW_RECURSION, true).build();
       StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
-      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+      Starlark.execFile(input, module, thread);
     }
     assertThat(module.getGlobal("x")).isEqualTo(StarlarkInt.of(120));
   }

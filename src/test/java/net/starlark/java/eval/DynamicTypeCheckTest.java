@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.StringSubject;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.Types;
@@ -38,7 +37,6 @@ public class DynamicTypeCheckTest {
   @Before
   public void setup() throws Exception {
     ev = new EvaluationTestCase();
-    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true).build());
     ev.setSemantics(
         StarlarkSemantics.builder()
             .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true)
