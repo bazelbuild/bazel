@@ -31,8 +31,25 @@ public final class ProcessFreeActionContextRegistry implements ActionContextRegi
       ActionAnalysisMetadata action, ActionContextRegistry delegate) {
     this.action = checkNotNull(action);
     this.delegate = checkNotNull(delegate);
-    checkArgument(action.isProcessFree(), "action is not process-free: %s", action.prettyPrint());
+    checkArgument(
+        isProcessFree(action, delegate), "action is not process-free: %s", action.prettyPrint());
     this.allowedContexts = action.getProcessFreeActionContexts();
+  }
+
+  /** Checks the implementations selected for every context the action may request. */
+  public static boolean isProcessFree(
+      ActionAnalysisMetadata action, ActionContextRegistry actionContextRegistry) {
+    if (!action.isProcessFree()) {
+      return false;
+    }
+    for (Class<? extends ActionContext> type : action.getProcessFreeActionContexts()) {
+      ActionContext context = actionContextRegistry.getContext(type);
+      // Some contexts, such as spawn logging, are optional. An absent context cannot spawn.
+      if (context != null && !context.isProcessFree(actionContextRegistry)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
@@ -43,6 +60,12 @@ public final class ProcessFreeActionContextRegistry implements ActionContextRegi
         "process-free action %s requested undeclared execution context %s",
         action.prettyPrint(),
         identifyingType.getName());
-    return delegate.getContext(identifyingType);
+    T context = delegate.getContext(identifyingType);
+    checkState(
+        context == null || context.isProcessFree(delegate),
+        "process-free action %s selected unsafe execution context %s",
+        action.prettyPrint(),
+        identifyingType.getName());
+    return context;
   }
 }

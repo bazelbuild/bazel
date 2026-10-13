@@ -2088,7 +2088,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         boolean reportInventory =
             options.getOptions(BuildRequestOptions.class).getProcessFreeActionInventory();
         ProcessFreeActionPlanner.Plan plan =
-            ProcessFreeActionPlanner.create(artifactsToBuild, actionGraph, reportInventory);
+            ProcessFreeActionPlanner.create(
+                artifactsToBuild,
+                actionGraph,
+                skyframeActionExecutor.getActionContextRegistry(),
+                reportInventory);
         if (reportInventory) {
           TreeMap<ProcessFreeActionPlanner.ActionInventory, long[]> groups =
               new TreeMap<>(

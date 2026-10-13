@@ -24,6 +24,7 @@ import com.google.common.collect.Lists;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -81,6 +82,10 @@ import javax.annotation.concurrent.GuardedBy;
 
 /** A {@link SpawnLogContext} implementation that produces a log in compact format. */
 public class CompactSpawnLogContext extends SpawnLogContext {
+  @Override
+  public final boolean isProcessFree(ActionContextRegistry actionContextRegistry) {
+    return getClass() == CompactSpawnLogContext.class;
+  }
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 

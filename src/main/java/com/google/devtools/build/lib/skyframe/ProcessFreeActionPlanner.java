@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
+import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ProcessFreeActionContextRegistry;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -75,6 +77,7 @@ final class ProcessFreeActionPlanner {
   }
 
   private final ActionGraph actionGraph;
+  private final ActionContextRegistry actionContextRegistry;
   private final boolean collectInventory;
   private final IdentityHashMap<ActionAnalysisMetadata, State> states = new IdentityHashMap<>();
   private final Set<Artifact> visitedArtifacts =
@@ -83,15 +86,22 @@ final class ProcessFreeActionPlanner {
   private int unresolvedArtifacts;
   private final ImmutableList.Builder<ActionInventory> actionInventory = ImmutableList.builder();
 
-  private ProcessFreeActionPlanner(ActionGraph actionGraph, boolean collectInventory) {
+  private ProcessFreeActionPlanner(
+      ActionGraph actionGraph,
+      ActionContextRegistry actionContextRegistry,
+      boolean collectInventory) {
     this.actionGraph = actionGraph;
+    this.actionContextRegistry = actionContextRegistry;
     this.collectInventory = collectInventory;
   }
 
   static Plan create(
-      Iterable<Artifact> roots, ActionGraph actionGraph, boolean collectInventory) {
+      Iterable<Artifact> roots,
+      ActionGraph actionGraph,
+      ActionContextRegistry actionContextRegistry,
+      boolean collectInventory) {
     ProcessFreeActionPlanner planner =
-        new ProcessFreeActionPlanner(actionGraph, collectInventory);
+        new ProcessFreeActionPlanner(actionGraph, actionContextRegistry, collectInventory);
     for (Artifact root : roots) {
       planner.visitArtifact(root);
     }
@@ -170,7 +180,11 @@ final class ProcessFreeActionPlanner {
     // accidentally declares the capability.
     boolean discoversInputs =
         action instanceof Action executableAction && executableAction.discoversInputs();
-    boolean eligible = declaredProcessFree && !discoversInputs && frame.inputsEligible;
+    boolean eligible =
+        declaredProcessFree
+            && !discoversInputs
+            && frame.inputsEligible
+            && ProcessFreeActionContextRegistry.isProcessFree(action, actionContextRegistry);
     states.put(action, eligible ? State.ELIGIBLE : State.DEFERRED);
     if (collectInventory) {
       actionInventory.add(

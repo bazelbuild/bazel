@@ -250,11 +250,12 @@ public interface ActionAnalysisMetadata {
   }
 
   /**
-   * Returns whether this action is implemented entirely inside Bazel without starting a process.
+   * Returns whether this action can run without starting a process when its selected contexts can.
    *
    * <p>This capability is deliberately fail-closed. It is used by analysis snapshot preparation,
    * which may materialize audited Bazel-owned filesystem actions while deferring all other work.
-   * Implementations must be deterministic and must not use a spawn or worker context.
+   * Implementations must be deterministic and must not use a spawn or worker context. The planner
+   * also checks the selected implementations of any declared action contexts.
    */
   default boolean isProcessFree() {
     return false;
@@ -264,7 +265,8 @@ public interface ActionAnalysisMetadata {
    * Returns the action contexts this action may request during process-free execution.
    *
    * <p>The default is deliberately empty. Every context is an execution capability, so an action
-   * must explicitly enumerate the contexts required by its audited in-process implementation.
+   * must explicitly enumerate the contexts its audited implementation may request. Each selected
+   * context must also report that its implementation is process-free.
    */
   default ImmutableSet<Class<? extends ActionContext>> getProcessFreeActionContexts() {
     return ImmutableSet.of();

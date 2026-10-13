@@ -27,10 +27,15 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ProcessFreeActionContextRegistry;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
+import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Root;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +49,15 @@ import org.junit.runners.JUnit4;
 public final class ProcessFreeActionPlannerTest {
   private final Scratch scratch = new Scratch();
   private final Map<Artifact, ActionAnalysisMetadata> generatingActions = new IdentityHashMap<>();
+  private final Map<Class<? extends ActionContext>, ActionContext> selectedContexts =
+      new HashMap<>();
+  private final ActionContextRegistry actionContextRegistry =
+      new ActionContextRegistry() {
+        @Override
+        public <T extends ActionContext> T getContext(Class<T> identifyingType) {
+          return identifyingType.cast(selectedContexts.get(identifyingType));
+        }
+      };
   private ArtifactRoot sourceRoot;
   private ArtifactRoot outputRoot;
   private int nextActionIndex;
@@ -74,6 +88,7 @@ public final class ProcessFreeActionPlannerTest {
         ProcessFreeActionPlanner.create(
             ImmutableList.of(downstreamMetadata, independentMetadata),
             generatingActions::get,
+            actionContextRegistry,
             /* collectInventory= */ true);
 
     assertThat(plan.actionKeys()).containsExactly(metadataKey, independentKey).inOrder();
@@ -104,7 +119,10 @@ public final class ProcessFreeActionPlannerTest {
 
     ProcessFreeActionPlanner.Plan plan =
         ProcessFreeActionPlanner.create(
-            ImmutableList.of(metadata), generatingActions::get, /* collectInventory= */ false);
+            ImmutableList.of(metadata),
+            generatingActions::get,
+            actionContextRegistry,
+            /* collectInventory= */ false);
 
     assertThat(plan.actionKeys()).isEmpty();
     assertThat(plan.visitedActions()).isEqualTo(1);
@@ -123,7 +141,10 @@ public final class ProcessFreeActionPlannerTest {
 
     ProcessFreeActionPlanner.Plan plan =
         ProcessFreeActionPlanner.create(
-            ImmutableList.of(first, second), generatingActions::get, /* collectInventory= */ false);
+            ImmutableList.of(first, second),
+            generatingActions::get,
+            actionContextRegistry,
+            /* collectInventory= */ false);
 
     assertThat(plan.actionKeys()).isEmpty();
     assertThat(plan.visitedActions()).isEqualTo(2);
@@ -139,7 +160,10 @@ public final class ProcessFreeActionPlannerTest {
 
     ProcessFreeActionPlanner.Plan plan =
         ProcessFreeActionPlanner.create(
-            ImmutableList.of(first), generatingActions::get, /* collectInventory= */ false);
+            ImmutableList.of(first),
+            generatingActions::get,
+            actionContextRegistry,
+            /* collectInventory= */ false);
 
     assertThat(plan.actionKeys()).isEmpty();
     assertThat(plan.visitedActions()).isEqualTo(2);
@@ -158,7 +182,10 @@ public final class ProcessFreeActionPlannerTest {
 
     ProcessFreeActionPlanner.Plan plan =
         ProcessFreeActionPlanner.create(
-            ImmutableList.of(input), generatingActions::get, /* collectInventory= */ false);
+            ImmutableList.of(input),
+            generatingActions::get,
+            actionContextRegistry,
+            /* collectInventory= */ false);
 
     assertThat(plan.actionKeys()).hasSize(actionCount);
     assertThat(plan.visitedActions()).isEqualTo(actionCount);
@@ -173,12 +200,93 @@ public final class ProcessFreeActionPlannerTest {
 
     ProcessFreeActionPlanner.Plan plan =
         ProcessFreeActionPlanner.create(
-            ImmutableList.of(discovered), generatingActions::get, /* collectInventory= */ true);
+            ImmutableList.of(discovered),
+            generatingActions::get,
+            actionContextRegistry,
+            /* collectInventory= */ true);
 
     assertThat(plan.actionKeys()).isEmpty();
     assertThat(plan.visitedActions()).isEqualTo(1);
     assertThat(plan.deferredActions()).isEqualTo(1);
     assertThat(plan.actionInventory().getFirst().state()).isEqualTo("blocked");
+  }
+
+  @Test
+  public void unapprovedTemplateStrategyAndItsConsumersAreDeferred() {
+    Artifact source = ActionsTestUtil.createArtifact(sourceRoot, "source.txt");
+    DerivedArtifact template = output("template");
+    addAction(
+        new TestAction(
+            ImmutableList.of(source),
+            template,
+            true,
+            ImmutableSet.of(TemplateExpansionContext.class, FileWriteActionContext.class)));
+    DerivedArtifact consumer = output("consumer");
+    addAction(new TestAction(ImmutableList.of(template), consumer, true));
+    selectedContexts.put(FileWriteActionContext.class, new FileWriteStrategy());
+    // A subclass could use a spawn even though it implements the same context interface.
+    selectedContexts.put(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy() {});
+
+    ProcessFreeActionPlanner.Plan plan =
+        ProcessFreeActionPlanner.create(
+            ImmutableList.of(consumer),
+            generatingActions::get,
+            actionContextRegistry,
+            /* collectInventory= */ false);
+
+    assertThat(plan.actionKeys()).isEmpty();
+    assertThat(plan.deferredActions()).isEqualTo(2);
+  }
+
+  @Test
+  public void auditedLocalWriterAndTemplateStrategiesRemainEligible() {
+    Artifact source = ActionsTestUtil.createArtifact(sourceRoot, "source.txt");
+    DerivedArtifact template = output("template");
+    ActionLookupData key =
+        addAction(
+            new TestAction(
+                ImmutableList.of(source),
+                template,
+                true,
+                ImmutableSet.of(TemplateExpansionContext.class, FileWriteActionContext.class)));
+    selectedContexts.put(FileWriteActionContext.class, new FileWriteStrategy());
+    selectedContexts.put(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
+
+    ProcessFreeActionPlanner.Plan plan =
+        ProcessFreeActionPlanner.create(
+            ImmutableList.of(template),
+            generatingActions::get,
+            actionContextRegistry,
+            /* collectInventory= */ false);
+
+    assertThat(plan.actionKeys()).containsExactly(key);
+  }
+
+  @Test
+  public void unapprovedWriterBlocksLocalTemplateStrategy() {
+    Artifact source = ActionsTestUtil.createArtifact(sourceRoot, "source.txt");
+    DerivedArtifact template = output("template");
+    addAction(
+        new TestAction(
+            ImmutableList.of(source),
+            template,
+            true,
+            ImmutableSet.of(TemplateExpansionContext.class, FileWriteActionContext.class)));
+    selectedContexts.put(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
+    selectedContexts.put(
+        FileWriteActionContext.class,
+        (FileWriteActionContext)
+            (action, context, writer, makeExecutable, isRemotable, output) -> ImmutableList.of());
+
+    ProcessFreeActionPlanner.Plan plan =
+        ProcessFreeActionPlanner.create(
+            ImmutableList.of(template),
+            generatingActions::get,
+            actionContextRegistry,
+            /* collectInventory= */ false);
+
+    assertThat(plan.actionKeys()).isEmpty();
+    assertThat(plan.deferredActions()).isEqualTo(1);
   }
 
   @Test
@@ -199,7 +307,22 @@ public final class ProcessFreeActionPlannerTest {
     ActionContextRegistry restricted = new ProcessFreeActionContextRegistry(action, delegate);
 
     assertThat(restricted.getContext(AllowedContext.class)).isSameInstanceAs(allowed);
-    assertThat(delegateLookups.get()).isEqualTo(1);
+    assertThat(delegateLookups.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void contextRegistryRejectsUnapprovedImplementation() {
+    TestAction action =
+        new TestAction(
+            ImmutableList.of(), output("metadata"), true, ImmutableSet.of(ProcessContext.class));
+    selectedContexts.put(ProcessContext.class, new ProcessContext());
+
+    IllegalArgumentException thrown =
+        org.junit.Assert.assertThrows(
+            IllegalArgumentException.class,
+            () -> new ProcessFreeActionContextRegistry(action, actionContextRegistry));
+
+    assertThat(thrown).hasMessageThat().contains("action is not process-free");
   }
 
   @Test
@@ -296,7 +419,12 @@ public final class ProcessFreeActionPlannerTest {
     }
   }
 
-  private static final class AllowedContext implements ActionContext {}
+  private static final class AllowedContext implements ActionContext {
+    @Override
+    public boolean isProcessFree(ActionContextRegistry actionContextRegistry) {
+      return true;
+    }
+  }
 
   private static final class ProcessContext implements ActionContext {}
 
