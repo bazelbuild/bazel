@@ -27,18 +27,19 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.Strictness;
+import com.google.gson.ToNumberPolicy;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
@@ -60,14 +61,29 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
 
   @Override
   public AttributeValues read(JsonReader in) throws IOException {
-    JsonObject jsonObject = JsonParser.parseReader(in).getAsJsonObject();
-    Dict.Builder<String, Object> dict = Dict.builder();
-    for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
-      // The set of valid attribute names per repo rule is small and static, so interning them
-      // helps reduce memory usage.
-      dict.put(entry.getKey().intern(), deserializeObject(entry.getValue()));
+    Strictness strictness = in.getStrictness();
+    if (strictness == Strictness.LEGACY_STRICT) {
+      // JsonParser.parseReader treated LEGACY_STRICT readers as lenient.
+      in.setStrictness(Strictness.LENIENT);
     }
-    return AttributeValues.create(dict.buildImmutable());
+    try {
+      Map<String, Object> attributes = new LinkedHashMap<>();
+      in.beginObject();
+      while (in.hasNext()) {
+        // The set of valid attribute names per repo rule is small and static, so interning them
+        // helps reduce memory usage.
+        attributes.put(in.nextName().intern(), deserializeObject(in));
+      }
+      in.endObject();
+      for (Object value : attributes.values()) {
+        if (value instanceof RuntimeException error) {
+          throw error;
+        }
+      }
+      return AttributeValues.create(Dict.immutableCopyOf(attributes));
+    } finally {
+      in.setStrictness(strictness);
+    }
   }
 
   /**
@@ -106,33 +122,63 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
     }
   }
 
-  private Object deserializeObject(JsonElement json) {
-    if (json == null || json.isJsonNull()) {
-      return Starlark.NONE;
-    } else if (json.isJsonPrimitive()) {
-      JsonPrimitive jsonPrimitive = json.getAsJsonPrimitive();
-      if (jsonPrimitive.isBoolean()) {
-        return jsonPrimitive.getAsBoolean();
-      } else if (jsonPrimitive.isNumber()) {
-        return StarlarkInt.of(jsonPrimitive.getAsInt());
-      } else {
-        return deserializeStringToObject(jsonPrimitive.getAsString());
+  // Return conversion errors until the enclosing raw JSON object has discarded duplicate names.
+  // JsonReader errors must still throw immediately, even in a value that would be discarded.
+  private Object deserializeObject(JsonReader in) throws IOException {
+    return switch (in.peek()) {
+      case NULL -> {
+        in.nextNull();
+        yield Starlark.NONE;
       }
-    } else if (json.isJsonObject()) {
-      JsonObject jsonObject = json.getAsJsonObject();
-      Dict.Builder<Object, Object> dict = Dict.builder();
-      for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
-        dict.put(deserializeStringToObject(entry.getKey()), deserializeObject(entry.getValue()));
+      case BOOLEAN -> in.nextBoolean();
+      // Like JsonPrimitive.getAsInt(), preserve the low 32 bits and truncate fractional numbers.
+      case NUMBER -> {
+        Number number = ToNumberPolicy.LAZILY_PARSED_NUMBER.readNumber(in);
+        try {
+          yield StarlarkInt.of(number.intValue());
+        } catch (NumberFormatException e) {
+          yield e;
+        }
       }
-      return dict.buildImmutable();
-    } else {
-      JsonArray jsonArray = json.getAsJsonArray();
-      List<Object> list = new ArrayList<>();
-      for (JsonElement item : jsonArray) {
-        list.add(deserializeObject(item));
+      case STRING -> deserializeStringToObject(in.nextString());
+      case BEGIN_OBJECT -> {
+        // Collapse duplicate JSON names before decoding names, as JsonObject did. Distinct JSON
+        // names can decode to the same Starlark key (for example, "foo" and "'foo'").
+        Map<String, Object> members = new LinkedHashMap<>();
+        in.beginObject();
+        while (in.hasNext()) {
+          members.put(in.nextName(), deserializeObject(in));
+        }
+        in.endObject();
+        Map<Object, Object> dict = new LinkedHashMap<>();
+        for (var entry : members.entrySet()) {
+          Object key = deserializeStringToObject(entry.getKey());
+          if (key instanceof RuntimeException) {
+            yield key;
+          }
+          if (entry.getValue() instanceof RuntimeException) {
+            yield entry.getValue();
+          }
+          dict.put(key, entry.getValue());
+        }
+        yield Dict.immutableCopyOf(dict);
       }
-      return StarlarkList.copyOf(Mutability.IMMUTABLE, list);
-    }
+      case BEGIN_ARRAY -> {
+        List<Object> list = new ArrayList<>();
+        in.beginArray();
+        while (in.hasNext()) {
+          list.add(deserializeObject(in));
+        }
+        in.endArray();
+        for (Object value : list) {
+          if (value instanceof RuntimeException) {
+            yield value;
+          }
+        }
+        yield StarlarkList.immutableCopyOf(list);
+      }
+      default -> throw new IllegalStateException("Unexpected token: " + in.peek());
+    };
   }
 
   @VisibleForTesting static final String STRING_ESCAPE_SEQUENCE = "'";
@@ -171,16 +217,20 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
    * @return Object of type String of Label
    */
   private Object deserializeStringToObject(String unicodeValue) {
-    String value = unicodeToInternal(unicodeValue);
-    // A string represents a label if and only if it starts with "@@".
-    if (value.startsWith("@@")) {
-      return Label.parseCanonicalUnchecked(value);
+    try {
+      String value = unicodeToInternal(unicodeValue);
+      // A string represents a label if and only if it starts with "@@".
+      if (value.startsWith("@@")) {
+        return Label.parseCanonicalUnchecked(value);
+      }
+      // Strings that start and end with the escape sequence always require one layer to be stripped.
+      if (value.startsWith(STRING_ESCAPE_SEQUENCE) && value.endsWith(STRING_ESCAPE_SEQUENCE)) {
+        return value.substring(
+            STRING_ESCAPE_SEQUENCE.length(), value.length() - STRING_ESCAPE_SEQUENCE.length());
+      }
+      return value;
+    } catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+      return e;
     }
-    // Strings that start and end with the escape sequence always require one layer to be stripped.
-    if (value.startsWith(STRING_ESCAPE_SEQUENCE) && value.endsWith(STRING_ESCAPE_SEQUENCE)) {
-      return value.substring(
-          STRING_ESCAPE_SEQUENCE.length(), value.length() - STRING_ESCAPE_SEQUENCE.length());
-    }
-    return value;
   }
 }
