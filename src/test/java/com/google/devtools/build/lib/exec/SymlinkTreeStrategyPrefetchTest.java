@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,7 +49,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -88,7 +86,7 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
     when(context.getActionInputPrefetcher()).thenReturn(prefetcher);
     when(context.getInputMetadataProvider()).thenReturn(metadataProvider);
     when(outputService.canCreateSymlinkTree()).thenReturn(false);
-    when(prefetcher.prefetchFiles(any(), any(), any(), any(), any(), any()))
+    when(prefetcher.prefetchFiles(any(), any(), any(), any(), any()))
         .thenReturn(immediateVoidFuture());
 
     Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
@@ -121,17 +119,16 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
     // Only regular files have to be present on disk: tree artifacts are linked via junctions and
     // unresolved symlinks are created textually.
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Supplier<Iterable<? extends ActionInput>>> inputsCaptor =
-        ArgumentCaptor.forClass(Supplier.class);
+    ArgumentCaptor<Iterable<? extends ActionInput>> inputsCaptor =
+        ArgumentCaptor.forClass(Iterable.class);
     verify(prefetcher)
         .prefetchFiles(
             eq(action),
-            isNull(),
             inputsCaptor.capture(),
             eq(metadataProvider),
             eq(Priority.CRITICAL),
             eq(Reason.INPUTS));
-    assertThat(inputsCaptor.getValue().get()).containsExactly(file);
+    assertThat(inputsCaptor.getValue()).containsExactly(file);
 
     Path treeRoot = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir");
     assertThat(treeRoot.getRelative("file").readSymbolicLink())

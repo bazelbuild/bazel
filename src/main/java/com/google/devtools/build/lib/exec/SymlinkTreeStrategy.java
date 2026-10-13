@@ -144,8 +144,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
             .getActionInputPrefetcher()
             .prefetchFiles(
                 action,
-                /* spawn= */ null,
-                () -> files,
+                files,
                 actionExecutionContext.getInputMetadataProvider(),
                 Priority.CRITICAL,
                 Reason.INPUTS);
