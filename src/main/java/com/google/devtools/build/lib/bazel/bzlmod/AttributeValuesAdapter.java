@@ -150,7 +150,7 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
           members.put(in.nextName(), deserializeObject(in));
         }
         in.endObject();
-        Map<Object, Object> dict = new LinkedHashMap<>();
+        boolean namesUnchanged = true;
         for (var entry : members.entrySet()) {
           Object key = deserializeStringToObject(entry.getKey());
           if (key instanceof RuntimeException) {
@@ -159,8 +159,13 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
           if (entry.getValue() instanceof RuntimeException) {
             yield entry.getValue();
           }
-          dict.put(key, entry.getValue());
+          namesUnchanged &= key == entry.getKey();
         }
+        if (namesUnchanged) {
+          yield Dict.immutableCopyOf(members);
+        }
+        Map<Object, Object> dict = new LinkedHashMap<>();
+        members.forEach((name, value) -> dict.put(deserializeStringToObject(name), value));
         yield Dict.immutableCopyOf(dict);
       }
       case BEGIN_ARRAY -> {
