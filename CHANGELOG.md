@@ -1,3 +1,46 @@
+## Release 10.0.0-pre.20261006.3 (2026-10-14)
+
+```
+Baseline: 9ed3f23e4c889149f1015c8fa4758c84aaa90bad
+
+Cherry picks:
+
+   + c4f71d3671808f66e22661387c86c8862850a2d0:
+     Bound include scanning header map pre-sizing in
+     `CcCompilationContext`.
+   + 2e4c27f5472042bff4ed787f2a7ea4b08e008d50:
+     Add `--hide_output_group_results` to hide output groups from the
+     results printed in the UI.
+```
+
+Incompatible changes:
+
+  - `bazel mod tidy` now evaluates all module extensions in the
+    dependency graph to update the lockfile, including extensions
+    used only by dependencies. It can thus be used as a full
+    replacement for `bazel mod deps` when the goal is to ensure that
+    the lockfile is up-to-date. When using `bazel vendor`, this may
+    require vendoring additional dependencies.
+  - Bazel no longer trims the lines of the `unused_inputs_list` file
+    before matching them against the action's inputs as file names
+    may begin or end with whitespace.
+
+New features:
+
+  - `ctx.actions.run` now supports redirecting stdout to a file via
+    the new `stdout` parameter.
+  - `bazel query --output=streamed_proto` can opt into parallel
+    serialization with
+    `--experimental_parallel_streamed_proto_output`.
+
+Important changes:
+
+  - Fixed a Bazel server keeping its command lock after its client
+    was killed, which stalled later invocations.
+  - Add implicit (MODULE.tools) dep on rules_android v0.8.0.
+
+This release contains contributions from many people at Google, as well as armandomontanez, Brad Smith, David Zbarsky, Fabian Meumertzheim, Justin, Régis Desgroppes, Ted, willxiao-amzn.
+
 ## Release 10.0.0-pre.20261001.2 (2026-10-12)
 
 ```
