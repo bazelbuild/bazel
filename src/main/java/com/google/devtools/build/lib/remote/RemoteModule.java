@@ -558,8 +558,8 @@ public final class RemoteModule extends BlazeModule {
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
     ImmutableList<RegexPatternOption> downloadRegexes =
-        remoteOptions.remoteOutputsMode() != RemoteOutputsMode.ALL
-            ? ImmutableList.copyOf(remoteOptions.remoteDownloadRegex())
+        remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL
+            ? ImmutableList.copyOf(remoteOptions.remoteDownloadRegex)
             : ImmutableList.of();
 
     remoteOutputChecker =
