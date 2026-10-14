@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.ActionTemplateOutputEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -325,9 +324,6 @@ public final class ArtifactFunction implements SkyFunction {
     }
     if (fileValue == null) {
       return null;
-    }
-    if (artifact instanceof SourceArtifact sourceArtifact) {
-      sourceArtifact.setIsDirectory(fileValue.isDirectory());
     }
     if (!fileValue.exists()) {
       return new MissingArtifactValue(artifact);

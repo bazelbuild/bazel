@@ -2172,7 +2172,6 @@ java_test(
     name = "SourceDirectoryIsDirectoryIntegrationTest",
     srcs = ["SourceDirectoryIsDirectoryIntegrationTest.java"],
     jvm_flags = [
-        "-DBAZEL_SOURCE_DIRECTORY_IS_DIRECTORY=1",
         "-DBAZEL_TRACK_SOURCE_DIRECTORIES=1",
     ],
     deps = [

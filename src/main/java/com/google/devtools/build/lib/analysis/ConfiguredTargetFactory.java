@@ -27,10 +27,9 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.SourceDirectoryIsDirectoryFlag;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.FailAction;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -69,6 +68,7 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -339,7 +339,11 @@ public final class ConfiguredTargetFactory {
       // nodes usually get uploaded before any actions execute. With source directories treated as
       // directories, the FileValue supplies the artifact's type and invalidates this configured
       // target when it changes.
-      if (dependsOnFileKey || SourceDirectoryIsDirectoryFlag.sourceDirectoryIsDirectory()) {
+      boolean sourceDirectoryIsDirectory =
+          analysisEnvironment
+              .getStarlarkSemantics()
+              .getBool(BuildLanguageOptions.INCOMPATIBLE_SOURCE_DIRECTORY_IS_DIRECTORY);
+      if (dependsOnFileKey || sourceDirectoryIsDirectory) {
         FileValue fileValue =
             (FileValue)
                 analysisEnvironment
@@ -348,7 +352,10 @@ public final class ConfiguredTargetFactory {
         if (fileValue == null) {
           return null;
         }
-        artifact.setIsDirectory(fileValue.isDirectory());
+        artifact.setIsDirectory(sourceDirectoryIsDirectory && fileValue.isDirectory());
+      } else {
+        // Clears a value recorded while the flag was enabled.
+        artifact.setIsDirectory(false);
       }
       return new InputFileConfiguredTarget(targetContext, artifact);
     } else if (target instanceof PackageGroup packageGroup) {

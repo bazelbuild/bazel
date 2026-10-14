@@ -34,12 +34,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link SourceArtifact#isDirectory()} with {@link SourceDirectoryIsDirectoryFlag}
- * enabled. The flag is read from a system property at class-load time, so this test has its own
- * target that sets it via {@code jvm_flags}. The default behavior is covered by {@link
- * ArtifactTest}.
- */
+/** Tests for {@link SourceArtifact#isDirectory()}. */
 @RunWith(JUnit4.class)
 public final class SourceArtifactIsDirectoryTest {
 
@@ -49,11 +44,6 @@ public final class SourceArtifactIsDirectoryTest {
   @Before
   public void createRoot() throws Exception {
     root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/src")));
-  }
-
-  @Test
-  public void flagEnabled() {
-    assertThat(SourceDirectoryIsDirectoryFlag.sourceDirectoryIsDirectory()).isTrue();
   }
 
   @Test

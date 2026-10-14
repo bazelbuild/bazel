@@ -777,7 +777,7 @@ public abstract sealed class Artifact
   public static final class SourceArtifact extends Artifact {
     private final ArtifactOwner owner;
 
-    /** Set by {@link #setIsDirectory}, only when {@link SourceDirectoryIsDirectoryFlag} is on. */
+    /** Set by {@link #setIsDirectory}. */
     private volatile boolean isDirectory;
 
     @VisibleForTesting
@@ -790,23 +790,20 @@ public abstract sealed class Artifact
      * Returns whether the source path is a directory on the filesystem.
      *
      * <p>A source artifact's type is not declared, so it is recorded via {@link #setIsDirectory}
-     * from the {@code FileValue} that Skyframe already evaluates for the path, both when the input
-     * file target is analyzed and when the artifact's metadata is computed. This adds no filesystem
-     * access, and the answer is refreshed whenever Skyframe re-evaluates the path.
+     * from the {@code FileValue} that Skyframe already evaluates for the path when the input file
+     * target is analyzed. This adds no filesystem access, and the answer is refreshed whenever
+     * Skyframe re-evaluates the path.
      *
-     * <p>Always {@code false} unless {@link SourceDirectoryIsDirectoryFlag} is enabled, preserving
-     * the historical behavior of treating every source artifact as a regular file.
+     * <p>Always {@code false} unless {@code --incompatible_source_directory_is_directory} is set,
+     * preserving the historical behavior of treating every source artifact as a regular file.
      */
     @Override
     public boolean isDirectory() {
       return isDirectory;
     }
 
-    /** Records the source path's type. No-op unless {@link SourceDirectoryIsDirectoryFlag} is on. */
     public void setIsDirectory(boolean isDirectory) {
-      if (SourceDirectoryIsDirectoryFlag.sourceDirectoryIsDirectory()) {
-        this.isDirectory = isDirectory;
-      }
+      this.isDirectory = isDirectory;
     }
 
     /**

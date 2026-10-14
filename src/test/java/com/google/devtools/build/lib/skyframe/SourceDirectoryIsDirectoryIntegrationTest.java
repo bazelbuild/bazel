@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 
 /**
  * Integration test for {@code File.is_directory} on source artifacts with {@code
- * SourceDirectoryIsDirectoryFlag} and {@code TrackSourceDirectoriesFlag} enabled.
+ * --incompatible_source_directory_is_directory} and {@code TrackSourceDirectoriesFlag} enabled.
  */
 @RunWith(JUnit4.class)
 public final class SourceDirectoryIsDirectoryIntegrationTest extends BuildIntegrationTestCase {
@@ -37,6 +37,7 @@ public final class SourceDirectoryIsDirectoryIntegrationTest extends BuildIntegr
 
   @Before
   public void setUpWorkspace() throws Exception {
+    addOptions("--incompatible_source_directory_is_directory");
     write(
         "foo/defs.bzl",
         """
@@ -119,6 +120,17 @@ public final class SourceDirectoryIsDirectoryIntegrationTest extends BuildIntegr
     sourceFile.createDirectory();
 
     assertThat(buildKinds()).isEqualTo("dir is directory\nfile is directory");
+  }
+
+  @Test
+  public void togglingFlag_isReanalyzed() throws Exception {
+    assertThat(buildKinds()).isEqualTo("dir is directory\nfile is file");
+
+    addOptions("--noincompatible_source_directory_is_directory");
+    assertThat(buildKinds()).isEqualTo("dir is file\nfile is file");
+
+    addOptions("--incompatible_source_directory_is_directory");
+    assertThat(buildKinds()).isEqualTo("dir is directory\nfile is file");
   }
 
   @Test

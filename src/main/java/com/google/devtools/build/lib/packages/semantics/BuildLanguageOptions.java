@@ -641,6 +641,22 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract void setExperimentalDormantDeps(boolean value);
 
   @Option(
+      name = "incompatible_source_directory_is_directory",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          """
+          If set to true, `File.is_directory` reports source directories as directories, and \
+          `ctx.actions.symlink` accepts a source directory as `target_file` for a \
+          `declare_directory` output. Should be used together with source directory tracking \
+          (the default). See [#12954](https://github.com/bazelbuild/bazel/issues/12954) for \
+          details.
+          """)
+  public abstract boolean getIncompatibleSourceDirectoryIsDirectory();
+
+  @Option(
       name = "experimental_starlark_type_syntax",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -982,6 +998,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, getExperimentalRuleExtensionApi())
             .setBool(EXPERIMENTAL_DORMANT_DEPS, getExperimentalDormantDeps())
             .setBool(
+                INCOMPATIBLE_SOURCE_DIRECTORY_IS_DIRECTORY,
+                getIncompatibleSourceDirectoryIsDirectory())
+            .setBool(
                 StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_SYNTAX,
                 getExperimentalStarlarkTypeSyntax())
             .setBool(
@@ -1172,6 +1191,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_RULE_EXTENSION_API =
       FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME;
   public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
+  public static final String INCOMPATIBLE_SOURCE_DIRECTORY_IS_DIRECTORY =
+      "-incompatible_source_directory_is_directory";
 
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
