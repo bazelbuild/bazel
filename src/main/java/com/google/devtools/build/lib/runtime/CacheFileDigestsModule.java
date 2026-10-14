@@ -79,7 +79,7 @@ public class CacheFileDigestsModule extends BlazeModule {
       Preconditions.checkNotNull(newStats, "The cache is enabled so we must get some stats back");
       logStats("Accumulated cache stats after command", newStats);
       logStats("Cache stats for finished command", newStats.minus(stats));
-      stats = null;
+      stats = null; // Do not log stats for commands skipped by beforeCommand.
     }
   }
 }
