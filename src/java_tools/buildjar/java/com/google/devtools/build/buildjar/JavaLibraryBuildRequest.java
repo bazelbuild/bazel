@@ -223,7 +223,7 @@ public final class JavaLibraryBuildRequest {
       switch (entry.getKey()) {
         case "jacoco":
           this.jacocoInstrumentationProcessor =
-              JacocoInstrumentationProcessor.create(entry.getValue());
+              JacocoInstrumentationProcessor.create(entry.getValue(), workDir);
           break;
         default:
           throw new AssertionError("unsupported post-processor " + entry.getKey());
