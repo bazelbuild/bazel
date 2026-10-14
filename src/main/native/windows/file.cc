@@ -500,7 +500,7 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
 }
 
 int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
-                   wstring* error) {
+                  bool is_directory, wstring* error) {
   if (!IsAbsoluteNormalizedWindowsPath(symlink_name)) {
     if (error) {
       *error = MakeErrorMessage(
@@ -522,18 +522,17 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
   const wstring target = AddUncPrefixMaybe(symlink_target);
 
   DWORD attrs = GetFileAttributesW(target.c_str());
-  if ((attrs != INVALID_FILE_ATTRIBUTES) &&
-      (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
-    // Instead of creating a symlink to a directory use a Junction.
-    return CreateSymlinkResult::kTargetIsDirectory;
-  }
+  DWORD dir_flag = (is_directory || ((attrs != INVALID_FILE_ATTRIBUTES) &&
+                                     (attrs & FILE_ATTRIBUTE_DIRECTORY)))
+                       ? SYMBOLIC_LINK_FLAG_DIRECTORY
+                       : 0;
 
   if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
-                           symlinkPrivilegeFlag)) {
+                           symlinkPrivilegeFlag | dir_flag)) {
     if (GetLastError() == ERROR_INVALID_PARAMETER) {
-      // We are on a version of Windows that does not support this flag.
+      // We are on a version of Windows that does not support the symlink privilege flag.
       // Retry without the flag and return to error handling if necessary.
-      if (CreateSymbolicLinkW(name.c_str(), target.c_str(), 0)) {
+      if (CreateSymbolicLinkW(name.c_str(), target.c_str(), dir_flag)) {
         return CreateSymlinkResult::kSuccess;
       }
     }

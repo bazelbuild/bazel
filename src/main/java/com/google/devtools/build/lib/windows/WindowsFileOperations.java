@@ -75,7 +75,6 @@ public class WindowsFileOperations {
   // Keep CREATE_SYMLINK_* values in sync with src/main/native/windows/file.h.
   private static final int CREATE_SYMLINK_SUCCESS = 0;
   // CREATE_SYMLINK_ERROR = 1;
-  private static final int CREATE_SYMLINK_TARGET_IS_DIRECTORY = 2;
 
   // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.h.
   private static final int DELETE_PATH_SUCCESS = 0;
@@ -99,7 +98,8 @@ public class WindowsFileOperations {
 
   private static native int nativeCreateJunction(String name, String target, String[] error);
 
-  private static native int nativeCreateSymlink(String name, String target, String[] error);
+  private static native int nativeCreateSymlink(
+      String name, String target, boolean isDirectory, String[] error);
 
   private static native int nativeReadSymlinkOrJunction(
       String name, String[] result, String[] error);
@@ -190,17 +190,20 @@ public class WindowsFileOperations {
         String.format("Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
   }
 
-  public static void createSymlink(String name, String target) throws IOException {
+  /**
+   * Creates a symlink at `name`, pointing to `target`. A directory symlink is created if
+   * `isDirectory` is true or `target` is an existing directory.
+   */
+  public static void createSymlink(String name, String target, boolean isDirectory)
+      throws IOException {
     String[] error = new String[] {null};
     switch (nativeCreateSymlink(
         WindowsPathOperations.addUncPrefixAndUseBackslashes(name),
         WindowsPathOperations.addUncPrefixAndUseBackslashes(target),
+        isDirectory,
         error)) {
       case CREATE_SYMLINK_SUCCESS:
         return;
-      case CREATE_SYMLINK_TARGET_IS_DIRECTORY:
-        error[0] = "symlink target is a directory, use a junction";
-        break;
       default:
         // this is CREATE_SYMLINK_ERROR (1). The JNI code puts a custom message in 'error[0]'.
         break;
