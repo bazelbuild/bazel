@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -34,13 +33,9 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import java.io.Writer;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -100,84 +95,16 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   }
 
   private SourceManifestAction createSymlinkAction() {
-    return createAction(ManifestType.SOURCE_SYMLINKS, true);
+    return createAction(/* addInitPy= */ true);
   }
 
-  private SourceManifestAction createSourceOnlyAction() {
-    return createAction(ManifestType.SOURCES_ONLY, true);
-  }
-
-  private SourceManifestAction createAction(ManifestType type, boolean addInitPy) {
+  private SourceManifestAction createAction(boolean addInitPy) {
     Runfiles.Builder builder = new Runfiles.Builder("TESTING");
     builder.addSymlinks(fakeManifest);
     if (addInitPy) {
       builder.setEmptyFilesSupplier(analysisMock.pySupport().getEmptyRunfilesSupplier());
     }
-    return new SourceManifestAction(type, NULL_ACTION_OWNER, manifestOutputFile, builder.build());
-  }
-
-  /** Manifest writer that validates an expected call sequence. */
-  private final class MockManifestWriter implements SourceManifestAction.ManifestWriter {
-    private final List<Map.Entry<PathFragment, Artifact>> expectedSequence = new ArrayList<>();
-
-    MockManifestWriter() {
-      expectedSequence.addAll(fakeManifest.entrySet());
-    }
-
-    @Override
-    public void writeEntry(
-        Writer manifestWriter,
-        PathFragment rootRelativePath,
-        @Nullable PathFragment symlinkTarget) {
-      assertWithMessage("Expected manifest input to be exhausted")
-          .that(expectedSequence)
-          .isNotEmpty();
-      Map.Entry<PathFragment, Artifact> expectedEntry = expectedSequence.remove(0);
-      assertThat(rootRelativePath)
-          .isEqualTo(PathFragment.create("TESTING").getRelative(expectedEntry.getKey()));
-      assertThat(symlinkTarget).isEqualTo(expectedEntry.getValue().getPath().asFragment());
-    }
-
-    int unconsumedInputs() {
-      return expectedSequence.size();
-    }
-
-    @Override
-    public String getMnemonic() {
-      return null;
-    }
-
-    @Override
-    public String getRawProgressMessage() {
-      return null;
-    }
-
-    @Override
-    public boolean isRemotable() {
-      return false;
-    }
-
-    @Override
-    public boolean emitsAbsolutePaths() {
-      return false;
-    }
-  }
-
-  /**
-   * Tests that SourceManifestAction calls its manifest writer with the expected call sequence.
-   */
-  @Test
-  public void testManifestWriterIntegration() throws Exception {
-    MockManifestWriter mockWriter = new MockManifestWriter();
-    String manifestContents =
-        new SourceManifestAction(
-                mockWriter,
-                NULL_ACTION_OWNER,
-                manifestOutputFile,
-                new Runfiles.Builder("TESTING").addSymlinks(fakeManifest).build())
-            .getFileContents(reporter);
-    assertThat(mockWriter.unconsumedInputs()).isEqualTo(0);
-    assertThat(manifestContents).isEmpty();
+    return new SourceManifestAction(NULL_ACTION_OWNER, manifestOutputFile, builder.build());
   }
 
   @Test
@@ -189,22 +116,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             TESTING/trivial/BUILD /workspace/trivial/BUILD
             TESTING/trivial/__init__.py\s
             TESTING/trivial/trivial.py /workspace/trivial/trivial.py
-            """);
-  }
-
-  /**
-   * Tests that the source-only formatting strategy includes relative paths only
-   * (i.e. not symlinks).
-   */
-  @Test
-  public void testSourceOnlyFormatting() throws Exception {
-    String manifestContents = createSourceOnlyAction().getFileContents(reporter);
-    assertThat(manifestContents)
-        .isEqualTo(
-            """
-            TESTING/trivial/BUILD
-            TESTING/trivial/__init__.py
-            TESTING/trivial/trivial.py
             """);
   }
 
@@ -239,9 +150,8 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   @Test
   public void testGetMnemonic() {
     assertThat(createSymlinkAction().getMnemonic()).isEqualTo("SourceSymlinkManifest");
-    assertThat(createAction(ManifestType.SOURCE_SYMLINKS, false).getMnemonic())
+    assertThat(createAction(/* addInitPy= */ false).getMnemonic())
         .isEqualTo("SourceSymlinkManifest");
-    assertThat(createSourceOnlyAction().getMnemonic()).isEqualTo("PackagingSourcesManifest");
   }
 
   @Test
@@ -254,21 +164,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
   @Test
   public void testSymlinkProgressMessageNoPyInitFiles() {
-    String progress = createAction(ManifestType.SOURCE_SYMLINKS, false).getProgressMessage();
-    assertWithMessage("null action not found in %s", progress)
-        .that(progress.contains("//null/action:owner"))
-        .isTrue();
-  }
-
-  @Test
-  public void testSourceOnlyProgressMessage() {
-    SourceManifestAction action =
-        new SourceManifestAction(
-            ManifestType.SOURCES_ONLY,
-            NULL_ACTION_OWNER,
-            getBinArtifactWithNoOwner("trivial.runfiles_manifest"),
-            Runfiles.EMPTY);
-    String progress = action.getProgressMessage();
+    String progress = createAction(/* addInitPy= */ false).getProgressMessage();
     assertWithMessage("null action not found in %s", progress)
         .that(progress.contains("//null/action:owner"))
         .isTrue();
@@ -281,7 +177,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
     SourceManifestAction action1 =
         new SourceManifestAction(
-            ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest1,
             new Runfiles.Builder("TESTING")
@@ -290,7 +185,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
     SourceManifestAction action2 =
         new SourceManifestAction(
-            ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest2,
             new Runfiles.Builder("TESTING")
@@ -308,7 +202,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
     SourceManifestAction action1 =
         new SourceManifestAction(
-            ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest1,
             new Runfiles.Builder("TESTING")
@@ -332,7 +225,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
     SourceManifestAction action2 =
         new SourceManifestAction(
-            ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest2,
             new Runfiles.Builder("TESTING")
@@ -363,7 +255,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
     SourceManifestAction action =
         new SourceManifestAction(
-            ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest,
             new Runfiles.Builder("TESTING")
@@ -403,7 +294,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
     SourceManifestAction action =
         new SourceManifestAction(
-            ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest,
             new Runfiles.Builder("TESTING")
@@ -469,7 +359,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
     SourceManifestAction action1 =
         new SourceManifestAction(
-            ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest1,
             runfiles,
@@ -479,7 +368,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
     SourceManifestAction action2 =
         new SourceManifestAction(
-            ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest2,
             runfiles,

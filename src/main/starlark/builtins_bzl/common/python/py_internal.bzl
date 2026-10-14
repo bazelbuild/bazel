@@ -37,9 +37,6 @@ def _copy_without_caching(*args, **kwargs):
 def _create_repo_mapping_manifest(*args, **kwargs):
     return _py_builtins.create_repo_mapping_manifest(*args, **kwargs)
 
-def _create_sources_only_manifest(*args, **kwargs):
-    return _py_builtins.create_sources_only_manifest(*args, **kwargs)
-
 def _declare_constant_metadata_file(*args, **kwargs):
     return _py_builtins.declare_constant_metadata_file(*args, **kwargs)
 
@@ -140,7 +137,6 @@ py_internal = struct(
     ),
     copy_without_caching = _copy_without_caching,
     create_repo_mapping_manifest = _create_repo_mapping_manifest,
-    create_sources_only_manifest = _create_sources_only_manifest,
     declare_constant_metadata_file = _declare_constant_metadata_file,
     declare_shareable_artifact = _declare_shareable_artifact,
     expand_location_and_make_variables = _expand_location_and_make_variables,
