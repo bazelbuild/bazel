@@ -172,7 +172,7 @@ EOF
   fi
 }
 
-function test_empty_path_fails_without_streaming() {
+function test_empty_path_fails_without_streaming_for_expanded_logs() {
   cat > BUILD <<'EOF'
 genrule(
       name = "rule",
@@ -183,20 +183,52 @@ EOF
   bazel build //:all \
     --experimental_stream_log_file_uploads=false \
     --execution_log_json_file=true >& $TEST_log && fail "build should have failed"
-  expect_log "--execution_log_{compact,binary,json}_file is empty"
+  expect_log "--execution_log_{binary,json}_file is empty"
   expect_log "--experimental_stream_log_file_uploads is not enabled"
 
   bazel build //:all \
     --experimental_stream_log_file_uploads=false \
     --execution_log_binary_file=true >& $TEST_log && fail "build should have failed"
-  expect_log "--execution_log_{compact,binary,json}_file is empty"
+  expect_log "--execution_log_{binary,json}_file is empty"
   expect_log "--experimental_stream_log_file_uploads is not enabled"
+}
 
-  bazel build //:all \
-    --experimental_stream_log_file_uploads=false \
-    --execution_log_compact_file=true >& $TEST_log && fail "build should have failed"
-  expect_log "--execution_log_{compact,binary,json}_file is empty"
-  expect_log "--experimental_stream_log_file_uploads is not enabled"
+function test_default_compact_log_retention() {
+  create_new_workspace
+  cat > BUILD <<'EOF'
+genrule(
+    name = "action",
+    outs = ["out.txt"],
+    cmd = "echo hello > $@",
+)
+EOF
+
+  local output_base="$(bazel info output_base)"
+  local uuid1=7c859c8f-87fd-46d0-9e5c-669410812722
+  local uuid2=e9d9df11-04a9-4f78-9f71-5a0153cb6f0c
+  local uuid3=04d6c879-630b-43e4-8ee4-4e2ada22a719
+
+  bazel build //:action \
+    --invocation_id="${uuid1}" \
+    --execution_log_compact_file=true \
+    --execution_logs_to_retain=2 >& $TEST_log || fail "first build failed"
+  bazel build //:action \
+    --invocation_id="${uuid2}" \
+    --execution_log_compact_file=true \
+    --execution_logs_to_retain=2 >& $TEST_log || fail "second build failed"
+  bazel build //:action \
+    --invocation_id="${uuid3}" \
+    --execution_log_compact_file=true \
+    --execution_logs_to_retain=2 >& $TEST_log || fail "third build failed"
+
+  [[ ! -e "${output_base}/execution_log-${uuid1}.binpb.zst" ]] \
+    || fail "oldest compact execution log was retained"
+  [[ -e "${output_base}/execution_log-${uuid2}.binpb.zst" ]] \
+    || fail "second compact execution log was not retained"
+  cmp \
+    "${output_base}/execution_log-${uuid3}.binpb.zst" \
+    "${output_base}/execution_log.binpb.zst" \
+    || fail "latest compact execution log not linked"
 }
 
 function test_no_output() {
