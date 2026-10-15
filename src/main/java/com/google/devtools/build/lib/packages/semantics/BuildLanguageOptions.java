@@ -648,11 +648,21 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           """
-          If set to true, `File.is_directory` reports source directories as directories, and \
-          `ctx.actions.symlink` accepts a source directory as `target_file` for a \
-          `declare_directory` output. Should be used together with source directory tracking \
-          (the default). See [#12954](https://github.com/bazelbuild/bazel/issues/12954) for \
-          details.
+          If set to true, source directories are treated like directories declared with \
+          `ctx.actions.declare_directory`:
+
+          - `File.is_directory` is true.
+          - `Args.add_all` expands them into their files. This requires source directory \
+          tracking (the default).
+          - `Args.add` rejects them.
+          - They can be passed as `target_file` to `ctx.actions.symlink` for a directory output. \
+            As with any `target_file`, actions see that output as a symlink only under local \
+            execution; remote execution sees an identical directory.
+
+          Symlinks are resolved as before: a symlink to a directory is a source directory, and \
+          symlinks within a source directory are followed, so expansion lists their contents.
+
+          See [#12954](https://github.com/bazelbuild/bazel/issues/12954) for details.
           """)
   public abstract boolean getIncompatibleSourceDirectoryIsDirectory();
 
