@@ -806,6 +806,11 @@ public abstract sealed class Artifact
       this.isDirectory = isDirectory;
     }
 
+    /** Returns the source artifact at {@code relativePath} beneath this directory. */
+    public SourceArtifact getChild(PathFragment relativePath) {
+      return new SourceArtifact(getRoot(), getExecPath().getRelative(relativePath), owner);
+    }
+
     /**
      * Source artifacts do not consider their owners in equality checks, since their owners are
      * purely cosmetic.

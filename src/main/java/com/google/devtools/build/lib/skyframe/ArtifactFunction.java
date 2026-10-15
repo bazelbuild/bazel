@@ -399,11 +399,17 @@ public final class ArtifactFunction implements SkyFunction {
       return null;
     }
     Fingerprint fp = new Fingerprint();
+    PathFragment directory = path.getRootRelativePath();
+    ImmutableList.Builder<PathFragment> entries = ImmutableList.builder();
     for (ResolvedFile file : value.getTransitiveFiles().toList()) {
       fp.addString(file.getNameInSymlinkTree().getPathString());
       fp.addBytes(file.getMetadata().getDigest());
+      // Directories are represented by their files; dangling symlinks have no file to expand to.
+      if (file.getType().exists() && file.getType().isFile()) {
+        entries.add(file.getNameInSymlinkTree().relativeTo(directory));
+      }
     }
-    return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
+    return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset(), entries.build());
   }
 
   @Override

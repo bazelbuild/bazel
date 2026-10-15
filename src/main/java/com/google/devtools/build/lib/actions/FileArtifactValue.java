@@ -288,6 +288,15 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   }
 
   /**
+   * For a tracked source directory, the paths of the files beneath it, relative to it, in traversal
+   * order. Returns {@code null} for any other kind of metadata.
+   */
+  @Nullable
+  public ImmutableList<PathFragment> getSourceDirectoryEntries() {
+    return null;
+  }
+
+  /**
    * Marker interface for singleton implementations of this class.
    *
    * <p>Needed for a correct implementation of {@code equals}.
@@ -408,8 +417,9 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
         path, /* isFile= */ true, size, /* proxy= */ null, /* digest= */ null, xattrProvider);
   }
 
-  public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {
-    return new HashedDirectoryArtifactValue(digest);
+  public static FileArtifactValue createForDirectoryWithHash(
+      byte[] digest, ImmutableList<PathFragment> entries) {
+    return new HashedDirectoryArtifactValue(digest, entries);
   }
 
   public static FileArtifactValue createForDirectoryWithMtime(long mtime) {
@@ -521,9 +531,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   private static final class HashedDirectoryArtifactValue extends FileArtifactValue {
 
     private final byte[] digest;
+    private final ImmutableList<PathFragment> entries;
 
-    private HashedDirectoryArtifactValue(byte[] digest) {
+    private HashedDirectoryArtifactValue(byte[] digest, ImmutableList<PathFragment> entries) {
       this.digest = digest;
+      this.entries = checkNotNull(entries);
     }
 
     @Override
@@ -532,7 +544,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
         return false;
       }
 
-      return Arrays.equals(digest, that.digest);
+      return Arrays.equals(digest, that.digest) && entries.equals(that.entries);
     }
 
     @Override
@@ -559,6 +571,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public long getSize() {
       return 0;
+    }
+
+    @Override
+    public ImmutableList<PathFragment> getSourceDirectoryEntries() {
+      return entries;
     }
 
     @Override

@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,11 +65,37 @@ public final class SourceDirectoryIsDirectoryIntegrationTest extends BuildIntegr
             implementation = _symlink_dir_impl,
             attrs = {"src": attr.label(allow_single_file = True)},
         )
+
+        def _list_children(directory, expander):
+            return [f.path for f in expander.expand(directory)]
+
+        def _args_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".args")
+            args = ctx.actions.args()
+            args.add_all([ctx.file.src])
+            args.add_all([ctx.file.src], uniquify = True)
+            args.add_all(
+                [ctx.file.src],
+                expand_directories = False,
+                map_each = _list_children,
+            )
+            ctx.actions.write(out, args)
+            return DefaultInfo(files = depset([out]))
+
+        args_of = rule(
+            implementation = _args_impl,
+            attrs = {"src": attr.label(allow_single_file = True)},
+        )
         """);
     write(
         "foo/BUILD",
         """
-        load(":defs.bzl", "kinds", "symlink_dir")
+        load(":defs.bzl", "args_of", "kinds", "symlink_dir")
+
+        args_of(
+            name = "args",
+            src = "dir",
+        )
 
         kinds(
             name = "kinds",
@@ -139,5 +166,51 @@ public final class SourceDirectoryIsDirectoryIntegrationTest extends BuildIntegr
 
     Artifact link = Iterables.getOnlyElement(getArtifacts("//foo:link"));
     assertThat(link.getPath().isSymbolicLink()).isTrue();
+  }
+
+  private List<String> buildArgs() throws Exception {
+    buildTarget("//foo:args");
+    Artifact out = Iterables.getOnlyElement(getArtifacts("//foo:args"));
+    return readContentAsLatin1String(out).lines().toList();
+  }
+
+  @Test
+  public void argsAddAll_expandsSourceDirectory() throws Exception {
+    sourceDir.getRelative("sub").createDirectory();
+    writeIsoLatin1(sourceDir.getRelative("sub/nested"), "content");
+
+    assertThat(buildArgs())
+        .containsExactly(
+            "foo/dir/child",
+            "foo/dir/sub/nested",
+            "foo/dir/child",
+            "foo/dir/sub/nested",
+            "foo/dir/child",
+            "foo/dir/sub/nested")
+        .inOrder();
+  }
+
+  @Test
+  public void argsAddAll_sourceDirectoryChanged_isReexpanded() throws Exception {
+    assertThat(buildArgs()).containsExactly("foo/dir/child", "foo/dir/child", "foo/dir/child");
+
+    writeIsoLatin1(sourceDir.getRelative("added"), "content");
+
+    assertThat(buildArgs())
+        .containsExactly(
+            "foo/dir/added",
+            "foo/dir/child",
+            "foo/dir/added",
+            "foo/dir/child",
+            "foo/dir/added",
+            "foo/dir/child")
+        .inOrder();
+  }
+
+  @Test
+  public void argsAddAll_flagDisabled_addsDirectoryPath() throws Exception {
+    addOptions("--noincompatible_source_directory_is_directory");
+
+    assertThat(buildArgs()).containsExactly("foo/dir", "foo/dir", "foo/dir");
   }
 }
