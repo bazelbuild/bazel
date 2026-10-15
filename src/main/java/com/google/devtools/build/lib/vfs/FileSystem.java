@@ -335,17 +335,15 @@ public abstract class FileSystem {
    * Sets the last modification time of the file denoted by {@code path}. See {@link
    * Path#setLastModifiedTime} for specification.
    */
-  public abstract void setLastModifiedTime(PathFragment path, long newTime) throws IOException;
-
-  /** Like {@link #setLastModifiedTime}, but returns false if the file does not exist. */
-  public boolean setLastModifiedTimeIfExists(PathFragment path, long newTime) throws IOException {
-    try {
-      setLastModifiedTime(path, newTime);
-      return true;
-    } catch (FileNotFoundException e) {
-      return false;
+  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+    if (!setLastModifiedTimeIfExists(path, newTime)) {
+      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
   }
+
+  /** Like {@link #setLastModifiedTime}, but returns false if the file does not exist. */
+  public abstract boolean setLastModifiedTimeIfExists(PathFragment path, long newTime)
+      throws IOException;
 
   /**
    * Returns value of the given extended attribute name or null if attribute does not exist or file

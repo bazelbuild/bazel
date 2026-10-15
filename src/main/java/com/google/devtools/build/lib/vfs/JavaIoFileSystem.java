@@ -400,18 +400,19 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+  public boolean setLastModifiedTimeIfExists(PathFragment path, long newTime) throws IOException {
     File file = getIoFile(path);
     if (!file.setLastModified(
         newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime)) {
       if (!file.exists()) {
-        throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+        return false;
       } else if (!file.getParentFile().canWrite()) {
         throw new FileAccessException(path.getParentDirectory() + ERR_PERMISSION_DENIED);
       } else {
         throw new FileAccessException(path + ERR_PERMISSION_DENIED);
       }
     }
+    return true;
   }
 
   @Override

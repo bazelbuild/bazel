@@ -443,30 +443,17 @@ public class RemoteActionFileSystem extends FileSystem {
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
-
-    FileNotFoundException remoteException = null;
+  public boolean setLastModifiedTimeIfExists(PathFragment path, long newTime) throws IOException {
     try {
-      // We can't set mtime for a remote file, set mtime of in-memory file node instead.
-      remoteOutputTree.setLastModifiedTime(path, newTime);
+      path = resolveSymbolicLinks(path).asFragment();
     } catch (FileNotFoundException e) {
-      remoteException = e;
+      return false;
     }
 
-    FileNotFoundException localException = null;
-    try {
-      localFs.getPath(path).setLastModifiedTime(newTime);
-    } catch (FileNotFoundException e) {
-      localException = e;
-    }
-
-    if (remoteException == null || localException == null) {
-      return;
-    }
-
-    localException.addSuppressed(remoteException);
-    throw localException;
+    // Update both when the output exists in memory and on disk.
+    boolean remoteUpdated = remoteOutputTree.setLastModifiedTimeIfExists(path, newTime);
+    boolean localUpdated = localFs.setLastModifiedTimeIfExists(path, newTime);
+    return remoteUpdated || localUpdated;
   }
 
   @Override
