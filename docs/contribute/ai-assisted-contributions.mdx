@@ -1,0 +1,47 @@
+---
+title: 'AI-assisted contributions'
+---
+
+AI assistance—including LLMs and coding assistants is welcome when contributing
+to Bazel. These tools can help you navigate Bazel's codebase, explore complex
+APIs, fix bugs, improve performance, and catch edge cases.
+
+However, all contributions are reviewed by humans. When using AI tools to
+assist your work, adhere to the following principles:
+
+## Own your change {#ownership}
+
+AI can help generate code, but you remain responsible for the change:
+
+- **Understand the diff:** Do not submit code that you do not understand. You
+  must be able to explain how the code works, justify architectural decisions,
+  and evaluate performance or memory implications.
+- **Engage in review:** You are expected to answer questions from reviewers,
+  respond to feedback, and iterate on the implementation yourself.
+- **Maintain quality:** Ensure all changes include adequate unit or integration
+  tests and comply with Bazel's testing and style standards.
+
+## Write for humans {#write-for-humans}
+
+Bazel maintainers and reviewers are human engineers, not automated systems.
+Please respect their time:
+
+- **Avoid walls of text:** Do not paste raw, verbose LLM explanations into PR
+  descriptions, commit messages, or issue comments.
+- **Focus on the why:** Keep commit messages and pull request descriptions
+  concise. Explain the motivation, rationale, and user-visible impact rather than
+  mechanically restating what lines changed.
+- **Human communication:** Code reviews are a dialogue between people. Avoid
+  automated bot responses in discussions.
+
+## Mind the complexity {#mind-the-complexity}
+
+Ease of code generation does not lower the bar for architectural rigor:
+
+- **Complexity is not free:** Every line of code, new configuration option, and
+  rule attribute incurs ongoing maintenance, performance, and compatibility
+  costs.
+- **Exercise engineering judgment:** Maintainers will not accept features or
+  abstractions simply because they are easy to produce. Focus on concrete
+  problems, follow existing codebase patterns, and favor simplicity over
+  unnecessary generality.
