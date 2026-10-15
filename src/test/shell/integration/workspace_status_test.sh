@@ -123,4 +123,26 @@ function test_embed_label_must_be_single_line() {
   expect_log "Value must not contain multiple lines"
 }
 
+function test_non_ascii_status_value() {
+  local script="$TEST_TMPDIR/non_ascii.sh"
+  cat > "$script" <<'EOF'
+#!/usr/bin/env bash
+echo "STABLE_GREETING ¡Buenos días!"
+EOF
+  chmod +x "$script"
+
+  bazel build --stamp --workspace_status_command="$script" \
+      --build_event_json_file="$TEST_TMPDIR/bep.json" >& "$TEST_log" \
+      || fail "Build failed"
+
+  # The status file holds the raw bytes emitted by the script.
+  local status_file="$(bazel info output_path)/stable-status.txt"
+  grep -q "STABLE_GREETING ¡Buenos días!" "$status_file" \
+      || fail "Expected UTF-8 bytes in stable-status.txt, got: $(cat "$status_file")"
+
+  # The BEP is a proto with Unicode string fields, so the value must be reencoded.
+  grep -q '¡Buenos días!' "$TEST_TMPDIR/bep.json" \
+      || fail "Expected correctly encoded value in BEP"
+}
+
 run_suite "${PRODUCT_NAME} workspace status command tests"
