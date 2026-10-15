@@ -653,8 +653,10 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
           - `File.is_directory` is true.
           - `Args.add_all` expands them into their files. This requires source directory \
-          tracking (the default).
+            tracking (the default).
           - `Args.add` rejects them.
+          - They can be passed in `input_directories` to `ctx.actions.map_directory`. Like \
+            `Args.add_all`, this requires source directory tracking.
           - They can be passed as `target_file` to `ctx.actions.symlink` for a directory output. \
             As with any `target_file`, actions see that output as a symlink only under local \
             execution; remote execution sees an identical directory.

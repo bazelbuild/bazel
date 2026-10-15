@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -83,8 +85,27 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException;
 
+  /**
+   * Like {@link #generateActionsForInputArtifacts(ImmutableList, ActionLookupKey, EventHandler)},
+   * additionally given the files within each of {@link #getInputSourceDirectories}.
+   */
+  default ImmutableList<T> generateActionsForInputArtifacts(
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
+      ActionLookupKey artifactOwner,
+      EventHandler eventHandler)
+      throws ActionConflictException, ActionExecutionException, InterruptedException {
+    checkArgument(inputSourceDirectoryFiles.isEmpty(), inputSourceDirectoryFiles);
+    return generateActionsForInputArtifacts(inputTreeFileArtifacts, artifactOwner, eventHandler);
+  }
+
   /** Returns the input TreeArtifacts. */
   ImmutableList<SpecialArtifact> getInputTreeArtifacts();
+
+  /** Returns the input source directories, expanded like input TreeArtifacts. */
+  default ImmutableList<SourceArtifact> getInputSourceDirectories() {
+    return ImmutableList.of();
+  }
 
   /**
    * Helper method to partition/denormalize the flattened list of input {@link TreeFileArtifact}s
@@ -97,7 +118,7 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
   }
 
   @Override
-  default SpecialArtifact getPrimaryInput() {
+  default Artifact getPrimaryInput() {
     return getInputTreeArtifacts().get(0);
   }
 

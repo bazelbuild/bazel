@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
@@ -29,14 +30,21 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -79,7 +87,9 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
 
     ImmutableList.Builder<SkyKey> inputKeys =
-        ImmutableList.<SkyKey>builder().addAll(actionTemplate.getInputTreeArtifacts());
+        ImmutableList.<SkyKey>builder()
+            .addAll(actionTemplate.getInputTreeArtifacts())
+            .addAll(actionTemplate.getInputSourceDirectories());
 
     // Following b/143205147, we unwrap the top layer of the NestedSet and evaluate the first layer
     // of the NestedSet as direct Artifact(s) and transitive NestedSet(s).
@@ -112,12 +122,33 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
         }
         inputTreeFileArtifacts.addAll(treeArtifactValue.getChildren());
       }
+      ImmutableListMultimap.Builder<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles =
+          ImmutableListMultimap.builder();
+      for (SourceArtifact inputSourceDirectory : actionTemplate.getInputSourceDirectories()) {
+        var metadata = (FileArtifactValue) result.get(inputSourceDirectory);
+        if (metadata == null) {
+          return null;
+        }
+        ImmutableMap<PathFragment, FileArtifactValue> entries =
+            metadata.getSourceDirectoryEntries();
+        if (entries == null) {
+          throw cannotExpandSourceDirectory(actionTemplate, inputSourceDirectory);
+        }
+        for (PathFragment entry : entries.keySet()) {
+          inputSourceDirectoryFiles.put(
+              inputSourceDirectory, inputSourceDirectory.getChild(entry));
+        }
+      }
       // Expand the action template using the list of expanded input TreeFileArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
       // of the ActionTemplate.
       actions =
           generateAndValidateActionsFromTemplate(
-              actionTemplate, inputTreeFileArtifacts.build(), key, env.getListener());
+              actionTemplate,
+              inputTreeFileArtifacts.build(),
+              inputSourceDirectoryFiles.build(),
+              key,
+              env.getListener());
     } catch (ActionExecutionException e) {
       env.getListener()
           .handle(
@@ -161,9 +192,28 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
   }
 
+  private static ActionExecutionException cannotExpandSourceDirectory(
+      ActionTemplate<?> actionTemplate, SourceArtifact directory) {
+    String message =
+        String.format(
+            "Failed to expand source directory %s: source directory tracking is disabled",
+            directory.getExecPathString());
+    return new ActionExecutionException(
+        message,
+        actionTemplate,
+        /* catastrophe= */ false,
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setExecution(
+                    Execution.newBuilder().setCode(Code.NON_ACTION_EXECUTION_FAILURE))
+                .build()));
+  }
+
   private static ImmutableList<ActionAnalysisMetadata> generateAndValidateActionsFromTemplate(
       ActionTemplate<?> actionTemplate,
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
       ActionTemplateExpansionKey key,
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException {
@@ -176,7 +226,8 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
           output);
     }
     ImmutableList<? extends Action> actions =
-        actionTemplate.generateActionsForInputArtifacts(inputTreeFileArtifacts, key, eventHandler);
+        actionTemplate.generateActionsForInputArtifacts(
+            inputTreeFileArtifacts, inputSourceDirectoryFiles, key, eventHandler);
     for (Action action : actions) {
       for (Artifact output : action.getOutputs()) {
         Preconditions.checkState(

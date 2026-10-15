@@ -910,11 +910,12 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             positional = false,
             doc =
                 "A dictionary mapping of strings to input directories, as declared by"
-                    + " <code>ctx.actions.declare_directory()</code> (only directories are allowed"
-                    + " as values here). The values specify the directories that we want expanded"
-                    + " to access their files in the implementation function. The keys (strings)"
-                    + " act as identifiers to easily reference a specific directory in the"
-                    + " implementation function."),
+                    + " <code>ctx.actions.declare_directory()</code>, or source directories if"
+                    + " <code>--incompatible_source_directory_is_directory</code> is set (only"
+                    + " directories are allowed as values here). The values specify the"
+                    + " directories that we want expanded to access their files in the"
+                    + " implementation function. The keys (strings) act as identifiers to easily"
+                    + " reference a specific directory in the implementation function."),
         @Param(
             name = "additional_inputs",
             allowedTypes = {

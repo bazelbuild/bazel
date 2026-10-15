@@ -15,11 +15,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeIsoLatin1;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.List;
 import org.junit.Before;
@@ -87,15 +90,65 @@ public final class SourceDirectoryIsDirectoryIntegrationTest extends BuildIntegr
             implementation = _args_impl,
             attrs = {"src": attr.label(allow_single_file = True)},
         )
+
+        def _copy_children(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for f in input_directories["in"].children:
+                out = template_ctx.declare_file(
+                    f.basename + ".out",
+                    directory = output_directories["out"],
+                )
+                args = template_ctx.args()
+                args.add_all([f, out])
+                template_ctx.run(
+                    inputs = [f],
+                    outputs = [out],
+                    executable = tools["cp"],
+                    arguments = [args],
+                )
+
+        def _map_dir_impl(ctx):
+            out = ctx.actions.declare_directory(ctx.label.name + ".out")
+            ctx.actions.map_directory(
+                implementation = _copy_children,
+                input_directories = {"in": ctx.file.src},
+                output_directories = {"out": out},
+                tools = {"cp": ctx.attr._cp.files_to_run},
+            )
+            return DefaultInfo(files = depset([out]))
+
+        map_dir = rule(
+            implementation = _map_dir_impl,
+            attrs = {
+                "src": attr.label(allow_single_file = True),
+                "_cp": attr.label(
+                    default = ":cp",
+                    allow_files = True,
+                    cfg = "exec",
+                    executable = True,
+                ),
+            },
+        )
         """);
     write(
         "foo/BUILD",
         """
-        load(":defs.bzl", "args_of", "kinds", "symlink_dir")
+        load(":defs.bzl", "args_of", "kinds", "map_dir", "symlink_dir")
 
         args_of(
             name = "args",
             src = "dir",
+        )
+
+        map_dir(
+            name = "map",
+            src = "dir",
+        )
+
+        genrule(
+            name = "cp_tool",
+            outs = ["cp"],
+            cmd = "echo 'cp $$1 $$2' > $@",
+            executable = True,
         )
 
         kinds(
@@ -224,5 +277,42 @@ public final class SourceDirectoryIsDirectoryIntegrationTest extends BuildIntegr
     addOptions("--noincompatible_source_directory_is_directory");
 
     assertThat(buildArgs()).containsExactly("foo/dir", "foo/dir", "foo/dir");
+  }
+
+  private String readOutput(String name) throws Exception {
+    Path out = Iterables.getOnlyElement(getArtifacts("//foo:map")).getPath();
+    return new String(FileSystemUtils.readContentAsLatin1(out.getRelative(name)));
+  }
+
+  @Test
+  public void mapDirectory_expandsSourceDirectory() throws Exception {
+    addOptions("--experimental_allow_map_directory");
+    sourceDir.getRelative("sub").createDirectory();
+    writeIsoLatin1(sourceDir.getRelative("sub/nested"), "nested content");
+
+    buildTarget("//foo:map");
+
+    assertThat(readOutput("child.out")).isEqualTo("content\n");
+    assertThat(readOutput("nested.out")).isEqualTo("nested content\n");
+  }
+
+  @Test
+  public void mapDirectory_sourceDirectoryChanged_isReexpanded() throws Exception {
+    addOptions("--experimental_allow_map_directory");
+    buildTarget("//foo:map");
+
+    writeIsoLatin1(sourceDir.getRelative("added"), "added content");
+    buildTarget("//foo:map");
+
+    assertThat(readOutput("added.out")).isEqualTo("added content\n");
+  }
+
+  @Test
+  public void mapDirectory_flagDisabled_rejectsSourceDirectory() throws Exception {
+    addOptions("--experimental_allow_map_directory");
+    addOptions("--noincompatible_source_directory_is_directory");
+
+    assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:map"));
+    assertContainsError("Expected a directory in input_directories['in'], but got file foo/dir");
   }
 }
