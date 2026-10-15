@@ -757,8 +757,8 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
-  public boolean mayLoadPrototypes(PackageIdentifier packageIdentifier) {
-    return prerequisiteValidator.mayLoadPrototypes(packageIdentifier);
+  public boolean hasHardCodedException(PackageIdentifier packageIdentifier) {
+    return prerequisiteValidator.hasHardCodedException(packageIdentifier);
   }
 
   @Override

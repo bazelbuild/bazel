@@ -96,4 +96,36 @@ public class ProcMeminfoParserTest {
     ProcMeminfoParser memInfo = new ProcMeminfoParser(meminfoFile);
     assertThat(memInfo.getFreeRamKb()).isEqualTo(2356756);
   }
+
+  @Test
+  public void firstValidValueWins() throws Exception {
+    String meminfoContent =
+        StringUtilities.joinLines(
+            "MemTotal:      not_a_number",
+            "MemTotal:      3091732 kB",
+            "MemTotal:      1234 kB",
+            "MemTotalX:     5678 kB");
+
+    String meminfoFile = scratch.file("test_meminfo", meminfoContent).getPathString();
+    ProcMeminfoParser memInfo = new ProcMeminfoParser(meminfoFile);
+    assertThat(memInfo.getTotalKb()).isEqualTo(3091732);
+    assertThat(memInfo.getRamKb("MemTotalX")).isEqualTo(5678);
+    assertThrows(
+        ProcMeminfoParser.KeywordNotFoundException.class, () -> memInfo.getRamKb("MemTota"));
+  }
+
+  @Test
+  public void largeFile() throws Exception {
+    String[] lines = new String[1001];
+    for (int i = 0; i < 1000; i++) {
+      lines[i] = "Padding" + i + ":      " + i + " kB";
+    }
+    lines[1000] = "MemTotal:      3091732 kB";
+    String meminfoContent = StringUtilities.joinLines(lines);
+
+    String meminfoFile = scratch.file("test_meminfo", meminfoContent).getPathString();
+    ProcMeminfoParser memInfo = new ProcMeminfoParser(meminfoFile);
+    assertThat(memInfo.getTotalKb()).isEqualTo(3091732);
+    assertThat(memInfo.getRamKb("Padding999")).isEqualTo(999);
+  }
 }

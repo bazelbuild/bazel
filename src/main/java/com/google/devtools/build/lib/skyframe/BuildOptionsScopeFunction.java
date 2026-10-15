@@ -150,7 +150,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
       scopes.put(
           projectScopedFlag,
           new Scope(
-              scopes.get(projectScopedFlag).getScopeType(),
+              scopes.get(projectScopedFlag).scopeType(),
               projectValue.getDefaultProjectDirectories().isEmpty()
                   ? null
                   : new Scope.ScopeDefinition(projectValue.getDefaultProjectDirectories())));
@@ -170,7 +170,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
 
     Map<Label, ProjectFilesLookupValue.Key> targetsToSkyKeys = new HashMap<>();
     for (Label starlarkOption : scopes.keySet()) {
-      if (scopes.get(starlarkOption).getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
+      if (scopes.get(starlarkOption).scopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
         targetsToSkyKeys.put(
             starlarkOption, ProjectFilesLookupValue.key(starlarkOption.getPackageIdentifier()));
       }

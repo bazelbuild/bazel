@@ -85,7 +85,7 @@ final class HttpStream extends FilterInputStream {
                     .trimResults()
                     .split(Strings.nullToEmpty(connection.getHeaderField("Accept-Ranges"))),
                 "bytes")) {
-          retrier = new RetryingInputStream(stream, reconnector);
+          retrier = new RetryingInputStream(stream, connection, reconnector);
           stream = retrier;
         }
 

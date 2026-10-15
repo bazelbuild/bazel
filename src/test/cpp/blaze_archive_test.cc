@@ -26,15 +26,15 @@
 #include "file/zipfile/zipfilewriter.h"
 #include "src/main/cpp/archive_utils.h"
 #include "src/main/cpp/bazel_startup_options.h"
-#include "googlemock/include/gmock/gmock.h"
-#include "googletest/include/gtest/gtest.h"
-#include "absl/status/statusor.h"
-#include "absl/time/time.h"
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
-#include "util/task/status_macros.h"
+#include "googlemock/include/gmock/gmock.h"
+#include "googletest/include/gtest/gtest.h"
+#include "absl/status/statusor.h"
+#include "absl/time/time.h"
+#include "third_party/gloop/util/status/status_macros.h"
 
 using ::testing::Gt;
 using ::testing::status::IsOkAndHolds;

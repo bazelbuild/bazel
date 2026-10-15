@@ -391,6 +391,10 @@ message Repository {
 
   // All of the attributes that describe the repository rule.
   repeated Attribute attribute = 7;
+
+  // The absolute path of the root directory of the repository. This directory
+  // only exists after the repository has been fetched.
+  optional string repo_root = 8;
 }
 
 // Direct dependencies of a rule in <depLabel, depConfiguration> form.

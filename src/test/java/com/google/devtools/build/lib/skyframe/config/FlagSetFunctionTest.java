@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions.ConfigDefinition;
 import com.google.devtools.build.lib.skyframe.ProjectValue.BuildableUnit;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -360,7 +362,7 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
           buildable_units = [
               buildable_unit_pb2.BuildableUnit.create(
                   name = "test_config",
-                  flags = ["--define foo=bar"],
+                  flags = ["--define foo=bar", "--features baz"],
                   is_default = True,
               ),
           ],
@@ -376,19 +378,65 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
-            /* allOptionNames= */ ImmutableSet.of("define"),
+            /* allOptionNames= */ ImmutableSet.of("define", "features"),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
 
     assertThat(flagSetsValue.getOptionsFromFlagset())
-        .contains("--define=foo=bar"); // space is replaced with =
+        .containsExactly("--define=foo=bar", "--features=baz"); // space is replaced with =
     assertContainsPersistentMessage(
         flagSetsValue,
         EventKind.INFO,
         /* frequency= */ 1,
         "Applying flags from the config 'test_config'");
+  }
+
+  @Test
+  public void expandConfigFlags_canonicalizesSpaceSeparatedFlags() throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--config=my_config"],
+                  is_default = True,
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    ConfigFlagDefinitions configFlagDefinitions =
+        new ConfigFlagDefinitions(
+            ImmutableListMultimap.of(
+                "my_config",
+                new ConfigDefinition(
+                    ImmutableList.of(
+                        "--features", "foo", "--stamp", "--nostamp", "--define", "a=b"),
+                    "client")));
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(
+                "config", "features", "stamp", "nostamp", "define"),
+            /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ configFlagDefinitions,
+            /* enforceCanonical= */ true);
+    FlagSetValue flagSetsValue = executeFunction(key);
+
+    assertThat(flagSetsValue.getOptionsFromFlagset())
+        .containsExactly("--features=foo", "--stamp", "--nostamp", "--define=a=b");
   }
 
   @Test

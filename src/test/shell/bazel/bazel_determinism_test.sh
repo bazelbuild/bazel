@@ -78,13 +78,10 @@ function test_determinism()  {
     # Java compilation to fail due to
     # https://bugs.openjdk.org/browse/JDK-8258246.
     output_base_1="${TEST_TMPDIR}/ouäöü€t 1"
-    # TODO: Remove once rules_python exports runtime_env_toolchain_interpreter.sh
-    # See https://github.com/bazel-contrib/rules_python/pull/3471
     bazel \
       --output_base="${output_base_1}" \
       build \
       --extra_toolchains=@rules_python//python:autodetecting_toolchain \
-      --noincompatible_no_implicit_file_export \
       --enable_bzlmod \
       --check_direct_dependencies=error \
       --lockfile_mode=update \
@@ -105,7 +102,6 @@ function test_determinism()  {
       --output_base="${output_base_2}" \
       build \
       --extra_toolchains=@rules_python//python:autodetecting_toolchain \
-      --noincompatible_no_implicit_file_export \
       --enable_bzlmod \
       --check_direct_dependencies=error \
       --lockfile_mode=update \

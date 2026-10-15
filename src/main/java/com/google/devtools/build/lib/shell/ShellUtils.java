@@ -93,11 +93,18 @@ public abstract class ShellUtils {
     //
     // Note: backslash escapes the following character, except within a
     // single-quoted region where it is literal.
+    //
+    // To reduce garbage, tokens without quotes or backslashes are emitted as substrings of
+    // optionString (a plain single-word optionString is thus returned as-is). Only once a quote or
+    // backslash is seen is the current token accumulated in a (lazily allocated, reused) builder.
 
-    StringBuilder token = new StringBuilder();
+    StringBuilder token = null;
+    boolean inBuilder = false; // whether the current token is being accumulated in token
+    int start = -1; // start index of the current plain token, or -1
     boolean forceToken = false;
     char quotation = '\0'; // NUL, '\'' or '"'
-    for (int ii = 0, len = optionString.length(); ii < len; ii++) {
+    int len = optionString.length();
+    for (int ii = 0; ii < len; ii++) {
       char c = optionString.charAt(ii);
       if (quotation != '\0') { // in quotation
         if (c == quotation) { // end of quotation
@@ -115,30 +122,55 @@ public abstract class ShellUtils {
           token.append(c);
         }
       } else { // not in quotation
-        if (c == '\'' || c == '"') { // begin single/double quotation
-          quotation = c;
-          forceToken = true;
+        if (c == '\'' || c == '"' || c == '\\') {
+          if (!inBuilder) { // switch to the builder, copying the plain prefix
+            if (token == null) {
+              token = new StringBuilder();
+            } else {
+              token.setLength(0);
+            }
+            if (start >= 0) {
+              token.append(optionString, start, ii);
+              start = -1;
+            }
+            inBuilder = true;
+          }
+          if (c == '\\') { // backslash, not quoted
+            if (++ii == len) {
+              throw new TokenizationException("backslash at end of string");
+            }
+            token.append(optionString.charAt(ii));
+          } else { // begin single/double quotation
+            quotation = c;
+            forceToken = true;
+          }
         } else if (c == ' ' || c == '\t') { // space, not quoted
-          if (forceToken || token.length() > 0) {
-            options.add(token.toString());
-            token = new StringBuilder();
+          if (inBuilder) {
+            if (forceToken || token.length() > 0) {
+              options.add(token.toString());
+            }
+            inBuilder = false;
             forceToken = false;
+          } else if (start >= 0) {
+            options.add(optionString.substring(start, ii));
+            start = -1;
           }
-        } else if (c == '\\') { // backslash, not quoted
-          if (++ii == len) {
-            throw new TokenizationException("backslash at end of string");
-          }
-          token.append(optionString.charAt(ii));
-        } else { // regular char, not quoted
+        } else if (inBuilder) { // regular char, not quoted
           token.append(c);
+        } else if (start < 0) {
+          start = ii;
         }
       }
     }
     if (quotation != '\0') {
       throw new TokenizationException("unterminated quotation");
     }
-    if (forceToken || token.length() > 0) {
-      options.add(token.toString());
+    if (inBuilder) {
+      if (forceToken || token.length() > 0) {
+        options.add(token.toString());
+      }
+    } else if (start >= 0) {
+      options.add(optionString.substring(start));
     }
   }
 

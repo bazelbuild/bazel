@@ -308,6 +308,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     // Note that this does not follow symlinks.
     WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(ignoredPaths);
     Files.walkFileTree(rootDir, watcherFileVisitor);
+    watcherFileVisitor.cancelDisplacedKeys();
   }
 
   /**
@@ -320,6 +321,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     WatcherFileVisitor watcherFileVisitor =
         new WatcherFileVisitor(visitedAbsolutePaths, ignoredPaths);
     Files.walkFileTree(rootDir, watcherFileVisitor);
+    watcherFileVisitor.cancelDisplacedKeys();
     return visitedAbsolutePaths;
   }
 
@@ -329,6 +331,9 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     private final Set<Path> visitedAbsolutePaths;
     private final IgnoredSubdirectories ignoredPaths;
 
+    /** Keys that were evicted from {@link #watchKeyToDirBiMap} because their path was re-bound. */
+    private final Set<WatchKey> displacedKeys = new HashSet<>();
+
     private WatcherFileVisitor(Set<Path> visitedPaths, IgnoredSubdirectories ignoredPaths) {
       this.visitedAbsolutePaths = visitedPaths;
       this.ignoredPaths = ignoredPaths;
@@ -337,6 +342,21 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     private WatcherFileVisitor(IgnoredSubdirectories ignoredPaths) {
       this.visitedAbsolutePaths = new HashSet<>();
       this.ignoredPaths = ignoredPaths;
+    }
+
+    /**
+     * Cancels the watches that were evicted during the traversal and not re-bound to some other
+     * path, so that a directory that got replaced does not keep an inotify watch alive forever.
+     *
+     * <p>This has to happen after the traversal, because a directory that was merely moved is
+     * re-registered under its new path and keeps the very same key.
+     */
+    private void cancelDisplacedKeys() {
+      for (WatchKey displacedKey : displacedKeys) {
+        if (!watchKeyToDirBiMap.containsKey(displacedKey)) {
+          displacedKey.cancel();
+        }
+      }
     }
 
     private boolean isIgnored(Path path) {
@@ -370,14 +390,9 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
       // Otherwise, e.g., an intra-build creation of a child directory will be forever missed if it
       // happens before the directory is listed as part of the visitation.
       Preconditions.checkState(path.isAbsolute(), path);
-      WatchKey existingKey = watchKeyToDirBiMap.inverse().get(path);
-      if (existingKey != null) {
-        if (existingKey.isValid()) {
-          visitedAbsolutePaths.add(path);
-          return FileVisitResult.CONTINUE;
-        }
-        watchKeyToDirBiMap.remove(existingKey);
-      }
+      // Always register, even if we already have a key for this path: a key being valid does not
+      // mean that it still watches the inode that is currently at this path, e.g. when a directory
+      // was moved aside and replaced while we were not watching.
       WatchKey key;
       try {
         key =
@@ -396,11 +411,15 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
         // be swallowed: leaving a directory unwatched makes subsequent builds miss changes.
         return FileVisitResult.SKIP_SUBTREE;
       }
-      Path existingPathForKey = watchKeyToDirBiMap.get(key);
-      if (existingPathForKey != null && !existingPathForKey.equals(path)) {
-        watchKeyToDirBiMap.remove(key);
+      // Registering returns the same key for all paths resolving to the same inode, so both
+      // directions of the mapping may be stale after directories are moved around.
+      WatchKey displacedKey = watchKeyToDirBiMap.inverse().get(path);
+      if (displacedKey != null && !displacedKey.equals(key)) {
+        // The directory at this path was replaced; its old key is dealt with once we know whether
+        // the directory turns up elsewhere in the tree.
+        displacedKeys.add(displacedKey);
       }
-      watchKeyToDirBiMap.put(key, path);
+      watchKeyToDirBiMap.forcePut(key, path);
       visitedAbsolutePaths.add(path);
       return FileVisitResult.CONTINUE;
     }

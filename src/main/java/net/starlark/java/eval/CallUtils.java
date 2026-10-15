@@ -138,11 +138,11 @@ public final class CallUtils {
 
   private static final class StarlarkBuiltinAutoType extends StarlarkType {
     // Invariant: a StarlarkBuiltinAutoType must not contain any pointer path to a ClassDescriptor.
-    private final String name;
+    private final String typeRepr;
     private final Class<?> clazz;
 
     private StarlarkBuiltinAutoType(Class<?> clazz) {
-      this.name = StarlarkAnnotations.getStarlarkTypeName(clazz);
+      this.typeRepr = StarlarkAnnotations.typeRepr(clazz);
       this.clazz = clazz;
     }
 
@@ -155,6 +155,9 @@ public final class CallUtils {
       if (classDescriptor.selfCall != null) {
         // Values of a self-call type are callable, with the self-call method's signature.
         builder.add(classDescriptor.selfCall.getStarlarkType());
+      } else if (StarlarkCallable.class.isAssignableFrom(clazz)) {
+        // StarlarkCallable implementations are callable, with an unspecified signature.
+        builder.add(Types.ANY_CALLABLE);
       }
       if (StarlarkAnnotations.isAssignableToStructType(clazz)) {
         if (StarlarkAnnotations.getStarlarkBuiltin(clazz).isStructType()) {
@@ -189,7 +192,7 @@ public final class CallUtils {
 
     @Override
     public String typeRepr() {
-      return name;
+      return typeRepr;
     }
   }
 
@@ -244,8 +247,7 @@ public final class CallUtils {
     if (type == null) {
       return null;
     }
-    return TypeConstructorValue.of(
-        Types.wrapType(StarlarkAnnotations.getStarlarkTypeName(clazz), type));
+    return TypeConstructorValue.of(Types.wrapType(StarlarkAnnotations.typeRepr(clazz), type));
   }
 
   /**

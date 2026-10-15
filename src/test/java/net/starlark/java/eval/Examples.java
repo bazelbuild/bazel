@@ -75,7 +75,7 @@ final class Examples {
     // Resolve, compile, and execute the expression.
     try (Mutability mu = Mutability.create(input.getFile())) {
       StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
-      return Starlark.eval(input, FileOptions.DEFAULT, module, thread);
+      return Starlark.eval(input, module, thread);
     }
   }
 

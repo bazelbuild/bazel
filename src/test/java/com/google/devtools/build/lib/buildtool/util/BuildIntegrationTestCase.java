@@ -35,6 +35,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -213,6 +215,8 @@ public abstract class BuildIntegrationTestCase {
           .build();
     }
   }
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected FileSystem fileSystem;
   protected final EventCollectionApparatus events =
@@ -1033,6 +1037,22 @@ public abstract class BuildIntegrationTestCase {
     path.getParentDirectory().createDirectoryAndParents();
     path.createSymbolicLink(PathFragment.create(target));
     return path;
+  }
+
+  /**
+   * Ensures that the value of the {@code --jobs} flag is at least {@code minJobs}.
+   *
+   * <p>Note that the default value for {@code --jobs} is automatically calculated based on host
+   * CPU.
+   */
+  public final void ensureMinimumJobs(int minJobs) throws Exception {
+    int autoJobs = new JobsConverter().convert("auto");
+    if (autoJobs < minJobs) {
+      logger.atInfo().log("Setting --jobs=%s (was %s)", minJobs, autoJobs);
+      addOptions("--jobs=" + minJobs);
+    } else {
+      logger.atInfo().log("Keeping default value of --jobs=%s", autoJobs);
+    }
   }
 
   /**

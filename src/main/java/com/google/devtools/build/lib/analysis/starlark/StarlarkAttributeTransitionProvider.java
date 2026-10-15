@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.applyAndValidate;
-import static com.google.devtools.build.lib.analysis.starlark.StarlarkAttributesCollection.ERROR_MESSAGE_FOR_NO_ATTR;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -48,10 +47,14 @@ import net.starlark.java.eval.StarlarkSemantics;
  * <p>For starlark defined rule class transitions, see {@link StarlarkRuleTransitionProvider}.
  *
  * <p>TODO(bazel-team): Consider allowing dependency-typed attributes to actually return providers
- * instead of just labels (see {@link StarlarkAttributesCollection#addAttribute}).
+ * instead of just labels (see {@code StarlarkAttributesCollection#addAttribute}).
  */
 public class StarlarkAttributeTransitionProvider
     implements TransitionFactory<AttributeTransitionData>, SplitTransitionProviderApi {
+
+  public static final String ERROR_MESSAGE_FOR_NO_ATTR =
+      "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.";
+
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
   public StarlarkAttributeTransitionProvider(
@@ -67,6 +70,13 @@ public class StarlarkAttributeTransitionProvider
   @Override
   public int hashCode() {
     return starlarkDefinedConfigTransition.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    return obj instanceof StarlarkAttributeTransitionProvider other
+        && getClass() == obj.getClass()
+        && starlarkDefinedConfigTransition.equals(other.starlarkDefinedConfigTransition);
   }
 
   @Override

@@ -49,6 +49,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
   private final InterruptibleSupplier<RepositoryMapping> repoMappingSupplier;
   private final ImmutableSet<SpecialArtifact> outputDirectories;
   private final ImmutableMap<String, String> executionInfo;
+  private final boolean isSubdirectoryAllowed;
   private ImmutableList.Builder<AbstractAction> actions = ImmutableList.builder();
 
   public StarlarkTemplateContext(
@@ -58,7 +59,8 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
       SpawnAction.Builder spawnActionBuilder,
       InterruptibleSupplier<RepositoryMapping> repoMappingSupplier,
       ImmutableSet<SpecialArtifact> outputDirectories,
-      ImmutableMap<String, String> executionInfo) {
+      ImmutableMap<String, String> executionInfo,
+      boolean isSubdirectoryAllowed) {
     this.semantics = semantics;
     this.actionOwner = actionOwner;
     this.artifactOwner = artifactOwner;
@@ -66,6 +68,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
     this.repoMappingSupplier = repoMappingSupplier;
     this.outputDirectories = outputDirectories;
     this.executionInfo = executionInfo;
+    this.isSubdirectoryAllowed = isSubdirectoryAllowed;
   }
 
   @Override
@@ -171,6 +174,12 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
 
   @Override
   public Artifact declareSubdirectory(String subdirectory, FileApi directory) throws EvalException {
+    if (!isSubdirectoryAllowed) {
+      throw Starlark.errorf(
+          "Target %s is not allowlisted to use declare_subdirectory. See"
+              + " //tools/allowlists/subdirectory_allowlist",
+          actionOwner.getLabel() != null ? actionOwner.getLabel() : actionOwner);
+    }
     SpecialArtifact parent = SpecialArtifact.cast(directory, SpecialArtifactType.TREE, "directory");
     // We do not support nesting subtrees in subtrees.
     if (parent.isSubTreeArtifact()) {

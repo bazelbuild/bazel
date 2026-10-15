@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.TreeMap;
+import net.starlark.java.syntax.FileOptions;
 
 /**
  * A StarlarkSemantics is an immutable set of optional name/value pairs that affect the dynamic
@@ -249,6 +250,26 @@ public class StarlarkSemantics {
     return buf.append('}').toString();
   }
 
+  /** Makes a {@link FileOptions.Builder} consistent with this {@link StarlarkSemantics}. */
+  @CanIgnoreReturnValue
+  public FileOptions.Builder updateFileOptions(FileOptions.Builder builder) {
+    boolean needsTypeInfo =
+        getBool(EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING)
+            || getBool(EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
+    builder
+        .allowTypeSyntax(getBool(EXPERIMENTAL_STARLARK_TYPE_SYNTAX))
+        .resolveTypeSyntax(needsTypeInfo);
+    if (needsTypeInfo) {
+      builder.tolerateInvalidTypeExpressions(false);
+    }
+    return builder;
+  }
+
+  /** Returns the default {@link FileOptions} consistent with this {@link StarlarkSemantics}. */
+  public FileOptions getDefaultFileOptions() {
+    return updateFileOptions(FileOptions.builder()).build();
+  }
+
   // -- semantics options affecting the Starlark interpreter itself --
 
   /** Change the behavior of 'print' statements. Used in tests to verify flag propagation. */
@@ -268,17 +289,35 @@ public class StarlarkSemantics {
       "-internal_bazel_only_utf_8_byte_strings";
 
   /**
+   * Whether to allow type annotation syntax in Starlark.
+   *
+   * <p>Type annotation syntax is not really relevant to evaluation per se, but we store it here in
+   * order to thread it through to {@link FileOptions}.
+   */
+  public static final String EXPERIMENTAL_STARLARK_TYPE_SYNTAX =
+      // LINT.IfChange
+      "+experimental_starlark_type_syntax";
+
+  // LINT.ThenChange(//src/main/java/net/starlark/java/syntax/FileOptions.java)
+
+  /**
    * Whether static type checking should be performed.
    *
    * <p>Static type checking is not really relevant to evaluation per se, but we store it here in
    * order to thread it through to {@link FileOptions}.
    */
   public static final String EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING =
+      // LINT.IfChange
       "-experimental_starlark_static_type_checking";
+
+  // LINT.ThenChange(//src/main/java/net/starlark/java/syntax/FileOptions.java)
 
   /** Whether dynamic type checking should be performed. */
   public static final String EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING =
+      // LINT.IfChange
       "-experimental_starlark_dynamic_type_checking";
+
+  // LINT.ThenChange(//src/main/java/net/starlark/java/syntax/FileOptions.java)
 
   /** Globally Override fail(stack_trace=) to true. Flag default is false. */
   public static final String FORCE_STARLARK_STACK_TRACE = "-force_starlark_stack_trace";

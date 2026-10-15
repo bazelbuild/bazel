@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.stream.Collectors.joining;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
@@ -79,7 +78,6 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -368,6 +366,10 @@ public final class ConfiguredTargetFactory {
   /**
    * Factory method: constructs a RuleConfiguredTarget of the appropriate class, based on the rule
    * class. May return null if an error occurred.
+   *
+   * @param prerequisiteMap the rule's dependencies. Toolchain dependencies may be present in this
+   *     map and are ignored by {@link RuleContext.Builder#setPrerequisites}; toolchains are
+   *     supplied via {@code toolchainContexts} instead.
    */
   @Nullable
   private ConfiguredTarget createRule(
@@ -399,7 +401,7 @@ public final class ConfiguredTargetFactory {
             .setActionOwnerSymbol(configuredTargetKey)
             .setMutability(Mutability.create("configured target"))
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule))
-            .setPrerequisites(removeToolchainDeps(prerequisiteMap))
+            .setPrerequisites(prerequisiteMap)
             .setMaterializerTargets(materializerTargets)
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
@@ -658,25 +660,13 @@ public final class ConfiguredTargetFactory {
         + configurationId;
   }
 
-  @VisibleForTesting
-  public static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> removeToolchainDeps(
-      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> map) {
-    OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
-        OrderedSetMultimap.create();
-
-    for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry : map.entries()) {
-      if (DependencyKind.isToolchain(entry.getKey())) {
-        continue;
-      }
-      result.put(entry.getKey(), entry.getValue());
-    }
-
-    return result;
-  }
-
   /**
    * Constructs a {@link ConfiguredAspect}. Returns null if an error occurs; in that case, {@code
    * aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
+   *
+   * @param prerequisiteMap the aspect's dependencies. Toolchain dependencies may be present in this
+   *     map and are ignored by {@link RuleContext.Builder#setPrerequisites}; toolchains are
+   *     supplied via {@code toolchainContexts} instead.
    */
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
@@ -708,7 +698,7 @@ public final class ConfiguredTargetFactory {
             .setMutability(Mutability.create("aspect"))
             .setVisibility(
                 convertVisibility(prerequisiteMap, env.getEventHandler(), associatedTarget))
-            .setPrerequisites(removeToolchainDeps(prerequisiteMap))
+            .setPrerequisites(prerequisiteMap)
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
             .setBaseTargetToolchainContexts(baseTargetToolchainContexts)

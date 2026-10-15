@@ -366,7 +366,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   private ListenableFuture<Void> uploadFileToRemote(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
@@ -383,35 +383,45 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     if (chunkingSupported && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
       return remoteCacheClient.dedupUpload(
-          digest, () -> uploadChunked(context, digest, file), /* force= */ false);
+          digest, () -> uploadChunked(context, digest, file, force), force);
     } else {
-      return remoteCacheClient.uploadFile(context, digest, file, /* force= */ false);
+      return remoteCacheClient.uploadFile(context, digest, file, force);
     }
   }
 
   private ListenableFuture<Void> uploadBlobToRemote(
-      RemoteActionExecutionContext context, Digest digest, Blob blob) {
+      RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
     if (remoteCacheClient == null) {
       return Futures.immediateVoidFuture();
     }
-    return remoteCacheClient.uploadBlob(context, digest, blob, /* force= */ false);
+    return remoteCacheClient.uploadBlob(context, digest, blob, force);
+  }
+
+  /** Upload a local file to the remote and/or disk cache. */
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadFile(context, digest, file, /* force= */ false);
   }
 
   /**
    * Upload a local file to the remote and/or disk cache.
    *
    * <p>Trying to upload the same file multiple times concurrently, results in only one upload being
-   * performed.
+   * performed. An upload to the remote cache is also skipped if this instance has already completed
+   * an upload of the same blob, unless {@code force} is set.
    *
    * @param context the context for the action.
    * @param digest the digest of the file.
    * @param file the file to upload.
+   * @param force whether to upload to the remote cache even if this instance has already completed
+   *     an upload of the same blob, e.g. because it may have been evicted since. Concurrent uploads
+   *     are still deduplicated.
    */
   public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
@@ -423,7 +433,7 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      remoteCacheFuture = uploadFileToRemote(context, digest, file);
+      remoteCacheFuture = uploadFileToRemote(context, digest, file, force);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
@@ -431,10 +441,10 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   private ListenableFuture<Void> uploadChunked(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     return virtualThreadExecutor.submit(
         () -> {
-          chunking.uploader().uploadChunked(context, digest, file);
+          chunking.uploader().uploadChunked(context, digest, file, force);
           return null;
         });
   }
@@ -462,6 +472,21 @@ public class CombinedCache extends AbstractReferenceCounted {
    */
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob) {
+    return uploadBlob(context, digest, blob, /* force= */ false);
+  }
+
+  /**
+   * Uploads a blob to the cache from a repeatable stream supplier.
+   *
+   * <p>The supplier may be opened more than once, including concurrently when both disk and remote
+   * cache writes are enabled.
+   *
+   * @param force whether to upload to the remote cache even if this instance has already completed
+   *     an upload of the same blob, e.g. because it may have been evicted since. Concurrent uploads
+   *     are still deduplicated.
+   */
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
@@ -473,7 +498,7 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      remoteCacheFuture = uploadBlobToRemote(context, digest, blob);
+      remoteCacheFuture = uploadBlobToRemote(context, digest, blob, force);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
@@ -622,7 +647,13 @@ public class CombinedCache extends AbstractReferenceCounted {
                 } catch (IOException e) {
                   return immediateFailedFuture(e);
                 }
-                return diskCacheClient.downloadBlob(digest, out);
+                // The garbage collection of another server sharing the disk cache may have removed
+                // the blob again, in which case it is served from the remote cache directly.
+                return Futures.catchingAsync(
+                    diskCacheClient.downloadBlob(digest, out),
+                    CacheNotFoundException.class,
+                    e -> remoteCacheClient.downloadBlob(context, digest, out),
+                    directExecutor());
               },
               directExecutor()),
           tempPath,
@@ -826,22 +857,40 @@ public class CombinedCache extends AbstractReferenceCounted {
    */
   public final List<ListenableFuture<Void>> downloadOutErr(
       RemoteActionExecutionContext context, ActionResult result, OutErr outErr) {
+    return downloadOutErr(context, result, outErr, /* downloadStdout= */ true);
+  }
+
+  /**
+   * Download the stdout and stderr of an executed action.
+   *
+   * @param context the context for the action.
+   * @param result the result of the action.
+   * @param outErr the {@link OutErr} that the stdout and stderr will be downloaded to.
+   * @param downloadStdout whether to download stdout.
+   */
+  public final List<ListenableFuture<Void>> downloadOutErr(
+      RemoteActionExecutionContext context,
+      ActionResult result,
+      OutErr outErr,
+      boolean downloadStdout) {
     List<ListenableFuture<Void>> downloads = new ArrayList<>();
-    if (!result.getStdoutRaw().isEmpty()) {
-      try {
-        result.getStdoutRaw().writeTo(outErr.getOutputStream());
-        outErr.getOutputStream().flush();
-      } catch (IOException e) {
-        downloads.add(Futures.immediateFailedFuture(e));
+    if (downloadStdout) {
+      if (!result.getStdoutRaw().isEmpty()) {
+        try {
+          result.getStdoutRaw().writeTo(outErr.getOutputStream());
+          outErr.getOutputStream().flush();
+        } catch (IOException e) {
+          downloads.add(Futures.immediateFailedFuture(e));
+        }
+      } else if (result.hasStdoutDigest()) {
+        downloads.add(
+            downloadBlob(
+                context,
+                /* blobName= */ "<stdout>",
+                /* execPath= */ null,
+                result.getStdoutDigest(),
+                outErr.getOutputStream()));
       }
-    } else if (result.hasStdoutDigest()) {
-      downloads.add(
-          downloadBlob(
-              context,
-              /* blobName= */ "<stdout>",
-              /* execPath= */ null,
-              result.getStdoutDigest(),
-              outErr.getOutputStream()));
     }
     if (!result.getStderrRaw().isEmpty()) {
       try {

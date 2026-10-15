@@ -26,6 +26,19 @@ java_library(
 )
 
 java_library(
+    name = "async_directory_cleaner",
+    srcs = ["AsyncDirectoryCleaner.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util:command",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+    ],
+)
+
+java_library(
     name = "safe_request_logging",
     srcs = ["SafeRequestLogging.java"],
     deps = ["//third_party/java/guava:collect"],
@@ -766,7 +779,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:shared_action_event",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/abstract_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
@@ -775,7 +788,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -929,6 +941,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
+        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -961,7 +974,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//third_party/java/flogger",
         "//third_party/java/guava:base",
@@ -1073,6 +1085,7 @@ java_library(
     ],
     deps = [
         ":after_command_event",
+        ":async_directory_cleaner",
         ":blaze_command_result",
         ":blaze_server_startup_options",
         ":blaze_service",
@@ -1134,6 +1147,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/buildtool:command_precomplete_event",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:output_directory_links_utils",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1175,6 +1189,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
         "//src/main/java/com/google/devtools/build/lib/server:terminal_size_monitor",
         "//src/main/java/com/google/devtools/build/lib/server/signal",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
@@ -1220,7 +1235,6 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party/google/protobuf:any_java_proto",
-        "//third_party/java/auto:auto_value",
         "//third_party/java/caffeine",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/flogger",

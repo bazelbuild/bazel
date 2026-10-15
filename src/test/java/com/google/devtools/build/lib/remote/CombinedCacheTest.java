@@ -1052,7 +1052,6 @@ public class CombinedCacheTest {
     }
   }
 
-
   @Test
   public void downloadBlob_chunkMissingAfterPartialWrite_doesNotRestartIntoSameStream()
       throws Exception {
@@ -1281,11 +1280,11 @@ public class CombinedCacheTest {
 
     Path file1 = execRoot.getRelative("file1");
     FileSystemUtils.writeContent(file1, "hot-remote-cold-disk".getBytes(UTF_8));
-    Digest digest1 = digestUtil.compute(file1);
+    Digest digest1 = digestUtil.compute(file1, file1.stat());
 
     Path file2 = execRoot.getRelative("file2");
     FileSystemUtils.writeContent(file2, "cold-remote-cold-disk".getBytes(UTF_8));
-    Digest digest2 = digestUtil.compute(file2);
+    Digest digest2 = digestUtil.compute(file2, file2.stat());
 
     // Pre-populate remote cache with digest1
     getFromFuture(
@@ -1306,7 +1305,11 @@ public class CombinedCacheTest {
     clearInvocations(remoteCacheClient);
 
     ActionResult actionResult =
-        um.upload(remoteActionExecutionContext, combinedCache, mock(ExtendedEventHandler.class));
+        um.upload(
+            remoteActionExecutionContext,
+            combinedCache,
+            mock(ExtendedEventHandler.class),
+            /* force= */ false);
     assertThat(actionResult).isNotNull();
 
     // Verify remote upload was only called for digest2 (not digest1, which was already in remote

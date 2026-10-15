@@ -38,14 +38,12 @@ public class PythonBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testCompileAndRunHelloWorldStub() throws Exception {
-    context().write(MODULE_DOT_BAZEL, "bazel_dep(name = 'rules_python', version = '1.4.1')");
+    context().write(MODULE_DOT_BAZEL, "bazel_dep(name = 'rules_python', version = '1.9.2')");
 
     writeHelloWorldFiles();
 
     BuilderRunner bazel = context().bazel();
-    bazel.build("//python/hello:hello");
-
-    ProcessResult result = context().runBuiltBinary(bazel, "python/hello/hello", -1);
+    ProcessResult result = bazel.run("//python/hello:hello");
     assertThat(result.outString()).isEqualTo(HELLO);
 
     Path binaryPath = context().resolveBinPath(bazel, "python/hello/hello.par");

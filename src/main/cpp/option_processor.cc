@@ -30,7 +30,10 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor-internal.h"
+#include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/sem_ver.h"
+#include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
@@ -39,9 +42,6 @@
 #include "src/main/cpp/workspace_layout.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_cat.h"
-#include "src/main/cpp/rc_file.h"
-#include "src/main/cpp/startup_options.h"
-#include "src/main/cpp/util/exit_code.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -433,7 +433,8 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     return parse_startup_options_exit_code;
   }
 
-  parsed_blazercs_ = GetBlazercOptions(cwd, rc_file_ptrs);
+  parsed_blazercs_ =
+      GetBlazercOptions(cwd, rc_file_ptrs, startup_options_->quiet);
   blazerc_and_env_command_args_ = GetBlazercAndEnvCommandArgs(
       cwd, parsed_blazercs_, blaze::GetProcessedEnv());
   return blaze_exit_code::SUCCESS;
@@ -532,7 +533,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
 }
 
 std::vector<BlazercOption> OptionProcessor::GetBlazercOptions(
-    const std::string& cwd, const std::vector<RcFile*>& blazercs) {
+    const std::string& cwd, const std::vector<RcFile*>& blazercs, bool quiet) {
   std::vector<BlazercOption> result;
 
   // Provide terminal options as least important options.
@@ -544,7 +545,7 @@ std::vector<BlazercOption> OptionProcessor::GetBlazercOptions(
   result.push_back(
       {terminal_rc_source, "common",
        "--terminal_columns=" + blaze_util::ToString(GetTerminalColumns())});
-  if (IsEmacsTerminal()) {
+  if (IsEmacsTerminal() && !quiet) {
     result.push_back({terminal_rc_source, "common", "--emacs"});
   }
 

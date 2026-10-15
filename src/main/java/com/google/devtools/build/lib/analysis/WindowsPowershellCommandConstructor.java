@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 
 /** The class for constructing command line for Powershell on Windows. */
@@ -32,7 +33,7 @@ public final class WindowsPowershellCommandConstructor implements CommandConstru
           + "$PSDefaultParameterValues['*:Encoding'] = 'utf8'; ";
   private final String scriptNameSuffix;
 
-  WindowsPowershellCommandConstructor(String scriptNameSuffix) {
+  public WindowsPowershellCommandConstructor(String scriptNameSuffix) {
     this.scriptNameSuffix = scriptNameSuffix;
   }
 
@@ -53,8 +54,9 @@ public final class WindowsPowershellCommandConstructor implements CommandConstru
   }
 
   @Override
-  public Artifact commandAsScript(RuleContext ruleContext, String command) {
-    String scriptFileName = ruleContext.getTarget().getName() + scriptNameSuffix;
-    return FileWriteAction.createFile(ruleContext, scriptFileName, command, /*executable=*/ true);
+  public Artifact commandAsScript(
+      ActionConstructionContext context, String targetName, String command) {
+    String scriptFileName = targetName + scriptNameSuffix;
+    return FileWriteAction.createFile(context, scriptFileName, command, /* executable= */ true);
   }
 }

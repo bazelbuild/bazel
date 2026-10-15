@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.OutputDirectory;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyBaselineDiffCodec;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedInputStream;
@@ -185,7 +187,9 @@ public final class SerializationRegistrySetupHelpers {
               .add(RemoteConfiguredTargetValue.codec())
               .add(BuildOptions.valueSharingCodec())
               .addAll(ArtifactCodecs.VALUE_SHARING_CODECS)
-              .add(createCoreOptionsImplCodec());
+              .add(createCoreOptionsImplCodec())
+              .add(new OptionsDiff.OptionsDiffCodec())
+              .add(new ValueSharingAdapter<>(new BuildConfigurationKeyBaselineDiffCodec()));
 
       for (Class<?> classForValueSharing : AUTOCODEC_CLASSES_FOR_VALUE_SHARING) {
         try {

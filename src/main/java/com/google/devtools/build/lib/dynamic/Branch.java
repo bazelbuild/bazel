@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -154,7 +155,11 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
           if ((state == Future.State.SUCCESS
                   && (getMode() == DynamicMode.REMOTE || options.getCancelRemoteBranchOnLocalWin()))
               || (state == Future.State.FAILED
-                  && !(future.exceptionNow() instanceof InterruptedException))) {
+                  && !(future.exceptionNow() instanceof InterruptedException)
+                  // An input lost while setting up the local branch may not be needed by the remote
+                  // one at all, e.g. for a remote cache hit, so that one is left to finish.
+                  && !(getMode() == DynamicMode.LOCAL
+                      && future.exceptionNow() instanceof LostInputsExecException))) {
             otherBranch.cancel();
           }
           if (options.getDebugSpawnScheduler()) {
