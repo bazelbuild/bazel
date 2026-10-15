@@ -17,6 +17,9 @@ package net.starlark.java.eval;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.util.List;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
@@ -106,5 +109,50 @@ public final class StarlarkThreadTest {
             "global variable 'len' is referenced before assignment",
             "print(len)", // fwd ref to global len
             "len = 1"); // binding => len is local
+  }
+
+  @Test
+  public void testReusedFrameHasFreshReturnValue() throws Exception {
+    // Calls at the same depth reuse the same frame; a stale result must not leak into a function
+    // that returns without a value.
+    ev.exec("def f(): return 1", "def g(): return", "def h(): pass", "x = [f(), g(), f(), h()]");
+    assertThat((List<?>) ev.lookup("x"))
+        .containsExactly(StarlarkInt.of(1), Starlark.NONE, StarlarkInt.of(1), Starlark.NONE)
+        .inOrder();
+  }
+
+  @Test
+  public void testReusedFrameHasFreshErrorLocation() throws Exception {
+    Module module = Module.create();
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+      Starlark.execFile(
+          ParserInput.fromLines(
+              "def fail1():", //
+              "  return 1 // 0",
+              "def fail2():",
+              "  x = 1",
+              "  return [][x]"),
+          FileOptions.DEFAULT,
+          module,
+          thread);
+      EvalException e1 =
+          assertThrows(
+              EvalException.class,
+              () ->
+                  Starlark.call(
+                      thread, module.getGlobal("fail1"), ImmutableList.of(), ImmutableMap.of()));
+      assertThat(e1.getCallStack().getLast().location.line()).isEqualTo(2);
+      // The second call reuses the frame of the first; its error location must not be stale.
+      EvalException e2 =
+          assertThrows(
+              EvalException.class,
+              () ->
+                  Starlark.call(
+                      thread, module.getGlobal("fail2"), ImmutableList.of(), ImmutableMap.of()));
+      assertThat(e2.getCallStack().getLast().name).isEqualTo("fail2");
+      assertThat(e2.getCallStack().getLast().location.line()).isEqualTo(5);
+      assertThat(thread.getCallStack()).isEmpty();
+    }
   }
 }

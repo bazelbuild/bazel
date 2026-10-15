@@ -280,7 +280,8 @@ int OutputJar::Doit() {
     const char* data_end = reinterpret_cast<const char*>(mapped_file.end());
     // TODO(asmundak): this isn't right, we should parse properties file.
     while (data < data_end) {
-      const char* next_data = strchr(static_cast<const char*>(data), '\n');
+      const char* next_data =
+          static_cast<const char*>(memchr(data, '\n', data_end - data));
       if (next_data) {
         ++next_data;
       } else {
@@ -594,7 +595,7 @@ bool OutputJar::AddJar(int jar_path_index) {
     //  local header
     //  file data
     //  data descriptor, if present.
-    int64_t copy_from = jar_entry->local_header_offset();
+    uint64_t copy_from = input_jar.LocalHeaderOffset(lh);
     size_t num_bytes = lh->size();
     if (jar_entry->no_size_in_local_header()) {
       const DDR* ddr = reinterpret_cast<const DDR*>(
@@ -872,12 +873,21 @@ void OutputJar::AppendToDirectoryBuffer(const CDH* cdh, int64_t lh_pos,
   // position relative to 4G boundary changes.
   // The rest of the input CDH is copied.
 
-  // 1. Decide if we need to drop UnixTime.
-  size_t removed_unix_time_field_size = 0;
-  if (fix_timestamp) {
-    auto unix_time_field = cdh->unix_time_extra_field();
-    if (unix_time_field != nullptr) {
-      removed_unix_time_field_size = unix_time_field->size();
+  // 1. Validate extra fields and calculate the size of extra fields to keep
+  // (all extra fields except Zip64 and, if fix_timestamp is set, UnixTime).
+  const uint16_t ef_size = cdh->extra_fields_length();
+  auto ef_begin = reinterpret_cast<const ExtraField*>(cdh->extra_fields());
+  auto ef_end =
+      reinterpret_cast<const ExtraField*>(ziph::byte_ptr(ef_begin) + ef_size);
+  uint32_t kept_ef_size = 0;
+  for (const ExtraField* ef = ef_begin; ef < ef_end; ef = ef->next()) {
+    if (ziph::byte_ptr(ef) + sizeof(ExtraField) > ziph::byte_ptr(ef_end) ||
+        ziph::byte_ptr(ef) + ef->size() > ziph::byte_ptr(ef_end)) {
+      diag_errx(1, "malformed extra field in CDH for %.*s",
+                (int)cdh->file_name_length(), cdh->file_name());
+    }
+    if (!((fix_timestamp && ef->is_unix_time()) || ef->is_zip64())) {
+      kept_ef_size += ef->size();
     }
   }
 
@@ -902,22 +912,19 @@ void OutputJar::AppendToDirectoryBuffer(const CDH* cdh, int64_t lh_pos,
   } else {
     out_zip64_attr_count = lh_pos_needs64 ? 1 : 0;
   }
-  const uint16_t zip64_size = Zip64ExtraField::space_needed(zip64_attr_count);
-  const uint16_t out_zip64_size =
+  const uint32_t out_zip64_size =
       Zip64ExtraField::space_needed(out_zip64_attr_count);
 
   // Allocate output CDH and copy everything but extra fields.
-  const uint16_t ef_size = cdh->extra_fields_length();
-  const uint16_t out_ef_size =
-      (ef_size + out_zip64_size) - (removed_unix_time_field_size + zip64_size);
+  const uint32_t out_ef_size = kept_ef_size + out_zip64_size;
+  if (out_ef_size > UINT16_MAX) {
+    diag_errx(1, "extra fields size %u exceeds 64KB in CDH for %.*s",
+              out_ef_size, (int)cdh->file_name_length(), cdh->file_name());
+  }
 
   const size_t out_cdh_size = cdh->size() + out_ef_size - ef_size;
   CDH* out_cdh = reinterpret_cast<CDH*>(ReserveCdr(out_cdh_size));
 
-  // Calculate ExtraFields boundaries in the input and output entries.
-  auto ef_begin = reinterpret_cast<const ExtraField*>(cdh->extra_fields());
-  auto ef_end =
-      reinterpret_cast<const ExtraField*>(ziph::byte_ptr(ef_begin) + ef_size);
   // Copy [cdh..ef_begin) -> [out_cdh..out_ef_begin)
   memcpy(out_cdh, cdh, ziph::byte_ptr(ef_begin) - ziph::byte_ptr(cdh));
 
@@ -933,11 +940,6 @@ void OutputJar::AppendToDirectoryBuffer(const CDH* cdh, int64_t lh_pos,
   // Copy extra fields, dropping Zip64 and possibly UnixTime fields.
   ExtraField* out_ef = out_ef_begin;
   for (const ExtraField* ef = ef_begin; ef < ef_end; ef = ef->next()) {
-    if (ziph::byte_ptr(ef) + sizeof(ExtraField) > ziph::byte_ptr(ef_end) ||
-        ziph::byte_ptr(ef) + ef->size() > ziph::byte_ptr(ef_end)) {
-      diag_errx(1, "malformed extra field in CDH for %.*s",
-                (int)cdh->file_name_length(), cdh->file_name());
-    }
     if ((fix_timestamp && ef->is_unix_time()) || ef->is_zip64()) {
       // Skip this one.
     } else {

@@ -21,6 +21,9 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,5 +67,37 @@ public class ShutdownHooksTest {
     underTest.runHooks();
 
     assertThat(toDelete.exists()).isTrue();
+  }
+
+  @Test
+  public void testRunsFinalCleanupAfterDeletingRegisteredPaths() throws IOException {
+    Path toDelete = fileSystem.getPath("/some-path-to-delete");
+    toDelete.createDirectoryAndParents();
+
+    List<Boolean> existedDuringCleanup = new ArrayList<>();
+    ShutdownHooks underTest = ShutdownHooks.createUnregistered();
+    underTest.runLastAtExit(
+        () -> {
+          try {
+            existedDuringCleanup.add(toDelete.exists());
+          } catch (IOException e) {
+            throw new UncheckedIOException(e);
+          }
+        });
+    underTest.deleteAtExit(toDelete);
+    underTest.runHooks();
+
+    assertThat(existedDuringCleanup).containsExactly(false);
+  }
+
+  @Test
+  public void testSkipFinalCleanupIfDisabled() {
+    List<String> ran = new ArrayList<>();
+    ShutdownHooks underTest = ShutdownHooks.createUnregistered();
+    underTest.runLastAtExit(() -> ran.add("cleanup"));
+    underTest.disable();
+    underTest.runHooks();
+
+    assertThat(ran).isEmpty();
   }
 }

@@ -213,7 +213,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       // Null will be returned and the errors thus reported.
       try {
         // Check all artifacts have actions. Despite signature, must be done after build().
-        StarlarkProviderValidationUtil.validateArtifacts(context);
+        StarlarkProviderValidationUtil.validateArtifacts(context.getAnalysisEnvironment());
         // Check all advertised providers were created.
         checkDeclaredProviders(ct, advertisedProviders);
       } catch (EvalException ex) {

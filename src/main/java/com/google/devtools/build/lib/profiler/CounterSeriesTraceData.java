@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import static com.google.devtools.build.lib.profiler.JsonTraceFileWriter.INDENT_2;
+import static com.google.devtools.build.lib.profiler.JsonTraceFileWriter.NO_INDENT;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skybridge.ScOnly;
@@ -79,9 +82,9 @@ final class CounterSeriesTraceData implements TraceData {
     boolean recorded = false;
     for (int i = 0; i < len; i++) {
       long timeNanos = profileStart.plus(bucketDuration.multipliedBy(i)).toNanos();
-      jsonWriter.setIndent("  ");
+      jsonWriter.setFormattingStyle(INDENT_2);
       jsonWriter.beginObject();
-      jsonWriter.setIndent("");
+      jsonWriter.setFormattingStyle(NO_INDENT);
       jsonWriter.name("name").value(displayName);
       jsonWriter.name("pid").value(PROCESS_ID);
       jsonWriter.name("tid").value(threadId);

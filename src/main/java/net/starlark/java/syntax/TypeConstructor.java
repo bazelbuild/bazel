@@ -37,8 +37,8 @@ import java.util.Map;
 public interface TypeConstructor {
 
   /** Exception thrown when a {@link TypeConstructor} is called with invalid arguments. */
-  class Failure extends Exception {
-    Failure(String message) {
+  public static class Failure extends Exception {
+    public Failure(String message) {
       super(message);
     }
   }

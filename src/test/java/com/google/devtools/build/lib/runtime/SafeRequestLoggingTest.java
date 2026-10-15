@@ -169,4 +169,25 @@ public class SafeRequestLoggingTest {
             "--some_other_flag")
         .inOrder();
   }
+
+  @Test
+  public void testRedactArgumentsRedactsInvocationPolicy() {
+    ImmutableList<String> args =
+        ImmutableList.of(
+            "blaze",
+            "--invocation_policy=flag_policies:{flag_name:'bes_header'}",
+            "--batch",
+            "--invocation_policy",
+            "flag_policies:{flag_name:'bes_header'}",
+            "build");
+    assertThat(SafeRequestLogging.redactArguments(args))
+        .containsExactly(
+            "blaze",
+            "--invocation_policy=<REDACTED>",
+            "--batch",
+            "--invocation_policy",
+            "<REDACTED>",
+            "build")
+        .inOrder();
+  }
 }

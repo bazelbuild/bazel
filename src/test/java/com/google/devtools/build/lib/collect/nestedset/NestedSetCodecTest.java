@@ -71,6 +71,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -749,6 +750,44 @@ public final class NestedSetCodecTest {
     assertThat(deserialized).isInstanceOf(NestedSet.class);
     // The deserialized set has the mockFuture as children.
     assertThat(((NestedSet<?>) deserialized).children).isSameInstanceAs(mockFuture);
+  }
+
+  /** Regression test for b/568342539. */
+  @Test
+  public void pendingDeserializationFuture_toStringDoesNotIncludeSetFutureDelegate()
+      throws Exception {
+    SettableFuture<byte[]> getFuture = SettableFuture.create();
+    FingerprintValueStore fingerprintValueStore =
+        new FingerprintValueStore() {
+          @Override
+          public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+            return immediateWriteStatus();
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
+            return getFuture;
+          }
+        };
+
+    NestedSet<String> set = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(fingerprintValueStore);
+    ObjectCodecs serializer = createCodecs(createStore(fingerprintValueStore));
+    ByteString serialized =
+        serializer
+            .serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, set)
+            .getObject();
+
+    ObjectCodecs deserializer = createCodecs(createStore(fingerprintValueStore));
+    NestedSet<?> deserializedSet = (NestedSet<?>) deserializer.deserializeMemoized(serialized);
+
+    assertThat(deserializedSet.children.toString())
+        .matches("DeserializationFuture@[0-9a-f]+\\[status=PENDING\\]");
+    TimeoutException e =
+        assertThrows(
+            TimeoutException.class, () -> deserializedSet.toListWithTimeout(Duration.ofNanos(1)));
+    assertThat(e).hasMessageThat().doesNotContain("setFuture=");
   }
 
   private static NestedSetStore createStore(FingerprintValueStore fingerprintValueStore) {

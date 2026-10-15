@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.BuildGlobals;
 import com.google.devtools.build.lib.packages.Proto;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RepoFileGlobals;
 import com.google.devtools.build.lib.packages.SelectorList;
 import com.google.devtools.build.lib.packages.StarlarkGlobals;
@@ -123,6 +124,7 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
         .put("Args", wrapStarlarkBuiltinAutoType(CommandLineArgsApi.class))
         .put("Ctx", wrapStarlarkBuiltinAutoType(StarlarkRuleContextApi.class))
         .put("File", wrapStarlarkBuiltinAutoType(FileApi.class))
+        .put("Provider", Provider.ANY_PROVIDER_TYPE_CONSTRUCTOR)
         .put("Root", wrapStarlarkBuiltinAutoType(FileRootApi.class))
         .put("Runfiles", wrapStarlarkBuiltinAutoType(RunfilesApi.class))
         .put("Target", wrapStarlarkBuiltinAutoType(TransitiveInfoCollectionApi.class))

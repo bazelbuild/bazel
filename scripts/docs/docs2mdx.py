@@ -23,6 +23,7 @@ from absl import app
 from absl import flags
 import markdownify
 from scripts.docs import clr_converter
+from scripts.docs import mdx_fixes
 
 
 FLAGS = flags.FLAGS
@@ -43,18 +44,12 @@ flags.mark_flag_as_required("in_dir")
 flags.mark_flag_as_required("out_dir")
 
 
-_HEADING_RE = re.compile(r"^# (.+)$", re.MULTILINE)
 _TEMPLATE_RE = re.compile(r"^\{%.+$\n", re.MULTILINE)
 _TAG_RE = re.compile(r"\s?\{:[^}]+\}")
-_HTML_LINK_RE = re.compile(r"\]\(([^)]+)\.html")
 _METADATA_PATTERN = re.compile(
     "^((Project|Book):.+\n)", re.MULTILINE
 )
-_TITLE_RE = re.compile(r"^title: '", re.MULTILINE)
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
-_ANGLE_BRACKET_LINK_RE = re.compile(r"<(https?://[^>]+)>")
-_HTML_STYLE_PATTERN = re.compile(r"^</?style>", re.MULTILINE)
-_MD_FRONT_MATTER_PATTERN = re.compile(r"^---", re.MULTILINE)
 # Flag docs wrap the anchor link inside <code>, which markdownify drops.
 # Move the link outside <code> so it survives conversion to MDX definition
 # lists.
@@ -67,16 +62,20 @@ _FLAG_TERM_LINK_RE = re.compile(
     r"^\[`([^`]+)`\]\(#((?:[^)]*-)?flag--[^)]+)\)",
 )
 _HEADING_TAG_RE = re.compile(
-    r"<h([1-6])([^>]*)>(.*?)</h\1>", re.DOTALL | re.IGNORECASE
+    r"^([^\n]*)<h([1-6])([^>]*)>(.*?)</h\2>",
+    re.DOTALL | re.IGNORECASE | re.MULTILINE,
 )
 _HEADING_ID_ATTR_RE = re.compile(r"""\bid=(["'])([^"']+)\1""")
-_ESCAPED_HEADING_ANCHOR_RE = re.compile(r" &lcub;#([^&]+)&rcub;")
+# See docstrings of _format_table_cell() and ()
+# for an explanation.
+_TAGS_TO_FLATTEN_RE = re.compile(r"(?:</?(?:pre|code)[^>]*>)+")
 
 # In prose (outside code/pre blocks), these characters must be converted to
 # HTML entities so they don't look like JSX or JavaScript blocks to MDX parsers.
 _REPLACED_JS_CHARACTERS = {
     "{": "&lcub;",
     "}": "&rcub;",
+    "$": "&#36;",
 }
 
 _REPLACED_CODE_CHARACTERS = {
@@ -84,6 +83,12 @@ _REPLACED_CODE_CHARACTERS = {
     ">": "&gt;",
     **_REPLACED_JS_CHARACTERS,
 }
+
+_CONFIGURATION_HTML_BAD_LINE = re.compile(
+    r"^<p>Use this to distinguish different configurations for the same"
+    r" target.+$",
+    re.MULTILINE,
+)
 
 
 def _escape_chars(text, replacements):
@@ -118,12 +123,63 @@ def _cell_inner_html(cell):
 
 
 def _format_table_cell(cell, content):
-  """Formats table cell content as a markdown table cell."""
+  """Formats table cell content as a markdown table cell.
+
+  Markdownify converts elements bottom-up.
+  For table cells we discard the already converted tag and instead
+  manually "convert" the inner HTML, which can be very complex.
+
+  A better approach would be this:
+  For every tag <foo> that can produce multi-line Markdown output:r
+  If convert_foo is called for a nested table, it should preserve <foo>
+  tags and return the (already converted) content as a single line.
+  Otherwise it just delegates to the super class implementation.
+  However, this cannot be implemented since parent_tags is a set and not a
+  dict or multiset, so we cannot distinguish a simple table from a
+  nested table.
+
+  Args:
+    cell: The BeautifulSoup table cell element (`td` or `th`).
+    content: str; the raw inner HTML content of the table cell.
+
+  Returns:
+    The formatted single-line Markdown table cell string.
+  """
   colspan = 1
   if "colspan" in cell.attrs and cell["colspan"].isdigit():
     colspan = max(1, min(1000, int(cell["colspan"])))
-  # Markdown table rows must be single-line; HTML in cells is fine on one line.
-  return " " + content.replace("\n", " ") + " |" * colspan
+  # Content = raw HTML, i.e. it can contain tags such as <code> or <pre>
+  # with forbidden characters in their values (such as curly braces).
+  # Consequently, we need to escape them here.
+  return f" {_convert_html_to_single_line_md(content)}{' |' * colspan}"
+
+
+def _convert_html_to_single_line_md(content):
+  """Converts 'bad' tags (<pre>, <code>) and fits the result into a single line.
+
+  These tags are 'bad' since they can contain reserved chars such as curly
+  braces,
+  which lead to syntax errors if they appear outside of fenced Markdown code
+  blocks.
+
+  Args:
+    content: str; the raw HTML content to convert.
+
+  Returns:
+    A single-line Markdown/HTML string with `<pre>` and `<code>` tags flattened.
+  """
+  # Convert <pre> and <code> to single fenced code blocks.
+  no_bad_tags = _TAGS_TO_FLATTEN_RE.sub("`", content)
+
+  # Escape special characters outside of fenced code blocks.
+  parts = no_bad_tags.split("`")
+  for i in range(0, len(parts), 2):
+    parts[i] = _escape_chars(parts[i], _REPLACED_JS_CHARACTERS)
+  escaped = "`".join(parts)
+
+  # Remove line breaks.
+  raw_lines = [l.strip() for l in escaped.split("\n")]
+  return " ".join([l for l in raw_lines if l])
 
 
 class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
@@ -163,7 +219,6 @@ class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
     if not text:
       return text
     escaped = super().escape(text, parent_tags)
-
     # Unescape underscores that are in the middle of words.
     escaped = re.sub(r"(\w)\\_(\w)", r"\1_\2", escaped)
     # Fenced and inline code blocks are already safe from MDX parsing.
@@ -205,15 +260,47 @@ def _convert_file(src, dest):
 
 
 def _transform(path, content):
+  """Transforms the content of an HTML or Markdown file into valid MDX."""
   content = _pre_markdown_transforms(content)
   if path.endswith(".html"):
     if os.path.basename(path) == "command-line-reference.html":
       md = clr_converter.convert(content)
     else:
-      md = _html2md(content)
+      if path.endswith("configuration.html"):
+        fixed_content = _fix_configuration_dot_html(content)
+      elif path.endswith("bzl.html"):
+        fixed_content = _fix_bzl_dot_html(content)
+      else:
+        fixed_content = content
+
+      md = _html2md(fixed_content)
   else:
     md = content
   return _post_markdown_transforms(md)
+
+
+def _fix_configuration_dot_html(content):
+  """Fixes malformed HTML in rules/lib/builtins/configurations.html."""
+
+  def fix(m):
+    return f"{m.group(0).replace('.', '.</li>')}</ul></p>"
+
+  return _CONFIGURATION_HTML_BAD_LINE.sub(fix, content)
+
+
+def _fix_bzl_dot_html(content):
+  """Fixes malformed HTML link in rules/lib/globals/bzl.html.
+
+  There is only a single instance of this bug, so it doesn't
+  make sense to implement a general solution.
+
+  Args:
+    content: str; the HTML content to be fixed.
+  Returns:
+    The fixed HTML content, as string.
+  """
+  href = "../globals/workspace#register_execution_platforms"
+  return content.replace(f'"{href}>', f'"{href}">')
 
 
 def _html2md(content):
@@ -273,14 +360,17 @@ def _convert_heading_ids_to_mdx_anchors(content):
   """
 
   def repl(match):
-    level = int(match.group(1))
-    attrs = match.group(2)
-    text = match.group(3).strip()
+    level = int(match.group(2))
+    attrs = match.group(3)
+    text = match.group(4).strip()
     id_match = _HEADING_ID_ATTR_RE.search(attrs)
     if not id_match:
       return match.group(0)
+    # Hack: do not add anchor if heading has non-empty prefix (e.g. list tag)
+    line_prefix = match.group(1).strip()
     heading_id = id_match.group(2)
-    return f"{'#' * level} {text} {{#{heading_id}}}"
+    anchor = "" if line_prefix else f" {{#{heading_id}}}"
+    return f"{'#' * level} {text}{anchor}"
 
   return _HEADING_TAG_RE.sub(repl, content)
 
@@ -294,19 +384,7 @@ def _post_markdown_transforms(content):
   Returns:
     The content as fully valid .mdx.
   """
-  no_html_links = _HTML_LINK_RE.sub(_fix_link, content)
-  no_angle_links = _ANGLE_BRACKET_LINK_RE.sub(r"\1", no_html_links)
-  no_double_empty_lines = no_angle_links.replace("\n\n\n", "\n\n")
-  no_trailing_whitespaces = _remove_trailing_whitespaces(no_double_empty_lines)
-  fixed_headings = (
-      no_trailing_whitespaces
-      if _TITLE_RE.search(no_trailing_whitespaces)
-      else _HEADING_RE.sub(_fix_title_heading, no_trailing_whitespaces, count=1)
-  )
-  front_matter_first = _remove_anything_before_front_matter(fixed_headings)
-  no_styles = _remove_style_sections(front_matter_first)
-  restored_headings = _restore_heading_anchors(no_styles)
-  return _add_flag_anchor_targets(restored_headings)
+  return _add_flag_anchor_targets(mdx_fixes.apply(content))
 
 
 def _add_flag_anchor_targets(content):
@@ -334,52 +412,6 @@ def _add_flag_anchor_targets(content):
         lines.append("")
     lines.append(line)
   return "\n".join(lines)
-
-
-def _restore_heading_anchors(content):
-  """Restores MDX heading anchors escaped during markdown conversion."""
-  return _ESCAPED_HEADING_ANCHOR_RE.sub(r" {#\1}", content)
-
-
-def _remove_trailing_whitespaces(content):
-  lines = (l.rstrip() for l in content.split("\n"))
-  return "\n".join(lines)
-
-
-def _fix_title_heading(m):
-  title = m.group(1).replace("'", "\\'")
-  return f"---\ntitle: '{title}'\n---"
-
-
-def _remove_anything_before_front_matter(content):
-  if content.startswith("---\n"):
-    return content
-
-  parts = _MD_FRONT_MATTER_PATTERN.split(content, maxsplit=1)
-  if len(parts) == 1:
-    # Technically this only affects files that we need for the old site,
-    # so the better solution would be to stop generating them.
-    return parts[0]
-
-  return f"---{parts[1]}"
-
-
-def _remove_style_sections(content):
-  m = _HTML_STYLE_PATTERN.search(content)
-  if not m:
-    return content
-
-  parts = _HTML_STYLE_PATTERN.split(content)
-  return f"{parts[0]}{parts[2].lstrip()}"
-
-
-def _fix_link(m):
-  raw = m.group(1)
-  # Only keep .html extension for external links.
-  if raw.startswith("http://") or raw.startswith("https://"):
-    return m.group(0)
-
-  return f"]({raw}"
 
 
 def _fail(msg):

@@ -370,7 +370,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               // B is the root, and A is the only leaf. We can throw out the CD edge, even
               // though both C and D are still used by B. This is because no changes are expected to
               // C and D, so it's unnecessary to maintain the edges.
-              incrementalInMemoryNodeEntry.clearDirectDepsForSkyfocus();
+              incrementalInMemoryNodeEntry.clearDirectDeps();
 
               // No need to keep the rdep edges of the deps if they do not point to an rdep
               // reachable (hence, dirty-able) by the active directories.

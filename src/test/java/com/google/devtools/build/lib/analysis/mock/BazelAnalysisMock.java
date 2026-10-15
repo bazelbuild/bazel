@@ -15,10 +15,8 @@ package com.google.devtools.build.lib.analysis.mock;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Short.MAX_VALUE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.util.AbstractMockJavaSupport;
@@ -41,9 +39,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Map;
 
 /** Subclass of {@link AnalysisMock} using Bazel-specific semantics. */
@@ -104,13 +99,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "third_party/bazel_rules/rules_shell");
 
     Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-    for (String filename : Arrays.asList("tools/jdk/java_toolchain_alias.bzl")) {
-      java.nio.file.Path path = Paths.get(runfiles.rlocation("io_bazel/" + filename));
-      if (!Files.exists(path)) {
-        continue; // the io_bazel workspace root only exists for Bazel
-      }
-      config.create("embedded_tools/" + filename, MoreFiles.asCharSource(path, UTF_8).read());
-    }
     config.create(
         "embedded_tools/tools/jdk/launcher_flag_alias.bzl",
         """
@@ -149,7 +137,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
 load("@rules_java//java:defs.bzl",
   "java_binary", "java_import", "java_toolchain", "java_runtime")
 load(
-    ":java_toolchain_alias.bzl",
+    "@rules_java//toolchains:java_toolchain_alias.bzl",
     "java_host_runtime_alias",
     "java_runtime_alias",
     "java_toolchain_alias",
@@ -537,6 +525,14 @@ launcher_flag_alias(
         )
         """);
     config.create(
+        "embedded_tools/tools/allowlists/subdirectory_allowlist/BUILD",
+        """
+        package_group(
+            name = "subdirectory_allowlist",
+            packages = ["public"],
+        )
+        """);
+    config.create(
         "embedded_tools/tools/allowlists/subrules_allowlist/BUILD",
         """
         package_group(
@@ -606,9 +602,23 @@ launcher_flag_alias(
         """);
 
     config.create(
+        "embedded_tools/tools/launcher/toolchain.bzl",
+        """
+        def _launcher_maker_toolchain_impl(ctx):
+            return [platform_common.ToolchainInfo(binary = ctx.executable.binary)]
+
+        launcher_maker_toolchain = rule(
+            implementation = _launcher_maker_toolchain_impl,
+            attrs = {
+                "binary": attr.label(cfg = "exec", executable = True),
+            },
+        )
+        """);
+    config.create(
         "embedded_tools/tools/launcher/BUILD",
         """
         load("@bazel_tools//third_party/cc_rules/macros:defs.bzl", "cc_binary")
+        load(":toolchain.bzl", "launcher_maker_toolchain")
 
         package(default_visibility = ["//visibility:public"])
 
@@ -620,6 +630,21 @@ launcher_flag_alias(
         cc_binary(
             name = "launcher_maker",
             srcs = ["launcher_maker.cc"],
+        )
+
+        toolchain_type(name = "launcher_maker_toolchain_type")
+
+        launcher_maker_toolchain(
+            name = "launcher_maker_toolchain_impl",
+            binary = ":launcher_maker",
+            visibility = ["//visibility:private"],
+        )
+
+        toolchain(
+            name = "mock_launcher_maker_toolchain",
+            toolchain = ":launcher_maker_toolchain_impl",
+            toolchain_type = ":launcher_maker_toolchain_type",
+            visibility = ["//visibility:private"],
         )
         """);
 
@@ -729,6 +754,7 @@ launcher_flag_alias(
         "embedded_tools/MODULE.bazel",
         """
         module(name='bazel_tools')
+        register_toolchains("//tools/launcher:mock_launcher_maker_toolchain")
         register_toolchains("//tools/test:all")
         """);
     config.create("embedded_tools/tools/build_defs/repo/BUILD");

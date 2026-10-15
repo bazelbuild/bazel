@@ -647,6 +647,7 @@ cc_library(
     strip_include_prefix = "java_tools",
     deps = [
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/strings",
     ],
 )

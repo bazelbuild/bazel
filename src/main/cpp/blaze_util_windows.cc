@@ -744,11 +744,9 @@ int ExecuteDaemon(
 }
 
 // Run the given program in the current working directory, using the given
-// argument vector, wait for it to finish, then exit ourselves with the exitcode
-// of that program.
-ATTRIBUTE_NORETURN static void ExecuteProgram(
-    const blaze_util::Path& exe,
-    const std::vector<std::wstring>& wargs_vector) {
+// argument vector, wait for it to finish, then return its exit code.
+static int RunProgram(const blaze_util::Path& exe,
+                      const std::vector<std::wstring>& wargs_vector) {
   CmdLine cmdline;
   CreateCommandLine(&cmdline, blaze_util::Path(), wargs_vector);
 
@@ -770,21 +768,76 @@ ATTRIBUTE_NORETURN static void ExecuteProgram(
         << "ExecuteProgram(" << exe.AsPrintablePath()
         << ") failed: " << blaze_util::WstringToCstring(werror);
   }
-  exit(x);
+  return x;
+}
+
+// Run the given program in the current working directory, using the given
+// argument vector, wait for it to finish, then exit ourselves with the exitcode
+// of that program.
+ATTRIBUTE_NORETURN static void ExecuteProgram(
+    const blaze_util::Path& exe,
+    const std::vector<std::wstring>& wargs_vector) {
+  exit(RunProgram(exe, wargs_vector));
+}
+
+// Appends an argument quoted for a Java launcher argument file to *out.
+// Within quotes, a backslash starts an escape sequence and a line break ends
+// the argument.
+static void AppendQuotedForJavaArgFile(const string& arg, string* out) {
+  *out += '"';
+  for (char c : arg) {
+    switch (c) {
+      case '\\':
+      case '"':
+        *out += '\\';
+        *out += c;
+        break;
+      case '\n':
+        *out += "\\n";
+        break;
+      case '\r':
+        *out += "\\r";
+        break;
+      default:
+        *out += c;
+    }
+  }
+  *out += '"';
 }
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args,
+                      const blaze_util::Path& argfile,
                       bool run_in_user_cgroup) {
-  std::vector<std::wstring> wargs;
-  wargs.reserve(server_jvm_args.size());
-  for (const string& a : server_jvm_args) {
-    std::wstring wa = blaze_util::CstringToWstring(a);
-    std::wstring wesc = bazel::windows::WindowsEscapeArg(wa);
-    wargs.push_back(wesc);
+  // The arguments can exceed the command line length limit of CreateProcessW,
+  // for example in batch mode with a large client environment passed via
+  // --client_env. Let the Java launcher read them from a file instead. The
+  // embedded JDK's java.exe uses UTF-8 as its active code page and thus reads
+  // the file as UTF-8.
+  string content;
+  // Skip the first argument, it is equal to 'exe'.
+  for (size_t i = 1; i < server_jvm_args.size(); ++i) {
+    AppendQuotedForJavaArgFile(server_jvm_args[i], &content);
+    content += '\n';
   }
-
-  ExecuteProgram(exe, wargs);
+  if (!blaze_util::WriteFile(content, argfile, 0600)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ExecuteServerJvm: failed to write " << argfile.AsPrintablePath()
+        << ": " << GetLastErrorString();
+  }
+  wstring wshort_argfile;
+  string error;
+  if (!blaze_util::AsShortWindowsPath(argfile.AsNativePath(), &wshort_argfile,
+                                      &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ExecuteServerJvm: AsShortWindowsPath(" << argfile.AsPrintablePath()
+        << "): " << error;
+  }
+  int exit_code = RunProgram(
+      exe, {exe.AsNativePath(),
+            bazel::windows::WindowsEscapeArg(L"@" + wshort_argfile)});
+  blaze_util::UnlinkPath(argfile);
+  exit(exit_code);
 }
 
 void ExecuteRunRequest(const blaze_util::Path& exe,

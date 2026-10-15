@@ -20,8 +20,9 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Handles writing and reading of repo marker files. */
@@ -81,9 +83,19 @@ public class DigestWriter {
       builder.append(recordedInputValue).append('\n');
     }
     String content = builder.toString();
+    // The marker is written to a sibling that is renamed into place so that it is either complete
+    // or absent: the parser accepts a prefix of it that ends after the hash or a complete line.
+    Path markerTempPath =
+        markerPath.getParentDirectory().getChild(markerPath.getBaseName() + ".tmp");
     try {
-      FileSystemUtils.writeContent(markerPath, ISO_8859_1, content);
+      FileSystemUtils.writeContent(markerTempPath, ISO_8859_1, content);
+      markerTempPath.renameTo(markerPath);
     } catch (IOException e) {
+      try {
+        markerTempPath.delete();
+      } catch (IOException ignored) {
+        // The next write of the marker overwrites the sibling.
+      }
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
   }
@@ -183,9 +195,11 @@ public class DigestWriter {
             .addString(repoDefinition.repoRule().id().ruleName())
             .addBytes(repoDefinition.repoRule().transitiveBzlDigest())
             .addString(repoDefinition.name())
-            .addString(
-                GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON.toJson(
-                    repoDefinition.attrValues()))
+            .addStringMap(
+                ImmutableSortedMap.copyOf(
+                    Maps.transformValues(
+                        repoDefinition.attrValues().attributes(),
+                        v -> Starlark.repr(v, starlarkSemantics))))
             // This info is accessible via rctx.os.{name,arch} and can also influence the
             // result of a repo rule in subtle ways (e.g. behavior of host tools, line breaks,
             // etc).

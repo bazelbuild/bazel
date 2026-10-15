@@ -14,16 +14,23 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.common.base.Objects;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.Immutable;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * Anything marked FAILURE is generally from a problem with the source code under consideration. In
- * these cases, a re-run in an identical client should produce an identical return code all things
- * being constant.
+ * Exit codes shared by Bazel and Blaze.
+ *
+ * <p>This class acts as a global exit code registry and registers some exit codes itself. Other
+ * classes may register additional exit codes with this class. Classes registering exit codes must
+ * be part of the SC/LC interface, as lookups may originate from either the SC or the LC.
+ *
+ * <p>Anything marked FAILURE is generally from a problem with the source code under consideration.
+ * In these cases, a re-run in an identical client should produce an identical return code all
+ * things being constant.
  *
  * <p>Anything marked as an ERROR is generally a problem unrelated to the source code itself. It is
  * either something wrong with the user's command line or the user's machine or environment.
@@ -35,6 +42,7 @@ import javax.annotation.Nullable;
  * retried or not.
  */
 @Immutable
+@SkybridgeInterface
 public final class ExitCode {
   // Tracks all exit codes defined here and elsewhere in Bazel.
   private static final HashMap<Integer, ExitCode> exitCodeRegistry = new HashMap<>();
@@ -135,7 +143,7 @@ public final class ExitCode {
    * <p>Note that there *are* unregistered ExitCodes. This will never return them.
    */
   @Nullable
-  static ExitCode forCode(int code) {
+  public static ExitCode forCode(int code) {
     synchronized (exitCodeRegistry) {
       return exitCodeRegistry.get(code);
     }
@@ -161,18 +169,15 @@ public final class ExitCode {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(numericExitCode, name, infrastructureFailure);
+    return Objects.hash(numericExitCode, name, infrastructureFailure);
   }
 
   @Override
   public boolean equals(Object object) {
-    if (object instanceof ExitCode) {
-      ExitCode that = (ExitCode) object;
-      return this.numericExitCode == that.numericExitCode
-          && this.name.equals(that.name)
-          && this.infrastructureFailure == that.infrastructureFailure;
-    }
-    return false;
+    return object instanceof ExitCode that
+        && this.numericExitCode == that.numericExitCode
+        && this.name.equals(that.name)
+        && this.infrastructureFailure == that.infrastructureFailure;
   }
 
   /**

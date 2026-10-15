@@ -94,6 +94,77 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   }
 
   @Test
+  public void resolve_useTargetPlatformConstraints_inheritedFromParentPlatform() throws Exception {
+    // The target platform only sets its constraints via a parent platform. A toolchain with
+    // use_target_platform_constraints must still reject execution platforms whose constraints
+    // (also only set via a parent) differ from those of the target platform.
+    scratch.appendFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "linux_base",
+            constraint_values = ["//constraints:linux"],
+        )
+
+        platform(
+            name = "linux_child",
+            parents = [":linux_base"],
+        )
+
+        platform(
+            name = "mac_base",
+            constraint_values = ["//constraints:mac"],
+        )
+
+        platform(
+            name = "mac_child",
+            parents = [":mac_base"],
+        )
+        """);
+    scratch.file(
+        "extra/BUILD",
+        """
+        load("//toolchain:toolchain_def.bzl", "test_toolchain")
+
+        toolchain(
+            name = "extra_toolchain",
+            toolchain = ":extra_toolchain_impl",
+            toolchain_type = "//toolchain:test_toolchain",
+            use_target_platform_constraints = True,
+        )
+
+        test_toolchain(
+            name = "extra_toolchain_impl",
+            data = "baz",
+        )
+        """);
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//extra:extra_toolchain")
+        register_execution_platforms("//platforms:mac_child", "//platforms:linux_child")
+        """);
+
+    useConfiguration("--platforms=//platforms:linux_child");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_impl");
+    // //platforms:mac_child is registered first, but is not compatible with the target platform.
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux_child");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux_child");
+  }
+
+  @Test
   public void resolve_hostPlatform() throws Exception {
     addToolchain(
         "extra",

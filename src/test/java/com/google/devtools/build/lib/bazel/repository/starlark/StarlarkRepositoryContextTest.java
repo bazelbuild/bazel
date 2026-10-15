@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.LabelConverter;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
@@ -87,7 +89,6 @@ import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
@@ -105,6 +106,7 @@ public final class StarlarkRepositoryContextTest {
   private Path outputDirectory;
   private Root root;
   private StarlarkRepositoryContext context;
+  private DownloadManager downloader;
   private SkyFunction.Environment environment;
   private ExtendedEventHandler listener;
   private Label fakeFileLabel;
@@ -147,8 +149,7 @@ public final class StarlarkRepositoryContextTest {
 
   private static Object exec(String... lines) {
     try {
-      return Starlark.execFile(
-          ParserInput.fromLines(lines), FileOptions.DEFAULT, Module.create(), thread);
+      return Starlark.execFile(ParserInput.fromLines(lines), Module.create(), thread);
     } catch (Exception ex) { // SyntaxError | EvalException | InterruptedException
       throw new AssertionError("exec failed", ex);
     }
@@ -176,7 +177,7 @@ public final class StarlarkRepositoryContextTest {
         repoRule.instantiate(kwargs, DUMMY_STACK, labelConverter, listener, "somewhere");
     RepoDefinition repoDefinition =
         new RepoDefinition(repoRule, repoSpec.attributes(), (String) kwargs.get("name"), null);
-    DownloadManager downloader = Mockito.mock(DownloadManager.class);
+    downloader = Mockito.mock(DownloadManager.class);
     environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);
     fakeFileLabel = Label.parseCanonical("//:foo");
@@ -709,6 +710,32 @@ public final class StarlarkRepositoryContextTest {
             context.getRecordedInputs().stream()
                 .filter(inputAndValue -> inputAndValue.input() instanceof RepoRecordedInput.File))
         .isEmpty();
+  }
+
+  @Test
+  public void testDownloadAndExtractAllowFail_leavesNoDownloadDirectory() throws Exception {
+    setUpRepo("test");
+    when(downloader.finalizeDownload(any())).thenThrow(new IOException("connection reset"));
+
+    StructImpl result =
+        context.downloadAndExtract(
+            "http://localhost/archive.zip",
+            "out",
+            /* sha256= */ "",
+            /* type= */ "zip",
+            /* stripPrefix= */ "",
+            /* allowFail= */ true,
+            /* canonicalId= */ "",
+            /* authUnchecked= */ Dict.empty(),
+            /* headersUnchecked= */ Dict.empty(),
+            /* integrity= */ "",
+            /* renameFiles= */ Dict.empty(),
+            /* oldStripPrefix= */ "",
+            /* stripComponentsI= */ StarlarkInt.of(0),
+            thread);
+
+    assertThat(result.getValue("success")).isEqualTo(false);
+    assertThat(outputDirectory.getRelative("out").readdir(Symlinks.NOFOLLOW)).isEmpty();
   }
 
   @Test

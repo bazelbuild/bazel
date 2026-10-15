@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.bazel.coverage;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.primitives.Booleans.falseFirst;
-import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -67,7 +65,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
-import java.util.Comparator;
 import javax.annotation.Nullable;
 
 /**
@@ -84,7 +81,7 @@ import javax.annotation.Nullable;
  * <p>The coverage report generation can have two phases, though they both run in the same action.
  * The source code of the coverage report tool {@code lcov_merger} is in the {@code
  * testing/coverage/lcov_merger} directory. The deployed binaries used by Blaze are under {@code
- * tools/coverage}.
+ * tools/test}.
  *
  * <p>The first phase is merging the individual coverage files into a single report file. The
  * location of this file is reported by Blaze. This phase always happens if the {@code
@@ -100,14 +97,6 @@ public final class CoverageReportActionBuilder {
 
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
-
-  private static final Comparator<ActionOwner> ACTION_OWNER_COMPARATOR =
-      Comparator.nullsFirst(
-          comparing(
-                  (ActionOwner actionOwner) -> actionOwner.getExecProperties().isEmpty(),
-                  falseFirst())
-              .thenComparing(ActionOwner::getLabel)
-              .thenComparing(ActionOwner::getConfigurationChecksum));
 
   // SpawnActions can't be used because they need the AnalysisEnvironment and this action is
   // created specially at the very end of the analysis phase when we don't have it anymore.
@@ -132,9 +121,8 @@ public final class CoverageReportActionBuilder {
     public ActionResult execute(ActionExecutionContext ctx)
         throws ActionExecutionException, InterruptedException {
       // The resources are fixed because this action borrows an arbitrary tested target's
-      // ActionOwner (see ACTION_OWNER_COMPARATOR): its exec properties describe that test rather
-      // than this report merge, so charging their `resources:` entries would tie the report's
-      // scheduling to whichever target happened to sort largest.
+      // ActionOwner, which describes the test resource usage rather than that of a coverage report
+      // generation.
       Spawn spawn =
           new BaseSpawn(
               command,
@@ -237,12 +225,9 @@ public final class CoverageReportActionBuilder {
       if (candidateOwner == null) {
         continue;
       }
-      // targetsToTest has non-deterministic order, so we ensure that we pick the same action owner
-      // and matching report generator each time by picking the owner that's lexicographically
-      // largest. We prefer an owner with exec properties set in case the action is run remotely.
-      if (reportGenerator == null
-          || actionOwner == null
-          || ACTION_OWNER_COMPARATOR.compare(candidateOwner, actionOwner) > 0) {
+      // Use the first test with coverage enabled as the owner of the coverage report actions. This
+      // relies on targetsToTest having a deterministic order.
+      if (actionOwner == null) {
         reportGenerator = generator;
         actionOwner = candidateOwner;
       }

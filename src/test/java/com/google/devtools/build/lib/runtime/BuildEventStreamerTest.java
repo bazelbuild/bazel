@@ -29,6 +29,8 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
@@ -1970,5 +1972,29 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
         FailureDetail.newBuilder()
             .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
             .build());
+  }
+
+  @Test
+  public void quiescenceFuture() throws Exception {
+    SettableFuture<Void> transportQuiescenceFuture = SettableFuture.create();
+    BuildEventTransport mockTransport = mock(BuildEventTransport.class);
+    when(mockTransport.getQuiescenceFuture()).thenReturn(transportQuiescenceFuture);
+
+    BuildEventStreamer customStreamer =
+        new BuildEventStreamer.Builder()
+            .artifactGroupNamer(artifactGroupNamer)
+            .besStreamOptions(Options.getDefaults(BuildEventStreamOptions.class))
+            .buildEventTransports(ImmutableSet.of(mockTransport))
+            .build();
+
+    ListenableFuture<Void> quiescenceFuture = customStreamer.getQuiescenceFuture();
+    assertThat(quiescenceFuture.isDone()).isFalse();
+
+    transportQuiescenceFuture.set(null);
+    quiescenceFuture.get();
+    assertThat(quiescenceFuture.isDone()).isTrue();
+
+    // Calling getQuiescenceFuture again returns the same future.
+    assertThat(customStreamer.getQuiescenceFuture()).isSameInstanceAs(quiescenceFuture);
   }
 }

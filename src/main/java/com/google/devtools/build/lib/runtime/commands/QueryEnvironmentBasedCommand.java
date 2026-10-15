@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -251,8 +250,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       TargetPattern.Parser mainRepoTargetParser,
       LabelPrinter labelPrinter) {
 
-    WalkableGraph walkableGraph =
-        SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
+    WalkableGraph walkableGraph = env.getSkyframeExecutor().getWalkableGraph();
 
     TargetProviderForQueryEnvironment targetProviderForQueryEnvironment =
         new TargetProviderForQueryEnvironment(walkableGraph, env.getPackageManager());

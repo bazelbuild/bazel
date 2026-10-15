@@ -38,26 +38,34 @@ if the build aborted prematurely.
 
 ### Build event graph {#build-event-graph}
 
-All build events form a directed acyclic graph through their parent and child
-relationship. Every build event except for the initial build event has one or
-more parent events. Please note that not all parent events of a child event must
-necessarily be posted before it. When a build is complete (succeeded or failed)
-all announced events will have been posted. In case of a Bazel crash or a failed
-network transport, some announced build events may never be posted.
+All build events form a directed acyclic graph (DAG) through their parent and child
+relationships. Every build event except for the initial `BuildStarted` event is announced
+by one or more earlier parent events.
 
-The event graph's structure reflects the lifecycle of a command. Every BEP
-graph has the following characteristic shape:
+#### Announcement contract
 
-1. The root event is always a [`BuildStarted`](/remote/bep-glossary#buildstarted)
-   event. All other events are its descendants.
-1. Immediate children of the BuildStarted event contain metadata about the
-   command.
-1. Events containing data produced by the command, such as files built and test
-   results, appear before the [`BuildFinished`](/remote/bep-glossary#buildfinished)
-   event.
-1. The [`BuildFinished`](/remote/bep-glossary#buildfinished) event *may* be followed
-   by events containing summary information about the build (for example, metric
-   or profiling data).
+The protocol requires that every event in the stream (except `BuildStarted`) is announced in the `children` list of an earlier event:
+
+* **Static parents:** High-level lifecycle events announce their natural children. For example, `BuildStarted` announces `PatternExpanded` and `BuildFinished`, and `PatternExpanded` announces `TargetConfigured` for each matching target.
+* **Dynamic chaining via Progress:** Events discovered dynamically during evaluation that have no natural static parent—such as `NamedSetOfFiles`, `Configuration`, `WorkspaceConfig`, and `Fetch`—are announced on the fly by intervening `Progress` events before they are posted.
+* **Completion invariant:** A build is considered complete if and only if all announced children have been posted or accounted for with an [`Aborted`](/remote/bep-glossary#aborted) event.
+
+#### Announcement vs. delivery ordering
+
+Being announced in `children` advertises that an event will eventually occur, but it does *not* imply delivery sequence:
+
+* Bazel posts events concurrently as actions complete across worker threads.
+* Some events (such as `TargetComplete`, `TestResult`, and `TestSummary`) specify order constraints (`postedAfter` in the Bazel implementation). Bazel holds back delivering these events until their prerequisite events have been posted.
+* For test executions, `TargetComplete` announces initial test attempts (`TestResult`), while each retry attempt is announced by the attempt that immediately preceded it.
+
+#### Lifecycle stages
+
+The event graph reflects the phases of a Bazel invocation:
+
+1. **Invocation Start:** The root [`BuildStarted`](/remote/bep-glossary#buildstarted) event is published first. It announces command metadata (`OptionsParsed`, `CommandLine`, `WorkspaceStatus`), target pattern expansion (`PatternExpanded`), and build completion (`BuildFinished`).
+2. **Analysis & Configuration:** `PatternExpanded` announces `TargetConfigured` events for parsed targets. Intervening `Progress` events chain in build configurations (`Configuration`).
+3. **Execution:** Each `TargetConfigured` event announces its corresponding [`TargetComplete`](/remote/bep-glossary#targetcomplete) event. `TargetComplete` references output file sets (`NamedSetOfFiles`, which are dynamically announced via intervening `Progress` events) and announces target-level summaries ([`TargetSummary`](/remote/bep-glossary#targetsummary)) as well as test events ([`TestResult`](/remote/bep-glossary#testresult), [`TestSummary`](/remote/bep-glossary#testsummary)) for test targets.
+4. **Completion & Tool Logs:** The [`BuildFinished`](/remote/bep-glossary#buildfinished) event is published after command evaluation finishes, providing the authoritative exit code. It announces post-build events such as [`BuildMetrics`](/remote/bep-glossary#buildmetrics), [`BuildToolLogs`](/remote/bep-glossary#buildtoollogs), and, for `bazel run` without `--script_path`, [`ExecRequestConstructed`](/remote/bep-glossary#execrequestconstructed). These may arrive in any order; the final event of the stream has `last_message` set.
 
 ## Consuming Build Event Protocol {#consuming-bep}
 

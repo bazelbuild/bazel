@@ -383,7 +383,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   @Override
   public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
-    StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
+    StarlarkProvider.Builder builder =
+        StarlarkProvider.builder(
+            thread.getCallerLocation(), thread.getSemantics(), thread.getTypeContext());
     Starlark.toJavaOptional(doc, String.class)
         .map(Starlark::trimDocString)
         .ifPresent(builder::setDocumentation);
@@ -1877,10 +1879,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             checkAttributeName(arg);
             if (arg.startsWith("_")) {
               // allow setting private attributes from initializers in builtins
-              Label definitionLabel = currentRuleClass.getRuleDefinitionEnvironmentLabel();
-              BuiltinRestriction.failIfLabelOutsideAllowlist(
-                  definitionLabel,
-                  targetDefinitionContext.getMainRepoMapping(),
+              BuiltinRestriction.failIfModuleOutsideAllowlist(
+                  BazelModuleContext.of(currentRuleClass.getInitializer().getModule()),
                   ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL);
             }
             String nativeName = arg.startsWith("_") ? "$" + arg.substring(1) : arg;

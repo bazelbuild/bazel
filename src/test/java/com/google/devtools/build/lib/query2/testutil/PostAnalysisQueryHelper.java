@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelp
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -217,8 +216,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     }
     AnalysisResult analysisResult =
         analysisHelper.update(ImmutableList.copyOf(aspects), universe.toArray(new String[0]));
-    WalkableGraph walkableGraph =
-        SkyframeExecutorWrappingWalkableGraph.of(analysisHelper.getSkyframeExecutor());
+    WalkableGraph walkableGraph = analysisHelper.getSkyframeExecutor().getWalkableGraph();
     ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations =
         getTransitiveConfigurations(
             analysisHelper.getSkyframeExecutor().getTransitiveConfigurationKeys(), walkableGraph);

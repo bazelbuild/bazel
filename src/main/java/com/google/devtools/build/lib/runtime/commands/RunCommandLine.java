@@ -301,27 +301,37 @@ class RunCommandLine {
       result.append("cd /d ").append(workingDir).append("\n");
       result.append("  ").append(unsetEnv).append("\n");
       result.append("  ").append(setEnv).append("\n");
-      result.append("  ").append(commandLine).append(" %*\n");
+      result.append("  ").append(commandLine).append("\n");
       return result.toString();
     }
 
     private static String getCommandLine(
         String shExecutable, @Nullable String runUnderPrefix, ImmutableList<String> args) {
-      StringBuilder command = new StringBuilder();
-      if (runUnderPrefix != null) {
-        command.append(runUnderPrefix).append(" ");
-      }
-      for (int i = 0; i < args.size(); i++) {
-        if (i == 0) {
-          command.append(args.get(i).replace('/', '\\'));
-        } else {
-          command.append(" ").append(ShellUtils.windowsEscapeArg(args.get(i)));
-        }
-      }
       if (runUnderPrefix == null) {
+        StringBuilder command = new StringBuilder();
+        for (int i = 0; i < args.size(); i++) {
+          if (i == 0) {
+            command.append(args.get(i).replace('/', '\\'));
+          } else {
+            command.append(" ").append(ShellUtils.windowsEscapeArg(args.get(i)));
+          }
+        }
+        command.append(" %*");
         return command.toString();
       } else {
-        return shExecutable + " -c " + ShellEscaper.escapeString(command.toString());
+        StringBuilder command = new StringBuilder();
+        command.append(runUnderPrefix).append(" ");
+        for (int i = 0; i < args.size(); i++) {
+          if (i > 0) {
+            command.append(" ");
+          }
+          command.append(ShellEscaper.escapeString(args.get(i)));
+        }
+        command.append(" \"$@\"");
+        return ShellUtils.windowsEscapeArg(shExecutable)
+            + " -c "
+            + ShellUtils.windowsEscapeArg(command.toString())
+            + " bash %*";
       }
     }
   }

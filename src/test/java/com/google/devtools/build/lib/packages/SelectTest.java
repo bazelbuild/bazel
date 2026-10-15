@@ -37,7 +37,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 import org.junit.Test;
@@ -56,7 +55,7 @@ public class SelectTest {
             semantics, StarlarkGlobalsImpl.INSTANCE.getUtilToplevels(), bazelModuleContext);
     try (Mutability mu = Mutability.create()) {
       StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
-      return Starlark.eval(input, FileOptions.DEFAULT, module, thread);
+      return Starlark.eval(input, module, thread);
     }
   }
 
@@ -168,6 +167,7 @@ public class SelectTest {
                     "other_repo",
                     RepositoryName.createUnvalidated("other_repo+")),
                 RepositoryName.MAIN),
+            /* moduleRepoName= */ null,
             "other/pkg/def.bzl",
             /* loads= */ ImmutableList.of(),
             /* bzlTransitiveDigest= */ new byte[0],

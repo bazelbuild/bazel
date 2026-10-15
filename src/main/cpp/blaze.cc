@@ -54,8 +54,8 @@
 #include <utility>
 #include <vector>
 
-#include "src/main/cpp/startup_interceptor.h"
 #include "src/main/cpp/command_extension_adder.h"
+#include "src/main/cpp/startup_interceptor.h"
 
 #if !defined(_WIN32)
 #include <sys/stat.h>
@@ -573,6 +573,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   } else {
     result.push_back("--nowindows_enable_symlinks");
   }
+  if (startup_options.delete_output_base_on_shutdown) {
+    result.push_back("--delete_output_base_on_shutdown");
+  } else {
+    result.push_back("--nodelete_output_base_on_shutdown");
+  }
   if (startup_options.remote_repo_contents_cache) {
     result.push_back("--experimental_remote_repo_contents_cache");
     // Don't set the flag to false if it's not set - non-OSS Blaze does not know
@@ -722,6 +727,13 @@ static bool CanRunOutsideWorkspace(const string& command) {
          command == "version";
 }
 
+// Returns the path of the file that the server JVM reads its arguments from on
+// Windows.
+static blaze_util::Path GetServerJvmArgFilePath(
+    const blaze_util::Path& output_base) {
+  return output_base.GetRelative("server_jvm.args");
+}
+
 // Replace this process with the blaze server. Does not exit.
 static void RunServerMode(
     const blaze_util::Path &server_exe, const vector<string> &server_exe_args,
@@ -760,7 +772,9 @@ static void RunServerMode(
 #else
     bool run_in_user_cgroup = false;
 #endif
-    ExecuteServerJvm(server_exe, server_exe_args, run_in_user_cgroup);
+    ExecuteServerJvm(server_exe, server_exe_args,
+                     GetServerJvmArgFilePath(startup_options.output_base),
+                     run_in_user_cgroup);
   }
 }
 
@@ -823,7 +837,9 @@ static void RunBatchMode(
 #else
     bool run_in_user_cgroup = false;
 #endif
-    ExecuteServerJvm(server_exe, jvm_args_vector, run_in_user_cgroup);
+    ExecuteServerJvm(server_exe, jvm_args_vector,
+                     GetServerJvmArgFilePath(startup_options.output_base),
+                     run_in_user_cgroup);
   }
 }
 

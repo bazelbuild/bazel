@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
@@ -57,6 +56,7 @@ import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChec
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
@@ -89,6 +89,7 @@ import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.Version;
+import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -240,6 +241,7 @@ public class BuildViewForTesting {
         aspects,
         aspectsParameters,
         viewOptions,
+        Options.getDefaults(BuildRequestOptions.class),
         keepGoing,
         /* skipIncompatibleExplicitTargets= */ false,
         /* checkForActionConflicts= */ true,
@@ -250,7 +252,6 @@ public class BuildViewForTesting {
         eventBus,
         BugReporter.defaultInstance(),
         /* includeExecutionPhase= */ false,
-        /* skymeldAnalysisOverlapPercentage= */ 0,
         /* resourceManager= */ null,
         /* buildResultListener= */ null,
         /* executionSetupCallback= */ null,
@@ -404,7 +405,7 @@ public class BuildViewForTesting {
         .setActionOwnerSymbol(ConfiguredTargetKey.fromConfiguredTarget(configuredTarget))
         .setMutability(Mutability.create("configured target"))
         .setVisibility(VisibilityProvider.PUBLIC_VISIBILITY)
-        .setPrerequisites(ConfiguredTargetFactory.removeToolchainDeps(prerequisiteMap))
+        .setPrerequisites(prerequisiteMap)
         .setConfigConditions(ConfigConditions.EMPTY)
         .setToolchainContexts(resolvedToolchainContext.build())
         .setExecGroupCollectionBuilder(state.execGroupCollectionBuilder)

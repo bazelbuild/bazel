@@ -356,6 +356,52 @@ public class LocalDiffAwarenessTest {
   }
 
   @Test
+  public void testDirectoryReplacedDuringOverflow() throws Exception {
+    mkdir("dir");
+    touch("dir/old.txt");
+    captureFirstView(watchFsEnabledProvider);
+
+    // Overflow the watch key of the root directory first, so that the move and the re-creation
+    // below are among the events that are dropped.
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    // Move the watched directory out of sight and put a different directory in its place. The
+    // watch key of the old directory stays valid, but it no longer watches what is at "dir" now.
+    move("dir", "ignored-dir/moved");
+    mkdir("dir");
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // Overflow recovery must have registered the replacement directory.
+    touch("dir/new.txt");
+    new ModifiedFileSetChecker().modify("dir/new.txt").check();
+  }
+
+  @Test
+  public void testDirectoryMovedAndReplacedDuringOverflow() throws Exception {
+    mkdir("dir1");
+    touch("dir1/old.txt");
+    captureFirstView(watchFsEnabledProvider);
+
+    // Overflow the watch key of the root directory first, so that the move and the re-creation
+    // below are among the events that are dropped.
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    // Both the moved directory and its replacement remain under the watch root, so the watch key
+    // of the moved directory must be rebound to its new path instead of being cancelled.
+    move("dir1", "dir2");
+    mkdir("dir1");
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    touch("dir1/new.txt");
+    touch("dir2/moved.txt");
+    new ModifiedFileSetChecker().modify("dir1/new.txt").modify("dir2/moved.txt").check();
+  }
+
+  @Test
   public void testUnreadableDirectory() throws Exception {
     mkdir("unreadable");
     Path unreadable = testCaseRoot.getRelative("unreadable");
@@ -447,6 +493,10 @@ public class LocalDiffAwarenessTest {
     path.deleteTree();
   }
 
+  private void move(String from, String to) throws IOException {
+    testCaseRoot.getRelative(from).renameTo(testCaseRoot.getRelative(to));
+  }
+
   private void symlink(String from, String to) throws IOException {
     Path fromPath = testCaseRoot.getRelative(from);
     Path toPath = testCaseRoot.getRelative(to);
@@ -456,7 +506,7 @@ public class LocalDiffAwarenessTest {
   private class ModifiedFileSetChecker {
     private final Set<PathFragment> modified = new HashSet<>();
 
-    public void check() throws Exception {
+    void check() throws Exception {
       // Unfortunately, inotify needs a few milliseconds (more than a few in the worst case)
       // after a change to pick up a list of changed files. Trying a few times to make sure.
       for (int i = 0; i < MAX_RETRY_COUNT; i++) {
@@ -475,7 +525,7 @@ public class LocalDiffAwarenessTest {
       assertThat(modified).isEmpty();
     }
 
-    public void checkEverythingModified(OptionsProvider options) throws Exception {
+    void checkEverythingModified(OptionsProvider options) throws Exception {
       DiffAwareness.View newView = localDiff.getCurrentView(options);
       ModifiedFileSet modifiedFileSet = localDiff.getDiff(oldView, newView);
       oldView = newView;
@@ -483,7 +533,7 @@ public class LocalDiffAwarenessTest {
     }
 
     @CanIgnoreReturnValue
-    public ModifiedFileSetChecker modify(String filename) {
+    ModifiedFileSetChecker modify(String filename) {
       modified.add(PathFragment.create(filename));
       return this;
     }

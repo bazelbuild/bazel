@@ -20,10 +20,10 @@
 #include <utility>
 #include <vector>
 
+#include "src/tools/one_version/duplicate_class_collector.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "src/tools/one_version/duplicate_class_collector.h"
 
 namespace one_version {
 

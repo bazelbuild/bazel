@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -40,11 +40,11 @@ public interface MerkleTreeUploader {
       PathFragment execPath,
       boolean force);
 
-  /** Uploads a virtual action input to the remote cache. */
-  ListenableFuture<Void> uploadVirtualActionInput(
+  /** Uploads in-memory content provided by a {@link DeterministicWriter} to the remote cache. */
+  ListenableFuture<Void> uploadDeterministicWriter(
       RemoteActionExecutionContext context,
       Digest digest,
-      VirtualActionInput virtualActionInput,
+      DeterministicWriter deterministicWriter,
       boolean force);
 
   /**

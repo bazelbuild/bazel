@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -288,6 +289,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return false;
   }
 
+  /**
+   * Returns whether the file with the given metadata is available at the given path, e.g. because
+   * it has been downloaded before.
+   */
+  public boolean isAvailable(Path path, FileArtifactValue metadata) throws IOException {
+    return !shouldDownloadFile(path.forHostFileSystem(), metadata);
+  }
+
+  /**
+   * Returns whether the file at the given path with the given metadata should be downloaded.
+   *
+   * <p>Must only return true for regular files with local metadata if {@link #forceRefetch} returns
+   * true for them, as such files are otherwise skipped without calling this method.
+   */
   protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata)
       throws IOException;
 
@@ -295,7 +310,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * If true, then all previously acquired knowledge of the file system state of this path (e.g. the
    * existence of tree artifact directories or previously downloaded files) must be discarded.
    */
-  protected boolean forceRefetch(Path path) {
+  protected final boolean forceRefetch(Path path) {
     // Caches for download operations and output directory creation need to be disregarded for the
     // outputs of rewound actions as they may have been deleted after they were first created.
     // Compare as fragments since execRoot may be located on a file system overlaying the host file
@@ -444,16 +459,27 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         return immediateVoidFuture();
       }
 
-      Path inputPath =
-          input instanceof Artifact artifact
-              ? artifact.getPath()
-              : execRoot.getRelative(input.getExecPath());
-
       // Metadata may legitimately be missing, e.g. if this is an optional test output.
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
       if (metadata == null) {
         return immediateVoidFuture();
       }
+
+      // Regular files that are already present locally and have no symlinks to plant only need to
+      // be prefetched if they are outputs of rewound actions.
+      if (!metadata.isRemote()
+          && !metadata.isInline()
+          && metadata.getType() == FileStateType.REGULAR_FILE
+          && metadata.getResolvedPath() == null
+          && !(input instanceof TreeFileArtifact)
+          && rewoundActionOutputs.isEmpty()) {
+        return immediateVoidFuture();
+      }
+
+      Path inputPath =
+          input instanceof Artifact artifact
+              ? artifact.getPath()
+              : execRoot.getRelative(input.getExecPath());
 
       if (metadata.getType() == FileStateType.DIRECTORY) {
         // Tree artifacts have already been expanded into their children, so this is a source
@@ -501,6 +527,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   metadata,
                   priority,
                   reason)
+              .onErrorResumeNext(e -> Completable.error(maybeOverrideMissingInput(e, input)))
               .andThen(plantSymlinks);
 
       return toListenableFuture(result);
@@ -632,6 +659,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       throw new FileSymlinkLoopException(path.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
     }
     return path;
+  }
+
+  /**
+   * A download is shared by all callers that request the same file, possibly through different
+   * inputs such as symlinks that resolve to it, and its failure names the input of the caller that
+   * started it. Returns a failure that names the given input of the current caller instead.
+   */
+  private static Throwable maybeOverrideMissingInput(Throwable failure, ActionInput input) {
+    if (failure instanceof CacheNotFoundException e
+        && !input.getExecPath().equals(e.getExecPath())) {
+      var ownFailure = new CacheNotFoundException(e.getMissingDigest(), input.getExecPath());
+      ownFailure.addSuppressed(e);
+      return ownFailure;
+    }
+    return failure;
   }
 
   private Completable downloadFileNoCheckRx(

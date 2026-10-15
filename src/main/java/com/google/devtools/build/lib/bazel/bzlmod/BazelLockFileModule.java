@@ -51,7 +51,7 @@ public class BazelLockFileModule extends BlazeModule {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final ImmutableSet<LockfileMode> ENABLED_IN_MODES =
-      Sets.immutableEnumSet(LockfileMode.UPDATE, LockfileMode.REFRESH);
+      Sets.immutableEnumSet(LockfileMode.UPDATE, LockfileMode.REFRESH, LockfileMode.ERROR);
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -147,6 +147,10 @@ public class BazelLockFileModule extends BlazeModule {
     Thread updateLockfile =
         Thread.startVirtualThread(
             () -> {
+              if (lockfileMode == LockfileMode.ERROR) {
+                // The workspace lockfile is read-only, but the hidden cache can still be updated.
+                return;
+              }
               var notReproducibleExtensionInfos =
                   combineModuleExtensions(
                       oldLockfile.getModuleExtensions(),
