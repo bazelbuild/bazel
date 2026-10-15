@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 
 import com.google.common.collect.ImmutableList;
@@ -64,7 +63,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata, StarlarkValue {
   /**
-   * Given a list of input TreeFileArtifacts resolved at execution time, returns a list of expanded
+   * Given the files of the input directories resolved at execution time, returns a list of expanded
    * actions to be executed.
    *
    * <p>Each of the expanded actions' outputs must be a {@link TreeFileArtifact} owned by {@code
@@ -74,6 +73,7 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    * @param inputTreeFileArtifacts a list of {@link TreeFileArtifact}s from the input
    *     TreeArtifact(s). Use {@link TreeFileArtifact#getParent()} to identify which input {@link
    *     TreeArtifact} the tree file artifact is from.
+   * @param inputSourceDirectoryFiles the files of each input source directory
    * @param artifactOwner the {@link ArtifactOwner} of the generated output {@link
    *     TreeFileArtifact}s
    * @param eventHandler the {@link EventHandler} to report events to.
@@ -81,31 +81,13 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    */
   ImmutableList<T> generateActionsForInputArtifacts(
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
       ActionLookupKey artifactOwner,
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException;
 
-  /**
-   * Like {@link #generateActionsForInputArtifacts(ImmutableList, ActionLookupKey, EventHandler)},
-   * additionally given the files within each of {@link #getInputSourceDirectories}.
-   */
-  default ImmutableList<T> generateActionsForInputArtifacts(
-      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
-      ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
-      ActionLookupKey artifactOwner,
-      EventHandler eventHandler)
-      throws ActionConflictException, ActionExecutionException, InterruptedException {
-    checkArgument(inputSourceDirectoryFiles.isEmpty(), inputSourceDirectoryFiles);
-    return generateActionsForInputArtifacts(inputTreeFileArtifacts, artifactOwner, eventHandler);
-  }
-
-  /** Returns the input TreeArtifacts. */
-  ImmutableList<SpecialArtifact> getInputTreeArtifacts();
-
-  /** Returns the input source directories, expanded like input TreeArtifacts. */
-  default ImmutableList<SourceArtifact> getInputSourceDirectories() {
-    return ImmutableList.of();
-  }
+  /** Returns the input directories: TreeArtifacts and, if supported, source directories. */
+  ImmutableList<Artifact> getInputDirectories();
 
   /**
    * Helper method to partition/denormalize the flattened list of input {@link TreeFileArtifact}s
@@ -119,7 +101,7 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
 
   @Override
   default Artifact getPrimaryInput() {
-    return getInputTreeArtifacts().get(0);
+    return getInputDirectories().get(0);
   }
 
   @Override

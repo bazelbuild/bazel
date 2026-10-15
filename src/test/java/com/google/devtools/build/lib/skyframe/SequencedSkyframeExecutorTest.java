@@ -27,6 +27,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -55,6 +56,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -1389,6 +1391,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     @Override
     public ImmutableList<DummyAction> generateActionsForInputArtifacts(
         ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+        ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
         ActionLookupKey artifactOwner,
         EventHandler eventHandler) {
       return inputTreeFileArtifacts.stream()
@@ -1414,8 +1417,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     }
 
     @Override
-    public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
-      return inputArtifacts;
+    public ImmutableList<Artifact> getInputDirectories() {
+      return ImmutableList.copyOf(inputArtifacts);
     }
 
     @Override

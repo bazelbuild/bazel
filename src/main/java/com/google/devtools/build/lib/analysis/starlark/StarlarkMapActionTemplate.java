@@ -223,16 +223,6 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   @Override
   public ImmutableList<AbstractAction> generateActionsForInputArtifacts(
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
-      ActionLookupKey artifactOwner,
-      EventHandler eventHandler)
-      throws ActionConflictException, ActionExecutionException, InterruptedException {
-    return generateActionsForInputArtifacts(
-        inputTreeFileArtifacts, ImmutableListMultimap.of(), artifactOwner, eventHandler);
-  }
-
-  @Override
-  public ImmutableList<AbstractAction> generateActionsForInputArtifacts(
-      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
       ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
       ActionLookupKey artifactOwner,
       EventHandler eventHandler)
@@ -435,24 +425,8 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
-    return inputDirectories.values().stream()
-        .filter(SpecialArtifact.class::isInstance)
-        .map(SpecialArtifact.class::cast)
-        .collect(toImmutableList());
-  }
-
-  @Override
-  public ImmutableList<SourceArtifact> getInputSourceDirectories() {
-    return inputDirectories.values().stream()
-        .filter(SourceArtifact.class::isInstance)
-        .map(SourceArtifact.class::cast)
-        .collect(toImmutableList());
-  }
-
-  @Override
-  public Artifact getPrimaryInput() {
-    return inputDirectories.values().iterator().next();
+  public ImmutableList<Artifact> getInputDirectories() {
+    return ImmutableList.copyOf(inputDirectories.values());
   }
 
   @Override

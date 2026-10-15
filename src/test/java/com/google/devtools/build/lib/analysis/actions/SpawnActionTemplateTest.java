@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -204,6 +205,7 @@ public class SpawnActionTemplateTest {
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
             inputTreeFileArtifacts,
+            ImmutableListMultimap.of(),
             ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
             NullEventHandler.INSTANCE);
 
@@ -248,6 +250,7 @@ public class SpawnActionTemplateTest {
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
             inputTreeFileArtifacts,
+            ImmutableListMultimap.of(),
             ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
             NullEventHandler.INSTANCE);
 
@@ -271,6 +274,7 @@ public class SpawnActionTemplateTest {
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
             inputTreeFileArtifacts,
+            ImmutableListMultimap.of(),
             ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
             NullEventHandler.INSTANCE);
 
@@ -297,6 +301,7 @@ public class SpawnActionTemplateTest {
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
             inputTreeFileArtifacts,
+            ImmutableListMultimap.of(),
             ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
             NullEventHandler.INSTANCE);
 
@@ -337,6 +342,7 @@ public class SpawnActionTemplateTest {
         () ->
             actionTemplate.generateActionsForInputArtifacts(
                 inputTreeFileArtifacts,
+                ImmutableListMultimap.of(),
                 ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
                 NullEventHandler.INSTANCE));
 
@@ -356,6 +362,7 @@ public class SpawnActionTemplateTest {
         () ->
             actionTemplate2.generateActionsForInputArtifacts(
                 inputTreeFileArtifacts,
+                ImmutableListMultimap.of(),
                 ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
                 NullEventHandler.INSTANCE));
   }

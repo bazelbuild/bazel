@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -245,6 +247,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
               ActionLookupKey artifactOwner,
               EventHandler eventHandler) {
             ImmutableList.Builder<DummyAction> actions = ImmutableList.builder();
@@ -287,6 +290,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
               ActionLookupKey artifactOwner,
               EventHandler eventHandler) {
             ImmutableList.Builder<DummyAction> actions = ImmutableList.builder();
@@ -537,8 +541,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     }
 
     @Override
-    public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
-      return inputTreeArtifacts;
+    public ImmutableList<Artifact> getInputDirectories() {
+      return ImmutableList.copyOf(inputTreeArtifacts);
     }
 
     @Override

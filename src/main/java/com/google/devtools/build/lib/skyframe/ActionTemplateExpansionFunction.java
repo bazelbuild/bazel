@@ -82,9 +82,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
 
     ImmutableList.Builder<SkyKey> inputKeys =
-        ImmutableList.<SkyKey>builder()
-            .addAll(actionTemplate.getInputTreeArtifacts())
-            .addAll(actionTemplate.getInputSourceDirectories());
+        ImmutableList.<SkyKey>builder().addAll(actionTemplate.getInputDirectories());
 
     // Following b/143205147, we unwrap the top layer of the NestedSet and evaluate the first layer
     // of the NestedSet as direct Artifact(s) and transitive NestedSet(s).
@@ -106,30 +104,29 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     ImmutableList<ActionAnalysisMetadata> actions;
     try {
       ImmutableList.Builder<TreeFileArtifact> inputTreeFileArtifacts = ImmutableList.builder();
-      for (SpecialArtifact inputTreeArtifact : actionTemplate.getInputTreeArtifacts()) {
+      ImmutableListMultimap.Builder<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles =
+          ImmutableListMultimap.builder();
+      for (Artifact inputDirectory : actionTemplate.getInputDirectories()) {
+        if (inputDirectory instanceof SourceArtifact sourceDirectory) {
+          var metadata = (FileArtifactValue) result.get(sourceDirectory);
+          if (metadata == null) {
+            return null;
+          }
+          Preconditions.checkNotNull(
+                  metadata.getSourceDirectoryEntries(), "%s: %s", sourceDirectory, metadata)
+              .forEachChild(
+                  sourceDirectory,
+                  (file, unused) -> inputSourceDirectoryFiles.put(sourceDirectory, file));
+          continue;
+        }
         TreeArtifactValue treeArtifactValue =
-            (TreeArtifactValue)
-                result.getOrThrow(inputTreeArtifact, ActionExecutionException.class);
+            (TreeArtifactValue) result.getOrThrow(inputDirectory, ActionExecutionException.class);
         // b/507424770#comment10: To handle the case of a wrongly bubbled up exception causing a
         // null value, we return null here so that we don't crash with an NPE.
         if (treeArtifactValue == null) {
           return null;
         }
         inputTreeFileArtifacts.addAll(treeArtifactValue.getChildren());
-      }
-      ImmutableListMultimap.Builder<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles =
-          ImmutableListMultimap.builder();
-      for (SourceArtifact inputSourceDirectory : actionTemplate.getInputSourceDirectories()) {
-        var metadata = (FileArtifactValue) result.get(inputSourceDirectory);
-        if (metadata == null) {
-          return null;
-        }
-        Preconditions.checkNotNull(
-                metadata.getSourceDirectoryEntries(), "%s: %s", inputSourceDirectory, metadata)
-            .forEach(
-                (path, unused) ->
-                    inputSourceDirectoryFiles.put(
-                        inputSourceDirectory, inputSourceDirectory.getChild(path)));
       }
       // Expand the action template using the list of expanded input TreeFileArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
