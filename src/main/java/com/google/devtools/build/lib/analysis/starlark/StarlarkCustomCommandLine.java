@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.SourceDirectoryEntries;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -515,16 +516,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
       } catch (IOException e) {
         throw cannotExpandSourceDirectory(directory, e);
       }
-      ImmutableMap<PathFragment, FileArtifactValue> entries =
+      SourceDirectoryEntries entries =
           metadata == null ? null : metadata.getSourceDirectoryEntries();
       if (entries == null) {
         throw cannotExpandSourceDirectory(directory, /* cause= */ null);
       }
-      ImmutableList.Builder<SourceArtifact> children =
-          ImmutableList.builderWithExpectedSize(entries.size());
-      for (PathFragment entry : entries.keySet()) {
-        children.add(directory.getChild(entry));
-      }
+      ImmutableList.Builder<SourceArtifact> children = ImmutableList.builder();
+      entries.forEach((path, unused) -> children.add(directory.getChild(path)));
       return children.build();
     }
 

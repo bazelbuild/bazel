@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -125,13 +124,12 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
         if (metadata == null) {
           return null;
         }
-        ImmutableMap<PathFragment, FileArtifactValue> entries =
-            Preconditions.checkNotNull(
-                metadata.getSourceDirectoryEntries(), "%s: %s", inputSourceDirectory, metadata);
-        for (PathFragment entry : entries.keySet()) {
-          inputSourceDirectoryFiles.put(
-              inputSourceDirectory, inputSourceDirectory.getChild(entry));
-        }
+        Preconditions.checkNotNull(
+                metadata.getSourceDirectoryEntries(), "%s: %s", inputSourceDirectory, metadata)
+            .forEach(
+                (path, unused) ->
+                    inputSourceDirectoryFiles.put(
+                        inputSourceDirectory, inputSourceDirectory.getChild(path)));
       }
       // Expand the action template using the list of expanded input TreeFileArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs

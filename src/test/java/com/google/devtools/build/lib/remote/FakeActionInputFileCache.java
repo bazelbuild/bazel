@@ -17,7 +17,6 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -152,7 +151,7 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
     setMetadata(
         input,
         FileArtifactValue.createForDirectoryWithHash(
-            DigestUtil.toBinaryDigest(digest), ImmutableMap.of()));
+            DigestUtil.toBinaryDigest(digest), consumer -> {}));
     return digest;
   }
 

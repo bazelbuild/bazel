@@ -680,7 +680,7 @@ public abstract class ActionInputPrefetcherTestBase {
             ImmutableList.of(directory),
             input -> {
               requested.add(input);
-              return FileArtifactValue.createForDirectoryWithHash(new byte[] {1}, ImmutableMap.of());
+              return FileArtifactValue.createForDirectoryWithHash(new byte[] {1}, consumer -> {});
             },
             Priority.MEDIUM,
             Reason.INPUTS));

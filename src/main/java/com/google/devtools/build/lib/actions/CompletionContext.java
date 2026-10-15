@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -100,17 +98,16 @@ public final class CompletionContext {
                 importantInputMap.getInputMetadata(artifact),
                 "missing metadata for artifact: %s",
                 artifact);
-        ImmutableMap<PathFragment, FileArtifactValue> entries =
+        FileArtifactValue.SourceDirectoryEntries entries =
             artifact instanceof SourceArtifact && artifact.isDirectory()
                 ? metadata.getSourceDirectoryEntries()
                 : null;
         if (entries == null) {
           receiver.accept(artifact, metadata);
         } else {
-          for (Map.Entry<PathFragment, FileArtifactValue> entry : entries.entrySet()) {
-            receiver.accept(
-                ((SourceArtifact) artifact).getChild(entry.getKey()), entry.getValue());
-          }
+          entries.forEach(
+              (path, childMetadata) ->
+                  receiver.accept(((SourceArtifact) artifact).getChild(path), childMetadata));
         }
       }
     }
