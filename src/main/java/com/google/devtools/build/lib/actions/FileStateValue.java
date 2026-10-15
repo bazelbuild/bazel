@@ -151,10 +151,14 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
       throws IOException {
     checkState(stat.isFile(), path);
 
-    if (stat instanceof FileStatusWithMetadata fileStatusWithMetadata) {
-      return new RegularFileStateValueWithMetadata(fileStatusWithMetadata.getMetadata());
-    }
     try {
+      int permissions = stat.getPermissions();
+      boolean executable =
+          permissions >= 0 ? (permissions & 0100) != 0 : path.isExecutable();
+      if (stat instanceof FileStatusWithMetadata fileStatusWithMetadata) {
+        return new RegularFileStateValueWithMetadata(
+            fileStatusWithMetadata.getMetadata(), executable);
+      }
       byte[] digest = tryGetDigest(path, stat, xattrProvider);
       if (digest == null) {
         // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe method.
@@ -162,12 +166,12 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
           tsgm.notifyDependenceOnFileTime(path.asFragment(), stat.getLastChangeTime());
         }
         return new RegularFileStateValueWithContentsProxy(
-            stat.getSize(), FileContentsProxy.create(stat));
+            stat.getSize(), FileContentsProxy.create(stat), executable);
       } else {
         // We are careful here to avoid putting the value ID into FileMetadata if we already have a
         // digest. Arbitrary filesystems may do weird things with the value ID; a digest is more
         // robust.
-        return new RegularFileStateValueWithDigest(stat.getSize(), digest);
+        return new RegularFileStateValueWithDigest(stat.getSize(), digest, executable);
       }
     } catch (IOException e) {
       String errorMessage = e.getMessage() != null ? "error '" + e.getMessage() + "'" : "an error";
@@ -222,14 +226,19 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
     throw new IllegalStateException();
   }
 
+  /** Returns whether a regular file is executable. */
+  public boolean isExecutable() {
+    throw new IllegalStateException();
+  }
+
   @Nullable
   public abstract FileContentsProxy getContentsProxy();
 
   /** The result of {@link #compareContents}. */
   public enum ContentsComparisonResult {
     /**
-     * Both values describe the same file contents and can be used interchangeably, even if not
-     * equal.
+     * Both values describe the same file contents and executable bit and can be used
+     * interchangeably, even if not equal.
      */
     SAME,
     /**
@@ -242,14 +251,17 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
   }
 
   /**
-   * Compares the file contents described by this value and {@code other} regardless of how each
-   * value represents them, using either a digest or a proxy.
+   * Compares file contents and executable bits regardless of whether this value and {@code other}
+   * represent contents using a digest or a proxy.
    */
   public ContentsComparisonResult compareContents(FileStateValue other) {
     if (this.equals(other)) {
       return ContentsComparisonResult.SAME;
     }
     if (getType() != other.getType()) {
+      return ContentsComparisonResult.DIFFERENT;
+    }
+    if (getType() == FileStateType.REGULAR_FILE && isExecutable() != other.isExecutable()) {
       return ContentsComparisonResult.DIFFERENT;
     }
     return switch (getType()) {
@@ -296,22 +308,36 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
 
   abstract String prettyPrint();
 
+  private abstract static class RegularFileStateValue extends FileStateValue {
+    private final boolean executable;
+
+    RegularFileStateValue(boolean executable) {
+      this.executable = executable;
+    }
+
+    @Override
+    public final FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public final boolean isExecutable() {
+      return executable;
+    }
+  }
+
   /**
    * Implementation of {@link FileStateValue} for regular files when a {@link #digest} is provided.
    */
-  public static final class RegularFileStateValueWithDigest extends FileStateValue {
+  public static final class RegularFileStateValueWithDigest extends RegularFileStateValue {
     private final long size;
     private final byte[] digest;
 
     @VisibleForTesting
-    public RegularFileStateValueWithDigest(long size, byte[] digest) {
+    public RegularFileStateValueWithDigest(long size, byte[] digest, boolean executable) {
+      super(executable);
       this.size = size;
       this.digest = checkNotNull(digest);
-    }
-
-    @Override
-    public FileStateType getType() {
-      return FileStateType.REGULAR_FILE;
     }
 
     @Override
@@ -338,18 +364,21 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
       if (!(obj instanceof RegularFileStateValueWithDigest other)) {
         return false;
       }
-      return size == other.size && Arrays.equals(digest, other.digest);
+      return size == other.size
+          && isExecutable() == other.isExecutable()
+          && Arrays.equals(digest, other.digest);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(size, Arrays.hashCode(digest));
+      return Objects.hash(size, Arrays.hashCode(digest), isExecutable());
     }
 
     @Override
     public byte[] getValueFingerprint() {
       Fingerprint fp = new Fingerprint().addLong(size);
       fp.addBytes(digest);
+      fp.addBoolean(isExecutable());
       return fp.digestAndReset();
     }
 
@@ -371,19 +400,16 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
    *
    * <p>{@link #contentsProxy} is used to determine whether the file was modified.
    */
-  public static final class RegularFileStateValueWithContentsProxy extends FileStateValue {
+  public static final class RegularFileStateValueWithContentsProxy extends RegularFileStateValue {
     private final long size;
     private final FileContentsProxy contentsProxy;
 
     @VisibleForTesting
-    public RegularFileStateValueWithContentsProxy(long size, FileContentsProxy contentsProxy) {
+    public RegularFileStateValueWithContentsProxy(
+        long size, FileContentsProxy contentsProxy, boolean executable) {
+      super(executable);
       this.size = size;
       this.contentsProxy = checkNotNull(contentsProxy);
-    }
-
-    @Override
-    public FileStateType getType() {
-      return FileStateType.REGULAR_FILE;
     }
 
     @Override
@@ -410,18 +436,21 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
       if (!(obj instanceof RegularFileStateValueWithContentsProxy other)) {
         return false;
       }
-      return size == other.size && Objects.equals(contentsProxy, other.contentsProxy);
+      return size == other.size
+          && isExecutable() == other.isExecutable()
+          && Objects.equals(contentsProxy, other.contentsProxy);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(size, contentsProxy);
+      return Objects.hash(size, contentsProxy, isExecutable());
     }
 
     @Override
     public byte[] getValueFingerprint() {
       Fingerprint fp = new Fingerprint().addLong(size);
       contentsProxy.addToFingerprint(fp);
+      fp.addBoolean(isExecutable());
       return fp.digestAndReset();
     }
 
@@ -444,17 +473,13 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
    * Implementation of {@link FileStateValue} for regular files when its metadata is backed by a
    * {@link FileArtifactValue}.
    */
-  public static final class RegularFileStateValueWithMetadata extends FileStateValue {
+  public static final class RegularFileStateValueWithMetadata extends RegularFileStateValue {
     private final FileArtifactValue metadata;
 
     @VisibleForTesting
-    public RegularFileStateValueWithMetadata(FileArtifactValue metadata) {
+    public RegularFileStateValueWithMetadata(FileArtifactValue metadata, boolean executable) {
+      super(executable);
       this.metadata = checkNotNull(metadata);
-    }
-
-    @Override
-    public FileStateType getType() {
-      return FileStateType.REGULAR_FILE;
     }
 
     @Override
@@ -485,18 +510,19 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
       if (!(obj instanceof RegularFileStateValueWithMetadata other)) {
         return false;
       }
-      return other.metadata.equals(this.metadata);
+      return isExecutable() == other.isExecutable() && other.metadata.equals(this.metadata);
     }
 
     @Override
     public int hashCode() {
-      return metadata.hashCode();
+      return 31 * metadata.hashCode() + Boolean.hashCode(isExecutable());
     }
 
     @Override
     public byte[] getValueFingerprint() {
       Fingerprint fp = new Fingerprint().addLong(getSize());
       fp.addBytes(getDigest());
+      fp.addBoolean(isExecutable());
       return fp.digestAndReset();
     }
 

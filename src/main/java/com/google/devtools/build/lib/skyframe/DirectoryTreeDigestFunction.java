@@ -110,6 +110,9 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
             digest = fileValue.realRootedPath(direntRootedPath).asPath().getDigest();
           }
           fp.addBytes(digest);
+          if (!fileValue.isSpecialFile()) {
+            fp.addBoolean(fileValue.realFileStateValue().isExecutable());
+          }
         }
       }
     } catch (IOException e) {

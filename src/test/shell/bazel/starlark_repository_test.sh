@@ -3222,6 +3222,17 @@ EOF
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_not_log "I see:"
 
+  if ! is_windows; then
+    chmod -x ${outside_dir}/tree/tool.sh
+    bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+    expect_log "I see: one"
+    [[ ! -x ${repo_dir}/copy/tool.sh ]] || fail "expected tool.sh to lose its executable bit"
+    chmod +x ${outside_dir}/tree/tool.sh
+    bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+    expect_log "I see: one"
+    [[ -x ${repo_dir}/copy/tool.sh ]] || fail "expected tool.sh to regain its executable bit"
+  fi
+
   echo two > ${outside_dir}/tree/sub/data.txt
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I see: two"

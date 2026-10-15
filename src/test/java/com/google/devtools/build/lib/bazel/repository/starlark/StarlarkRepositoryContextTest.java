@@ -636,7 +636,8 @@ public final class StarlarkRepositoryContextTest {
         .containsExactly(
             new RepoRecordedInput.File(
                 RepoCacheFriendlyPath.createInsideWorkspace(
-                    RepositoryName.MAIN, PathFragment.create("foo"))));
+                    RepositoryName.MAIN, PathFragment.create("foo")),
+                true));
   }
 
   @Test
@@ -890,7 +891,7 @@ public final class StarlarkRepositoryContextTest {
     when(environment.getValue(FileKey.create(RootedPath.toRootedPath(root, fooPath))))
         .thenReturn(
             new RegularFileStateValueWithContentsProxy(
-                fooPath.getFileSize(), FileContentsProxy.create(fooPath.stat())));
+                fooPath.getFileSize(), FileContentsProxy.create(fooPath.stat()), false));
     String originalDigest = BaseEncoding.base16().lowerCase().encode(fooPath.getDigest());
 
     assertThat(context.readFile(fakeFileLabel, "yes", thread)).isEqualTo("original\n");
