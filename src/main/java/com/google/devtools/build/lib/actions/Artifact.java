@@ -790,9 +790,8 @@ public abstract sealed class Artifact
      * Returns whether the source path is a directory on the filesystem.
      *
      * <p>A source artifact's type is not declared, so it is recorded via {@link #setIsDirectory}
-     * from the {@code FileValue} that Skyframe already evaluates for the path when the input file
-     * target is analyzed. This adds no filesystem access, and the answer is refreshed whenever
-     * Skyframe re-evaluates the path.
+     * when the input file target owning it is analyzed, and is {@code false} before then. Symlinks
+     * are followed, so a symlink to a directory is a directory.
      *
      * <p>Always {@code false} unless {@code --incompatible_source_directory_is_directory} is set,
      * preserving the historical behavior of treating every source artifact as a regular file.

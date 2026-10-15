@@ -94,8 +94,8 @@ public interface FileApi extends StarlarkValue {
           "Returns true if this is a directory. For generated files this reflects the type the file"
               + " was declared as (i.e. ctx.actions.declare_directory), not its type on the"
               + " filesystem, which might differ. Source files always return false unless"
-              + " --incompatible_source_directory_is_directory is set, in which case this"
-              + " reflects the type of the path on the filesystem.")
+              + " --incompatible_source_directory_is_directory is set, in which case this is"
+              + " true if the path is a directory or a symlink to one.")
   boolean isDirectory();
 
   @StarlarkMethod(
