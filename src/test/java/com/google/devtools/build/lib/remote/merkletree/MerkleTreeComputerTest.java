@@ -448,6 +448,57 @@ public class MerkleTreeComputerTest {
   }
 
   @Test
+  public void sourceDirectoryWithKnownFiles_usesMetadataOverFilesystem() throws Exception {
+    var sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
+    var sourceDirectory =
+        (Artifact.SourceArtifact)
+            ActionsTestUtil.createArtifactWithExecPath(sourceRoot, PathFragment.create("src_dir"));
+    sourceDirectory.setIsDirectory(true);
+    var file = sourceDirectory.getChild(PathFragment.create("file"));
+    sourceDirectory.getPath().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(file.getPath(), "hashed content");
+    var fileMetadata = FileArtifactValue.createForTesting(file);
+    // Changes after hashing must not be picked up.
+    FileSystemUtils.writeContentAsLatin1(file.getPath(), "changed content");
+    FileSystemUtils.writeContentAsLatin1(
+        sourceDirectory.getPath().getChild("added"), "added content");
+    var fakeFileCache = new FakeActionInputFileCache();
+    fakeFileCache.put(
+        sourceDirectory,
+        FileArtifactValue.createForDirectoryWithHash(
+            new byte[] {1},
+            consumer -> consumer.accept(PathFragment.create("file"), fileMetadata)));
+    fakeFileCache.put(file, fileMetadata);
+    var spawn = new SpawnBuilder().withInputs(sourceDirectory).build();
+
+    var merkleTree =
+        (MerkleTree.Uploadable)
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    MerkleTreeComputer.BlobPolicy.KEEP);
+
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var expectedDirectory =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("file")
+                    .setDigest(digestUtil.computeAsUtf8("hashed content"))
+                    .setIsExecutable(true))
+            .build();
+    assertThat(findDirectory(merkleTree).getDirectoriesList())
+        .containsExactly(
+            DirectoryNode.newBuilder()
+                .setName("src_dir")
+                .setDigest(digestUtil.compute(expectedDirectory.toByteArray()))
+                .build());
+  }
+
+  @Test
   public void duplicateMappedPath_sameDigest_succeeds() throws Exception {
     // Two artifacts from different configurations that map to the same path with identical content.
     var fastbuildRoot =

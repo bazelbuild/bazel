@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.SourceDirectoryEntries;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
@@ -68,6 +70,7 @@ final class ActionInputMapHelper {
           runfilesArtifactValue.forEachFile(
               (artifact, metadata) -> {
                 inputMap.put(artifact, metadata);
+                putSourceDirectoryFiles(artifact, metadata, inputMap);
                 consumer.accumulate(metadata);
               });
           runfilesArtifactValue.forEachTree(
@@ -98,9 +101,20 @@ final class ActionInputMapHelper {
       }
       case FileArtifactValue fileArtifactValue -> {
         inputMap.put(key, fileArtifactValue);
+        putSourceDirectoryFiles(key, fileArtifactValue, inputMap);
         consumer.accumulate(fileArtifactValue);
       }
       case null, default -> throw new IllegalStateException("Unexpected value " + value);
+    }
+  }
+
+  /** Adds the files of a source directory, so that consumers stage exactly what was hashed. */
+  private static void putSourceDirectoryFiles(
+      Artifact artifact, FileArtifactValue metadata, ActionInputMap inputMap) {
+    if (artifact instanceof SourceArtifact directory
+        && directory.isDirectory()
+        && metadata.getSourceDirectoryEntries() instanceof SourceDirectoryEntries entries) {
+      entries.forEachChild(directory, inputMap::put);
     }
   }
 

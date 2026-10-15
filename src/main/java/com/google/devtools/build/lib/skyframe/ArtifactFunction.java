@@ -30,10 +30,12 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.SourceDirectoryEntries;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithMetadata;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -60,6 +62,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -399,11 +402,30 @@ public final class ArtifactFunction implements SkyFunction {
       return null;
     }
     Fingerprint fp = new Fingerprint();
-    for (ResolvedFile file : value.getTransitiveFiles().toList()) {
+    NestedSet<ResolvedFile> files = value.getTransitiveFiles();
+    for (ResolvedFile file : files.toList()) {
       fp.addString(file.getNameInSymlinkTree().getPathString());
       fp.addBytes(file.getMetadata().getDigest());
     }
-    return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
+    return FileArtifactValue.createForDirectoryWithHash(
+        fp.digestAndReset(),
+        new TraversedSourceDirectoryEntries(files, path.getRootRelativePath()));
+  }
+
+  /** Lists a source directory's files from its traversal, without copying them. */
+  private record TraversedSourceDirectoryEntries(
+      NestedSet<ResolvedFile> files, PathFragment directory) implements SourceDirectoryEntries {
+    @Override
+    public void forEach(BiConsumer<PathFragment, FileArtifactValue> consumer) {
+      for (ResolvedFile file : files.toList()) {
+        // Directories are represented by their files; dangling symlinks have no file to expand to.
+        if (file.getType().exists()
+            && file.getType().isFile()
+            && file.getMetadata() instanceof FileArtifactValue metadata) {
+          consumer.accept(file.getNameInSymlinkTree().relativeTo(directory), metadata);
+        }
+      }
+    }
   }
 
   @Override

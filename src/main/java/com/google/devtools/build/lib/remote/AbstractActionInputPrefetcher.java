@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -390,7 +391,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       // Skip empty tree artifacts (non-empty tree artifacts should have already been expanded).
-      if (input.isDirectory()) {
+      // Source directories are kept, as they may need to be materialized below.
+      if (input.isDirectory() && !(input instanceof SourceArtifact)) {
         continue;
       }
 

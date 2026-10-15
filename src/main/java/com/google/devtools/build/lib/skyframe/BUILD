@@ -240,6 +240,7 @@ java_library(
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
@@ -401,6 +402,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skyvalue_retriever",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
@@ -1168,6 +1170,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "is_directory",
+    srcs = [
+        "IsDirectoryFunction.java",
+        "IsDirectoryValue.java",
+    ],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -3996,6 +4014,7 @@ java_library(
         ":external_files_helper",
         ":file_function",
         ":file_state_function",
+        ":is_directory",
         ":filesystem_value_checker",
         ":glob_function",
         ":globs_function",
@@ -4067,6 +4086,7 @@ java_library(
         ":top_level_aspects_value",
         ":top_level_status_events",
         ":toplevel_starlark_aspect_function",
+        ":track_source_directories_flag",
         ":transitive_target_function",
         ":transitive_target_key",
         ":transitive_traversal_function",

@@ -19,12 +19,14 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.SPAWN_LOG;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -638,7 +640,42 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         return expandTreeArtifact(treeMetadata, root, inputMetadataProvider);
       }
     }
+    if (inputMetadataProvider != null) {
+      ImmutableList<SourceArtifact> sourceDirectoryFiles =
+          InputMetadataProvider.getSourceDirectoryFiles(inputMetadataProvider, input);
+      if (sourceDirectoryFiles != null) {
+        return expandSourceDirectory(input, sourceDirectoryFiles, root, inputMetadataProvider);
+      }
+    }
     return expandDirectoryFromFileSystem(root, inputMetadataProvider);
+  }
+
+  /** Expands a source directory into its files as recorded in its metadata. */
+  private List<ExecLogEntry.File> expandSourceDirectory(
+      ActionInput directory,
+      ImmutableList<SourceArtifact> files,
+      Path root,
+      InputMetadataProvider inputMetadataProvider)
+      throws IOException {
+    var entries = new ArrayList<ExecLogEntry.File>(files.size());
+    for (SourceArtifact file : files) {
+      PathFragment relativePath = file.getExecPath().relativeTo(directory.getExecPath());
+      Digest digest =
+          computeDigest(
+              file,
+              root.getRelative(relativePath),
+              inputMetadataProvider,
+              xattrProvider,
+              digestHashFunction,
+              /* includeHashFunctionName= */ false);
+      entries.add(
+          ExecLogEntry.File.newBuilder()
+              .setPath(internalToUnicode(relativePath.getPathString()))
+              .setDigest(digest)
+              .build());
+    }
+    entries.sort(EXEC_LOG_ENTRY_FILE_COMPARATOR);
+    return entries;
   }
 
   /** Expands a tree artifact into its contents as recorded in its metadata. */

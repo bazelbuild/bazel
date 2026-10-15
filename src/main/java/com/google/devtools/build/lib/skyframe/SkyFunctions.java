@@ -35,6 +35,7 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("DIRECTORY_LISTING");
   public static final SkyFunctionName DIRECTORY_TREE_DIGEST =
       SkyFunctionName.createHermetic("DIRECTORY_TREE_DIGEST");
+  public static final SkyFunctionName IS_DIRECTORY = SkyFunctionName.createHermetic("IS_DIRECTORY");
   // Hermetic even though package lookups secretly access the set of deleted packages, because
   // SequencedSkyframeExecutor deletes any affected PACKAGE_LOOKUP nodes when that set changes.
   public static final SkyFunctionName PACKAGE_LOOKUP =

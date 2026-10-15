@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
@@ -29,8 +30,10 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -79,7 +82,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
 
     ImmutableList.Builder<SkyKey> inputKeys =
-        ImmutableList.<SkyKey>builder().addAll(actionTemplate.getInputTreeArtifacts());
+        ImmutableList.<SkyKey>builder().addAll(actionTemplate.getInputDirectories());
 
     // Following b/143205147, we unwrap the top layer of the NestedSet and evaluate the first layer
     // of the NestedSet as direct Artifact(s) and transitive NestedSet(s).
@@ -101,10 +104,23 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     ImmutableList<ActionAnalysisMetadata> actions;
     try {
       ImmutableList.Builder<TreeFileArtifact> inputTreeFileArtifacts = ImmutableList.builder();
-      for (SpecialArtifact inputTreeArtifact : actionTemplate.getInputTreeArtifacts()) {
+      ImmutableListMultimap.Builder<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles =
+          ImmutableListMultimap.builder();
+      for (Artifact inputDirectory : actionTemplate.getInputDirectories()) {
+        if (inputDirectory instanceof SourceArtifact sourceDirectory) {
+          var metadata = (FileArtifactValue) result.get(sourceDirectory);
+          if (metadata == null) {
+            return null;
+          }
+          Preconditions.checkNotNull(
+                  metadata.getSourceDirectoryEntries(), "%s: %s", sourceDirectory, metadata)
+              .forEachChild(
+                  sourceDirectory,
+                  (file, unused) -> inputSourceDirectoryFiles.put(sourceDirectory, file));
+          continue;
+        }
         TreeArtifactValue treeArtifactValue =
-            (TreeArtifactValue)
-                result.getOrThrow(inputTreeArtifact, ActionExecutionException.class);
+            (TreeArtifactValue) result.getOrThrow(inputDirectory, ActionExecutionException.class);
         // b/507424770#comment10: To handle the case of a wrongly bubbled up exception causing a
         // null value, we return null here so that we don't crash with an NPE.
         if (treeArtifactValue == null) {
@@ -117,7 +133,11 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       // of the ActionTemplate.
       actions =
           generateAndValidateActionsFromTemplate(
-              actionTemplate, inputTreeFileArtifacts.build(), key, env.getListener());
+              actionTemplate,
+              inputTreeFileArtifacts.build(),
+              inputSourceDirectoryFiles.build(),
+              key,
+              env.getListener());
     } catch (ActionExecutionException e) {
       env.getListener()
           .handle(
@@ -164,6 +184,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   private static ImmutableList<ActionAnalysisMetadata> generateAndValidateActionsFromTemplate(
       ActionTemplate<?> actionTemplate,
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
       ActionTemplateExpansionKey key,
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException {
@@ -176,7 +197,8 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
           output);
     }
     ImmutableList<? extends Action> actions =
-        actionTemplate.generateActionsForInputArtifacts(inputTreeFileArtifacts, key, eventHandler);
+        actionTemplate.generateActionsForInputArtifacts(
+            inputTreeFileArtifacts, inputSourceDirectoryFiles, key, eventHandler);
     for (Action action : actions) {
       for (Artifact output : action.getOutputs()) {
         Preconditions.checkState(

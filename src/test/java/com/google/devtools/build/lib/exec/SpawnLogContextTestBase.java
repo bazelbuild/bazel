@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -552,6 +553,101 @@ public abstract class SpawnLogContextTestBase {
                             .setDigest(getDigest("abc"))
                             .setIsTool(inputsMode.isTool())
                             .build()))
+            .build());
+  }
+
+  /**
+   * Creates a source directory whose recorded files, as with {@code
+   * --incompatible_source_directory_is_directory}, differ from its contents on disk.
+   */
+  private SourceArtifact createSourceDirectoryWithRecordedFiles(
+      FakeActionInputFileCache inputMetadataProvider) throws Exception {
+    var dir = (SourceArtifact) ActionsTestUtil.createArtifact(rootDir, "dir");
+    dir.setIsDirectory(true);
+    var file = dir.getChild(PathFragment.create("file"));
+    writeFile(file, "abc");
+    var fileMetadata = FileArtifactValue.createForTesting(file);
+    inputMetadataProvider.put(file, fileMetadata);
+    inputMetadataProvider.put(
+        dir,
+        FileArtifactValue.createForDirectoryWithHash(
+            new byte[] {1},
+            consumer -> consumer.accept(PathFragment.create("file"), fileMetadata)));
+    writeFile(file, "changed");
+    writeFile(dir.getPath().getChild("added"), "added");
+    return dir;
+  }
+
+  @Test
+  public void testSourceDirectoryInput_logsRecordedFiles(@TestParameter InputsMode inputsMode)
+      throws Exception {
+    var inputMetadataProvider = new FakeActionInputFileCache();
+    SourceArtifact dir = createSourceDirectoryWithRecordedFiles(inputMetadataProvider);
+
+    SpawnBuilder spawnBuilder = defaultSpawnBuilder().withInputs(dir);
+    if (inputsMode.isTool()) {
+      spawnBuilder.withTools(dir);
+    }
+    Spawn spawn = spawnBuilder.build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        () -> new SpawnInputExpander().getInputMapping(spawn, inputMetadataProvider),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath("dir/file")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(inputsMode.isTool()))
+            .build());
+  }
+
+  @Test
+  public void testRunfilesSourceDirectoryInput_logsRecordedFiles(
+      @TestParameter InputsMode inputsMode) throws Exception {
+    var inputMetadataProvider = new FakeActionInputFileCache();
+    SourceArtifact dir = createSourceDirectoryWithRecordedFiles(inputMetadataProvider);
+    Artifact runfilesArtifact = ActionsTestUtil.createRunfilesArtifact(outputDir, "runfiles");
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
+    inputMetadataProvider.putRunfilesTree(runfilesArtifact, createRunfilesTree(runfilesRoot, dir));
+
+    SpawnBuilder spawnBuilder = defaultSpawnBuilder().withInput(runfilesArtifact);
+    if (inputsMode.isTool()) {
+      spawnBuilder.withTool(runfilesArtifact);
+    }
+    Spawn spawn = spawnBuilder.build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        () -> new SpawnInputExpander().getInputMapping(spawn, inputMetadataProvider),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        PRODUCT_NAME
+                            + "-out/k8-fastbuild/bin/foo.runfiles/"
+                            + WORKSPACE_NAME
+                            + "/dir/file")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(inputsMode.isTool()))
             .build());
   }
 
