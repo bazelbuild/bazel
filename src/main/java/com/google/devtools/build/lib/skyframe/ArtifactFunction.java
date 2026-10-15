@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.retr
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -400,16 +401,19 @@ public final class ArtifactFunction implements SkyFunction {
     }
     Fingerprint fp = new Fingerprint();
     PathFragment directory = path.getRootRelativePath();
-    ImmutableList.Builder<PathFragment> entries = ImmutableList.builder();
+    ImmutableMap.Builder<PathFragment, FileArtifactValue> entries = ImmutableMap.builder();
     for (ResolvedFile file : value.getTransitiveFiles().toList()) {
       fp.addString(file.getNameInSymlinkTree().getPathString());
       fp.addBytes(file.getMetadata().getDigest());
       // Directories are represented by their files; dangling symlinks have no file to expand to.
-      if (file.getType().exists() && file.getType().isFile()) {
-        entries.add(file.getNameInSymlinkTree().relativeTo(directory));
+      if (file.getType().exists()
+          && file.getType().isFile()
+          && file.getMetadata() instanceof FileArtifactValue metadata) {
+        entries.put(file.getNameInSymlinkTree().relativeTo(directory), metadata);
       }
     }
-    return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset(), entries.build());
+    return FileArtifactValue.createForDirectoryWithHash(
+        fp.digestAndReset(), entries.buildOrThrow());
   }
 
   @Override

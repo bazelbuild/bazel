@@ -515,14 +515,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
       } catch (IOException e) {
         throw cannotExpandSourceDirectory(directory, e);
       }
-      ImmutableList<PathFragment> entries =
+      ImmutableMap<PathFragment, FileArtifactValue> entries =
           metadata == null ? null : metadata.getSourceDirectoryEntries();
       if (entries == null) {
         throw cannotExpandSourceDirectory(directory, /* cause= */ null);
       }
       ImmutableList.Builder<SourceArtifact> children =
           ImmutableList.builderWithExpectedSize(entries.size());
-      for (PathFragment entry : entries) {
+      for (PathFragment entry : entries.keySet()) {
         children.add(directory.getChild(entry));
       }
       return children.build();

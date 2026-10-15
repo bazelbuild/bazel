@@ -506,6 +506,8 @@ java_library(
 java_test(
     name = "TargetCompleteEventTest",
     srcs = ["TargetCompleteEventTest.java"],
+    # Needed by outputSourceDirectory_isExpanded; the default differs between Bazel and Blaze.
+    jvm_flags = ["-DBAZEL_TRACK_SOURCE_DIRECTORIES=1"],
     # outputSymlink points a symlink at a Unix-absolute path, which CreateSymlink
     # rejects on Windows; artifactsNotRetained runs a shell script directly.
     tags = ["no_windows"],
@@ -523,6 +525,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:no_spawn_cache_module",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party/java/guava:collect",

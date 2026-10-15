@@ -22,6 +22,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -288,11 +289,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   }
 
   /**
-   * For a tracked source directory, the paths of the files beneath it, relative to it, in traversal
-   * order. Returns {@code null} for any other kind of metadata.
+   * For a tracked source directory, the files beneath it keyed by their path relative to it, in
+   * traversal order. Returns {@code null} for any other kind of metadata.
    */
   @Nullable
-  public ImmutableList<PathFragment> getSourceDirectoryEntries() {
+  public ImmutableMap<PathFragment, FileArtifactValue> getSourceDirectoryEntries() {
     return null;
   }
 
@@ -418,7 +419,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   }
 
   public static FileArtifactValue createForDirectoryWithHash(
-      byte[] digest, ImmutableList<PathFragment> entries) {
+      byte[] digest, ImmutableMap<PathFragment, FileArtifactValue> entries) {
     return new HashedDirectoryArtifactValue(digest, entries);
   }
 
@@ -531,9 +532,10 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   private static final class HashedDirectoryArtifactValue extends FileArtifactValue {
 
     private final byte[] digest;
-    private final ImmutableList<PathFragment> entries;
+    private final ImmutableMap<PathFragment, FileArtifactValue> entries;
 
-    private HashedDirectoryArtifactValue(byte[] digest, ImmutableList<PathFragment> entries) {
+    private HashedDirectoryArtifactValue(
+        byte[] digest, ImmutableMap<PathFragment, FileArtifactValue> entries) {
       this.digest = digest;
       this.entries = checkNotNull(entries);
     }
@@ -574,7 +576,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public ImmutableList<PathFragment> getSourceDirectoryEntries() {
+    public ImmutableMap<PathFragment, FileArtifactValue> getSourceDirectoryEntries() {
       return entries;
     }
 
