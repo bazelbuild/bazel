@@ -329,6 +329,8 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
     // directory under the runfiles tree for it.
     String targetRepoDirectoryName =
         targetCanonicalName.isMain() ? workspaceName : targetCanonicalName.getName();
-    writer.format("%s,%s,%s\n", source, targetApparentName, targetRepoDirectoryName);
+    writer.append(source).append(',');
+    writer.append(targetApparentName).append(',');
+    writer.append(targetRepoDirectoryName).append('\n');
   }
 }
