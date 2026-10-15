@@ -53,10 +53,8 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
-import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
@@ -977,30 +975,6 @@ public class CommandEnvironment {
 
     // Modules that are subscribed to CommandStartEvent may create pending exceptions.
     throwPendingException();
-
-    // Determine if Skyfocus will run for this command: Skyfocus runs only for commands that
-    // execute actions. Throw an error if this is a command that is not guaranteed to work
-    // correctly on a focused Skyframe graph.
-    if (getCommand().buildPhase().executes()) {
-      skyframeExecutor.prepareForSkyfocus(
-          options.getOptions(SkyfocusOptions.class), reporter, runtime.getProductName());
-    } else if (getCommand().buildPhase().loads()
-        && !getSkyframeExecutor().getSkyfocusState().activeDirectories().isEmpty()) {
-      // A non-empty active directories implies a focused Skyframe state.
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(
-                      command.name()
-                          + " is not supported after using Skyfocus because it can"
-                          + " return partial/incorrect results. Run clean or shutdown and try"
-                          + " again.")
-                  .setSkyfocus(
-                      Skyfocus.newBuilder()
-                          .setCode(Skyfocus.Code.DISALLOWED_OPERATION_ON_FOCUSED_GRAPH)
-                          .build())
-                  .build()));
-    }
   }
 
   /**

@@ -770,28 +770,6 @@ java_library(
 )
 
 java_test(
-    name = "SkyframeFocuserTest",
-    timeout = "short",
-    srcs = ["SkyframeFocuserTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions/cache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/com/google/devtools/build/skyframe:version",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/skyframe:testutil",
-        "//third_party/java/guava:collect",
-        "//third_party/java/junit",
-        "//third_party/java/mockito",
-        "//third_party/java/truth",
-    ],
-)
-
-java_test(
     name = "ProjectFunctionTest",
     srcs = ["ProjectFunctionTest.java"],
     deps = [

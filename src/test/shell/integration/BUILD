@@ -483,19 +483,6 @@ sh_test(
 )
 
 sh_test(
-    name = "focus_test",
-    size = "medium",
-    timeout = "long",
-    srcs = ["focus_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    shard_count = 4,
-    tags = ["manual"],
-)
-
-sh_test(
     name = "force_delete_output_test",
     size = "medium",
     srcs = ["force_delete_output_test.sh"],

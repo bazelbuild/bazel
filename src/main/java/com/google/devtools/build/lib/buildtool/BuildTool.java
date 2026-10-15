@@ -415,21 +415,6 @@ public class BuildTool {
         Preconditions.checkState(!analysisCachingDeps.bailedOut());
         serializeValues(serializationDependenciesProvider);
       }
-
-      if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
-        // Skyfocus only works at the end of a successful build.
-        ImmutableSet<Label> topLevelTargets =
-            result.getActualTargets().stream()
-                .map(ConfiguredTarget::getLabel)
-                .collect(toImmutableSet());
-        env.getSkyframeExecutor()
-            .runSkyfocus(
-                topLevelTargets,
-                projectEvaluationResult.activeDirectoriesMatcher(),
-                env.getReporter(),
-                env.getBlazeWorkspace().getPersistentActionCache(),
-                env.getOptions());
-      }
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
       catastrophe = true;

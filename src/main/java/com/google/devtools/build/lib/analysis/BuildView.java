@@ -75,9 +75,9 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -87,7 +87,6 @@ import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
-import com.google.devtools.build.lib.skyframe.SkyfocusState;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisAndExecutionResult;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -272,8 +271,10 @@ public class BuildView {
           DetailedExitCode.of(
               FailureDetail.newBuilder()
                   .setMessage(UPLOAD_BUILDS_MUST_BE_COLD)
-                  .setSkyfocus(
-                      Skyfocus.newBuilder().setCode(Skyfocus.Code.CONFIGURATION_CHANGE).build())
+                  .setRemoteAnalysisCaching(
+                      FailureDetails.RemoteAnalysisCaching.newBuilder()
+                          .setCode(FailureDetails.RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS)
+                          .build())
                   .build()));
     }
     // Configuration creation.
@@ -314,45 +315,6 @@ public class BuildView {
       } else {
         eventBus.post(new RemoteAnalysisCachingEnabledEvent());
       }
-    }
-
-    SkyfocusState skyfocusState = skyframeExecutor.getSkyfocusState();
-    if (skyfocusState.enabled()) {
-      boolean buildConfigChanged =
-          skyfocusState.buildConfiguration() != null
-              && !skyfocusState.buildConfiguration().equals(topLevelConfig);
-      if (buildConfigChanged) {
-        switch (skyfocusState.options().getFrontierViolationCheck()) {
-          case WARN -> {
-            eventHandler.handle(
-                Event.warn(
-                    "Skyfocus: detected changes to the build configuration, will be discarding"
-                        + " the analysis cache."));
-          }
-          case STRICT ->
-              throw new AbruptExitException(
-                  DetailedExitCode.of(
-                      FailureDetail.newBuilder()
-                          .setMessage(
-                              "Skyfocus: detected changes to the build configuration. This is not"
-                                  + " allowed in a focused build. Either clean to reset the"
-                                  + " build, or set"
-                                  + " --experimental_frontier_violation_check=warn to perform a"
-                                  + " full reanalysis instead of failing the build.")
-                          .setSkyfocus(
-                              Skyfocus.newBuilder()
-                                  .setCode(Skyfocus.Code.CONFIGURATION_CHANGE)
-                                  .build())
-                          .build()));
-          case DISABLED_FOR_TESTING -> throw new IllegalStateException("disallowed; not in test.");
-        }
-      }
-
-      skyframeExecutor.setSkyfocusState(
-          skyfocusState.toBuilder()
-              .buildConfiguration(topLevelConfig)
-              .forcedRerun(buildConfigChanged)
-              .build());
     }
 
     topLevelConfigurationTrimmedOfTestOptions =

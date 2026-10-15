@@ -760,22 +760,6 @@ java_test(
 )
 
 java_test(
-    name = "SkyfocusIntegrationTest",
-    srcs = ["SkyfocusIntegrationTest.java"],
-    shard_count = 2,
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_state",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
-        "//third_party/java/junit",
-        "//third_party/java/truth",
-    ],
-)
-
-java_test(
     name = "ProjectResolutionTest",
     srcs = ["ProjectResolutionTest.java"],
     deps = [

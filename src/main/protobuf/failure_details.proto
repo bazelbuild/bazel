@@ -149,7 +149,7 @@ message FailureDetail {
     DiffAwareness diff_awareness = 182;
     ModCommand mod_command = 183;
     BuildReport build_report = 184;
-    Skyfocus skyfocus = 185;
+    Skyfocus skyfocus = 185 [deprecated = true];
     RemoteAnalysisCaching remote_analysis_caching = 186;
     JniLinking jni_linking = 190;
   }
@@ -406,6 +406,8 @@ message BuildReport {
 
 // Failure details for errors produced when using Skyfocus
 message Skyfocus {
+  option deprecated = true;
+
   enum Code {
     // The defined working set cannot be used for the focused targets. For
     // example, this happens when the intersection of the working set and the

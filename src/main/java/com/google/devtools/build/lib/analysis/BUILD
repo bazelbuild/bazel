@@ -543,7 +543,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_state",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_analysis_and_execution_result",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_analysis_result",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",

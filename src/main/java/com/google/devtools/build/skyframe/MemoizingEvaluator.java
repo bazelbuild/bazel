@@ -300,15 +300,4 @@ public interface MemoizingEvaluator {
    * is about to be thrown away.
    */
   void cleanupInterningPools();
-
-  boolean skyfocusSupported();
-
-  /**
-   * Enables Skyfocus, a graph optimizer for Skyframe with active directoriess, by remembering the
-   * root nodes.
-   */
-  void rememberTopLevelEvaluations(boolean remember);
-
-  /** Cleans up the set of evaluated root SkyKeys. Used for Skyfocus. */
-  void cleanupLatestTopLevelEvaluations();
 }

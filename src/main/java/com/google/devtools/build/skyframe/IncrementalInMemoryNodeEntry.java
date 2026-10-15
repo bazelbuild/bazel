@@ -477,15 +477,14 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   /**
    * Clears out all direct dep edges of this node.
    *
-   * <p>Only safe once the graph no longer needs to be incrementally correct: by Skyfocus, and by
-   * Skycache uploads under {@code --nokeep_state_after_build}.
+   * <p>Only safe once the graph no longer needs to be incrementally correct: by Skycache uploads
+   * under {@code --nokeep_state_after_build}.
    */
   public final synchronized void clearDirectDeps() {
 
     checkState(isDone(), this);
     this.directDeps = GroupedDeps.EMPTY_COMPRESSED;
   }
-
   /** Flushes pending reverse dep operations, which potentially saves memory. */
   public final synchronized void consolidateReverseDeps() {
 

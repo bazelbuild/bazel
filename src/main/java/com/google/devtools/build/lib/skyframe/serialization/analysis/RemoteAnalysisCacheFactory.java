@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Co
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
-import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
@@ -112,17 +111,6 @@ public final class RemoteAnalysisCacheFactory {
                   .setMessage(
                       "Skycache analysis-only mode (--experimental_skycache_analysis_only) is not"
                           + " supported by the current Skyframe executor.")
-                  .setRemoteAnalysisCaching(
-                      RemoteAnalysisCaching.newBuilder()
-                          .setCode(RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS))
-                  .build()));
-    }
-
-    if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage("Skycache and Skyfocus cannot be enabled at the same time.")
                   .setRemoteAnalysisCaching(
                       RemoteAnalysisCaching.newBuilder()
                           .setCode(RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS))
@@ -315,7 +303,7 @@ public final class RemoteAnalysisCacheFactory {
       // Upload or Dump mode: allow overriding the project file matcher with the active
       // directories flag.
       List<String> activeDirectoriesFromFlag =
-          env.getOptions().getOptions(SkyfocusOptions.class).getActiveDirectories();
+          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).getActiveDirectories();
       var result = maybeProjectFileMatcher;
       if (!activeDirectoriesFromFlag.isEmpty()) {
         env.getReporter()

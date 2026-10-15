@@ -18,8 +18,6 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfigurationVa
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.ANALYSIS_CACHING_DOWNLOAD;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.ANALYSIS_CACHING_UPLOAD;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.SCL_CONFIG;
-import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.SKYFOCUS;
-import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS;
 import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.PROJECT_FILE_NOT_FOUND;
 
 import com.google.auto.value.AutoBuilder;
@@ -194,8 +192,7 @@ public final class AnalysisPhaseRunner {
   enum FeaturesUsingProjectFile {
     ANALYSIS_CACHING_UPLOAD,
     ANALYSIS_CACHING_DOWNLOAD,
-    SCL_CONFIG,
-    SKYFOCUS;
+    SCL_CONFIG;
   }
 
   /**
@@ -239,27 +236,8 @@ public final class AnalysisPhaseRunner {
       featureFlags.add(SCL_CONFIG);
     }
 
-    if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
-      featureFlags.add(SKYFOCUS);
-    }
-
     if (featureFlags.isEmpty()) {
       return resultBuilder.build();
-    }
-
-    if (featureFlags.contains(SKYFOCUS)
-        && (featureFlags.contains(ANALYSIS_CACHING_UPLOAD)
-            || featureFlags.contains(ANALYSIS_CACHING_DOWNLOAD))) {
-      String message =
-          "Skyfocus and remote analysis caching are incompatible. Enable one or the other.";
-      throw new LoadingFailedException(
-          message,
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(message)
-                  .setRemoteAnalysisCaching(
-                      RemoteAnalysisCaching.newBuilder().setCode(INCOMPATIBLE_OPTIONS))
-                  .build()));
     }
 
     Project.ActiveProjects activeProjects;
@@ -275,7 +253,7 @@ public final class AnalysisPhaseRunner {
           DetailedExitCode.of(ExitCode.PARSING_FAILURE, FailureDetail.getDefaultInstance()));
     }
 
-    if (featureFlags.contains(ANALYSIS_CACHING_UPLOAD) || featureFlags.contains(SKYFOCUS)) {
+    if (featureFlags.contains(ANALYSIS_CACHING_UPLOAD)) {
       // Features that can work with zero or one project file.
       if (activeProjects.projectFilesToTargetLabels().size() > 1) {
         String message =

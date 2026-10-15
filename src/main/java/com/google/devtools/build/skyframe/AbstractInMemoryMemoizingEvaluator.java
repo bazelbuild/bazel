@@ -45,7 +45,6 @@ import java.io.PrintStream;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -102,10 +101,6 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
 
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
-  private Set<SkyKey> latestTopLevelEvaluations = new HashSet<>();
-
-  private boolean rememberTopLevelEvaluations;
-
   protected AbstractInMemoryMemoizingEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       Differencer differencer,
@@ -135,12 +130,6 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     if (keepEdges && evaluationSequenceFinished) {
       firstGraphVersionOfSequence = (IntVersion) graphVersion;
       evaluationSequenceFinished = false;
-    }
-
-    // Only remember roots for Skyfocus if we're tracking incremental states by keeping edges.
-    if (keepEdges && rememberTopLevelEvaluations) {
-      // Remember the top level evaluation of the build invocation for post-build consumption.
-      Iterables.addAll(latestTopLevelEvaluations, roots);
     }
 
     // Mark for removal any nodes from the previous evaluation that were still inflight or were
@@ -242,16 +231,6 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   private void setAndCheckEvaluateState(boolean newValue, Iterable<? extends SkyKey> roots) {
     checkState(
         evaluating.getAndSet(newValue) != newValue, "Re-entrant evaluation for request: %s", roots);
-  }
-
-  @Override
-  public void rememberTopLevelEvaluations(boolean remember) {
-    this.rememberTopLevelEvaluations = remember;
-  }
-
-  @Override
-  public boolean skyfocusSupported() {
-    return true;
   }
 
   @Override
@@ -560,15 +539,6 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     } else {
       return lastGraphVersion.next();
     }
-  }
-
-  public Set<SkyKey> getLatestTopLevelEvaluations() {
-    return latestTopLevelEvaluations;
-  }
-
-  @Override
-  public void cleanupLatestTopLevelEvaluations() {
-    latestTopLevelEvaluations = new HashSet<>();
   }
 
   @Override

@@ -291,11 +291,6 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return nodeMap.get(key);
   }
 
-  /** Minimizes the size of the ConcurrentHashMap backing the graph. May be costly to run (O(n)). */
-  @Override
-  public void shrinkNodeMap() {
-    nodeMap = new ConcurrentHashMap<>(nodeMap);
-  }
 
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {
 
