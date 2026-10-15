@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -56,6 +57,8 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.MetadataSupplier;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -71,12 +74,15 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -653,6 +659,34 @@ public abstract class ActionInputPrefetcherTestBase {
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
+  }
+
+  @Test
+  public void prefetchFiles_externalSourceDirectory_isNotSkipped() throws Exception {
+    ArtifactRoot sourceRoot =
+        ArtifactRoot.asExternalSourceRoot(Root.fromPath(execRoot.getRelative("external/ext")));
+    SourceArtifact directory =
+        new SourceArtifact(
+            sourceRoot,
+            PathFragment.create("external/ext/dir"),
+            new LabelArtifactOwner(Label.parseCanonicalUnchecked("@@ext//:dir")));
+    directory.setIsDirectory(true);
+    List<ActionInput> requested = new ArrayList<>();
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(new HashMap<>());
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action,
+            ImmutableList.of(directory),
+            input -> {
+              requested.add(input);
+              return FileArtifactValue.createForDirectoryWithHash(new byte[] {1}, ImmutableMap.of());
+            },
+            Priority.MEDIUM,
+            Reason.INPUTS));
+
+    assertThat(requested).containsExactly(directory);
+    assertThat(prefetcher.downloadedFiles()).isEmpty();
   }
 
   @Test
