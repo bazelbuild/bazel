@@ -14,12 +14,10 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import java.util.Map;
+import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
@@ -82,33 +80,23 @@ public final class CompletionContext {
         for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
           receiver.acceptFilesetMapping(artifact, link);
         }
-      } else if (artifact.isTreeArtifact()) {
-        TreeArtifactValue treeValue =
-            checkNotNull(
-                importantInputMap.getTreeMetadata(artifact),
-                "missing metadata for tree artifact: %s",
-                artifact);
-        for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
-            treeValue.getChildValues().entrySet()) {
-          receiver.accept(entry.getKey(), entry.getValue());
+      } else if (artifact.isDirectory()) {
+        boolean found;
+        try {
+          found =
+              InputMetadataProvider.forEachDirectoryFile(
+                  importantInputMap, artifact, receiver::accept);
+        } catch (IOException e) {
+          throw new IllegalStateException(e);
         }
+        checkState(found, "missing metadata for directory: %s", artifact);
       } else {
-        FileArtifactValue metadata =
+        receiver.accept(
+            artifact,
             checkNotNull(
                 importantInputMap.getInputMetadata(artifact),
                 "missing metadata for artifact: %s",
-                artifact);
-        FileArtifactValue.SourceDirectoryEntries entries =
-            artifact instanceof SourceArtifact && artifact.isDirectory()
-                ? metadata.getSourceDirectoryEntries()
-                : null;
-        if (entries == null) {
-          receiver.accept(artifact, metadata);
-        } else {
-          entries.forEach(
-              (path, childMetadata) ->
-                  receiver.accept(((SourceArtifact) artifact).getChild(path), childMetadata));
-        }
+                artifact));
       }
     }
   }

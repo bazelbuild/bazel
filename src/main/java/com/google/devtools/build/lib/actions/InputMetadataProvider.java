@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /** Provides {@link ActionInput} metadata. */
@@ -185,17 +187,46 @@ public interface InputMetadataProvider {
     if (!(input instanceof SourceArtifact directory) || !directory.isDirectory()) {
       return null;
     }
-    FileArtifactValue metadata;
+    ImmutableList.Builder<SourceArtifact> files = ImmutableList.builder();
+    boolean found;
     try {
-      metadata = inputMetadataProvider.getInputMetadata(directory);
+      found =
+          forEachDirectoryFile(
+              inputMetadataProvider, directory, (file, unused) -> files.add((SourceArtifact) file));
     } catch (IOException e) {
       throw new IllegalStateException("Failed to get metadata of " + directory, e);
     }
-    FileArtifactValue.SourceDirectoryEntries entries =
-        metadata == null ? null : metadata.getSourceDirectoryEntries();
-    checkState(entries != null, "No recorded files for %s: %s", directory, metadata);
-    ImmutableList.Builder<SourceArtifact> files = ImmutableList.builder();
-    entries.forEachChild(directory, (child, unused) -> files.add(child));
+    checkState(found, "No metadata for %s", directory);
     return files.build();
+  }
+
+  /**
+   * Visits the files of a tree artifact or source directory with their metadata.
+   *
+   * @return false if there is no metadata for {@code directory}
+   * @throws IllegalStateException if the files of a source directory weren't recorded
+   */
+  static boolean forEachDirectoryFile(
+      InputMetadataProvider inputMetadataProvider,
+      Artifact directory,
+      BiConsumer<? super Artifact, FileArtifactValue> consumer)
+      throws IOException {
+    checkArgument(directory.isDirectory() && !directory.isFileset(), directory);
+    if (directory.isTreeArtifact()) {
+      TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(directory);
+      if (treeArtifactValue == null) {
+        return false;
+      }
+      treeArtifactValue.getChildValues().forEach(consumer);
+      return true;
+    }
+    FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(directory);
+    if (metadata == null) {
+      return false;
+    }
+    FileArtifactValue.SourceDirectoryEntries entries = metadata.getSourceDirectoryEntries();
+    checkState(entries != null, "No recorded files for %s: %s", directory, metadata);
+    entries.forEachChild((SourceArtifact) directory, consumer);
+    return true;
   }
 }
