@@ -727,6 +727,12 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     fileSystem.setLastModifiedTimeNanos(asFragment(), newTime);
   }
 
+  /** Like {@link #setLastModifiedTimeNanos}, but returns false if the file does not exist. */
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public boolean setLastModifiedTimeNanosIfExists(long newTime) throws IOException {
+    return fileSystem.setLastModifiedTimeNanosIfExists(asFragment(), newTime);
+  }
+
   /**
    * Returns the value of the given extended attribute name or null if the attribute does not exist
    * or the file system does not support extended attributes. Follows symlinks.

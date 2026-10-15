@@ -362,9 +362,17 @@ public class UnixFileSystem extends DiskBackedFileSystem {
 
   @Override
   public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
+    if (!setLastModifiedTimeNanosIfExists(path, newTime)) {
+      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+    }
+  }
+
+  @Override
+  public boolean setLastModifiedTimeNanosIfExists(PathFragment path, long newTime)
+      throws IOException {
     var comp = Blocker.begin();
     try {
-      run(
+      return run(
           () ->
               nativePosixFilesService.utimensat(
                   path.toString(), newTime == Path.NOW_SENTINEL_TIME, newTime));

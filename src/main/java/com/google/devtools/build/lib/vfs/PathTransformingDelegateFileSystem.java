@@ -122,6 +122,12 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
+  public boolean setLastModifiedTimeNanosIfExists(PathFragment path, long newTime)
+      throws IOException {
+    return delegateFs.setLastModifiedTimeNanosIfExists(toDelegatePath(path), newTime);
+  }
+
+  @Override
   public boolean isSymbolicLink(PathFragment path) throws IOException {
     return delegateFs.isSymbolicLink(toDelegatePath(path));
   }

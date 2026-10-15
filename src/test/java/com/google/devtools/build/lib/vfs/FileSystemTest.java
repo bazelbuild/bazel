@@ -1116,6 +1116,22 @@ public abstract class FileSystemTest {
   // Test the date functions
 
   @Test
+  public void testSetLastModifiedTimeNanosIfExists() throws Exception {
+    Path file = absolutize("file");
+    assertThat(file.setLastModifiedTimeNanosIfExists(Path.NOW_SENTINEL_TIME)).isFalse();
+    assertThat(file.exists()).isFalse();
+    FileNotFoundException error =
+        assertThrows(
+            FileNotFoundException.class, () -> file.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME));
+    assertThat(error).hasMessageThat().endsWith(file + " (No such file or directory)");
+
+    FileSystemUtils.createEmptyFile(file);
+    long time = (1L << 34) * 1_000_000L;
+    assertThat(file.setLastModifiedTimeNanosIfExists(time)).isTrue();
+    assertThat(file.getLastModifiedTimeNanos()).isEqualTo(time);
+  }
+
+  @Test
   public void testSetLastModifiedTimeNanos() throws Exception {
     Path file = absolutize("file");
     FileSystemUtils.createEmptyFile(file);
