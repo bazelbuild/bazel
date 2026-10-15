@@ -142,15 +142,11 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
           // Possible version skew: the old LC doesn't know about the new enum value.
           matchStatus = TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED;
         }
-        Event event =
-            switch (matchStatus) {
-              case MATCH_STATUS_MATCH -> Event.info("Skycache: " + result.statusMessage());
-              default -> {
-                bailedOut = true;
-                yield Event.warn("Skycache: " + result.statusMessage());
-              }
-            };
-        eventHandler.handle(event);
+        if (matchStatus != TopLevelTargetsMatchStatus.MATCH_STATUS_MATCH) {
+          bailedOut = true;
+        }
+        eventHandler.post(
+            new SkycacheMetadataQueryResultEvent(matchStatus, result.statusMessage()));
       } catch (ExecutionException | TimeoutException e) {
         eventHandler.handle(Event.warn("Skycache: Error with metadata store: " + e.getMessage()));
       }

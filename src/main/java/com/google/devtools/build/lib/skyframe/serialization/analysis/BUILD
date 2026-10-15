@@ -397,6 +397,17 @@ java_library(
 )
 
 java_library(
+    name = "skycache_metadata_query_result_event",
+    srcs = ["SkycacheMetadataQueryResultEvent.java"],
+    visibility = [
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_metadata_status_java_proto",
+    ],
+)
+
+java_library(
     name = "options",
     srcs = [
         "RemoteAnalysisCachingOptions.java",
@@ -679,6 +690,7 @@ java_library(
         ":remote_analysis_cache_mode",
         ":remote_analysis_caching_server_state",
         ":serialization_dependencies_provider",
+        ":skycache_metadata_query_result_event",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skycache_metadata_params",

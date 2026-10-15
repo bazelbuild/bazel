@@ -176,4 +176,15 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
           "Active directories for remote analysis caching. Specify as comma-separated"
               + " workspace root-relative paths.")
   public abstract List<String> getActiveDirectories();
+
+  // This option has no consumers in Bazel; it is read by Google-internal code. Do not remove.
+  @Option(
+      name = "skycache_interactive_messages",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If true, Skycache console messages may include developer-focused guidance. If false,"
+              + " they are written for an automated environment.")
+  public abstract boolean getInteractiveMessages();
 }
