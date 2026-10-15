@@ -94,6 +94,12 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   // Null until the first incremental evaluation completes. Always null when not keeping edges.
   @Nullable private IntVersion lastGraphVersion = null;
 
+  // The version of the first evaluation in the latest sequence of evaluations, which ends with a
+  // call to noteEvaluationsAtSameVersionMayBeFinished. Null until the first evaluation starts.
+  // Always null when not keeping edges.
+  @Nullable private IntVersion firstGraphVersionOfSequence = null;
+  private boolean evaluationSequenceFinished = true;
+
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
   private Set<SkyKey> latestTopLevelEvaluations = new HashSet<>();
@@ -126,6 +132,10 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     // NOTE: Performance critical code. See bug "Null build performance parity".
     Version graphVersion = getNextGraphVersion();
     setAndCheckEvaluateState(true, roots);
+    if (keepEdges && evaluationSequenceFinished) {
+      firstGraphVersionOfSequence = (IntVersion) graphVersion;
+      evaluationSequenceFinished = false;
+    }
 
     // Only remember roots for Skyfocus if we're tracking incremental states by keeping edges.
     if (keepEdges && rememberTopLevelEvaluations) {
@@ -559,6 +569,19 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Override
   public void cleanupLatestTopLevelEvaluations() {
     latestTopLevelEvaluations = new HashSet<>();
+  }
+
+  @Override
+  public void noteEvaluationsAtSameVersionMayBeFinished(ExtendedEventHandler eventHandler)
+      throws InterruptedException {
+    evaluationSequenceFinished = true;
+    MemoizingEvaluator.super.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
+  }
+
+  @Override
+  @Nullable
+  public Version getFirstVersionOfLatestEvaluationSequence() {
+    return firstGraphVersionOfSequence;
   }
 
   @Override

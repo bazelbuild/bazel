@@ -494,8 +494,8 @@ public class SkyframeErrorProcessorTest {
 
     assertThat(result.executionDetailedExitCode()).isEqualTo(EXECUTION_CYCLE_CODE);
     assertThat(result.hasAnalysisError()).isFalse();
-    // A cycle has no cause, so its severity cannot be read off an exception: classify decides it,
-    // logOrPrintWarningsKeepGoing keys off that, and Severity.EXECUTION returns before any
+    // A cycle has no cause, so its priority cannot be read off an exception: classify decides it,
+    // logOrPrintWarningsKeepGoing keys off that, and ReportingPriority.EXECUTION returns before any
     // user-visible warning. An execution cycle is therefore not warned about in analysis wording.
     assertThat(warningMessages()).isEmpty();
     // No warning, but the cycle itself is reported to the user by the cycles reporter.
@@ -597,7 +597,7 @@ public class SkyframeErrorProcessorTest {
     assertThat(result.hasAnalysisError()).isFalse();
     assertThat(result.hasLoadingError()).isFalse();
     assertThat(eventBusCollector.allEvents).isEmpty();
-    // Every ActionLookupData is Severity.EXECUTION whatever its exception is, and
+    // Every ActionLookupData is ReportingPriority.EXECUTION whatever its exception is, and
     // logOrPrintWarningsKeepGoing returns before warning for those. That matters here: the label of
     // an ActionLookupData is null, so an analysis-worded warning would interpolate the literal
     // string "null" into a user-visible message.
@@ -654,8 +654,7 @@ public class SkyframeErrorProcessorTest {
         /* keepGoing= */ true,
         /* includeExecutionPhase= */ false);
 
-    // The loading root causes are collected in a HashSet, so the order of the events is not
-    // deterministic; containsExactly is order-independent.
+    // The loading root causes are de-duplicated by label, so there is one event per label.
     assertThat(eventBusCollector.loadingFailures)
         .containsExactly(
             new LoadingFailureEvent(key.getLabel(), firstRootCause),
@@ -1138,8 +1137,9 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_executionErrorPlusAspectAnalysisError_executionErrorWins() {
-    // NO_KEEP_GOING_PRECEDENCE ranks EXECUTION ahead of ASPECT_ANALYSIS, and Phase 2 posts failure
-    // events for all errors before Phase 3 aborts the build.
+    // NO_KEEP_GOING_PRECEDENCE ranks EXECUTION ahead of ASPECT_ANALYSIS, and Phase 2 reports only
+    // the error the build aborts with - here the execution error, so no AnalysisFailureEvent is
+    // posted at all.
     Label aspectLabel = Label.parseCanonicalUnchecked("//aspect_err");
     TopLevelAspectsKey aspectKey = topLevelAspectsKey(aspectLabel);
     ConfiguredTargetKey executionKey = configuredTargetKey("//exec_err");
@@ -1161,6 +1161,7 @@ public class SkyframeErrorProcessorTest {
             () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
 
     assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed: action failed");
+    assertThat(eventBusCollector.analysisFailures).isEmpty();
   }
 
   // -------------------------------------------------------------------------------------------
@@ -1281,11 +1282,11 @@ public class SkyframeErrorProcessorTest {
   @Test
   public void actionConflictPlusCycle_keepGoing_reportsTheCycleAndHarvestsTheConflict()
       throws Exception {
-    // A harvested conflict is never visited by the main loop, yet its cycles are still reported:
+    // A harvested conflict is never classified or reported, yet its cycles are still reported:
     // the same error can carry both, because ErrorInfo#fromChildErrors keeps one child's exception
     // and the cycles of all of them, so a target with one conflicting dependency and another
-    // dependency in a cycle arrives here with both. That is why the cycles of every error are
-    // reported above the harvest instead of from inside the loop.
+    // dependency in a cycle arrives here with both. That is why Phase 0 reports the cycles of every
+    // error before the harvest.
     ConfiguredTargetKey key = configuredTargetKey("//conflict_and_cycle");
     ConfiguredTargetKey culprit = configuredTargetKey("//cycle:culprit");
     ActionAnalysisMetadata action = mock(ActionAnalysisMetadata.class);
@@ -1314,11 +1315,11 @@ public class SkyframeErrorProcessorTest {
   @Test
   public void actionConflictPlusCycle_noKeepGoing_reportsTheCycleAndDoesNotThrow()
       throws Exception {
-    // The harvest runs before the main loop in both modes, so the same error that would abort the
+    // The harvest runs before classification in both modes, so the same error that would abort the
     // build under --nokeep_going - a cycle throws ViewCreationFailedException, see
-    // analysisCycle_noKeepGoing_throwsViewCreationFailedException - leaves nothing for the main
-    // loop to throw on once its conflict is taken out. The conflict is handed to SkyframeBuildView,
-    // which is what fails the build.
+    // analysisCycle_noKeepGoing_throwsViewCreationFailedException - leaves nothing to abort with
+    // once its conflict is taken out. The conflict is handed to SkyframeBuildView, which is what
+    // fails the build.
     ConfiguredTargetKey key = configuredTargetKey("//conflict_and_cycle");
     ConfiguredTargetKey culprit = configuredTargetKey("//cycle:culprit");
     ActionAnalysisMetadata action = mock(ActionAnalysisMetadata.class);
@@ -1344,8 +1345,8 @@ public class SkyframeErrorProcessorTest {
   public void buildDriverKey_topLevelConflictException_isHarvestedLikeTheBareKey()
       throws Exception {
     // The production shape: BuildDriverFunction only ever throws a TopLevelConflictException on a
-    // BuildDriverKey. The harvest unwraps the key itself, so the conflict never reaches the main
-    // loop - where assertValidAnalysisOrExecutionException would reject it.
+    // BuildDriverKey. The harvest unwraps the key itself, so the conflict never reaches
+    // classifyAll - where assertValidAnalysisOrExecutionException would reject it.
     ConfiguredTargetKey ctKey = configuredTargetKey("//conflict");
     SkyKey key = wrapKey(TopLevelKeyKind.BUILD_DRIVER, ctKey);
     ActionAnalysisMetadata action = mock(ActionAnalysisMetadata.class);
@@ -1437,7 +1438,7 @@ public class SkyframeErrorProcessorTest {
     assertThat(result.hasAnalysisError()).isTrue();
     assertThat(result.executionDetailedExitCode()).isEqualTo(executionExitCode);
     assertThat(result.actionConflicts()).containsExactly(action, conflict);
-    // The conflict is the only error the loop never sees: the other three are reported as usual,
+    // The conflict is the only error never classified: the other three are reported as usual,
     // and only the two non-execution ones are warned about.
     assertThat(analysisFailureTargets()).containsExactly(loadingKey, analysisKey);
     assertThat(warningMessages()).hasSize(2);
@@ -1610,9 +1611,9 @@ public class SkyframeErrorProcessorTest {
   @Test
   public void noSuchPackageException_keepGoing_analysisErrorWithPackageMissingRootCause()
       throws Exception {
-    // convertToAnalysisException names NoSuchPackageException explicitly, but only its sibling
-    // NoSuchTargetException was covered. Both take the NoSuchThingException arm of
-    // processIndividualError; the observable difference is the exit code each one defaults to.
+    // convertToAnalysisException names NoSuchPackageException explicitly, next to its sibling
+    // NoSuchTargetException. Both take the DetailedException arm of classify; the observable
+    // difference is the exit code each one defaults to.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:missing_pkg_dep");
     NoSuchPackageException cause =
         new NoSuchPackageException(
@@ -1642,8 +1643,8 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_noSuchTargetException_failureDetailKeepsPackageLoadingSubfield() {
-    // The NoSuchThingException arm carries a comment saying it exists for --nokeep_going, yet only
-    // --keep_going was covered. This also pins maybeContextualizeFailureDetail: the message gets
+    // The --nokeep_going counterpart of the NoSuchThingException tests above. This pins
+    // maybeContextualizeFailureDetail: the message gets
     // the "Analysis of target ... failed; build aborted" prefix, while the original failure
     // detail's subfield and code survive - here a *non-analysis* subfield on a
     // ViewCreationFailedException, which is the interesting part.
@@ -1671,8 +1672,8 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_noSuchPackageException_failureDetailKeepsPackageMissingCode() {
-    // Same arm as above, different default code: the contextualization is agnostic to which
-    // NoSuchThingException subclass it is handed.
+    // Same as above, but with a NoSuchPackageException: its PACKAGE_MISSING code survives the
+    // contextualization too.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:missing_pkg_dep");
 
     ViewCreationFailedException thrown =
@@ -1715,8 +1716,8 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_externalDepsException_failureDetailKeepsExternalDepsSubfield() {
-    // The ExternalDepsException arm likewise only existed for --nokeep_going in the source
-    // comments, and was only ever exercised with --keep_going.
+    // The --nokeep_going counterpart for an ExternalDepsException: its non-analysis subfield
+    // survives contextualization too.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:external_deps_err");
 
     ViewCreationFailedException thrown =
@@ -1814,9 +1815,10 @@ public class SkyframeErrorProcessorTest {
   @Test
   public void topLevelAspectsKey_executionException_keepGoing_noAnalysisFailureEvent()
       throws Exception {
-    // Pins the isExecutionException arm of the aspect branch: the exit code is taken from the
-    // exception, and since the error is then not an analysis error, *no* AnalysisFailureEvent is
-    // posted - unlike an aspect analysis error, which posts one for its base configured target.
+    // An execution exception makes an error an execution error whatever its key, aspect keys
+    // included: the exit code is taken from the exception, and since the error is then not an
+    // analysis error, *no* AnalysisFailureEvent is posted - unlike an aspect analysis error, which
+    // posts one for its base configured target.
     TopLevelAspectsKey key =
         topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_exec_err"));
     DetailedExitCode exitCode =
@@ -1838,8 +1840,8 @@ public class SkyframeErrorProcessorTest {
   @Test
   public void topLevelAspectsKey_executionCycle_keepGoing_cycleCodeAndNoAnalysisFailureEvent()
       throws Exception {
-    // Pins the execution-cycle arm of the aspect branch: CYCLE_CODE, not an analysis error, and
-    // again no AnalysisFailureEvent.
+    // Likewise an execution cycle on an aspect key: CYCLE_CODE, not an analysis error, and again no
+    // AnalysisFailureEvent.
     TopLevelAspectsKey key =
         topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_exec_cycle"));
     CycleInfo cycle = executionCycle(configuredTargetKey("//pkg:aspect_exec_cycle"));
@@ -1854,7 +1856,7 @@ public class SkyframeErrorProcessorTest {
     assertThat(result.hasAnalysisError()).isFalse();
     assertThat(eventBusCollector.analysisFailures).isEmpty();
     assertThat(eventBusCollector.allEvents).isEmpty();
-    // An execution cycle is Severity.EXECUTION like every other execution error, and
+    // An execution cycle is ReportingPriority.EXECUTION like every other execution error, and
     // logOrPrintWarningsKeepGoing returns early for those - so no analysis wording here either.
     // The aspect-key twin of executionCycle_keepGoing_executionErrorWithCycleCode.
     assertThat(warningMessages()).isEmpty();
@@ -1899,12 +1901,12 @@ public class SkyframeErrorProcessorTest {
   }
 
   @Test
-  public void noKeepGoing_topLevelAspectsKeyExecutionError_throwsImmediatelyWithoutDeferral() {
-    // Pins the ordering inside throwOrReturnAspectAnalysisException: the isExecutionException check
-    // comes *before* the TopLevelAspectsKey check, so an execution failure on a top-level aspect is
-    // rethrown on the spot instead of being stashed and rethrown after the loop, which is what
-    // happens to an aspect *analysis* error (see
-    // noKeepGoing_aspectErrorPlusTargetAnalysisError_targetErrorWins).
+  public void noKeepGoing_topLevelAspectsKeyExecutionError_throwsBuildFailedWithItsExitCode() {
+    // classify checks isExecutionException before anything key-specific, so an execution failure on
+    // a top-level aspect is ReportingPriority.EXECUTION, and abortBuild rethrows it as a
+    // BuildFailedException instead of wrapping it in the aspect-worded ViewCreationFailedException
+    // an aspect *analysis* error gets (see
+    // noKeepGoing_singleAspectAnalysisError_throwsViewCreationFailedWithAspectMessage).
     TopLevelAspectsKey key =
         topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_exec_err"));
     DetailedExitCode exitCode =
@@ -1928,8 +1930,8 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_topLevelAspectsKeyExecutionCycle_throwsBuildFailedWithCycleCode() {
-    // Same bypass as above, through the hasExecutionCycle check: no deferral, no
-    // ViewCreationFailedException, just the generic cycle BuildFailedException with a null message.
+    // Same as above, through the isExecutionCycle check: no ViewCreationFailedException, just the
+    // generic cycle BuildFailedException with a null message.
     TopLevelAspectsKey key =
         topLevelAspectsKey(Label.parseCanonicalUnchecked("//pkg:aspect_exec_cycle"));
 
@@ -2112,8 +2114,8 @@ public class SkyframeErrorProcessorTest {
   @Test
   public void noKeepGoing_aspectCompletionKey_throwsViewCreationFailedWithAspectMessage() {
     // An AspectCompletionKey unwraps to a *bare* AspectKey, not to a TopLevelAspectsKey. abortBuild
-    // branches on Severity, and every AspectBaseKey - bare AspectKey included - is
-    // Severity.ASPECT_ANALYSIS, so it gets the aspect-worded message.
+    // branches on ReportingPriority, and every AspectBaseKey - bare AspectKey included - is
+    // ReportingPriority.ASPECT_ANALYSIS, so it gets the aspect-worded message.
     ConfiguredTargetKey baseKey = configuredTargetKey("//pkg:aspect_err");
     AspectKey aspectKey = aspectKey(baseKey);
     ConfiguredValueCreationException cause =
@@ -2149,8 +2151,8 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_actionLookupDataAnalysisError_bugReportMasksTheBuildFailedException() {
-    // classify marks every ActionLookupData Severity.EXECUTION, so abortBuild calls rethrow, and a
-    // ConfiguredValueCreationException IS a DetailedException, so rethrow takes its
+    // classify marks every ActionLookupData ReportingPriority.EXECUTION, so abortBuild calls
+    // rethrow, and a ConfiguredValueCreationException IS a DetailedException, so rethrow takes its
     // "escaped Skyframe error bubbling" branch: it files a bug report and throws
     // BuildFailedException carrying the exception's own DetailedExitCode.
     //
@@ -2178,44 +2180,58 @@ public class SkyframeErrorProcessorTest {
     assertThat(bugReporter.nonFatalBugReports).isEmpty();
   }
 
-  // TODO(b/561978611): Remove this behavior. A cycle on an ActionLookupData crashes with a
-  // NullPointerException.
   @Test
-  public void actionLookupDataCycle_filesBugReportThenThrowsNullPointerException(
-      @TestParameter boolean keepGoing) {
-    // Latent bug, in both keep_going modes: for an ActionLookupData key, processIndividualError
-    // unconditionally takes the execution path and hands the ErrorInfo's exception - null, for a
-    // cycle - to getExecutionDetailedExitCodeFromCause. DetailedException.getDetailedExitCode(null)
-    // is harmless there (a plain instanceof check that returns null), so the null cause reaches
-    // sendBugReportAndCreateUnknownExecutionDetailedExitCode, which files a non-fatal bug report
-    // and *then* dereferences the cause at SkyframeErrorProcessor.java:630, i.e.
-    // "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage().
-    // That second call, not the getDetailedExitCode one, is where the NPE comes from. All of it
-    // happens before the keepGoing branch, hence the identical crash in both modes.
+  public void actionLookupDataCycle_keepGoing_executionErrorWithCycleCode(
+      @TestParameter boolean executionCycle) throws Exception {
     ConfiguredTargetKey ctKey = configuredTargetKey("//pkg:build_info");
     ActionLookupData key = ActionLookupData.create(ctKey, /* actionIndex= */ 0);
-    // The cycle's contents do not matter: the ActionLookupData branch never inspects them, so not
-    // even an execution cycle gets the CYCLE_CODE shortcut that the other key types get.
-    EvaluationResult<SkyValue> result = resultOf(key, ErrorInfo.fromCycle(executionCycle(ctKey)));
+    CycleInfo cycle =
+        executionCycle ? executionCycle(ctKey) : CycleInfo.createCycleInfo(ImmutableList.of(ctKey));
 
-    assertThrows(
-        NullPointerException.class,
-        () -> processErrors(result, keepGoing, /* includeExecutionPhase= */ true));
+    ErrorProcessingResult result =
+        processErrors(
+            resultOf(key, ErrorInfo.fromCycle(cycle)),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ true);
 
-    // Filed on the injected bug reporter, before the NPE was thrown.
-    assertThat(bugReporter.nonFatalBugReports).hasSize(1);
-    assertThat(bugReporter.nonFatalBugReports.get(0))
-        .hasMessageThat()
-        .startsWith("action terminated with unexpected exception with result");
+    assertThat(result.executionDetailedExitCode()).isEqualTo(EXECUTION_CYCLE_CODE);
+    assertThat(result.hasAnalysisError()).isFalse();
+    assertThat(result.hasLoadingError()).isFalse();
+    assertThat(eventBusCollector.allEvents).isEmpty();
+    assertThat(warningMessages()).isEmpty();
+    assertThat(cyclesReporter.cycles).containsExactly(cycle);
+    assertThat(bugReporter.nonFatalBugReports).isEmpty();
+  }
+
+  @Test
+  public void actionLookupDataCycle_noKeepGoing_throwsBuildFailedExceptionWithCycleCode(
+      @TestParameter boolean executionCycle) {
+    ConfiguredTargetKey ctKey = configuredTargetKey("//pkg:build_info");
+    ActionLookupData key = ActionLookupData.create(ctKey, /* actionIndex= */ 0);
+    CycleInfo cycle =
+        executionCycle ? executionCycle(ctKey) : CycleInfo.createCycleInfo(ImmutableList.of(ctKey));
+
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                processErrors(
+                    resultOf(key, ErrorInfo.fromCycle(cycle)),
+                    /* keepGoing= */ false,
+                    /* includeExecutionPhase= */ true));
+
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(EXECUTION_CYCLE_CODE);
+    assertThat(thrown).hasMessageThat().isNull();
+    assertThat(eventBusCollector.allEvents).isEmpty();
+    assertThat(cyclesReporter.cycles).containsExactly(cycle);
+    assertThat(bugReporter.nonFatalBugReports).isEmpty();
   }
 
   @Test
   public void analysisCycle_transitiveTargetKeyCulprit_rootCauseIsTheCulpritLabel()
       throws Exception {
-    // Pins the TransitiveTargetKey.NAME branch of maybeGetConfiguredTargetCycleCulprit: the root
-    // cause is the culprit's own label, not the top-level one. TransitiveTargetKey is also the one
-    // key type here that overrides SkyKey#argument (it returns itself), which is why that branch
-    // can cast the key directly while the CONFIGURED_TARGET branch casts argument().
+    // Pins the TransitiveTargetKey arm of maybeGetConfiguredTargetCycleCulprit: the root
+    // cause is the culprit's own label, not the top-level one.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:cycle");
     TransitiveTargetKey culprit =
         TransitiveTargetKey.of(Label.parseCanonicalUnchecked("//cycle:transitive_culprit"));
@@ -2240,10 +2256,10 @@ public class SkyframeErrorProcessorTest {
   @Test
   public void analysisCycle_otherCulpritKind_rootCauseFallsBackToTheTopLevelLabel()
       throws Exception {
-    // Pins the else branch of maybeGetConfiguredTargetCycleCulprit: a culprit that is neither a
-    // CONFIGURED_TARGET nor a TRANSITIVE_TARGET key - here an AspectKey, whose functionName is
-    // SkyFunctions.ASPECT - makes the root cause the label of the *top-level* target, so the
-    // reported cause names something that is not actually in the cycle.
+    // Pins the default arm of maybeGetConfiguredTargetCycleCulprit: a culprit that is neither a
+    // ConfiguredTargetKey nor a TransitiveTargetKey - here an AspectKey - makes the root cause the
+    // label of the *top-level* target, so the reported cause names something that is not actually
+    // in the cycle.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:cycle");
     AspectKey culprit = aspectKey(configuredTargetKey("//other:base"));
 
@@ -2266,8 +2282,8 @@ public class SkyframeErrorProcessorTest {
   public void executionExceptionPlusAnalysisCycle_keepGoing_executionWinsAndKeepsTheExitCode()
       throws Exception {
     // classify tests isExecutionException before the cycle, so an ErrorInfo carrying *both* an
-    // ActionExecutionException and an analysis cycle is Severity.EXECUTION: the execution exit
-    // code survives and no AnalysisFailureEvent is posted for it.
+    // ActionExecutionException and an analysis cycle is ReportingPriority.EXECUTION: the execution
+    // exit code survives and no AnalysisFailureEvent is posted for it.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:both");
     ConfiguredTargetKey culprit = configuredTargetKey("//cycle:culprit");
     ActionExecutionException cause =
@@ -2286,8 +2302,8 @@ public class SkyframeErrorProcessorTest {
     // The ActionExecutionException's exit code survives.
     assertThat(result.executionDetailedExitCode()).isEqualTo(cause.getDetailedExitCode());
     assertThat(eventBusCollector.analysisFailures).isEmpty();
-    // No warning: Severity.EXECUTION returns early, and an ActionExecutionException is not even
-    // worth a GoogleLogger line.
+    // No warning: ReportingPriority.EXECUTION returns early, and an ActionExecutionException is not
+    // even worth a GoogleLogger line.
     assertThat(warningMessages()).isEmpty();
     // The cycle is not swallowed, it is still handed to the cycles reporter (with a path to it
     // prepended, hence the assertion on the members rather than on the CycleInfo).
@@ -2434,14 +2450,11 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown.isCatastrophic()).isTrue();
   }
 
-  // TODO(b/561978611): Remove this behavior. rethrow only carries the catastrophe bit over for an
-  // ActionExecutionException, so every other execution exception silently loses it.
   @Test
-  public void noKeepGoing_catastrophicArtifactNestedSetEvalException_isNotCatastrophic() {
-    // The contrast with the test above. An ArtifactNestedSetEvalException has its own
-    // isCatastrophic flag, which ArtifactNestedSetFunction propagates up through the nested-set
-    // evaluation - and which rethrow() then drops, because the exception reaches the final
-    // "unexpected exception" fallback rather than the ActionExecutionException branch.
+  public void noKeepGoing_artifactNestedSetEvalException_preservesCatastrophicFlag(
+      @TestParameter boolean catastrophic) {
+    // An ArtifactNestedSetEvalException carries an isCatastrophic flag propagated from its child
+    // exceptions by ArtifactNestedSetFunction, which rethrow() forwards to BuildFailedException.
     ConfiguredTargetKey key = configuredTargetKey("//nested_set_err");
 
     BuildFailedException thrown =
@@ -2452,12 +2465,11 @@ public class SkyframeErrorProcessorTest {
                     resultOf(
                         key,
                         errorInfo(
-                            artifactNestedSetEvalException(
-                                "nested set failed", /* catastrophic= */ true))),
+                            artifactNestedSetEvalException("nested set failed", catastrophic))),
                     /* keepGoing= */ false,
                     /* includeExecutionPhase= */ true));
 
-    assertThat(thrown.isCatastrophic()).isFalse();
+    assertThat(thrown.isCatastrophic()).isEqualTo(catastrophic);
     assertThat(thrown)
         .hasMessageThat()
         .isEqualTo(
@@ -2468,16 +2480,15 @@ public class SkyframeErrorProcessorTest {
     assertThat(bugReporter.nonFatalBugReports).hasSize(2);
   }
 
-  // TODO(b/561978611): Remove this behavior. The rethrown message reads "TestAction failed: null".
   @Test
   public void noKeepGoing_actionExecutionErrorWithNoMessage_errorIsMarkedAlreadyShown() {
     // Pins the !showError() branch of rethrow(). The base showError() is getMessage() != null, so
     // with a plain ActionExecutionException the only way to reach it is a null message; the
     // subclass AlreadyReportedActionExecutionException hard-codes false instead, see
-    // noKeepGoing_alreadyReportedActionExecutionError_errorIsMarkedAlreadyShown. Wart: the
-    // rethrown message is *not* null - it comes out as "TestAction failed: null" - which is what
-    // makes isErrorAlreadyShown() prove the showError() branch rather than BuildFailedException's
-    // own null-message shortcut.
+    // noKeepGoing_alreadyReportedActionExecutionError_errorIsMarkedAlreadyShown. Because the
+    // action description is still prepended ("TestAction failed"), the rethrown message is
+    // non-null, so isErrorAlreadyShown() proves the !showError() flag rather than
+    // BuildFailedException's own null-message shortcut.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
     DetailedExitCode exitCode =
         executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
@@ -2498,7 +2509,7 @@ public class SkyframeErrorProcessorTest {
                     /* keepGoing= */ false,
                     /* includeExecutionPhase= */ true));
 
-    assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed: null");
+    assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed");
     assertThat(thrown.isErrorAlreadyShown()).isTrue();
   }
 
@@ -2507,8 +2518,6 @@ public class SkyframeErrorProcessorTest {
     // The production-realistic route into the same branch: SkyframeActionExecutor and
     // ActionExecutionFunction wrap failures they have already reported in
     // AlreadyReportedActionExecutionException, the one showError() override in the codebase.
-    // Unlike the null-message case above, the message survives intact, so this pins the
-    // errorAlreadyShown mapping without also depending on the "TestAction failed: null" wart.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
     DetailedExitCode exitCode =
         executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
@@ -2530,55 +2539,52 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown.isErrorAlreadyShown()).isTrue();
   }
 
-  // TODO(b/561978611): Remove this behavior. rethrow dereferences the action's owner
-  // unconditionally, so the getAction() null check guards nothing.
   @Test
-  public void noKeepGoing_actionExecutionErrorWithOwnerlessAction_throwsNullPointerException() {
-    // Latent bug, pinned on purpose: rethrow() guards on getAction() != null and its comment
-    // claims to handle "Actions with no owner", but it then calls getLocation() unconditionally,
-    // which dereferences action.getOwner(). An action with a null owner passes the guard, gets its
-    // description prepended, and then NPEs.
+  public void noKeepGoing_actionExecutionErrorWithOwnerlessAction_omitsLocationFromMessage() {
+    // An ActionExecutionException whose action has a null owner has no location: rethrow() still
+    // prepends the action description, without a location prefix.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
     ActionAnalysisMetadata ownerlessAction = mock(ActionAnalysisMetadata.class);
     when(ownerlessAction.describe()).thenReturn("TestAction");
     when(ownerlessAction.getOwner()).thenReturn(null);
+    DetailedExitCode exitCode =
+        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
     ActionExecutionException cause =
         new ActionExecutionException(
-            "action failed",
-            ownerlessAction,
-            /* catastrophe= */ false,
-            executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE));
+            "action failed", ownerlessAction, /* catastrophe= */ false, exitCode);
 
-    EvaluationResult<SkyValue> result = resultOf(key, errorInfo(cause));
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                processErrors(
+                    resultOf(key, errorInfo(cause)),
+                    /* keepGoing= */ false,
+                    /* includeExecutionPhase= */ true));
 
-    assertThrows(
-        NullPointerException.class,
-        () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
+    assertThat(thrown).hasMessageThat().isEqualTo("TestAction failed: action failed");
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(exitCode);
   }
 
-  // TODO(b/561978611): Remove this behavior. rethrow dereferences the action's owner
-  // unconditionally, so the getAction() null check guards nothing.
   @Test
-  public void noKeepGoing_actionExecutionErrorWithNoAction_throwsNullPointerException() {
-    // The same latent bug, other flavour: getLocation() also dereferences a *null* action, so the
-    // getAction() != null guard protects nothing. This flavour is only reachable through rethrow()
-    // with --nokeep_going: every other use of the null-action actionExecutionException helper is
-    // --keep_going (rethrow is never called), and
-    // noKeepGoing_testExecExceptionNestedInActionExecutionException_isRethrown escapes earlier via
-    // the nested TestExecException.
+  public void noKeepGoing_actionExecutionErrorWithNoAction_keepsCauseMessageAsIs() {
+    // An ActionExecutionException with a null action has neither an action description nor a
+    // location, so rethrow() leaves the exception's own message untouched.
     ConfiguredTargetKey key = configuredTargetKey("//exec_err");
+    DetailedExitCode exitCode =
+        executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE);
 
-    EvaluationResult<SkyValue> result =
-        resultOf(
-            key,
-            errorInfo(
-                actionExecutionException(
-                    "action failed",
-                    executionExitCode("action failed", Execution.Code.ACTION_NOT_UP_TO_DATE))));
+    BuildFailedException thrown =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                processErrors(
+                    resultOf(key, errorInfo(actionExecutionException("action failed", exitCode))),
+                    /* keepGoing= */ false,
+                    /* includeExecutionPhase= */ true));
 
-    assertThrows(
-        NullPointerException.class,
-        () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
+    assertThat(thrown).hasMessageThat().isEqualTo("action failed");
+    assertThat(thrown.getDetailedExitCode()).isEqualTo(exitCode);
   }
 
   @Test
@@ -2706,8 +2712,8 @@ public class SkyframeErrorProcessorTest {
       throws Exception {
     // Pins the BuildViewTestCase-only early skip: with a null EventBus and a key that is neither a
     // ConfiguredTargetKey nor an AspectBaseKey, the ErrorInfo is dumped to the event handler and
-    // the error is otherwise ignored - processIndividualError is not called and nothing is thrown,
-    // not even with --nokeep_going. Note that validation runs *before* the skip, so the exception
+    // the error is otherwise ignored - classify is not called and nothing is thrown, not even with
+    // --nokeep_going. Note that validation runs *before* the skip, so the exception
     // still has to be a valid analysis exception.
     ConfiguredTargetKey ctKey = configuredTargetKey("//build_info");
     ActionLookupData key = ActionLookupData.create(ctKey, /* actionIndex= */ 0);
@@ -2718,7 +2724,7 @@ public class SkyframeErrorProcessorTest {
             resultOf(key, errorInfo), /* keepGoing= */ false, /* includeExecutionPhase= */ false);
 
     assertThat(errorMessages()).containsExactly(errorInfo.toString());
-    // An empty result is what proves that processIndividualError was skipped: the same error on a
+    // An empty result is what proves that classify was skipped: the same error on a
     // ConfiguredTargetKey would have set hasAnalysisError.
     assertThat(result.hasAnalysisError()).isFalse();
     assertThat(result.hasLoadingError()).isFalse();
@@ -3066,9 +3072,7 @@ public class SkyframeErrorProcessorTest {
   }
 
   /**
-   * Same, but with a non-null action. {@code --nokeep_going} needs one: {@link
-   * SkyframeErrorProcessor#rethrow} unconditionally calls {@link
-   * ActionExecutionException#getLocation}, which dereferences the action.
+   * Same, but with a non-null action whose description is {@code "TestAction"}.
    *
    * <p>The action's owner has a null label, which keeps the exception's root causes empty (an owner
    * with a label would make the constructor dereference the action's primary output too).

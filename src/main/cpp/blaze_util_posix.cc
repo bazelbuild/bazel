@@ -344,6 +344,7 @@ ATTRIBUTE_NORETURN static void ExecuteProgram(const blaze_util::Path& exe,
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args,
+                      const blaze_util::Path& argfile,
                       const bool run_in_user_cgroup) {
   ExecuteProgram(exe, server_jvm_args, run_in_user_cgroup);
 }

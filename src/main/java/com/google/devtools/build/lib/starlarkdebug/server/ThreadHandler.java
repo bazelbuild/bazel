@@ -38,7 +38,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
@@ -314,7 +313,7 @@ final class ThreadHandler {
       ParserInput input = ParserInput.fromString(content, "<debug eval>");
       // TODO(adonovan): the module or call frame should be a parameter to doEvaluate.
       Module module = Module.ofInnermostEnclosingStarlarkFunction(thread);
-      return Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+      return Starlark.execFile(input, module, thread);
     } finally {
       servicingEvalRequest.set(false);
     }

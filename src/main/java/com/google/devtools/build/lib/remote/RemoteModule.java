@@ -62,16 +62,13 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.CombinedCacheClientFactory.CombinedCacheClient;
 import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
-import com.google.devtools.build.lib.remote.Retrier.ResultClassifier;
-import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
-import com.google.devtools.build.lib.remote.http.DownloadTimeoutException;
-import com.google.devtools.build.lib.remote.http.HttpException;
+import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -116,14 +113,11 @@ import com.google.devtools.common.options.RegexPatternOption;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
-import io.netty.handler.codec.DecoderException;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -132,7 +126,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -141,6 +134,8 @@ public final class RemoteModule extends BlazeModule {
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   private final ThreadPoolExecutor executorService;
+  // TODO: Remove this set when whole-invocation retries no longer handle lost action inputs.
+  // RemoteExecutionService skips cache lookup for rewound actions instead.
   private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
   private final ChunkLocationMap chunkLocationMap = new ChunkLocationMap();
   private boolean useRemoteRepoContentsCache;
@@ -246,43 +241,6 @@ public final class RemoteModule extends BlazeModule {
     return !Strings.isNullOrEmpty(options.getRemoteOutputService());
   }
 
-  public static final ResultClassifier HTTP_RESULT_CLASSIFIER =
-      e -> {
-        boolean retry = false;
-        if (e instanceof ClosedChannelException) {
-          retry = true;
-        } else if (e instanceof DownloadTimeoutException) {
-          retry = true;
-        } else if (e instanceof HttpException httpException) {
-          int status = httpException.response().status().code();
-          if (status == HttpResponseStatus.NOT_FOUND.code()) {
-            return Result.SUCCESS;
-          }
-          retry =
-              status == HttpResponseStatus.REQUEST_TIMEOUT.code()
-                  || status == HttpResponseStatus.TOO_MANY_REQUESTS.code()
-                  || status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
-                  || status == HttpResponseStatus.BAD_GATEWAY.code()
-                  || status == HttpResponseStatus.SERVICE_UNAVAILABLE.code()
-                  || status == HttpResponseStatus.GATEWAY_TIMEOUT.code();
-        } else if (e instanceof IOException) {
-          String msg = Ascii.toLowerCase(e.getMessage());
-          if (msg.contains("connection reset")) {
-            retry = true;
-          } else if (msg.contains("operation timed out")) {
-            retry = true;
-          }
-        } else {
-          // Workaround for a netty bug: https://github.com/netty/netty/issues/11815. Remove this
-          // once it is fixed in the upstream.
-          if (e instanceof DecoderException
-              && e.getMessage().endsWith("functions:OPENSSL_internal:BAD_DECRYPT")) {
-            retry = true;
-          }
-        }
-        return retry ? Result.TRANSIENT_FAILURE : Result.PERMANENT_FAILURE;
-      };
-
   private void initHttpAndDiskCache(
       CommandEnvironment env,
       Credentials credentials,
@@ -304,7 +262,10 @@ public final class RemoteModule extends BlazeModule {
               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
               digestUtil,
               new RemoteRetrier(
-                  remoteOptions, HTTP_RESULT_CLASSIFIER, retryScheduler, circuitBreaker),
+                  remoteOptions,
+                  HttpCacheClient.HTTP_RESULT_CLASSIFIER,
+                  retryScheduler,
+                  circuitBreaker),
               checkDiskCacheActionResultIntegrity);
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
@@ -588,18 +549,16 @@ public final class RemoteModule extends BlazeModule {
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
-    ImmutableList.Builder<Predicate<String>> patternsToDownloadBuilder = ImmutableList.builder();
-    if (remoteOptions.getRemoteOutputsMode() != RemoteOutputsMode.ALL) {
-      for (RegexPatternOption patternOption : remoteOptions.getRemoteDownloadRegex()) {
-        patternsToDownloadBuilder.add(patternOption.matcher());
-      }
-    }
+    ImmutableList<RegexPatternOption> downloadRegexes =
+        remoteOptions.getRemoteOutputsMode() != RemoteOutputsMode.ALL
+            ? ImmutableList.copyOf(remoteOptions.getRemoteDownloadRegex())
+            : ImmutableList.of();
 
     remoteOutputChecker =
         new RemoteOutputChecker(
             env.getCommandName(),
             remoteOptions.getRemoteOutputsMode(),
-            patternsToDownloadBuilder.build(),
+            downloadRegexes,
             lastRemoteOutputChecker);
     remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
 
@@ -1152,6 +1111,9 @@ public final class RemoteModule extends BlazeModule {
                   rpcLogFileRef));
     }
 
+    if (remoteOutputChecker != null) {
+      remoteOutputChecker.clearPreviousCommand();
+    }
     lastRemoteOutputChecker = remoteOutputChecker;
     lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
 
@@ -1234,9 +1196,9 @@ public final class RemoteModule extends BlazeModule {
     // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
     // is the last chance to download the missing toplevel outputs in this case before sending out
     // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
-    if (env.withMergedAnalysisAndExecutionSourceOfTruth()
-        && actionInputFetcher != null
-        && remoteOutputChecker != null) {
+    // Source files of repos served from the remote repo contents cache have no generating action
+    // that could download them when it is finalized, so this is the only chance for them.
+    if (actionInputFetcher != null && remoteOutputChecker != null) {
       registryBuilder.register(
           ImportantOutputHandler.class,
           new RemoteImportantOutputHandler(
@@ -1476,6 +1438,11 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   RemoteActionContextProvider getActionContextProvider() {
     return actionContextProvider;
+  }
+
+  @VisibleForTesting
+  RemoteOutputChecker getRemoteOutputChecker() {
+    return remoteOutputChecker;
   }
 
   @VisibleForTesting

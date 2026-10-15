@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
+import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import java.io.BufferedInputStream;
@@ -29,6 +30,6 @@ final class TarZstFunction extends CompressedTarFunction {
   @Override
   protected InputStream getDecompressorStream(BufferedInputStream compressedInputStream)
       throws IOException {
-    return new ZstdInputStreamNoFinalizer(compressedInputStream);
+    return new ZstdInputStreamNoFinalizer(compressedInputStream).setLongMax(Zstd.windowLogMax());
   }
 }

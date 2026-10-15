@@ -14,12 +14,15 @@
 package com.google.devtools.build.lib.buildtool.util;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -34,6 +37,9 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil.DummyWorkspa
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -74,8 +80,10 @@ import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkymeldModule;
+import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestServices;
@@ -107,6 +115,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -134,6 +143,7 @@ public class BazelServer implements TestRule, AutoCloseable {
   }
 
   private final List<BlazeModule> userModules;
+  private final ImmutableSet<EventKind> additionalEvents;
 
   private boolean initialized = false;
   private FileSystem fileSystem;
@@ -148,8 +158,10 @@ public class BazelServer implements TestRule, AutoCloseable {
   private final List<String> persistentOptions = new ArrayList<>();
   private OutErr customOutErr;
 
-  protected BazelServer(List<BlazeModule> userModules) {
+  protected BazelServer(List<BlazeModule> userModules, Set<EventKind> additionalEvents) {
     this.userModules = userModules;
+    this.additionalEvents =
+        additionalEvents != null ? ImmutableSet.copyOf(additionalEvents) : ImmutableSet.of();
   }
 
   /** Initializes the server and workspace if not already initialized. */
@@ -172,6 +184,7 @@ public class BazelServer implements TestRule, AutoCloseable {
   public static class Builder implements TestRule {
 
     protected final List<BlazeModule> modules = new ArrayList<>();
+    protected Set<EventKind> additionalEvents = ImmutableSet.of();
     private final List<BazelServer> activeServers = Collections.synchronizedList(new ArrayList<>());
 
     public Builder() {}
@@ -180,6 +193,15 @@ public class BazelServer implements TestRule, AutoCloseable {
     @CanIgnoreReturnValue
     public Builder addBlazeModule(BlazeModule module) {
       this.modules.add(module);
+      return this;
+    }
+
+    /**
+     * Adds additional {@link EventKind}s for the server's event collection apparatus to collect.
+     */
+    @CanIgnoreReturnValue
+    public Builder withAdditionalEventsToCollect(Iterable<EventKind> events) {
+      this.additionalEvents = ImmutableSet.copyOf(events);
       return this;
     }
 
@@ -193,7 +215,7 @@ public class BazelServer implements TestRule, AutoCloseable {
 
     /** Factory method to create the server instance. Subclasses can override. */
     protected BazelServer createServer() {
-      return new BazelServer(new ArrayList<>(modules));
+      return new BazelServer(new ArrayList<>(modules), additionalEvents);
     }
 
     @Override
@@ -309,7 +331,9 @@ public class BazelServer implements TestRule, AutoCloseable {
       return;
     }
 
-    events = new EventCollectionApparatus(EventKind.ERRORS_WARNINGS_AND_INFO);
+    events =
+        new EventCollectionApparatus(
+            Sets.union(EventKind.ERRORS_WARNINGS_AND_INFO, additionalEvents));
     events.setFailFast(false);
 
     fileSystem = FileSystems.getNativeFileSystem(getDigestHashFunction());
@@ -580,16 +604,25 @@ public class BazelServer implements TestRule, AutoCloseable {
     return workspace;
   }
 
+  /** Returns the {@link CommandEnvironment} from the most recent command, or {@code null}. */
   @Nullable
   public CommandEnvironment getCommandEnvironment() {
     return serverModule.getCommandEnvironment();
   }
 
+  /** Returns the {@link BuildResultListener} from the most recent build, or {@code null}. */
   @Nullable
   public BuildResultListener getBuildResultListener() {
     return serverModule.getBuildResultListener();
   }
 
+  /** Returns the {@link BuildConfigurationValue} from the last build, or {@code null}. */
+  @Nullable
+  public BuildConfigurationValue getTargetConfigurationFromLastBuildResult() {
+    return serverModule != null ? serverModule.getTargetConfiguration() : null;
+  }
+
+  /** Returns the active {@link SkyframeExecutor} for the server. */
   public SkyframeExecutor getSkyframeExecutor() {
     CommandEnvironment env = getCommandEnvironment();
     if (env != null) {
@@ -601,68 +634,139 @@ public class BazelServer implements TestRule, AutoCloseable {
     throw new IllegalStateException("No SkyframeExecutor available");
   }
 
+  /** Returns the {@link PackageManager} from the current {@link SkyframeExecutor}. */
   public PackageManager getPackageManager() {
     return getSkyframeExecutor().getPackageManager();
   }
 
+  /** Returns the top-level targets analyzed in the most recent build. */
   public ImmutableSet<ConfiguredTarget> getAnalyzedTargets() {
     BuildResultListener listener = getBuildResultListener();
     return listener != null ? listener.getAnalyzedTargets() : ImmutableSet.of();
   }
 
+  /** Returns the label strings of the top-level targets analyzed in the most recent build. */
   public ImmutableList<String> getLabelsOfAnalyzedTargets() {
     return getAnalyzedTargets().stream()
         .map(x -> x.getLabel().toString())
         .collect(toImmutableList());
   }
 
+  /** Returns the top-level targets built in the most recent build. */
   public ImmutableSet<ConfiguredTargetKey> getBuiltTargets() {
     BuildResultListener listener = getBuildResultListener();
     return listener != null ? listener.getBuiltTargets() : ImmutableSet.of();
   }
 
+  /** Returns the label strings of the top-level targets built in the most recent build. */
   public ImmutableList<String> getLabelsOfBuiltTargets() {
     return getBuiltTargets().stream().map(x -> x.getLabel().toString()).collect(toImmutableList());
   }
 
+  /** Returns the aspect keys analyzed in the most recent build. */
   public ImmutableSet<AspectKey> getAnalyzedAspectKeys() {
     BuildResultListener listener = getBuildResultListener();
     return listener != null ? listener.getAnalyzedAspects().keySet() : ImmutableSet.of();
   }
 
+  /** Returns the label strings of the aspects analyzed in the most recent build. */
   public ImmutableList<String> getLabelsOfAnalyzedAspects() {
     return getAnalyzedAspectKeys().stream()
         .map(x -> x.getLabel().toString())
         .collect(toImmutableList());
   }
 
+  /** Returns the aspect keys built in the most recent build. */
   public ImmutableSet<AspectKey> getBuiltAspects() {
     BuildResultListener listener = getBuildResultListener();
     return listener != null ? listener.getBuiltAspects() : ImmutableSet.of();
   }
 
+  /** Returns the label strings of the aspects built in the most recent build. */
   public ImmutableList<String> getLabelsOfBuiltAspects() {
     return getBuiltAspects().stream().map(x -> x.getLabel().toString()).collect(toImmutableList());
   }
 
+  /** Returns the top-level targets skipped in the most recent build. */
   public ImmutableSet<ConfiguredTarget> getSkippedTargets() {
     BuildResultListener listener = getBuildResultListener();
     return listener != null ? listener.getSkippedTargets() : ImmutableSet.of();
   }
 
+  /** Returns the label strings of the top-level targets skipped in the most recent build. */
   public ImmutableList<String> getLabelsOfSkippedTargets() {
     return getSkippedTargets().stream()
         .map(x -> x.getLabel().toString())
         .collect(toImmutableList());
   }
 
+  /** Returns the test targets analyzed in the most recent build. */
   public ImmutableSet<ConfiguredTarget> getAnalyzedTests() {
     BuildResultListener listener = getBuildResultListener();
     return listener != null ? listener.getAnalyzedTests() : ImmutableSet.of();
   }
 
+  /** Returns the label strings of the test targets analyzed in the most recent build. */
   public ImmutableList<String> getLabelsOfAnalyzedTests() {
     return getAnalyzedTests().stream().map(x -> x.getLabel().toString()).collect(toImmutableList());
+  }
+
+  /** Parses {@code labelString} in the context of the main repository's repository mapping. */
+  public Label label(String labelString) throws LabelSyntaxException, InterruptedException {
+    RepositoryMappingValue mappingValue =
+        (RepositoryMappingValue)
+            getSkyframeExecutor()
+                .getEvaluator()
+                .getExistingValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    return Label.parseWithRepoContext(
+        labelString, Label.RepoContext.of(RepositoryName.MAIN, mappingValue.repositoryMapping()));
+  }
+
+  /**
+   * Returns all {@link ConfiguredTarget}s currently present in the Skyframe graph, including
+   * transitive dependencies.
+   */
+  public ImmutableList<ConfiguredTarget> getAllConfiguredTargets() {
+    return SkyframeExecutorTestUtils.getAllExistingConfiguredTargets(getSkyframeExecutor());
+  }
+
+  /**
+   * Returns the {@link ConfiguredTarget} for {@code labelString} using the target configuration
+   * from the most recent build, evaluating it in Skyframe if needed.
+   *
+   * <p>Throws {@link com.google.devtools.build.lib.packages.NoSuchPackageException} or {@link
+   * com.google.devtools.build.lib.packages.NoSuchTargetException} if the package or target does not
+   * exist.
+   */
+  @Nullable
+  public ConfiguredTarget getConfiguredTarget(String labelString) throws Exception {
+    Label label = label(labelString);
+    // Ensure NoSuchPackageException / NoSuchTargetException is thrown if the package or target
+    // does not exist, since getConfiguredTargetForTesting swallows NoSuchThingException.
+    getPackageManager().getTarget(events.reporter(), label);
+    return getSkyframeExecutor()
+        .getConfiguredTargetForTesting(
+            events.reporter(), label, getTargetConfigurationFromLastBuildResult());
+  }
+
+  /**
+   * Returns an already-computed {@link ConfiguredTarget} from the Skyframe graph for {@code target}
+   * using the target configuration from the most recent build, asserting that it exists without
+   * evaluating new Skyframe nodes.
+   */
+  @CanIgnoreReturnValue
+  public ConfiguredTarget getExistingConfiguredTarget(String target)
+      throws InterruptedException, LabelSyntaxException {
+    ConfiguredTarget existingConfiguredTarget =
+        SkyframeExecutorTestUtils.getExistingConfiguredTarget(
+            getSkyframeExecutor(), label(target), getTargetConfigurationFromLastBuildResult());
+    assertWithMessage(target).that(existingConfiguredTarget).isNotNull();
+    return existingConfiguredTarget;
+  }
+
+  /** Returns the {@link ActionGraph} from the current {@link SkyframeExecutor}. */
+  public ActionGraph getActionGraph() {
+    return getSkyframeExecutor().getActionGraph(events.reporter());
   }
 
   /** Access to event collection and assertions. */
@@ -820,6 +924,11 @@ public class BazelServer implements TestRule, AutoCloseable {
 
     BuildResultListener getBuildResultListener() {
       return buildResultListener;
+    }
+
+    @Nullable
+    BuildConfigurationValue getTargetConfiguration() {
+      return targetConfiguration;
     }
   }
 }

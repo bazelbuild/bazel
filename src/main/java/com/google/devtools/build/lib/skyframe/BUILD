@@ -285,6 +285,11 @@ java_library(
 )
 
 java_library(
+    name = "about_to_clear_analysis_cache_event",
+    srcs = ["AboutToClearAnalysisCacheEvent.java"],
+)
+
+java_library(
     name = "analysis_cache_clear_event",
     srcs = ["AnalysisCacheClearEvent.java"],
 )
@@ -480,18 +485,22 @@ java_library(
     srcs = ["BzlCompileFunction.java"],
     deps = [
         ":bzl_compile_value",
+        ":containing_package_lookup_value",
         ":precomputed_value",
         ":starlark_builtins_value",
         ":starlark_util",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/guava:cache",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:hash",
         "//third_party/java/jsr305_annotations",
@@ -657,6 +666,7 @@ java_library(
         ":aspect_key_creator",
         ":configured_target_key",
         ":top_level_status_events",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -664,6 +674,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
@@ -850,6 +861,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/query2/common:cquery-node",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config:baseline_diff_codec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -1956,10 +1968,7 @@ java_library(
 java_library(
     name = "progress_suppressing_event_handler",
     srcs = ["ProgressSuppressingEventHandler.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/remote/common:lost_inputs_event",
-    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/events"],
 )
 
 java_library(
@@ -3491,9 +3500,9 @@ java_library(
         ":rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -3792,9 +3801,9 @@ java_library(
         ":skyframe_action_executor",
         ":target_completion_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_helper",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -3988,6 +3997,7 @@ java_library(
         "SkyframeExecutor.java",
     ],
     deps = [
+        ":about_to_clear_analysis_cache_event",
         ":action_artifact_cycle_reporter",
         ":action_environment_function",
         ":action_execution_function",

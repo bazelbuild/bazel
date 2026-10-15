@@ -610,6 +610,7 @@ sh_test(
 sh_test(
     name = "mobile_install_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["mobile_install_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -1038,6 +1039,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    shard_count = 2,
     tags = ["no_windows"],
 )
 

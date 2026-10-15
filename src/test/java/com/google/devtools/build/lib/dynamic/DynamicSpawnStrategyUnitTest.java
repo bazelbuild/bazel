@@ -30,7 +30,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -38,6 +40,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurrentSpawns;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -674,6 +677,108 @@ public class DynamicSpawnStrategyUnitTest {
     assertWithMessage("Should have been executed remote-only").that(spawnResults).isNotNull();
     assertThat(spawnResults).containsExactly(SUCCESSFUL_SPAWN_RESULT);
     verify(local, never()).exec(any(), any(), any());
+  }
+
+  @Test
+  public void exec_runAnywhereSpawn_localLosesInput_returnsRemoteResult() throws Exception {
+    Spawn spawn = new SpawnBuilder().withOwnerPrimaryOutput(output1).build();
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, mockGetPostProcessingSpawn);
+    when(mockGetPostProcessingSpawn.apply(any())).thenReturn(Optional.empty());
+    SandboxedSpawnStrategy local = createMockSpawnStrategy("local");
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy("remote");
+    Semaphore localFailed = new Semaphore(0);
+    when(local.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              localFailed.release();
+              throw lostInput();
+            });
+    when(remote.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              // The remote branch produces its result after the local branch has failed.
+              localFailed.acquire();
+              StopConcurrentSpawns stopConcurrentSpawns = invocation.getArgument(2);
+              stopConcurrentSpawns.stop(0, "", null);
+              return ImmutableList.of(SUCCESSFUL_REMOTE_SPAWN_RESULT);
+            });
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+    when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
+
+    ImmutableList<SpawnResult> results = dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
+
+    assertThat(results).containsExactly(SUCCESSFUL_REMOTE_SPAWN_RESULT);
+  }
+
+  @Test
+  public void exec_runAnywhereSpawn_localLosesInputAndRemoteFails_reportsLostInput()
+      throws Exception {
+    Spawn spawn = new SpawnBuilder().withOwnerPrimaryOutput(output1).build();
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, mockGetPostProcessingSpawn);
+    when(mockGetPostProcessingSpawn.apply(any())).thenReturn(Optional.empty());
+    SandboxedSpawnStrategy local = createMockSpawnStrategy("local");
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy("remote");
+    Semaphore localFailed = new Semaphore(0);
+    when(local.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              localFailed.release();
+              throw lostInput();
+            });
+    when(remote.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              localFailed.acquire();
+              throw new UserExecException(
+                  FailureDetail.newBuilder()
+                      .setMessage("remote failed")
+                      .setExecution(
+                          Execution.newBuilder().setCode(Execution.Code.UNEXPECTED_EXCEPTION))
+                      .build());
+            });
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+    when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
+
+    assertThrows(
+        LostInputsExecException.class,
+        () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
+  }
+
+  @Test
+  public void exec_runAnywhereSpawn_remoteLosesInput_cancelsLocal() throws Exception {
+    Spawn spawn = new SpawnBuilder().withOwnerPrimaryOutput(output1).build();
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, mockGetPostProcessingSpawn);
+    when(mockGetPostProcessingSpawn.apply(any())).thenReturn(Optional.empty());
+    SandboxedSpawnStrategy local = createMockSpawnStrategy("local");
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy("remote");
+    Semaphore localStarted = new Semaphore(0);
+    when(local.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              localStarted.release();
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+              throw new AssertionError("Timed out waiting for interruption");
+            });
+    when(remote.exec(eq(spawn), any(), isNotNull()))
+        .thenAnswer(
+            invocation -> {
+              localStarted.acquire();
+              throw lostInput();
+            });
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+    when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
+
+    assertThrows(
+        LostInputsExecException.class,
+        () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
+  }
+
+  private static LostInputsExecException lostInput() {
+    return new LostInputsExecException(
+        ImmutableSetMultimap.of("digest", ActionInputHelper.fromPath("lost")));
   }
 
   @Test

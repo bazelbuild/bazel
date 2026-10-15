@@ -153,11 +153,11 @@ public class RuleContext extends TargetContext
     public abstract boolean packageUnderPrototypes(PackageIdentifier packageIdentifier);
 
     /**
-     * Returns whether the given package is allowed to load Starlark files from prototype packages.
-     * (If the given package is itself an experimental or prototype package, this method's result is
-     * ignored.)
+     * Returns whether the given package is allowed to load Starlark files from prototype packages
+     * or depend on targets in prototype packages. (If the given package is itself an experimental
+     * or prototype package, this method's result is ignored.)
      */
-    default boolean mayLoadPrototypes(PackageIdentifier packageIdentifier) {
+    default boolean hasHardCodedException(PackageIdentifier packageIdentifier) {
       return false;
     }
   }

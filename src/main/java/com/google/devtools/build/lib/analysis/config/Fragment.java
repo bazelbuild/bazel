@@ -69,10 +69,15 @@ public abstract class Fragment implements StarlarkValue {
    * <p>The Fragment constructor should already have sufficient access to targetOptions as per
    * RequiresOption above. So a getTargetOption method should not be necessary.
    */
-  public static interface OutputDirectoriesContext {
-    /** If available, get the baseline version of some FragmentOption */
+  public interface OutputDirectoriesContext {
+    /**
+     * If available, returns the baseline version of some FragmentOption.
+     *
+     * <p>Calling this marks the resulting mnemonic as baseline-dependent, so only call it on code
+     * paths that actually need the baseline to decide what to add to the mnemonic.
+     */
     @Nullable
-    public <T extends FragmentOptions> T getBaseline(Class<T> optionsClass);
+    <T extends FragmentOptions> T getBaseline(Class<T> optionsClass);
 
     /**
      * Adds given String to the explicit part of the output path.
@@ -83,8 +88,7 @@ public abstract class Fragment implements StarlarkValue {
      * @throws AddToMnemonicException if given value cannot be put in an output path.
      */
     @CanIgnoreReturnValue
-    public OutputDirectoriesContext addToMnemonic(@Nullable String value)
-        throws AddToMnemonicException;
+    OutputDirectoriesContext addToMnemonic(@Nullable String value) throws AddToMnemonicException;
 
     /**
      * Mark the option as explicit in output path so it no longer contributes to hash computation.
@@ -104,10 +108,10 @@ public abstract class Fragment implements StarlarkValue {
      * <p>As a historical note, this used to be implemented as EXPLICIT_IN_OUTPUT_PATH
      */
     @CanIgnoreReturnValue
-    public OutputDirectoriesContext markAsExplicitInOutputPathFor(String optionName);
+    OutputDirectoriesContext markAsExplicitInOutputPathFor(String optionName);
 
     /** bubble up error with adding to mnemonic (likely a problematic value supplied) */
-    public static final class AddToMnemonicException extends Exception {
+    final class AddToMnemonicException extends Exception {
       final Exception tunneledException;
       final String badValue;
 

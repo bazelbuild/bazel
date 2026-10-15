@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -623,6 +624,41 @@ public final class PathFragmentTest {
   }
 
   @Test
+  @TestParameters("{first: '', second: '', length: 0}")
+  @TestParameters("{first: '', second: 'a/b', length: 0}")
+  @TestParameters("{first: 'a/b', second: 'a/b', length: 3}")
+  @TestParameters("{first: 'a/b', second: 'x/b', length: 0}")
+  @TestParameters("{first: 'a/b', second: 'A/b', length: 0}")
+  @TestParameters("{first: 'a/b', second: 'a/b/c', length: 3}")
+  @TestParameters("{first: 'a/b', second: 'a/bc', length: 3}")
+  @TestParameters("{first: 'foo/bar', second: 'foo/baz', length: 6}")
+  @TestParameters("{first: '/', second: '/foo', length: 1}")
+  @TestParameters("{first: '/foo', second: 'foo', length: 0}")
+  @TestParameters("{first: 'C:/foo', second: 'D:/foo', length: 0}")
+  @TestParameters("{first: 'C:/foo', second: 'C:/far', length: 4}")
+  @TestParameters("{first: 'a/é', second: 'a/ê', length: 3}")
+  @TestParameters("{first: 'a/é', second: 'a/é/b', length: 4}")
+  @TestParameters("{first: 'a/😀', second: 'a/😁', length: 5}")
+  public void testCommonPrefixLength(String first, String second, int length) {
+    PathFragment p1 = create(unicodeToInternal(first));
+    // Ensure equal strings are also compared without taking the identity fast path.
+    PathFragment p2 = create(new String(unicodeToInternal(second).toCharArray()));
+
+    assertThat(p1.getCommonPrefixLength(p2)).isEqualTo(length);
+    assertThat(p2.getCommonPrefixLength(p1)).isEqualTo(length);
+    assertThat(p1.getCommonPrefixLength(p1)).isEqualTo(p1.getPathString().length());
+  }
+
+  @Test
+  public void testCommonPrefixLength_longPrefix(
+      @TestParameter({"7", "8", "9", "15", "16", "31", "32", "63", "64", "65"}) int length) {
+    String prefix = "a".repeat(length);
+
+    assertThat(create(prefix + "b").getCommonPrefixLength(create(prefix + "c"))).isEqualTo(length);
+    assertThat(create(prefix).getCommonPrefixLength(create(prefix + "b"))).isEqualTo(length);
+  }
+
+  @Test
   public void testHierarchicalComparator() {
     List<String> pathStrs =
         ImmutableList.of(
@@ -636,7 +672,12 @@ public final class PathFragmentTest {
             "foo/bar/baz",
             "foo/barfile",
             "foo/Bar",
-            "Foo/bar");
+            "Foo/bar",
+            unicodeToInternal("foo/é"),
+            unicodeToInternal("foo/é/baz"),
+            unicodeToInternal("foo/é-baz"),
+            unicodeToInternal("foo/ê"),
+            unicodeToInternal("foo/😀"));
     List<PathFragment> paths = toPaths(pathStrs);
     // First test that compareTo is self-consistent.
     for (PathFragment x : paths) {
@@ -676,6 +717,11 @@ public final class PathFragmentTest {
                 "foo/bar/baz",
                 "foo/bar.baz",
                 "foo/barfile",
+                unicodeToInternal("foo/é"),
+                unicodeToInternal("foo/é/baz"),
+                unicodeToInternal("foo/é-baz"),
+                unicodeToInternal("foo/ê"),
+                unicodeToInternal("foo/😀"),
                 "foo.bar"));
     assertThat(paths).isEqualTo(expectedOrder);
   }

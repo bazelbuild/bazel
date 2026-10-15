@@ -422,7 +422,7 @@ final class ExecutionServer extends ExecutionImplBase {
                 startTime,
                 (int) wallTime.toMillis(),
                 /* preserveExecutableBit= */ false);
-        result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
+        result = manifest.upload(context, cache, NullEventHandler.INSTANCE, /* force= */ false);
       } catch (ExecException e) {
         if (errStatus == null) {
           errStatus =

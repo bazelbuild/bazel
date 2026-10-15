@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.BzlLoadThreadOwner;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.AbstractExportedStarlarkSymbolCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Keep;
@@ -841,6 +842,16 @@ public final class StarlarkProvider extends StarlarkType
     @Override
     protected String getExportedName(StarlarkProvider obj) {
       return obj.getKey().getExportedName();
+    }
+
+    /**
+     * Exported providers are equal by {@link Key} and deserialize to the canonical instance, so
+     * memoizing by value makes serialization independent of how many equal instances are reachable
+     * (e.g., one kept alive across commands by the {@link StarlarkInfoWithSchema} interner).
+     */
+    @Override
+    public MemoizationEquality getMemoizationEquality(StarlarkProvider obj) {
+      return MemoizationEquality.BY_VALUE;
     }
   }
 }

@@ -49,6 +49,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.common.options.GlobalRcUtils;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -328,7 +329,10 @@ public final class FlagSetFunction implements SkyFunction {
       if (fragmentOptions instanceof TestConfiguration.TestOptions) {
         continue;
       }
-      fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
+      for (var definition :
+          OptionDefinition.getOptionDefinitions(fragmentOptions.getOptionsClass())) {
+        allOptionsAsStringsBuilder.add(definition.getOptionName());
+      }
     }
     return allOptionsAsStringsBuilder.build();
   }

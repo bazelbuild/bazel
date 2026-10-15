@@ -1,0 +1,58 @@
+name: Notify Reverted PR
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  notify-revert:
+    if: github.repository == 'bazelbuild/bazel'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+
+      - name: Notify PR author on revert
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            for (const commit of context.payload.commits ?? []) {
+              const match = commit.message.match(/^Automated rollback of commit ([0-9a-f]{40})/);
+              if (!match) continue;
+              const rolledBackSha = match[1];
+              try {
+                // Copybara closes (rather than merges) PRs, so GitHub does not associate
+                // the commit with its PR. Follow the trailer and confirm this commit closed it.
+                const { data: original } = await github.rest.repos.getCommit({ owner, repo, ref: rolledBackSha });
+                const closes = [...original.commit.message.matchAll(/^Closes #(\d+)\.$/gm)];
+                if (!closes.length) continue;
+                const issue_number = Number(closes.at(-1)[1]);
+                const events = await github.paginate(github.rest.issues.listEvents, { owner, repo, issue_number, per_page: 100 });
+                if (!events.some((e) => e.event === 'closed' && e.commit_id === rolledBackSha)) continue;
+
+                const { data: pr } = await github.rest.issues.get({ owner, repo, issue_number });
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number,
+                  body: [
+                    `⚠️ **Notice**: Commit ${rolledBackSha}, which closed this pull request, was rolled back on \`master\` in commit ${commit.id}.`,
+                    '',
+                    'Please check the rollback commit for details.',
+                    '',
+                    `cc @${pr.user.login}`,
+                  ].join('\n'),
+                });
+              } catch (e) {
+                core.warning(`Could not notify for rollback ${commit.id}: ${e.message}`);
+              }
+            }

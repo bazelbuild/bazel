@@ -19,6 +19,7 @@ import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -44,11 +45,15 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -60,6 +65,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -113,6 +119,7 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -136,6 +143,8 @@ public class RemoteSpawnCacheTest {
   private static final String BUILD_REQUEST_ID = "build-req-id";
   private static final String COMMAND_ID = "command-id";
 
+  @Mock private Predicate<ActionAnalysisMetadata> wasRewound;
+
   private FileSystem fs;
   private DigestUtil digestUtil;
   private Path execRoot;
@@ -153,6 +162,16 @@ public class RemoteSpawnCacheTest {
 
   private static SpawnExecutionContext createSpawnExecutionContext(
       Spawn spawn, Path execRoot, FakeActionInputFileCache fakeFileCache, FileOutErr outErr) {
+    return createSpawnExecutionContext(
+        spawn, execRoot, fakeFileCache, outErr, /* bustCaches= */ false);
+  }
+
+  private static SpawnExecutionContext createSpawnExecutionContext(
+      Spawn spawn,
+      Path execRoot,
+      FakeActionInputFileCache fakeFileCache,
+      FileOutErr outErr,
+      boolean bustCaches) {
     return new SpawnExecutionContext() {
       @Nullable private com.google.devtools.build.lib.exec.Protos.Digest digest;
 
@@ -237,6 +256,11 @@ public class RemoteSpawnCacheTest {
       public ImmutableMap<String, String> getClientEnv() {
         return ImmutableMap.of();
       }
+
+      @Override
+      public boolean bustCaches() {
+        return bustCaches;
+      }
     };
   }
 
@@ -277,6 +301,32 @@ public class RemoteSpawnCacheTest {
         ResourceSet.ZERO,
         execPath ->
             execPath.subFragment(0, 1).getRelative("cfg").getRelative(execPath.subFragment(2)));
+  }
+
+  /**
+   * Returns a path mapped spawn whose only output is the given artifact, into which its standard
+   * output stream is redirected.
+   */
+  private static Spawn pathMappedSpawnWithStdout(String configSegment, Artifact stdoutOutput) {
+    SimpleSpawn spawn =
+        new SimpleSpawn(
+            new FakeOwner("Mnemonic", "Progress Message", "//dummy:label"),
+            ImmutableList.of("tool"),
+            ImmutableMap.of("VARIABLE", "value"),
+            ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, ""),
+            SpawnInputs.of(
+                NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                ImmutableList.of(
+                    ActionInputHelper.fromPath("bazel-bin/%s/bin/input".formatted(configSegment)))),
+            /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(stdoutOutput),
+            /* mandatoryOutputs= */ null,
+            ResourceSet.ZERO,
+            execPath ->
+                execPath.subFragment(0, 1).getRelative("cfg").getRelative(execPath.subFragment(2)));
+    Spawn spawnWithStdout = mock(Spawn.class, delegatesTo(spawn));
+    doReturn(stdoutOutput).when(spawnWithStdout).getStdout();
+    return spawnWithStdout;
   }
 
   private ActionResult createSuccessfulResult(Spawn spawn) {
@@ -321,7 +371,8 @@ public class RemoteSpawnCacheTest {
                 /* captureCorruptedOutputsDir= */ null,
                 DUMMY_REMOTE_OUTPUT_CHECKER,
                 mock(OutputService.class),
-                Sets.newConcurrentHashSet()));
+                Sets.newConcurrentHashSet(),
+                wasRewound));
     return new RemoteSpawnCache(options, /* verboseFailures= */ true, service, digestUtil);
   }
 
@@ -614,6 +665,44 @@ public class RemoteSpawnCacheTest {
   }
 
   @Test
+  public void bustCaches_skipsLookupButStillUploads() throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.setRemoteCache("https://somecache.com");
+    remoteOptions.setDiskCache(PathFragment.create("/etc/something/cache/here"));
+    when(combinedCache.hasDiskCache()).thenReturn(true);
+    RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
+    RemoteExecutionService service = cache.getRemoteExecutionService();
+    FakeActionInputFileCache fakeFileCache = new FakeActionInputFileCache(execRoot);
+    fakeFileCache.createScratchInput(
+        Iterables.getOnlyElement(simpleSpawn.getInputFiles().flatten()), "xyz");
+    SpawnExecutionContext policy =
+        createSpawnExecutionContext(
+            simpleSpawn, execRoot, fakeFileCache, outErr, /* bustCaches= */ true);
+
+    CacheHandle entry = cache.lookup(simpleSpawn, policy);
+
+    verify(service, never()).lookupCache(any());
+    verify(combinedCache, never())
+        .downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            anyBoolean(),
+            ArgumentMatchers.<Set<String>>any());
+    assertThat(policy.getDigest()).isNotNull();
+    assertThat(entry.hasResult()).isFalse();
+    assertThat(entry.willStore()).isTrue();
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    doNothing().when(service).uploadOutputs(any(), any(), any(), any());
+    entry.store(result);
+    verify(service).uploadOutputs(any(), any(), any(), any());
+  }
+
+  @Test
   public void failedActionsAreNotUploaded() throws Exception {
     // Only successful action results are uploaded to the remote cache.
     RemoteSpawnCache cache = createRemoteSpawnCache();
@@ -797,6 +886,15 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void pathMappedActionIsDeduplicated() throws Exception {
+    pathMappedActionIsDeduplicated(/* rewound= */ false);
+  }
+
+  @Test
+  public void rewoundPathMappedActionIsDeduplicated() throws Exception {
+    pathMappedActionIsDeduplicated(/* rewound= */ true);
+  }
+
+  private void pathMappedActionIsDeduplicated(boolean rewound) throws Exception {
     // arrange
     RemoteSpawnCache cache = createRemoteSpawnCache();
 
@@ -813,6 +911,9 @@ public class RemoteSpawnCacheTest {
         Iterables.getOnlyElement(secondSpawn.getInputFiles().flatten()), "xyz");
     SpawnExecutionContext secondPolicy =
         createSpawnExecutionContext(secondSpawn, execRoot, secondFakeFileCache, outErr);
+
+    when(wasRewound.test(firstSpawn.getResourceOwner())).thenReturn(rewound);
+    when(wasRewound.test(secondSpawn.getResourceOwner())).thenReturn(rewound);
 
     RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
     Mockito.doCallRealMethod().when(remoteExecutionService).waitForAndReuseOutputs(any(), any());
@@ -848,6 +949,75 @@ public class RemoteSpawnCacheTest {
             FileSystemUtils.readContent(
                 fs.getPath("/exec/root/bazel-bin/k8-opt/bin/output"), UTF_8))
         .isEqualTo("hello");
+    assertThat(secondCacheHandle.willStore()).isFalse();
+    onUploadComplete.get().run();
+    assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
+    if (rewound) {
+      verify(combinedCache, never()).downloadActionResult(any(), any(), anyBoolean(), any());
+    }
+  }
+
+  @Test
+  public void pathMappedActionWithStdoutIsDeduplicated() throws Exception {
+    // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+
+    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bazel-bin");
+    Artifact firstStdout =
+        ActionsTestUtil.createArtifact(
+            outputRoot, execRoot.getRelative("bazel-bin/k8-fastbuild/bin/stdout"));
+    Spawn firstSpawn = pathMappedSpawnWithStdout("k8-fastbuild", firstStdout);
+    FakeActionInputFileCache firstFakeFileCache = new FakeActionInputFileCache(execRoot);
+    firstFakeFileCache.createScratchInput(
+        Iterables.getOnlyElement(firstSpawn.getInputFiles().flatten()), "xyz");
+    SpawnExecutionContext firstPolicy =
+        createSpawnExecutionContext(firstSpawn, execRoot, firstFakeFileCache, outErr);
+
+    Artifact secondStdout =
+        ActionsTestUtil.createArtifact(
+            outputRoot, execRoot.getRelative("bazel-bin/k8-opt/bin/stdout"));
+    Spawn secondSpawn = pathMappedSpawnWithStdout("k8-opt", secondStdout);
+    FakeActionInputFileCache secondFakeFileCache = new FakeActionInputFileCache(execRoot);
+    secondFakeFileCache.createScratchInput(
+        Iterables.getOnlyElement(secondSpawn.getInputFiles().flatten()), "xyz");
+    SpawnExecutionContext secondPolicy =
+        createSpawnExecutionContext(secondSpawn, execRoot, secondFakeFileCache, outErr);
+
+    RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
+    Mockito.doCallRealMethod().when(remoteExecutionService).waitForAndReuseOutputs(any(), any());
+    // Simulate a very slow upload to the remote cache to ensure that the second spawn is
+    // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
+    // concurrency to this test.
+    AtomicReference<Runnable> onUploadComplete = new AtomicReference<>();
+    Mockito.doAnswer(
+            invocationOnMock -> {
+              onUploadComplete.set(invocationOnMock.getArgument(2));
+              return null;
+            })
+        .when(remoteExecutionService)
+        .uploadOutputs(any(), any(), any(), any());
+
+    // act
+    try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
+      FileSystemUtils.writeContent(
+          fs.getPath("/exec/root/bazel-bin/k8-fastbuild/bin/stdout"), UTF_8, "hello stdout");
+      firstCacheHandle.store(
+          new SpawnResult.Builder()
+              .setExitCode(0)
+              .setStatus(Status.SUCCESS)
+              .setRunnerName("test")
+              .build());
+    }
+    CacheHandle secondCacheHandle = cache.lookup(secondSpawn, secondPolicy);
+
+    // assert: the deduplicated spawn's stdout output is populated from the winner's captured
+    // stdout even though it is not part of the command's output paths.
+    assertThat(secondCacheHandle.hasResult()).isTrue();
+    assertThat(secondCacheHandle.getResult().getRunnerName()).isEqualTo("deduplicated");
+    assertThat(
+            FileSystemUtils.readContent(
+                fs.getPath("/exec/root/bazel-bin/k8-opt/bin/stdout"), UTF_8))
+        .isEqualTo("hello stdout");
     assertThat(secondCacheHandle.willStore()).isFalse();
     onUploadComplete.get().run();
     assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);

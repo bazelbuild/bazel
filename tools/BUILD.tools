@@ -20,7 +20,6 @@ filegroup(
         "//tools:build_defs.bzl",
         "//tools/android:bzl_srcs",
         "//tools/build_defs:bzl_srcs",
-        "//tools/build_rules:bzl_srcs",
         "//tools/cpp:bzl_srcs",
         "//tools/jdk:bzl_srcs",
         "//tools/osx:bzl_srcs",
@@ -31,20 +30,17 @@ filegroup(
     ],
 )
 
-# Tools that Bazel subcommands (e.g. `bazel mod tidy`) depend on implicitly,
-# but that aren't in the transitive closure of user build targets. Users who
-# need to run these subcommands offline (e.g. with `--vendor_dir` and
-# `--nofetch`) should include this target in their `bazel vendor` invocation:
-#
-#   bazel vendor //... @bazel_tools//tools:tools_for_bazel_subcommands
-#
-# See https://github.com/bazelbuild/bazel/issues/29222.
+# Deprecated: `bazel vendor --lockfile_deps` vendors everything that
+# `bazel mod tidy` requires, including the module extensions it evaluates.
+# This target only covers the buildozer binary.
+# See https://bazel.build/external/vendor#vendor-tools-for-subcommands.
 filegroup(
     name = "tools_for_bazel_subcommands",
     srcs = [
-        # Required by `bazel mod tidy`. Keep in sync with the label resolved
-        # in src/main/java/com/google/devtools/build/lib/bazel/bzlmod/
+        # Keep in sync with the label resolved in
+        # src/main/java/com/google/devtools/build/lib/bazel/bzlmod/
         # BazelModTidyFunction.java (search for "buildozer.exe").
         "@buildozer_binary//:buildozer.exe",
     ],
+    deprecation = "Use `bazel vendor --lockfile_deps` instead.",
 )

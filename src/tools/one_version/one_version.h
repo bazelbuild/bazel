@@ -21,12 +21,12 @@
 #include <utility>
 #include <vector>
 
-#include "absl/memory/memory.h"
-#include "absl/strings/string_view.h"
 #include "src/tools/one_version/allowlist.h"
 #include "src/tools/one_version/duplicate_class_collector.h"
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/zip_headers.h"
+#include "absl/memory/memory.h"
+#include "absl/strings/string_view.h"
 
 namespace one_version {
 

@@ -34,6 +34,7 @@ cc_library(
     ],
     deps = [
         "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:inlined_vector",
         "@abseil-cpp//absl/strings",
     ],
 )
@@ -103,7 +104,6 @@ cc_binary(
         "//src/tools/singlejar:token_stream",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
-        "@abseil-cpp//absl/log:die_if_null",
         "@abseil-cpp//absl/strings",
     ],
 )

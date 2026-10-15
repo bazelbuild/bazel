@@ -58,16 +58,6 @@ public final class SettablePlatformConfigurationProvider implements PlatformConf
   }
 
   @Override
-  public boolean trimTestOptions(BuildOptions options) {
-    return get().trimTestOptions(options);
-  }
-
-  @Override
-  public boolean usePlatformInOutputDir() {
-    return get().usePlatformInOutputDir();
-  }
-
-  @Override
   public String resolveMnemonic(BuildOptions targetOptions) {
     return get().resolveMnemonic(targetOptions);
   }

@@ -605,6 +605,10 @@ public class ExecutionGraphModule extends BlazeModule {
           //   - Dynamic execution with `--experimental_local_lockfree_output`--with that setting,
           //     it is possible for both local and remote spawns to finish and send a corresponding
           //     event.
+          //   - Dynamic execution when the build is aborted: the interrupted action thread posts
+          //     ActionCompletionEvent while a branch thread, which is not awaited on interrupt,
+          //     finishes and posts SpawnExecutedEvent for the same action. See
+          //     b/227635546#comment39.
           if (previousAttempt.finishMs <= startMillis) {
             nodeBuilder.setRetryOf(previousAttempt.index);
           } else if (localLockFreeOutputEnabled) {
@@ -612,15 +616,6 @@ public class ExecutionGraphModule extends BlazeModule {
             // `--experimental_local_lockfree_output`, skip adding the dependencies for the second
             // spawn, but report both spawns.
             return;
-          } else {
-            // TODO(b/227635546): Remove the bug report once we capture all cases when it can
-            //  fire.
-            bugReporter.sendNonFatalBugReport(
-                new IllegalStateException(
-                    String.format(
-                        "See b/227635546. Multiple spawns produced '%s' with overlapping execution"
-                            + " time. Previous index: %s. Current index: %s",
-                        primaryOutput.getExecPathString(), previousAttempt.index, index)));
           }
         }
 

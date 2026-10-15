@@ -29,9 +29,9 @@ def _xcode_version_info_init(
         macos_sdk_version,
         macos_minimum_os_version,
         xcode_version,
-        availability,
+        availability: str,
         xcode_version_flag,
-        include_xcode_execution_info):
+        include_xcode_execution_info: bool) -> dict[str, Any]:
     execution_requirements = {
         "requires-darwin": "",
         "supports-xcode-requirements-set": "",
@@ -69,7 +69,9 @@ def _xcode_version_info_init(
     dotted_watchos_sdk = _apple_common.dotted_version(watchos_sdk_version)
     dotted_macos_sdk = _apple_common.dotted_version(macos_sdk_version)
 
-    def _xcode_version(xcode_version):
+    # TODO: #27370 - should be _builtins.internal.apple_common.DottedVersion | None
+    # This is an excellent motivation for supporting dot expressions in type names.
+    def _xcode_version(xcode_version) -> struct | None:
         if not xcode_version:
             return None
         if xcode_version.startswith("/"):
@@ -78,7 +80,8 @@ def _xcode_version_info_init(
             return xcode_version
         return _apple_common.dotted_version(xcode_version)
 
-    def _minimum_os_for_platform_type(platform_type):
+    # TODO: #27370 - should be _builtins.internal.apple_common.DottedVersion
+    def _minimum_os_for_platform_type(platform_type: str) -> struct:
         if platform_type in (platform_type_struct.ios, platform_type_struct.catalyst):
             # Catalyst builds require usage of the iOS minimum version when
             # building, but require the usage of the macOS SDK to actually do
@@ -98,7 +101,8 @@ def _xcode_version_info_init(
             return dotted_macos_minimum_os
         fail("Unhandled platform type: {}".format(platform_type))
 
-    def _sdk_version_for_platform(platform):
+    # TODO: #27370 - should be _builtins.internal.apple_common.DottedVersion
+    def _sdk_version_for_platform(platform: struct) -> struct:
         # Explicitly using the name property to checkk for equality because the platform objects
         # here may be either Starlark structs from apple_platform.bzl or Java objects from
         # ApplePlatform.java which still can come in through AppleConfiguration.java.

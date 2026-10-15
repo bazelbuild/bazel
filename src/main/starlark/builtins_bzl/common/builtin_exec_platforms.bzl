@@ -19,11 +19,29 @@ See https://github.com/bazelbuild/bazel/discussions/19213.
 # TODO: Remove when get_current_os_name is no longer needed
 load("@_builtins//:common/python/py_internal.bzl", "py_internal")
 
+type _Setting = dict[str, Any]
+
+type _FragmentCustomLogic = Callable[[_Setting], _Setting]
+
+type _Fragment = struct[{
+    "inputs": list[str],
+    "outputs": list[str],
+    "propagate": list[str],
+    "custom_logic": _FragmentCustomLogic,
+}]
+
+# Read-only view of a fragments map.
+type _Fragments = Mapping[str, _Fragment]
+
 # The fragments that make up Bazel's exec transition. The fragment() calls in
 # this file fill out this map.
-bazel_fragments = {}
+bazel_fragments: dict[str, _Fragment] = {}
 
-def fragment(propagate = [], inputs = [], outputs = [], func = lambda setting: {}):
+def fragment(
+        propagate: list[str] = [],
+        inputs: list[str] = [],
+        outputs: list[str] = [],
+        func: _FragmentCustomLogic = lambda setting: {}) -> _Fragment:
     """Adds exec transition logic for a group of related flags.
 
     Args:
@@ -42,7 +60,15 @@ def fragment(propagate = [], inputs = [], outputs = [], func = lambda setting: {
         custom_logic = func,
     )
 
-def exec_transition(fragments):
+type _ExecTransitionImpl = Callable[[_Setting, Any], _Setting]
+
+type _ExecTransition = struct[{
+    "implementation": _ExecTransitionImpl,
+    "inputs": list[str],
+    "outputs": list[str],
+}]
+
+def exec_transition(fragments: _Fragments) -> _ExecTransition:
     """Returns the data for creating an exec transition from a set of fragments.
 
     Ideally this would create and return the transition itself. Instead, callers
@@ -72,17 +98,18 @@ def exec_transition(fragments):
         outputs = inputs_and_outputs.outputs,
     )
 
-def _get_inputs_and_outputs(fragments):
+def _get_inputs_and_outputs(fragments: _Fragments) -> struct[{"inputs": list[str], "outputs": list[str]}]:
     """Returns the (inputs, outputs) for a collection of fragments.
     """
     inputs = []
     outputs = ["//command_line_option:experimental_action_listener"]
-    for fragment in fragments.values():
+    for name in fragments:
+        fragment = fragments[name]
         inputs.extend(fragment.inputs)
         outputs.extend(fragment.outputs)
     return struct(inputs = inputs, outputs = outputs)
 
-def _exec_transition_impl(fragments):
+def _exec_transition_impl(fragments: _Fragments) -> _ExecTransitionImpl:
     """Returns an exec transition impl function from a set of fragments.
 
     Args:
@@ -91,9 +118,10 @@ def _exec_transition_impl(fragments):
     """
 
     # buildifier: disable=unused-variable
-    def _impl(settings, attr):
-        ans = {}
-        for fragment in fragments.values():
+    def _impl(settings: dict[str, Any], attr: struct) -> dict[str, Any]:
+        ans: dict[str, Any] = {}
+        for name in fragments:
+            fragment = fragments[name]
             for option in fragment.propagate:
                 ans[option] = settings[option]
             ans.update(fragment.custom_logic(settings))
@@ -176,7 +204,7 @@ bazel_fragments["ConfigFeatureFlagOptions"] = fragment(
     },
 )
 
-def _core_options(settings):
+def _core_options(settings: _Setting) -> _Setting:
     return {
         "//command_line_option:compilation_mode": settings["//command_line_option:host_compilation_mode"],
         "//command_line_option:is exec configuration": True,
@@ -289,8 +317,8 @@ bazel_fragments["CppOptions"] = fragment(
     },
 )
 
-def _java_options(settings):
-    ans = {}
+def _java_options(settings: _Setting) -> _Setting:
+    ans: dict[str, Any] = {}
     if settings["//command_line_option:host_jvmopt"] == []:
         ans["//command_line_option:jvmopt"] = ["-XX:ErrorFile=/dev/stderr"]
     else:

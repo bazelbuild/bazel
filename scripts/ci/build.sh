@@ -116,9 +116,8 @@ function generate_email() {
   fi
 }
 
-function get_release_page() {
-    echo "# $(get_full_release_notes)"'
-
+function get_release_page_notice() {
+    echo '
 _Notice_: Bazel installers contain binaries licensed under the GPLv2 with
 Classpath exception. Those installers should always be redistributed along with
 the source code.
@@ -135,6 +134,11 @@ _Security_: All our binaries are signed with our
 '
 }
 
+function get_release_page() {
+    echo "# $(get_full_release_notes)"
+    get_release_page_notice
+}
+
 # Deploy a github release using the official GitHub CLI (gh):
 #   https://cli.github.com/
 # This methods expects the following arguments:
@@ -142,6 +146,9 @@ _Security_: All our binaries are signed with our
 # Please set GITHUB_TOKEN to talk to the Github API.
 function release_to_github() {
   local artifact_dir="$1"
+
+  # GitHub release notes character limit.
+  local -r GITHUB_RELEASE_NOTES_MAX_CHARS=125000
 
   local release_name=$(get_release_name)
   local rc=$(get_release_candidate)
@@ -182,9 +189,32 @@ function release_to_github() {
     # Use a subshell so that the EXIT trap for temp file cleanup does not
     # affect the outer script's traps.
     (
+      export LC_ALL=C.UTF-8
       notes_file="$(mktemp)"
       trap 'rm -f "$notes_file"' EXIT
       get_release_page > "$notes_file"
+
+      if command -v buildkite-agent &>/dev/null; then
+        buildkite-agent artifact upload "$notes_file" || true
+      fi
+
+      if [ "$(wc -m < "$notes_file")" -gt "${GITHUB_RELEASE_NOTES_MAX_CHARS}" ]; then
+        if command -v buildkite-agent &>/dev/null; then
+          buildkite-agent annotate --style warning "Release notes contain more than ${GITHUB_RELEASE_NOTES_MAX_CHARS} characters and were shortened to ${GITHUB_RELEASE_NOTES_MAX_CHARS} characters for the GitHub release. Full release notes have been uploaded as a Buildkite artifact." || true
+        fi
+        local notice
+        notice="$(get_release_page_notice)"
+        local truncation_msg=$'\n\n... [Release notes truncated. See Buildkite artifacts for full notes.]\n'
+        local footer="${truncation_msg}${notice}"
+        local footer_len
+        footer_len="$(printf '%s' "${footer}" | wc -m)"
+        local max_body_len=$(( GITHUB_RELEASE_NOTES_MAX_CHARS - footer_len ))
+
+        local content
+        content="$(cat "$notes_file"; printf x)"
+        content="${content%x}"
+        printf '%s%s' "${content:0:${max_body_len}}" "${footer}" > "$notes_file"
+      fi
 
       echo "+++ Deploying to GitHub (Tag: ${tag_to_deploy}, Latest: ${latest_flag})"
 

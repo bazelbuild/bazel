@@ -128,12 +128,14 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     }
   }
 
-  private void weakInternPackageTargetsLabels(@Nullable PackageoidValue packageoidValue) {
-    if (!usePooledInterning || packageoidValue == null) {
+  static void weakInternPackageTargetsLabels(@Nullable PackageoidValue packageoidValue) {
+    if (packageoidValue == null) {
       return;
     }
     LabelInterner interner = Label.getLabelInterner();
-    packageoidValue.getPackageoid().getTargets().forEach(t -> interner.weakIntern(t.getLabel()));
+    if (interner != null && interner.enabled()) {
+      packageoidValue.getPackageoid().getTargets().forEach(t -> interner.weakIntern(t.getLabel()));
+    }
   }
 
   @Override
@@ -379,7 +381,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       InMemoryNodeEntry inMemoryNodeEntry, Label sample) {
     checkNotNull(inMemoryNodeEntry);
     SkyValue value = inMemoryNodeEntry.toValue();
-    if (value == null) {
+    if (value == null || value == IncrementalInMemoryNodeEntry.CLEARED_SKY_VALUE) {
       return null;
     }
     checkState(value instanceof PackageoidValue, value);
@@ -399,7 +401,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
    */
   private void weakInternPackageTargetsLabelsIfPackageoid(
       SkyKey key, @Nullable InMemoryNodeEntry nodeEntry) {
-    if (nodeEntry == null) {
+    if (!usePooledInterning || nodeEntry == null) {
       return;
     }
     if (key instanceof PackageIdentifier || key instanceof PackagePieceIdentifier) {

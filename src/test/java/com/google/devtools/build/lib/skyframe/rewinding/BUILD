@@ -56,7 +56,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:spawn_input_utils",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party/java/error_prone:annotations",
-        "//third_party/java/flogger",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:concurrent",
@@ -71,7 +70,7 @@ java_test(
     name = "RewindingTest",
     timeout = "long",
     srcs = ["RewindingTest.java"],
-    shard_count = 24,
+    shard_count = 14,
     runtime_deps = [
         "//third_party/java/grpc:util",
     ],

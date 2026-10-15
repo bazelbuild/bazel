@@ -1036,6 +1036,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return Version.minimal();
   }
 
+  /**
+   * Returns whether the executor supports analysis-only caching (skipping execution nodes).
+   *
+   * <p>Overridden by subclasses that support this mode. Defaults to {@code false}.
+   */
+  public boolean supportsSkycacheAnalysisOnly() {
+    return false;
+  }
+
   protected SkyFunction newActionExecutionFunction() {
     return new ActionExecutionFunction(
         actionRewindStrategy,
@@ -1419,6 +1428,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // b/466388360.
     boolean remoteAnalysisCachingEnabled =
         remoteAnalysisCacheReaderDepsProvider.mode().isRetrievalEnabled();
+
+    getEventBus().post(new AboutToClearAnalysisCacheEvent());
 
     try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
       graph.parallelForEach(
@@ -2264,9 +2275,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Returns every {@link BuildConfigurationKey} in the graph. */
   public Collection<SkyKey> getTransitiveConfigurationKeys() {
-    return memoizingEvaluator.getDoneValues().keySet().stream()
-        .filter(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
-        .collect(toImmutableList());
+    return ImmutableList.copyOf(
+        memoizingEvaluator
+            .getInMemoryGraph()
+            .collectDoneValues(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
+            .keySet());
   }
 
   /**
@@ -3431,6 +3444,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
     BazelDepGraphValue depGraphValue = evalResult.get(BazelDepGraphValue.KEY);
     var bzlmodDepGraph = depGraphValue.getDepGraph();
+    EvaluationResult<RepositoryMappingValue> repoMappings =
+        evaluate(
+            bzlmodDepGraph.values().stream()
+                .filter(module -> !module.getFlagAliases().isEmpty())
+                .map(
+                    module ->
+                        RepositoryMappingValue.key(
+                            depGraphValue
+                                .getCanonicalRepoNameLookup()
+                                .inverse()
+                                .get(module.getKey())))
+                .collect(toImmutableList()),
+            false,
+            DEFAULT_THREAD_COUNT,
+            eventHandler);
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
     for (var module : bzlmodDepGraph.entrySet()) {
       ModuleKey moduleKey = module.getKey();
@@ -3442,7 +3470,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // "@rules_python//python/config_settings:python_path"), so resolve them with that module's
         // repo mapping rather than the main repo's.
         RepoContext repoContext =
-            RepoContext.of(canonicalRepoName, depGraphValue.getFullRepoMapping(moduleKey));
+            RepoContext.of(
+                canonicalRepoName,
+                repoMappings
+                    .get(RepositoryMappingValue.key(canonicalRepoName))
+                    .repositoryMapping());
         for (var flagAlias : flagAliases.entrySet()) {
           aliasesMap.put(
               flagAlias.getKey(), toCanonicalLabelString(flagAlias.getValue(), repoContext));
@@ -4109,7 +4141,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
         batchDirtyResult =
             fsvc.getDirtyKeys(
-                memoizingEvaluator.getDoneValues(),
+                memoizingEvaluator
+                    .getInMemoryGraph()
+                    .collectDoneValues(
+                        DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker()::applies),
                 new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
       }
       if (externalDirtinessChecker != null) {
