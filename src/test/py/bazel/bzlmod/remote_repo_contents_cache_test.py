@@ -2727,6 +2727,48 @@ class RemoteRepoContentsCacheTest(
         stderr,
     )
 
+  def testRunSourceExecutableWithoutMergedAnalysisAndExecution(self):
+    if self.IsWindows():
+      self.skipTest('requires a shell script')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'tool.sh\'])")',
+            '  rctx.file(',
+            '    "tool.sh",',
+            '    "#!/bin/sh\\necho hello from a source executable\\n",',
+            '    executable = True,',
+            '  )',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    args = [
+        'run',
+        '--noexperimental_merged_skyframe_analysis_execution',
+        '@my_repo//:tool.sh',
+    ]
+
+    _, stdout, stderr = self.RunBazel(args)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from a source executable', '\n'.join(stdout))
+
+    # After expunging: cached. The executable has to be downloaded to be run.
+    self.RunBazel(['clean', '--expunge'])
+    _, stdout, stderr = self.RunBazel(args)
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from a source executable', '\n'.join(stdout))
+
 
 if __name__ == '__main__':
   absltest.main()
