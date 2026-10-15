@@ -34,6 +34,9 @@ import javax.annotation.Nullable;
  *     toolchain_type() target.
  * @param execConstraints The constraints describing the execution environment.
  * @param targetConstraints The constraints describing the target environment.
+ * @param hasTargetToExecConstraints Whether the toolchain requires the execution platform to have
+ *     the constraints of the target platform instead of {@code execConstraints} and {@code
+ *     targetConstraints}, which are empty in this case.
  * @param targetSettings The setting, that target build configuration needs to satisfy.
  * @param targetLabel The label of the {@code toolchain} target itself.
  * @param resolvedToolchainLabel The label of the toolchain to resolve for use in toolchain-aware
@@ -44,6 +47,7 @@ public record DeclaredToolchainInfo(
     ToolchainTypeInfo toolchainType,
     ConstraintCollection execConstraints,
     ConstraintCollection targetConstraints,
+    boolean hasTargetToExecConstraints,
     ImmutableList<ConfigMatchingProvider> targetSettings,
     Label targetLabel,
     Label resolvedToolchainLabel)
@@ -57,18 +61,11 @@ public record DeclaredToolchainInfo(
     requireNonNull(resolvedToolchainLabel, "resolvedToolchainLabel");
   }
 
-  public boolean hasTargetToExecConstraints() {
-    // This needs to check identity as the special ConstraintCollection is otherwise equal to the
-    // empty one. This avoids adding a new field or making ConstraintCollection more complex.
-    return execConstraints == USE_TARGET_PLATFORM_CONSTRAINTS
-        && targetConstraints == USE_TARGET_PLATFORM_CONSTRAINTS;
-  }
-
-  private static final ConstraintCollection USE_TARGET_PLATFORM_CONSTRAINTS;
+  private static final ConstraintCollection EMPTY_CONSTRAINTS;
 
   static {
     try {
-      USE_TARGET_PLATFORM_CONSTRAINTS = ConstraintCollection.builder().build();
+      EMPTY_CONSTRAINTS = ConstraintCollection.builder().build();
     } catch (ConstraintCollection.DuplicateConstraintException e) {
       throw new IllegalStateException(e);
     }
@@ -164,6 +161,7 @@ public record DeclaredToolchainInfo(
           toolchainType,
           execConstraints,
           targetConstraints,
+          /* hasTargetToExecConstraints= */ false,
           targetSettings.build(),
           targetLabel,
           resolvedToolchainLabel);
@@ -172,8 +170,9 @@ public record DeclaredToolchainInfo(
     public DeclaredToolchainInfo buildWithTargetToExecConstraints() {
       return new DeclaredToolchainInfo(
           toolchainType,
-          USE_TARGET_PLATFORM_CONSTRAINTS,
-          USE_TARGET_PLATFORM_CONSTRAINTS,
+          EMPTY_CONSTRAINTS,
+          EMPTY_CONSTRAINTS,
+          /* hasTargetToExecConstraints= */ true,
           targetSettings.build(),
           targetLabel,
           resolvedToolchainLabel);

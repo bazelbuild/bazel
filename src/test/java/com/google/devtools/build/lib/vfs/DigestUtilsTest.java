@@ -16,15 +16,17 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.HexFormat;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link DigestUtils}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class DigestUtilsTest {
 
   @After
@@ -105,7 +107,7 @@ public final class DigestUtilsTest {
     FileSystemUtils.writeContentAsLatin1(file, "some contents");
 
     // Without a stat, DigestUtils has to stat the file itself to build the cache key.
-    byte[] digest = DigestUtils.manuallyComputeDigest(file);
+    byte[] digest = DigestUtils.manuallyComputeDigest(file, /* status= */ null);
     assertThat(getDigestCounter.get()).isEqualTo(1);
     assertThat(statCounter.get()).isEqualTo(1);
 
@@ -117,6 +119,42 @@ public final class DigestUtilsTest {
     assertThat(DigestUtils.manuallyComputeDigest(file, stat)).isEqualTo(digest);
     assertThat(getDigestCounter.get()).isEqualTo(0);
     assertThat(statCounter.get()).isEqualTo(0);
+  }
+
+  @Test
+  public void modifiedFile_staleEntryIsAMissAndIsReplaced() throws Exception {
+    AtomicInteger getDigestCounter = new AtomicInteger(0);
+    FileSystem tracingFileSystem =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public byte[] getDigest(PathFragment path) throws IOException {
+            getDigestCounter.incrementAndGet();
+            return super.getDigest(path);
+          }
+        };
+
+    DigestUtils.configureCache(/* maximumSize= */ 100);
+
+    Path file = tracingFileSystem.getPath("/file.txt");
+    FileSystemUtils.writeContentAsLatin1(file, "some contents");
+    byte[] digest = DigestUtils.manuallyComputeDigest(file, /* status= */ null);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
+    assertThat(DigestUtils.getCacheStats().missCount()).isEqualTo(1);
+
+    // The file changes (in size, so no clock is needed). The entry is present but stale: that is a
+    // miss, the digest is recomputed, and the entry is replaced rather than kept alongside.
+    FileSystemUtils.writeContentAsLatin1(file, "other contents!");
+    byte[] newDigest = DigestUtils.manuallyComputeDigest(file, /* status= */ null);
+    assertThat(newDigest).isNotEqualTo(digest);
+    assertThat(getDigestCounter.get()).isEqualTo(2);
+    assertThat(DigestUtils.getCacheStats().missCount()).isEqualTo(2);
+    assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(0);
+    assertThat(DigestUtils.getCacheStats().evictionCount()).isEqualTo(0);
+
+    // The replaced entry serves the new contents without a further read.
+    assertThat(DigestUtils.manuallyComputeDigest(file, /* status= */ null)).isEqualTo(newDigest);
+    assertThat(getDigestCounter.get()).isEqualTo(2);
+    assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(1);
   }
 
   @Test
@@ -137,7 +175,7 @@ public final class DigestUtilsTest {
     Path file = noDigestFileSystem.getPath("/f.txt");
     FileSystemUtils.writeContentAsLatin1(file, "contents");
 
-    assertThat(DigestUtils.manuallyComputeDigest(file)).isEqualTo(digest);
+    assertThat(DigestUtils.manuallyComputeDigest(file, /* status= */ null)).isEqualTo(digest);
   }
 
   @Test
@@ -153,5 +191,23 @@ public final class DigestUtilsTest {
     byte[] a = {1, 2, 3};
     assertThat(DigestUtils.combineUnordered(a.clone(), a.clone()))
         .isNotEqualTo(new byte[] {0, 0, 0});
+  }
+
+  @Test
+  public void toHexByteString_matchesLowercaseHexEncoding(
+      @TestParameter({
+            "",
+            "00",
+            "0f",
+            "10",
+            "7f",
+            "80",
+            "ff",
+            "0123456789abcdef",
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          })
+          String hex) {
+    assertThat(DigestUtils.toHexByteString(HexFormat.of().parseHex(hex)).toStringUtf8())
+        .isEqualTo(hex);
   }
 }

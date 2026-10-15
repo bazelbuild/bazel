@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.TestTrimmingTransitionFactory.TestTrimmingTransition;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -228,6 +229,7 @@ public class BuildView {
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
       AnalysisOptions viewOptions,
+      BuildRequestOptions buildRequestOptions,
       boolean keepGoing,
       boolean skipIncompatibleExplicitTargets,
       boolean checkForActionConflicts,
@@ -238,7 +240,6 @@ public class BuildView {
       EventBus eventBus,
       BugReporter bugReporter,
       boolean includeExecutionPhase,
-      int skymeldAnalysisOverlapPercentage,
       @Nullable ResourceManager resourceManager,
       @Nullable BuildResultListener buildResultListener,
       @Nullable ExecutionSetup executionSetupCallback,
@@ -452,7 +453,7 @@ public class BuildView {
                     .mode()
                     .isSyncUpload(),
                 buildDriverKeyTestContext,
-                skymeldAnalysisOverlapPercentage);
+                buildRequestOptions.getSkymeldAnalysisOverlapPercentage());
       } else {
         skyframeAnalysisResult =
             skyframeBuildView.configureTargets(
@@ -497,6 +498,7 @@ public class BuildView {
               topLevelConfig,
               topLevelOptions,
               viewOptions,
+              buildRequestOptions,
               skyframeAnalysisResult,
               /* targetsToSkip= */ ImmutableSet.of(),
               labelToTargetMap,
@@ -542,6 +544,7 @@ public class BuildView {
               topLevelConfig,
               topLevelOptions,
               viewOptions,
+              buildRequestOptions,
               skyframeAnalysisResult,
               targetsToSkip,
               labelToTargetMap,
@@ -668,6 +671,7 @@ public class BuildView {
       BuildConfigurationValue configuration,
       TopLevelArtifactContext topLevelOptions,
       AnalysisOptions viewOptions,
+      BuildRequestOptions buildRequestOptions,
       SkyframeAnalysisResult skyframeAnalysisResult,
       Set<ConfiguredTarget> targetsToSkip,
       ImmutableMap<Label, Target> labelToTargetMap,
@@ -684,7 +688,12 @@ public class BuildView {
             || skyframeAnalysisResult.hasActionConflicts();
 
     if (!hasError) {
-      checkUnknownOutputGroups(configuredTargets, aspects.values(), topLevelOptions, eventHandler);
+      checkUnknownOutputGroups(
+          configuredTargets,
+          aspects.values(),
+          topLevelOptions,
+          ImmutableSet.copyOf(buildRequestOptions.getHideOutputGroupResults()),
+          eventHandler);
     }
 
     Set<ConfiguredTarget> allTargetsToTest = null;
@@ -983,6 +992,7 @@ public class BuildView {
       Collection<ConfiguredTarget> configuredTargets,
       Collection<ConfiguredAspect> configuredAspects,
       TopLevelArtifactContext topLevelOptions,
+      ImmutableSet<String> outputGroupsToHide,
       ExtendedEventHandler eventHandler)
       throws ViewCreationFailedException {
     if (configuredTargets.isEmpty() && configuredAspects.isEmpty()) {
@@ -992,6 +1002,12 @@ public class BuildView {
     for (String outputGroup : topLevelOptions.outputGroups()) {
       if (OutputGroupInfo.IGNORED_OUTPUT_GROUPS.contains(outputGroup)
           || outputGroup.endsWith(OutputGroupInfo.INTERNAL_SUFFIX)) {
+        continue;
+      }
+      // A hidden output group only suppresses the warning. It is still an error under
+      // --incompatible_fail_on_unknown_output_groups.
+      if (!topLevelOptions.failOnUnknownOutputGroups()
+          && outputGroupsToHide.contains(outputGroup)) {
         continue;
       }
       boolean found = false;

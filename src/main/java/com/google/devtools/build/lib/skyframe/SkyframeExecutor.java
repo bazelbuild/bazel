@@ -37,6 +37,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -176,7 +177,6 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetParsingPhaseTimeEvent;
-import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
@@ -580,7 +580,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Represents the baseline target and exec configurations. */
-  public record BaselineConfigurations(BuildOptions targetBaseline, BuildOptions execBaseline) {}
+  public record BaselineConfigurations(BuildOptions targetBaseline, BuildOptions execBaseline) {
+
+    public BaselineConfigurations {
+      checkNotNull(targetBaseline);
+      checkNotNull(execBaseline);
+    }
+
+    @Override // Only include option checksums, since this is printed in logging.
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("targetBaseline", targetBaseline.checksum())
+          .add("execBaseline", execBaseline.checksum())
+          .toString();
+    }
+  }
 
   public void setRemoteAnalysisCachingDependenciesProvider(
       RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
@@ -1022,6 +1036,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return Version.minimal();
   }
 
+  /**
+   * Returns whether the executor supports analysis-only caching (skipping execution nodes).
+   *
+   * <p>Overridden by subclasses that support this mode. Defaults to {@code false}.
+   */
+  public boolean supportsSkycacheAnalysisOnly() {
+    return false;
+  }
+
   protected SkyFunction newActionExecutionFunction() {
     return new ActionExecutionFunction(
         actionRewindStrategy,
@@ -1405,6 +1428,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // b/466388360.
     boolean remoteAnalysisCachingEnabled =
         remoteAnalysisCacheReaderDepsProvider.mode().isRetrievalEnabled();
+
+    getEventBus().post(new AboutToClearAnalysisCacheEvent());
 
     try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
       graph.parallelForEach(
@@ -2250,9 +2275,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Returns every {@link BuildConfigurationKey} in the graph. */
   public Collection<SkyKey> getTransitiveConfigurationKeys() {
-    return memoizingEvaluator.getDoneValues().keySet().stream()
-        .filter(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
-        .collect(toImmutableList());
+    return ImmutableList.copyOf(
+        memoizingEvaluator
+            .getInMemoryGraph()
+            .collectDoneValues(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
+            .keySet());
   }
 
   /**
@@ -2724,8 +2751,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private void initializeSkymeldConflictFindingStates() {
     incrementalArtifactConflictFinder =
         new IncrementalArtifactConflictFinder(
-            new MapBasedActionGraph(actionKeyContext),
-            SkyframeExecutorWrappingWalkableGraph.of(this));
+            new MapBasedActionGraph(actionKeyContext), getWalkableGraph());
+  }
+
+  /** Returns a {@link WalkableGraph} backed by this executor's evaluator. */
+  public WalkableGraph getWalkableGraph() {
+    return SkyframeExecutorWrappingWalkableGraph.of(getEvaluator());
   }
 
   /** Clear the incremental conflict finding states to save memory. */
@@ -2869,11 +2900,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public QueryTransitivePackagePreloader getQueryTransitivePackagePreloader() {
     return queryTransitivePackagePreloader;
-  }
-
-  @VisibleForTesting
-  public TargetPatternPreloader newTargetPatternPreloader() {
-    return new SkyframeTargetPatternEvaluator(this);
   }
 
   public ActionKeyContext getActionKeyContext() {
@@ -3418,6 +3444,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
     BazelDepGraphValue depGraphValue = evalResult.get(BazelDepGraphValue.KEY);
     var bzlmodDepGraph = depGraphValue.getDepGraph();
+    EvaluationResult<RepositoryMappingValue> repoMappings =
+        evaluate(
+            bzlmodDepGraph.values().stream()
+                .filter(module -> !module.getFlagAliases().isEmpty())
+                .map(
+                    module ->
+                        RepositoryMappingValue.key(
+                            depGraphValue
+                                .getCanonicalRepoNameLookup()
+                                .inverse()
+                                .get(module.getKey())))
+                .collect(toImmutableList()),
+            false,
+            DEFAULT_THREAD_COUNT,
+            eventHandler);
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
     for (var module : bzlmodDepGraph.entrySet()) {
       ModuleKey moduleKey = module.getKey();
@@ -3429,7 +3470,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // "@rules_python//python/config_settings:python_path"), so resolve them with that module's
         // repo mapping rather than the main repo's.
         RepoContext repoContext =
-            RepoContext.of(canonicalRepoName, depGraphValue.getFullRepoMapping(moduleKey));
+            RepoContext.of(
+                canonicalRepoName,
+                repoMappings
+                    .get(RepositoryMappingValue.key(canonicalRepoName))
+                    .repositoryMapping());
         for (var flagAlias : flagAliases.entrySet()) {
           aliasesMap.put(
               flagAlias.getKey(), toCanonicalLabelString(flagAlias.getValue(), repoContext));
@@ -3775,7 +3820,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // is necessary to avoid collecting nodes that are in the graph from a previous build, but
         // unnecessary for this build.
         // TODO: jhorvitz - We could use the faster parallel sweep on clean builds.
-        new TransitiveActionLookupKeysCollector(SkyframeExecutorWrappingWalkableGraph.of(this))
+        new TransitiveActionLookupKeysCollector(getWalkableGraph())
             .collect(Iterables.concat(topLevelCtKeys, aspectKeys), alvTraversal);
       }
       return alvTraversal;
@@ -4096,7 +4141,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
         batchDirtyResult =
             fsvc.getDirtyKeys(
-                memoizingEvaluator.getDoneValues(),
+                memoizingEvaluator
+                    .getInMemoryGraph()
+                    .collectDoneValues(
+                        DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker()::applies),
                 new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
       }
       if (externalDirtinessChecker != null) {

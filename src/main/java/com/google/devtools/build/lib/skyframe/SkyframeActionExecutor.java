@@ -245,7 +245,6 @@ public final class SkyframeActionExecutor {
   private boolean finalizeActions;
   private boolean rewindingEnabled;
   private int maxRepeatedLostInputs;
-  private boolean preciseRewindingEnabled;
   @Nullable private Label bustActionCachesTarget;
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
@@ -347,7 +346,6 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.getFinalizeActions();
     this.rewindingEnabled = buildRequestOptions.getRewindLostInputs();
-    this.preciseRewindingEnabled = buildRequestOptions.getExperimentalPreciseRewinding();
     this.maxRepeatedLostInputs = buildRequestOptions.getMaxRepeatedLostInputs();
     this.bustActionCachesTarget = buildRequestOptions.getBustActionCachesTarget();
     this.invocationRetriesEnabled =
@@ -440,10 +438,6 @@ public final class SkyframeActionExecutor {
 
   public boolean rewindingEnabled() {
     return rewindingEnabled;
-  }
-
-  public boolean preciseRewindingEnabled() {
-    return preciseRewindingEnabled;
   }
 
   /**
@@ -994,7 +988,10 @@ public final class SkyframeActionExecutor {
     eventHandler.post(new ScanningActionEvent(action));
 
     ActionExecutionException finalException = null;
-    try {
+    try (SilentCloseable lock =
+        outputService
+            .getRewoundActionSynchronizer()
+            .enterInputDiscovery(action, compositeInputMetadataProvider)) {
       NestedSet<Artifact> artifacts = action.discoverInputs(actionExecutionContext);
 
       // Input discovery may have been affected by lost inputs. If an action filesystem is used, it

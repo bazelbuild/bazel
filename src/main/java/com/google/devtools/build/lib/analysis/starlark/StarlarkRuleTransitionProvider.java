@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.applyAndValidate;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -37,11 +38,9 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -99,8 +98,8 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);
     ConfiguredAttributeMapper configuredAttributeMapper =
         ConfiguredAttributeMapper.of(rule, configConditions, configHash, false);
-    ImmutableCollection<String> transitionOutputs =
-        this.starlarkDefinedConfigTransition.getOutputs();
+    ImmutableSet<Label> transitionOutputs =
+        this.starlarkDefinedConfigTransition.getOutputsCanonicalizedToGiven().keySet();
 
     for (Attribute attribute : rule.getAttributes()) {
       // If the value is present, even if it is null, add to the attribute map.
@@ -148,7 +147,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
   private Result handleConfiguredAttribute(
       @Nullable ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ConfiguredAttributeMapper configuredAttributeMapper,
-      ImmutableCollection<String> transitionOutputs,
+      ImmutableSet<Label> transitionOutputs,
       Attribute attribute,
       SelectorList<?> val) {
     // If there are no configConditions then nothing is resolvable.
@@ -173,7 +172,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
 
   private boolean selectBranchesReferenceOutputs(
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ImmutableCollection<String> transitionOutputs,
+      ImmutableSet<Label> transitionOutputs,
       SelectorList<?> val) {
     for (Object label : val.getKeyLabels()) {
       ConfigMatchingProvider configMatchingProvider = configConditions.get(label);
@@ -186,23 +185,16 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
   }
 
   private boolean checkIfAttributeSelectOnAFlagTransitionChanges(
-      ConfigMatchingProvider configMatchingProvider,
-      ImmutableCollection<String> transitionOutputs) {
-    // check settingMap
-    Set<String> nativeFlagLabels = new HashSet<>();
-    for (String key : configMatchingProvider.settingsMap().keySet()) {
-      String modified = "//command_line_option:" + key;
-      nativeFlagLabels.add(modified);
+      ConfigMatchingProvider configMatchingProvider, ImmutableSet<Label> transitionOutputs) {
+    for (String nativeOption : configMatchingProvider.settingsMap().keySet()) {
+      if (transitionOutputs.contains(
+          Label.parseCanonicalUnchecked(
+              LabelConstants.COMMAND_LINE_OPTION_PREFIX + nativeOption))) {
+        return true;
+      }
     }
-    // check flags values
-    ImmutableMap<Label, String> flagSettingsMap = configMatchingProvider.flagSettingsMap();
-    Set<String> flagLabels = new HashSet<>();
-    for (Label flag : flagSettingsMap.keySet()) {
-      flagLabels.add(flag.getCanonicalForm());
-    }
-
-    for (String output : transitionOutputs) {
-      if (nativeFlagLabels.contains(output) || flagLabels.contains(output)) {
+    for (Label flag : configMatchingProvider.flagSettingsMap().keySet()) {
+      if (transitionOutputs.contains(flag)) {
         return true;
       }
     }

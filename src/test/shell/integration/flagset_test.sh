@@ -767,6 +767,7 @@ project = project_pb2.Project.create(
           name = "test_config",
           flags = [
             "--define foo=bar",
+            "--features baz",
             "--nostamp",
             "--define=foo='bar baz'",
           ],
@@ -778,7 +779,7 @@ EOF
 
   bazel build --nobuild //test:test --enforce_project_configs \
     &> "$TEST_log" || fail "Build with space-separated and --no prefix flags in project file failed"
-  expect_log "Applying flags from the config 'test_config' defined in //test:PROJECT.scl: \[--define=foo=bar, --nostamp, --define=foo='bar baz'\]"
+  expect_log "Applying flags from the config 'test_config' defined in //test:PROJECT.scl: \[--define=foo=bar, --features=baz, --nostamp, --define=foo='bar baz'\]"
 }
 
 function test_invalid_flag_value_in_project_file_fails_cleanly() {

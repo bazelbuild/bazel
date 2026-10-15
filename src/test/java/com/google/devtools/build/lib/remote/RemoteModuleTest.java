@@ -33,6 +33,9 @@ import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.extensions.proto.ProtoTruth;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -150,30 +153,9 @@ public final class RemoteModuleTest {
     void initialize(Scratch scratch) throws IOException;
   }
 
-  private static CommandEnvironment createTestCommandEnvironment(
-      RemoteModule remoteModule,
-      RemoteOptions remoteOptions,
-      WorkspaceInitializer workspaceInitializer)
+  private static BlazeWorkspace createTestWorkspace(
+      RemoteModule remoteModule, WorkspaceInitializer workspaceInitializer)
       throws IOException, AbruptExitException {
-    CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
-    CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
-    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    ClientOptions clientOptions = Options.getDefaults(ClientOptions.class);
-    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
-    TestOptions testOptions = Options.getDefaults(TestOptions.class);
-
-    AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
-
-    OptionsParsingResult options = mock(OptionsParsingResult.class);
-    when(options.getOptions(CoreOptions.class)).thenReturn(coreOptions);
-    when(options.getOptions(CommonCommandOptions.class)).thenReturn(commonCommandOptions);
-    when(options.getOptions(PackageOptions.class)).thenReturn(packageOptions);
-    when(options.getOptions(ClientOptions.class)).thenReturn(clientOptions);
-    when(options.getOptions(RemoteOptions.class)).thenReturn(remoteOptions);
-    when(options.getOptions(AuthAndTLSOptions.class)).thenReturn(authAndTLSOptions);
-    when(options.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
-    when(options.getOptions(TestOptions.class)).thenReturn(testOptions);
-
     String productName = "bazel";
     Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
     ServerDirectories serverDirectories =
@@ -204,7 +186,30 @@ public final class RemoteModuleTest {
 
     BlazeDirectories directories =
         new BlazeDirectories(serverDirectories, workspacePath, productName);
-    BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
+    return runtime.initWorkspace(directories, BinTools.empty(directories));
+  }
+
+  private static CommandEnvironment initCommand(
+      BlazeWorkspace workspace, RemoteOptions remoteOptions) throws AbruptExitException {
+    CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
+    CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    ClientOptions clientOptions = Options.getDefaults(ClientOptions.class);
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestOptions testOptions = Options.getDefaults(TestOptions.class);
+
+    AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
+
+    OptionsParsingResult options = mock(OptionsParsingResult.class);
+    when(options.getOptions(CoreOptions.class)).thenReturn(coreOptions);
+    when(options.getOptions(CommonCommandOptions.class)).thenReturn(commonCommandOptions);
+    when(options.getOptions(PackageOptions.class)).thenReturn(packageOptions);
+    when(options.getOptions(ClientOptions.class)).thenReturn(clientOptions);
+    when(options.getOptions(RemoteOptions.class)).thenReturn(remoteOptions);
+    when(options.getOptions(AuthAndTLSOptions.class)).thenReturn(authAndTLSOptions);
+    when(options.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
+    when(options.getOptions(TestOptions.class)).thenReturn(testOptions);
+
     Command command = BuildCommand.class.getAnnotation(Command.class);
     return workspace.initCommand(
         command,
@@ -743,8 +748,12 @@ public final class RemoteModuleTest {
   @CanIgnoreReturnValue
   private CommandEnvironment beforeCommand(WorkspaceInitializer workspaceInitializer)
       throws IOException, AbruptExitException {
-    CommandEnvironment env =
-        createTestCommandEnvironment(remoteModule, remoteOptions, workspaceInitializer);
+    return beforeCommand(createTestWorkspace(remoteModule, workspaceInitializer));
+  }
+
+  @CanIgnoreReturnValue
+  private CommandEnvironment beforeCommand(BlazeWorkspace workspace) throws AbruptExitException {
+    CommandEnvironment env = initCommand(workspace, remoteOptions);
     env.getRuntime().getBlazeModule(BlockWaitingModule.class).beforeCommand(env);
     remoteModule.beforeCommand(env);
     env.throwPendingException();
@@ -755,6 +764,52 @@ public final class RemoteModuleTest {
   private void afterCommand(CommandEnvironment env) throws AbruptExitException {
     remoteModule.afterCommand();
     env.getRuntime().getBlazeModule(BlockWaitingModule.class).afterCommand();
+  }
+
+  @Test
+  public void successiveCommands_keepOnlyPreviousOutputChecker() throws Exception {
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+
+    try {
+      BlazeWorkspace workspace = createTestWorkspace(remoteModule, scratch -> {});
+      remoteOptions =
+          parseRemoteOptions(
+              "--remote_cache=" + CACHE_SERVER_NAME, "--remote_download_outputs=toplevel");
+      var execRoot =
+          ArtifactRoot.asDerivedRoot(
+              new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
+              ArtifactRoot.RootType.OUTPUT,
+              "out");
+      var firstOutput = ActionsTestUtil.createArtifact(execRoot, "first");
+      var secondOutput = ActionsTestUtil.createArtifact(execRoot, "second");
+      var metadata =
+          FileArtifactValue.createForRemoteFile(
+              new byte[] {1, 2, 3}, /* size= */ 3, /* locationIndex= */ 1);
+
+      var firstEnv = beforeCommand(workspace);
+      var firstChecker = remoteModule.getRemoteOutputChecker();
+      firstChecker.addOutputToDownload(firstOutput);
+      afterCommand(firstEnv);
+
+      var secondEnv = beforeCommand(workspace);
+      var secondChecker = remoteModule.getRemoteOutputChecker();
+      assertThat(secondChecker.getLastRemoteOutputChecker()).isSameInstanceAs(firstChecker);
+      assertThat(secondChecker.shouldTrustMetadata(firstOutput, metadata)).isFalse();
+      secondChecker.addOutputToDownload(secondOutput);
+      afterCommand(secondEnv);
+
+      var thirdEnv = beforeCommand(workspace);
+      var thirdChecker = remoteModule.getRemoteOutputChecker();
+      assertThat(thirdChecker.getLastRemoteOutputChecker()).isSameInstanceAs(secondChecker);
+      assertThat(secondChecker.getLastRemoteOutputChecker()).isNull();
+      assertThat(thirdChecker.shouldTrustMetadata(secondOutput, metadata)).isFalse();
+      assertThat(thirdChecker.shouldTrustMetadata(firstOutput, metadata)).isTrue();
+      afterCommand(thirdEnv);
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
   }
 
   /** Waits for the eagerly created channels of the current command to be connected. */

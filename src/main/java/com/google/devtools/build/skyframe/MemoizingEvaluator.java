@@ -123,6 +123,16 @@ public interface MemoizingEvaluator {
   default void postLoggingStats(ExtendedEventHandler eventHandler) {}
 
   /**
+   * Returns the version of the first evaluation in the latest sequence of evaluations (see {@link
+   * #noteEvaluationsAtSameVersionMayBeFinished}), or {@code null} if nothing has been evaluated yet
+   * or versions aren't tracked.
+   */
+  @Nullable
+  default Version getFirstVersionOfLatestEvaluationSequence() {
+    return null;
+  }
+
+  /**
    * Returns the done (without error) values in the graph.
    *
    * <p>The returned map may be a live view of the graph.

@@ -33,14 +33,22 @@ string GetLastErrorString() {
     return "success";
   }
 
-  char* message_buffer;
-  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-                     FORMAT_MESSAGE_IGNORE_INSERTS,
-                 nullptr, last_error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                 (LPSTR)&message_buffer, 0, nullptr);
+  char* message_buffer = nullptr;
+  DWORD size = FormatMessageA(
+      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+          FORMAT_MESSAGE_IGNORE_INSERTS,
+      nullptr, last_error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+      (LPSTR)&message_buffer, 0, nullptr);
+
+  DWORD format_message_error = ::GetLastError();
 
   stringstream result;
-  result << "(error: " << last_error << "): " << message_buffer;
+  if (size == 0 || message_buffer == nullptr) {
+    result << "(error: 0x" << std::hex << last_error
+           << "): <FormatMessageA failed: 0x" << format_message_error << ">";
+  } else {
+    result << "(error: " << last_error << "): " << message_buffer;
+  }
   LocalFree(message_buffer);
   return result.str();
 }

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -234,7 +235,10 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);
       assertThat(packageLookupValue.packageExists()).isFalse();
       assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.DELETED_PACKAGE);
-      assertThat(packageLookupValue.getErrorMsg()).isNotNull();
+      assertThat(packageLookupValue.getErrorMsg())
+          .isEqualTo("Package is considered deleted due to .bazelignore");
+      assertThat(packageLookupValue)
+          .isSameInstanceAs(PackageLookupValue.DELETED_BY_BAZELIGNORE_VALUE);
     }
 
     scratch.overwriteFile(
@@ -247,6 +251,25 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     for (String pkg : pkgs) {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);
       assertThat(packageLookupValue.packageExists()).isTrue();
+    }
+  }
+
+  @Test
+  public void testIgnoredPackage_repoBazel() throws Exception {
+    scratch.file("ignored_repo/subdir/BUILD");
+    scratch.file("ignored_repo/BUILD");
+    scratch.file(
+        LabelConstants.REPO_FILE_NAME.getPathString(), "ignore_directories([\"ignored_repo\"])");
+
+    ImmutableSet<String> pkgs = ImmutableSet.of("ignored_repo/subdir", "ignored_repo");
+    for (String pkg : pkgs) {
+      PackageLookupValue packageLookupValue = lookupPackage(pkg);
+      assertThat(packageLookupValue.packageExists()).isFalse();
+      assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.DELETED_PACKAGE);
+      assertThat(packageLookupValue.getErrorMsg())
+          .isEqualTo("Package is considered deleted due to ignore_directories() in REPO.bazel");
+      assertThat(packageLookupValue)
+          .isSameInstanceAs(PackageLookupValue.DELETED_BY_REPO_BAZEL_VALUE);
     }
   }
 

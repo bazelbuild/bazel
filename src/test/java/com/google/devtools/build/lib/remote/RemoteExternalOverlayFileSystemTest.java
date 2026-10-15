@@ -16,21 +16,27 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.Tree;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
@@ -39,6 +45,115 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class RemoteExternalOverlayFileSystemTest {
+  @Test
+  public void getInputStream_lostFileDownloadedBefore_readFromDisk() throws Exception {
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var externalRoot = PathFragment.create("/output/external");
+    var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
+    var prefetcher = mock(AbstractActionInputPrefetcher.class);
+    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
+        .thenReturn(immediateVoidFuture());
+    when(prefetcher.isAvailable(any(), any())).thenCallRealMethod();
+    overlay.beforeCommand(
+        new InMemoryCombinedCache(digestUtil),
+        prefetcher,
+        new Reporter(),
+        "build-request",
+        "command",
+        mock(MemoizingEvaluator.class),
+        Duration.ofMinutes(1));
+    try {
+      // The remote cache doesn't have the contents of the files.
+      var repo = RepositoryName.create("repo");
+      var root = Directory.newBuilder();
+      for (var name : ImmutableList.of("downloaded", "missing", "modified")) {
+        root.addFiles(
+            FileNode.newBuilder()
+                .setName(name)
+                .setDigest(digestUtil.compute("contents".getBytes(UTF_8))));
+      }
+      assertThat(overlay.injectRemoteRepo(repo, Tree.newBuilder().setRoot(root).build(), "marker"))
+          .isTrue();
+      // The repo is still served from memory, but some of its files have been downloaded, e.g. as
+      // inputs of an action.
+      var repoDir = externalRoot.getChild(repo.getName());
+      nativeFs.getPath(repoDir).createDirectoryAndParents();
+      FileSystemUtils.writeContent(
+          nativeFs.getPath(repoDir.getChild("downloaded")), UTF_8, "contents");
+      FileSystemUtils.writeContent(
+          nativeFs.getPath(repoDir.getChild("modified")), UTF_8, "CONTENTS");
+
+      assertThat(
+              FileSystemUtils.readContent(overlay.getPath(repoDir.getChild("downloaded")), UTF_8))
+          .isEqualTo("contents");
+      assertThrows(
+          IOException.class,
+          () -> FileSystemUtils.readContent(overlay.getPath(repoDir.getChild("missing"))));
+      assertThrows(
+          IOException.class,
+          () -> FileSystemUtils.readContent(overlay.getPath(repoDir.getChild("modified"))));
+    } finally {
+      overlay.afterCommand();
+    }
+  }
+
+  @Test
+  public void getInputStream_downloadFailsForFileDownloadedBefore_readFromDisk() throws Exception {
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var cacheClient = new InMemoryCacheClient();
+    // The remote cache has the contents, but fails to serve them.
+    cacheClient.addDownloadFailure(
+        digestUtil.compute("contents".getBytes(UTF_8)), new IOException("503 Service Unavailable"));
+    var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var externalRoot = PathFragment.create("/output/external");
+    var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
+    var prefetcher = mock(AbstractActionInputPrefetcher.class);
+    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
+        .thenReturn(immediateVoidFuture());
+    when(prefetcher.isAvailable(any(), any())).thenCallRealMethod();
+    overlay.beforeCommand(
+        new InMemoryCombinedCache(cacheClient, digestUtil),
+        prefetcher,
+        new Reporter(),
+        "build-request",
+        "command",
+        mock(MemoizingEvaluator.class),
+        Duration.ofMinutes(1));
+    try {
+      var repo = RepositoryName.create("repo");
+      var root = Directory.newBuilder();
+      for (var name : ImmutableList.of("downloaded", "missing", "modified")) {
+        root.addFiles(
+            FileNode.newBuilder()
+                .setName(name)
+                .setDigest(digestUtil.compute("contents".getBytes(UTF_8))));
+      }
+      assertThat(overlay.injectRemoteRepo(repo, Tree.newBuilder().setRoot(root).build(), "marker"))
+          .isTrue();
+      // The repo is still served from memory, but some of its files have been downloaded, e.g. as
+      // inputs of an action.
+      var repoDir = externalRoot.getChild(repo.getName());
+      nativeFs.getPath(repoDir).createDirectoryAndParents();
+      FileSystemUtils.writeContent(
+          nativeFs.getPath(repoDir.getChild("downloaded")), UTF_8, "contents");
+      FileSystemUtils.writeContent(
+          nativeFs.getPath(repoDir.getChild("modified")), UTF_8, "CONTENTS");
+
+      assertThat(
+              FileSystemUtils.readContent(overlay.getPath(repoDir.getChild("downloaded")), UTF_8))
+          .isEqualTo("contents");
+      assertThrows(
+          IOException.class,
+          () -> FileSystemUtils.readContent(overlay.getPath(repoDir.getChild("missing"))));
+      assertThrows(
+          IOException.class,
+          () -> FileSystemUtils.readContent(overlay.getPath(repoDir.getChild("modified"))));
+    } finally {
+      overlay.afterCommand();
+    }
+  }
+
   @Test
   public void ensureMaterialized_previousCallerFinishesBeforeTaskSubmission() throws Exception {
     var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);

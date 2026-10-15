@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
+import com.google.devtools.common.options.OptionDefinition;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +102,20 @@ public final class RemoteAnalysisCacheFactory {
       RemoteAnalysisCacheDeps disabledDeps = RemoteAnalysisCacheDeps.createDisabled();
       return new AnalysisDeps(
           RemoteAnalysisCacheManager.createDisabled(), disabledDeps, disabledDeps);
+    }
+
+    if (options.getSkycacheAnalysisOnly()
+        && !env.getSkyframeExecutor().supportsSkycacheAnalysisOnly()) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      "Skycache analysis-only mode (--experimental_skycache_analysis_only) is not"
+                          + " supported by the current Skyframe executor.")
+                  .setRemoteAnalysisCaching(
+                      RemoteAnalysisCaching.newBuilder()
+                          .setCode(RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS))
+                  .build()));
     }
 
     if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
@@ -456,7 +471,10 @@ public final class RemoteAnalysisCacheFactory {
       if (fragmentOptions instanceof TestConfiguration.TestOptions) {
         continue;
       }
-      fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
+      for (var definition :
+          OptionDefinition.getOptionDefinitions(fragmentOptions.getOptionsClass())) {
+        allOptionsAsStringsBuilder.add(definition.getOptionName());
+      }
     }
     return allOptionsAsStringsBuilder.build();
   }

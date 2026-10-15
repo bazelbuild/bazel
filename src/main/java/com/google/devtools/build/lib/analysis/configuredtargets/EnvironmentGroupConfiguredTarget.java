@@ -31,9 +31,9 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTarget {
 
-  public EnvironmentGroupConfiguredTarget(ActionLookupKey actionLookupKey) {
-    super(actionLookupKey, VisibilityProvider.PRIVATE_VISIBILITY);
-    Preconditions.checkState(actionLookupKey.getConfigurationKey() == null, actionLookupKey);
+  public EnvironmentGroupConfiguredTarget(ActionLookupKey lookupKey) {
+    super(lookupKey, VisibilityProvider.PRIVATE_VISIBILITY);
+    Preconditions.checkState(lookupKey.getConfigurationKey() == null, lookupKey);
   }
 
   @Override

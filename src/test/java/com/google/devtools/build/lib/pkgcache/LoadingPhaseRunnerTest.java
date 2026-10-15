@@ -471,6 +471,32 @@ public final class LoadingPhaseRunnerTest {
   }
 
   @Test
+  public void testBuildManualTestsIncludesNonTestManualTargets() throws Exception {
+    tester.addFile(
+        "pkg/BUILD",
+        """
+        filegroup(
+            name = "fg_manual",
+            srcs = ["foo.txt"],
+            tags = ["manual"],
+        )
+        filegroup(
+            name = "fg_regular",
+            srcs = ["bar.txt"],
+        )
+        """);
+    TargetPatternPhaseValue defaultResult = assertNoErrors(tester.load("//pkg:all"));
+    assertThat(defaultResult.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//pkg:fg_regular"));
+
+    tester.useLoadingOptions("--build_manual_tests");
+    TargetPatternPhaseValue manualResult = assertNoErrors(tester.load("//pkg:all"));
+    assertThat(manualResult.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//pkg:fg_regular", "//pkg:fg_manual"));
+    assertThat(tester.getFilteredTargets()).isEmpty();
+  }
+
+  @Test
   public void testTestFilteringBuildTestsOnly() throws Exception {
     writeBuildFilesForTestFiltering();
     tester.useLoadingOptions("--build_tests_only");

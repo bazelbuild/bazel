@@ -10,8 +10,8 @@ filegroup(
         "//tools/allowlists/function_transition_allowlist:srcs",
         "//tools/allowlists/initializer_allowlist:srcs",
         "//tools/allowlists/skip_validations_allowlist:srcs",
+        "//tools/allowlists/subdirectory_allowlist:srcs",
         "//tools/allowlists/subrules_allowlist:srcs",
-        "//tools/whitelists:srcs",
     ],
     visibility = ["//tools:__pkg__"],
 )

@@ -67,17 +67,6 @@ public final class DefaultPlatformConfigurationProvider implements PlatformConfi
   }
 
   @Override
-  public boolean trimTestOptions(BuildOptions options) {
-    return !options.contains(TestOptions.class);
-  }
-
-  @Override
-  public boolean usePlatformInOutputDir() {
-    CoreOptions coreOptions = targetBaseline.get(CoreOptions.class);
-    return coreOptions != null && coreOptions.usePlatformInOutputDir(topLevelPlatformLabel);
-  }
-
-  @Override
   public String resolveMnemonic(BuildOptions targetOptions) {
     Preconditions.checkNotNull(targetOptions);
     PlatformOptions platformOptions = targetOptions.get(PlatformOptions.class);
@@ -95,7 +84,8 @@ public final class DefaultPlatformConfigurationProvider implements PlatformConfi
         getBaseOptionsForPlatform(platformLabel, isExec, trimTestOptions);
     try {
       return OutputPathMnemonicComputer.computeMnemonic(
-          targetOptions, baselineOptions, ImmutableSortedMap.of());
+              targetOptions, baselineOptions, ImmutableSortedMap.of())
+          .mnemonic();
     } catch (OutputPathMnemonicComputer.InvalidMnemonicException e) {
       throw new IllegalStateException("Invalid mnemonic for " + targetOptions, e);
     }

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.devtools.build.lib.actions.ActionKeyContext.describeNestedSetFingerprint;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -45,7 +43,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -653,20 +650,6 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
-    /**
-     * Merges runfiles from a given runfiles support.
-     *
-     * @param runfilesSupport the runfiles support to be merged in
-     */
-    @CanIgnoreReturnValue
-    public Builder merge(@Nullable RunfilesSupport runfilesSupport) {
-      if (runfilesSupport == null) {
-        return this;
-      }
-      merge(runfilesSupport.getRunfiles());
-      return this;
-    }
-
     /** Adds the other {@link Runfiles} object transitively. */
     @CanIgnoreReturnValue
     public Builder merge(Runfiles runfiles) {
@@ -693,144 +676,6 @@ public final class Runfiles implements RunfilesApi {
                 || emptyFilesSupplier.equals(otherSupplier));
       }
       return this;
-    }
-
-    /**
-     * Adds the runfiles for a particular target and visits the transitive closure of "srcs", "deps"
-     * and "data", collecting all of their respective runfiles.
-     */
-    @CanIgnoreReturnValue
-    public Builder addRunfiles(
-        RuleContext ruleContext, Function<TransitiveInfoCollection, Runfiles> mapping) {
-      Preconditions.checkNotNull(mapping);
-      Preconditions.checkNotNull(ruleContext);
-      addDataDeps(ruleContext);
-      addNonDataDeps(ruleContext, mapping);
-      return this;
-    }
-
-    /**
-     * Adds the files specified by a mapping from the transitive info collection to the runfiles.
-     *
-     * <p>Dependencies in {@code srcs} and {@code deps} are considered.
-     */
-    @CanIgnoreReturnValue
-    public Builder add(
-        RuleContext ruleContext, Function<TransitiveInfoCollection, Runfiles> mapping) {
-      Preconditions.checkNotNull(ruleContext);
-      Preconditions.checkNotNull(mapping);
-      for (TransitiveInfoCollection dep : getNonDataDeps(ruleContext)) {
-        Runfiles runfiles = mapping.apply(dep);
-        if (runfiles != null) {
-          merge(runfiles);
-        }
-      }
-
-      return this;
-    }
-
-    /** Collects runfiles from data dependencies of a target. */
-    @CanIgnoreReturnValue
-    public Builder addDataDeps(RuleContext ruleContext) {
-      addTargets(
-          getPrerequisites(ruleContext, "data"),
-          RunfilesProvider.DATA_RUNFILES,
-          ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
-      return this;
-    }
-
-    /** Collects runfiles from "srcs" and "deps" of a target. */
-    @CanIgnoreReturnValue
-    Builder addNonDataDeps(
-        RuleContext ruleContext, Function<TransitiveInfoCollection, Runfiles> mapping) {
-      for (TransitiveInfoCollection target : getNonDataDeps(ruleContext)) {
-        addTargetExceptFileTargets(target, mapping);
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addTargets(
-        Iterable<? extends TransitiveInfoCollection> targets,
-        Function<TransitiveInfoCollection, Runfiles> mapping,
-        boolean alwaysIncludeFilesToBuildInData) {
-      for (TransitiveInfoCollection target : targets) {
-        addTarget(target, mapping, alwaysIncludeFilesToBuildInData);
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addTarget(
-        TransitiveInfoCollection target,
-        Function<TransitiveInfoCollection, Runfiles> mapping,
-        boolean alwaysIncludeFilesToBuildInData) {
-      return addTargetIncludingFileTargets(target, mapping, alwaysIncludeFilesToBuildInData);
-    }
-
-    @CanIgnoreReturnValue
-    private Builder addTargetExceptFileTargets(
-        TransitiveInfoCollection target, Function<TransitiveInfoCollection, Runfiles> mapping) {
-      Runfiles runfiles = mapping.apply(target);
-      if (runfiles != null) {
-        merge(runfiles);
-      }
-
-      return this;
-    }
-
-    private Builder addTargetIncludingFileTargets(
-        TransitiveInfoCollection target,
-        Function<TransitiveInfoCollection, Runfiles> mapping,
-        boolean alwaysIncludeFilesToBuildInData) {
-      if (target.getProvider(RunfilesProvider.class) == null
-          && mapping == RunfilesProvider.DATA_RUNFILES) {
-        // RuleConfiguredTarget implements RunfilesProvider, so this will only be called on
-        // FileConfiguredTarget instances.
-        // TODO(bazel-team): This is a terrible hack. We should be able to make this go away
-        // by implementing RunfilesProvider on FileConfiguredTarget. We'd need to be mindful
-        // of the memory use, though, since we have a whole lot of FileConfiguredTarget instances.
-        addTransitiveArtifacts(target.getProvider(FileProvider.class).getFilesToBuild());
-        return this;
-      }
-
-      if (alwaysIncludeFilesToBuildInData && mapping == RunfilesProvider.DATA_RUNFILES) {
-        // Ensure that `DefaultInfo.files` of Starlark rules is merged in so that native rules
-        // interoperate well with idiomatic Starlark rules..
-        // https://bazel.build/extending/rules#runfiles_features_to_avoid
-        // Internal tests fail if the order of filesToBuild is preserved.
-        addTransitiveArtifacts(
-            NestedSetBuilder.<Artifact>stableOrder()
-                .addTransitive(target.getProvider(FileProvider.class).getFilesToBuild())
-                .build());
-      }
-
-      return addTargetExceptFileTargets(target, mapping);
-    }
-
-    private static Iterable<TransitiveInfoCollection> getNonDataDeps(RuleContext ruleContext) {
-      return Iterables.concat(
-          // TODO(bazel-team): This line shouldn't be here. Removing it requires that no rules have
-          // dependent rules in srcs (except for filegroups and such), but always in deps.
-          // TODO(bazel-team): DONT_CHECK is not optimal here. Rules that use split configs need to
-          // be changed not to call into here.
-          getPrerequisites(ruleContext, "srcs"), getPrerequisites(ruleContext, "deps"));
-    }
-
-    /**
-     * For the specified attribute "attributeName" (which must be of type list(label)), resolves all
-     * the labels into ConfiguredTargets (for the same configuration as this one) and returns them
-     * as a list.
-     *
-     * <p>If the rule does not have the specified attribute, returns the empty list.
-     */
-    private static Iterable<? extends TransitiveInfoCollection> getPrerequisites(
-        RuleContext ruleContext, String attributeName) {
-      if (ruleContext.getRule().isAttrDefined(attributeName, BuildType.LABEL_LIST)) {
-        return ruleContext.getPrerequisites(attributeName);
-      } else {
-        return Collections.emptyList();
-      }
     }
   }
 

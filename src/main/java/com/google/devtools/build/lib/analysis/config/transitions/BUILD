@@ -153,6 +153,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/guava:collect",
     ],
 )

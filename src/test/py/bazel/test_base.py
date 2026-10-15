@@ -25,6 +25,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import zipfile
 from absl.testing import absltest
 import runfiles
 
@@ -90,7 +91,11 @@ class TestBase(absltest.TestCase):
     with open(self._test_bazelrc, 'wt') as f:
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:
-        f.write('startup --install_base={}\n'.format(shared_install_base))
+        f.write(
+            'startup --install_base={}\n'.format(
+                self._InstallBaseForBazelBinary(shared_install_base)
+            )
+        )
       shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
       if shared_repo_cache:
         f.write('common --repository_cache={}\n'.format(shared_repo_cache))
@@ -201,6 +206,18 @@ class TestBase(absltest.TestCase):
       ] + (stderr_lines or []) + [
           '(end stderr)------------------------------------------',
       ]))
+
+  def _InstallBaseForBazelBinary(self, shared_install_base):
+    """Returns a shared install base keyed by the Bazel binary under test."""
+
+    # Test rules may build Bazel in different configurations, which yields
+    # binaries with different install base keys. Bazel wipes an install base
+    # populated by a different binary, which fails on Windows while another
+    # Bazel server is still running from it, so the key is made part of the
+    # path.
+    with zipfile.ZipFile(self.Rlocation('io_bazel/src/bazel')) as bazel:
+      key = bazel.read('install_base_key').decode('ascii').strip()
+    return '{}-{}'.format(shared_install_base, key)
 
   def AssertExitCode(self,
                      actual_exit_code,
@@ -318,6 +335,31 @@ class TestBase(absltest.TestCase):
       raise ArgumentError(('path="%s" may not be absolute and may not contain '
                            'uplevel references') % path)
     return os.path.join(self._test_cwd, path)
+
+  def GetTargetExecutable(self, target, flags=()):
+    """Returns the configured executable output path for a target."""
+    _, outputs, _ = self.RunBazel(
+        ['cquery', target, '--output=files'] + list(flags)
+    )
+    target_name = target.rsplit(':', 1)[-1]
+    if target_name == target:
+      target_name = target.rstrip('/').rsplit('/', 1)[-1]
+    if self.IsWindows():
+      target_name += '.exe'
+    executables = [
+        output for output in outputs if os.path.basename(output) == target_name
+    ]
+    self.assertLen(executables, 1, str(outputs))
+    return self.Path(executables[0])
+
+  def GetTargetTestlogs(self, target, flags=()):
+    """Returns the testlogs directory for a target's configuration."""
+    executable = self.GetTargetExecutable(target, flags)
+    relative_executable = os.path.relpath(executable, self._test_cwd)
+    path_parts = relative_executable.replace('\\', '/').split('/')
+    self.assertGreaterEqual(len(path_parts), 3, relative_executable)
+    self.assertEqual(path_parts[0], 'bazel-out', relative_executable)
+    return self.Path(os.path.join('bazel-out', path_parts[1], 'testlogs'))
 
   def Rlocation(self, runfile):
     """Returns the absolute path to a runfile."""

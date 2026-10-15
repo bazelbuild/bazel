@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.actions.ToolProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -310,7 +310,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
      * for expanded actions.
      */
     @CanIgnoreReturnValue
-    public Builder addCommonTool(FilesToRunProvider tool) {
+    public Builder addCommonTool(ToolProvider tool) {
       toolsBuilder.addTransitive(tool.getFilesToRun());
       spawnActionBuilder.addTool(tool);
       return this;
@@ -351,7 +351,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
      * #setExecutable(Artifact)} and {@link #setExecutable(PathFragment)}.
      */
     @CanIgnoreReturnValue
-    public Builder setExecutable(FilesToRunProvider executableProvider) {
+    public Builder setExecutable(ToolProvider executableProvider) {
       Preconditions.checkArgument(
           executableProvider.getExecutable() != null, "The target does not have an executable");
       spawnActionBuilder.setExecutable(executableProvider);
@@ -369,7 +369,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
      * that, use {@link #setExecutable(Artifact)} instead.
      *
      * <p>Calling this method overrides any previous values set via calls to {@link
-     * #setExecutable(Artifact)} and {@link #setExecutable(FilesToRunProvider)}.
+     * #setExecutable(Artifact)} and {@link #setExecutable(ToolProvider)}.
      */
     @CanIgnoreReturnValue
     public Builder setExecutable(PathFragment executable) {
@@ -383,7 +383,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
      * the execution root.
      *
      * <p>Calling this method overrides any previous values set via calls to {@link
-     * #setExecutable(FilesToRunProvider)} and {@link #setExecutable(PathFragment)}.
+     * #setExecutable(ToolProvider)} and {@link #setExecutable(PathFragment)}.
      */
     @CanIgnoreReturnValue
     public Builder setExecutable(Artifact artifact) {

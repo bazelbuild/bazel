@@ -115,10 +115,8 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
         return jsonPrimitive.getAsBoolean();
       } else if (jsonPrimitive.isNumber()) {
         return StarlarkInt.of(jsonPrimitive.getAsInt());
-      } else if (jsonPrimitive.isString()) {
-        return deserializeStringToObject(jsonPrimitive.getAsString());
       } else {
-        throw new IllegalArgumentException("Unsupported JSON primitive: " + jsonPrimitive);
+        return deserializeStringToObject(jsonPrimitive.getAsString());
       }
     } else if (json.isJsonObject()) {
       JsonObject jsonObject = json.getAsJsonObject();
@@ -127,15 +125,13 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
         dict.put(deserializeStringToObject(entry.getKey()), deserializeObject(entry.getValue()));
       }
       return dict.buildImmutable();
-    } else if (json.isJsonArray()) {
+    } else {
       JsonArray jsonArray = json.getAsJsonArray();
       List<Object> list = new ArrayList<>();
       for (JsonElement item : jsonArray) {
         list.add(deserializeObject(item));
       }
       return StarlarkList.copyOf(Mutability.IMMUTABLE, list);
-    } else {
-      throw new IllegalArgumentException("Unsupported JSON element: " + json);
     }
   }
 

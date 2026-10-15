@@ -57,6 +57,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sequenced_skyframe_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_target_pattern_evaluator",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageFactoryBuilderWithSkyframeForTesting",
         "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",

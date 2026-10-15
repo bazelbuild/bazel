@@ -23,6 +23,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 
 // TODO(#11437): Note that if Stardoc's current design were to be long-lived, we'd want to factor
 // out an API into starlarkbuildapi. As it is that almost certainly won't be necessary.
@@ -41,14 +42,16 @@ import net.starlark.java.eval.StarlarkValue;
 public class BuiltinsInternalModule implements StarlarkValue {
 
   // _builtins.native
-  private final Object uninjectedNativeObject;
+  private final Structure uninjectedNativeObject;
   // _builtins.toplevel
-  private final Object uninjectedToplevelObject;
+  private final Structure uninjectedToplevelObject;
   // _builtins.internal
-  private final Object internalObject;
+  private final Structure internalObject;
 
   public BuiltinsInternalModule(
-      Object uninjectedNativeObject, Object uninjectedToplevelObject, Object internalObject) {
+      Structure uninjectedNativeObject,
+      Structure uninjectedToplevelObject,
+      Structure internalObject) {
     this.uninjectedNativeObject = uninjectedNativeObject;
     this.uninjectedToplevelObject = uninjectedToplevelObject;
     this.internalObject = internalObject;
@@ -83,7 +86,7 @@ public class BuiltinsInternalModule implements StarlarkValue {
               + " files.)",
       documented = false,
       structField = true)
-  public Object getUninjectedNativeObject() {
+  public Structure getUninjectedNativeObject() {
     return uninjectedNativeObject;
   }
 
@@ -99,7 +102,7 @@ public class BuiltinsInternalModule implements StarlarkValue {
               + " available to <code>@_builtins</code> .bzl files.)",
       documented = false,
       structField = true)
-  public Object getUninjectedToplevelObject() {
+  public Structure getUninjectedToplevelObject() {
     return uninjectedToplevelObject;
   }
 
@@ -111,7 +114,7 @@ public class BuiltinsInternalModule implements StarlarkValue {
               + " available to <code>@_builtins</code> code but not necessarily user code.",
       documented = false,
       structField = true)
-  public Object getInternalObject() {
+  public Structure getInternalObject() {
     return internalObject;
   }
 

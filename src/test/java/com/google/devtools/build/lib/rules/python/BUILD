@@ -99,8 +99,8 @@ java_test(
     deps = [
         ":PyExecutableTestBase",
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/junit",
         "//third_party/java/truth",
@@ -129,6 +129,7 @@ java_test(
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//third_party/java/junit",
         "//third_party/java/truth",

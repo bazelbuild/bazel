@@ -645,8 +645,7 @@ filegroup(name = "I")
 
     // Under the frontier
     assertThat(labels).doesNotContain(parseCanonicalUnchecked("//C"));
-    assertThat(labels.stream().map(Label::toString).collect(toImmutableSet()))
-        .doesNotContain("//D:D");
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//D"));
 
     // Different top level target
     assertThat(labels).doesNotContain(parseCanonicalUnchecked("//B"));
@@ -684,8 +683,7 @@ filegroup(name = "I")
 
     // Under the frontier
     assertThat(labels).doesNotContain(parseCanonicalUnchecked("//C"));
-    assertThat(labels.stream().map(Label::toString).collect(toImmutableSet()))
-        .doesNotContain("//D:D");
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//D"));
 
     // Different top level target
     assertThat(labels).doesNotContain(parseCanonicalUnchecked("//B"));
@@ -751,8 +749,7 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
         .containsAtLeast(parseCanonicalUnchecked("//C"), parseCanonicalUnchecked("//E"));
 
     // Under the frontier
-    assertThat(owningLabels.stream().map(Label::toString).collect(toImmutableSet()))
-        .contains("//D:D");
+    assertThat(owningLabels).contains(parseCanonicalUnchecked("//D"));
 
     // Different top level target
     assertThat(owningLabels).doesNotContain(parseCanonicalUnchecked("//B"));
