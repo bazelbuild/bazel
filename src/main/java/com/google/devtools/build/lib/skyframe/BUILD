@@ -1172,6 +1172,22 @@ java_library(
 )
 
 java_library(
+    name = "is_directory",
+    srcs = [
+        "IsDirectoryFunction.java",
+        "IsDirectoryValue.java",
+    ],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "dirents",
     srcs = [
         "CompactSortedDirents.java",
@@ -4058,6 +4074,7 @@ java_library(
         ":external_files_helper",
         ":file_function",
         ":file_state_function",
+        ":is_directory",
         ":filesystem_value_checker",
         ":glob_function",
         ":globs_function",

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -76,7 +75,10 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.IncrementalArtifactConflictFinder;
+import com.google.devtools.build.lib.skyframe.IsDirectoryValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -333,30 +335,24 @@ public final class ConfiguredTargetFactory {
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
                   .build());
-      // The file dependency is needed in two cases. With remote analysis caching, the invalidation
-      // data for actions is stored with the configured targets / aspects and found by a simple "get
-      // if present" lookup in the Skyframe graph, which fails with async uploads because analysis
-      // nodes usually get uploaded before any actions execute. With source directories treated as
-      // directories, the FileValue supplies the artifact's type and invalidates this configured
-      // target when it changes.
-      boolean sourceDirectoryIsDirectory =
+      SkyFunction.Environment env = analysisEnvironment.getSkyframeEnv();
+      // This file dependency is here because in the current implementation, the invalidation data
+      // for actions in the remote analysis cache is stored with the configured targets / aspects
+      // and is found by a simple "get if present" lookup in the Skyframe graph. With async
+      // analysis caching, this doesn't work because analysis nodes usually get uploaded before any
+      // actions execute.
+      SkyValue fileValue =
+          dependsOnFileKey ? env.getValue(FileKey.create(artifact.getRootedPath())) : null;
+      IsDirectoryValue isDirectory =
           analysisEnvironment
-              .getStarlarkSemantics()
-              .getBool(BuildLanguageOptions.INCOMPATIBLE_SOURCE_DIRECTORY_IS_DIRECTORY);
-      if (dependsOnFileKey || sourceDirectoryIsDirectory) {
-        FileValue fileValue =
-            (FileValue)
-                analysisEnvironment
-                    .getSkyframeEnv()
-                    .getValue(FileKey.create(artifact.getRootedPath()));
-        if (fileValue == null) {
-          return null;
-        }
-        artifact.setIsDirectory(sourceDirectoryIsDirectory && fileValue.isDirectory());
-      } else {
-        // Clears a value recorded while the flag was enabled.
-        artifact.setIsDirectory(false);
+                  .getStarlarkSemantics()
+                  .getBool(BuildLanguageOptions.INCOMPATIBLE_SOURCE_DIRECTORY_IS_DIRECTORY)
+              ? (IsDirectoryValue) env.getValue(IsDirectoryValue.key(artifact.getRootedPath()))
+              : IsDirectoryValue.NOT_DIRECTORY;
+      if ((dependsOnFileKey && fileValue == null) || isDirectory == null) {
+        return null;
       }
+      artifact.setIsDirectory(isDirectory.isDirectory());
       return new InputFileConfiguredTarget(targetContext, artifact);
     } else if (target instanceof PackageGroup packageGroup) {
       TargetContext targetContext =

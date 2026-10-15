@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeIsoLatin1;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.List;
@@ -158,6 +159,17 @@ public final class SourceDirectoryIsDirectoryIntegrationTest extends BuildIntegr
 
     addOptions("--incompatible_source_directory_is_directory");
     assertThat(buildKinds()).isEqualTo("dir is directory\nfile is file");
+  }
+
+  @Test
+  public void sourceFileContentChange_doesNotReanalyzeDependents() throws Exception {
+    buildKinds();
+    ConfiguredTarget before = getExistingConfiguredTarget("//foo:kinds");
+
+    writeIsoLatin1(sourceFile, "changed");
+    buildKinds();
+
+    assertThat(getExistingConfiguredTarget("//foo:kinds")).isSameInstanceAs(before);
   }
 
   @Test
