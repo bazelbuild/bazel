@@ -652,14 +652,14 @@ public abstract class BuildLanguageOptions extends OptionsBase {
           `ctx.actions.declare_directory`:
 
           - `File.is_directory` is true.
-          - `Args.add_all` expands them into their files. This requires source directory \
-            tracking (the default).
+          - `Args.add_all` expands them into their files.
           - `Args.add` rejects them.
-          - They can be passed in `input_directories` to `ctx.actions.map_directory`. Like \
-            `Args.add_all`, this requires source directory tracking.
+          - They can be passed in `input_directories` to `ctx.actions.map_directory`.
           - They can be passed as `target_file` to `ctx.actions.symlink` for a directory output. \
             As with any `target_file`, actions see that output as a symlink only under local \
             execution; remote execution sees an identical directory.
+
+          Requires source directory tracking (the default); the build fails if it is disabled.
 
           Symlinks are resolved as before: a symlink to a directory is a source directory, and \
           symlinks within a source directory are followed, so expansion lists their contents.

@@ -39,11 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.server.FailureDetails.Execution;
-import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -130,10 +126,8 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
           return null;
         }
         ImmutableMap<PathFragment, FileArtifactValue> entries =
-            metadata.getSourceDirectoryEntries();
-        if (entries == null) {
-          throw cannotExpandSourceDirectory(actionTemplate, inputSourceDirectory);
-        }
+            Preconditions.checkNotNull(
+                metadata.getSourceDirectoryEntries(), "%s: %s", inputSourceDirectory, metadata);
         for (PathFragment entry : entries.keySet()) {
           inputSourceDirectoryFiles.put(
               inputSourceDirectory, inputSourceDirectory.getChild(entry));
@@ -190,24 +184,6 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     ActionTemplateExpansionFunctionException(ActionExecutionException e) {
       super(e, Transience.PERSISTENT);
     }
-  }
-
-  private static ActionExecutionException cannotExpandSourceDirectory(
-      ActionTemplate<?> actionTemplate, SourceArtifact directory) {
-    String message =
-        String.format(
-            "Failed to expand source directory %s: source directory tracking is disabled",
-            directory.getExecPathString());
-    return new ActionExecutionException(
-        message,
-        actionTemplate,
-        /* catastrophe= */ false,
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setExecution(
-                    Execution.newBuilder().setCode(Code.NON_ACTION_EXECUTION_FAILURE))
-                .build()));
   }
 
   private static ImmutableList<ActionAnalysisMetadata> generateAndValidateActionsFromTemplate(

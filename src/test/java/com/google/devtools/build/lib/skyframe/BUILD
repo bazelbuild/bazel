@@ -2187,6 +2187,21 @@ java_test(
 )
 
 java_test(
+    name = "SourceDirectoryTrackingDisabledTest",
+    srcs = ["SourceDirectoryTrackingDisabledTest.java"],
+    jvm_flags = [
+        "-DBAZEL_TRACK_SOURCE_DIRECTORIES=0",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "FileArtifactValueTest",
     timeout = "short",
     srcs = ["FileArtifactValueTest.java"],

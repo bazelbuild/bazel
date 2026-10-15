@@ -443,6 +443,7 @@ message PackageOptions {
     PACKAGE_PATH_INVALID = 1 [(metadata) = { exit_code: 2 }];
     NONSINGLETON_PACKAGE_PATH = 4 [(metadata) = { exit_code: 2 }];
     PACKAGE_PATH_IO_EXCEPTION = 5 [(metadata) = { exit_code: 36 }];
+    SOURCE_DIRECTORY_TRACKING_DISABLED = 6 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

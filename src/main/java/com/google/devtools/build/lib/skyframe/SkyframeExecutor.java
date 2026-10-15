@@ -3118,6 +3118,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       String commandName,
       boolean commandExecutes)
       throws InterruptedException, AbruptExitException {
+    checkSourceDirectoryTracking(options.getOptions(BuildLanguageOptions.class));
     getActionEnvFromOptions(options.getOptions(CoreOptions.class));
     var platformOptions = options.getOptions(PlatformOptions.class);
     platformMappingKey = platformOptions != null ? platformOptions.getPlatformMappingKey() : null;
@@ -3142,6 +3143,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       lastAnalysisDiscarded = false;
     }
     return null;
+  }
+
+  private static void checkSourceDirectoryTracking(BuildLanguageOptions buildLanguageOptions)
+      throws AbruptExitException {
+    if (buildLanguageOptions.getIncompatibleSourceDirectoryIsDirectory()
+        && !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
+      String message =
+          "--incompatible_source_directory_is_directory requires source directory tracking,"
+              + " which is disabled. Enable it with the startup option"
+              + " --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1.";
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setPackageOptions(
+                      FailureDetails.PackageOptions.newBuilder()
+                          .setCode(
+                              FailureDetails.PackageOptions.Code
+                                  .SOURCE_DIRECTORY_TRACKING_DISABLED))
+                  .build()));
+    }
   }
 
   /** Determines the updated {@link #cpuBoundSemaphore} from the provided options. */

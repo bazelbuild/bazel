@@ -535,8 +535,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
               "Failed to expand source directory %s. Either add the directory as an input of the"
                   + " action or set 'expand_directories = False' in the 'add_all' or"
                   + " 'add_joined' call to have the path of the directory added to the command"
-                  + " line instead of its contents. Expansion also requires source directory"
-                  + " tracking to be enabled.",
+                  + " line instead of its contents.",
               Starlark.repr(directory, StarlarkSemantics.DEFAULT)),
           cause);
     }
