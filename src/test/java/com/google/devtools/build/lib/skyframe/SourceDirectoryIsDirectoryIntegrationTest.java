@@ -151,6 +151,13 @@ public final class SourceDirectoryIsDirectoryIntegrationTest extends BuildIntegr
             executable = True,
         )
 
+        genrule(
+            name = "staged",
+            srcs = ["dir"],
+            outs = ["staged.txt"],
+            cmd = "find -L foo/dir | sort > $@",
+        )
+
         kinds(
             name = "kinds",
             srcs = [
@@ -277,6 +284,28 @@ public final class SourceDirectoryIsDirectoryIntegrationTest extends BuildIntegr
     addOptions("--noincompatible_source_directory_is_directory");
 
     assertThat(buildArgs()).containsExactly("foo/dir", "foo/dir", "foo/dir");
+  }
+
+  private List<String> buildStaged() throws Exception {
+    addOptions("--spawn_strategy=sandboxed");
+    sourceDir.getRelative("empty").createDirectory();
+    buildTarget("//foo:staged");
+    Artifact out = Iterables.getOnlyElement(getArtifacts("//foo:staged"));
+    return readContentAsLatin1String(out).lines().toList();
+  }
+
+  @Test
+  public void sandboxedAction_stagesHashedFiles() throws Exception {
+    assertThat(buildStaged()).containsExactly("foo/dir", "foo/dir/child").inOrder();
+  }
+
+  @Test
+  public void sandboxedAction_flagDisabled_stagesDirectory() throws Exception {
+    addOptions("--noincompatible_source_directory_is_directory");
+
+    assertThat(buildStaged())
+        .containsExactly("foo/dir", "foo/dir/child", "foo/dir/empty")
+        .inOrder();
   }
 
   private String readOutput(String name) throws Exception {

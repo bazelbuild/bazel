@@ -298,6 +298,13 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   public interface SourceDirectoryEntries {
     /** Visits each file, keyed by its path relative to the directory, in traversal order. */
     void forEach(BiConsumer<PathFragment, FileArtifactValue> consumer);
+
+    /** Visits each file as a child artifact of {@code directory}. */
+    default void forEachChild(
+        Artifact.SourceArtifact directory,
+        BiConsumer<Artifact.SourceArtifact, FileArtifactValue> consumer) {
+      forEach((path, metadata) -> consumer.accept(directory.getChild(path), metadata));
+    }
   }
 
   /**

@@ -22,6 +22,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -179,6 +180,11 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
               .map(RunfilesArtifactValue::getRunfilesTree)
               .map(RunfilesTree::getExecPath)
               .collect(toImmutableList());
+      ImmutableList<PathFragment> toolSourceDirectories =
+          toolFiles.stream()
+              .filter(actionInput -> actionInput instanceof SourceArtifact a && a.isDirectory())
+              .map(ActionInput::getExecPath)
+              .collect(toImmutableList());
 
       try (SilentCloseable c1 = Profiler.instance().profile("logSpawn/inputs")) {
         for (Map.Entry<PathFragment, ActionInput> e : inputMap.get().entrySet()) {
@@ -198,6 +204,8 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
               toolFiles.contains(input)
                   || (input instanceof TreeFileArtifact treeFileArtifact
                       && toolFiles.contains(treeFileArtifact.getParent()))
+                  || (input instanceof SourceArtifact
+                      && toolSourceDirectories.stream().anyMatch(input.getExecPath()::startsWith))
                   || toolRunfilesDirectories.stream().anyMatch(displayPath::startsWith);
 
           Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));

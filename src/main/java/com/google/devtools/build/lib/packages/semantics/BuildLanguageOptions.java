@@ -655,6 +655,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
           - `Args.add_all` expands them into their files.
           - `Args.add` rejects them.
           - They can be passed in `input_directories` to `ctx.actions.map_directory`.
+          - Actions that take them as inputs are given the files recorded when the directory was \
+            hashed, staged individually under sandboxed and remote execution. Empty \
+            subdirectories are not staged.
           - They can be passed as `target_file` to `ctx.actions.symlink` for a directory output. \
             As with any `target_file`, actions see that output as a symlink only under local \
             execution; remote execution sees an identical directory.

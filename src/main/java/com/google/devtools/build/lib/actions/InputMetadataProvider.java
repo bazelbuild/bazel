@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -113,16 +116,17 @@ public interface InputMetadataProvider {
   ActionInput getInput(PathFragment execPath);
 
   /**
-   * Expands tree artifacts in a sequence of {@link ActionInput}s.
+   * Expands tree artifacts and source directories with known files in a sequence of {@link
+   * ActionInput}s.
    *
-   * <p>If {@code keepEmptyTreeArtifacts} is true, a tree artifact will be included in the
-   * constructed list when it expands into zero file artifacts. Otherwise, only the file artifacts
-   * the tree artifact expands into will be included.
+   * <p>If {@code keepEmptyTreeArtifacts} is true, a tree artifact or source directory will be
+   * included in the constructed list when it expands into zero files. Otherwise, only the files it
+   * expands into will be included.
    *
    * <p>Runfiles tree artifacts will be returned if {@code keepRunfilesTrees} is set, otherwise they
    * will be filtered out.
    *
-   * <p>Non-runfiles, non-tree artifacts are returned untouched.
+   * <p>Other artifacts are returned untouched.
    */
   static List<ActionInput> expandArtifacts(
       InputMetadataProvider inputMetadataProvider,
@@ -147,9 +151,17 @@ public interface InputMetadataProvider {
           result.addAll(treeArtifactValue.getChildren());
         }
       } else {
-        result.add(artifact);
-        if (artifact.isChildOfDeclaredDirectory()) {
-          treeFileArtifactParents.add(artifact.getParent());
+        ImmutableList<SourceArtifact> sourceDirectoryFiles =
+            getSourceDirectoryFiles(inputMetadataProvider, artifact);
+        if (sourceDirectoryFiles == null) {
+          result.add(artifact);
+          if (artifact.isChildOfDeclaredDirectory()) {
+            treeFileArtifactParents.add(artifact.getParent());
+          }
+        } else if (sourceDirectoryFiles.isEmpty()) {
+          emptyTreeArtifacts.add(artifact);
+        } else {
+          result.addAll(sourceDirectoryFiles);
         }
       }
     }
@@ -159,5 +171,31 @@ public interface InputMetadataProvider {
       result.addAll(emptyTreeArtifacts);
     }
     return result;
+  }
+
+  /**
+   * Returns the files of a source directory as recorded in its metadata, or {@code null} if {@code
+   * input} isn't a source directory.
+   *
+   * @throws IllegalStateException if the files of the source directory weren't recorded
+   */
+  @Nullable
+  static ImmutableList<SourceArtifact> getSourceDirectoryFiles(
+      InputMetadataProvider inputMetadataProvider, ActionInput input) {
+    if (!(input instanceof SourceArtifact directory) || !directory.isDirectory()) {
+      return null;
+    }
+    FileArtifactValue metadata;
+    try {
+      metadata = inputMetadataProvider.getInputMetadata(directory);
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to get metadata of " + directory, e);
+    }
+    FileArtifactValue.SourceDirectoryEntries entries =
+        metadata == null ? null : metadata.getSourceDirectoryEntries();
+    checkState(entries != null, "No recorded files for %s: %s", directory, metadata);
+    ImmutableList.Builder<SourceArtifact> files = ImmutableList.builder();
+    entries.forEachChild(directory, (child, unused) -> files.add(child));
+    return files.build();
   }
 }
