@@ -699,13 +699,14 @@ public class DiskCacheClientTest {
     }
 
     @Override
-    public synchronized void setLastModifiedTimeNanos(PathFragment path, long newTime)
+    public synchronized boolean setLastModifiedTimeNanosIfExists(PathFragment path, long newTime)
         throws IOException {
-      super.setLastModifiedTimeNanos(path, newTime);
-      if (path.equals(pathToDelete)) {
+      boolean updated = super.setLastModifiedTimeNanosIfExists(path, newTime);
+      if (updated && path.equals(pathToDelete)) {
         pathToDelete = null;
         var unused = delete(path);
       }
+      return updated;
     }
   }
 }

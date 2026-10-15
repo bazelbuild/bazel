@@ -105,7 +105,8 @@ public abstract class ReadonlyFileSystem extends FileSystem {
   }
 
   @Override
-  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
+  public boolean setLastModifiedTimeNanosIfExists(PathFragment path, long newTime)
+      throws IOException {
     throw modificationException();
   }
 }

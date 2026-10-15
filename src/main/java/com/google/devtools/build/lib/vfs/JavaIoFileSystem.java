@@ -406,7 +406,8 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
   }
 
   @Override
-  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
+  public boolean setLastModifiedTimeNanosIfExists(PathFragment path, long newTime)
+      throws IOException {
     try {
       java.nio.file.Path nioPath = getNioPath(path);
       Files.setLastModifiedTime(
@@ -415,12 +416,15 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
               ? FileTime.fromMillis(clock.currentTimeMillis())
               : FileTime.from(newTime, NANOSECONDS));
     } catch (IOException e) {
-      throw translateNioToIoException(path, e);
+      IOException translated = translateNioToIoException(path, e);
+      if (translated instanceof FileNotFoundException) {
+        return false;
+      }
+      throw translated;
     } catch (InvalidPathException e) {
-      FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
-      fnfe.initCause(e);
-      throw fnfe;
+      return false;
     }
+    return true;
   }
 
   @Override
