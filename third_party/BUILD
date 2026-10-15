@@ -53,6 +53,7 @@ filegroup(
         "//third_party/java/jimfs:srcs",
         "//third_party/java/jmh:srcs",
         "//third_party/java/jol:srcs",
+        "//third_party/java/jspecify_annotations:srcs",
         "//third_party/java/jsr250_annotations:srcs",
         "//third_party/java/jsr305_annotations:srcs",
         "//third_party/java/jsr330_inject:srcs",

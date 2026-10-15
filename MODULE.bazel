@@ -256,6 +256,7 @@ maven.install(
         "org.brotli:dec:0.1.2",
         "org.checkerframework:checker-qual:3.49.3",
         "org.commonmark:commonmark:0.25.0",
+        "org.jspecify:jspecify:1.0.1",
         "org.openjdk.jmh:jmh-core:1.37",
         "org.openjdk.jmh:jmh-generator-annprocess:1.37",
         "org.openjdk.jol:jol-core:0.17",
