@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
@@ -580,6 +581,16 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx")})
   public String getExecOs(StarlarkRuleContext ctx) {
     return getOsFromConstraintsOrHost(ctx.getRuleContext().getExecutionPlatform()).name();
+  }
+
+  @StarlarkMethod(
+      name = "exec_group_execution_platform",
+      documented = false,
+      parameters = {@Param(name = "ctx"), @Param(name = "exec_group")},
+      allowReturnNones = true)
+  @Nullable
+  public PlatformInfo getExecGroupExecutionPlatform(StarlarkRuleContext ctx, String execGroup) {
+    return ctx.getRuleContext().getExecutionPlatform(execGroup);
   }
 
   @StarlarkMethod(

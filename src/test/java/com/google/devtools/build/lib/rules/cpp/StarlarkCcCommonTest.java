@@ -6092,7 +6092,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkStampExpliciltyEnabledOverridesNoStampFlag() throws Exception {
+  public void testLinkStampExplicitlyEnabledOverridesNoStampFlag() throws Exception {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,

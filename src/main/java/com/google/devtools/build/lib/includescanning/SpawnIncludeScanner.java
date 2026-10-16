@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -240,17 +239,18 @@ public class SpawnIncludeScanner {
 
     @Override
     public ImmutableMap<String, String> getExecutionInfo() {
-      ImmutableMap<String, String> executionInfo = actionExecutionMetadata.getExecutionInfo();
-      if (executionInfo == null) {
-        executionInfo = actionExecutionMetadata.getExecProperties();
-        if (executionInfo == null) {
-          executionInfo = ImmutableMap.of();
-        }
+      ImmutableMap<String, String> baseProperties = getExecProperties();
+      ImmutableMap<String, String> parentExecutionInfo = actionExecutionMetadata.getExecutionInfo();
+      if (parentExecutionInfo.containsKey(ExecutionRequirements.MAP_DIRECTORY_ACTION)
+          && !baseProperties.containsKey(ExecutionRequirements.MAP_DIRECTORY_ACTION)) {
+        return ImmutableMap.<String, String>builderWithExpectedSize(baseProperties.size() + 1)
+            .putAll(baseProperties)
+            .put(
+                ExecutionRequirements.MAP_DIRECTORY_ACTION,
+                parentExecutionInfo.get(ExecutionRequirements.MAP_DIRECTORY_ACTION))
+            .buildOrThrow();
       }
-      if (executionPlatform != null) {
-        return ActionAnalysisMetadata.mergeMaps(executionPlatform.execProperties(), executionInfo);
-      }
-      return executionInfo;
+      return baseProperties;
     }
 
     @Override
