@@ -501,7 +501,7 @@ No matching toolchains found for target platform //platforms:linux:
     Target constraints mismatch:
       - //constraints:os: requires //constraints:mac (platform has //constraints:linux)
 To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
-For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro\
 """);
   }
 
