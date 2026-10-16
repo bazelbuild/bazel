@@ -55,6 +55,73 @@ function tear_down() {
   stop_worker
 }
 
+function test_remote_repository_read_label_stays_lazy() {
+  cat > repos.bzl <<'EOF'
+def _data(ctx):
+    print("DATA_REPO_EXECUTED")
+    ctx.file("value.txt", ctx.attr.value, executable = False)
+    ctx.file("unused.txt", "not needed", executable = False)
+    ctx.file("BUILD.bazel", "exports_files(['value.txt'])\n", executable = False)
+    return ctx.repo_metadata(reproducible = True)
+
+data_repo = repository_rule(implementation = _data, attrs = {"value": attr.string()})
+
+def _reader(ctx):
+    source = ctx.path(ctx.attr.source) if ctx.attr.explicit_path else ctx.attr.source
+    ctx.file("value.txt", ctx.read(source), executable = False)
+    ctx.file("BUILD.bazel", "exports_files(['value.txt'])\n", executable = False)
+
+reader_repo = repository_rule(
+    implementation = _reader,
+    attrs = {"source": attr.label(), "explicit_path": attr.bool()},
+)
+EOF
+  cat >> MODULE.bazel <<'EOF'
+data_repo = use_repo_rule("//:repos.bzl", "data_repo")
+reader_repo = use_repo_rule("//:repos.bzl", "reader_repo")
+data_repo(name = "data", value = "first")
+reader_repo(name = "reader", source = "@data//:value.txt")
+reader_repo(name = "evicted_reader", source = "@data//:value.txt")
+reader_repo(name = "path_reader", source = "@data//:value.txt", explicit_path = True)
+EOF
+  touch BUILD.bazel
+  local -a startup=(--experimental_remote_repo_contents_cache)
+  local -a cache_flags=(--remote_cache="grpc://localhost:${worker_port}" --repo_contents_cache= --disk_cache=)
+  local output_base
+  output_base=$(bazel "${startup[@]}" info output_base)
+
+  bazel "${startup[@]}" query "${cache_flags[@]}" @data//:value.txt >& $TEST_log \
+      || fail "Could not populate repository cache"
+  bazel "${startup[@]}" clean --expunge >& $TEST_log || fail "Could not remove local repository"
+  bazel "${startup[@]}" query "${cache_flags[@]}" @reader//:value.txt >& $TEST_log \
+      || fail "Could not read the cached repository"
+  expect_not_log "DATA_REPO_EXECUTED"
+  assert_equals first "$(cat "$output_base/external/+reader_repo+reader/value.txt")"
+  [[ ! -e "$output_base/external/+data_repo+data/unused.txt" ]] \
+      || fail "Reading one label materialized the entire repository"
+
+  stop_worker
+  start_worker
+  bazel "${startup[@]}" build "${cache_flags[@]}" --experimental_remote_cache_eviction_retries=1 \
+      @evicted_reader//:value.txt >& $TEST_log || fail "Could not recover the evicted input"
+  expect_log "no longer available in the remote cache"
+  expect_log "DATA_REPO_EXECUTED"
+  assert_equals first "$(cat "$output_base/external/+reader_repo+evicted_reader/value.txt")"
+
+  sed -i.bak 's/value = "first"/value = "second"/' MODULE.bazel
+  bazel "${startup[@]}" query "${cache_flags[@]}" @reader//:value.txt >& $TEST_log \
+      || fail "Could not read the changed input"
+  assert_equals second "$(cat "$output_base/external/+reader_repo+reader/value.txt")"
+
+  bazel "${startup[@]}" clean --expunge >& $TEST_log || fail "Could not remove local repository"
+  bazel "${startup[@]}" query "${cache_flags[@]}" @path_reader//:value.txt >& $TEST_log \
+      || fail "Could not resolve the native path"
+  expect_not_log "DATA_REPO_EXECUTED"
+  assert_equals second "$(cat "$output_base/external/+reader_repo+path_reader/value.txt")"
+  [[ -f "$output_base/external/+data_repo+data/unused.txt" ]] \
+      || fail "Explicit path resolution did not materialize the repository"
+}
+
 function has_utf8_locale() {
   charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
   [[ "${charmap}" == "UTF-8" ]]

@@ -1638,7 +1638,11 @@ Strip the given number of leading components from file paths on extraction. Only
       })
   public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath(path);
+    // A direct read can use the remote file system without materializing the whole repository.
+    StarlarkPath p =
+        path instanceof Label label
+            ? getPathFromLabel(label, /* materialize= */ false)
+            : getPath(path);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
             p.toString(), identifyingStringForLogging, thread.getCallerLocation());
@@ -2407,11 +2411,17 @@ func(
 
   // Resolve the label given by value into a file path.
   protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+    return getPathFromLabel(label, /* materialize= */ true);
+  }
+
+  private StarlarkPath getPathFromLabel(Label label, boolean materialize)
+      throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
       throw new NeedsSkyframeRestartException();
     }
-    if (!label.getRepository().isMain()
+    if (materialize
+        && !label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
             instanceof LazyMaterializer lazyMaterializer) {
       try {
