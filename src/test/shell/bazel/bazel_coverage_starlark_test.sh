@@ -718,4 +718,191 @@ function test_starlark_rule_custom_baseline_coverage_with_split_postprocessing()
   do_test_starlark_rule_custom_baseline_coverage
 }
 
+function test_starlark_rule_custom_baseline_coverage_is_filtered() {
+  # reported_to_actual_sources is only available to allowlisted packages.
+  mkdir -p tools/build_defs/cc
+  touch tools/build_defs/cc/BUILD
+  cat <<EOF > tools/build_defs/cc/rules.bzl
+def _my_library_impl(ctx):
+    providers = []
+
+    transitive_files = [dep[DefaultInfo].files for dep in (ctx.attr.deps + ctx.attr.srcs)]
+    providers.append(
+        DefaultInfo(
+            files = depset(transitive = transitive_files),
+        )
+    )
+
+    # Contains coverage for a file that isn't instrumented as well as coverage reported under a
+    # different path than that of the actual source file, as is common for C++ headers.
+    baseline_coverage_file = ctx.actions.declare_file(ctx.label.name + "_baseline.dat")
+    ctx.actions.write(
+        baseline_coverage_file,
+        "".join([
+            """SF:{path}
+DA:1,0
+LF:1
+LH:0
+end_of_record
+SF:virtual/{path}
+DA:3,0
+LF:1
+LH:0
+end_of_record
+""".format(path = src.path)
+            for src in ctx.files.srcs
+        ]) + """SF:not_instrumented.txt
+DA:1,0
+LF:1
+LH:0
+end_of_record
+""",
+    )
+
+    providers.append(
+        coverage_common.instrumented_files_info(
+            ctx = ctx,
+            source_attributes = ["srcs"],
+            dependency_attributes = ["deps"],
+            reported_to_actual_sources = depset([
+                ("virtual/" + src.path, src.path)
+                for src in ctx.files.srcs
+            ]),
+            baseline_coverage_files = [baseline_coverage_file],
+        )
+    )
+
+    return providers
+
+my_library = rule(
+    implementation = _my_library_impl,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+        ),
+        "deps": attr.label_list(),
+    },
+)
+
+def _my_test_impl(ctx):
+    providers = []
+
+    out = ctx.actions.declare_file(ctx.label.name + ".bat")
+    all_files = depset(transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps])
+    if ${starlark_is_windows}:
+        script_content = "@echo off\n" + "\n".join([
+            """(
+echo SF:{}
+echo DA:1,1
+echo DA:2,0
+echo LF:2
+echo LH:1
+echo end_of_record
+) >> "%COVERAGE_DIR%\\\\my_test.dat"
+""".format(f.path)
+            for f in all_files.to_list()
+        ])
+    else:
+        script_content = "#!/bin/bash\n" + "\n".join([
+            """cat <<E_O_F >> "\$COVERAGE_DIR/my_test.dat"
+SF:{}
+DA:1,1
+DA:2,0
+LF:2
+LH:1
+end_of_record
+E_O_F
+""".format(f.path)
+            for f in all_files.to_list()
+        ])
+    ctx.actions.write(out, script_content, is_executable = True)
+    providers.append(DefaultInfo(executable = out))
+
+    providers.append(
+        coverage_common.instrumented_files_info(
+            ctx = ctx,
+            dependency_attributes = ["deps"],
+        )
+    )
+
+    return providers
+
+my_test = rule(
+    implementation = _my_test_impl,
+    test = True,
+    attrs = {
+        "deps": attr.label_list(),
+        "_lcov_merger": attr.label(
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
+            cfg = config.exec(exec_group = "test"),
+        ),
+    },
+)
+EOF
+
+  mkdir -p test
+  cat <<'EOF' > test/BUILD
+load("//tools/build_defs/cc:rules.bzl", "my_library", "my_test")
+
+my_library(
+    name = "untested_lib",
+    srcs = ["untested.txt"],
+)
+
+my_library(
+    name = "covered_lib",
+    srcs = ["covered.txt"],
+)
+
+my_test(
+    name = "my_test",
+    deps = [":covered_lib"],
+)
+EOF
+  touch test/{untested.txt,covered.txt}
+
+  bazel coverage //test:my_test //test:untested_lib --combined_report=lcov &> $TEST_log \
+      || fail "Coverage run failed but should have succeeded."
+  local expected_coverage="SF:test/covered.txt
+FNF:0
+FNH:0
+DA:1,1
+DA:2,0
+DA:3,0
+LH:1
+LF:3
+end_of_record
+SF:test/untested.txt
+FNF:0
+FNH:0
+DA:1,0
+DA:3,0
+LH:0
+LF:2
+end_of_record"
+  local expected_baseline_coverage="SF:test/covered.txt
+FNF:0
+FNH:0
+DA:1,0
+DA:3,0
+LH:0
+LF:2
+end_of_record
+SF:test/untested.txt
+FNF:0
+FNH:0
+DA:1,0
+DA:3,0
+LH:0
+LF:2
+end_of_record"
+
+  assert_coverage_result "$expected_coverage" bazel-out/_coverage/_coverage_report.dat
+  assert_coverage_result "$expected_baseline_coverage" bazel-out/_coverage/_baseline_report.dat
+  for report in _coverage_report.dat _baseline_report.dat; do
+    assert_not_contains "not_instrumented" "bazel-out/_coverage/$report"
+    assert_not_contains "virtual/" "bazel-out/_coverage/$report"
+  done
+}
+
 run_suite "test tests"
