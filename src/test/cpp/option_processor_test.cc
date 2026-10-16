@@ -47,6 +47,7 @@ class OptionProcessorTest : public ::testing::Test {
   }
 
   void TearDown() override {
+    blaze::UnsetEnv("BLAZE_DEFAULT_TOOL_TAG");
     blaze_util::RemoveRecursively(blaze_util::Path(workspace_));
   }
 
@@ -448,6 +449,51 @@ TEST_F(OptionProcessorTest, QuietSuppressesEmacsTerminalOption) {
   }
 
   blaze::UnsetEnv("EMACS");
+}
+
+TEST_F(OptionProcessorTest, DefaultToolTagEnvOption) {
+  blaze::SetEnv("BLAZE_DEFAULT_TOOL_TAG", "test_default_tool_tag");
+
+  {
+    std::string error;
+    std::unique_ptr<OptionProcessor> processor =
+        std::make_unique<OptionProcessor>(
+            workspace_layout_.get(), std::make_unique<BazelStartupOptions>());
+    ASSERT_EQ(
+        blaze_exit_code::SUCCESS,
+        processor->ParseOptions({"bazel", "--ignore_all_rc_files", "build"},
+                                workspace_, cwd_, &error))
+        << error;
+    bool has_default_tool_tag = false;
+    for (const auto& opt : processor->GetParsedBlazercOptions()) {
+      if (opt.source_path == "client" && opt.command == "common" &&
+          opt.option == "--tool_tag=test_default_tool_tag") {
+        has_default_tool_tag = true;
+      }
+    }
+    EXPECT_TRUE(has_default_tool_tag);
+  }
+
+  blaze::UnsetEnv("BLAZE_DEFAULT_TOOL_TAG");
+
+  {
+    std::string error;
+    std::unique_ptr<OptionProcessor> processor =
+        std::make_unique<OptionProcessor>(
+            workspace_layout_.get(), std::make_unique<BazelStartupOptions>());
+    ASSERT_EQ(
+        blaze_exit_code::SUCCESS,
+        processor->ParseOptions({"bazel", "--ignore_all_rc_files", "build"},
+                                workspace_, cwd_, &error))
+        << error;
+    bool has_tool_tag = false;
+    for (const auto& opt : processor->GetParsedBlazercOptions()) {
+      if (opt.option.find("--tool_tag=") == 0) {
+        has_tool_tag = true;
+      }
+    }
+    EXPECT_FALSE(has_tool_tag);
+  }
 }
 
 }  // namespace blaze
