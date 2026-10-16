@@ -151,6 +151,9 @@ public interface MemoizingEvaluator {
   @Nullable
   NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) throws InterruptedException;
 
+  /** Returns whether the key was rewound and has not yet completed successfully. */
+  boolean isRewinding(SkyKey key);
+
   /**
    * Returns an error if and only if an earlier call to {@link #evaluate} created it; null
    * otherwise.

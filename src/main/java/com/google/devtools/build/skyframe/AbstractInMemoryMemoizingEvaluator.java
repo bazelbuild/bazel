@@ -304,6 +304,11 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
+  public final boolean isRewinding(SkyKey key) {
+    return progressReceiver.isRewinding(key);
+  }
+
+  @Override
   public final void dumpSummary(PrintStream out) {
     long nodes = 0;
     long edges = 0;

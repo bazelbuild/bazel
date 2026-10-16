@@ -427,6 +427,19 @@ public abstract class BuildRequestOptions extends OptionsBase {
   public abstract boolean getRewindLostInputs();
 
   @Option(
+      name = "experimental_check_rewound_action_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Fail if regenerating a rewound action changes its recorded output contents. This detects"
+              + " nondeterministic regeneration before dependent actions consume the new result."
+              + " Best effort: requires previous output metadata and may miss changes when another"
+              + " shared action regenerates the outputs.")
+  public abstract boolean getCheckRewoundActionOutputs();
+
+  @Option(
       name = "experimental_max_repeated_lost_inputs",
       defaultValue = "20",
       documentationCategory = OptionDocumentationCategory.REMOTE,
