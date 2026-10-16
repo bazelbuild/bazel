@@ -875,6 +875,71 @@ EOF
   # expect_not_log "Sleeping 3..."
 }
 
+function test_streamed_test_output() {
+  stop_worker
+  start_worker --live_output_streams
+
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+  name = "streaming",
+  srcs = ["streaming.sh"],
+)
+EOF
+  # The test only finishes once its first line has reached Bazel's output,
+  # which requires that line to be streamed while the test runs. The test
+  # runner merges stderr into the test log, so the stderr line is expected too.
+  cat > a/streaming.sh <<'EOF'
+#!/usr/bin/env bash
+echo "line before release"
+echo "stderr before release" >&2
+for i in {1..60}; do
+  if [[ -e "$RELEASE_FILE" ]]; then
+    echo "released"
+    exit 0
+  fi
+  sleep 1
+done
+echo "not released"
+exit 1
+EOF
+  chmod +x a/streaming.sh
+
+  local -r release_file="${TEST_TMPDIR}/release"
+  local -r output="${TEST_TMPDIR}/streamed_output"
+  rm -f "$release_file"
+  bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --test_output=streamed \
+      --test_env=RELEASE_FILE="$release_file" \
+      //a:streaming >& "$output" &
+  local -r bazel_pid=$!
+
+  local streamed=0
+  for i in {1..60}; do
+    if grep -q "line before release" "$output"; then
+      streamed=1
+      touch "$release_file"
+      break
+    fi
+    sleep 1
+  done
+  local exit_code=0
+  wait "$bazel_pid" || exit_code=$?
+  cp "$output" "$TEST_log"
+  [[ "$streamed" == 1 ]] || fail "Test output was not streamed while the test ran"
+  [[ "$exit_code" == 0 ]] || fail "Expected the test to pass, got exit code $exit_code"
+  # The live output is reconciled with the final output, so nothing is repeated.
+  expect_log_once "line before release"
+  expect_log_once "stderr before release"
+  expect_log_once "released"
+  [[ "$(grep -c "line before release" bazel-testlogs/a/streaming/test.log)" == 1 ]] \
+      || fail "Expected the line exactly once in test.log"
+}
+
 function test_passed_env_user() {
   add_rules_shell "MODULE.bazel"
   mkdir -p a

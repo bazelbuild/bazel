@@ -32,9 +32,11 @@ import static java.util.function.Function.identity;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -47,8 +49,10 @@ import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
+import build.bazel.remote.execution.v2.ExecuteOperationMetadata;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
+import build.bazel.remote.execution.v2.ExecutionStage;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.NodeProperties;
@@ -106,12 +110,14 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteScrubbing.Config;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -146,12 +152,15 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Options;
+import com.google.longrunning.Operation;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -222,6 +231,7 @@ public class RemoteExecutionServiceTest {
           .build();
 
   RemoteOptions remoteOptions;
+  private ExecutionOptions executionOptions;
   private FileSystem fs;
   private Path execRoot;
   private ArtifactRoot sourceRoot;
@@ -239,6 +249,7 @@ public class RemoteExecutionServiceTest {
     reporter.addHandler(eventHandler);
 
     remoteOptions = Options.getDefaults(RemoteOptions.class);
+    executionOptions = Options.getDefaults(ExecutionOptions.class);
 
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
 
@@ -265,6 +276,8 @@ public class RemoteExecutionServiceTest {
     cache = spy(new InMemoryCombinedCache(spy(new InMemoryCacheClient()), digestUtil));
     doReturn(remoteExecutorCapabilities).when(cache).getRemoteServerCapabilities();
     executor = mock(RemoteExecutionClient.class);
+    // Live output streams that a test doesn't care about are read without ever producing output.
+    when(executor.readOutputStream(any(), any(), any())).thenAnswer(i -> SettableFuture.create());
     when(executor.getServerCapabilities()).thenReturn(remoteExecutorCapabilities);
 
     RequestMetadata metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id");
@@ -3379,6 +3392,191 @@ public class RemoteExecutionServiceTest {
     return spawnWithStdout;
   }
 
+  private static final String STDOUT_STREAM = "operation/streams/stdout";
+  private static final String STDERR_STREAM = "operation/streams/stderr";
+
+  private static Operation executingOperationWithLiveOutput() {
+    return Operation.newBuilder()
+        .setName("operation")
+        .setMetadata(
+            Any.pack(
+                ExecuteOperationMetadata.newBuilder()
+                    .setStage(ExecutionStage.Value.EXECUTING)
+                    .setStdoutStreamName(STDOUT_STREAM)
+                    .setStderrStreamName(STDERR_STREAM)
+                    .build()))
+        .build();
+  }
+
+  /** Makes reads of the given live output stream write the given output and then stay open. */
+  private void whenLiveOutputStreamIsRead(String streamName, String output) {
+    when(executor.readOutputStream(any(), eq(streamName), any()))
+        .thenAnswer(
+            invocation -> {
+              OutputStream out = invocation.getArgument(2);
+              out.write(output.getBytes(UTF_8));
+              // The stream is still open when the execution completes.
+              return SettableFuture.create();
+            });
+  }
+
+  /**
+   * Executes the spawn with an executor that advertises live output streams and returns the given
+   * stdout, then downloads its outputs.
+   *
+   * @return the content of the stdout file while the spawn was executing
+   */
+  private String executeWithLiveOutput(
+      RemoteExecutionService service, Spawn spawn, String finalStdout) throws Exception {
+    StringBuilder stdoutDuringExecution = new StringBuilder();
+    doAnswer(
+            invocation -> {
+              OperationObserver observer = invocation.getArgument(2);
+              observer.onNext(executingOperationWithLiveOutput());
+              if (outErr.getOutputPath().exists()) {
+                stdoutDuringExecution.append(readContent(outErr.getOutputPath(), UTF_8));
+              }
+              return ExecuteResponse.newBuilder()
+                  .setResult(
+                      ActionResult.newBuilder().setStdoutRaw(ByteString.copyFromUtf8(finalStdout)))
+                  .build();
+            })
+        .when(executor)
+        .executeRemotely(any(), any(), any());
+    RemoteAction action = service.buildRemoteAction(spawn, newSpawnExecutionContext(spawn));
+
+    RemoteActionResult result =
+        service.executeRemotely(action, /* acceptCachedResult= */ false, OperationObserver.NO_OP);
+    service.downloadOutputs(action, result);
+
+    return stdoutDuringExecution.toString();
+  }
+
+  @Test
+  public void executeRemotely_streamedTestOutput_writesLiveOutputUntilFinalOutputIsDownloaded()
+      throws Exception {
+    executionOptions.setTestOutput(TestOutputFormat.STREAMED);
+    whenLiveOutputStreamIsRead(STDOUT_STREAM, "live output\n");
+    whenLiveOutputStreamIsRead(STDERR_STREAM, "live error\n");
+    Spawn spawn = new SpawnBuilder("dummy").withMnemonic("TestRunner").build();
+
+    String stdoutDuringExecution =
+        executeWithLiveOutput(newRemoteExecutionService(), spawn, "live output\nfinal output\n");
+
+    assertThat(stdoutDuringExecution).isEqualTo("live output\n");
+    assertThat(readContent(outErr.getOutputPath(), UTF_8)).isEqualTo("live output\nfinal output\n");
+    // The final result has no stderr, so the live stderr was discarded.
+    assertThat(readContent(outErr.getErrorPath(), UTF_8)).isEmpty();
+  }
+
+  @Test
+  public void executeRemotely_streamedTestOutput_doesNotStreamOtherSpawns() throws Exception {
+    executionOptions.setTestOutput(TestOutputFormat.STREAMED);
+    Spawn spawn = new SpawnBuilder("dummy").build();
+
+    executeWithLiveOutput(newRemoteExecutionService(), spawn, "final output\n");
+
+    verify(executor, never()).readOutputStream(any(), any(), any());
+  }
+
+  @Test
+  public void executeRemotely_testOutputNotStreamed_doesNotStreamTests() throws Exception {
+    executionOptions.setTestOutput(TestOutputFormat.ALL);
+    Spawn spawn = new SpawnBuilder("dummy").withMnemonic("TestRunner").build();
+
+    executeWithLiveOutput(newRemoteExecutionService(), spawn, "final output\n");
+
+    verify(executor, never()).readOutputStream(any(), any(), any());
+  }
+
+  @Test
+  public void executeRemotely_unreadableStdoutStream_warnsOncePerBuild() throws Exception {
+    executionOptions.setTestOutput(TestOutputFormat.STREAMED);
+    when(executor.readOutputStream(any(), eq(STDOUT_STREAM), any()))
+        .thenReturn(
+            Futures.immediateFailedFuture(
+                io.grpc.Status.INVALID_ARGUMENT
+                    .withDescription("Url path not recognized")
+                    .asException()),
+            Futures.immediateFailedFuture(io.grpc.Status.NOT_FOUND.asException()));
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = new SpawnBuilder("dummy").withMnemonic("TestRunner").build();
+
+    executeWithLiveOutput(service, spawn, "final output\n");
+    outErr.clearOut();
+    executeWithLiveOutput(service, spawn, "final output\n");
+
+    assertThat(readContent(outErr.getOutputPath(), UTF_8)).isEqualTo("final output\n");
+    assertThat(eventHandler.getEvents()).hasSize(1);
+    assertThat(eventHandler.getEvents().get(0).getKind()).isEqualTo(EventKind.WARNING);
+    assertThat(eventHandler.getEvents().get(0).getMessage()).contains("Url path not recognized");
+  }
+
+  @Test
+  public void executeRemotely_executionFailsWithoutResult_keepsLiveOutput() throws Exception {
+    executionOptions.setTestOutput(TestOutputFormat.STREAMED);
+    whenLiveOutputStreamIsRead(STDOUT_STREAM, "partial output\n");
+    whenLiveOutputStreamIsRead(STDERR_STREAM, "partial error\n");
+    doAnswer(
+            invocation -> {
+              OperationObserver observer = invocation.getArgument(2);
+              observer.onNext(executingOperationWithLiveOutput());
+              throw new IOException("connection lost");
+            })
+        .when(executor)
+        .executeRemotely(any(), any(), any());
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = new SpawnBuilder("dummy").withMnemonic("TestRunner").build();
+    RemoteAction action = service.buildRemoteAction(spawn, newSpawnExecutionContext(spawn));
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                service.executeRemotely(
+                    action, /* acceptCachedResult= */ false, OperationObserver.NO_OP));
+
+    assertThat(e).hasMessageThat().isEqualTo("connection lost");
+    // There is no final output to download, so the live output is all the output there is.
+    assertThat(readContent(outErr.getOutputPath(), UTF_8)).isEqualTo("partial output\n");
+    assertThat(readContent(outErr.getErrorPath(), UTF_8)).isEqualTo("partial error\n");
+  }
+
+  @Test
+  public void executeRemotely_executionFailsWithResult_discardsLiveOutput() throws Exception {
+    executionOptions.setTestOutput(TestOutputFormat.STREAMED);
+    whenLiveOutputStreamIsRead(STDOUT_STREAM, "partial output\n");
+    ExecuteResponse timedOutResponse =
+        ExecuteResponse.newBuilder()
+            .setStatus(
+                com.google.rpc.Status.newBuilder()
+                    .setCode(com.google.rpc.Code.DEADLINE_EXCEEDED.getNumber()))
+            .setResult(
+                ActionResult.newBuilder().setStdoutRaw(ByteString.copyFromUtf8("partial output\n")))
+            .build();
+    doAnswer(
+            invocation -> {
+              OperationObserver observer = invocation.getArgument(2);
+              observer.onNext(executingOperationWithLiveOutput());
+              throw new IOException(
+                  new ExecutionStatusException(timedOutResponse.getStatus(), timedOutResponse));
+            })
+        .when(executor)
+        .executeRemotely(any(), any(), any());
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = new SpawnBuilder("dummy").withMnemonic("TestRunner").build();
+    RemoteAction action = service.buildRemoteAction(spawn, newSpawnExecutionContext(spawn));
+
+    assertThrows(
+        IOException.class,
+        () ->
+            service.executeRemotely(
+                action, /* acceptCachedResult= */ false, OperationObserver.NO_OP));
+
+    // The outputs of the result are downloaded by the caller, replacing the live output.
+    assertThat(readContent(outErr.getOutputPath(), UTF_8)).isEmpty();
+  }
+
   private FakeSpawnExecutionContext newSpawnExecutionContext(Spawn spawn) {
     return newSpawnExecutionContext(spawn, outErr);
   }
@@ -3423,7 +3621,7 @@ public class RemoteExecutionServiceTest {
         TestConstants.WORKSPACE_NAME,
         digestUtil,
         remoteOptions,
-        Options.getDefaults(ExecutionOptions.class),
+        executionOptions,
         cache,
         executor,
         tempPathGenerator,

@@ -60,6 +60,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -87,6 +88,7 @@ import com.google.devtools.build.lib.concurrent.CancellableTask;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -169,6 +171,8 @@ import javax.annotation.Nullable;
  * cache and execution with spawn specific types.
  */
 public class RemoteExecutionService {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final Comparator<String> PROTO_STRING_COMPARATOR =
       comparing(StringEncoding::unicodeToInternal);
 
@@ -201,6 +205,7 @@ public class RemoteExecutionService {
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
+  private final AtomicBoolean liveOutputWarningReported = new AtomicBoolean(false);
 
   @Nullable private final RemoteOutputChecker remoteOutputChecker;
   private final OutputService outputService;
@@ -2158,10 +2163,80 @@ public class RemoteExecutionService {
 
     ExecuteRequest request = requestBuilder.build();
 
-    ExecuteResponse reply =
-        remoteExecutor.executeRemotely(action.getRemoteActionExecutionContext(), request, observer);
+    LiveOutputStreamer liveOutput = maybeStreamOutput(action);
+    if (liveOutput == null) {
+      ExecuteResponse reply =
+          remoteExecutor.executeRemotely(
+              action.getRemoteActionExecutionContext(), request, observer);
+      return RemoteActionResult.createFromResponse(reply);
+    }
 
-    return RemoteActionResult.createFromResponse(reply);
+    // Whether the execution produced a result whose outputs will be downloaded, replacing the live
+    // output. Otherwise, e.g. when the build is interrupted, the live output is kept, since it is
+    // all the output there is.
+    boolean hasResult = false;
+    try {
+      ExecuteResponse reply =
+          remoteExecutor.executeRemotely(
+              action.getRemoteActionExecutionContext(),
+              request,
+              operation -> {
+                observer.onNext(operation);
+                liveOutput.onNext(operation);
+              });
+      hasResult = true;
+      return RemoteActionResult.createFromResponse(reply);
+    } catch (IOException e) {
+      hasResult = hasResult(e);
+      throw e;
+    } finally {
+      // Streaming must stop before the outputs are downloaded, which rewrites the same files.
+      liveOutput.close(/* discardOutput= */ hasResult);
+    }
+  }
+
+  /** Returns whether the given execution failure carries a result whose outputs are downloaded. */
+  private static boolean hasResult(IOException e) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t instanceof ExecutionStatusException executionStatusException) {
+        return executionStatusException.getResponse() != null
+            && executionStatusException.getResponse().hasResult();
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns a streamer that writes the live stdout and stderr of a test to its test log while it
+   * executes, for {@code --test_output=streamed}, or null if the output of the action isn't
+   * streamed.
+   */
+  @Nullable
+  private LiveOutputStreamer maybeStreamOutput(RemoteAction action) throws IOException {
+    // Streamed test output tails the test log, which is the stdout file of the test spawn. Live
+    // output is only worth the extra requests if someone is watching it.
+    if (executionOptions.getTestOutput() != TestOutputFormat.STREAMED
+        || !action.getSpawn().getMnemonic().equals("TestRunner")) {
+      return null;
+    }
+    return LiveOutputStreamer.create(
+        (resourceName, out) ->
+            remoteExecutor.readOutputStream(
+                action.getRemoteActionExecutionContext(), resourceName, out),
+        action.getSpawnExecutionContext().getFileOutErr(),
+        this::reportLiveOutputFailure);
+  }
+
+  private void reportLiveOutputFailure(String streamName, Throwable cause) {
+    logger.atInfo().withCause(cause).log("Failed to read live output stream %s", streamName);
+    if (liveOutputWarningReported.compareAndSet(false, true)) {
+      reporter.handle(
+          Event.warn(
+              String.format(
+                  "Can't stream test output: the remote execution server failed to serve the live"
+                      + " output stream: %s. Test output will be shown when tests finish.",
+                  Utils.grpcAwareErrorMessage(cause, verboseFailures))));
+    }
   }
 
   /** A value classes representing downloaded server logs. */
