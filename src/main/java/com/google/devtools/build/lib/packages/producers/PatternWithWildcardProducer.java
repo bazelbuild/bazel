@@ -178,26 +178,18 @@ final class PatternWithWildcardProducer
         continue;
       }
 
-      // This check is more strict than necessary: we raise an error if globbing traverses into
-      // a directory for any reason, even though it's only necessary if that reason was the
-      // resolution of a recursive glob ("**"). Fixing this would require plumbing the ancestor
-      // symlink information through DirectoryListingValue.
-      if (symlinkValue.isDirectory()
-          && symlinkValue.unboundedAncestorSymlinkExpansionChain() != null) {
-        tasks.lookUp(
-            FileSymlinkInfiniteExpansionUniquenessFunction.key(
-                symlinkValue.unboundedAncestorSymlinkExpansionChain()),
-            v -> {});
-        resultSink.acceptGlobError(
-            GlobError.of(
-                new FileSymlinkInfiniteExpansionException(
-                    symlinkValue.pathToUnboundedAncestorSymlinkExpansionChain(),
-                    symlinkValue.unboundedAncestorSymlinkExpansionChain())));
-        return DONE;
-      }
-
       // Use the symlink path instead of the target path.
       PathFragment direntPath = symlinkKey.argument().getRootRelativePath();
+
+      // If the directory symlink has an unbounded ancestor expansion chain, do not descend into
+      // it to prevent infinite recursion, but add it if files/dirs are matched.
+      if (symlinkValue.isDirectory()
+          && symlinkValue.unboundedAncestorSymlinkExpansionChain() != null) {
+        if (FragmentProducer.shouldAddFileMatchingToResult(fragmentIndex, globDetail)) {
+          resultSink.acceptPathFragmentWithPackageFragment(direntPath);
+        }
+        continue;
+      }
       if (symlinkValue.isDirectory()) {
         tasks.enqueue(
             new DirectoryDirentProducer(

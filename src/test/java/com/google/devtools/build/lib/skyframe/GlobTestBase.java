@@ -808,20 +808,11 @@ public abstract class GlobTestBase {
     FileSystemUtils.ensureSymbolicLink(
         pkgPath.getRelative("parent/sub/symlink"), pkgPath.getRelative("parent"));
 
-    String globPattern = withRecursiveWildcard ? "parent/**" : "parent/sub/symlink";
-    SkyKey skyKey = createdGlobRelatedSkyKey(globPattern, Globber.Operation.FILES_AND_DIRS);
-
-    EvaluationResult<GlobValue> result =
-        evaluator.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
-
-    if (withRecursiveWildcard || alwaysUsesDirListing()) {
-      assertThat(result.hasError()).isTrue();
-      ErrorInfo errorInfo = result.getError(skyKey);
-      assertThat(errorInfo.getException())
-          .isInstanceOf(FileSymlinkInfiniteExpansionException.class);
-      assertThat(errorInfo.getException()).hasMessageThat().contains("Infinite symlink expansion");
+    if (withRecursiveWildcard) {
+      assertSingleGlobMatches(
+          "parent/**", Operation.FILES_AND_DIRS, "parent/sub", "parent/sub/symlink", "parent");
     } else {
-      assertThat(result.hasError()).isFalse();
+      assertSingleGlobMatches("parent/sub/symlink", Operation.FILES_AND_DIRS, "parent/sub/symlink");
     }
   }
 
