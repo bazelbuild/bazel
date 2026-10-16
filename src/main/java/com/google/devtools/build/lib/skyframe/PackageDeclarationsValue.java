@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -39,15 +38,13 @@ import net.starlark.java.eval.StarlarkSemantics;
 public record PackageDeclarationsValue(
     Package.Metadata metadata,
     Package.Declarations declarations,
-    StarlarkSemantics starlarkSemantics,
-    RepositoryMapping mainRepositoryMapping)
+    StarlarkSemantics starlarkSemantics)
     implements SkyValue {
 
   public PackageDeclarationsValue {
     checkNotNull(metadata);
     checkNotNull(declarations);
     checkNotNull(starlarkSemantics);
-    checkNotNull(mainRepositoryMapping);
   }
 
   /** The {@link SkyKey} for a {@link PackageDeclarationsValue}. */

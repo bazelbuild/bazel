@@ -140,7 +140,7 @@ public class RepoFileFunction implements SkyFunction {
   }
 
   public static String getDisplayNameForRepo(
-      RepositoryName repoName, RepositoryMapping mainRepoMapping) {
+      RepositoryName repoName, @Nullable RepositoryMapping mainRepoMapping) {
     String displayName = repoName.getDisplayForm(mainRepoMapping);
     if (displayName.isEmpty()) {
       return "the main repo";

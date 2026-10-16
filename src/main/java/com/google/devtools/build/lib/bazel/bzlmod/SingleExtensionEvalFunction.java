@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -104,12 +102,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
     RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode =
         requireNonNull(RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA.get(env));
-    RepositoryMappingValue mainRepoMappingValue =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
-    if (mainRepoMappingValue == null) {
-      return null;
-    }
-
     ModuleExtensionId extensionId = (ModuleExtensionId) skyKey.argument();
     SingleExtensionUsagesValue usagesValue =
         (SingleExtensionUsagesValue) env.getValue(SingleExtensionUsagesValue.key(extensionId));
@@ -222,7 +214,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               usagesValue,
               starlarkSemantics,
               extensionId,
-              mainRepoMappingValue.repositoryMapping(),
               lockfileFacts,
               requireRepoExtensionMetadataMode);
     } catch (ExternalDepsException e) {

@@ -172,7 +172,7 @@ public final class BazelEvaluationTestCase {
             /* networkAllowlistForTests= */ Optional.empty(),
             noExplicitMnemonicAllowlist,
             fragmentNameToClass,
-            /* mainRepoMapping= */ null)
+            /* mainRepoMappingSupplier= */ null)
         .storeInThread(thread);
   }
 

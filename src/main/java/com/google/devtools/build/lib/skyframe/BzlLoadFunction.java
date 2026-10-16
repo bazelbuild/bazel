@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
@@ -777,10 +778,6 @@ public class BzlLoadFunction implements SkyFunction {
       return null;
     }
     RepositoryMapping repoMapping = repoMappingValue.repositoryMapping();
-    RepositoryMapping mainRepoMapping = getMainRepositoryMapping(key, env);
-    if (mainRepoMapping == null) {
-      return null;
-    }
     var repoMappingRecorder = new Label.SimpleRepoMappingRecorder();
     ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
     ImmutableList<Label> loadLabels =
@@ -899,20 +896,30 @@ public class BzlLoadFunction implements SkyFunction {
             ruleClassProvider.getNetworkAllowlistForTests(),
             ruleClassProvider.getNoExplicitMnemonicAllowlist(),
             ruleClassProvider.getConfigurationFragmentMap(),
-            mainRepoMapping);
+            mainRepoMappingSupplierFor(key, env));
 
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the Module and
     // BzlInitThreadContext.
-    executeBzlFile(
-        prog,
-        key,
-        module,
-        loadMap,
-        context,
-        builtins.starlarkSemantics,
-        env.getListener(),
-        repoMappingRecorder);
+    try {
+      executeBzlFile(
+          prog,
+          key,
+          module,
+          loadMap,
+          context,
+          builtins.starlarkSemantics,
+          env.getListener(),
+          repoMappingRecorder);
+    } catch (Starlark.UncheckedEvalException e) {
+      if (!LazyMainRepoMapping.isMissingDep(e)) {
+        throw e;
+      }
+      // A label was printed before the main repo mapping was available. Restart and execute the
+      // .bzl file again once it is.
+      Preconditions.checkState(env.valuesMissing());
+      return null;
+    }
 
     BzlVisibility bzlVisibility = context.getBzlVisibility();
     if (bzlVisibility == null) {
@@ -923,6 +930,22 @@ public class BzlLoadFunction implements SkyFunction {
     // alternative would mean mutating or overwriting the BazelModuleContext after evaluation.
     return new BzlLoadValue(
         module, transitiveDigest, bzlVisibility, repoMappingRecorder.recordedEntries());
+  }
+
+  /**
+   * Returns a lazy supplier of the main repo mapping for use by {@code Label#debugPrint} during
+   * .bzl initialization, or null for builtins and the Bzlmod bootstrap. These .bzl files are loaded
+   * while computing the main repo mapping, so a dependency on it would form a cycle. Without a
+   * supplier, label display falls back to canonical repository names.
+   */
+  @Nullable
+  private static InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplierFor(
+      BzlLoadValue.Key key, Environment env) {
+    if (key instanceof BzlLoadValue.KeyForBuiltins
+        || key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
+      return null;
+    }
+    return LazyMainRepoMapping.supplier(env);
   }
 
   @Nullable
@@ -943,24 +966,6 @@ public class BzlLoadFunction implements SkyFunction {
     // This is either a .bzl loaded from BUILD files, or a .bzl loaded for bzlmod, so we can just
     // use the full repo mapping from RepositoryMappingFunction.
     return (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
-  }
-
-  @Nullable
-  private static RepositoryMapping getMainRepositoryMapping(BzlLoadValue.Key key, Environment env)
-      throws InterruptedException {
-    if (key instanceof BzlLoadValue.KeyForBuiltins
-        || key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
-      // For builtins and @bazel_tools, the key's local repo mapping can be used as the main repo
-      // mapping.
-      RepositoryMappingValue repoMappingValue = getRepositoryMappingValue(key, env);
-      return repoMappingValue == null ? null : repoMappingValue.repositoryMapping();
-    }
-    var mainRepositoryMappingValue =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
-    if (mainRepositoryMappingValue == null) {
-      return null;
-    }
-    return mainRepositoryMappingValue.repositoryMapping();
   }
 
   /**

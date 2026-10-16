@@ -55,7 +55,6 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -137,7 +136,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkSubruleApi {
     checkExported();
     StarlarkRuleContext ruleContext =
         BazelRuleAnalysisThreadContext.fromOrFail(thread, getName())
-            .getRuleContext()
+            .ruleContext()
             .getStarlarkRuleContext();
     SubruleContext callerSubruleContext = ruleContext.getLockedForSubrule();
     if (callerSubruleContext != null) {

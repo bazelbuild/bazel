@@ -56,8 +56,7 @@ public final class PackageDeclarationsFunction implements SkyFunction {
     return new PackageDeclarationsValue(
         packagePieceValue.getPackagePiece().getMetadata(),
         packagePieceValue.getPackagePiece().getDeclarations(),
-        packagePieceValue.starlarkSemantics(),
-        packagePieceValue.mainRepositoryMapping());
+        packagePieceValue.starlarkSemantics());
   }
 
   /** Wrapper for exceptions which can be thrown by {@link PackageDeclarationsFunction#compute}. */

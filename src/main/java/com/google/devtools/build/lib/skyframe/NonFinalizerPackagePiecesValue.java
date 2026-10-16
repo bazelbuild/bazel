@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
@@ -67,9 +66,7 @@ public record NonFinalizerPackagePiecesValue(
      */
     ImmutableSortedMap<String, MacroInstance> macroInstances,
     /** Starlark semantics, inlined to avoid extra dependency edges. */
-    StarlarkSemantics starlarkSemantics,
-    /** Main repository mapping, inlined to avoid extra dependency edges. */
-    RepositoryMapping mainRepositoryMapping)
+    StarlarkSemantics starlarkSemantics)
     implements PackagePieces, SkyValue {
   public NonFinalizerPackagePiecesValue {
     checkNotNull(packagePieces);
@@ -79,7 +76,6 @@ public record NonFinalizerPackagePiecesValue(
     checkNotNull(targets);
     checkNotNull(macroInstances);
     checkNotNull(starlarkSemantics);
-    checkNotNull(mainRepositoryMapping);
   }
 
   @Override

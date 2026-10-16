@@ -223,7 +223,6 @@ public final class PackageFactory {
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
-      RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       @Nullable ImmutableMap<Location, String> generatorMap,
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
@@ -240,7 +239,6 @@ public final class PackageFactory {
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
         repositoryMapping,
-        mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
         generatorMap,
@@ -259,7 +257,6 @@ public final class PackageFactory {
       Package.Metadata metadata,
       Package.Declarations declarations,
       StarlarkSemantics starlarkSemantics,
-      RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       @Nullable ImmutableMap<Location, String> generatorMap,
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
@@ -273,7 +270,6 @@ public final class PackageFactory {
         starlarkSemantics.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
-        mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
         generatorMap,
@@ -295,7 +291,6 @@ public final class PackageFactory {
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
-      RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       @Nullable ImmutableMap<Location, String> generatorMap,
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
@@ -312,7 +307,6 @@ public final class PackageFactory {
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
         repositoryMapping,
-        mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
         generatorMap,
@@ -333,7 +327,6 @@ public final class PackageFactory {
       MacroInstance macro,
       PackagePieceIdentifier parentIdentifier,
       StarlarkSemantics starlarkSemantics,
-      RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       @Nullable ImmutableMap<String, Rule> existingRulesMapForFinalizer) {
     return PackagePiece.ForMacro.newBuilder(
@@ -344,7 +337,6 @@ public final class PackageFactory {
         starlarkSemantics.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
-        mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
         /* enableNameConflictChecking= */ true,
