@@ -355,14 +355,14 @@ public class ActionExecutionFunction implements SkyFunction {
           checkCacheAndExecuteIfNeeded(
               action, state, env, clientEnv, actionLookupData, previousExecution, actionStartTime);
     } catch (LostInputsActionExecutionException e) {
-      ImmutableSet<SkyKey> inputDepKeys =
-          getInputDepKeys(
-              /* consumedArtifactsTracker= */ null,
-              allInputs,
-              action.getSchedulingDependencies(),
-              /* state= */ null);
       ActionInputMap inputArtifactData = state.inputArtifactData;
       if (inputArtifactData == null) {
+        ImmutableSet<SkyKey> inputDepKeys =
+            getInputDepKeys(
+                /* consumedArtifactsTracker= */ null,
+                allInputs,
+                action.getSchedulingDependencies(),
+                /* state= */ null);
         // Reconstitute inputArtifactData if it was not present in `state`.
         //
         // This can happen after Skyframe restarts inside `handleLostInputs`, when remote analysis
@@ -385,26 +385,8 @@ public class ActionExecutionFunction implements SkyFunction {
           throw new ActionExecutionFunctionException(e2);
         }
       }
-      Set<SkyKey> discoveredInputDepKeys = state.discoveredInputDepKeys;
-      if (action.discoversInputs() && state.discoveredInputs == null && action.inputsKnown()) {
-        // Recover discovered inputs after InputDiscoveryState was evicted. Include nested sets
-        // so that rewinding also invalidates any intermediate nodes containing a lost input.
-        NestedSet<Artifact> recoveredInputs = action.getInputs();
-        discoveredInputDepKeys =
-            recoveredInputs.isEmpty() || recoveredInputs.isSingleton()
-                ? ImmutableSet.copyOf(Artifact.keys(recoveredInputs.toList()))
-                : ImmutableSet.of(ArtifactNestedSetKey.create(recoveredInputs));
-      }
-
       return handleLostInputs(
-          e,
-          actionLookupData,
-          action,
-          actionStartTime,
-          env,
-          inputDepKeys,
-          discoveredInputDepKeys,
-          inputArtifactData);
+          e, actionLookupData, action, actionStartTime, env, inputArtifactData);
     } catch (ActionExecutionException e) {
       // In this case we do not report the error to the action reporter because we have already
       // done it in SkyframeActionExecutor.reportErrorIfNotAbortingMode() method. That method
@@ -493,8 +475,6 @@ public class ActionExecutionFunction implements SkyFunction {
       Action action,
       long actionStartTimeNanos,
       Environment env,
-      ImmutableSet<SkyKey> inputDepKeys,
-      Set<SkyKey> discoveredInputDepKeys,
       ActionInputMap inputArtifactData)
       throws InterruptedException, ActionExecutionFunctionException {
     checkState(
@@ -503,28 +483,18 @@ public class ActionExecutionFunction implements SkyFunction {
         actionLookupData,
         e);
 
-    // inputDepKeys only contains keys in the initial, pre-input-discovery Skyframe request. If the
-    // action discovers inputs, we must combine them with discovered input keys.
-    ImmutableSet<SkyKey> failedActionDeps;
+    // Use the actual requested keys, including nested sets, even if input-discovery state was
+    // evicted.
+    ImmutableSet.Builder<SkyKey> failedActionDeps =
+        ImmutableSet.<SkyKey>builder()
+            .addAll(checkNotNull(env.getTemporaryDirectDeps()).getAllElementsAsIterable())
+            .addAll(env.getNewlyRequestedDeps());
     if (e.isFromInputDiscovery()) {
       // The action failed during input discovery. We don't know the discovered inputs, so just add
       // keys of lost inputs in case any of them were discovered.
-      failedActionDeps =
-          ImmutableSet.<SkyKey>builder()
-              .addAll(inputDepKeys)
-              .addAll(
-                  Collections2.transform(
-                      e.getLostInputs().values(), input -> Artifact.key((Artifact) input)))
-              .addAll(discoveredInputDepKeys)
-              .build();
-    } else if (!discoveredInputDepKeys.isEmpty()) {
-      failedActionDeps =
-          ImmutableSet.<SkyKey>builder()
-              .addAll(inputDepKeys)
-              .addAll(discoveredInputDepKeys)
-              .build();
-    } else {
-      failedActionDeps = inputDepKeys;
+      failedActionDeps.addAll(
+          Collections2.transform(
+              e.getLostInputs().values(), input -> Artifact.key((Artifact) input)));
     }
 
     RewindPlanResult rewindPlanResult = null;
@@ -533,7 +503,7 @@ public class ActionExecutionFunction implements SkyFunction {
           actionRewindStrategy.prepareRewindPlanForLostInputs(
               actionLookupData,
               action,
-              failedActionDeps,
+              failedActionDeps.build(),
               e,
               inputArtifactData,
               env,
@@ -909,14 +879,10 @@ public class ActionExecutionFunction implements SkyFunction {
             ? state.getOrCreateLateDiscoveredInputArtifactData(unknownDiscoveredInputs.size())
             : state.inputArtifactData;
 
-    if (state.discoveredInputDepKeys.isEmpty()) {
-      state.discoveredInputDepKeys = CompactHashSet.create();
-    }
     boolean nestedInputsReady = false;
     if (!state.discoveredInputs.isSingleton()) {
       // Preserve shared header sets instead of retaining one edge per header in every action.
       SkyKey nestedKey = ArtifactNestedSetKey.create(state.discoveredInputs);
-      state.discoveredInputDepKeys.add(nestedKey);
       try {
         if (env.getValueOrThrow(nestedKey, ArtifactNestedSetEvalException.class) == null) {
           return;
@@ -928,9 +894,6 @@ public class ActionExecutionFunction implements SkyFunction {
     }
     SkyframeLookupResult nonMandatoryDiscovered = null;
     if (!nestedInputsReady) {
-      for (Artifact input : unknownDiscoveredInputs) {
-        state.discoveredInputDepKeys.add(Artifact.key(input));
-      }
       nonMandatoryDiscovered = env.getValuesAndExceptions(Artifact.keys(unknownDiscoveredInputs));
     }
     for (Artifact input : unknownDiscoveredInputs) {
@@ -939,8 +902,8 @@ public class ActionExecutionFunction implements SkyFunction {
         if (nestedInputsReady) {
           retrievedMetadata = lookupInput(input, ImmutableSet.of(), env);
           if (retrievedMetadata == null) {
-            // A generating action may have been rewound after the nested set completed.
-            state.discoveredInputDepKeys.add(Artifact.key(input));
+            // If rewinding finishes with an error, the nested set may still report success.
+            // Request the failed artifact directly so Skyframe propagates its error.
             retrievedMetadata =
                 env.getValueOrThrow(Artifact.key(input), SourceArtifactException.class);
           }
@@ -1326,7 +1289,6 @@ public class ActionExecutionFunction implements SkyFunction {
 
     Token token = null;
     NestedSet<Artifact> discoveredInputs = null;
-    Set<SkyKey> discoveredInputDepKeys = ImmutableSet.of();
     FileSystem actionFileSystem = null;
     boolean preparedInputDiscovery = false;
     boolean actionInputCollectedEventSent = false;

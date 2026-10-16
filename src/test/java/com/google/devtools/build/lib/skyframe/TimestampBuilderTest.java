@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -60,11 +61,15 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     Artifact second = createSourceArtifact("second.h");
     BlazeTestUtils.makeEmptyFile(first.getPath());
     BlazeTestUtils.makeEmptyFile(second.getPath());
-    NestedSet<Artifact> discovered = asNestedSet(first, second);
+    NestedSet<Artifact> shared = asNestedSet(first, second);
     Artifact one = createDerivedArtifact("one");
     Artifact two = createDerivedArtifact("two");
     AtomicInteger counter = new AtomicInteger();
     for (Artifact output : ImmutableSet.of(one, two)) {
+      Artifact unique = createSourceArtifact(output.getFilename() + ".h");
+      BlazeTestUtils.makeEmptyFile(unique.getPath());
+      NestedSet<Artifact> discovered =
+          NestedSetBuilder.<Artifact>stableOrder().add(unique).addTransitive(shared).build();
       registerAction(
           new TestAction(counter::incrementAndGet, emptyNestedSet, ImmutableSet.of(output)) {
             @Override
@@ -103,10 +108,15 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
 
     assertThat(counter.get()).isEqualTo(2);
     assertThat(actionDeps).hasSize(2);
+    ImmutableSet.Builder<ArtifactNestedSetKey> discoveredKeys = ImmutableSet.builder();
     for (ImmutableSet<SkyKey> deps : actionDeps) {
-      assertThat(deps).contains(ArtifactNestedSetKey.create(discovered));
+      ArtifactNestedSetKey discoveredKey =
+          Iterables.getOnlyElement(Iterables.filter(deps, ArtifactNestedSetKey.class));
+      discoveredKeys.add(discoveredKey);
+      assertThat(discoveredKey.getDirectDepKeys()).contains(ArtifactNestedSetKey.create(shared));
       assertThat(deps).containsNoneOf(Artifact.key(first), Artifact.key(second));
     }
+    assertThat(discoveredKeys.build()).hasSize(2);
 
     buildArtifacts(cachingBuilder(), one, two);
     assertThat(counter.get()).isEqualTo(2);
