@@ -36,6 +36,7 @@
 #include <sys/types.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <string>
 
 #include "src/main/native/unix_jni.h"

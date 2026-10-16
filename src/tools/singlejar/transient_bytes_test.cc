@@ -18,11 +18,14 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <ios>
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <string>
 
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/test_util.h"
