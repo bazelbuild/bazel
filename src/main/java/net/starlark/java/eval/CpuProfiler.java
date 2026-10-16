@@ -293,12 +293,14 @@ public final class CpuProfiler {
     synchronized void writeEnd() throws IOException {
       long endNano = System.nanoTime();
       try {
-        writeLong(gz, PROFILE_DURATION_NANOS, endNano - startNano);
         if (this.error != null) {
           throw this.error; // retained from an earlier error
         }
+        writeLong(gz, PROFILE_DURATION_NANOS, endNano - startNano);
       } finally {
-        gz.close();
+        if (gz != null) {
+          gz.close();
+        }
       }
     }
 
