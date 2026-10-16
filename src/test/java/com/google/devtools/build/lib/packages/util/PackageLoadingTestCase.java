@@ -228,7 +228,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of())));
+                ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
+            PrecomputedValue.injected(ModuleFileFunction.INJECTED_MODULES, ImmutableMap.of())));
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }
