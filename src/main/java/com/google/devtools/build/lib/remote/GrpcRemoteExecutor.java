@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
@@ -21,12 +23,21 @@ import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionBlockingStub;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
+import com.google.bytestream.ByteStreamGrpc;
+import com.google.bytestream.ByteStreamProto.ReadRequest;
+import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
+import com.google.common.io.CountingOutputStream;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
@@ -37,7 +48,11 @@ import com.google.rpc.Status;
 import io.grpc.Channel;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
+import io.grpc.stub.ClientCallStreamObserver;
+import io.grpc.stub.ClientResponseObserver;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,9 +63,18 @@ import javax.annotation.Nullable;
 @ThreadSafe
 class GrpcRemoteExecutor implements RemoteExecutionClient {
 
+  /**
+   * A live output read that times out after being open at least this long is retried without using
+   * up the retries, since that's expected while a quiet action runs, e.g. with
+   * --remote_grpc_download_idle_timeout or a server-side deadline on reads. Reads that time out
+   * sooner use the bounded retries, so that a broken stream doesn't get retried forever.
+   */
+  private static final Duration MIN_TIMED_OUT_READ_DURATION = Duration.ofSeconds(1);
+
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
   private final RemoteRetrier retrier;
+  private final RemoteRetrier outputStreamRetrier;
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -58,9 +82,22 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
       RemoteRetrier retrier) {
+    this(channel, callCredentialsProvider, retrier, retrier);
+  }
+
+  /**
+   * @param outputStreamRetrier retries reads of live output streams. Since live output is best
+   *     effort, its failures shouldn't count towards a circuit breaker shared with execution.
+   */
+  public GrpcRemoteExecutor(
+      ReferenceCountedChannel channel,
+      CallCredentialsProvider callCredentialsProvider,
+      RemoteRetrier retrier,
+      RemoteRetrier outputStreamRetrier) {
     this.channel = channel;
     this.callCredentialsProvider = callCredentialsProvider;
     this.retrier = retrier;
+    this.outputStreamRetrier = outputStreamRetrier;
   }
 
   private ExecutionBlockingStub execBlockingStub(RequestMetadata metadata, Channel channel) {
@@ -255,6 +292,89 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
         // Cleanup: ignore exceptions, because the meaningful errors have already been propagated.
       }
     }
+  }
+
+  @Override
+  public ListenableFuture<Void> readOutputStream(
+      RemoteActionExecutionContext context, String resourceName, OutputStream out) {
+    // Counts the bytes received so far, so that retries resume where the previous read stopped.
+    CountingOutputStream countingOut = new CountingOutputStream(out);
+    ProgressiveBackoff backoff = new ProgressiveBackoff(outputStreamRetrier::newBackoff);
+    ListenableFuture<Long> read =
+        Utils.refreshIfUnauthenticatedAsync(
+            () ->
+                outputStreamRetrier.executeAsync(
+                    () ->
+                        channel.withChannelFuture(
+                            channel ->
+                                requestOutputStreamRead(
+                                    context, channel, resourceName, countingOut, backoff)),
+                    backoff),
+            callCredentialsProvider);
+    return Futures.transform(read, bytesRead -> null, directExecutor());
+  }
+
+  /** Returns the number of bytes read, since {@code withChannelFuture} can't complete with null. */
+  private ListenableFuture<Long> requestOutputStreamRead(
+      RemoteActionExecutionContext context,
+      Channel channel,
+      String resourceName,
+      CountingOutputStream out,
+      ProgressiveBackoff progressiveBackoff) {
+    SettableFuture<Long> future = SettableFuture.create();
+    Stopwatch readTime = Stopwatch.createStarted();
+    ByteStreamGrpc.newStub(channel)
+        .withInterceptors(
+            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
+        .withCallCredentials(callCredentialsProvider.getCallCredentials())
+        .read(
+            ReadRequest.newBuilder()
+                .setResourceName(resourceName)
+                .setReadOffset(out.getCount())
+                .build(),
+            new ClientResponseObserver<ReadRequest, ReadResponse>() {
+              private ClientCallStreamObserver<ReadRequest> requestStream;
+
+              @Override
+              public void beforeStart(ClientCallStreamObserver<ReadRequest> requestStream) {
+                this.requestStream = requestStream;
+                future.addListener(
+                    () -> {
+                      if (future.isCancelled()) {
+                        requestStream.cancel("canceled by user", null);
+                      }
+                    },
+                    directExecutor());
+              }
+
+              @Override
+              public void onNext(ReadResponse response) {
+                try {
+                  response.getData().writeTo(out);
+                } catch (IOException e) {
+                  requestStream.cancel("failed to write live output", e);
+                  future.setException(e);
+                  return;
+                }
+                // Reset the backoff, since the stream made progress.
+                progressiveBackoff.reset();
+              }
+
+              @Override
+              public void onError(Throwable t) {
+                if (io.grpc.Status.fromThrowable(t).getCode() == Code.DEADLINE_EXCEEDED
+                    && readTime.elapsed().compareTo(MIN_TIMED_OUT_READ_DURATION) >= 0) {
+                  progressiveBackoff.reset();
+                }
+                future.setException(t);
+              }
+
+              @Override
+              public void onCompleted() {
+                future.set(out.getCount());
+              }
+            });
+    return future;
   }
 
   @Override
