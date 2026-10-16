@@ -97,6 +97,8 @@ static wstring uint32asHexString(uint32_t value) {
   return wstring(attr_str, 8);
 }
 
+static bool IsVolumeMountPoint(const WCHAR* path);
+
 int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error) {
   if (!IsAbsoluteNormalizedWindowsPath(path)) {
     if (error) {
@@ -120,7 +122,8 @@ int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error) {
     }
     return IsSymlinkOrJunctionResult::kError;
   } else {
-    *result = (attrs & FILE_ATTRIBUTE_REPARSE_POINT);
+    *result = (attrs & FILE_ATTRIBUTE_REPARSE_POINT) &&
+              !((attrs & FILE_ATTRIBUTE_DIRECTORY) && IsVolumeMountPoint(path));
     return IsSymlinkOrJunctionResult::kSuccess;
   }
 }
@@ -226,6 +229,125 @@ typedef struct _REPARSE_DATA_BUFFER {
   } DUMMYUNIONNAME;
 } REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
 #pragma pack(pop)
+
+// Reads the substitute name of a symlink or mount point reparse buffer, whose
+// PathBuffer starts at `path_buffer_offset`. Returns false if the name does not
+// fit in the `size` bytes of `data`.
+static bool ReadSubstituteName(const uint8_t* data, size_t size,
+                               size_t path_buffer_offset, wstring* name) {
+  if (size < path_buffer_offset) {
+    return false;
+  }
+  // SubstituteNameOffset and SubstituteNameLength are at the same position in
+  // both the symlink and the mount point layout, and are in bytes.
+  USHORT name_offset;
+  USHORT name_length;
+  memcpy(&name_offset,
+         data + offsetof(REPARSE_DATA_BUFFER,
+                         MountPointReparseBuffer.SubstituteNameOffset),
+         sizeof(USHORT));
+  memcpy(&name_length,
+         data + offsetof(REPARSE_DATA_BUFFER,
+                         MountPointReparseBuffer.SubstituteNameLength),
+         sizeof(USHORT));
+  const size_t name_begin = path_buffer_offset + name_offset;
+  if (name_begin + name_length > size) {
+    return false;
+  }
+  name->resize(name_length / sizeof(WCHAR));
+  // memcpy, because the name is not necessarily WCHAR-aligned.
+  memcpy(&(*name)[0], data + name_begin, name->size() * sizeof(WCHAR));
+  return true;
+}
+
+int InterpretReparseData(const uint8_t* data, size_t size, wstring* result) {
+  ULONG tag;
+  if (size < sizeof(tag)) {
+    return ReadSymlinkOrJunctionResult::kError;
+  }
+  memcpy(&tag, data, sizeof(tag));
+  // TODO(tjgq): Make IsSymlinkOrJunction and ReadSymlinkOrJunction consistent.
+  // Currently, the former returns true for any reparse point type other than a
+  // volume mount point, but we don't handle all of them here (and it might be
+  // impossible to do so).
+  switch (tag) {
+    // IO_REPARSE_TAG_SYMLINK is an NTFS symlink.
+    // IO_REPARSE_TAG_LX_SYMLINK is a WSL symlink.
+    // Although Bazel only creates the former, other tools may create the latter
+    // (notably, `ln -s` under MSYS2 in `winsymlinks:native` mode).
+    case IO_REPARSE_TAG_SYMLINK:
+    case IO_REPARSE_TAG_LX_SYMLINK:
+      if (!ReadSubstituteName(data, size,
+                              offsetof(REPARSE_DATA_BUFFER,
+                                       SymbolicLinkReparseBuffer.PathBuffer),
+                              result)) {
+        return ReadSymlinkOrJunctionResult::kError;
+      }
+      return ReadSymlinkOrJunctionResult::kSuccess;
+    // IO_REPARSE_TAG_MOUNT_POINT is a junction or volume mount point.
+    case IO_REPARSE_TAG_MOUNT_POINT: {
+      wstring target;
+      if (!ReadSubstituteName(
+              data, size,
+              offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer.PathBuffer),
+              &target)) {
+        return ReadSymlinkOrJunctionResult::kError;
+      }
+      if (IsVolumeMountPointTarget(target)) {
+        // A volume mount point is a directory, not a link.
+        return ReadSymlinkOrJunctionResult::kNotALink;
+      }
+      *result = target;
+      return ReadSymlinkOrJunctionResult::kSuccess;
+    }
+    case IO_REPARSE_TAG_PROJFS:
+      // Virtual File System for Git
+      return ReadSymlinkOrJunctionResult::kNotALink;
+    default:
+      return ReadSymlinkOrJunctionResult::kError;
+  }
+}
+
+bool IsVolumeMountPointTarget(const wstring& target) {
+  // The substitute name of a volume mount point is the volume GUID path of the
+  // mounted volume's root, e.g. "\??\Volume{6f8b2a1c-...}\". A junction may
+  // also point into a volume by its GUID path ("\??\Volume{6f8b2a1c-...}\dir"),
+  // so require the whole name to be a volume root.
+  static const WCHAR kPrefix[] = L"\\??\\Volume{";
+  static const size_t kPrefixLen = sizeof(kPrefix) / sizeof(WCHAR) - 1;
+  static const size_t kGuidLen = 36;
+  // "\??\Volume{" + GUID + "}\"
+  static const size_t kTargetLen = kPrefixLen + kGuidLen + 2;
+  return target.size() == kTargetLen &&
+         _wcsnicmp(target.c_str(), kPrefix, kPrefixLen) == 0 &&
+         target[kTargetLen - 2] == L'}' && target[kTargetLen - 1] == L'\\';
+}
+
+// Returns true if `path` is a volume mount point. Returns false if it is not,
+// or if its reparse data cannot be read, in which case the caller keeps
+// treating the reparse point as a link.
+static bool IsVolumeMountPoint(const WCHAR* path) {
+  AutoHandle handle(CreateFileW(
+      AddUncPrefixMaybe(path).c_str(), 0,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+      OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
+      nullptr));
+  if (!handle.IsValid()) {
+    return false;
+  }
+  uint8_t raw_buf[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
+  PREPARSE_DATA_BUFFER buf = reinterpret_cast<PREPARSE_DATA_BUFFER>(raw_buf);
+  DWORD bytes_returned;
+  if (!::DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0, buf,
+                         MAXIMUM_REPARSE_DATA_BUFFER_SIZE, &bytes_returned,
+                         nullptr)) {
+    return false;
+  }
+  wstring target;
+  return buf->ReparseTag == IO_REPARSE_TAG_MOUNT_POINT &&
+         InterpretReparseData(raw_buf, bytes_returned, &target) ==
+             ReadSymlinkOrJunctionResult::kNotALink;
+}
 
 int CreateJunction(const wstring& junction_name, const wstring& junction_target,
                    wstring* error) {
@@ -607,42 +729,13 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
     return ReadSymlinkOrJunctionResult::kError;
   }
 
-  // TODO(tjgq): Make IsSymlinkOrJunction and ReadSymlinkOrJunction consistent.
-  // Currently, the former returns true for any reparse point type, but we don't
-  // handle all of them here (and it might be impossible to do so).
-  switch (buf->ReparseTag) {
-    // IO_REPARSE_TAG_SYMLINK is an NTFS symlink.
-    // IO_REPARSE_TAG_LX_SYMLINK is a WSL symlink.
-    // Although Bazel only creates the former, other tools may create the latter
-    // (notably, `ln -s` under MSYS2 in `winsymlinks:native` mode).
-    case IO_REPARSE_TAG_SYMLINK:
-    case IO_REPARSE_TAG_LX_SYMLINK: {
-      wchar_t* p =
-          (wchar_t*)(((uint8_t*)buf->SymbolicLinkReparseBuffer.PathBuffer) +
-                     buf->SymbolicLinkReparseBuffer.SubstituteNameOffset);
-      *result = wstring(p, buf->SymbolicLinkReparseBuffer.SubstituteNameLength /
-                               sizeof(WCHAR));
-      return ReadSymlinkOrJunctionResult::kSuccess;
-    }
-    // IO_REPARSE_TAG_MOUNT_POINT is a junction or volume mount point.
-    case IO_REPARSE_TAG_MOUNT_POINT: {
-      wchar_t* p =
-          (wchar_t*)(((uint8_t*)buf->MountPointReparseBuffer.PathBuffer) +
-                     buf->MountPointReparseBuffer.SubstituteNameOffset);
-      *result = wstring(
-          p, buf->MountPointReparseBuffer.SubstituteNameLength / sizeof(WCHAR));
-      return ReadSymlinkOrJunctionResult::kSuccess;
-    }
-    case IO_REPARSE_TAG_PROJFS: {
-      // Virtual File System for Git
-      return ReadSymlinkOrJunctionResult::kNotALink;
-    }
-    default:
-      *error =
-          MakeErrorMessage(WSTR(__FILE__), __LINE__, L"ReadSymlinkOrJunction",
-                           path, L"unsupported link type");
-      return ReadSymlinkOrJunctionResult::kError;
+  int result_code = InterpretReparseData(raw_buf, bytes_returned, result);
+  if (result_code == ReadSymlinkOrJunctionResult::kError && error) {
+    *error =
+        MakeErrorMessage(WSTR(__FILE__), __LINE__, L"ReadSymlinkOrJunction",
+                         path, L"unsupported link type");
   }
+  return result_code;
 }
 
 struct DirectoryStatus {
