@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -376,6 +378,118 @@ public final class SpawnInputExpanderTest {
     assertThat(inputMappings).hasSize(2);
     assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file1"), file1);
     assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file2"), file2);
+  }
+
+  @Test
+  public void getExpandedInputs_matchesInputMappingValues() throws Exception {
+    var inputMetadataProvider = new FakeActionInputFileCache();
+    var file = ActionsTestUtil.createArtifact(rootDir, "file");
+    var paramFile = ActionsTestUtil.createVirtualActionInput("params", "--flag");
+    var tree = createTreeArtifact("tree");
+    var treeChild = putTreeChild(inputMetadataProvider, tree, "child");
+    var emptyTree = createTreeArtifact("empty_tree");
+    inputMetadataProvider.putTreeArtifact(
+        emptyTree, TreeArtifactValue.newBuilder(emptyTree).build());
+    var fileset = createFilesetArtifact("fileset");
+    var filesetLink = filesetSymlink("link", "fileset_target");
+    inputMetadataProvider.putFileset(
+        fileset, FilesetOutputTree.create(ImmutableList.of(filesetLink), ImmutableMap.of()));
+
+    var runfile = ActionsTestUtil.createArtifact(rootDir, "runfile");
+    var runfilesTree = createTreeArtifact("runfiles_tree");
+    var runfilesTreeChild = putTreeChild(inputMetadataProvider, runfilesTree, "child");
+    var emptyRunfilesTree = createTreeArtifact("empty_runfiles_tree");
+    inputMetadataProvider.putTreeArtifact(
+        emptyRunfilesTree, TreeArtifactValue.newBuilder(emptyRunfilesTree).build());
+    var runfilesFileset = createFilesetArtifact("runfiles_fileset");
+    var runfilesFilesetLink = filesetSymlink("link", "runfiles_fileset_target");
+    inputMetadataProvider.putFileset(
+        runfilesFileset,
+        FilesetOutputTree.create(ImmutableList.of(runfilesFilesetLink), ImmutableMap.of()));
+    var runfiles =
+        new Runfiles.Builder("workspace")
+            .addArtifact(runfile)
+            .addArtifact(runfilesTree)
+            .addArtifact(emptyRunfilesTree)
+            .addArtifact(runfilesFileset)
+            .setEmptyFilesSupplier(
+                new Runfiles.EmptyFilesSupplier() {
+                  @Override
+                  public ImmutableList<PathFragment> getExtraPaths(
+                      Set<PathFragment> manifestPaths) {
+                    return ImmutableList.of(PathFragment.create("empty"));
+                  }
+
+                  @Override
+                  public void fingerprint(Fingerprint fingerprint) {}
+                })
+            .build();
+    var runfilesArtifact = ActionsTestUtil.createRunfilesArtifact(rootDir, "out/tool.runfiles");
+    inputMetadataProvider.putRunfilesTree(
+        runfilesArtifact,
+        AnalysisTestUtil.createRunfilesTree(runfilesArtifact.getExecPath(), runfiles));
+
+    var spawn =
+        new SpawnBuilder("/bin/echo", "Hello World")
+            .withInputs(file, paramFile, tree, emptyTree, fileset, runfilesArtifact)
+            .build();
+
+    assertThat(expander.getExpandedInputs(spawn, inputMetadataProvider))
+        .containsExactly(
+            file,
+            paramFile,
+            treeChild,
+            emptyTree,
+            filesetLink.target(),
+            runfile,
+            runfilesTreeChild,
+            emptyRunfilesTree,
+            runfilesFilesetLink.target(),
+            VirtualActionInput.EMPTY_MARKER);
+    assertThat(expander.getExpandedInputs(spawn, inputMetadataProvider))
+        .containsExactlyElementsIn(expander.getInputMapping(spawn, inputMetadataProvider).values());
+  }
+
+  @Test
+  public void getExpandedInputs_archivedTreeArtifacts_matchesInputMappingValues()
+      throws Exception {
+    var inputMetadataProvider = new FakeActionInputFileCache();
+    var tree = createTreeArtifact("tree");
+    var treeChild = TreeFileArtifact.createTreeOutput(tree, "child");
+    var archivedTree = ArchivedTreeArtifact.createForTree(tree);
+    inputMetadataProvider.putTreeArtifact(
+        tree,
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(treeChild, FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1))
+            .setArchivedRepresentation(archivedTree, FileArtifactValue.MISSING_FILE_MARKER)
+            .build());
+    var runfilesArtifact = ActionsTestUtil.createRunfilesArtifact(rootDir, "out/tool.runfiles");
+    inputMetadataProvider.putRunfilesTree(
+        runfilesArtifact,
+        AnalysisTestUtil.createRunfilesTree(
+            runfilesArtifact.getExecPath(),
+            new Runfiles.Builder("workspace").addArtifact(tree).build()));
+
+    var spawn =
+        new SpawnBuilder("/bin/echo", "Hello World").withInputs(tree, runfilesArtifact).build();
+    expander = new SpawnInputExpander(/* expandArchivedTreeArtifacts= */ false);
+
+    // Only tree artifacts in runfiles trees are replaced by their archived representation.
+    assertThat(expander.getExpandedInputs(spawn, inputMetadataProvider))
+        .containsExactly(treeChild, archivedTree);
+    assertThat(expander.getExpandedInputs(spawn, inputMetadataProvider))
+        .containsExactlyElementsIn(expander.getInputMapping(spawn, inputMetadataProvider).values());
+  }
+
+  private static TreeFileArtifact putTreeChild(
+      FakeActionInputFileCache inputMetadataProvider, SpecialArtifact tree, String name) {
+    var child = TreeFileArtifact.createTreeOutput(tree, name);
+    inputMetadataProvider.putTreeArtifact(
+        tree,
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child, FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1))
+            .build());
+    return child;
   }
 
   private SpecialArtifact createTreeArtifact(String relPath) throws IOException {

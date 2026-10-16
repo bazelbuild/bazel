@@ -306,6 +306,15 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
+    public Iterable<ActionInput> getExpandedInputs() {
+      if (lazyInputMapping != null) {
+        return lazyInputMapping.values();
+      }
+      return spawnInputExpander.getExpandedInputs(
+          spawn, actionExecutionContext.getInputMetadataProvider());
+    }
+
+    @Override
     public void report(ProgressStatus progress) {
       ActionExecutionMetadata action = spawn.getResourceOwner();
       if (action.getOwner() == null) {
