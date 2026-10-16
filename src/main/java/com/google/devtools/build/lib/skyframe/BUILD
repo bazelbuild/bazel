@@ -2277,7 +2277,10 @@ java_library(
 
 java_library(
     name = "skyframe_action_executor",
-    srcs = ["SkyframeActionExecutor.java"],
+    srcs = [
+        "RewoundActionOutputChecker.java",
+        "SkyframeActionExecutor.java",
+    ],
     deps = [
         ":action_execution_state",
         ":action_execution_value",
