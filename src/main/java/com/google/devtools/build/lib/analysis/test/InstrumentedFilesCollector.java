@@ -281,8 +281,6 @@ public final class InstrumentedFilesCollector {
         baselineCoverageArtifactsBuilder.addTransitive(provider.getBaselineCoverageArtifacts());
         coverageSupportFilesBuilder.addTransitive(provider.getCoverageSupportFiles());
         coverageEnvironmentBuilder.putAll(provider.getCoverageEnvironment());
-        // Coverage reported by dependencies (e.g. in their baseline coverage files) may need to be
-        // mapped to actual source paths even if the dependency isn't a top-level target.
         reportedToActualSourcesBuilder.addTransitive(provider.getReportedToActualSources());
       }
     }
