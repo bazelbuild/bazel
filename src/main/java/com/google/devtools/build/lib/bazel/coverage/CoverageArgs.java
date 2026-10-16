@@ -28,6 +28,12 @@ import javax.annotation.Nullable;
 /**
  * A value class that holds arguments for {@link CoverageReportActionBuilder#CoverageHelper}
  * methods.
+ *
+ * @param sourceFileManifest if not null, a file listing the exec paths of all instrumented source
+ *     files, one per line. Coverage for all other source files should be dropped from the report.
+ * @param reportedToActualSourcesFile if not null, a file with lines of the form {@code
+ *     reported_path:actual_path} mapping the source file paths reported in coverage files to the
+ *     exec paths of the actual source files.
  */
 public record CoverageArgs(
     BlazeDirectories directories,
@@ -38,7 +44,9 @@ public record CoverageArgs(
     FilesToRunProvider reportGenerator,
     String workspaceName,
     @Nullable Artifact htmlReport,
-    ActionOwner actionOwner) {
+    ActionOwner actionOwner,
+    @Nullable Artifact sourceFileManifest,
+    @Nullable Artifact reportedToActualSourcesFile) {
   public CoverageArgs {
     requireNonNull(directories, "directories");
     requireNonNull(coverageArtifacts, "coverageArtifacts");

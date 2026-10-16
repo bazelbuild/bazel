@@ -135,7 +135,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
    * "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h", but its
    * actual source path is "include/common/strategy.h".
    */
-  NestedSet<Tuple> getReportedToActualSources() {
+  public NestedSet<Tuple> getReportedToActualSources() {
     return reportedToActualSources;
   }
 
