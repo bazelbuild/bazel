@@ -205,7 +205,7 @@ class RemoteRepoContentsCacheTest(
         [
             'def _repo_impl(rctx):',
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
-            '  rctx.watch(Label("@//:data.txt"))',
+            '  rctx.watch(Label("@//:data file.txt"))',
             '  print("JUST FETCHED")',
             '  return rctx.repo_metadata(reproducible=True)',
             'repo = repository_rule(_repo_impl)',
@@ -215,20 +215,20 @@ class RemoteRepoContentsCacheTest(
     repo_dir = self.RepoDir('my_repo')
 
     # First fetch: not cached
-    self.ScratchFile('data.txt', ['one'])
+    self.ScratchFile('data file.txt', ['one'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
     # Change recorded inputs: not cached
-    self.ScratchFile('data.txt', ['two'])
+    self.ScratchFile('data file.txt', ['two'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
     # Change back to previous recorded inputs: cached (even after expunging)
     self.RunBazel(['clean', '--expunge'])
-    self.ScratchFile('data.txt', ['one'])
+    self.ScratchFile('data file.txt', ['one'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
