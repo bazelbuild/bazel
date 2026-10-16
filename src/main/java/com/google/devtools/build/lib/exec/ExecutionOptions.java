@@ -201,10 +201,12 @@ public abstract class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "When displaying subcommands (--subcommands) or printing the command line of a failed"
-              + " action (--verbose_failures), expand the contents of param files. When enabled,"
-              + " param file references like @path/to/param_file are replaced with the actual"
-              + " arguments they contain.")
+          "When displaying subcommands (--subcommands), printing the command line of a failed"
+              + " action (--verbose_failures) or writing the execution log"
+              + " (--execution_log_{compact,binary,json}_file), expand the contents of param files."
+              + " When enabled, param file references like @path/to/param_file are replaced with"
+              + " the actual arguments they contain. Spawns are still executed with param files,"
+              + " and the execution log still records them as inputs.")
   public abstract boolean getExpandParamFiles();
 
   @Option(

@@ -88,7 +88,8 @@ public final class ExpandedSpawnLogContextTest extends SpawnLogContextTestBase {
             DigestHashFunction.SHA256,
             SyscallCache.NO_CACHE,
             /* shouldPublish= */ false,
-            /* logSpawnPredicate= */ s -> true);
+            /* logSpawnPredicate= */ s -> true,
+            /* expandParamFiles= */ false);
 
     context.logSpawn(
         spawn.build(),
@@ -140,7 +141,8 @@ public final class ExpandedSpawnLogContextTest extends SpawnLogContextTestBase {
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE,
         /* shouldPublish= */ false,
-        logSpawnPredicate);
+        logSpawnPredicate,
+        /* expandParamFiles= */ false);
   }
 
   @Override
