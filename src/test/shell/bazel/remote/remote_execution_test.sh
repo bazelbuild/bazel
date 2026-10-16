@@ -165,7 +165,7 @@ function test_credential_helper_clear_cache() {
   expect_credential_helper_calls 10
 }
 
-function test_remote_grpc_cache_with_legacy_api() {
+function test_remote_grpc_cache_rejects_api_below_minimum() {
   stop_worker
   start_worker --legacy_api
 
@@ -180,11 +180,15 @@ EOF
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      //a:foo \
-      || fail "Failed to build //a:foo with legacy api Remote Cache"
+      //a:foo >& $TEST_log && fail "Build with REAPI 2.0 cache should have failed"
+
+  expect_log "client supported API versions, 2\.3"
+  expect_log "not supported by the server, 2\.0 to 2\.0"
+  expect_log "Please upgrade the remote server"
+  [[ ! -e bazel-bin/a/foo.txt ]] || fail "Action should not execute with an incompatible cache"
 }
 
-function test_remote_executor_with_legacy_api() {
+function test_remote_executor_rejects_api_below_minimum() {
   stop_worker
   start_worker --legacy_api
 
@@ -198,9 +202,14 @@ genrule(
 EOF
 
   bazel build \
+      --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      //a:foo \
-      || fail "Failed to build //a:foo with legacy api Remote Executor"
+      //a:foo >& $TEST_log && fail "Build with REAPI 2.0 executor should have failed"
+
+  expect_log "client supported API versions, 2\.3"
+  expect_log "not supported by the server, 2\.0 to 2\.0"
+  expect_log "Please upgrade the remote server"
+  [[ ! -e bazel-bin/a/foo.txt ]] || fail "Action should not execute with an incompatible executor"
 }
 
 function test_remote_grpc_cache_with_protocol() {

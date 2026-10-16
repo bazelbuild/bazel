@@ -32,6 +32,95 @@ public class ClientApiVersionTest {
     return Arrays.asList(
         new Object[][] {
           {
+            "currentRejectsRemoteApi2.0",
+            ClientApiVersion.current,
+            ServerCapabilities.newBuilder()
+                .setLowApiVersion(SemVer.newBuilder().setMajor(2).setMinor(0).build())
+                .setHighApiVersion(SemVer.newBuilder().setMajor(2).setMinor(0).build())
+                .build(),
+            ClientApiVersion.ServerSupportedStatus.unsupported(
+                new ApiVersion(2, 3, 0, ""),
+                ApiVersion.high,
+                new ApiVersion(2, 0, 0, ""),
+                new ApiVersion(2, 0, 0, "")),
+            Arrays.asList("not supported", "2.3", "upgrade the remote server")
+          },
+          {
+            "currentRejectsRemoteApi2.1",
+            ClientApiVersion.current,
+            ServerCapabilities.newBuilder()
+                .setLowApiVersion(SemVer.newBuilder().setMajor(2).setMinor(1).build())
+                .setHighApiVersion(SemVer.newBuilder().setMajor(2).setMinor(1).build())
+                .build(),
+            ClientApiVersion.ServerSupportedStatus.unsupported(
+                new ApiVersion(2, 3, 0, ""),
+                ApiVersion.high,
+                new ApiVersion(2, 1, 0, ""),
+                new ApiVersion(2, 1, 0, "")),
+            Arrays.asList("not supported", "2.3", "upgrade the remote server")
+          },
+          {
+            "currentRejectsRemoteApi2.2",
+            ClientApiVersion.current,
+            ServerCapabilities.newBuilder()
+                .setLowApiVersion(SemVer.newBuilder().setMajor(2).setMinor(2).build())
+                .setHighApiVersion(SemVer.newBuilder().setMajor(2).setMinor(2).build())
+                .build(),
+            ClientApiVersion.ServerSupportedStatus.unsupported(
+                new ApiVersion(2, 3, 0, ""),
+                ApiVersion.high,
+                new ApiVersion(2, 2, 0, ""),
+                new ApiVersion(2, 2, 0, "")),
+            Arrays.asList("not supported", "2.3", "upgrade the remote server")
+          },
+          {
+            "currentAcceptsRemoteApi2.3",
+            ClientApiVersion.current,
+            ServerCapabilities.newBuilder()
+                .setLowApiVersion(SemVer.newBuilder().setMajor(2).setMinor(3).build())
+                .setHighApiVersion(SemVer.newBuilder().setMajor(2).setMinor(3).build())
+                .build(),
+            ClientApiVersion.ServerSupportedStatus.supported(new ApiVersion(2, 3, 0, "")),
+            Arrays.asList()
+          },
+          {
+            "currentAcceptsServerWithOlderMinimumAndSupportedMaximum",
+            ClientApiVersion.current,
+            ServerCapabilities.newBuilder()
+                .setLowApiVersion(SemVer.newBuilder().setMajor(2).setMinor(0).build())
+                .setHighApiVersion(SemVer.newBuilder().setMajor(2).setMinor(3).build())
+                .build(),
+            ClientApiVersion.ServerSupportedStatus.supported(new ApiVersion(2, 3, 0, "")),
+            Arrays.asList()
+          },
+          {
+            "currentAcceptsDeprecatedOverlapAtMinimum",
+            ClientApiVersion.current,
+            ServerCapabilities.newBuilder()
+                .setDeprecatedApiVersion(SemVer.newBuilder().setMajor(2).setMinor(3).build())
+                .setLowApiVersion(SemVer.newBuilder().setMajor(2).setMinor(12).build())
+                .setHighApiVersion(SemVer.newBuilder().setMajor(2).setMinor(12).build())
+                .build(),
+            ClientApiVersion.ServerSupportedStatus.deprecated(
+                ApiVersion.high, new ApiVersion(2, 12, 0, ""), new ApiVersion(2, 12, 0, "")),
+            Arrays.asList("deprecated", "2.12 to 2.12")
+          },
+          {
+            "currentRejectsDeprecatedRangeBelowMinimum",
+            ClientApiVersion.current,
+            ServerCapabilities.newBuilder()
+                .setDeprecatedApiVersion(SemVer.newBuilder().setMajor(2).setMinor(0).build())
+                .setLowApiVersion(SemVer.newBuilder().setMajor(2).setMinor(1).build())
+                .setHighApiVersion(SemVer.newBuilder().setMajor(2).setMinor(2).build())
+                .build(),
+            ClientApiVersion.ServerSupportedStatus.unsupported(
+                new ApiVersion(2, 3, 0, ""),
+                ApiVersion.high,
+                new ApiVersion(2, 1, 0, ""),
+                new ApiVersion(2, 2, 0, "")),
+            Arrays.asList("not supported", "2.3", "upgrade the remote server")
+          },
+          {
             "noSupportedVersion",
             new ClientApiVersion(
                 new ApiVersion(SemVer.newBuilder().setMajor(2).setMinor(0).build()),
