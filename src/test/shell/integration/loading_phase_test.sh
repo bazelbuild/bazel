@@ -492,6 +492,64 @@ EOF
   done
 }
 
+function test_starlark_cpu_profile_after_early_failure() {
+  if is_windows; then
+    echo "Starlark profiler is not supported on Microsoft Windows."
+    return
+  fi
+
+  mkdir -p test
+  echo 'filegroup(name = "target")' > test/BUILD
+  local server_pid
+  server_pid=$(bazel info server_pid) || fail "could not get server PID"
+  bazel build --starlark_cpu_profile="${TEST_TMPDIR}/failed.pprof.gz" \
+    --//missing:flag=value //test:target >"$TEST_log" 2>&1 && fail "expected a missing flag error"
+  expect_log "no such package 'missing'"
+
+  bazel build --starlark_cpu_profile="${TEST_TMPDIR}/next.pprof.gz" \
+    //test:target >"$TEST_log" 2>&1 || fail "profiler did not recover after an early exit"
+  [[ $(bazel info server_pid) == "$server_pid" ]] || fail "server restarted"
+  gzip -t "${TEST_TMPDIR}/failed.pprof.gz" || fail "failed-command profile was not finalized"
+  gzip -t "${TEST_TMPDIR}/next.pprof.gz" || fail "next-command profile was not finalized"
+}
+
+function test_starlark_cpu_profile_after_output_error() {
+  mkdir -p test "${TEST_TMPDIR}/profile-directory"
+  echo 'filegroup(name = "target")' > test/BUILD
+  local server_pid
+  server_pid=$(bazel info server_pid) || fail "could not get server PID"
+  bazel build --starlark_cpu_profile="${TEST_TMPDIR}/profile-directory" \
+    //test:target >"$TEST_log" 2>&1 && fail "expected a profile output error"
+  expect_log "Starlark CPU profiler:"
+
+  bazel build //test:target >"$TEST_log" 2>&1 || fail "JSON profiler did not recover"
+  [[ $(bazel info server_pid) == "$server_pid" ]] || fail "server restarted"
+}
+
+function test_starlark_cpu_profile_after_write_error() {
+  if is_windows; then
+    echo "Starlark profiler is not supported on Microsoft Windows."
+    return
+  fi
+
+  if [[ ! -c /dev/full ]]; then
+    echo "This test needs /dev/full to fail writes after opening the profile."
+    return
+  fi
+
+  mkdir -p test
+  echo 'filegroup(name = "target")' > test/BUILD
+  local server_pid
+  server_pid=$(bazel info server_pid) || fail "could not get server PID"
+  bazel build --starlark_cpu_profile=/dev/full --//missing:flag=value \
+    //test:target >"$TEST_log" 2>&1 && fail "expected a missing flag error"
+  expect_log "no such package 'missing'"
+  expect_log "No space left on device"
+
+  bazel build //test:target >"$TEST_log" 2>&1 || fail "profilers did not recover after a write error"
+  [[ $(bazel info server_pid) == "$server_pid" ]] || fail "server restarted"
+}
+
 # Test that actions.write correctly emits a UTF-8 encoded attribute value as
 # UTF-8.
 function test_actions_write_utf8_attribute() {
