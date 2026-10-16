@@ -479,10 +479,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   private void materializeSubtree(PathFragment path) throws IOException, InterruptedException {
     var files = new LinkedHashSet<PathFragment>();
     var symlinks = new LinkedHashSet<PathFragment>();
-    var root = externalFs.getPath(path);
-    if (root.isSymbolicLink()) {
-      symlinks.add(path);
-      root = root.resolveSymbolicLinks();
+    // The path or any of the directories above it may be a symlink. Reproduce these symlinks on the
+    // native file system and materialize the subtree at the path they resolve to, as creating the
+    // directories along the given path instead would turn the symlinks into regular directories.
+    var root = externalFs.getPath(path.subFragment(0, externalDirectorySegmentCount + 1));
+    for (String segment : path.subFragment(externalDirectorySegmentCount + 1).segments()) {
+      root = root.getChild(segment);
+      if (root.isSymbolicLink()) {
+        symlinks.add(root.asFragment());
+        root = root.resolveSymbolicLinks();
+      }
     }
     collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
     prefetch(files);
