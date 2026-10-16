@@ -567,8 +567,9 @@ public final class RemoteModule extends BlazeModule {
     String buildRequestId = env.getBuildRequestId();
     env.getReporter().handle(Event.info(String.format("Invocation ID: %s", invocationId)));
 
+    var reporter = env.getReporter();
     RxJavaPlugins.setErrorHandler(
-        error -> env.getReporter().handle(Event.error(Throwables.getStackTraceAsString(error))));
+        error -> reporter.handle(Event.error(Throwables.getStackTraceAsString(error))));
 
     Path logDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");
@@ -1283,7 +1284,7 @@ public final class RemoteModule extends BlazeModule {
         leaseService =
             new LeaseService(
                 env.getSkyframeExecutor().getEvaluator(),
-                () -> env.getBlazeWorkspace().getPersistentActionCache(),
+                env.getBlazeWorkspace()::getPersistentActionCache,
                 leaseExtension);
         env.getEventBus().register(leaseService);
       }

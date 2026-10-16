@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -94,6 +96,22 @@ public class ReporterTest extends EventTestTemplate {
     reporter.removeHandler(outAppender);
     reporter.handle(Event.error(location, "Event gets ignored."));
     assertThat(out.toString()).isEmpty();
+  }
+
+  @Test
+  public void clearDetachesEventAndAnsiHandlers() {
+    ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
+    EventHandler ansiHandler = mock(EventHandler.class);
+    Reporter reporter = new Reporter(eventHandler, outAppender);
+    reporter.registerAnsiAllowingHandler(outAppender, ansiHandler);
+
+    reporter.clear();
+    reporter.switchToAnsiAllowingHandler();
+    reporter.handle(Event.error("after command"));
+    reporter.post(new FakePostable());
+
+    assertThat(out.toString()).isEmpty();
+    verifyNoInteractions(eventHandler, ansiHandler);
   }
 
   @Test
