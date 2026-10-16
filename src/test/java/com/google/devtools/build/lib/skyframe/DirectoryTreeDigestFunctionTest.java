@@ -205,6 +205,16 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void changeExecutableBit() throws Exception {
+    var file = scratch.file("dir/script", "contents");
+    file.setExecutable(false);
+    String oldDigest = getTreeDigest("dir");
+
+    file.setExecutable(true);
+    assertThat(getTreeDigest("dir")).isNotEqualTo(oldDigest);
+  }
+
+  @Test
   public void changeMtime() throws Exception {
     scratch.file("a", "a");
     scratch.file("b", "b");

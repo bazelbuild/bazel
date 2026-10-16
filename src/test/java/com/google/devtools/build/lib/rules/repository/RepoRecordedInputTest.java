@@ -71,16 +71,24 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), scratch.file("foo", "bar"));
 
     // Digest should be returned if the FileValue has it.
-    FileValue fv = new RegularFileStateValueWithDigest(3, new byte[] {1, 2, 3, 4});
-    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo("01020304");
+    FileValue fv = new RegularFileStateValueWithDigest(3, new byte[] {1, 2, 3, 4}, false);
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv, false))
+        .isEqualTo("01020304");
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv, true))
+        .isEqualTo("01020304:-");
 
     // Digest should also be returned if the FileStateValue doesn't have it.
     FileStatus status = Mockito.mock(FileStatus.class);
     when(status.getLastChangeTime()).thenReturn(100L);
     when(status.getNodeId()).thenReturn(200L);
-    fv = new RegularFileStateValueWithContentsProxy(3, FileContentsProxy.create(status));
+    fv = new RegularFileStateValueWithContentsProxy(3, FileContentsProxy.create(status), false);
     String expectedDigest = BaseEncoding.base16().lowerCase().encode(path.asPath().getDigest());
-    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo(expectedDigest);
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv, false))
+        .isEqualTo(expectedDigest);
+
+    fv = new FileStateValue.SpecialFileStateValue(FileContentsProxy.create(status));
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv, true))
+        .isEqualTo(expectedDigest);
   }
 
   @Test
@@ -113,8 +121,10 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
       getDigestCounter.set(0);
       statCounter.set(0);
 
-      assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo(expectedDigest);
-      assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo(expectedDigest);
+      assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv, false))
+          .isEqualTo(expectedDigest);
+      assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv, true))
+          .isEqualTo(expectedDigest + ":-");
       assertThat(getDigestCounter.get()).isEqualTo(1);
       // The cache key is derived from the FileValue's contents proxy.
       assertThat(statCounter.get()).isEqualTo(0);
