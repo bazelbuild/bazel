@@ -17,9 +17,13 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.AttributeValuesAdapter.STRING_ESCAPE_SEQUENCE;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.Strictness;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
@@ -28,6 +32,7 @@ import java.io.StringWriter;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Tuple;
@@ -47,6 +52,7 @@ public class AttributeValuesAdapterTest extends FoundationTestCase {
     dict.put("Boolean", false);
     dict.put("String", "Hello String");
     dict.put("StringWithAngleBrackets", "<Hello>");
+    dict.put("Unicode", unicodeToInternal("café/🙂"));
     dict.put(
         "LabelLikeString",
         StarlarkList.of(Mutability.IMMUTABLE, "@//foo:bar", ":baz", "@@//baz:quz"));
@@ -109,5 +115,120 @@ public class AttributeValuesAdapterTest extends FoundationTestCase {
     }
     assertThat((Map<?, ?>) attributeValues.attributes())
         .containsExactly("Tuple", StarlarkList.of(Mutability.IMMUTABLE, "bzl", "mod"));
+  }
+
+  @Test
+  public void testReadNumbersWithJsonPrimitiveIntConversions() throws IOException {
+    AttributeValues value =
+        new AttributeValuesAdapter()
+            .fromJson(
+                """
+                {
+                  "min": -2147483648,
+                  "max": 2147483647,
+                  "overflow": 2147483648,
+                  "largerThanLong": 18446744073709551617,
+                  "fraction": -3.75,
+                  "exponent": 2e2
+                }
+                """);
+
+    assertThat((Map<?, ?>) value.attributes())
+        .containsExactly(
+            "min", StarlarkInt.of(Integer.MIN_VALUE),
+            "max", StarlarkInt.of(Integer.MAX_VALUE),
+            "overflow", StarlarkInt.of(Integer.MIN_VALUE),
+            "largerThanLong", StarlarkInt.of(1),
+            "fraction", StarlarkInt.of(-3),
+            "exponent", StarlarkInt.of(200))
+        .inOrder();
+  }
+
+  @Test
+  public void testReadDuplicateJsonNamesBeforeDecodingDictKeys() throws IOException {
+    AttributeValues value =
+        new AttributeValuesAdapter()
+            .fromJson(
+                """
+                {
+                  "first": 1,
+                  "nested": {
+                    "foo": 1,
+                    "'foo'": 2,
+                    "foo": 3,
+                    "@@//foo:bar": [null, true],
+                    "'@@//foo:bar'": "café/🙂"
+                  },
+                  "first": 4
+                }
+                """);
+
+    assertThat(value.attributes().keySet()).containsExactly("first", "nested").inOrder();
+    assertThat(value.attributes().get("first")).isEqualTo(StarlarkInt.of(4));
+    assertThat((Map<?, ?>) value.attributes().get("nested"))
+        .containsExactly(
+            "foo", StarlarkInt.of(2),
+            Label.parseCanonicalUnchecked("@@//foo:bar"),
+                StarlarkList.immutableOf(Starlark.NONE, true),
+            "@@//foo:bar", unicodeToInternal("café/🙂"))
+        .inOrder();
+  }
+
+  @Test
+  public void testReadDiscardsConversionErrorsInOverwrittenJsonValues() throws IOException {
+    AttributeValues value =
+        new AttributeValuesAdapter()
+            .fromJson(
+                """
+                {
+                  "label": "@@//foo:..", "label": 1,
+                  "number": 1e9999999999, "number": 2,
+                  "list": ["@@//foo:.."], "list": 3,
+                  "dict": {"'": 0}, "dict": 4,
+                  "nested": {"bad": "@@//foo:..", "bad": 5}
+                }
+                """);
+
+    assertThat((Map<?, ?>) value.attributes())
+        .containsExactly(
+            "label", StarlarkInt.of(1),
+            "number", StarlarkInt.of(2),
+            "list", StarlarkInt.of(3),
+            "dict", StarlarkInt.of(4),
+            "nested", Dict.immutableCopyOf(Map.of("bad", StarlarkInt.of(5))))
+        .inOrder();
+  }
+
+  @Test
+  public void testReadDoesNotDiscardErrorsWhenOnlyDecodedKeysCollide() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new AttributeValuesAdapter().fromJson(
+            "{\"a\":{\"foo\":\"@@//foo:..\",\"'foo'\":1}}"));
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> new AttributeValuesAdapter().fromJson("{\"a\":{\"'\":0}}"));
+    assertThrows(
+        NumberFormatException.class,
+        () -> new AttributeValuesAdapter().fromJson("{\"a\":1e9999999999}"));
+  }
+
+  @Test
+  public void testReadReportsInvalidJsonBeforeConversionErrors() {
+    assertThrows(
+        JsonSyntaxException.class,
+        () ->
+            GsonTypeAdapterUtil.LOCKFILE_GSON.fromJson(
+                "{\"a\":\"@@//foo:..\", ]", AttributeValues.class));
+  }
+
+  @Test
+  public void testReadRestoresJsonReaderStrictness() throws IOException {
+    try (JsonReader reader = new JsonReader(new StringReader("{unquoted: 1}"))) {
+      AttributeValues value = new AttributeValuesAdapter().read(reader);
+
+      assertThat((Map<?, ?>) value.attributes()).containsExactly("unquoted", StarlarkInt.of(1));
+      assertThat(reader.getStrictness()).isEqualTo(Strictness.LEGACY_STRICT);
+    }
   }
 }
