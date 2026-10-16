@@ -688,8 +688,10 @@ sh_test(
     data = [
         ":test-deps",
         "//scripts:jq",
+        "@rules_cc//cc/coverage:collect_cc_coverage",
     ],
     env = {
+        "COLLECT_CC_COVERAGE_SCRIPT_RLOCATIONPATH": "$(rlocationpath @rules_cc//cc/coverage:collect_cc_coverage)",
         "JQ_RLOCATIONPATH": "$(rlocationpath //scripts:jq)",
     },
     tags = [
