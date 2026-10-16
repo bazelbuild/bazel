@@ -38,8 +38,9 @@ public class TargetLoadingUtil {
    *
    * <p>Establishes all Skyframe dependencies needed for incremental correctness.
    *
-   * <p>Returns {@link TargetAndErrorIfAny} if no dep was mising; otherwise, returns the {@link
-   * SkyKey} specifying the missing dep.
+   * <p>Returns {@link TargetAndErrorIfAny} if no dep was missing; otherwise, returns the {@link
+   * SkyKey} of a dep that either isn't done yet or failed with an exception this method doesn't
+   * throw.
    */
   public static Object loadTarget(Environment env, Label label)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
