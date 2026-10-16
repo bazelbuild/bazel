@@ -233,7 +233,7 @@ function release_to_github() {
 # Creates an index of the files contained in folder $1 in Markdown format.
 function create_index_md() {
   # First, add the release notes
-  get_release_page
+  get_release_page || return $?
   # Then, add the list of files
   echo
   echo "## Index of files"
@@ -245,9 +245,10 @@ function create_index_md() {
 }
 
 # Creates an index of the files contained in folder $1 in HTML format.
-function create_index_html() {
+function create_index_html() (
+  set -o pipefail
   create_index_md "${@}" | pandoc -f markdown -t html
-}
+)
 
 # Deploy a release candidate to Google Cloud Storage.
 # It requires to have gcloud storage installed.
