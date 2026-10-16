@@ -374,6 +374,87 @@ class RemoteRepoContentsCacheTest(
     with open(self.Path('bazel-bin/platform.txt')) as f:
       self.assertEqual(f.read().strip(), 'macOS')
 
+  def testNativeSourceDirectoryWithSymlinkIntoCachedRepo(self):
+    # A source directory in a repo that isn't cached (its symlink into another
+    # repo excludes it) contains a symlink into a repo that is served from the
+    # cache. A local action reading through the symlink needs the other repo's
+    # files on disk.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'tree_repo = use_repo_rule("//:repo.bzl", "tree_repo")',
+            'tree_repo(name = "tree_repo")',
+            'agg_repo = use_repo_rule("//:repo.bzl", "agg_repo")',
+            'agg_repo(name = "agg_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _tree_repo_impl(rctx):',
+            '  mode = rctx.getenv("MODE")',
+            '  rctx.file("BUILD", "exports_files([\'tree\'])")',
+            '  rctx.file("tree/sub/data.txt", "data for " + mode)',
+            '  print("JUST FETCHED tree_repo " + mode)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'tree_repo = repository_rule(_tree_repo_impl)',
+            'def _agg_repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'aggregate\'])")',
+            '  rctx.file("aggregate/native.txt", "native")',
+            '  rctx.symlink(Label("@tree_repo//:tree"), "aggregate/linked")',
+            (
+                '  rctx.symlink(Label("@tree_repo//:tree/sub/data.txt"),'
+                ' "aggregate/linked.txt")'
+            ),
+            '  print("JUST FETCHED agg_repo")',
+            'agg_repo = repository_rule(_agg_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "read_linked",',
+            '  srcs = ["@agg_repo//:aggregate"],',
+            '  outs = ["out.txt"],',
+            (
+                '  cmd = "cat $(location @agg_repo//:aggregate)/linked/sub/'
+                'data.txt $(location @agg_repo//:aggregate)/linked.txt > $@",'
+            ),
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+    args = ['build', '--spawn_strategy=local', '//main:read_linked']
+
+    # Fetch tree_repo for one value of MODE, then build with the other value so
+    # that both repos are fetched natively, and finally switch back to the
+    # first value, which serves tree_repo from the cache while agg_repo stays
+    # as fetched.
+    _, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '--repo_env=MODE=a', '@tree_repo//:tree']
+    )
+    self.assertIn('JUST FETCHED tree_repo a', '\n'.join(stderr))
+    _, _, stderr = self.RunBazel(args + ['--repo_env=MODE=b'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED tree_repo b', stderr)
+    self.assertIn('JUST FETCHED agg_repo', stderr)
+    _, _, stderr = self.RunBazel(args + ['--nobuild', '--repo_env=MODE=a'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(
+        os.path.exists(
+            os.path.join(self.RepoDir('tree_repo'), 'tree', 'sub', 'data.txt')
+        )
+    )
+
+    # The local action reads tree_repo's file through the symlinks to a
+    # directory and to a file in agg_repo.
+    _, _, stderr = self.RunBazel(args + ['--repo_env=MODE=a'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'data for adata for a')
+
   def testRecordedInputs_differentInputs(self):
     platform_file = self.ScratchFile('platform.txt')
 

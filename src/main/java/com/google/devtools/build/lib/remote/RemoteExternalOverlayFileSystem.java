@@ -471,9 +471,58 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   public void ensureSubtreeMaterialized(PathFragment path)
       throws IOException, InterruptedException {
     if (fsForPath(path) != externalFs) {
+      // A native directory can contain symlinks into repos that are served from memory, which a
+      // local action reads through the symlinks.
+      materializeSymlinkTargetsBelow(nativeFs.getPath(path));
       return;
     }
     materializeSubtree(path);
+  }
+
+  /**
+   * Materializes the files and subtrees of repos served from memory that symlinks below the given
+   * native directory point to, following chains of native symlinks on the way.
+   */
+  private void materializeSymlinkTargetsBelow(Path nativeDir)
+      throws IOException, InterruptedException {
+    if (!nativeDir.isDirectory(Symlinks.NOFOLLOW)) {
+      return;
+    }
+    for (Dirent dirent : nativeDir.readdir(Symlinks.NOFOLLOW)) {
+      Path child = nativeDir.getChild(dirent.getName());
+      switch (dirent.getType()) {
+        case DIRECTORY -> materializeSymlinkTargetsBelow(child);
+        case SYMLINK -> {
+          PathFragment target = resolveNativeSymlinkIntoMemory(child);
+          if (target != null && externalFs.getPath(target).exists()) {
+            materializeSubtree(target);
+          }
+        }
+        default -> {}
+      }
+    }
+  }
+
+  /**
+   * Returns the path served from memory that the given native symlink points to, possibly through
+   * further native symlinks, or null if it doesn't point into memory.
+   */
+  @Nullable
+  private PathFragment resolveNativeSymlinkIntoMemory(Path nativeSymlink) throws IOException {
+    PathFragment current = nativeSymlink.asFragment();
+    for (int i = 0; i < MAX_SYMLINKS; i++) {
+      if (fsForPath(current) == externalFs) {
+        return current;
+      }
+      Path path = nativeFs.getPath(current);
+      FileStatus status = path.statIfFound(Symlinks.NOFOLLOW);
+      if (status == null || !status.isSymbolicLink()) {
+        return null;
+      }
+      PathFragment target = path.readSymbolicLink();
+      current = target.isAbsolute() ? target : current.getParentDirectory().getRelative(target);
+    }
+    return null;
   }
 
   private void materializeSubtree(PathFragment path) throws IOException, InterruptedException {
@@ -484,7 +533,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       symlinks.add(path);
       root = root.resolveSymbolicLinks();
     }
-    collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
+    if (root.isFile()) {
+      // A symlink below a native directory may point to a single file.
+      files.add(root.asFragment());
+    } else {
+      collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
+    }
     prefetch(files);
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
     // target.
