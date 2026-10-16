@@ -69,11 +69,12 @@ public class BuildConfigurationKeyMapProducer
 
   @Override
   public StateMachine step(Tasks tasks) {
-    int index = 0;
-    for (BuildOptions buildOptions : options.values()) {
-      tasks.enqueue(
-          new BuildConfigurationKeyProducer<>(this, StateMachine.DONE, index++, buildOptions, label));
-    }
+    int[] index = {0};
+    options.forEach(
+        (unused, buildOptions) ->
+            tasks.enqueue(
+                new BuildConfigurationKeyProducer<>(
+                    this, StateMachine.DONE, index[0]++, buildOptions, label)));
     return this::combineResults;
   }
 
@@ -88,10 +89,8 @@ public class BuildConfigurationKeyMapProducer
     // Ensure that the result keys are in the same order as the original.
     ImmutableMap.Builder<String, BuildConfigurationKey> output =
         ImmutableMap.builderWithExpectedSize(this.options.size());
-    int index = 0;
-    for (String transitionKey : this.options.keySet()) {
-      output.put(transitionKey, results[index++]);
-    }
+    int[] index = {0};
+    this.options.forEach((transitionKey, unused) -> output.put(transitionKey, results[index[0]++]));
 
     this.sink.acceptTransitionedConfigurations(output.buildOrThrow());
     return this.runAfter;
