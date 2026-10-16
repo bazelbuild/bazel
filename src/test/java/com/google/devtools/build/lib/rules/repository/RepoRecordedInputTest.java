@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
@@ -120,6 +121,44 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
       assertThat(statCounter.get()).isEqualTo(0);
     } finally {
       DigestUtils.configureCache(/* maximumSize= */ 0);
+    }
+  }
+
+  @Test
+  public void fileRecordingObservesChangesWithSameSkyframeValue() throws Exception {
+    var target = scratch.file("first.txt", "original");
+    var replacement = scratch.file("second.txt", "modified content");
+    var link = target.getParentDirectory().getChild("watched");
+    link.createSymbolicLink(target.asFragment());
+    var input =
+        new RepoRecordedInput.File(
+            RepoRecordedInput.RepoCacheFriendlyPath.createOutsideWorkspace(link.asFragment()));
+    var env = Mockito.mock(Environment.class);
+    // This represents a FileValue with a digest supplied by the fast-digest provider.
+    // Skyframe returns it unchanged throughout this evaluation.
+    FileValue fileValue =
+        new RegularFileStateValueWithDigest(target.getFileSize(), target.getDigest());
+    when(env.getValue(input.getSkyKey(directories))).thenReturn(fileValue);
+    DigestUtils.configureCache(100);
+    try {
+      var first =
+          new RepoRecordedInput.MaybeValue.Valid(
+              BaseEncoding.base16().lowerCase().encode(target.getDigest()));
+      assertThat(input.getValueForRecording(env, directories)).isEqualTo(first);
+      link.delete();
+      link.createSymbolicLink(replacement.asFragment());
+      assertThat(input.getValueForRecording(env, directories))
+          .isEqualTo(
+              new RepoRecordedInput.MaybeValue.Valid(
+                  BaseEncoding.base16().lowerCase().encode(replacement.getDigest())));
+      link.delete();
+      assertThat(input.getValueForRecording(env, directories))
+          .isEqualTo(new RepoRecordedInput.MaybeValue.Valid("ENOENT"));
+      link.createDirectory();
+      assertThat(input.getValueForRecording(env, directories))
+          .isEqualTo(new RepoRecordedInput.MaybeValue.Valid("DIR"));
+    } finally {
+      DigestUtils.configureCache(0);
     }
   }
 
