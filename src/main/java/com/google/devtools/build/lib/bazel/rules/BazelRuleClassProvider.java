@@ -57,7 +57,9 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsClass;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -186,11 +188,21 @@ public class BazelRuleClassProvider {
         // Shell environment variables specified via options take precedence over the
         // ones inherited from the fragments. In the long run, these fragments will
         // be replaced by appropriate default rc files anyway.
+        Set<String> unsetEnv = new HashSet<>();
         for (var envVar : options.get(CoreOptions.class).getActionEnvironment()) {
           switch (envVar) {
-            case EnvVar.Set(String name, String value) -> env.put(name, value);
-            case EnvVar.Inherit(String name) -> env.put(name, null);
-            case EnvVar.Unset(String name) -> env.remove(name);
+            case EnvVar.Set(String name, String value) -> {
+              env.put(name, value);
+              unsetEnv.remove(name);
+            }
+            case EnvVar.Inherit(String name) -> {
+              env.put(name, null);
+              unsetEnv.remove(name);
+            }
+            case EnvVar.Unset(String name) -> {
+              env.remove(name);
+              unsetEnv.add(name);
+            }
           }
         }
 
@@ -203,7 +215,7 @@ public class BazelRuleClassProvider {
           env.put("RUNFILES_MANIFEST_ONLY", "1");
         }
 
-        return ActionEnvironment.split(env);
+        return ActionEnvironment.split(env, unsetEnv);
       };
 
   /** Convenience wrapper around {@link #setup} that returns a final ConfiguredRuleClassProvider. */
