@@ -102,10 +102,6 @@ public interface OutputService {
       return this != IN_MEMORY_ONLY_FILE_SYSTEM;
     }
 
-    public boolean supportsInputDiscovery() {
-      return this == DISABLED;
-    }
-
     public boolean isEnabled() {
       return this != DISABLED;
     }

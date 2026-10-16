@@ -236,8 +236,7 @@ public final class ActionsTestUtil {
         /* actionFileSystem= */ null,
         discoveredModulesPruner,
         SyscallCache.NO_CACHE,
-        ThreadStateReceiver.NULL_INSTANCE,
-        /* fileSystemSupportsInputDiscovery= */ true);
+        ThreadStateReceiver.NULL_INSTANCE);
   }
 
   /** Creates an {@link ActionExecutionValue} with only file outputs. */

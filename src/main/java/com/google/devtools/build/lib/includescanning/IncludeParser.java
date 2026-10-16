@@ -882,7 +882,7 @@ class IncludeParser {
               getFileType(),
               isOutputFile);
     } else {
-      if (isOutputFile && !actionExecutionContext.fileSystemSupportsInputDiscovery()) {
+      if (isOutputFile && actionExecutionContext.getActionFileSystem() != null) {
         // Ensure that the file's metadata is available, which possibly requires a Skyframe restart.
         var unused =
             actionExecutionContext.getInputMetadataProvider().getInputMetadataChecked(file);
