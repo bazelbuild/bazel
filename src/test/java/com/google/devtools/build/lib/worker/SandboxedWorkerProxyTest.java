@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerTestUtils.FakeSubprocess;
+import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.io.PipedInputStream;
 import java.util.ArrayList;
@@ -203,9 +204,9 @@ public class SandboxedWorkerProxyTest {
     req.put(SUPPORTS_MULTIPLEX_SANDBOXING, "1");
     Spawn spawn = WorkerTestUtils.createSpawn(req.buildOrThrow());
 
-    WorkerOptions options = new WorkerOptions();
-    options.workerMultiplex = true;
-    options.multiplexSandboxing = true;
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerMultiplex(true);
+    options.setMultiplexSandboxing(true);
 
     WorkerKey key =
         WorkerTestUtils.createWorkerKeyFromOptions(
@@ -241,9 +242,9 @@ public class SandboxedWorkerProxyTest {
     req.put(SUPPORTS_MULTIPLEX_SANDBOXING, "1");
     Spawn spawn = WorkerTestUtils.createSpawn(req.buildOrThrow());
 
-    WorkerOptions options = new WorkerOptions();
-    options.workerMultiplex = true;
-    options.multiplexSandboxing = true;
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerMultiplex(true);
+    options.setMultiplexSandboxing(true);
 
     WorkerKey key =
         WorkerTestUtils.createWorkerKeyFromOptions(
@@ -263,9 +264,9 @@ public class SandboxedWorkerProxyTest {
     req.put(SUPPORTS_MULTIPLEX_SANDBOXING, "1");
     Spawn spawn = WorkerTestUtils.createSpawn(req.buildOrThrow());
 
-    WorkerOptions options = new WorkerOptions();
-    options.workerMultiplex = true;
-    options.multiplexSandboxing = true;
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerMultiplex(true);
+    options.setMultiplexSandboxing(true);
 
     WorkerKey key =
         WorkerTestUtils.createWorkerKeyFromOptions(

@@ -3,14 +3,14 @@ load("@rules_java//java:defs.bzl", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_test(
@@ -20,8 +20,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/platform:platform_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -30,14 +30,14 @@ java_test(
     timeout = "short",
     srcs = ["SystemSuspensionEventTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/platform:platform_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/platform:system_suspension_module",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -53,15 +53,15 @@ java_test(
         ],
     }),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/platform:platform_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_module",
         "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_monitor",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
         "@rules_java//java/runfiles",
     ],
 )
@@ -78,14 +78,14 @@ java_test(
         ],
     }),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/platform:platform_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/platform:system_thermal_module",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
         "@rules_java//java/runfiles",
     ],
 )
@@ -102,14 +102,14 @@ java_test(
         ],
     }),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/platform:platform_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/platform:system_disk_space_module",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
         "@rules_java//java/runfiles",
     ],
 )
@@ -126,14 +126,14 @@ java_test(
         ],
     }),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/platform:platform_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/platform:system_cpu_speed_module",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
         "@rules_java//java/runfiles",
     ],
 )

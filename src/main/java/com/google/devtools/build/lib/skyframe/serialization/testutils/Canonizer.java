@@ -188,11 +188,8 @@ public final class Canonizer implements GraphDataCollector<Canonizer.Node> {
       Node representative = entry.getKey().members.get(0);
       for (ChildEdge child : representative.children) {
         switch (child) {
-          case LeafChild leaf:
-            break;
-          case NodeChild node:
-            entry.getValue().addLink(keys.get(node.getPartition()));
-            break;
+          case LeafChild leaf -> {}
+          case NodeChild node -> entry.getValue().addLink(keys.get(node.getPartition()));
         }
       }
     }
@@ -350,11 +347,8 @@ public final class Canonizer implements GraphDataCollector<Canonizer.Node> {
       var childPartitions = ImmutableList.<Partition>builder();
       for (ChildEdge child : children) {
         switch (child) {
-          case LeafChild leaf:
-            break;
-          case NodeChild node:
-            childPartitions.add(node.getPartition());
-            break;
+          case LeafChild leaf -> {}
+          case NodeChild node -> childPartitions.add(node.getPartition());
         }
       }
       return new PartitionKey(localFingerprint, childPartitions.build());
@@ -381,15 +375,13 @@ public final class Canonizer implements GraphDataCollector<Canonizer.Node> {
       for (ChildEdge child : children) {
         description.append(", ");
         switch (child) {
-          case LeafChild leaf:
-            description.append(leaf.labeledRepresentation());
-            break;
-          case NodeChild node:
+          case LeafChild leaf -> description.append(leaf.labeledRepresentation());
+          case NodeChild node -> {
             if (node.label != null) {
               description.append(node.label);
             }
             description.append(CHILD_NODE_PLACEHOLDER);
-            break;
+          }
         }
       }
       this.localFingerprint = fingerprintString(description.toString());

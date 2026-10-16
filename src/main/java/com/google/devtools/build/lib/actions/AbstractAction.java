@@ -57,6 +57,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
@@ -137,6 +138,11 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
    */
   @Override
   public boolean discoversInputs() {
+    return false;
+  }
+
+  @Override
+  public boolean prunedInputs() {
     return false;
   }
 
@@ -233,8 +239,8 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   }
 
   @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-      throws CommandLineExpansionException {
+  public ImmutableMap<String, String> getEffectiveEnvironment(
+      Map<String, String> clientEnv, PathMapper pathMapper) throws CommandLineExpansionException {
     ActionEnvironment env = getEnvironment();
     Map<String, String> effectiveEnvironment =
         Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
@@ -423,7 +429,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(prettyPrint()); // TODO(bazel-team): implement a readable representation
   }
 
@@ -465,7 +471,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
     }
 
     for (PathFragment path : additionalPathOutputsToDelete) {
-      deleteOutput(execRoot.getRelative(path), /*root=*/ null);
+      deleteOutput(execRoot.getRelative(path), /* root= */ null);
     }
 
     for (PathFragment path : directoryOutputsToDelete) {
@@ -640,7 +646,8 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
 
   @Override
   @Nullable
-  public Dict<String, String> getStarlarkSubstitutions() throws EvalException {
+  public Dict<String, String> getStarlarkSubstitutions()
+      throws EvalException, InterruptedException {
     return null;
   }
 

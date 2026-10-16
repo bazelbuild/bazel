@@ -19,6 +19,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -35,108 +35,92 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /** Stores the {@link OptionsParsingResult} from {@link ParsedFlagsFunction}. */
 @AutoCodec
-public final class ParsedFlagsValue implements SkyValue {
+public class ParsedFlagsValue implements SkyValue {
 
   /** Key for {@link ParsedFlagsValue} based on the raw flags. */
   @ThreadSafety.Immutable
   @AutoCodec
-  public static final class Key implements SkyKey {
+  public record Key(
+      ImmutableList<String> rawFlags,
+      PackageContext packageContext,
+      boolean includeDefaultValues,
+      ImmutableMap<String, Label> flagAliasMappings,
+      boolean allowNonFlagBuildSettings)
+      implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     /**
-     * Returns a new {@link Key} for the given command-line flags, such as {@code
-     * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
+     * @deprecated Use {@link #create} instead to ensure interning.
      */
-    public static Key create(
-        ImmutableList<String> rawFlags,
-        PackageContext packageContext,
-        List<Map.Entry<String, String>> flagAliasMappings) {
-      return create(rawFlags, packageContext, /* includeDefaultValues= */ false, flagAliasMappings);
+    @Deprecated
+    public Key {
+      checkNotNull(rawFlags);
+      checkNotNull(packageContext);
+      checkNotNull(flagAliasMappings);
     }
 
     /**
      * Returns a new {@link Key} for the given command-line flags, such as {@code
-     * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
+     */
+    public static Key create(
+        ImmutableList<String> rawFlags,
+        PackageContext packageContext,
+        ImmutableMap<String, Label> flagAliasMappings) {
+      return create(
+          rawFlags,
+          packageContext,
+          /* includeDefaultValues= */ false,
+          flagAliasMappings,
+          /* allowNonFlagBuildSettings= */ false);
+    }
+
+    /**
+     * Returns a new {@link Key} for the given command-line flags, such as {@code
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
+     */
+    public static Key create(
+        ImmutableList<String> rawFlags,
+        PackageContext packageContext,
+        boolean includeDefaultValues,
+        ImmutableMap<String, Label> flagAliasMappings) {
+      return create(
+          rawFlags,
+          packageContext,
+          includeDefaultValues,
+          flagAliasMappings,
+          /* allowNonFlagBuildSettings= */ false);
+    }
+
+    /**
+     * Returns a new {@link Key} for the given command-line flags, such as {@code
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
      */
     @AutoCodec.Instantiator
     public static Key create(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
         boolean includeDefaultValues,
-        List<Map.Entry<String, String>> flagAliasMappings) {
+        ImmutableMap<String, Label> flagAliasMappings,
+        boolean allowNonFlagBuildSettings) {
       return interner.intern(
-          new Key(rawFlags, packageContext, includeDefaultValues, flagAliasMappings));
-    }
-
-    private final ImmutableList<String> rawFlags;
-    private final PackageContext packageContext;
-    private final boolean includeDefaultValues;
-
-    private final List<Map.Entry<String, String>> flagAliasMappings;
-
-    private Key(
-        ImmutableList<String> rawFlags,
-        PackageContext packageContext,
-        boolean includeDefaultValues,
-        List<Map.Entry<String, String>> flagAliasMappings) {
-      this.rawFlags = checkNotNull(rawFlags);
-      this.packageContext = checkNotNull(packageContext);
-      this.includeDefaultValues = includeDefaultValues;
-      this.flagAliasMappings = flagAliasMappings;
-    }
-
-    ImmutableList<String> rawFlags() {
-      return rawFlags;
-    }
-
-    PackageContext packageContext() {
-      return packageContext;
-    }
-
-    boolean includeDefaultValues() {
-      return includeDefaultValues;
-    }
-
-    List<Map.Entry<String, String>> flagAliasMappings() {
-      return flagAliasMappings;
+          new Key(
+              rawFlags,
+              packageContext,
+              includeDefaultValues,
+              flagAliasMappings,
+              allowNonFlagBuildSettings));
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.PARSED_FLAGS;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Key that)) {
-        return false;
-      }
-      return rawFlags.equals(that.rawFlags)
-          && packageContext.equals(that.packageContext)
-          && includeDefaultValues == that.includeDefaultValues;
-    }
-
-    @Override
-    public int hashCode() {
-      return HashCodes.hashObjects(rawFlags, packageContext) * 31
-          + Boolean.hashCode(includeDefaultValues);
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper("ParsedFlagsValue.Key")
-          .add("rawFlags", rawFlags)
-          .add("packageContext", packageContext)
-          .add("includeDefaultValues", includeDefaultValues)
-          .toString();
     }
 
     @Override
@@ -190,8 +174,10 @@ public final class ParsedFlagsValue implements SkyValue {
    *   <li>Any native flags in this instance, for fragments that are kept, are set to the value from
    *       this instance.
    *   <li>All Starlark flags from the original {@link BuildOptions} are kept, then all Starlark
-   *       options from this instance are added.
+   *       options from this instance are added, along with the scope from their parsed {@code
+   *       scope} attribute when known.
    *   <li>Any Starlark flags which are present in both, the value from this instance is kept.
+   *   <li>Any Starlark flags set back to their default value are removed, along with their scope.
    * </ul>
    *
    * <p>To preserve fragment trimming, this method will not expand the set of included native
@@ -226,12 +212,18 @@ public final class ParsedFlagsValue implements SkyValue {
       updateOptionValue(fragment, optionDefinition, optionValue);
     }
 
-    // Also copy Starlark options.
+    // Merge Starlark options. The scope info from the source options is already in the builder,
+    // copied by source.toBuilder(). Add the scope info from this instance's parsed scope
+    // attributes on top of it, then merge the values: flags reset to their default value are
+    // removed by removeStarlarkOption, which also deletes the scope info just added.
+    builder.addScopeTypeMap(
+        BuildOptions.convertScopesAttributes(
+            parsingResult.getScopesAttributes(), parsingResult.getStarlarkOptions()));
     for (Map.Entry<String, Object> starlarkOption : parsingResult.getStarlarkOptions().entrySet()) {
       updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
     }
 
-    return BuildConfigurationKey.create(builder.addScopeTypeMap(source.getScopeTypeMap()).build());
+    return BuildConfigurationKey.create(builder.build());
   }
 
   private static void updateOptionValue(
@@ -241,6 +233,25 @@ public final class ParsedFlagsValue implements SkyValue {
     // TODO: https://github.com/bazelbuild/bazel/issues/22453 - This will completely overwrite
     //  accumulating flags, which is almost certainly not what users want. Instead this should
     //  intelligently merge options.
+    if (optionDefinition.getOptionName().equals("override_platform_cpu_name")) {
+      List<?> previousValue = (List<?>) optionDefinition.getValue(fragment);
+      List<?> newValue = (List<?>) optionValue.getValue();
+      Map<Object, Map.Entry<?, ?>> combined = new LinkedHashMap<>();
+      if (previousValue != null) {
+        for (Object item : previousValue) {
+          Map.Entry<?, ?> entry = (Map.Entry<?, ?>) item;
+          combined.put(entry.getKey(), entry);
+        }
+      }
+      if (newValue != null) {
+        for (Object item : newValue) {
+          Map.Entry<?, ?> entry = (Map.Entry<?, ?>) item;
+          combined.put(entry.getKey(), entry);
+        }
+      }
+      optionDefinition.setValue(fragment, ImmutableList.copyOf(combined.values()));
+      return;
+    }
     Object value = optionValue.getValue();
     optionDefinition.setValue(fragment, value);
   }

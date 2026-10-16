@@ -22,10 +22,13 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
+import com.google.common.net.UrlEscapers;
 import com.google.devtools.build.lib.authandtls.Netrc;
 import com.google.devtools.build.lib.authandtls.NetrcCredentials;
 import com.google.devtools.build.lib.authandtls.NetrcParser;
@@ -37,10 +40,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
-import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -49,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -66,6 +65,32 @@ import net.starlark.java.syntax.Location;
 public class UrlRewriter {
 
   private static final ImmutableSet<String> REWRITABLE_SCHEMES = ImmutableSet.of("http", "https");
+
+  private static final String DIGITS = "\\d+";
+
+  // Matches tokens in replacement strings: ${urlencode($N)}, urlencode($N), ${N}, $N, or \c
+  private static final Pattern REPLACEMENT_TOKEN_PATTERN =
+      Pattern.compile(
+          Pattern.quote("${urlencode($")
+              + DIGITS
+              + Pattern.quote(")}")
+              + "|"
+              + Pattern.quote("urlencode($")
+              + DIGITS
+              + Pattern.quote(")")
+              + "|"
+              + Pattern.quote("${")
+              + DIGITS
+              + Pattern.quote("}")
+              + "|"
+              + Pattern.quote("$")
+              + DIGITS
+              + "|\\\\.");
+
+  static boolean isValidUrlEncodeSyntax(String replacement) {
+    String stripped = REPLACEMENT_TOKEN_PATTERN.matcher(replacement).replaceAll("");
+    return !stripped.contains("urlencode(");
+  }
 
   private final UrlRewriterConfig config;
 
@@ -89,7 +114,7 @@ public class UrlRewriter {
    */
   public static UrlRewriter getDownloaderUrlRewriter(
       Path workspaceRoot, @Nullable List<PathFragment> configPaths)
-      throws UrlRewriterParseException {
+      throws IOException, UrlRewriterParseException {
     // "empty" UrlRewriter shouldn't alter auth headers
     if (configPaths == null
         || configPaths.isEmpty()
@@ -102,8 +127,12 @@ public class UrlRewriter {
     // investigation suggests that the current working directory isn't the workspace root.
     List<Path> actualConfigPaths = configPaths.stream().map(workspaceRoot::getRelative).toList();
 
-    List<Path> notFoundConfigPaths =
-        actualConfigPaths.stream().filter(Predicate.not(Path::exists)).toList();
+    List<Path> notFoundConfigPaths = new ArrayList<>();
+    for (Path actualConfigPath : actualConfigPaths) {
+      if (!actualConfigPath.exists()) {
+        notFoundConfigPaths.add(actualConfigPath);
+      }
+    }
     if (!notFoundConfigPaths.isEmpty()) {
       throw new UrlRewriterParseException(
           String.format(
@@ -128,7 +157,7 @@ public class UrlRewriter {
         return new UrlRewriter(
             configPaths.stream().map(PathFragment::getPathString).toList(), readers);
       } catch (Throwable e) {
-        throw closer.rethrow(e);
+        throw closer.rethrow(e, UrlRewriterParseException.class);
       } finally {
         closer.close();
       }
@@ -144,7 +173,7 @@ public class UrlRewriter {
    * @param urls The input list of {@link URL}s. May be empty.
    * @return The amended lists of URLs.
    */
-  public ImmutableList<RewrittenURL> amend(List<URL> urls) {
+  public ImmutableList<RewrittenURL> amend(List<URI> urls) {
     Objects.requireNonNull(urls, "URLS to check must be set but may be empty");
 
     return urls.stream().map(this::rewrite).flatMap(Collection::stream).collect(toImmutableList());
@@ -174,18 +203,12 @@ public class UrlRewriter {
 
       String userInfo = url.url().getUserInfo();
       if (userInfo != null) {
-        try {
-          String token =
-              "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(ISO_8859_1));
-          updatedAuthHeaders.put(
-              url.url().toURI(), ImmutableMap.of("Authorization", ImmutableList.of(token)));
-        } catch (URISyntaxException e) {
-          // If the credentials extraction failed, we're letting bazel try without credentials.
-        }
+        String token = "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(ISO_8859_1));
+        updatedAuthHeaders.put(
+            url.url(), ImmutableMap.of("Authorization", ImmutableList.of(token)));
       } else if (netrcCreds != null) {
         try {
-          Map<String, List<String>> urlAuthHeaders =
-              netrcCreds.getRequestMetadata(url.url().toURI());
+          Map<String, List<String>> urlAuthHeaders = netrcCreds.getRequestMetadata(url.url());
           if (urlAuthHeaders == null || urlAuthHeaders.isEmpty()) {
             continue;
           }
@@ -194,11 +217,11 @@ public class UrlRewriter {
               urlAuthHeaders.entrySet().stream().findFirst().get();
           if (firstAuthHeader.getValue() != null && !firstAuthHeader.getValue().isEmpty()) {
             updatedAuthHeaders.put(
-                url.url().toURI(),
+                url.url(),
                 ImmutableMap.of(
                     firstAuthHeader.getKey(), ImmutableList.of(firstAuthHeader.getValue().get(0))));
           }
-        } catch (URISyntaxException | IOException e) {
+        } catch (IOException e) {
           // If the credentials extraction failed, we're letting bazel try without credentials.
         }
       }
@@ -207,12 +230,12 @@ public class UrlRewriter {
     return ImmutableMap.copyOf(updatedAuthHeaders);
   }
 
-  private ImmutableList<RewrittenURL> rewrite(URL url) {
+  private ImmutableList<RewrittenURL> rewrite(URI url) {
     Preconditions.checkNotNull(url);
 
     // Cowardly refuse to rewrite non-HTTP(S) urls
     if (REWRITABLE_SCHEMES.stream()
-        .noneMatch(scheme -> Ascii.equalsIgnoreCase(scheme, url.getProtocol()))) {
+        .noneMatch(scheme -> Ascii.equalsIgnoreCase(scheme, url.getScheme()))) {
       return ImmutableList.of(RewrittenURL.create(url, false));
     }
 
@@ -236,7 +259,7 @@ public class UrlRewriter {
     return toReturn.build();
   }
 
-  private boolean isAllowMatched(URL url) {
+  private boolean isAllowMatched(URI url) {
     for (String host : config.getAllowList()) {
       if (isMatchingHostName(url, host)) {
         return true;
@@ -245,7 +268,7 @@ public class UrlRewriter {
     return false;
   }
 
-  private boolean isBlockMatched(URL url) {
+  private boolean isBlockMatched(URI url) {
     for (String host : config.getBlockList()) {
       // Allow a wild-card block
       if ("*".equals(host)) {
@@ -259,12 +282,13 @@ public class UrlRewriter {
     return false;
   }
 
-  private static boolean isMatchingHostName(URL url, String host) {
-    return host.equals(url.getHost()) || url.getHost().endsWith("." + host);
+  private static boolean isMatchingHostName(URI url, String host) {
+    String urlHost = url.getHost();
+    return urlHost != null && (host.equals(urlHost) || urlHost.endsWith("." + host));
   }
 
-  private ImmutableList<RewrittenURL> applyRewriteRules(URL url) {
-    String withoutScheme = url.toString().substring(url.getProtocol().length() + 3);
+  private ImmutableList<RewrittenURL> applyRewriteRules(URI url) {
+    String withoutScheme = url.toString().substring(url.getScheme().length() + 3);
 
     ImmutableSet.Builder<String> rewrittenUrls = ImmutableSet.builder();
 
@@ -275,7 +299,7 @@ public class UrlRewriter {
         matchMade = true;
 
         for (String replacement : entry.getValue()) {
-          rewrittenUrls.add(matcher.replaceFirst(replacement));
+          rewrittenUrls.add(evaluateReplacement(matcher, replacement));
         }
       }
     }
@@ -285,23 +309,48 @@ public class UrlRewriter {
     }
 
     return rewrittenUrls.build().stream()
-        .map(urlString -> prefixWithProtocol(urlString, url.getProtocol()))
+        .map(urlString -> prefixWithProtocol(urlString, url.getScheme()))
         .map(plainUrl -> RewrittenURL.create(plainUrl, true))
         .collect(toImmutableList());
   }
 
-  /** Prefixes url with protocol if not already prefixed by {@link #REWRITABLE_SCHEMES} */
-  private static URL prefixWithProtocol(String url, String protocol) {
-    try {
-      for (String schemaPrefix : REWRITABLE_SCHEMES) {
-        if (url.startsWith(schemaPrefix + "://")) {
-          return new URL(url);
-        }
+  private static String evaluateReplacement(Matcher matcher, String replacement) {
+    Matcher m = REPLACEMENT_TOKEN_PATTERN.matcher(replacement);
+    StringBuilder sb = new StringBuilder();
+    while (m.find()) {
+      String token = m.group();
+      if (token.contains("urlencode")) {
+        int groupIndex = Integer.parseInt(token.replaceAll("\\D+", ""));
+        String val = Strings.nullToEmpty(matcher.group(groupIndex));
+        m.appendReplacement(sb, Matcher.quoteReplacement(escapeUrlPath(val)));
+      } else if (token.startsWith("$")) {
+        int groupIndex = Integer.parseInt(token.replaceAll("\\D+", ""));
+        String val = Strings.nullToEmpty(matcher.group(groupIndex));
+        m.appendReplacement(sb, Matcher.quoteReplacement(val));
+      } else if (token.startsWith("\\")) {
+        String escapedChar = token.substring(1);
+        m.appendReplacement(sb, Matcher.quoteReplacement(escapedChar));
       }
-      return new URL(protocol + "://" + url);
-    } catch (MalformedURLException e) {
-      throw new IllegalStateException(e);
     }
+    m.appendTail(sb);
+    return sb.toString();
+  }
+
+  private static String escapeUrlPath(String path) {
+    return Splitter.on('/')
+        .splitToStream(path)
+        .map(UrlEscapers.urlPathSegmentEscaper()::escape)
+        .collect(Collectors.joining("/"));
+  }
+
+  /** Prefixes url with protocol if not already prefixed by {@link #REWRITABLE_SCHEMES} */
+  private static URI prefixWithProtocol(String url, String protocol) {
+    for (String schemaPrefix : REWRITABLE_SCHEMES) {
+      if (url.startsWith(schemaPrefix + "://")) {
+        return URI.create(url);
+      }
+    }
+    return URI.create(protocol + "://" + url);
   }
 
   /**
@@ -342,16 +391,16 @@ public class UrlRewriter {
     //  - If netrcFileString is a relative path, it's resolved to an absolute path with the current
     //    working directory.
     Path netrcFile = workingDirectory.getRelative(netrcFileString);
-    if (netrcFile.exists()) {
-      try {
+    try {
+      if (netrcFile.exists()) {
         Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
         return new NetrcCredentials(netrc);
-      } catch (IOException e) {
-        throw new UrlRewriterParseException(
-            "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), location);
+      } else {
+        return null;
       }
-    } else {
-      return null;
+    } catch (IOException e) {
+      throw new UrlRewriterParseException(
+          "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), location);
     }
   }
 
@@ -363,11 +412,11 @@ public class UrlRewriter {
   /** Holds the URL along with meta-info, such as whether URL was re-written or not. */
   @AutoValue
   public abstract static class RewrittenURL {
-    static RewrittenURL create(URL url, boolean rewritten) {
+    static RewrittenURL create(URI url, boolean rewritten) {
       return new AutoValue_UrlRewriter_RewrittenURL(url, rewritten);
     }
 
-    abstract URL url();
+    abstract URI url();
 
     abstract boolean rewritten();
   }

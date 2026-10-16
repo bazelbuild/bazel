@@ -20,6 +20,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,8 @@ import java.util.Map;
  * CommandEnvironment. These options should never be accessed directly from this class after command
  * environment initialization.
  */
-public class ClientOptions extends OptionsBase {
+@OptionsClass
+public abstract class ClientOptions extends OptionsBase {
   /**
    * A class representing a blazerc option. blazeRc is serial number of the rc file this option came
    * from, option is the name of the option and value is its value (or null if not specified).
@@ -106,7 +108,7 @@ public class ClientOptions extends OptionsBase {
       converter = Converters.AssignmentConverter.class,
       allowMultiple = true,
       help = "A system-generated parameter which specifies the client's environment")
-  public List<Map.Entry<String, String>> clientEnv;
+  public abstract List<Map.Entry<String, String>> getClientEnv();
 
   /**
    * These are the actual default overrides. Each value is a tuple of (bazelrc index, command name,
@@ -123,7 +125,7 @@ public class ClientOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.HIDDEN},
       converter = OptionOverrideConverter.class,
       help = "")
-  public List<OptionOverride> optionsOverrides;
+  public abstract List<OptionOverride> getOptionsOverrides();
 
   /** This is the filename that the Blaze client parsed. */
   @Option(
@@ -134,5 +136,5 @@ public class ClientOptions extends OptionsBase {
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "")
-  public List<String> rcSource;
+  public abstract List<String> getRcSource();
 }

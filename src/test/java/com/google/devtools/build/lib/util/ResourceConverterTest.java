@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
-import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.LocalHostComputeResources;
 import com.google.devtools.common.options.OptionsParsingException;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,6 +29,11 @@ import org.junit.runners.JUnit4;
 public class ResourceConverterTest {
 
   private ResourceConverter<?> resourceConverter;
+
+  @After
+  public void tearDown() {
+    LocalHostComputeResources.resetOverrides();
+  }
 
   @Test
   public void convertNumber_returnsInt() throws Exception {
@@ -87,14 +92,14 @@ public class ResourceConverterTest {
 
   @Test
   public void convertHostCpus_returnsCpuSetting() throws Exception {
-    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(1, 15));
+    LocalHostComputeResources.setLocalHostComputeResourcesOverride(1, 15);
     resourceConverter = new ResourceConverter.IntegerConverter(() -> 5, 1, Integer.MAX_VALUE);
     assertThat(resourceConverter.convert("HOST_CPUS")).isEqualTo(15);
   }
 
   @Test
   public void convertRam_returnsRamSetting() throws Exception {
-    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(10, 0));
+    LocalHostComputeResources.setLocalHostComputeResourcesOverride(10, 0);
     resourceConverter = new ResourceConverter.IntegerConverter(() -> 5, 1, Integer.MAX_VALUE);
     assertThat(resourceConverter.convert("HOST_RAM")).isEqualTo(10);
   }
@@ -134,7 +139,7 @@ public class ResourceConverterTest {
   @Test
   public void buildConverter_beforeResources_usesResources() throws Exception {
     resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 1, Integer.MAX_VALUE);
-    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(0, 15));
+    LocalHostComputeResources.setLocalHostComputeResourcesOverride(0, 15);
     assertThat(resourceConverter.convert("HOST_CPUS")).isEqualTo(15);
   }
 }

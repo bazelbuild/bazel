@@ -13,9 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-/**
- * An {@link AutoCloseable} sub-interface that declares no exceptions thrown.
- */
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
+/** An {@link AutoCloseable} sub-interface that declares no exceptions thrown. */
+@SkybridgeInterface
 public interface SilentCloseable extends AutoCloseable {
   @Override
   void close();

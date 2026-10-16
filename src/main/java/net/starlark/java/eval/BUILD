@@ -1,5 +1,6 @@
 # Description: Bazel's Starlark interpreter
 
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_library")
 
@@ -17,6 +18,8 @@ java_library(
     srcs = [
         "BuiltinFunction.java",
         "CallUtils.java",
+        "CompactImmutableDict.java",
+        "Compactable.java",
         "CpuProfiler.java",
         "Debug.java",
         "Dict.java",
@@ -63,6 +66,7 @@ java_library(
         "SymbolGenerator.java",
         "Tuple.java",
         "TypeChecker.java",
+        "TypeConstructorValue.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
     deps = [
@@ -70,12 +74,31 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/java/net/starlark/java/types",
         "//third_party:error_prone_annotations",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+        ":cpu_profiler_native_support",
+    ],
+)
+
+java_library(
+    name = "cpu_profiler_native_support",
+    srcs = ["CpuProfilerNativeSupport.java"],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
+)
+
+java_library(
+    name = "cpu_profiler_native_support_impl",
+    srcs = [
+        "CpuProfilerNativeSupportImpl.java",
+        "JNI.java",
+    ],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
+    deps = [
+        ":cpu_profiler_native_support",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
     ],
 )
 
@@ -84,27 +107,20 @@ java_library(
 # to the java.library.path directory (e.g. by 'java -Djava.library.path=<dir>').
 # What a mess.
 filegroup(
-    name = "cpu_profiler",
+    name = "cpu_profiler_jni",
     srcs = select({
         "//src/conditions:darwin": [":libcpu_profiler.dylib"],
-        "//src/conditions:windows": [":cpu_profiler.dll"],
-        "//conditions:default": [":libcpu_profiler.so"],  # POSIX
+        "//src/conditions:linux": [":libcpu_profiler.so"],
+        "//conditions:default": [],
     }),
     visibility = ["//src/main/java/net/starlark/java:clients"],
 )
 
-genrule(
-    name = "cpu_profiler_darwin",
-    srcs = ["libcpu_profiler.so"],
-    outs = ["libcpu_profiler.dylib"],
-    cmd = "cp $< $@",
-)
-
-genrule(
-    name = "cpu_profiler_windows",
-    srcs = ["libcpu_profiler.so"],
-    outs = ["cpu_profiler.dll"],
-    cmd = "cp $< $@",
+copy_file(
+    name = "cpu_profiler_jni_darwin",
+    src = "libcpu_profiler.so",
+    out = "libcpu_profiler.dylib",
+    allow_symlink = True,
 )
 
 # The C++ portion of the Starlark CPU profiler.
@@ -113,7 +129,7 @@ cc_binary(
     srcs = select({
         "//src/conditions:darwin": ["cpu_profiler_posix.cc"],
         "//src/conditions:linux": ["cpu_profiler_posix.cc"],
-        "//conditions:default": ["cpu_profiler_unimpl.cc"],
+        "//conditions:default": [],
     }),
     linkshared = 1,
     deps = ["@rules_java//toolchains:jni"],

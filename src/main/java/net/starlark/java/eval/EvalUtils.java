@@ -14,6 +14,7 @@
 package net.starlark.java.eval;
 
 import java.util.IllegalFormatException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -52,26 +53,6 @@ final class EvalUtils {
           "index out of range (index is %d, but sequence has %d elements)", index, length);
     }
     return actualIndex;
-  }
-
-  /**
-   * Returns the effective index denoted by a user-supplied integer. First, if the integer is
-   * negative, the length of the sequence is added to it, so an index of -1 represents the last
-   * element of the sequence. Then, the integer is "clamped" into the inclusive interval [0,
-   * length].
-   */
-  static int toIndex(int index, int length) {
-    if (index < 0) {
-      index += length;
-    }
-
-    if (index < 0) {
-      return 0;
-    } else if (index > length) {
-      return length;
-    } else {
-      return index;
-    }
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
@@ -129,10 +110,12 @@ final class EvalUtils {
             // int | int
             return StarlarkInt.or((StarlarkInt) x, (StarlarkInt) y);
           }
-        } else if (x instanceof Map) {
-          if (y instanceof Map) {
+        } else if (x instanceof Map<?, ?> xMap) {
+          if (y instanceof Map<?, ?> yMap) {
             // map | map (usually dicts)
-            return Dict.builder().putAll((Map<?, ?>) x).putAll((Map<?, ?>) y).build(mu);
+            LinkedHashMap<Object, Object> union = new LinkedHashMap<>(xMap);
+            union.putAll(yMap);
+            return mu.isFrozen() ? CompactImmutableDict.copyOf(union) : Dict.wrap(mu, union);
           }
         } else if (x instanceof Set && y instanceof Set) {
           // set | set
@@ -357,10 +340,10 @@ final class EvalUtils {
         break;
 
       case EQUALS_EQUALS:
-        return x.equals(y);
+        return Starlark.checkedEquals(x, y);
 
       case NOT_EQUALS:
-        return !x.equals(y);
+        return !Starlark.checkedEquals(x, y);
 
       case LESS:
         return compare(x, y) < 0;

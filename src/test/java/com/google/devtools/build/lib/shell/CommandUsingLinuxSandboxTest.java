@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -43,7 +44,11 @@ public final class CommandUsingLinuxSandboxTest {
 
   @Before
   public final void createFileSystem() {
-    testFS = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
+    testFS =
+        new UnixFileSystem(
+            DigestHashFunction.SHA256,
+            /* hashAttributeName= */ "",
+            new NativePosixFilesServiceImpl());
     runfilesDir = testFS.getPath(BlazeTestUtils.runfilesDir());
   }
 

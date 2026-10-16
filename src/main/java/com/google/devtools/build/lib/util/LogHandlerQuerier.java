@@ -46,11 +46,10 @@ public abstract class LogHandlerQuerier {
     String subclassName = System.getProperty(PROPERTY_NAME);
     checkNotNull(subclassName, "System property %s is not defined", PROPERTY_NAME);
     try {
-      return (LogHandlerQuerier)
-          ClassLoader.getSystemClassLoader()
-              .loadClass(subclassName)
-              .getDeclaredConstructor()
-              .newInstance();
+      return Class.forName(subclassName, true, LogHandlerQuerier.class.getClassLoader())
+          .asSubclass(LogHandlerQuerier.class)
+          .getDeclaredConstructor()
+          .newInstance();
     } catch (ReflectiveOperationException e) {
       throw new ReflectiveOperationRuntimeException(
           "System property " + PROPERTY_NAME + " value is invalid", e);

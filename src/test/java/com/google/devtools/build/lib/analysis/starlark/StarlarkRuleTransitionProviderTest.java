@@ -135,7 +135,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--foo=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -175,7 +175,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--foo=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -339,6 +339,76 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void testSelectOnStarlarkFlagFromOtherRepoIsHiddenFromTransition() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='rules_x',version='1.0')");
+    registry.addModule(createModuleKey("rules_x", "1.0"), "module(name='rules_x', version='1.0')");
+    scratch.file("modules/rules_x+1.0/REPO.bazel");
+    scratch.file(
+        "modules/rules_x+1.0/BUILD",
+        """
+        load(":defs.bzl", "bool_flag")
+
+        bool_flag(
+            name = "flag",
+            build_setting_default = False,
+            visibility = ["//visibility:public"],
+        )
+        """);
+    scratch.file(
+        "modules/rules_x+1.0/defs.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+        )
+
+        def _impl(settings, attr):
+            return {"//:flag": attr.my_configurable_attr}
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//:flag"],
+        )
+
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            cfg = my_transition,
+            attrs = {
+                "my_configurable_attr": attr.bool(default = False),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("@rules_x//:defs.bzl", "my_rule")
+
+        my_rule(
+            name = "test",
+            my_configurable_attr = select({
+                "//conditions:default": False,
+                ":true-config": True,
+            }),
+        )
+
+        config_setting(
+            name = "true-config",
+            flag_values = {"@rules_x//:flag": "True"},
+        )
+        """);
+
+    invalidatePackages();
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "No attribute 'my_configurable_attr'. "
+            + "Either this attribute does not exist for this rule or the attribute "
+            + "was not resolved because it is set by a select that reads flags the transition "
+            + "may set.");
+  }
+
+  @Test
   public void testTransitionReadsInvalidConfiguredAttribute() throws Exception {
     scratch.file(
         "test/transitions.bzl",
@@ -453,7 +523,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--foo=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -725,7 +795,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--unreadable_by_starlark=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).unreadableByStarlark)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getUnreadableByStarlark())
         .isEqualTo(DummyTestOptions.UnreadableStringBox.create("post-transition"));
   }
 
@@ -1278,7 +1348,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--nullable_option=", "--foo=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -1316,7 +1386,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     BuildConfigurationValue configuration =
         getConfiguration(getConfiguredTarget("//neverland:test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -1355,19 +1425,15 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--foo=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
   @Test
-  @TestParameters({
-    "{"
-        + "returnLine: 'return []',"
-        + "returnLine: 'return {}',"
-        + "returnLine: 'return None',"
-        + "returnLine: 'pass',"
-        + "}"
-  })
+  @TestParameters("{returnLine: 'return []'}")
+  @TestParameters("{returnLine: 'return {}'}")
+  @TestParameters("{returnLine: 'return None'}")
+  @TestParameters("{returnLine: 'pass'}")
   public void noopReturnValues(String returnLine) throws Exception {
     scratch.file(
         "test/transitions.bzl",
@@ -1634,7 +1700,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--bool=false");
     ConfiguredTarget ct = getConfiguredTarget("//test");
     assertNoEvents();
-    assertThat(getConfiguration(ct).getOptions().get(DummyTestOptions.class).bool).isTrue();
+    assertThat(getConfiguration(ct).getOptions().get(DummyTestOptions.class).getBool()).isTrue();
   }
 
   // Regression test for b/170729565
@@ -1669,7 +1735,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--bool=false");
     ConfiguredTarget ct = getConfiguredTarget("//test");
     assertNoEvents();
-    assertThat(getConfiguration(ct).getOptions().get(DummyTestOptions.class).bool).isFalse();
+    assertThat(getConfiguration(ct).getOptions().get(DummyTestOptions.class).getBool()).isFalse();
   }
 
   @Test
@@ -1741,7 +1807,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     ConfiguredTarget ct = getConfiguredTarget("//test");
     assertNoEvents();
-    assertThat(getConfiguration(ct).getOptions().get(CppOptions.class).fissionModes).isEmpty();
+    assertThat(getConfiguration(ct).getOptions().get(CppOptions.class).getFissionModes()).isEmpty();
   }
 
   @Test
@@ -2082,7 +2148,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:test"))
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL));
   }
 
@@ -2139,7 +2205,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:test"))
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_other_platform"));
   }
 
@@ -2183,7 +2249,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:test"))
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_platform"));
   }
 
@@ -2231,7 +2297,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:buildme"))
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .foo)
+                .getFoo())
         .isEqualTo("first build");
 
     scratch.overwriteFile(
@@ -2253,7 +2319,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:buildme"))
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .foo)
+                .getFoo())
         .isEqualTo("second build");
   }
 

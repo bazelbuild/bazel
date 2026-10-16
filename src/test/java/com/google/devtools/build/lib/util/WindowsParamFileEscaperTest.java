@@ -18,19 +18,20 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.WindowsParamFileEscaper.escapeString;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Arrays;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link WindowsParamFileEscaper}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class WindowsParamFileEscaperTest {
 
   @Test
   public void testEscapeString() throws Exception {
-    assertThat(escapeString("")).isEmpty();
+    assertThat(escapeString("")).isEqualTo("\"\"");
     assertThat(escapeString("foo")).isEqualTo("foo");
     assertThat(escapeString("'foo'")).isEqualTo("'foo'");
     assertThat(escapeString("\"foo\"")).isEqualTo("\\\"foo\\\"");
@@ -42,6 +43,39 @@ public class WindowsParamFileEscaperTest {
     assertThat(escapeString("foo\fbar")).isEqualTo("foo\fbar");
     assertThat(escapeString("foo\u000Bbar")).isEqualTo("foo\u000Bbar");
     assertThat(escapeString("${filename%.c}.o")).isEqualTo("${filename%.c}.o");
+  }
+
+  @Test
+  public void escapesBackslashesBeforeQuotes(@TestParameter({"1", "2", "3"}) int count) {
+    String backslashes = "\\".repeat(count);
+    String escapedBackslashes = "\\".repeat(2 * count + 1);
+    assertThat(escapeString("foo" + backslashes + "\"bar"))
+        .isEqualTo("foo" + escapedBackslashes + "\"bar");
+    assertThat(escapeString("foo " + backslashes + "\"bar"))
+        .isEqualTo("\"foo " + escapedBackslashes + "\"bar\"");
+  }
+
+  @Test
+  public void escapesTrailingBackslashesInQuotedArguments(
+      @TestParameter({"1", "2", "3"}) int count) {
+    assertThat(escapeString("C:\\Program Files\\SDK" + "\\".repeat(count)))
+        .isEqualTo("\"C:\\Program Files\\SDK" + "\\".repeat(2 * count) + "\"");
+  }
+
+  @Test
+  public void preservesBackslashesWithoutFollowingQuotes() {
+    assertThat(escapeString("C:\\SDK\\")).isEqualTo("C:\\SDK\\");
+    assertThat(escapeString("\\\\server\\share\\")).isEqualTo("\\\\server\\share\\");
+    assertThat(escapeString("C:\\Program Files\\SDK")).isEqualTo("\"C:\\Program Files\\SDK\"");
+  }
+
+  @Test
+  public void escapeAllPreservesArgumentBoundaries() {
+    assertThat(
+            WindowsParamFileEscaper.escapeAll(
+                Arrays.asList("", "C:\\Program Files\\SDK\\", "next", "")))
+        .containsExactly("\"\"", "\"C:\\Program Files\\SDK\\\\\"", "next", "\"\"")
+        .inOrder();
   }
 
   @Test

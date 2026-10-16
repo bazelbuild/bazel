@@ -98,10 +98,9 @@ public class BazelPackageLoadingListenerForTesting implements PackageLoadingList
       throw new IllegalStateException(e);
     }
     ImmutableSet<Label> targetsInPkg =
-        ImmutableSet.copyOf(Iterables.transform(pkg.getTargets().values(), Target::getLabel));
+        ImmutableSet.copyOf(Iterables.transform(pkg.getTargets(), Target::getLabel));
     ImmutableSet<Label> targetsInNewlyLoadedPkg =
-        ImmutableSet.copyOf(
-            Iterables.transform(newlyLoadedPkg.getTargets().values(), Target::getLabel));
+        ImmutableSet.copyOf(Iterables.transform(newlyLoadedPkg.getTargets(), Target::getLabel));
     if (!targetsInPkg.equals(targetsInNewlyLoadedPkg)) {
       Sets.SetView<Label> unsatisfied = Sets.difference(targetsInPkg, targetsInNewlyLoadedPkg);
       Sets.SetView<Label> unexpected = Sets.difference(targetsInNewlyLoadedPkg, targetsInPkg);

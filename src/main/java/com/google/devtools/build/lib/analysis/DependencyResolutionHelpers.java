@@ -228,9 +228,11 @@ public final class DependencyResolutionHelpers {
       return ExecutionPlatformResult.ofNullLabel();
     }
 
-    TransitionFactory<AttributeTransitionData> transitionFactory =
-        kind.getAttribute().getTransitionFactory();
-    if (!(transitionFactory instanceof ExecutionTransitionFactory)) {
+    // The exec transition may be composed with other transitions (via transition.and_then), so
+    // look for it anywhere in the (possibly composed) transition factory.
+    ExecutionTransitionFactory execTransitionFactory =
+        findExecutionTransitionFactory(kind.getAttribute().getTransitionFactory());
+    if (execTransitionFactory == null) {
       return ExecutionPlatformResult.ofLabel(
           toolchainContexts
               .getToolchainContext(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME)
@@ -238,7 +240,7 @@ public final class DependencyResolutionHelpers {
               .label());
     }
 
-    String execGroup = ((ExecutionTransitionFactory) transitionFactory).getExecGroup();
+    String execGroup = execTransitionFactory.getExecGroup();
     if (toolchainContexts.hasToolchainContext(execGroup)) {
       PlatformInfo platform = toolchainContexts.getToolchainContext(execGroup).executionPlatform();
       return platform == null
@@ -250,6 +252,24 @@ public final class DependencyResolutionHelpers {
         String.format(
             "Attr '%s' declares a transition for non-existent exec group '%s'",
             kind.getAttribute().getName(), execGroup));
+  }
+
+  /**
+   * Returns the {@link ExecutionTransitionFactory} within the given transition factory, or {@code
+   * null} if there is none. A composition contains at most one native transition, so there is at
+   * most one match.
+   */
+  @Nullable
+  private static ExecutionTransitionFactory findExecutionTransitionFactory(
+      TransitionFactory<AttributeTransitionData> transitionFactory) {
+    var found = new ExecutionTransitionFactory[1];
+    transitionFactory.visit(
+        factory -> {
+          if (factory instanceof ExecutionTransitionFactory execFactory) {
+            found[0] = execFactory;
+          }
+        });
+    return found[0];
   }
 
   /** True if {@code owningAspect} is the main aspect, the last one in {@code aspectsList}. */

@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
-
 /** An interface for fingerprinting/key generation and writing key-value data. */
 public interface KeyValueWriter extends Fingerprinter {
 

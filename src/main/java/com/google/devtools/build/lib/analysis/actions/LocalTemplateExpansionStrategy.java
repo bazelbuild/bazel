@@ -74,7 +74,7 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
    */
   public String getExpandedTemplateUnsafe(
       Template template, List<Substitution> substitutions, ArtifactPathResolver resolver)
-      throws EvalException, IOException {
+      throws EvalException, IOException, InterruptedException {
     String templateString;
     templateString = template.getContent(resolver);
     for (Substitution entry : substitutions) {

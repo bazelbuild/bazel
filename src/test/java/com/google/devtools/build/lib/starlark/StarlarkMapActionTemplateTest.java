@@ -13,25 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
@@ -50,12 +56,31 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
         "test/BUILD",
         """
         load(":my_rule.bzl", "my_rule")
-        my_rule(name = "target", data = ":data.txt", data2 = ":data2.txt", tool = ":genrule_tool")
+        my_rule(
+            name = "target",
+            data = ":data.txt",
+            data2 = ":data2.txt",
+            cat_tool = ":genrule_cat_tool",
+            cp_dir_tool = ":genrule_cp_dir",
+            gen_subdir_tool = ":genrule_gen_subdir_tool",
+        )
         genrule(
-            name = "genrule_tool",
-            outs = ["tool"],
+            name = "genrule_cat_tool",
+            outs = ["cat_tool"],
             executable = True,
             cmd = "echo 'cat $$@ > $$1' > $@",
+        )
+        genrule(
+            name = "genrule_cp_dir",
+            outs = ["cp_dir_tool"],
+            executable = True,
+            cmd = "echo 'cp -R -L $$2/* $$1' > $@",
+        )
+        genrule(
+            name = "genrule_gen_subdir_tool",
+            outs = ["gen_subdir_tool"],
+            executable = True,
+            cmd = "echo 'mkdir -p $$1; touch $$1/f1; touch $$1/f2;' > $@",
         )
         """);
     write(
@@ -68,10 +93,17 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                 "append_data": attr.bool(default = True),
                 "data": attr.label(allow_single_file = True),
                 "data2": attr.label(allow_single_file = True),
-                "tool": attr.label(cfg = "exec", executable = True),
+                "cat_tool": attr.label(cfg = "exec", executable = True),
+                "cp_dir_tool": attr.label(cfg = "exec", executable = True),
+                "gen_subdir_tool": attr.label(cfg = "exec", executable = True),
+                "_allowlist_subdirectory": attr.label(
+                    default = "TOOLS_REPOSITORY//tools/allowlists/subdirectory_allowlist",
+                    providers = [PackageSpecificationInfo],
+                ),
             },
         )
-        """);
+        """
+            .replace("TOOLS_REPOSITORY", TestConstants.TOOLS_REPOSITORY.toString()));
     write(
         "test/helpers.bzl",
         """
@@ -86,6 +118,20 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             )
             return input_dir
 
+        def create_seed_subdir(template_ctx, subdir_name, output_directory, tools):
+            subdir = template_ctx.declare_subdirectory(
+                subdir_name,
+                directory = output_directory,
+            )
+            args = template_ctx.args()
+            args.add(subdir.path)
+            template_ctx.run(
+                outputs = [subdir],
+                executable = tools["gen_subdir_tool"],
+                arguments = [args],
+            )
+            return subdir
+
         def unused_impl(template_ctx, **kwargs):
             pass
 
@@ -98,7 +144,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                 template_ctx.run(
                     inputs = [f1],
                     outputs = [o1],
-                    executable = tools["tool"],
+                    executable = tools["cat_tool"],
                     arguments = [args],
                 )
 
@@ -120,7 +166,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                 template_ctx.run(
                     inputs = [f1, data],
                     outputs = [o1],
-                    executable = tools["tool"],
+                    executable = tools["cat_tool"],
                     arguments = [args],
                 )
 
@@ -141,7 +187,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                 template_ctx.run(
                     inputs = [f1, f2],
                     outputs = [o1],
-                    executable = tools["tool"],
+                    executable = tools["cat_tool"],
                     arguments = [args],
                 )
 
@@ -162,7 +208,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                 template_ctx.run(
                     inputs = [f1],
                     outputs = [o1],
-                    executable = tools["tool"],
+                    executable = tools["cat_tool"],
                     arguments = [args],
                 )
         """);
@@ -190,7 +236,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir": output_dir,
                 },
                 tools = {
-                    "tool": ctx.attr.tool.files_to_run,
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
                 },
                 additional_params = {
                     "append_data": ctx.attr.append_data,
@@ -230,7 +276,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir": output_dir,
                 },
                 tools = {
-                    "tool": ctx.attr.tool.files_to_run,
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
                 },
             )
             return [DefaultInfo(files = depset([output_dir]))]
@@ -264,7 +310,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir2": output_dir2,
                 },
                 tools = {
-                    "tool": ctx.attr.tool.files_to_run,
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
                 },
             )
             return [DefaultInfo(files = depset([output_dir1, output_dir2]))]
@@ -298,7 +344,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir": output_dir,
                 },
                 tools = {
-                    "tool": ctx.attr.tool.files_to_run,
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
                 },
                 additional_params = {
                     "append_data": ctx.attr.append_data,
@@ -319,7 +365,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir": output_dir2,
                 },
                 tools = {
-                    "tool": ctx.attr.tool.files_to_run,
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
                 },
             )
             return [DefaultInfo(files = depset([output_dir, output_dir2]))]
@@ -360,7 +406,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir": output_dir,
                 },
                 tools = {
-                    "tool": ctx.attr.tool.files_to_run,
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
                 },
                 execution_requirements = {
                     "local": "1",
@@ -401,7 +447,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir": output_dir,
                 },
                 tools = {
-                    "tool": ctx.attr.tool.files_to_run,
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
                 },
                 env = {
                     "SOME_ENV": "ENV_VALUE",
@@ -420,6 +466,46 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
     assertThat(action1.getEnvironment().getFixedEnv()).containsEntry("SOME_ENV", "ENV_VALUE");
     assertThat(action2.getEnvironment().getFixedEnv()).containsEntry("SOME_ENV", "ENV_VALUE");
     assertThat(action3.getEnvironment().getFixedEnv()).containsEntry("SOME_ENV", "ENV_VALUE");
+  }
+
+  @Test
+  public void resourceSetPropagatedToExpandedActions() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "simple_map_impl")
+
+        def resource_set(_os, _inputs_size):
+            return {"cpu": 3, "memory": 768}
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 3)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = simple_map_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+                resource_set = resource_set,
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+    buildTarget("//test:target");
+    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    for (int index = 0; index < 3; ++index) {
+      TreeFileArtifact output =
+          getTreeFileArtifact(outputTree, "input_dir_f" + (index + 1) + ".out", index);
+      SpawnAction action = (SpawnAction) getGeneratingAction(output);
+      assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 2))
+          .isEqualTo(ResourceSet.create(768, 3, 0));
+    }
   }
 
   @Test
@@ -444,7 +530,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                         "output_dir": output_dir,
                     },
                     tools = {
-                        "tool": ctx.attr.tool.files_to_run,
+                        "cat_tool": ctx.attr.cat_tool.files_to_run,
                     },
                     additional_params = {
                         "some_key": %s,
@@ -480,7 +566,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     input_directories = %s,
                     output_directories = %s,
                     tools = {
-                        "tool": ctx.attr.tool.files_to_run,
+                        "cat_tool": ctx.attr.cat_tool.files_to_run,
                     },
                 )
                 return [DefaultInfo(files = depset([output_dir]))]
@@ -516,7 +602,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                         "output_dir": output_dir,
                     },
                     tools = {
-                        "tool": ctx.attr.tool.files_to_run,
+                        "cat_tool": ctx.attr.cat_tool.files_to_run,
                     },
                 )
                 return [DefaultInfo(files = depset([output_dir]))]
@@ -550,7 +636,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir": output_dir,
                 },
                 tools = {
-                    "tool": ctx.attr.tool.files_to_run,
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
                 },
             )
             return [DefaultInfo(files = depset([output_dir]))]
@@ -561,6 +647,181 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
     assertThat(recordingOutErr.errAsLatin1())
         .containsMatch(
             "Cannot declare file `child` in non-output directory File.*test/target_input_dir");
+  }
+
+  @Test
+  public void cannotDeclareSubdirectoryWhenNotAllowlisted() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "disallowed/BUILD",
+        """
+        load(":my_rule.bzl", "my_rule")
+
+        genrule(
+            name = "cat_tool",
+            outs = ["cat_tool.sh"],
+            executable = True,
+            cmd = "echo 'cat $$@ > $$1' > $@",
+        )
+
+        my_rule(
+            name = "target",
+            cat_tool = ":cat_tool",
+        )
+        """);
+    write(
+        "disallowed/my_rule.bzl",
+        """
+        load("//test:helpers.bzl", "create_seed_dir")
+
+        def wrong_declare_subdir_impl(template_ctx, input_directories, output_directories, **kwargs):
+            template_ctx.declare_subdirectory("subdir", directory = output_directories["output_dir"])
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 3)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = wrong_declare_subdir_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+
+        my_rule = rule(
+            implementation = rule_impl,
+            attrs = {
+                "cat_tool": attr.label(cfg = "exec", executable = True),
+            },
+        )
+        """);
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//disallowed:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .contains(
+            "Target //disallowed:target is not allowlisted to use declare_subdirectory. See"
+                + " //tools/allowlists/subdirectory_allowlist");
+  }
+
+  @Test
+  public void canDeclareSubdirectoryWhenRuleDefinedInAllowlistEvenIfTargetOutside()
+      throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/allowlisted_rule.bzl",
+        """
+        load("//test:helpers.bzl", "create_seed_dir", "create_seed_subdir")
+
+        def declare_subdir_impl(
+            template_ctx, input_directories, output_directories, tools, **kwargs):
+            create_seed_subdir(template_ctx, "subdir_0", output_directories["output_dir"], tools)
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 2)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = declare_subdir_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "gen_subdir_tool": ctx.attr.gen_subdir_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+
+        allowlisted_rule = rule(
+            implementation = rule_impl,
+            attrs = {
+                "gen_subdir_tool": attr.label(cfg = "exec", executable = True),
+                "_allowlist_subdirectory": attr.label(
+                    default = "TOOLS_REPOSITORY//tools/allowlists/subdirectory_allowlist",
+                    providers = [PackageSpecificationInfo],
+                ),
+            },
+        )
+        """
+            .replace("TOOLS_REPOSITORY", TestConstants.TOOLS_REPOSITORY.toString()));
+    write(
+        "outside/BUILD",
+        """
+        load("//test:allowlisted_rule.bzl", "allowlisted_rule")
+
+        genrule(
+            name = "genrule_gen_subdir_tool",
+            outs = ["gen_subdir_tool"],
+            executable = True,
+            cmd = "echo 'mkdir -p $$1; touch $$1/f1; touch $$1/f2;' > $@",
+        )
+
+        allowlisted_rule(
+            name = "target",
+            gen_subdir_tool = ":genrule_gen_subdir_tool",
+        )
+        """);
+    buildTarget("//outside:target");
+    SpecialArtifact outputTree = assertTreeBuilt("//outside:target", "outside/target_output_dir");
+    SpecialArtifact subdir = getSubdirArtifact(outputTree, "subdir_0", 0);
+    assertThat(getChildRelativePaths(subdir, getTreeArtifactValue(subdir)))
+        .containsExactly(PathFragment.create("f1"), PathFragment.create("f2"));
+  }
+
+  @Test
+  public void cannotConsumeOutputDirectory(
+      @TestParameter({
+            "inputs = [first_dir]",
+            "inputs = depset([first_dir])",
+            "tools = [first_dir]",
+            "tools = depset([first_dir])",
+            "tools = [depset([first_dir])]"
+          })
+          String inputArgument)
+      throws Exception {
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir")
+
+        def map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            first_dir = output_directories["first"]
+            first = template_ctx.declare_file("first", directory = first_dir)
+            template_ctx.run(outputs = [first], executable = tools["tool"])
+            second = template_ctx.declare_file("second", directory = output_directories["second"])
+            template_ctx.run(
+                outputs = [second],
+                executable = tools["tool"],
+                %s,
+            )
+
+        def rule_impl(ctx):
+            first_dir = ctx.actions.declare_directory("first_dir")
+            second_dir = ctx.actions.declare_directory("second_dir")
+            ctx.actions.map_directory(
+                implementation = map_impl,
+                input_directories = {"input": create_seed_dir(ctx, "input", 1, 3)},
+                output_directories = {"first": first_dir, "second": second_dir},
+                tools = {"tool": ctx.attr.cat_tool.files_to_run},
+            )
+            return [DefaultInfo(files = depset([first_dir, second_dir]))]
+        """
+            .formatted(inputArgument));
+
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .containsMatch(
+            "Output directory .*first_dir.* cannot be used as an input to template_ctx.run");
   }
 
   @Test
@@ -579,7 +840,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                 template_ctx.run(
                     inputs = [],
                     outputs = [o1],
-                    executable = tools["tool"],
+                    executable = tools["cat_tool"],
                 )
 
         def rule_impl(ctx):
@@ -594,7 +855,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir": output_dir,
                 },
                 tools = {
-                    "tool": ctx.attr.tool.files_to_run,
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
                 },
             )
             return [DefaultInfo(files = depset([output_dir]))]
@@ -613,7 +874,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   @TestParameters("{output: 'input_dir.directory', path: 'test/target_input_dir'}")
   @TestParameters("{output: 'input_dir.children[0]', path: 'test/target_input_dir/input_dir_f1'}")
   @TestParameters("{output: 'output_dir', path: 'test/target_output_dir'}")
-  @TestParameters("{output: 'tool.executable', path: 'test/tool'}")
+  @TestParameters("{output: 'cat_tool.executable', path: 'test/cat_tool'}")
   @TestParameters("{output: 'some_file', path: 'test/some_file'}")
   public void actionConflicts_conflictingOutputsFromOtherContext(String output, String path)
       throws Exception {
@@ -633,12 +894,12 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     **kwargs):
                 output_dir = output_directories["output_dir"]
                 input_dir = input_directories["input_dir"]
-                tool = tools["tool"]
                 some_file = additional_inputs["some_file"]
+                cat_tool = tools["cat_tool"]
                 template_ctx.run(
                     inputs = [],
                     outputs = [%s],
-                    executable = tools["tool"],
+                    executable = cat_tool,
                     progress_message = "some conflicting action",
                 )
 
@@ -656,7 +917,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                         "output_dir": output_dir,
                     },
                     tools = {
-                        "tool": ctx.attr.tool.files_to_run,
+                        "cat_tool": ctx.attr.cat_tool.files_to_run,
                     },
                     additional_inputs = {
                         "some_file": some_file,
@@ -706,7 +967,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                         "output_dir": output_dir,
                     },
                     tools = {
-                        "tool": ctx.attr.tool.files_to_run,
+                        "cat_tool": ctx.attr.cat_tool.files_to_run,
                     },
                 )
                 return [DefaultInfo(files = depset([output_dir]))]
@@ -752,7 +1013,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                         "output_dir": output_dir,
                     },
                     tools = {
-                        "tool": ctx.attr.tool.files_to_run,
+                        "cat_tool": ctx.attr.cat_tool.files_to_run,
                     },
                 )
                 return [DefaultInfo(files = depset([output_dir]))]
@@ -769,8 +1030,426 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                 + " top-level def statement");
   }
 
+  @Test
+  public void canDeclareSubdirectories() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "create_seed_subdir")
+
+        def subdir_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                tools,
+                **kwargs):
+            output_dir = output_directories["output_dir"]
+            output_file = template_ctx.declare_file(
+                "single_file.txt",
+                directory = output_dir,
+            )
+            args = template_ctx.args()
+            args.add(output_file.path)
+            args.add(input_directories["input_dir"].children[0].path)
+            template_ctx.run(
+                inputs = [input_directories["input_dir"].children[0]],
+                outputs = [output_file],
+                executable = tools["cat_tool"],
+                arguments = [args],
+            )
+            create_seed_subdir(template_ctx, "subdir_0", output_dir, tools)
+            create_seed_subdir(template_ctx, "subdir_1", output_dir, tools)
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 2)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = subdir_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                    "gen_subdir_tool": ctx.attr.gen_subdir_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+    buildTarget("//test:target");
+    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    SpecialArtifact subdir1 = getSubdirArtifact(outputTree, "subdir_0", 1);
+    SpecialArtifact subdir2 = getSubdirArtifact(outputTree, "subdir_1", 2);
+    // The top-level tree artifact value should contain a flattened view of all the files under it
+    // (including the files from its subdirectories).
+    assertThat(getChildRelativePaths(outputTree, getTreeArtifactValueFromTemplate(outputTree)))
+        .containsExactly(
+            PathFragment.create("single_file.txt"),
+            PathFragment.create("subdir_0/f1"),
+            PathFragment.create("subdir_0/f2"),
+            PathFragment.create("subdir_1/f1"),
+            PathFragment.create("subdir_1/f2"));
+    assertThat(getChildRelativePaths(subdir1, getTreeArtifactValue(subdir1)))
+        .containsExactly(PathFragment.create("f1"), PathFragment.create("f2"));
+    assertThat(getChildRelativePaths(subdir2, getTreeArtifactValue(subdir2)))
+        .containsExactly(PathFragment.create("f1"), PathFragment.create("f2"));
+  }
+
+  @Test
+  public void actionsCanTakeSubdirectoriesAsInputs() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "create_seed_subdir")
+
+        def subdir_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                tools,
+                **kwargs):
+            output_dir1 = output_directories["output_dir1"]
+            subdir_0 = create_seed_subdir(template_ctx, "subdir_0", output_dir1, tools)
+            subdir_1 = create_seed_subdir(template_ctx, "subdir_1", output_dir1, tools)
+            output_dir2 = output_directories["output_dir2"]
+            other_subdir_0 = template_ctx.declare_subdirectory(
+                "other_subdir_0",
+                directory = output_dir2,
+            )
+            other_subdir_1 = template_ctx.declare_subdirectory(
+                "other_subdir_1",
+                directory = output_dir2,
+            )
+            for input_subdir, output_subdir in [
+                (subdir_0, other_subdir_0),
+                (subdir_1, other_subdir_1),
+            ]:
+                args = template_ctx.args()
+                args.add_all([output_subdir.path, input_subdir.path])
+                template_ctx.run(
+                    inputs = [input_subdir],
+                    outputs = [output_subdir],
+                    executable = tools["cp_dir_tool"],
+                    arguments = [args],
+                )
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 2)
+            output_dir1 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir1")
+            output_dir2 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir2")
+            ctx.actions.map_directory(
+                implementation = subdir_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir1": output_dir1,
+                    "output_dir2": output_dir2,
+                },
+                tools = {
+                    "gen_subdir_tool": ctx.attr.gen_subdir_tool.files_to_run,
+                    "cp_dir_tool": ctx.attr.cp_dir_tool.files_to_run,
+                },
+            )
+
+            return [DefaultInfo(files = depset([output_dir2]))]
+        """);
+    buildTarget("//test:target");
+    SpecialArtifact outputTree2 = assertTreeBuilt("test/target_output_dir2");
+    SpecialArtifact otherSubdir0 = getSubdirArtifact(outputTree2, "other_subdir_0", 2);
+    SpecialArtifact otherSubdir1 = getSubdirArtifact(outputTree2, "other_subdir_1", 3);
+    // The top-level tree artifact value should contain a flattened view of all the files under it
+    // (including the files from its subdirectories).
+    assertThat(getChildRelativePaths(outputTree2, getTreeArtifactValueFromTemplate(outputTree2)))
+        .containsExactly(
+            PathFragment.create("other_subdir_0/f1"),
+            PathFragment.create("other_subdir_0/f2"),
+            PathFragment.create("other_subdir_1/f1"),
+            PathFragment.create("other_subdir_1/f2"));
+    assertThat(getChildRelativePaths(otherSubdir0, getTreeArtifactValue(otherSubdir0)))
+        .containsExactly(PathFragment.create("f1"), PathFragment.create("f2"));
+    assertThat(getChildRelativePaths(otherSubdir1, getTreeArtifactValue(otherSubdir1)))
+        .containsExactly(PathFragment.create("f1"), PathFragment.create("f2"));
+  }
+
+  @Test
+  public void actionsCanTakeTopLevelDirectoriesAsInputs() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "create_seed_subdir")
+
+        def seed_subdir_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                tools,
+                **kwargs):
+            output_dir = output_directories["output_dir"]
+            create_seed_subdir(template_ctx, "subdir_0", output_dir, tools)
+            create_seed_subdir(template_ctx, "subdir_1", output_dir, tools)
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 2)
+            output_dir1 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir1")
+            ctx.actions.map_directory(
+                implementation = seed_subdir_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir1,
+                },
+                tools = {
+                    "gen_subdir_tool": ctx.attr.gen_subdir_tool.files_to_run,
+                    "cp_dir_tool": ctx.attr.cp_dir_tool.files_to_run,
+                },
+            )
+            output_dir2 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir2")
+            args = ctx.actions.args()
+            args.add_all([output_dir2.path, output_dir1.path])
+            ctx.actions.run(
+                inputs = [output_dir1],
+                outputs = [output_dir2],
+                executable = ctx.attr.cp_dir_tool.files_to_run,
+                arguments = [args],
+            )
+            return [DefaultInfo(files = depset([output_dir2]))]
+        """);
+    buildTarget("//test:target");
+    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir2");
+    // The top-level tree artifact value should contain a flattened view of all the files under it
+    // (including the files from its subdirectories).
+    TreeArtifactValue treeArtifactValue = getTreeArtifactValue(outputTree);
+    assertThat(getChildRelativePaths(outputTree, treeArtifactValue))
+        .containsExactly(
+            PathFragment.create("subdir_0/f1"),
+            PathFragment.create("subdir_0/f2"),
+            PathFragment.create("subdir_1/f1"),
+            PathFragment.create("subdir_1/f2"));
+  }
+
+  @Test
+  public void internalActionsCannotTakeTopLevelDirectoriesAsInputs() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "create_seed_subdir")
+
+        def combined_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                tools,
+                **kwargs):
+            output_dir1 = output_directories["output_dir1"]
+            output_dir2 = output_directories["output_dir2"]
+            output_file = template_ctx.declare_file(
+                "combined.txt",
+                directory = output_dir2,
+            )
+            template_ctx.run(
+                inputs = [output_dir1],
+                outputs = [output_file],
+                executable = tools["cat_tool"],
+                # Args don't matter, it should fail.
+                arguments = [template_ctx.args()],
+            )
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 1)
+            output_dir1 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir1")
+            output_dir2 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir2")
+            ctx.actions.map_directory(
+                implementation = combined_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir1": output_dir1,
+                    "output_dir2": output_dir2,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                    "gen_subdir_tool": ctx.attr.gen_subdir_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir2]))]
+        """);
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .containsMatch(
+            "ERROR: .*/test/BUILD:2:8: Expanding \\[File:\\[.*\\]test/target_input_dir\\] into"
+                + " actions failed: (.|\\n"
+                + ")*/test/rule_def.bzl\", line 15, column 21, in combined_impl(.|\\n"
+                + ")*Output directory File:\\[.*\\]test/target_output_dir1 cannot be used as an"
+                + " input to template_ctx\\.run\\(\\)");
+  }
+
+  @Test
+  public void actionConflicts_declaredFileWithPrefixOfSubdir() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "create_seed_subdir")
+
+        def subdir_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                tools,
+                **kwargs):
+            output_dir = output_directories["output_dir"]
+            output_file = template_ctx.declare_file(
+                "prefix_conflict/single_file.txt",
+                directory = output_dir,
+            )
+            args = template_ctx.args()
+            args.add(output_file.path)
+            args.add(input_directories["input_dir"].children[0].path)
+            template_ctx.run(
+                inputs = [input_directories["input_dir"].children[0]],
+                outputs = [output_file],
+                executable = tools["cat_tool"],
+                arguments = [args],
+            )
+
+            create_seed_subdir(template_ctx, "prefix_conflict", output_dir, tools)
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 2)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = subdir_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                    "gen_subdir_tool": ctx.attr.gen_subdir_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .containsMatch(
+            "ERROR: One of the output paths '.*test/target_output_dir/prefix_conflict'.* and "
+                + "'.*test/target_output_dir/prefix_conflict/single_file.txt'.*"
+                + " is a prefix of the other");
+  }
+
+  @Test
+  public void actionConflicts_declaredSubdirWithPrefixOfSubdir() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "create_seed_subdir")
+
+        def subdir_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                tools,
+                **kwargs):
+            output_dir = output_directories["output_dir"]
+            create_seed_subdir(template_ctx, "prefix_conflict", output_dir, tools)
+            create_seed_subdir(template_ctx, "prefix_conflict/subdir", output_dir, tools)
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 2)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = subdir_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                    "gen_subdir_tool": ctx.attr.gen_subdir_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .containsMatch(
+            "ERROR: One of the output paths '.*test/target_output_dir/prefix_conflict'.* and "
+                + "'.*test/target_output_dir/prefix_conflict/subdir'.*"
+                + " is a prefix of the other");
+  }
+
+  @Test
+  public void actionConflicts_subdirAsParentOfAnotherSubdir() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "create_seed_subdir")
+
+        def subdir_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                tools,
+                **kwargs):
+            output_dir = output_directories["output_dir"]
+            subdir1 = create_seed_subdir(template_ctx, "subdir1", output_dir, tools)
+            create_seed_subdir(template_ctx, "subdir2", subdir1, tools)
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 2)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = subdir_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                    "gen_subdir_tool": ctx.attr.gen_subdir_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .containsMatch(
+            ".*Cannot declare subdirectory `.*subdir2`.* in another subdirectory "
+                + ".*test/target_output_dir/subdir1.*");
+  }
+
   private SpecialArtifact assertTreeBuilt(String rootRelativePath) throws Exception {
-    ImmutableList<Artifact> artifacts = getArtifacts("//test:target");
+    return assertTreeBuilt("//test:target", rootRelativePath);
+  }
+
+  private SpecialArtifact assertTreeBuilt(String target, String rootRelativePath) throws Exception {
+    ImmutableList<Artifact> artifacts = getArtifacts(target);
     Optional<Artifact> maybeTree =
         artifacts.stream()
             .filter(a -> a.getRootRelativePathString().equals(rootRelativePath))
@@ -792,6 +1471,27 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
     // actionIndex of the action (created with template_ctx) that generated the file.
     treeFileArtifact.setGeneratingActionKey(ActionLookupData.create(key, actionIndex));
     return treeFileArtifact;
+  }
+
+  private ImmutableSet<PathFragment> getChildRelativePaths(
+      SpecialArtifact tree, TreeArtifactValue treeValue) {
+    return treeValue.getChildren().stream()
+        .map(child -> child.getExecPath().relativeTo(tree.getExecPath()))
+        .collect(toImmutableSet());
+  }
+
+  private SpecialArtifact getSubdirArtifact(
+      SpecialArtifact parent, String subdir, int actionIndex) {
+    ActionTemplateExpansionKey key =
+        ActionTemplateExpansionValue.key(
+            parent.getArtifactOwner(), parent.getGeneratingActionKey().getActionIndex());
+    return SpecialArtifact.createSubTreeArtifact(
+        parent, PathFragment.create(subdir), ActionLookupData.create(key, actionIndex));
+  }
+
+  private TreeArtifactValue getTreeArtifactValueFromTemplate(SpecialArtifact artifact)
+      throws InterruptedException {
+    return (TreeArtifactValue) getSkyframeExecutor().getEvaluator().getExistingValue(artifact);
   }
 
   private void assertTreeContainsFileWithContents(

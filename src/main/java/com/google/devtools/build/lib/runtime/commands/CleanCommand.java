@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.runtime.AsyncDirectoryCleaner;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -35,8 +36,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.CommandResult;
-import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -45,12 +44,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
-import java.util.UUID;
 import java.util.logging.LogManager;
 
 /** Implements 'blaze clean'. */
@@ -66,45 +65,43 @@ import java.util.logging.LogManager;
     inheritsOptionsFrom = {BuildCommand.class})
 public final class CleanCommand implements BlazeCommand {
   /** An interface for special options for the clean command. */
-  public static class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
-      name = "expunge",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If true, clean removes the entire working tree for this %{product} instance, "
-              + "which includes all %{product}-created temporary and build output files, "
-              + "and stops the %{product} server if it is running."
-    )
-    public boolean expunge;
+        name = "expunge",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+        help =
+            "If true, clean removes the entire working tree for this %{product} instance, "
+                + "which includes all %{product}-created temporary and build output files, "
+                + "and stops the %{product} server if it is running.")
+    public abstract boolean getExpunge();
 
     @Option(
-      name = "expunge_async",
-      defaultValue = "null",
-      expansion = {"--expunge", "--async"},
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If specified, clean asynchronously removes the entire working tree for "
-              + "this %{product} instance, which includes all %{product}-created temporary and "
-              + "build output files, and stops the %{product} server if it is running. When "
-              + "this command completes, it will be safe to execute new commands in the same "
-              + "client, even though the deletion may continue in the background."
-    )
-    public Void expungeAsync;
+        name = "expunge_async",
+        defaultValue = "null",
+        expansion = {"--expunge", "--async"},
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+        help =
+            "If specified, clean asynchronously removes the entire working tree for "
+                + "this %{product} instance, which includes all %{product}-created temporary and "
+                + "build output files, and stops the %{product} server if it is running. When "
+                + "this command completes, it will be safe to execute new commands in the same "
+                + "client, even though the deletion may continue in the background.")
+    public abstract Void getExpungeAsync();
 
     @Option(
-      name = "async",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If true, output cleaning is asynchronous. When this command completes, it will be safe "
-              + "to execute new commands in the same client, even though the deletion may continue "
-              + "in the background."
-    )
-    public boolean async;
+        name = "async",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+        help =
+            "If true, output cleaning is asynchronous. When this command completes, it will be safe"
+                + " to execute new commands in the same client, even though the deletion may"
+                + " continue in the background.")
+    public abstract boolean getAsync();
   }
 
   private final OS os;
@@ -133,7 +130,8 @@ public final class CleanCommand implements BlazeCommand {
 
     env.getEventBus().post(new NoBuildEvent());
     Options cleanOptions = options.getOptions(Options.class);
-    boolean async = canUseAsync(cleanOptions.async, cleanOptions.expunge, os, env.getReporter());
+    boolean async =
+        canUseAsync(cleanOptions.getAsync(), cleanOptions.getExpunge(), os, env.getReporter());
     env.getEventBus().post(new CleanStartingEvent(options));
 
     try {
@@ -141,7 +139,8 @@ public final class CleanCommand implements BlazeCommand {
           options
               .getOptions(BuildRequestOptions.class)
               .getSymlinkPrefix(env.getRuntime().getProductName());
-      return actuallyClean(env, env.getOutputBase(), cleanOptions.expunge, async, symlinkPrefix);
+      return actuallyClean(
+          env, env.getOutputBase(), cleanOptions.getExpunge(), async, symlinkPrefix);
     } catch (CleanException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
@@ -179,37 +178,17 @@ public final class CleanCommand implements BlazeCommand {
 
   private static void asyncClean(CommandEnvironment env, Path path, String pathItemName)
       throws IOException, CommandException, InterruptedException {
-    String tempBaseName =
-        path.getBaseName() + "_tmp_" + ProcessHandle.current().pid() + "_" + UUID.randomUUID();
+    if (!path.exists()) {
+      return;
+    }
 
-    // Keeping tempOutputBase in the same directory ensures it remains in the
-    // same file system, and therefore the mv will be atomic and fast.
-    Path tempPath = path.getParentDirectory().getChild(tempBaseName);
-    path.renameTo(tempPath);
+    Path tempPath = AsyncDirectoryCleaner.moveToTempDirectory(path);
     env.getReporter()
         .handle(Event.info(null, pathItemName + " moved to " + tempPath + " for deletion"));
 
-    String command =
-        String.format(
-            "/usr/bin/find %s -type d -not -perm -u=rwx -exec /bin/chmod -f u=rwx {} +; /bin/rm"
-                + " -rf %s",
-            tempBaseName, tempBaseName);
-    logger.atInfo().log("Executing daemonic shell command %s", command);
-
-    // Daemonize the shell to ensure that the shell exits even while the "rm
-    // -rf" command continues.
-    CommandResult result =
-        new CommandBuilder(env.getClientEnv())
-            .addArg(
-                env.getBlazeWorkspace().getBinTools().getEmbeddedPath("daemonize").getPathString())
-            .addArgs("-l", "/dev/null")
-            .addArgs("-p", "/dev/null")
-            .addArg("--")
-            .addArgs("/bin/sh", "/bin/sh", "-c", command)
-            .setWorkingDir(tempPath.getParentDirectory())
-            .build()
-            .execute();
-    logger.atInfo().log("Shell command status: %s", result.terminationStatus());
+    Path daemonize = env.getBlazeWorkspace().getBinTools().getEmbeddedPath("daemonize");
+    AsyncDirectoryCleaner.spawnDaemonizedDeletion(
+        daemonize, tempPath.getParentDirectory(), tempPath.getBaseName(), env.getClientEnv());
   }
 
   private static BlazeCommandResult actuallyClean(
@@ -275,22 +254,20 @@ public final class CleanCommand implements BlazeCommand {
       logger.atInfo().log("Output cleaning...");
       env.getBlazeWorkspace().resetEvaluator();
       Path execroot = outputBase.getRelative("execroot");
-      if (execroot.exists()) {
-        logger.atFinest().log("Cleaning %s%s", execroot, async ? " asynchronously..." : "");
-        if (async) {
-          try {
-            asyncClean(env, execroot, "Output tree");
-          } catch (IOException e) {
-            throw new CleanException(Code.EXECROOT_TEMP_MOVE_FAILURE, e);
-          } catch (CommandException e) {
-            throw new CleanException(Code.ASYNC_EXECROOT_DELETE_FAILURE, e);
-          }
-        } else {
-          try {
-            execroot.deleteTreesBelow();
-          } catch (IOException e) {
-            throw new CleanException(Code.EXECROOT_DELETE_FAILURE, e);
-          }
+      logger.atFinest().log("Cleaning %s%s", execroot, async ? " asynchronously..." : "");
+      if (async) {
+        try {
+          asyncClean(env, execroot, "Output tree");
+        } catch (IOException e) {
+          throw new CleanException(Code.EXECROOT_TEMP_MOVE_FAILURE, e);
+        } catch (CommandException e) {
+          throw new CleanException(Code.ASYNC_EXECROOT_DELETE_FAILURE, e);
+        }
+      } else {
+        try {
+          execroot.deleteTreesBelow();
+        } catch (IOException e) {
+          throw new CleanException(Code.EXECROOT_DELETE_FAILURE, e);
         }
       }
     }

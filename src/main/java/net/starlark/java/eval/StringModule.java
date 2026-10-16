@@ -25,6 +25,10 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.SyntaxUtils;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /**
  * Starlark String module.
@@ -61,9 +65,23 @@ import net.starlark.java.annot.StarlarkMethod;
             + "use <code>==</code> to test for equality.")
 final class StringModule implements StarlarkValue {
 
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return Types.STR_CONSTRUCTOR;
+  }
+
   static final StringModule INSTANCE = new StringModule();
 
   private StringModule() {}
+
+  /**
+   * @throws UnsupportedOperationException always; this method is not expected to be called, and
+   *     exists to ensure that a ClassStarlarkType doesn't get auto-generated for StringModule.
+   */
+  @Override
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    throw new UnsupportedOperationException(
+        "StringModule.INSTANCE should not be directly exposed to Starlark code");
+  }
 
   // Returns s[start:stop:step], as if by Sequence.getSlice.
   static String slice(String s, int start, int stop, int step) throws EvalException {
@@ -113,11 +131,11 @@ final class StringModule implements StarlarkValue {
     int n = str.length();
     int istart = 0;
     if (start != Starlark.NONE) {
-      istart = EvalUtils.toIndex(Starlark.toInt(start, "start"), n);
+      istart = SyntaxUtils.toSliceBound(Starlark.toInt(start, "start"), n);
     }
     int iend = n;
     if (end != Starlark.NONE) {
-      iend = EvalUtils.toIndex(Starlark.toInt(end, "end"), n);
+      iend = SyntaxUtils.toSliceBound(Starlark.toInt(end, "end"), n);
     }
     if (iend < istart) {
       iend = istart; // => empty result
@@ -582,7 +600,7 @@ final class StringModule implements StarlarkValue {
   }
 
   private static final Pattern SPLIT_LINES_PATTERN =
-      Pattern.compile("(?<line>.*)(?<break>(\\r\\n|\\r|\\n)?)");
+      Pattern.compile("(?<line>[^\\r\\n]*)(?<break>(\\r\\n|\\r|\\n)?)");
 
   @StarlarkMethod(
       name = "rfind",

@@ -1,0 +1,297 @@
+---
+title: 'CcToolchainInfo'
+---
+
+Information about the C++ compiler being used.
+
+## Members
+
+* [all\_files](#all_files)
+* [ar\_executable](#ar_executable)
+* [built\_in\_include\_directories](#built_in_include_directories)
+* [compiler](#compiler)
+* [compiler\_executable](#compiler_executable)
+* [cpu](#cpu)
+* [dynamic\_runtime\_lib](#dynamic_runtime_lib)
+* [gcov\_executable](#gcov_executable)
+* [ld\_executable](#ld_executable)
+* [libc](#libc)
+* [needs\_pic\_for\_dynamic\_libraries](#needs_pic_for_dynamic_libraries)
+* [nm\_executable](#nm_executable)
+* [objcopy\_executable](#objcopy_executable)
+* [objdump\_executable](#objdump_executable)
+* [preprocessor\_executable](#preprocessor_executable)
+* [static\_runtime\_lib](#static_runtime_lib)
+* [strip\_executable](#strip_executable)
+* [sysroot](#sysroot)
+* [target\_gnu\_system\_name](#target_gnu_system_name)
+* [to\_json](#to_json)
+* [to\_proto](#to_proto)
+
+## all\_files
+
+```
+depset CcToolchainInfo.all_files
+```
+
+Returns all toolchain files (so they can be passed to actions using this toolchain as inputs).
+
+## ar\_executable
+
+```
+string CcToolchainInfo.ar_executable
+```
+
+The path to the ar binary.
+
+## built\_in\_include\_directories
+
+```
+list CcToolchainInfo.built_in_include_directories
+```
+
+Returns the list of built-in directories of the compiler.
+
+## compiler
+
+```
+string CcToolchainInfo.compiler
+```
+
+C++ compiler.
+May return `None`.
+
+## compiler\_executable
+
+```
+string CcToolchainInfo.compiler_executable
+```
+
+The path to the compiler binary.
+
+## cpu
+
+```
+string CcToolchainInfo.cpu
+```
+
+Target CPU of the C++ toolchain.
+May return `None`.
+
+## dynamic\_runtime\_lib
+
+```
+depset CcToolchainInfo.dynamic_runtime_lib(feature_configuration)
+```
+
+Returns the files from `dynamic\_runtime\_lib` attribute (so they can be passed to actions using this toolchain as inputs). The caller can check whether the feature\_configuration enables `static\_link\_cpp\_runtimes` feature (if not, neither `static\_runtime\_lib` nor `dynamic\_runtime\_lib` have to be used), and use `static\_runtime\_lib` if static linking mode is active.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `feature_configuration` | required  Feature configuration to be queried. |
+
+## gcov\_executable
+
+```
+string CcToolchainInfo.gcov_executable
+```
+
+The path to the gcov binary.
+
+## ld\_executable
+
+```
+string CcToolchainInfo.ld_executable
+```
+
+The path to the ld binary.
+
+## libc
+
+```
+string CcToolchainInfo.libc
+```
+
+libc version string.
+May return `None`.
+
+## needs\_pic\_for\_dynamic\_libraries
+
+```
+bool CcToolchainInfo.needs_pic_for_dynamic_libraries(feature_configuration)
+```
+
+Returns true if this rule's compilations should apply -fPIC, false otherwise. Determines if we should apply -fPIC for this rule's C++ compilations depending on the C++ toolchain and presence of `--force\_pic` Bazel option.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `feature_configuration` | required  Feature configuration to be queried. |
+
+## nm\_executable
+
+```
+string CcToolchainInfo.nm_executable
+```
+
+The path to the nm binary.
+
+## objcopy\_executable
+
+```
+string CcToolchainInfo.objcopy_executable
+```
+
+The path to the objcopy binary.
+
+## objdump\_executable
+
+```
+string CcToolchainInfo.objdump_executable
+```
+
+The path to the objdump binary.
+
+## preprocessor\_executable
+
+```
+string CcToolchainInfo.preprocessor_executable
+```
+
+The path to the preprocessor binary.
+
+## static\_runtime\_lib
+
+```
+depset CcToolchainInfo.static_runtime_lib(feature_configuration)
+```
+
+Returns the files from `static\_runtime\_lib` attribute (so they can be passed to actions using this toolchain as inputs). The caller should check whether the feature\_configuration enables `static\_link\_cpp\_runtimes` feature (if not, neither `static\_runtime\_lib` nor `dynamic\_runtime\_lib` should be used), and use `dynamic\_runtime\_lib` if dynamic linking mode is active.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `feature_configuration` | required  Feature configuration to be queried. |
+
+## strip\_executable
+
+```
+string CcToolchainInfo.strip_executable
+```
+
+The path to the strip binary.
+
+## sysroot
+
+```
+string CcToolchainInfo.sysroot
+```
+
+Returns the sysroot to be used. If the toolchain compiler does not support different sysroots, or the sysroot is the same as the default sysroot, then this method returns `None`.
+May return `None`.
+
+## target\_gnu\_system\_name
+
+```
+string CcToolchainInfo.target_gnu_system_name
+```
+
+The GNU System Name.
+May return `None`.
+
+## to\_json
+
+```
+string CcToolchainInfo.to_json()
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_struct_has_no_methods`. Use this flag to verify your code is compatible with its imminent removal.
+Creates a JSON string from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs, a list of these types or a dictionary with string keys and values of these types. Quotes and new lines in strings are escaped. Examples:
+
+```
+struct(key=123).to_json()
+# {"key":123}
+
+struct(key=True).to_json()
+# {"key":true}
+
+struct(key=[1, 2, 3]).to_json()
+# {"key":[1,2,3]}
+
+struct(key='text').to_json()
+# {"key":"text"}
+
+struct(key=struct(inner_key='text')).to_json()
+# {"key":{"inner_key":"text"}}
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()
+# {"key":[{"inner_key":1},{"inner_key":2}]}
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()
+# {"key":{"inner_key":{"inner_inner_key":"text"}}}
+```
+
+.
+
+Deprecated: instead, use json.encode(x) or json.encode\_indent(x), which work for values other than structs and do not pollute the struct field namespace.
+
+## to\_proto
+
+```
+string CcToolchainInfo.to_proto()
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_struct_has_no_methods`. Use this flag to verify your code is compatible with its imminent removal.
+Creates a text message from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs or dicts or lists of these types. Quotes and new lines in strings are escaped. Struct keys are iterated in the sorted order. Examples:
+
+```
+struct(key=123).to_proto()
+# key: 123
+
+struct(key=True).to_proto()
+# key: true
+
+struct(key=[1, 2, 3]).to_proto()
+# key: 1
+# key: 2
+# key: 3
+
+struct(key='text').to_proto()
+# key: "text"
+
+struct(key=struct(inner_key='text')).to_proto()
+# key {
+#   inner_key: "text"
+# }
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()
+# key {
+#   inner_key: 1
+# }
+# key {
+#   inner_key: 2
+# }
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()
+# key {
+#    inner_key {
+#     inner_inner_key: "text"
+#   }
+# }
+
+struct(foo={4: 3, 2: 1}).to_proto()
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
+```
+
+Deprecated: use proto.encode\_text(x) instead.

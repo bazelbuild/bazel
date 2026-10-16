@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,6 +22,7 @@ import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
@@ -28,9 +31,11 @@ import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
+import com.google.devtools.build.lib.skyframe.serialization.Fingerprinter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SingleFileSystemSyscallCache;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -62,10 +67,13 @@ public final class WorkspaceBuilder {
   private SyscallCache syscallCache;
 
   private boolean allowExternalRepositories = true;
+  private Supplier<Path> repoContentsCachePathSupplier = () -> null;
   @Nullable private Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier = null;
 
   @Nullable
   private RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier = null;
+
+  private Fingerprinter fingerprinterForAnalysisCaching;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -112,6 +120,11 @@ public final class WorkspaceBuilder {
     SingleFileSystemSyscallCache singleFsSyscallCache =
         new SingleFileSystemSyscallCache(syscallCache, runtime.getFileSystem());
 
+    CompressionService compressionService =
+        checkNotNull(
+            runtime.getBlazeService(CompressionService.class),
+            "expected CompressionService to be available");
+
     SkyframeExecutor skyframeExecutor =
         skyframeExecutorFactory.create(
             packageFactory,
@@ -123,9 +136,11 @@ public final class WorkspaceBuilder {
             skyFunctions.buildOrThrow(),
             singleFsSyscallCache,
             allowExternalRepositories,
+            repoContentsCachePathSupplier,
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
                 : skyKeyStateReceiver,
+            compressionService,
             runtime.getBugReporter());
     return new BlazeWorkspace(
         runtime,
@@ -138,6 +153,7 @@ public final class WorkspaceBuilder {
         singleFsSyscallCache,
         analysisCodecRegistrySupplier,
         remoteAnalysisCachingServicesSupplier,
+        fingerprinterForAnalysisCaching,
         allowExternalRepositories);
   }
 
@@ -224,6 +240,13 @@ public final class WorkspaceBuilder {
   }
 
   @CanIgnoreReturnValue
+  public WorkspaceBuilder setRepoContentsCachePathSupplier(
+      Supplier<Path> repoContentsCachePathSupplier) {
+    this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public WorkspaceBuilder setSkyKeyStateReceiver(
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver) {
     Preconditions.checkState(
@@ -246,6 +269,13 @@ public final class WorkspaceBuilder {
   public WorkspaceBuilder setRemoteAnalysisCachingServicesSupplier(
       RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier) {
     this.remoteAnalysisCachingServicesSupplier = remoteAnalysisCachingServicesSupplier;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public WorkspaceBuilder setFingerprinterForAnalysisCaching(
+      Fingerprinter fingerprinterForAnalysisCaching) {
+    this.fingerprinterForAnalysisCaching = fingerprinterForAnalysisCaching;
     return this;
   }
 }

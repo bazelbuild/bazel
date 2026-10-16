@@ -48,16 +48,20 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
    * one of the transitions is {@link NoTransition}, and returns an efficiently composed transition.
    */
   public static <T extends TransitionFactory.Data> TransitionFactory<T> of(
-      TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
-
+      TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2)
+      throws IncompatibleTransitionsException {
     Preconditions.checkNotNull(transitionFactory1);
     Preconditions.checkNotNull(transitionFactory2);
-    Preconditions.checkArgument(
-        transitionFactory1.transitionType().isCompatibleWith(transitionFactory2.transitionType()),
-        "transition factory types must be compatible");
-    Preconditions.checkArgument(
-        !transitionFactory1.isSplit() || !transitionFactory2.isSplit(),
-        "can't compose two split transition factories");
+    if (!transitionFactory1
+        .transitionType()
+        .isCompatibleWith(transitionFactory2.transitionType())) {
+      throw new IncompatibleTransitionsException(
+          "transition types must be compatible, got %s and %s"
+              .formatted(transitionFactory1.transitionType(), transitionFactory2.transitionType()));
+    }
+    if (transitionFactory1.isTool() && transitionFactory2.isTool()) {
+      throw new IncompatibleTransitionsException("can't compose two exec transitions");
+    }
 
     if (NoTransition.isInstance(transitionFactory1)) {
       // Since transitionFactory1 causes no changes, use transitionFactory2 directly.
@@ -68,6 +72,26 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
     }
 
     return create(transitionFactory1, transitionFactory2);
+  }
+
+  /**
+   * Use {@link #of} instead unless the two transition factories are statically guaranteed to be
+   * compatible.
+   */
+  public static <T extends TransitionFactory.Data> TransitionFactory<T> ofUnchecked(
+      TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
+    try {
+      return of(transitionFactory1, transitionFactory2);
+    } catch (IncompatibleTransitionsException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  /** Thrown when two {@link TransitionFactory} instances cannot be composed. */
+  public static final class IncompatibleTransitionsException extends Exception {
+    IncompatibleTransitionsException(String message) {
+      super(message);
+    }
   }
 
   private static <T extends TransitionFactory.Data> TransitionFactory<T> create(
@@ -84,8 +108,11 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
 
   @Override
   public TransitionType transitionType() {
-    // Both types must match so this is correct.
-    return transitionFactory1().transitionType();
+    // The two types are compatible, so at most one of them is non-ANY; return the more specific
+    // one.
+    return transitionFactory1().transitionType() == TransitionType.ANY
+        ? transitionFactory2().transitionType()
+        : transitionFactory1().transitionType();
   }
 
   abstract TransitionFactory<T> transitionFactory1();
@@ -186,22 +213,19 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
     }
 
     /**
-     * Composes a new key out of two given keys. Composing two split transitions is not allowed at
-     * the moment, so what this essentially does are (1) make sure not both transitions are split
-     * and (2) choose one from a split transition, if there's any, or return {@code
-     * PATCH_TRANSITION_KEY}, if there isn't.
+     * Composes a new key out of two given keys. If either transition is a patch (1:1) its
+     * placeholder {@code PATCH_TRANSITION_KEY} is absorbed; if both transitions split, the keys are
+     * joined by a comma so the composition produces the cross product of their splits (e.g. keys
+     * {@code "a"} and {@code "x"} compose to {@code "a,x"}).
      */
-    private String composeKeys(String key1, String key2) {
-      if (!key1.equals(PATCH_TRANSITION_KEY)) {
-        if (!key2.equals(PATCH_TRANSITION_KEY)) {
-          throw new IllegalStateException(
-              String.format(
-                  "can't compose two split transitions %s and %s",
-                  transition1.getName(), transition2.getName()));
-        }
+    private static String composeKeys(String key1, String key2) {
+      if (key1.equals(PATCH_TRANSITION_KEY)) {
+        return key2;
+      }
+      if (key2.equals(PATCH_TRANSITION_KEY)) {
         return key1;
       }
-      return key2;
+      return key1 + "," + key2;
     }
   }
 }

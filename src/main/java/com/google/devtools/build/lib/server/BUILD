@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
@@ -10,7 +10,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/server/signal:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -22,45 +22,144 @@ java_library(
 )
 
 java_library(
-    name = "server",
-    srcs = [
-        "CommandManager.java",
-        "GrpcServerImpl.java",
-        "IdleTaskManager.java",
-        "ServerWatcherRunnable.java",
+    name = "terminal_size_monitor",
+    srcs = ["TerminalSizeMonitor.java"],
+    deps = [
+        "//third_party/java/guava:collect",
     ],
+)
+
+java_library(
+    name = "command_manager",
+    srcs = ["CommandManager.java"],
     deps = [
         ":idle_task",
-        ":pid_file_watcher",
-        ":shutdown_hooks",
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
-        "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
-        "//src/main/java/com/google/devtools/build/lib:runtime/safe_request_logging",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        ":idle_task_manager",
+        ":terminal_size_monitor",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/protobuf:command_server_java_proto",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "server_watcher_runnable",
+    srcs = ["ServerWatcherRunnable.java"],
+    deps = [
+        ":command_manager",
+        ":grpc_command_server",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_monitor",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+    ],
+)
+
+java_library(
+    name = "idle_task_manager",
+    srcs = ["IdleTaskManager.java"],
+    deps = [
+        ":idle_task",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+    ],
+)
+
+java_library(
+    name = "grpc_command_server_impl",
+    srcs = ["GrpcCommandServerImpl.java"],
+    deps = [
+        ":grpc_command_server",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/protobuf:command_server_java_grpc",
+        "//src/main/protobuf:command_server_java_proto",
+        "//third_party/java/grpc:context",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:netty",
+        "//third_party/java/grpc:stub",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/netty4:transport_native_epoll",
+        "//third_party/java/netty4:transport_native_unix_common",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "grpc_command_server",
+    srcs = ["GrpcCommandServer.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
+)
+
+java_library(
+    name = "grpc_command_server_service",
+    srcs = ["GrpcCommandServerService.java"],
+    deps = [
+        ":grpc_command_server",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
+    name = "grpc_command_server_service_impl",
+    srcs = ["GrpcCommandServerServiceImpl.java"],
+    deps = [
+        ":grpc_command_server",
+        ":grpc_command_server_impl",
+        ":grpc_command_server_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
+    ],
+)
+
+java_library(
+    name = "command_server",
+    srcs = ["CommandServer.java"],
+    deps = [
+        ":command_manager",
+        ":grpc_command_server",
+        ":pid_file_watcher",
+        ":server_watcher_runnable",
+        ":shutdown_hooks",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/runtime:command_dispatcher",
+        "//src/main/java/com/google/devtools/build/lib/runtime:safe_request_logging",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
-        "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:netty",
-        "//third_party/grpc-java:grpc-jar",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -72,8 +171,10 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -85,9 +186,9 @@ java_library(
     deps = [
         ":pid_file_watcher",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -101,7 +202,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//third_party:flogger",
+        "//third_party/java/flogger",
     ],
 )
 
@@ -115,6 +216,6 @@ java_library(
         ":idle_task",
         "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
     ],
 )

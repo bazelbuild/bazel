@@ -67,8 +67,8 @@ EOF
   touch "$pkg/whocares.in"
   echo Testing in $pkg
   bazel $startup_option build $command_option "//$pkg:foo" \
-    --profile=/tmp/profile.log &> "$TEST_log" || fail "Expected success."
-  grep '"ph":"C"' /tmp/profile.log > "$TEST_log" \
+    --profile="$TEST_TMPDIR/profile.log" &> "$TEST_log" || fail "Expected success."
+  grep '"ph":"C"' "$TEST_TMPDIR/profile.log" > "$TEST_log" \
     || fail "Missing profile file."
 }
 
@@ -83,7 +83,12 @@ function test_metrics() {
 
 function test_metrics_with_load_average() {
   helper "" "--experimental_collect_load_average_in_profiler"
-  expect_log 'System load average.*"load":[0-9.]\+'
+  if is_windows; then
+    # Windows doesn't support load average.
+    expect_not_log 'System load average'
+  else
+    expect_log 'System load average.*"load":[0-9.]\+'
+  fi
 }
 
 function test_collect_skyframe_counts() {
@@ -91,6 +96,11 @@ function test_collect_skyframe_counts() {
   expect_log 'SkyFunction (ACTION_EXECUTION).*"action execution (total)":[0-9.]\+,"action execution (done)":[0-9.]\+}'
   expect_log 'SkyFunction (CONFIGURED_TARGET).*"configured target (total)":[0-9.]\+,"configured target (done)":[0-9.]\+}'
   expect_log 'SkyFunction (PACKAGE).*"package (total)":[0-9.]\+,"package (done)":[0-9.]\+}'
+}
+
+function test_no_negative_timestamps() {
+  helper "" ""
+  ! grep -q '"ts":-' /tmp/profile.log || fail "Found negative timestamps in profile"
 }
 
 run_suite "Integration tests for profiler data."

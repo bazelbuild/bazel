@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.starlark.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.rules.config.ConfigGlobalLibrary;
 import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
+import com.google.devtools.build.lib.skyframe.BzlLoadThreadOwner;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -52,7 +54,6 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Comment;
 import net.starlark.java.syntax.DocComments;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -79,6 +80,7 @@ public final class BazelEvaluationTestCase {
   private Module module = null; // created lazily by getModule
 
   private ImmutableMap<String, Class<?>> fragmentNameToClass = ImmutableMap.of();
+  private Optional<Label> noExplicitMnemonicAllowlist = Optional.empty();
 
   private Object threadOwner = "test";
 
@@ -125,14 +127,14 @@ public final class BazelEvaluationTestCase {
   /** Joins the lines, parses them as an expression, and evaluates it. */
   public final Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return Starlark.eval(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+    return Starlark.eval(input, getModule(), getStarlarkThread());
   }
 
   /** Joins the lines, parses them as a file, and executes it. */
   public final void exec(String... lines)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
-    Starlark.execFile(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+    Starlark.execFile(input, getModule(), getStarlarkThread());
   }
 
   /**
@@ -168,9 +170,15 @@ public final class BazelEvaluationTestCase {
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
             /* networkAllowlistForTests= */ Optional.empty(),
+            noExplicitMnemonicAllowlist,
             fragmentNameToClass,
             /* mainRepoMapping= */ null)
         .storeInThread(thread);
+  }
+
+  public void setNoExplicitMnemonicAllowlist(Optional<Label> noExplicitMnemonicAllowlist) {
+    Preconditions.checkState(this.thread == null, "Call this method before getStarlarkThread()");
+    this.noExplicitMnemonicAllowlist = noExplicitMnemonicAllowlist;
   }
 
   /**
@@ -197,6 +205,7 @@ public final class BazelEvaluationTestCase {
         BazelModuleContext.create(
             BazelModuleKey.createFakeModuleKeyForTesting(label),
             RepositoryMapping.EMPTY,
+            /* moduleRepoName= */ null,
             this.label.toString(),
             /* loads= */ ImmutableList.of(),
             /* bzlTransitiveDigest= */ new byte[0],
@@ -225,6 +234,11 @@ public final class BazelEvaluationTestCase {
   /** Sets a thread owner, for cases where the default value of {@code "test"} doesn't work. */
   public void setThreadOwner(Object owner) {
     this.threadOwner = owner;
+  }
+
+  /** Sets a fake thread owner suitable for a .bzl/.scl loading thread. */
+  public void setBzlLoadThreadOwner(Label label) {
+    this.threadOwner = BzlLoadThreadOwner.of(keyForBuild(label), getModule());
   }
 
   public StarlarkThread getStarlarkThread() {

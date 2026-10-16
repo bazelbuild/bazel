@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_java//java:java_library.bzl", "java_library")
 load("@rules_java//java:java_test.bzl", "java_test")
@@ -9,6 +10,16 @@ package(default_visibility = ["//visibility:__pkg__"])
 licenses(["notice"])  # Apache License 2.0
 
 exports_files(["LICENSE"])
+
+cc_test(
+    name = "ijar_malformed_test",
+    size = "small",
+    srcs = ["ijar_malformed_test.cc"],
+    deps = [
+        "//third_party/ijar:classfile",
+        "//third_party/ijar:zip",
+    ],
+)
 
 sh_test(
     name = "ijar_test",
@@ -35,6 +46,7 @@ sh_test(
         # TODO(cushon): build from source once we have a JDK 11
         "nestmates/nestmates.jar",
         "records/records.jar",
+        ":record_length_mismatch.jar",
         "sealed/sealed.jar",
         ":source_debug_extension.jar",
         ":duplicated_unsupported_attribute.jar",
@@ -73,6 +85,17 @@ sh_test(
     data = ["//third_party/ijar:zipper"],
     tags = ["zip"],
     deps = [":testenv"],
+)
+
+cc_test(
+    name = "zip64_test",
+    size = "large",
+    srcs = ["zip64_test.cc"],
+    tags = ["zip"],
+    deps = [
+        "//third_party/ijar:zip",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 sh_library(
@@ -245,6 +268,20 @@ genrule(
     tools = [":gen_dynamic_constant"],
 )
 
+java_binary(
+    name = "gen_record_length_mismatch",
+    srcs = ["GenRecordLengthMismatch.java"],
+    main_class = "test.GenRecordLengthMismatch",
+)
+
+genrule(
+    name = "gen_record_length_mismatch_jar",
+    srcs = [],
+    outs = ["record_length_mismatch.jar"],
+    cmd = "$(execpath :gen_record_length_mismatch) $@",
+    tools = [":gen_record_length_mismatch"],
+)
+
 java_library(
     name = "local_and_anonymous_lib",
     srcs = ["LocalAndAnonymous.java"],
@@ -401,6 +438,26 @@ genrule(
     tools = ["//third_party/ijar"],
 )
 
+genrule(
+    name = "multirelease",
+    testonly = True,
+    srcs = ["Object.java"],
+    outs = ["multirelease.jar"],
+    cmd = "$(JAVABASE)/bin/jar --create --file $@ --release 9 $<",
+    toolchains = [
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
+)
+
+genrule(
+    name = "multirelease-interface",
+    testonly = True,
+    srcs = [":multirelease.jar"],
+    outs = ["multirelease-interface.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -433,6 +490,7 @@ java_test(
         ":local_and_anonymous-interface.jar",
         ":meta_inf_transitive-interface",
         ":module_info-interface.jar",
+        ":multirelease-interface.jar",
         ":scala_tasty-interface.jar",
     ],
     tags = ["zip"],
@@ -470,7 +528,7 @@ java_binary(
         ("largest_regular", 65535),
         ("smallest_zip64", 65536),
         ("definitely_zip64", 70000),
-        ("empty_zip", 1),
+        ("empty_zip", 0),
     ]
 ]
 

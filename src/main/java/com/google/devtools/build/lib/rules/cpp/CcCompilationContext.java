@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
@@ -45,7 +46,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
@@ -300,12 +303,18 @@ public final class CcCompilationContext {
     HeaderInfo headerInfo = getHeaderInfo();
     Collection<HeaderInfo> transitiveHeaderInfos = headerInfo.getTransitiveCollection();
     ArrayList<Artifact> treeArtifacts = new ArrayList<>();
+    // Summing transitive header lists over-allocates due to duplicate exported deps, and large
+    // maps prematurely promote to Old Gen (b/569269228). Estimate capacity from the deduplicated
+    // library count and cap it.
+    int transitiveInfoCount = transitiveHeaderInfos.size();
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
     Map<PathFragment, Artifact> pathToLegalArtifact =
-        CompactHashMap.createWithExpectedSize(transitiveHeaderInfos.size());
+        CompactHashMap.createWithExpectedSize(Math.min(transitiveInfoCount * 3, 4096));
     Set<Artifact> modularHeaders =
-        CompactHashSet.createWithExpectedSize(transitiveHeaderInfos.size());
+        createModularHeaders
+            ? CompactHashSet.createWithExpectedSize(Math.min(transitiveInfoCount * 2, 2048))
+            : CompactHashSet.create();
     // Not using range-based for loops here and below as the additional overhead of the
     // ImmutableList iterators has shown up in profiles.
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
@@ -390,6 +399,46 @@ public final class CcCompilationContext {
     // 2. compiles of other translation units of the same rule.
     modules.remove(separate ? headerInfo.getSeparateModule(usePic) : headerInfo.getModule(usePic));
     return modules;
+  }
+
+  /**
+   * Returns the modules that a compilation in this context could use directly: the modules of its
+   * direct dependencies as well as the separate module of this context (except for the compile of
+   * the separate module itself, which is indicated by {@code separate}).
+   *
+   * <p>Just like in {@link #computeUsedModules}, the main module of this context is never included:
+   * it is either the output of the compilation or, for other compiles of the same rule, its headers
+   * are included textually.
+   *
+   * <p>This is an upper bound for the top-level modules of a compilation, used when include
+   * scanning is disabled and thus the exact set of used headers is unknown.
+   */
+  NestedSet<Artifact> getDirectModules(boolean usePic, boolean separate) {
+    HeaderInfo headerInfo = getHeaderInfo();
+    CompactHashSet<Artifact> modules = CompactHashSet.create();
+    for (HeaderInfo dep : headerInfo.deps) {
+      collectModules(dep, usePic, modules);
+    }
+    // The separate module can be used by all compiles of this context except for its own compile.
+    DerivedArtifact separateModule = headerInfo.getSeparateModule(usePic);
+    if (separateModule != null && !separate) {
+      modules.add(separateModule);
+    }
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER, modules);
+  }
+
+  private static void collectModules(HeaderInfo headerInfo, boolean usePic, Set<Artifact> modules) {
+    DerivedArtifact module = headerInfo.getModule(usePic);
+    if (module == null) {
+      // If we don't have a main module, there is also not going to be a separate module. This is
+      // verified when constructing HeaderInfo instances.
+      return;
+    }
+    modules.add(module);
+    DerivedArtifact separateModule = headerInfo.getSeparateModule(usePic);
+    if (separateModule != null) {
+      modules.add(separateModule);
+    }
   }
 
   private static void removeArtifactsFromSet(Set<Artifact> set, ImmutableList<Artifact> artifacts) {
@@ -511,13 +560,20 @@ public final class CcCompilationContext {
   }
 
   /** Returns the list of dependencies' C++ module maps re-exported by this compilation context. */
-  @SuppressWarnings("unchecked")
   public ImmutableList<CppModuleMap> getExportingModuleMaps() {
     try {
-      return ((StarlarkList<StarlarkInfo>)
-              starlarkInfo.getValue("_exporting_module_maps", StarlarkList.class))
-          .stream().map(CppModuleMap::new).collect(toImmutableList());
-    } catch (EvalException e) {
+      Stream<StarlarkInfo> moduleMaps =
+          switch (starlarkInfo.getValue("_exporting_module_maps")) {
+            case Depset depset -> depset.toList(StarlarkInfo.class).stream();
+            case StarlarkList<?> starlarkList ->
+                starlarkList.stream().map(StarlarkInfo.class::cast);
+            case Object values ->
+                throw new IllegalStateException(
+                    "Unexpected type for _exporting_module_maps, want Depset or StarlarkList, got "
+                        + values.getClass());
+          };
+      return moduleMaps.map(CppModuleMap::new).collect(toImmutableList());
+    } catch (Depset.TypeException e) {
       throw new IllegalStateException(e);
     }
   }
@@ -547,6 +603,7 @@ public final class CcCompilationContext {
    */
   @Immutable
   @VisibleForTesting
+  @StarlarkBuiltin(name = "header_info", documented = false)
   public static final class HeaderInfo implements StarlarkValue {
     // This class has non-private visibility testing and HeaderInfoCodec.
 
@@ -750,6 +807,11 @@ public final class CcCompilationContext {
       return true;
     }
 
+    @Override
+    public boolean isAcyclic() {
+      return true;
+    }
+
     /** Represents the memoized transitive information for a HeaderInfo instance. */
     private class TransitiveHeaderCollection extends AbstractCollection<HeaderInfo> {
       private final int size;
@@ -835,10 +897,9 @@ public final class CcCompilationContext {
           "Separate module ('%s', '%s') cannot be used without main module",
           separateModule,
           separatePicModule);
-      ImmutableSet.Builder<Artifact> modularPublicHeaders = ImmutableSet.builder();
-      ImmutableSet.Builder<Artifact> modularPrivateHeaders = ImmutableSet.builder();
-      ImmutableSet.Builder<Artifact> allTextualHeaders = ImmutableSet.builder();
-      allTextualHeaders.addAll(textualHeaders);
+      Set<Artifact> modularPublicHeaders = CompactHashSet.create();
+      Set<Artifact> modularPrivateHeaders = CompactHashSet.create();
+      Set<Artifact> allTextualHeaders = CompactHashSet.create(textualHeaders);
       // TODO(djasper): CPP_TEXTUAL_INCLUDEs are currently special cased here and in
       // CppModuleMapAction. These should be moved to a place earlier in the Action construction.
       for (Artifact header : publicHeaders) {
@@ -864,9 +925,9 @@ public final class CcCompilationContext {
           identityToken,
           headerModule,
           picHeaderModule,
-          modularPublicHeaders.build().asList(),
-          modularPrivateHeaders.build().asList(),
-          allTextualHeaders.build().asList(),
+          ImmutableList.copyOf(modularPublicHeaders),
+          ImmutableList.copyOf(modularPrivateHeaders),
+          ImmutableList.copyOf(allTextualHeaders),
           separateModuleHeaders,
           separateModule,
           separatePicModule,

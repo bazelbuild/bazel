@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -44,6 +46,10 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> RULES_JAVA_PROVIDER =
       new RulesJavaProvider();
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> PROVIDER = new Provider();
+
+  // Ensures that we use a canonical PathFragment instance per java binary exec path to save memory.
+  private static final LoadingCache<String, PathFragment> javaBinaryExecPathCache =
+      Caffeine.newBuilder().weakKeys().build(PathFragment::create);
 
   // Helper methods to access an instance of JavaRuntimeInfo.
 
@@ -74,7 +80,8 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
   private static JavaRuntimeInfo from(RuleContext ruleContext, ToolchainInfo toolchainInfo) {
     if (toolchainInfo != null) {
       try {
-        JavaRuntimeInfo result = wrap(toolchainInfo.getValue("java_runtime", Info.class));
+        JavaRuntimeInfo result =
+            wrap(toolchainInfo.getValue("java_runtime", Info.class), "java_runtime");
         if (result != null) {
           return result;
         }
@@ -91,7 +98,10 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
     super(underlying);
   }
 
-  public static JavaRuntimeInfo wrap(Info info) throws RuleErrorException {
+  public static JavaRuntimeInfo wrap(Info info, String what) throws RuleErrorException {
+    if (info == null) {
+      throw new RuleErrorException("expected a JavaRuntimeInfo, but " + what + " was unset.");
+    }
     com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
     if (key.equals(PROVIDER.getKey())) {
       return PROVIDER.wrap(info);
@@ -112,12 +122,9 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
     return getUnderlyingValue("java_home", String.class);
   }
 
-  public PathFragment javaBinaryExecPathFragment() throws RuleErrorException {
-    return PathFragment.create(getUnderlyingValue("java_executable_exec_path", String.class));
-  }
-
-  public PathFragment javaBinaryRunfilesPathFragment() throws RuleErrorException {
-    return PathFragment.create(getUnderlyingValue("java_executable_runfiles_path", String.class));
+  PathFragment javaBinaryExecPathFragment() throws RuleErrorException {
+    return javaBinaryExecPathCache.get(
+        getUnderlyingValue("java_executable_exec_path", String.class));
   }
 
   public ImmutableList<StarlarkInfo> hermeticStaticLibs() throws RuleErrorException {

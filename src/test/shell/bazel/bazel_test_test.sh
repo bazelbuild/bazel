@@ -113,6 +113,15 @@ EOF
     >& $TEST_log || fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=$TEST_TMPDIR"
   expect_log "HOME=$TEST_TMPDIR"
+
+  add_to_bazelrc "test --test_tmpdir=${TEST_TMPDIR}/from_bazelrc"
+  bazel test --nocache_test_results --test_output=all --test_tmpdir= //foo:bar_test \
+    >& $TEST_log || fail "Running sh_test with empty --test_tmpdir failed"
+  expect_log "TEST_TMPDIR=/.*"
+  expect_log "HOME=/.*"
+  expect_not_log "from_bazelrc"
+  [[ ! -e _tmp ]] || fail "Empty --test_tmpdir created _tmp in the workspace"
+  write_default_bazelrc
 }
 
 function test_env_vars() {
@@ -199,6 +208,83 @@ EOF
   expect_log "baz: fromtest"
   expect_log "test_size: small"
   expect_log "ws: _main$"
+}
+
+function test_coverage_env_vars_can_be_overridden() {
+  add_rules_cc "MODULE.bazel"
+  mkdir -p foo
+
+  cat > foo/print_coverage_env.cc <<'EOF'
+#include <cstdlib>
+#include <cstdio>
+int main() {
+  const char* gcov = getenv("COVERAGE_GCOV_PATH");
+  const char* llvm = getenv("LLVM_COV");
+  const char* cc_script = getenv("CC_CODE_COVERAGE_SCRIPT");
+  printf("coverage_gcov_path: %s\n", gcov ? gcov : "(null)");
+  printf("llvm_cov: %s\n", llvm ? llvm : "(null)");
+  printf("cc_code_coverage_script: %s\n", cc_script ? cc_script : "(null)");
+  return 0;
+}
+EOF
+
+  cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+cc_test(
+    name = "print_coverage_env",
+    srcs = ["print_coverage_env.cc"],
+)
+EOF
+
+  if is_darwin && has_ipv6_default_route; then
+    export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
+    export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
+  else
+    export STARTUP_OPTS=""
+  fi
+
+  GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
+    //foo:print_coverage_env &> $TEST_log || true
+  expect_log "cc_code_coverage_script: .*collect_cc_coverage.sh"
+  expect_log "coverage_gcov_path: /from/env"
+  if ! is_darwin; then
+    # The Xcode toolchain provided by apple_support only honors GCOV, it
+    # doesn't declare an llvm-cov tool path, so LLVM_COV isn't part of the
+    # coverage environment on macOS.
+    expect_log "llvm_cov: /from/env"
+  fi
+
+  GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
+    --test_env=COVERAGE_GCOV_PATH=from_test_env \
+    --test_env=LLVM_COV=from_test_env \
+    --test_env=CC_CODE_COVERAGE_SCRIPT=from_test_env \
+    //foo:print_coverage_env &> $TEST_log || true
+  expect_log "coverage_gcov_path: from_test_env"
+  expect_log "llvm_cov: from_test_env"
+  expect_log "cc_code_coverage_script: from_test_env"
+
+  cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+cc_test(
+    name = "print_coverage_env",
+    srcs = ["print_coverage_env.cc"],
+    size = "small",
+    env = {
+        "COVERAGE_GCOV_PATH": "from_rule_env",
+        "LLVM_COV": "from_rule_env",
+        "CC_CODE_COVERAGE_SCRIPT": "from_rule_env",
+    },
+)
+EOF
+
+  GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
+    --test_env=COVERAGE_GCOV_PATH=from_test_env \
+    --test_env=LLVM_COV=from_test_env \
+    --test_env=CC_CODE_COVERAGE_SCRIPT=from_test_env \
+    //foo:print_coverage_env &> $TEST_log || true
+  expect_log "coverage_gcov_path: from_rule_env"
+  expect_log "llvm_cov: from_rule_env"
+  expect_log "cc_code_coverage_script: from_rule_env"
 }
 
 function test_runfiles_java_runfiles_merges_env_vars() {
@@ -782,6 +868,50 @@ function test_detailed_test_summary_for_passed_test() {
   expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testWithArgument'
 }
 
+function test_detailed_uncached_test_summary() {
+  copy_examples
+  add_rules_cc "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+  setup_javatest_support
+
+  local cc_test="//examples/cpp:hello-success_test"
+  local java_test="//examples/java-native/src/test/java/com/example/myproject:hello"
+
+  # Partially warm cache by running only the C++ test.
+  bazel test --test_summary=detailed_uncached "${cc_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_log "${cc_test}.*PASSED in .*s"
+
+  # Now run both tests and expect only the Java test to be reported.
+  bazel test --test_summary=detailed_uncached "${cc_test}" "${java_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_not_log "${cc_test}.*PASSED in .*s"
+  expect_log "${java_test}.*PASSED in .*s"
+  expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testNoArgument'
+  expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testWithArgument'
+}
+
+function test_short_uncached_test_summary() {
+  copy_examples
+  add_rules_cc "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+  setup_javatest_support
+
+  local cc_test="//examples/cpp:hello-success_test"
+  local java_test="//examples/java-native/src/test/java/com/example/myproject:hello"
+
+  # Partially warm cache by running only the C++ test.
+  bazel test --test_summary=short_uncached "${cc_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_log "${cc_test}.*PASSED in .*s"
+
+  # Now run both tests and expect only the Java test to be reported.
+  bazel test --test_summary=short_uncached "${cc_test}" "${java_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_not_log "${cc_test}.*PASSED in .*s"
+  expect_log "${java_test}.*PASSED in .*s"
+}
+
 # This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
@@ -1140,7 +1270,7 @@ EOF
   expect_log "cannot set env variable TEST_NAME=foo because TEST_NAME is reserved"
 }
 
-function test_run_from_external_repo_sibling_repository_layout() {
+function test_run_from_external_repo() {
   cat <<EOF > MODULE.bazel
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
@@ -1161,10 +1291,10 @@ py_test(
 EOF
   touch a/x.py
 
-  bazel test --experimental_sibling_repository_layout @a//:x &> $TEST_log \
+  bazel test @a//:x &> $TEST_log \
       || fail "expected success"
 
-  cp $(testlogs_dir +local_repository+a)/x/test.xml $TEST_log
+  cp bazel-testlogs/external/+local_repository+a/x/test.xml $TEST_log
   expect_log "<testsuite name=\"+local_repository+a/x\""
   expect_log "<testcase name=\"+local_repository+a/x\""
 }
@@ -1203,15 +1333,11 @@ EOF
   touch x.sh
   chmod +x x.sh
 
-  bazel test \
-      --incompatible_check_sharding_support \
-      //:x  &> $TEST_log && fail "expected failure"
+  bazel test //:x  &> $TEST_log && fail "expected failure"
   expect_log "Sharding requested, but the test runner did not advertise support for it by touching TEST_SHARD_STATUS_FILE."
 
   echo 'touch "$TEST_SHARD_STATUS_FILE"' > x.sh
-  bazel test \
-      --incompatible_check_sharding_support \
-      //:x  &> $TEST_log || fail "expected success"
+  bazel test //:x  &> $TEST_log || fail "expected success"
 }
 
 function test_premature_exit_file_checked() {

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -20,7 +21,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.IOException;
@@ -34,7 +34,9 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
         new InMemoryCacheClient(casEntries),
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
-        digestUtil);
+        digestUtil,
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 
   InMemoryCombinedCache(
@@ -43,19 +45,33 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
         new InMemoryCacheClient(casEntries),
         /* diskCacheClient= */ null,
         symlinkTemplate,
-        digestUtil);
+        digestUtil,
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 
   InMemoryCombinedCache(DigestUtil digestUtil) {
+    this(new InMemoryCacheClient(), digestUtil);
+  }
+
+  InMemoryCombinedCache(InMemoryCacheClient cacheClient, DigestUtil digestUtil) {
     super(
-        new InMemoryCacheClient(),
+        cacheClient,
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
-        digestUtil);
+        digestUtil,
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 
   InMemoryCombinedCache(RemoteCacheClient remoteCacheClient, DigestUtil digestUtil) {
-    super(remoteCacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, digestUtil);
+    super(
+        remoteCacheClient,
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        digestUtil,
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 
   Digest addContents(RemoteActionExecutionContext context, String txt)
@@ -66,7 +82,9 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
   Digest addContents(RemoteActionExecutionContext context, byte[] bytes)
       throws IOException, InterruptedException {
     Digest digest = digestUtil.compute(bytes);
-    Utils.getFromFuture(remoteCacheClient.uploadBlob(context, digest, ByteString.copyFrom(bytes)));
+    getFromFuture(
+        remoteCacheClient.uploadBlob(
+            context, digest, ByteString.copyFrom(bytes), /* force= */ false));
     return digest;
   }
 

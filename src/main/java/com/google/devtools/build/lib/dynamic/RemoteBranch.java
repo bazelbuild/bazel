@@ -132,7 +132,7 @@ class RemoteBranch extends Branch {
           },
           delayLocalExecution);
     } catch (DynamicInterruptedException e) {
-      if (options.debugSpawnScheduler) {
+      if (options.getDebugSpawnScheduler()) {
         logger.atInfo().log(
             "Remote branch of %s self-cancelling with %s: '%s'",
             spawn.getResourceOwner().prettyPrint(), e.getClass().getSimpleName(), e.getMessage());
@@ -145,7 +145,7 @@ class RemoteBranch extends Branch {
     } catch (
         @SuppressWarnings("InterruptedExceptionSwallowed")
         Throwable e) {
-      if (options.debugSpawnScheduler) {
+      if (options.getDebugSpawnScheduler()) {
         logger.atInfo().log(
             "Remote branch of %s failed with %s: '%s'",
             spawn.getResourceOwner().prettyPrint(), e.getClass().getSimpleName(), e.getMessage());

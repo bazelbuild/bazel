@@ -22,7 +22,6 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -113,12 +112,12 @@ public class DownloadCache {
    * @param keyType The type of key used. See: KeyType
    * @return true if the cache entry exist, false otherwise.
    */
-  public boolean exists(String cacheKey, KeyType keyType) {
+  public boolean exists(String cacheKey, KeyType keyType) throws IOException {
     Preconditions.checkState(isEnabled());
     return keyType.getCachePath(path).getChild(cacheKey).getChild(DEFAULT_CACHE_FILENAME).exists();
   }
 
-  boolean hasCanonicalId(String cacheKey, KeyType keyType, String canonicalId) {
+  boolean hasCanonicalId(String cacheKey, KeyType keyType, String canonicalId) throws IOException {
     Preconditions.checkState(isEnabled());
     String idHash = keyType.newHasher().putString(canonicalId, UTF_8).hash().toString();
     return keyType.getCachePath(path).getChild(cacheKey).getChild(ID_PREFIX + idHash).exists();
@@ -242,21 +241,7 @@ public class DownloadCache {
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     cacheEntry.createDirectoryAndParents();
     fileWriter.writeTo(tmpName);
-    // Avoid corruption to the cache entry in case it is hardlinked elsewhere.
-    tmpName.setWritable(false);
-    try {
-      tmpName.renameTo(cacheValue);
-    } catch (FileAccessException e) {
-      // On Windows, atomically replacing a file that is currently opened (e.g. due to a concurrent
-      // get on the cache) results in renameTo throwing this exception, which wraps an
-      // AccessDeniedException. This case is benign since if the target path already exists, we know
-      // that another thread won the race to place the file in the cache. As the exception is rather
-      // generic and could result from other failure types, we rethrow the exception if the cache
-      // entry hasn't been created.
-      if (!cacheValue.exists()) {
-        throw e;
-      }
-    }
+    FileSystemUtils.renameToleratingConcurrentCreation(tmpName, cacheValue);
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
       String idHash = keyType.newHasher().putBytes(canonicalId.getBytes(UTF_8)).hash().toString();

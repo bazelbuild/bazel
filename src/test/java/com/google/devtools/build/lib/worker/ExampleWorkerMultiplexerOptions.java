@@ -17,19 +17,23 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Options for the example worker itself. */
-public class ExampleWorkerMultiplexerOptions extends OptionsBase {
+@OptionsClass
+public abstract class ExampleWorkerMultiplexerOptions extends OptionsBase {
 
   /** Options for the example worker concerning single units of work. */
-  public static class ExampleWorkMultiplexerOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleWorkMultiplexerOptions extends OptionsBase {
+
     @Option(
         name = "output_file",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "",
         help = "Write the output to a file instead of stdout.")
-    public String outputFile;
+    public abstract String getOutputFile();
 
     @Option(
         name = "uppercase",
@@ -37,7 +41,7 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false",
         help = "Uppercase the input.")
-    public boolean uppercase;
+    public abstract boolean getUppercase();
 
     @Option(
         name = "write_uuid",
@@ -45,7 +49,7 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false",
         help = "Writes a UUID into the output.")
-    public boolean writeUUID;
+    public abstract boolean getWriteUUID();
 
     @Option(
         name = "write_counter",
@@ -53,7 +57,7 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false",
         help = "Writes a counter that increases with each work unit processed into the output.")
-    public boolean writeCounter;
+    public abstract boolean getWriteCounter();
 
     @Option(
         name = "print_inputs",
@@ -61,7 +65,7 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false",
         help = "Writes a list of input files and their digests.")
-    public boolean printInputs;
+    public abstract boolean getPrintInputs();
 
     @Option(
         name = "print_env",
@@ -69,7 +73,7 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false",
         help = "Prints a list of all environment variables.")
-    public boolean printEnv;
+    public abstract boolean getPrintEnv();
 
     @Option(
         name = "delay",
@@ -77,7 +81,7 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false",
         help = "Randomly delay the worker response (between 100 to 300 ms).")
-    public boolean delay;
+    public abstract boolean getDelay();
 
     @Option(
         name = "ignore_sandbox",
@@ -85,7 +89,7 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false",
         help = "Ignore the sandbox settings in work requests.")
-    public boolean ignoreSandbox;
+    public abstract boolean getIgnoreSandbox();
   }
 
   @Option(
@@ -93,7 +97,7 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "false")
-  public boolean persistentWorker;
+  public abstract boolean getPersistentWorker();
 
   @Option(
       name = "exit_after",
@@ -101,7 +105,7 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "0",
       help = "The worker exits after processing this many work units (default: disabled).")
-  public int exitAfter;
+  public abstract int getExitAfter();
 
   @Option(
       name = "poison_after",
@@ -111,7 +115,7 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
       help =
           "Poisons the worker after processing this many work units, so that it returns a "
               + "corrupt response instead of a response protobuf from then on (default: disabled).")
-  public int poisonAfter;
+  public abstract int getPoisonAfter();
 
   @Option(
       name = "hard_poison",
@@ -119,5 +123,5 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "false",
       help = "Instead of writing an error message to stdout, write it to stderr and terminate.")
-  public boolean hardPoison;
+  public abstract boolean getHardPoison();
 }

@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.devtools.build.lib.collect.ConcurrentIdentitySet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.VisitedArraySet;
 import java.util.Collection;
+import java.util.function.Predicate;
 
 /**
  * NestedSetVisitor facilitates a transitive visitation over a NestedSet. The callback may be called
@@ -37,11 +41,11 @@ public final class NestedSetVisitor<E> {
 
   private final Receiver<E> callback;
 
-  private final VisitedState visited;
+  private final VisitedState<E> visited;
 
-  public NestedSetVisitor(Receiver<E> callback, VisitedState visited) {
-    this.callback = Preconditions.checkNotNull(callback);
-    this.visited = Preconditions.checkNotNull(visited);
+  public NestedSetVisitor(Receiver<E> callback, VisitedState<E> visited) {
+    this.callback = checkNotNull(callback);
+    this.visited = checkNotNull(visited);
   }
 
   /**
@@ -60,40 +64,50 @@ public final class NestedSetVisitor<E> {
   /** Visit every entry in a collection. */
   public void visit(Collection<E> collection) {
     for (E e : collection) {
-      if (visited.needToVisit(e)) {
+      if (visited.needToVisitLeaf.test(e)) {
         callback.accept(e);
       }
     }
   }
 
-  @SuppressWarnings("unchecked")
   private void visitRaw(Object node) {
-    if (visited.needToVisit(node)) {
-      if (node instanceof Object[]) {
-        for (Object child : (Object[]) node) {
+    if (node instanceof Object[] array) {
+      if (visited.needToVisitNonLeaf.test(array)) {
+        for (Object child : array) {
           visitRaw(child);
         }
-      } else {
-        callback.accept((E) node);
+      }
+    } else {
+      @SuppressWarnings("unchecked") // It's not an Object[] so must be a leaf.
+      E leaf = (E) node;
+      if (visited.needToVisitLeaf.test(leaf)) {
+        callback.accept(leaf);
       }
     }
   }
 
   /** Allows {@link NestedSetVisitor} to keep track of the seen nodes and transitive sets. */
-  public interface VisitedState {
+  public static final class VisitedState<E> {
+
+    /** Creates a new visited state with the given predicate of whether to visit leaves. */
+    public static <E> VisitedState<E> create(Predicate<E> needToVisitLeaf) {
+      return new VisitedState<>(new VisitedArraySet()::add, needToVisitLeaf);
+    }
 
     /**
-     * Determines whether the given node needs to be visited, recording the visitation attempt if
-     * this {@link VisitedState} deduplicates visitations.
-     *
-     * <p>A return of {@code true} means that:
-     *
-     * <ul>
-     *   <li>If {@code node} is a leaf element: {@link Receiver#accept} will be invoked with {@code
-     *       node}.
-     *   <li>If {@code node} is a non-leaf: visitation will traverse its children.
-     * </ul>
+     * Creates a new thread-safe visited state with the given predicate of whether to visit leaves.
      */
-    boolean needToVisit(Object node);
+    public static <E> VisitedState<E> createConcurrent(Predicate<E> needToVisitLeaf) {
+      return new VisitedState<>(
+          new ConcurrentIdentitySet(/* sizeHint= */ 1024)::add, needToVisitLeaf);
+    }
+
+    private final Predicate<Object[]> needToVisitNonLeaf;
+    private final Predicate<E> needToVisitLeaf;
+
+    private VisitedState(Predicate<Object[]> needToVisitNonLeaf, Predicate<E> needToVisitLeaf) {
+      this.needToVisitNonLeaf = checkNotNull(needToVisitNonLeaf);
+      this.needToVisitLeaf = checkNotNull(needToVisitLeaf);
+    }
   }
 }

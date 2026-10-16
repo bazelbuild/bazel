@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.events.EventHandler;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -117,12 +118,17 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
   }
 
   @Override
-  default void repr(Printer printer) {
+  default void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(prettyPrint());
   }
 
   @Override
   default boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  default boolean isAcyclic() {
     return true;
   }
 }

@@ -17,15 +17,18 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.Map;
 
 /** This example options class should fail to compile. */
-public class ConverterlessOption extends OptionsBase {
+@OptionsClass
+public abstract class ConverterlessOption extends OptionsBase {
   @Option(
-    name = "bad_option",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
-  )
-  public Map<String, String> badOption;
+      name = "bad_option",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
+  public abstract Map<String, String> getBadOption();
+
+  public abstract void setBadOption(Map<String, String> value);
 }

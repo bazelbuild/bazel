@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -64,13 +65,15 @@ final class ImmutableSerializationContext extends SerializationContext {
     if (writeIfNullOrConstant(obj, codedOut)) {
       return;
     }
-    // It was not constant or null. Emits -1 to signal an immediate value and serializes the value.
-    codedOut.writeSInt32NoTag(-1);
+    // It was not constant or null. Emits typedTag `(CodecWireType.UNSTABLE, 1)` to signal an
+    // immediate value, then serializes the value.
+    codedOut.writeUInt32NoTag(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1));
     codec.serialize((LeafSerializationContext) this, obj, codedOut);
   }
 
   @Override
-  boolean writeBackReferenceIfMemoized(Object obj, CodedOutputStream codedOut, boolean isLeafType) {
+  boolean writeBackReferenceIfMemoized(
+      Object obj, CodedOutputStream codedOut, MemoizationEquality memoizationEquality) {
     return false;
   }
 

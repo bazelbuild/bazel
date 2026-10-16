@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,20 +22,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.Map;
@@ -49,136 +42,6 @@ import org.junit.runners.JUnit4;
 /** Tests JavaInfo API for Starlark. */
 @RunWith(JUnit4.class)
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
-
-  @Test
-  public void buildHelperCreateJavaInfoWithModuleFlags() throws Exception {
-    setBuildLanguageOptions("--noincompatible_java_info_merge_runtime_module_flags");
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_direct",
-            srcs = ["java/A.java"],
-            add_exports = ["java.base/java.lang"],
-            add_opens = ["java.base/java.lang"],
-        )
-
-        java_library(
-            name = "my_java_lib_runtime",
-            srcs = ["java/A.java"],
-            add_opens = ["java.base/java.util"],
-        )
-
-        java_library(
-            name = "my_java_lib_exports",
-            srcs = ["java/A.java"],
-            add_opens = ["java.base/java.math"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            add_exports = ["java.base/java.lang.invoke"],
-            dep = [":my_java_lib_direct"],
-            dep_exports = [":my_java_lib_exports"],
-            dep_runtime = [":my_java_lib_runtime"],
-            output_jar = "my_starlark_rule_lib.jar",
-        )
-        """);
-    assertNoEvents();
-
-    JavaModuleFlagsProvider ruleOutputs =
-        fetchJavaInfo().getProvider(JavaModuleFlagsProvider.class);
-
-    if (analysisMock.isThisBazel()) {
-      assertThat(ruleOutputs.toFlags())
-          .containsExactly(
-              "--add-exports=java.base/java.lang=ALL-UNNAMED",
-              "--add-exports=java.base/java.lang.invoke=ALL-UNNAMED",
-              // NB: no java.base/java.util as the JavaInfo constructor doesn't
-              // look at runtime_deps for module flags.
-              "--add-opens=java.base/java.lang=ALL-UNNAMED",
-              "--add-opens=java.base/java.math=ALL-UNNAMED")
-          .inOrder();
-    } else {
-      // add_exports/add_opens ignored in JavaInfo constructor in #newJavaInfo below
-      assertThat(ruleOutputs.toFlags())
-          .containsExactly(
-              "--add-exports=java.base/java.lang=ALL-UNNAMED",
-              // NB: no java.base/java.util as the JavaInfo constructor doesn't
-              // look at runtime_deps for module flags.
-              "--add-opens=java.base/java.lang=ALL-UNNAMED",
-              "--add-opens=java.base/java.math=ALL-UNNAMED")
-          .inOrder();
-    }
-  }
-
-  @Test
-  public void buildHelperCreateJavaInfoWithModuleFlagsIncompatibleMergeRuntime() throws Exception {
-    setBuildLanguageOptions("--incompatible_java_info_merge_runtime_module_flags");
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_direct",
-            srcs = ["java/A.java"],
-            add_exports = ["java.base/java.lang"],
-            add_opens = ["java.base/java.lang"],
-        )
-
-        java_library(
-            name = "my_java_lib_runtime",
-            srcs = ["java/A.java"],
-            add_opens = ["java.base/java.util"],
-        )
-
-        java_library(
-            name = "my_java_lib_exports",
-            srcs = ["java/A.java"],
-            add_opens = ["java.base/java.math"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            add_exports = ["java.base/java.lang.invoke"],
-            dep = [":my_java_lib_direct"],
-            dep_exports = [":my_java_lib_exports"],
-            dep_runtime = [":my_java_lib_runtime"],
-            output_jar = "my_starlark_rule_lib.jar",
-        )
-        """);
-    assertNoEvents();
-
-    JavaModuleFlagsProvider ruleOutputs =
-        fetchJavaInfo().getProvider(JavaModuleFlagsProvider.class);
-
-    if (analysisMock.isThisBazel()) {
-      assertThat(ruleOutputs.toFlags())
-          .containsExactly(
-              "--add-exports=java.base/java.lang=ALL-UNNAMED",
-              "--add-exports=java.base/java.lang.invoke=ALL-UNNAMED",
-              "--add-opens=java.base/java.util=ALL-UNNAMED",
-              "--add-opens=java.base/java.math=ALL-UNNAMED",
-              "--add-opens=java.base/java.lang=ALL-UNNAMED")
-          .inOrder();
-    } else {
-      // add_exports/add_opens ignored in JavaInfo constructor in #newJavaInfo below
-      assertThat(ruleOutputs.toFlags())
-          .containsExactly(
-              "--add-exports=java.base/java.lang=ALL-UNNAMED",
-              "--add-opens=java.base/java.util=ALL-UNNAMED",
-              "--add-opens=java.base/java.math=ALL-UNNAMED",
-              "--add-opens=java.base/java.lang=ALL-UNNAMED")
-          .inOrder();
-    }
-  }
 
   @Test
   public void starlarkJavaOutputsCanBeAddedToJavaPluginInfo() throws Exception {
@@ -424,96 +287,5 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   private static StarlarkInfo makeStruct(Map<String, Object> struct) {
     return StructProvider.STRUCT.create(struct, "");
-  }
-
-  private RuleBuilder ruleBuilder() {
-    return new RuleBuilder();
-  }
-
-  private class RuleBuilder {
-    private String[] newJavaInfo() {
-      ImmutableList.Builder<String> lines = ImmutableList.builder();
-      lines.add(
-          "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo',"
-              + " 'JavaPluginInfo')",
-          "result = provider()",
-          "def _impl(ctx):",
-          "  ctx.actions.write(ctx.outputs.output_jar, 'JavaInfo API Test', is_executable=False) ",
-          "  dp = [dep[java_common.provider] for dep in ctx.attr.dep]",
-          "  dp_runtime = [dep[java_common.provider] for dep in ctx.attr.dep_runtime]",
-          "  dp_exports = [dep[java_common.provider] for dep in ctx.attr.dep_exports]",
-          "  dp_exported_plugins = [dep[JavaPluginInfo] for dep in ctx.attr.dep_exported_plugins]",
-          "  dp_libs = [dep[CcInfo] for dep in ctx.attr.cc_dep]",
-          "  compile_jar = ctx.outputs.output_jar",
-          "  if ctx.files.source_jars:",
-          "    source_jar = list(ctx.files.source_jars)[0]",
-          "  else:",
-          "    source_jar = None",
-          "  javaInfo = JavaInfo(",
-          "    output_jar = ctx.outputs.output_jar,",
-          "    compile_jar = compile_jar,",
-          "    source_jar = source_jar,",
-          "    deps = dp,",
-          "    runtime_deps = dp_runtime,",
-          "    exports = dp_exports,",
-          "    exported_plugins = dp_exported_plugins,",
-          "    jdeps = ctx.file.jdeps,",
-          "    compile_jdeps = ctx.file.compile_jdeps,",
-          "    generated_class_jar = ctx.file.generated_class_jar,",
-          "    generated_source_jar = ctx.file.generated_source_jar,",
-          "    native_headers_jar = ctx.file.native_headers_jar,",
-          "    manifest_proto = ctx.file.manifest_proto,",
-          "    native_libraries = dp_libs,");
-      if (analysisMock.isThisBazel()) {
-        lines.add(
-            "    add_exports = ctx.attr.add_exports,", //
-            "    add_opens = ctx.attr.add_opens,");
-      }
-      lines.add(
-          "  )", //
-          "  return [result(property = javaInfo)]");
-      return lines.build().toArray(new String[] {});
-    }
-
-    private void build() throws Exception {
-      ImmutableList.Builder<String> lines = ImmutableList.builder();
-      lines.add(newJavaInfo());
-      lines.add(
-          "my_rule = rule(",
-          "  implementation = _impl,",
-          "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-          "  attrs = {",
-          "    'dep' : attr.label_list(),",
-          "    'cc_dep' : attr.label_list(),",
-          "    'dep_runtime' : attr.label_list(),",
-          "    'dep_exports' : attr.label_list(),",
-          "    'dep_exported_plugins' : attr.label_list(),",
-          "    'output_jar' : attr.output(mandatory=True),",
-          "    'source_jars' : attr.label_list(allow_files=['.jar']),",
-          "    'sources' : attr.label_list(allow_files=['.java']),",
-          "    'jdeps' : attr.label(allow_single_file=True),",
-          "    'compile_jdeps' : attr.label(allow_single_file=True),",
-          "    'generated_class_jar' : attr.label(allow_single_file=True),",
-          "    'generated_source_jar' : attr.label(allow_single_file=True),",
-          "    'native_headers_jar' : attr.label(allow_single_file=True),",
-          "    'manifest_proto' : attr.label(allow_single_file=True),",
-          "    'add_exports' : attr.string_list(),",
-          "    'add_opens' : attr.string_list(),",
-          "  }",
-          ")");
-
-      scratch.file("foo/extension.bzl", lines.build().toArray(new String[] {}));
-    }
-  }
-
-  private JavaInfo fetchJavaInfo() throws Exception {
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
-    StructImpl info =
-        (StructImpl)
-            myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
-
-    return JavaInfo.wrap(info.getValue("property", Info.class));
   }
 }

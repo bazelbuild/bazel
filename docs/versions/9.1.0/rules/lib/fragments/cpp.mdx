@@ -1,0 +1,100 @@
+---
+title: 'cpp'
+---
+
+A configuration fragment for C++.
+
+## Members
+
+* [apple_generate_dsym](#apple_generate_dsym)
+* [conlyopts](#conlyopts)
+* [copts](#copts)
+* [custom_malloc](#custom_malloc)
+* [cxxopts](#cxxopts)
+* [linkopts](#linkopts)
+* [objc_generate_linkmap](#objc_generate_linkmap)
+* [objc_should_strip_binary](#objc_should_strip_binary)
+* [objccopts](#objccopts)
+
+## apple_generate_dsym
+
+```
+bool cpp.apple_generate_dsym
+```
+
+Whether to generate Apple debug symbol(.dSYM) artifacts.
+
+## conlyopts
+
+```
+list cpp.conlyopts
+```
+
+The flags passed to Bazel by [`--conlyopt`](/versions/9.1.0/docs/user-manual#flag--conlyopt) option.
+
+## copts
+
+```
+list cpp.copts
+```
+
+The flags passed to Bazel by [`--copt`](/versions/9.1.0/docs/user-manual#flag--copt) option.
+
+## custom_malloc
+
+```
+Label cpp.custom_malloc
+```
+
+Returns label pointed to by [`--custom_malloc`](/versions/9.1.0/docs/user-manual#flag--custom_malloc) option. Can be accessed with [`configuration_field`](/versions/9.1.0/rules/lib/globals/bzl#configuration_field):
+
+```
+attr.label(
+    default = configuration_field(
+        fragment = "cpp",
+        name = "custom_malloc"
+    )
+)
+```
+
+May return `None`.
+
+## cxxopts
+
+```
+list cpp.cxxopts
+```
+
+The flags passed to Bazel by [`--cxxopt`](/versions/9.1.0/docs/user-manual#flag--cxxopt) option.
+
+## linkopts
+
+```
+list cpp.linkopts
+```
+
+The flags passed to Bazel by [`--linkopt`](/versions/9.1.0/docs/user-manual#flag--linkopt) option.
+
+## objc_generate_linkmap
+
+```
+bool cpp.objc_generate_linkmap
+```
+
+(Apple-only) Whether to generate linkmap artifacts.
+
+## objc_should_strip_binary
+
+```
+bool cpp.objc_should_strip_binary
+```
+
+(Apple-only) whether to perform symbol and dead-code strippings on linked binaries.
+
+## objccopts
+
+```
+list cpp.objccopts
+```
+
+The flags passed to Bazel by [`--objccopt`](/versions/9.1.0/docs/user-manual#flag--objccopt) option.

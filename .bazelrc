@@ -1,4 +1,4 @@
-common --enable_platform_specific_config
+common --@rules_python//python/config_settings:bootstrap_impl=script
 
 # Either consumed as @remoteapis or as files.
 common --deleted_packages=third_party/remoteapis
@@ -13,21 +13,30 @@ common:remote_shared --jobs=100
 common:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin
 
 # Configuration to build and test Bazel on RBE on Ubuntu 20.04
-common:ubuntu2004 --crosstool_top=@rbe_ubuntu2004//cc:toolchain
-common:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//config:cc-toolchain
-common:ubuntu2004 --extra_execution_platforms=//:rbe_ubuntu2004_platform,//:rbe_ubuntu2004_highcpu_platform
-common:ubuntu2004 --host_platform=//:rbe_ubuntu2004_platform
-common:ubuntu2004 --platforms=//:rbe_ubuntu2004_platform
-common:ubuntu2004 --config=remote_shared
+common:ubuntu2404 --extra_toolchains=@rbe_ubuntu2404//config:cc-toolchain
+common:ubuntu2404 --extra_execution_platforms=//:rbe_ubuntu2404_platform,//:rbe_ubuntu2404_highcpu_platform
+common:ubuntu2404 --host_platform=//:rbe_ubuntu2404_platform
+common:ubuntu2404 --platforms=//:rbe_ubuntu2404_platform
+common:ubuntu2404 --config=remote_shared
 
 # Alias
-common:remote --config=ubuntu2004
+common:remote --config=ubuntu2404
 
-common:macos --host_macos_minimum_os=10.13
-common:macos --macos_minimum_os=10.13
+common --host_macos_minimum_os=10.13
+common --macos_minimum_os=10.13
 
 common:windows_arm64 --platforms=//:windows_arm64
 common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
+
+# Build Bazel with the hermetic LLVM toolchains from the `llvm` module instead
+# of the auto-configured host toolchain. Combine with --platforms to
+# cross-compile, e.g.:
+#   bazel build --config=llvm --platforms=@llvm//platforms:linux_x86_64 //src:bazel
+#   bazel build --config=llvm --platforms=@llvm//platforms:windows_x86_64 //src:bazel
+#   bazel build --config=llvm --platforms=@llvm//platforms:macos_aarch64 //src:bazel
+# Keep in sync with //src:windows_llvm_alias.bzl.
+common:llvm --extra_toolchains=@llvm//toolchain:all
+common:llvm --extra_toolchains=//src:llvm_rc_toolchain
 
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
@@ -38,29 +47,38 @@ common --downloader_config=bazel_downloader.cfg
 # Add BCR module mirrors
 common --module_mirrors=https://bcr.cloudflaremirrors.com
 
-# Suppress warnings from external repos, we have no direct control on them anyway.
-common:linux --per_file_copt=external/.*@-w
-common:linux --host_per_file_copt=external/.*@-w
-common:macos --per_file_copt=external/.*@-w
-common:macos --host_per_file_copt=external/.*@-w
-common:windows --per_file_copt=external/.*@/w
-common:windows --host_per_file_copt=external/.*@/w
+# Some integration tests need the PATH environment variable set.
+common --test_env=PATH
 
-# Enable Protobuf MSVC support on Windows
-common:windows --define=protobuf_allow_msvc=true
+# macOS layering check is broken with grpc https://github.com/grpc/grpc/pull/41953
+common --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0
 
-# Enable Java 21 language features and compile for a Java 25 runtime, matching
-# version of the embedded JDK.
-common --java_language_version=21
-common --tool_java_language_version=21
+# Suppress warnings from headers in external repos, we have no direct control on them anyway.
+# Use this rather than --per_file_copt to support cross-platform builds and different compilers.
+common --features=external_include_paths
+common --host_features=external_include_paths
+
+# Build protoc from source instead of using the prebuilt binary so we can apply patches.
+common --@com_google_protobuf//bazel/flags:prefer_prebuilt_protoc=false
+
+# Enable Java 25 language features and compile for a Java 25 runtime.
+# Keep in sync with //:java_toolchain_%d.
+# LINT.IfChange
+common --java_language_version=25
+common --tool_java_language_version=25
 common --java_runtime_version=remotejdk_25
 common --tool_java_runtime_version=remotejdk_25
+# LINT.ThenChange(//BUILD)
 # Reduce the amount of warnings shown due to the deprecation of most Unsafe
 # methods.
 # TODO: Remove this after migrating more code to use VarHandles.
 common --javacopt=-Xlint:-removal
 common --host_javacopt=-Xlint:-removal
-common --jvmopt=--sun-misc-unsafe-memory-access=allow
+# Use a bootclasspath version matching the language version.
+common --@rules_java//toolchains:incompatible_language_version_bootclasspath
+
+# Fail if a classpath contains different versions of the same class
+common --experimental_one_version_enforcement=ERROR
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
@@ -70,6 +88,9 @@ common:docs --workspace_status_command=scripts/docs/get_workspace_status.sh
 # Flags for CI builds
 ## Common
 common:ci-common --lockfile_mode=error
+common:ci-common --remote_download_minimal
+common:ci-common --nobuild_runfile_links
+common:ci-common --experimental_profile_include_target_label
 
 ## For Linux
 common:ci-linux --config=ci-common
@@ -91,6 +112,9 @@ test:ci-macos --sandbox_writable_path=/Users/buildkite/bazeltest
 # TODO(pcloudy): Revert to false once https://github.com/bazelbuild/bazel/issues/23726 is resolved.
 test:ci-macos --sandbox_default_allow_network=true
 common:ci-macos --test_tag_filters=-no_macos
+common:ci-macos --experimental_async_execution
+common:ci-macos --experimental_async_execution_max_concurrent_actions=0
+common:ci-macos --jobs=100
 
 ## For Windows
 common:ci-windows --config=ci-common
@@ -100,3 +124,6 @@ common:ci-windows --test_env=JAVA_HOME
 common:ci-windows --test_env=TEST_INSTALL_BASE=C:/b/bazeltest_install_base
 common:ci-windows --test_env=REPOSITORY_CACHE=C:/b/bazeltest_repo_cache
 common:ci-windows --test_tag_filters=-no_windows,-slow
+# Hide warnings and output of successful actions from external repositories
+# (e.g. MSVC warnings from grpc, protobuf and abseil). Errors still show.
+common:ci-windows --output_filter=^//

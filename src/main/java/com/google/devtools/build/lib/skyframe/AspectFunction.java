@@ -90,7 +90,7 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextUtil;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
@@ -103,6 +103,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -166,7 +167,7 @@ final class AspectFunction implements SkyFunction {
    */
   private final BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier;
 
-  private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
+  private final Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier;
   private final AnalysisProgressReceiver analysisProgressReceiver;
 
   AspectFunction(
@@ -175,7 +176,7 @@ final class AspectFunction implements SkyFunction {
       boolean storeTransitivePackages,
       PrerequisitePackageFunction prerequisitePackages,
       BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
-      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier,
+      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier,
       AnalysisProgressReceiver analysisProgressReceiver) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
@@ -266,9 +267,9 @@ final class AspectFunction implements SkyFunction {
     java.util.function.Supplier<State> stateSupplier =
         () -> new State(storeTransitivePackages, prerequisitePackages);
 
-    RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
+    RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRetrievalEnabled()) {
+    if (remoteCachingDependencies.mode().isRetrievalEnabled()) {
       switch (retrieveRemoteSkyValue(key, env, remoteCachingDependencies, stateSupplier)) {
         case SkyValueRetriever.Restart unused:
           return null;
@@ -296,6 +297,9 @@ final class AspectFunction implements SkyFunction {
     Target target = targetAndConfiguration.getTarget();
     BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
 
+    // PrerequisitesProducer should skip creating aspects on materializer targets.
+    Preconditions.checkState(!target.isMaterializerRule());
+
     // If the target is incompatible, then there's not much to do. The intent here is to create an
     // AspectValue that doesn't trigger any of the associated target's dependencies to be evaluated
     // against this aspect.
@@ -305,21 +309,31 @@ final class AspectFunction implements SkyFunction {
         // most flags or dependencies and are likely to be unsound. So make aspects propagating to
         // these configurations no-ops.
         (configuration != null && configuration.getOptions().hasNoConfig())) {
-      return AspectValue.create(
-          key,
-          aspect,
-          ConfiguredAspect.NonApplicableAspect.INSTANCE,
-          computeDependenciesState.transitivePackages());
+      var result =
+          AspectValue.create(
+              key,
+              aspect,
+              ConfiguredAspect.NonApplicableAspect.INSTANCE,
+              computeDependenciesState.transitivePackages());
+      // TODO(lberki): Call tryUploadAsync() only in one place
+      SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, key, result, env);
+      return result;
     }
 
     if (AliasProvider.isAlias(associatedTarget)) {
-      return createAliasAspect(
-          env,
-          targetAndConfiguration,
-          aspect,
-          key,
-          associatedTarget,
-          computeDependenciesState.transitiveState);
+      var result =
+          createAliasAspect(
+              env,
+              targetAndConfiguration,
+              aspect,
+              key,
+              associatedTarget,
+              computeDependenciesState.transitiveState);
+      if (result != null) {
+        // TODO(lberki): Call tryUploadAsync() only in one place
+        SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, key, result, env);
+      }
+      return result;
     }
     // If we get here, label should match original label, and therefore the target we looked up
     // above indeed corresponds to associatedTarget.getLabel().
@@ -332,11 +346,15 @@ final class AspectFunction implements SkyFunction {
     if (associatedTarget.getConfigurationKey() == null || !targetSatisfiesAspect(target, aspect)) {
       // Aspects cannot apply to PackageGroups or InputFiles, the only cases where configuration key
       // is null. They also cannot apply to targets that don't satisfy the aspect's requirements.
-      return AspectValue.create(
-          key,
-          aspect,
-          ConfiguredAspect.NonApplicableAspect.INSTANCE,
-          computeDependenciesState.transitivePackages());
+      var result =
+          AspectValue.create(
+              key,
+              aspect,
+              ConfiguredAspect.NonApplicableAspect.INSTANCE,
+              computeDependenciesState.transitivePackages());
+      // TODO(lberki): Call tryUploadAsync() only in one place
+      SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, key, result, env);
+      return result;
     }
 
     ImmutableList<Aspect> topologicalAspectPath;
@@ -463,22 +481,27 @@ final class AspectFunction implements SkyFunction {
         throw new AspectFunctionException(
             new AspectCreationException(e.getMessage(), target.getLabel(), configuration));
       }
-      return createAspect(
-          env,
-          key,
-          topologicalAspectPath,
-          aspect,
-          aspectFactory,
-          target,
-          associatedTarget,
-          configuration,
-          dependencyContext.configConditions(),
-          toolchainContexts,
-          baseTargetToolchainContexts,
-          computeDependenciesState.execGroupCollectionBuilder,
-          depValueMap,
-          computeDependenciesState.transitiveState,
-          starlarkExecTransition.orElse(null));
+      SkyValue result =
+          createAspect(
+              env,
+              key,
+              topologicalAspectPath,
+              aspect,
+              aspectFactory,
+              target,
+              associatedTarget,
+              configuration,
+              dependencyContext.configConditions(),
+              toolchainContexts,
+              baseTargetToolchainContexts,
+              computeDependenciesState.execGroupCollectionBuilder,
+              depValueMap,
+              computeDependenciesState.transitiveState,
+              starlarkExecTransition.orElse(null));
+      if (result != null) {
+        SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, key, result, env);
+      }
+      return result;
     } catch (DependencyEvaluationException e) {
       // TODO(bazel-team): consolidate all env.getListener().handle() calls in this method, like in
       // ConfiguredTargetFunction. This encourages clear, consistent user messages (ideally without
@@ -999,6 +1022,8 @@ final class AspectFunction implements SkyFunction {
                     transitiveState.transitivePackages(),
                     key,
                     starlarkExecTransition);
+      } catch (IOException e) {
+        throw new AspectFunctionException(e);
       } catch (MissingDepException e) {
         Preconditions.checkState(env.valuesMissing());
         return null;
@@ -1082,6 +1107,10 @@ final class AspectFunction implements SkyFunction {
 
     public AspectFunctionException(RuleErrorException cause) {
       super(cause, Transience.PERSISTENT);
+    }
+
+    public AspectFunctionException(IOException cause) {
+      super(cause, Transience.TRANSIENT);
     }
   }
 }

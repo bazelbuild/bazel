@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -42,9 +43,9 @@ import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.common.options.RegexPatternOption;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -64,10 +65,11 @@ public class RemoteOutputChecker implements OutputChecker {
 
   private final CommandMode commandMode;
   private final RemoteOutputsMode outputsMode;
-  @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
+  @Nullable private RemoteOutputChecker lastRemoteOutputChecker;
 
   @Nullable private Clock clock;
 
+  private final ImmutableList<RegexPatternOption> downloadRegexes;
   private final ImmutableList<Predicate<String>> patternsToDownload;
   private final ConcurrentArtifactPathTrie pathsToDownload = new ConcurrentArtifactPathTrie();
   private final Set<PathFragment> pathsToSkip = ConcurrentHashMap.newKeySet();
@@ -75,14 +77,14 @@ public class RemoteOutputChecker implements OutputChecker {
   public RemoteOutputChecker(
       String commandName,
       RemoteOutputsMode outputsMode,
-      ImmutableList<Predicate<String>> patternsToDownload) {
-    this(commandName, outputsMode, patternsToDownload, /* lastRemoteOutputChecker= */ null);
+      ImmutableList<RegexPatternOption> downloadRegexes) {
+    this(commandName, outputsMode, downloadRegexes, /* lastRemoteOutputChecker= */ null);
   }
 
   public RemoteOutputChecker(
       String commandName,
       RemoteOutputsMode outputsMode,
-      ImmutableList<Predicate<String>> patternsToDownload,
+      ImmutableList<RegexPatternOption> downloadRegexes,
       RemoteOutputChecker lastRemoteOutputChecker) {
     this.commandMode =
         switch (commandName) {
@@ -93,8 +95,21 @@ public class RemoteOutputChecker implements OutputChecker {
           default -> CommandMode.UNKNOWN;
         };
     this.outputsMode = outputsMode;
-    this.patternsToDownload = patternsToDownload;
+    this.downloadRegexes = downloadRegexes;
+    this.patternsToDownload =
+        downloadRegexes.stream().map(RegexPatternOption::matcher).collect(toImmutableList());
     this.lastRemoteOutputChecker = lastRemoteOutputChecker;
+  }
+
+  @VisibleForTesting
+  @Nullable
+  RemoteOutputChecker getLastRemoteOutputChecker() {
+    return lastRemoteOutputChecker;
+  }
+
+  void clearPreviousCommand() {
+    // Retain only this command's policy for the next command.
+    lastRemoteOutputChecker = null;
   }
 
   /** Sets this checker to check the TTL of remote metadata when deciding whether to trust it. */
@@ -195,24 +210,21 @@ public class RemoteOutputChecker implements OutputChecker {
     }
     var runfiles = runfilesSupport.getRunfiles();
     for (Artifact runfile : runfiles.getArtifacts().toList()) {
-      if (runfile.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(runfile)) {
+        addOutputToDownload(runfile);
       }
-      addOutputToDownload(runfile);
     }
     for (var symlink : runfiles.getSymlinks().toList()) {
       var artifact = symlink.getArtifact();
-      if (artifact.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(artifact)) {
+        addOutputToDownload(artifact);
       }
-      addOutputToDownload(artifact);
     }
     for (var symlink : runfiles.getRootSymlinks().toList()) {
       var artifact = symlink.getArtifact();
-      if (artifact.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(artifact)) {
+        addOutputToDownload(artifact);
       }
-      addOutputToDownload(artifact);
     }
   }
 
@@ -297,6 +309,19 @@ public class RemoteOutputChecker implements OutputChecker {
     return false;
   }
 
+  /**
+   * Returns whether this {@link ActionInput} could conceivably be only available remotely.
+   *
+   * <p>Use this as a quick check to avoid unnecessary extra work for artifacts that are definitely
+   * local.
+   */
+  public static boolean mayBeRemote(ActionInput actionInput) {
+    return !(actionInput instanceof Artifact artifact
+        && artifact.isSourceArtifact()
+        // Source artifacts in the main repo don't need to be fetched.
+        && (artifact.getOwner() == null || artifact.getOwner().getRepository().isMain()));
+  }
+
   /** Returns whether this {@link ActionInput} should be downloaded. */
   @Override
   public boolean shouldDownloadOutput(ActionInput output, FileArtifactValue metadata) {
@@ -335,20 +360,24 @@ public class RemoteOutputChecker implements OutputChecker {
       return true;
     }
 
-    // If Bazel should download this file, but it does not exist locally, returns false to rerun
-    // the generating action to trigger the download (just like in the normal build, when local
-    // outputs are missing).
-
-    if (lastRemoteOutputChecker != null) {
-      // This is an incremental build. If the file was downloaded by previous build and is now
-      // missing, invalidate the action.
-      if (lastRemoteOutputChecker.shouldDownloadOutput(file, metadata)) {
+    // An in-memory output (e.g. --experimental_inmemory_{dotd,jdeps}_files) is never written to
+    // disk, so a "should download" verdict must not force a re-execution to materialize it; trust
+    // it via its TTL instead. See https://github.com/bazelbuild/bazel/issues/29313.
+    if (!metadata.isInMemoryOutput()) {
+      // If Bazel should download this file, but it does not exist locally, returns false to rerun
+      // the generating action to trigger the download (just like in the normal build, when local
+      // outputs are missing).
+      //
+      // Under Skymeld, this check may run before analysis has registered the current build's
+      // toplevel targets. Checks the toplevel outputs tracked by the previous build's checker.
+      if (lastRemoteOutputChecker != null
+          && lastRemoteOutputChecker.pathsToDownload.contains(file.getExecPath())) {
         return false;
       }
-    }
 
-    if (shouldDownloadOutput(file, metadata)) {
-      return false;
+      if (shouldDownloadOutput(file, metadata)) {
+        return false;
+      }
     }
 
     if (clock != null) {
@@ -362,6 +391,30 @@ public class RemoteOutputChecker implements OutputChecker {
     return true;
   }
 
+  @Override
+  public boolean shouldTrustCachedMetadata(ActionInput file, FileArtifactValue metadata) {
+    // Local metadata is always trusted.
+    if (!metadata.isRemote()) {
+      return true;
+    }
+
+    if (!metadata.isInMemoryOutput()) {
+      // For ActionCache validation in the current build, only check whether this file is
+      // requested for download in the CURRENT build (do NOT check lastRemoteOutputChecker,
+      // which would incorrectly invalidate intermediate outputs that were temporarily top-level
+      // in a previous build, e.g. rules_xcodeproj index builds, see issue #26924).
+      if (shouldDownloadOutput(file, metadata)) {
+        return false;
+      }
+    }
+
+    if (clock != null) {
+      return isAlive(metadata);
+    }
+
+    return true;
+  }
+
   private boolean isAlive(FileArtifactValue metadata) {
     var expirationTime = metadata.getExpirationTime();
     return expirationTime == null || expirationTime.isAfter(clock.now());
@@ -372,53 +425,21 @@ public class RemoteOutputChecker implements OutputChecker {
       return;
     }
 
-    // If the outputsMode or commandMode is changed, we invalidate completion functions. Otherwise,
-    // some requested outputs might not be correctly downloaded.
+    // Run mode is part of TopLevelArtifactContext, and thus of target and aspect completion keys,
+    // so transitions to and from it do not require manual invalidation. The outputs to download
+    // under the current mode and regexes are determined when a target completes, so a completed
+    // target is invalidated if either changed.
+    boolean runTransition =
+        lastRemoteOutputChecker.commandMode == CommandMode.RUN || commandMode == CommandMode.RUN;
     if (lastRemoteOutputChecker.outputsMode != outputsMode
-        || lastRemoteOutputChecker.commandMode != commandMode) {
+        || !lastRemoteOutputChecker.downloadRegexes.equals(downloadRegexes)
+        || (lastRemoteOutputChecker.commandMode != commandMode && !runTransition)) {
       memoizingEvaluator.delete(
           k -> {
             var functionName = k.functionName();
             return functionName.equals(SkyFunctions.TARGET_COMPLETION)
                 || functionName.equals(SkyFunctions.ASPECT_COMPLETION);
           });
-    }
-  }
-
-  /**
-   * A specialized concurrent trie that stores paths of artifacts and allows checking whether a
-   * given path is contained in (in the case of a tree artifact) or exactly matches (in any other
-   * case) an artifact in the trie.
-   */
-  private static final class ConcurrentArtifactPathTrie {
-    // Invariant: no path in this set is a prefix of another path.
-    private final ConcurrentSkipListSet<PathFragment> paths =
-        new ConcurrentSkipListSet<>(PathFragment.HIERARCHICAL_COMPARATOR);
-
-    /**
-     * Adds the given {@link ActionInput} to the trie.
-     *
-     * <p>The caller must ensure that no object's path passed to this method is a prefix of any
-     * previously added object's path. Bazel enforces this for non-aggregate artifacts. Callers must
-     * not pass in {@link TreeFileArtifact}s (which have exec paths that have their parent tree
-     * artifact's exec path as a prefix) or non-Artifact {@link ActionInput}s that violate this
-     * invariant.
-     */
-    void add(ActionInput input) {
-      checkArgument(
-          !(input instanceof TreeFileArtifact),
-          "TreeFileArtifacts should not be added to the trie: %s",
-          input);
-      paths.add(input.getExecPath());
-    }
-
-    /** Checks whether the given {@link PathFragment} is contained in an artifact in the trie. */
-    boolean contains(PathFragment execPath) {
-      // By the invariant of this set, there is at most one prefix of execPath in the set. Since the
-      // comparator sorts all children of a path right after the path itself, if such a prefix
-      // exists, it must thus sort right before execPath (or be equal to it).
-      var floorPath = paths.floor(execPath);
-      return floorPath != null && execPath.startsWith(floorPath);
     }
   }
 }

@@ -15,6 +15,11 @@
 #include <string>
 #include <vector>
 
+#ifdef __APPLE__
+#include <sys/syslimits.h>
+#include <unistd.h>
+#endif
+
 #include "src/main/cpp/option_processor-internal.h"
 
 // On OSX, there apparently is no header that defines this.
@@ -29,6 +34,19 @@ std::vector<std::string> GetProcessedEnv() {
   for (char** env = environ; *env != nullptr; env++) {
     processed_env.emplace_back(*env);
   }
+
+#ifdef __APPLE__
+  for (int key : {_CS_DARWIN_USER_TEMP_DIR, _CS_DARWIN_USER_CACHE_DIR}) {
+    char buf[PATH_MAX];
+    if (confstr(key, buf, sizeof(buf)) > 0) {
+      const char* name = (key == _CS_DARWIN_USER_TEMP_DIR)
+                             ? "DARWIN_USER_TEMP_DIR"
+                             : "DARWIN_USER_CACHE_DIR";
+      processed_env.push_back(std::string(name) + "=" + buf);
+    }
+  }
+#endif
+
   return processed_env;
 }
 

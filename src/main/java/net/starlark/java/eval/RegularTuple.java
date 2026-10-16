@@ -47,7 +47,8 @@ final class RegularTuple extends Tuple {
   @Override
   public void checkHashable() throws EvalException {
     for (Object x : elems) {
-      Starlark.checkHashable(x);
+      // We expect that tuple.checkHashable() was called by Starlark.checkHashable(tuple, true).
+      Starlark.checkHashable(x, /* checkSelfReferential= */ false);
     }
   }
 
@@ -66,6 +67,22 @@ final class RegularTuple extends Tuple {
     return elems.length;
   }
 
+  @Override
+  public boolean containsKey(StarlarkSemantics semantics, Object o) throws EvalException {
+    for (Object elem : elems) {
+      if (Starlark.checkedEquals(o, elem)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Unchecked version of {@link #containsKey} for Java List API compatibility.
+   *
+   * @throws StackOverflowError if {@code o} or any element of the tuple is a self-referential data
+   *     structure.
+   */
   @Override
   public boolean contains(Object o) {
     // Tuple contains only valid Starlark objects (which are non-null)
@@ -105,18 +122,10 @@ final class RegularTuple extends Tuple {
   }
 
   @Override
-  public void repr(Printer printer) {
-    // Remark: singletons, are represented as {@code '(x,)'}; whereas this implementation would
-    // return
-    // {@code '(x)'}
-    printer.append('(');
-    String sep = "";
-    for (Object elem : elems) {
-      printer.append(sep);
-      sep = ", ";
-      printer.repr(elem);
-    }
-    printer.append(')');
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    // Remark: RegularTuple doesn't support singleton tuples, so we don't need to special-case
+    // the trailing comma for singleton-tuple string representation.
+    printer.printList(this, "(", ", ", ")", semantics);
   }
 
   @Override

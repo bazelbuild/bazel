@@ -3,14 +3,13 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = True,
-    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/rules:__pkg__"],
 )
 
 test_suite(
@@ -22,7 +21,6 @@ test_suite(
         ":PyRuntimeConfiguredTargetTest",
         ":PyRuntimeInfoTest",
         ":PyTestConfiguredTargetTest",
-        ":PythonStarlarkApiTest",
         ":PythonToolchainTest",
         ":PythonVersionTest",
     ],
@@ -35,6 +33,9 @@ java_library(
         "PyRuntimeInfo.java",
         "PythonTestUtils.java",
     ],
+    visibility = [
+        "//src/test:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -46,9 +47,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
     ],
 )
 
@@ -59,8 +60,8 @@ java_test(
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -71,8 +72,8 @@ java_library(
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -85,9 +86,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:base",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -98,11 +99,11 @@ java_test(
     deps = [
         ":PyExecutableTestBase",
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -115,8 +116,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/execution_info",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -126,11 +127,12 @@ java_test(
     deps = [
         ":PyBaseTestBase",
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -139,8 +141,8 @@ java_test(
     srcs = ["PythonVersionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/rules/python",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -151,7 +153,7 @@ java_test(
         ":PythonTestUtils",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -163,8 +165,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -177,21 +179,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "PythonStarlarkApiTest",
-    srcs = ["PythonStarlarkApiTest.java"],
-    deps = [
-        ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

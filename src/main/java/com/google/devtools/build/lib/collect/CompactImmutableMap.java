@@ -19,41 +19,37 @@ import java.util.Iterator;
 /**
  * A minimal map interface that avoids methods whose implementation tends to force GC churn, or
  * otherwise overly constrain implementation freedom.
- *
- * <p>TODO: Convert to interface once we move to Java 8.
  */
-public abstract class CompactImmutableMap<K, V> implements Iterable<K> {
+public interface CompactImmutableMap<K, V> extends Iterable<K> {
 
-  public boolean containsKey(K key) {
+  default boolean containsKey(K key) {
     return get(key) != null;
   }
 
-  public abstract V get(K key);
+  V get(K key);
 
-  public abstract int size();
+  int size();
 
-  public abstract K keyAt(int index);
+  K keyAt(int index);
 
-  public abstract V valueAt(int index);
+  V valueAt(int index);
 
   @Override
-  public Iterator<K> iterator() {
-    return new ImmutableMapSharedKeysIterator();
-  }
+  default Iterator<K> iterator() {
+    return new Iterator<K>() {
+      int index = 0;
 
-  private class ImmutableMapSharedKeysIterator implements Iterator<K> {
-    int index = 0;
+      @Override
+      public boolean hasNext() {
+        return index < size();
+      }
 
-    @Override
-    public boolean hasNext() {
-      return index < size();
-    }
-
-    @Override
-    public K next() {
-      K key = keyAt(index);
-      ++index;
-      return key;
-    }
+      @Override
+      public K next() {
+        K key = keyAt(index);
+        ++index;
+        return key;
+      }
+    };
   }
 }

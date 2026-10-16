@@ -79,6 +79,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
                   BazelModuleKey.createFakeModuleKeyForTesting(
                       Label.parseCanonicalUnchecked("//test:label")),
                   RepositoryMapping.EMPTY,
+                  /* moduleRepoName= */ null,
                   "test/label.bzl",
                   /* loads= */ ImmutableList.of(),
                   /* bzlTransitiveDigest= */ new byte[0],
@@ -329,7 +330,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
 
     assertThat(assertThrows(ActionExecutionException.class, () -> action.execute(context)))
         .hasMessageThat()
-        .contains("Error in fail: starlark error");
+        .contains("Error: starlark error");
   }
 
   @Test

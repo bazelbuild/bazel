@@ -22,18 +22,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SequencedSet;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -51,13 +53,17 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final InterimModule.Builder module;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
   @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
-  private final Map<String, DepSpec> deps = new LinkedHashMap<>();
+  private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
+  private final List<Event> warnings = new ArrayList<>();
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
   private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
+
+  /** The labels of the module files that are currently being executed via {@link #include}. */
+  private final SequencedSet<String> includeStack = new LinkedHashSet<>();
 
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
@@ -139,15 +145,23 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return module;
   }
 
+  public void addWarning(Event event) {
+    warnings.add(event);
+  }
+
+  public ImmutableList<Event> getWarnings() {
+    return ImmutableList.copyOf(warnings);
+  }
+
   public boolean shouldIgnoreDevDeps() {
     return ignoreDevDeps;
   }
 
-  public void addDep(Optional<String> repoName, DepSpec depSpec) {
+  public void addDep(Optional<String> repoName, ModuleKey depKey) {
     if (repoName.isPresent()) {
-      deps.put(repoName.get(), depSpec);
+      deps.put(repoName.get(), depKey);
     } else {
-      module.addNodepDep(depSpec);
+      module.addNodepDep(depKey);
     }
   }
 
@@ -299,6 +313,16 @@ public class ModuleThreadContext extends StarlarkThreadContext {
                     overridingRepoName)
                 .withCallStack(context.repoNameUsages.get(importedAs).stack);
           }
+          if (overridingRepoName.equals(context.module.getRepoNameOrName())) {
+            throw Starlark.errorf(
+                    "Cannot import repo '%s' from module extension '%s' because it is overridden"
+                        + " with the root module at %s. Please refer to @%s directly.",
+                    overriddenRepoName,
+                    extensionName,
+                    override.getValue().location(),
+                    overridingRepoName)
+                .withCallStack(context.repoNameUsages.get(importedAs).stack);
+          }
           context.overriddenRepos.put(importedAs, override.getValue());
         }
         context.overridingRepos.put(overridingRepoName, override.getValue());
@@ -315,8 +339,11 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     }
   }
 
-  public void include(String includeLabel, StarlarkThread thread)
+  public void include(String includeLabel, boolean devDependency, StarlarkThread thread)
       throws InterruptedException, EvalException {
+    if (shouldIgnoreDevDeps() && devDependency) {
+      return;
+    }
     if (includeLabelToCompiledModuleFile == null) {
       // This should never happen because compiling the non-root module file should have failed, way
       // before evaluation started.
@@ -328,10 +355,23 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       // compiled before evaluation started.
       throw Starlark.errorf("internal error; included file %s not compiled", includeLabel);
     }
+    if (!includeStack.add(includeLabel)) {
+      // include() behaves as if the included file were textually inserted at the location of the
+      // call, so a cycle would result in unbounded recursion.
+      var chain = ImmutableList.copyOf(includeStack);
+      throw Starlark.errorf(
+          "include() cycle detected: %s -> %s",
+          String.join(" -> ", chain.subList(chain.indexOf(includeLabel), chain.size())),
+          includeLabel);
+    }
     PathFragment includer = currentModuleFilePath;
     currentModuleFilePath = Label.parseCanonicalUnchecked(includeLabel).toPathFragment();
-    compiledModuleFile.runOnThread(thread);
-    currentModuleFilePath = includer;
+    try {
+      compiledModuleFile.runOnThread(thread);
+    } finally {
+      currentModuleFilePath = includer;
+      includeStack.remove(includeLabel);
+    }
   }
 
   public PathFragment getCurrentModuleFilePath() {
@@ -355,7 +395,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         // The built-in module does not depend on itself.
         continue;
       }
-      deps.put(builtinModule, new DepSpec(builtinModule, Version.EMPTY, -1));
+      deps.put(builtinModule, new ModuleKey(builtinModule, Version.EMPTY));
       try {
         addRepoNameUsage(builtinModule, "as a built-in dependency", ImmutableList.of());
       } catch (EvalException e) {

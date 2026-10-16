@@ -64,63 +64,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
-  public void consumesProvider() throws Exception {
-    scratch.file(
-        "pkg/rules.bzl",
-        getPyLoad("PyInfo"),
-        "def _myrule_impl(ctx):",
-        "    return [PyInfo(transitive_sources=depset([]))]",
-        "myrule = rule(",
-        "    implementation = _myrule_impl,",
-        ")");
-    scratch.file(
-        "pkg/BUILD",
-        bzlLoad,
-        "load(':rules.bzl', 'myrule')",
-        "myrule(",
-        "    name = 'dep',",
-        ")",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    deps = [':dep'],",
-        ")");
-    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
-    assertThat(target).isNotNull();
-    assertNoEvents();
-  }
-
-  @Test
-  public void requiresProvider() throws Exception {
-    scratch.file(
-        "pkg/rules.bzl",
-        """
-        def _myrule_impl(ctx):
-            return []
-
-        myrule = rule(
-            implementation = _myrule_impl,
-        )
-        """);
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "'//pkg:dep' does not have mandatory providers",
-        // build file:
-        bzlLoad,
-        "load(':rules.bzl', 'myrule')",
-        "myrule(",
-        "    name = 'dep',",
-        ")",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    deps = [':dep'],",
-        ")");
-  }
-
-  @Test
   public void dataSetsUsesSharedLibrary() throws Exception {
     scratch.file(
         "pkg/BUILD",

@@ -33,6 +33,15 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   /** Returns true if a package location is considered to be experimental. */
   boolean isPackageUnderExperimental(PackageIdentifier packageIdentifier);
 
+  /** Returns true if a package location is considered to be under prototypes. */
+  boolean isPackageUnderPrototypes(PackageIdentifier packageIdentifier);
+
+  /**
+   * Returns true if the given non-experimental, non-prototype package is allowed to bzl load
+   * prototype packages and depend on targets in prototype packages.
+   */
+  boolean hasHardCodedException(PackageIdentifier packageIdentifier);
+
   /** The runfiles prefix. */
   String getRunfilesPrefix();
 

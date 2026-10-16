@@ -40,7 +40,7 @@ import net.starlark.java.eval.Starlark;
 /** Provides information about jar files produced by a Java rule. */
 @Immutable
 @AutoCodec
-public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> javaOutputs)
+public record JavaRuleOutputJarsProvider(ImmutableList<JavaOutput> javaOutputs)
     implements JavaInfoInternalProvider, JavaRuleOutputJarsProviderApi<JavaOutput> {
   public JavaRuleOutputJarsProvider {
     requireNonNull(javaOutputs, "javaOutputs");
@@ -58,6 +58,11 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
   @Override
   public boolean isImmutable() {
     return true; // immutable and Starlark-hashable
+  }
+
+  @Override
+  public boolean isAcyclic() {
+    return true;
   }
 
   /** Collects all class output jars from {@link #getJavaOutputs} */

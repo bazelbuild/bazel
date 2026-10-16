@@ -18,10 +18,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** Options for execution log parser. */
-public class ParserOptions extends OptionsBase {
+@OptionsClass
+public abstract class ParserOptions extends OptionsBase {
   @Option(
       name = "log_path",
       defaultValue = "null",
@@ -37,7 +39,7 @@ public class ParserOptions extends OptionsBase {
               + " that cannot be matched to the first file will appear at the end of the log. Note"
               + " that this reordering fascilitates easier text-based comparisons, but may break"
               + " any logical order of the actions.")
-  public List<String> logPath;
+  public abstract List<String> getLogPath();
 
   @Option(
       name = "output_path",
@@ -50,7 +52,7 @@ public class ParserOptions extends OptionsBase {
           "Location where to put the output(s). If left empty, the log will be output to stdout."
               + " If two log paths are specified, needs to be specified and have exactly two"
               + " paths.")
-  public List<String> outputPath;
+  public abstract List<String> getOutputPath();
 
   @Option(
       name = "restrict_to_runner",
@@ -59,5 +61,5 @@ public class ParserOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If set, only output the executions that used the given runner.")
-  public String restrictToRunner;
+  public abstract String getRestrictToRunner();
 }

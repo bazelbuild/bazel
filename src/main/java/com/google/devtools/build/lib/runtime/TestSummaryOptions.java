@@ -18,9 +18,11 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Flags specific to test summary reporting. */
-public class TestSummaryOptions extends OptionsBase {
+@OptionsClass
+public abstract class TestSummaryOptions extends OptionsBase {
   public static final TestSummaryOptions DEFAULTS = Options.getDefaults(TestSummaryOptions.class);
 
   @Option(
@@ -31,7 +33,9 @@ public class TestSummaryOptions extends OptionsBase {
       help =
           "If true, print additional information (timing, number of failed runs, etc) in the"
               + " test summary.")
-  public boolean verboseSummary;
+  public abstract boolean getVerboseSummary();
+
+  public abstract void setVerboseSummary(boolean value);
 
   @Option(
       name = "test_verbose_timeout_warnings",
@@ -41,7 +45,7 @@ public class TestSummaryOptions extends OptionsBase {
       help =
           "If true, print additional warnings when the actual test execution time does not "
               + "match the timeout defined by the test (whether implied or explicit).")
-  public boolean testVerboseTimeoutWarnings;
+  public abstract boolean getTestVerboseTimeoutWarnings();
 
   @Option(
       name = "print_relative_test_log_paths",
@@ -53,5 +57,5 @@ public class TestSummaryOptions extends OptionsBase {
               + "the 'testlogs' convenience symlink. N.B. - A subsequent 'build'/'test'/etc "
               + "invocation with a different configuration can cause the target of this symlink "
               + "to change, making the path printed previously no longer useful.")
-  public boolean printRelativeTestLogPaths;
+  public abstract boolean getPrintRelativeTestLogPaths();
 }

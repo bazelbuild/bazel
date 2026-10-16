@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
-import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
@@ -58,6 +57,11 @@ public class StandaloneModule extends BlazeModule {
 
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = env.getOptions().getOptions(TestSummaryOptions.class);
+    if (testSummaryOptions == null) {
+      // It is possible, though unlikely, that the test summary options have not been set.
+      // This can happen if a test runner is being run without the test command having been used.
+      testSummaryOptions = TestSummaryOptions.DEFAULTS;
+    }
     Path testTmpRoot =
         TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
     TestActionContext testStrategy =
@@ -82,7 +86,7 @@ public class StandaloneModule extends BlazeModule {
             LocalEnvProvider.forCurrentOs(env.getClientEnv()),
             env.getBlazeWorkspace().getBinTools(),
             ProcessWrapper.fromCommandEnvironment(env),
-            RunfilesTreeUpdater.forCommandEnvironment(env));
+            env.getRunfilesTreeUpdater());
 
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));

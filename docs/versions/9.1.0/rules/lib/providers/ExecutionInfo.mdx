@@ -1,0 +1,42 @@
+---
+title: 'ExecutionInfo'
+---
+
+Use this provider to specify special environment requirements needed to run tests.
+
+## Members
+
+* [ExecutionInfo](#ExecutionInfo)
+* [exec_group](#exec_group)
+* [requirements](#requirements)
+
+## ExecutionInfo
+
+```
+ExecutionInfo ExecutionInfo(requirements={}, exec_group='test')
+```
+
+Creates an instance.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `requirements` | [dict](/versions/9.1.0/rules/lib/core/dict); default is `&lcub;&rcub;`  A dict indicating special execution requirements, such as hardware platforms. |
+| `exec_group` | [string](/versions/9.1.0/rules/lib/core/string); default is `'test'`  The name of the exec group that is used to execute the test. |
+
+## exec_group
+
+```
+string ExecutionInfo.exec_group
+```
+
+The name of the exec group that is used to execute the test.
+
+## requirements
+
+```
+dict ExecutionInfo.requirements
+```
+
+A dict indicating special execution requirements, such as hardware platforms.

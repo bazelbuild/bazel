@@ -14,18 +14,29 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <cstdint>
+#include <cstring>
+#include <ctime>
+#include <fstream>
+#include <ios>
+#include <memory>
+#include <sstream>
+#include <string>
 #include <vector>
 
-// Must be included before anything else.
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/port.h"
-#include "src/main/cpp/util/strings.h"
+#include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/port.h"  // IWYU pragma: keep
+#include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/output_jar.h"
-#include "src/tools/singlejar/port.h"
 #include "src/tools/singlejar/test_util.h"
+#include "src/tools/singlejar/zip_headers.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/base/macros.h"
+#include "absl/strings/match.h"
 
 #if !defined(JAR_TOOL_PATH)
 #error "The path to jar tool has to be defined via -DJAR_TOOL_PATH="
@@ -62,14 +73,6 @@ static bool HasSubstr(const string& s, const string& what) {
   return string::npos != s.find(what);
 }
 
-static bool EndsWith(const string& s, const string& what) {
-  return what.size() <= s.size() && s.substr(s.size() - what.size()) == what;
-}
-
-static bool StartsWith(const string& s, const string& what) {
-  return what.size() <= s.size() && s.substr(0, what.size()) == what;
-}
-
 // A subclass of the OutputJar which concatenates the contents of each
 // entry in the data/ directory from the input archives.
 class CustomOutputJar : public OutputJar {
@@ -78,15 +81,13 @@ class CustomOutputJar : public OutputJar {
   ~CustomOutputJar() override {}
   void ExtraHandler(const std::string& /*input_jar_path*/, const CDH* cdh,
                     const std::string* input_jar_aux_label) override {
-    auto file_name = cdh->file_name();
-    auto file_name_length = cdh->file_name_length();
-    if (file_name_length > 0 && file_name[file_name_length - 1] != '/' &&
-        begins_with(file_name, file_name_length, "tools/singlejar/data/")) {
+    std::string file_name = cdh->file_name_string();
+    if (!absl::EndsWith(file_name, "/") &&
+        absl::StartsWith(file_name, "tools/singlejar/data/")) {
       // The contents of the data/<FILE> on the output is the
       // concatenation of the data/<FILE> files from all inputs.
-      std::string metadata_file_path(file_name, file_name_length);
-      if (NewEntry(metadata_file_path)) {
-        ExtraCombiner(metadata_file_path, new Concatenator(metadata_file_path));
+      if (NewEntry(file_name)) {
+        ExtraCombiner(file_name, new Concatenator(file_name));
       }
     }
   }
@@ -618,7 +619,7 @@ TEST_F(OutputJarSimpleTest, ExtraHandler) {
   const char* option_list[] = {"--output", out_path.c_str(), "--sources",
                                resolvedLibDataPath1.c_str(),
                                resolvedLibDataPath2.c_str()};
-  options_.ParseCommandLine(arraysize(option_list), option_list);
+  options_.ParseCommandLine(std::size(option_list), option_list);
   CustomOutputJar custom_output_jar(&options_);
   ASSERT_EQ(0, custom_output_jar.Doit());
   EXPECT_EQ(0, VerifyZip(out_path));
@@ -698,8 +699,9 @@ TEST_F(OutputJarSimpleTest, Normalize) {
   {
     // Skip over the leading ../ to get the rlocationpath.
     std::string jar_tool_rlocationpath =
-        StartsWith(JAR_TOOL_PATH, "../") ? std::string(JAR_TOOL_PATH).substr(3)
-                                         : JAR_TOOL_PATH;
+        absl::StartsWith(JAR_TOOL_PATH, "../")
+            ? std::string(JAR_TOOL_PATH).substr(3)
+            : JAR_TOOL_PATH;
     std::string jar_tool_path = runfiles->Rlocation(jar_tool_rlocationpath);
     string textfile_path = CreateTextFile("jar_testinput.txt", "jar_inputtext");
     string classfile_path = CreateTextFile("JarTestInput.class", "Dummy");
@@ -753,8 +755,7 @@ TEST_F(OutputJarSimpleTest, Normalize) {
         << entry_name << " modification time";
     EXPECT_EQ(15393, cdh->last_mod_file_date())
         << entry_name << " modification date should be 01/01/2010";
-    auto n = entry_name.size() - strlen(".class");
-    if (0 == strcmp(entry_name.c_str() + n, ".class")) {
+    if (absl::EndsWith(entry_name, ".class")) {
       EXPECT_EQ(1, cdh->last_mod_file_time())
           << entry_name
           << " modification time for .class entry should be 00:00:02";
@@ -779,8 +780,9 @@ TEST_F(OutputJarSimpleTest, AddMissingDirectories) {
 
   // Skip over the leading ../ to get the rlocationpath.
   std::string jar_tool_rlocationpath =
-      StartsWith(JAR_TOOL_PATH, "../") ? std::string(JAR_TOOL_PATH).substr(3)
-                                       : JAR_TOOL_PATH;
+      absl::StartsWith(JAR_TOOL_PATH, "../")
+          ? std::string(JAR_TOOL_PATH).substr(3)
+          : JAR_TOOL_PATH;
   std::string jar_tool_path = runfiles->Rlocation(jar_tool_rlocationpath);
   string textfile_path =
       CreateTextFile("a/b/jar_testinput.txt", "jar_inputtext");
@@ -814,8 +816,7 @@ TEST_F(OutputJarSimpleTest, AddMissingDirectories) {
         << entry_name << " modification time";
     EXPECT_EQ(15393, cdh->last_mod_file_date())
         << entry_name << " modification date should be 01/01/2010";
-    auto n = entry_name.size() - strlen(".class");
-    if (0 == strcmp(entry_name.c_str() + n, ".class")) {
+    if (absl::EndsWith(entry_name, ".class")) {
       EXPECT_EQ(1, cdh->last_mod_file_time())
           << entry_name
           << " modification time for .class entry should be 00:00:02";
@@ -830,16 +831,16 @@ TEST_F(OutputJarSimpleTest, AddMissingDirectories) {
     ASSERT_EQ(nullptr, lh->unix_time_extra_field())
         << entry_name << ": LH should not have Unix Time extra field";
 
-    if (EndsWith(entry_name, "/a/")) {
+    if (absl::EndsWith(entry_name, "/a/")) {
       EXPECT_FALSE(seen_a) << "a/ duplicate";
       seen_a = true;
-    } else if (EndsWith(entry_name, "/a/b/")) {
+    } else if (absl::EndsWith(entry_name, "/a/b/")) {
       EXPECT_FALSE(seen_ab) << "a/b/ duplicate";
       seen_ab = true;
-    } else if (EndsWith(entry_name, "/a/c/")) {
+    } else if (absl::EndsWith(entry_name, "/a/c/")) {
       EXPECT_FALSE(seen_ac) << "a/c/ duplicate";
       seen_ac = true;
-    } else if (EndsWith(entry_name, "/c/")) {
+    } else if (absl::EndsWith(entry_name, "/c/")) {
       EXPECT_FALSE(seen_c) << "c/ duplicate";
       seen_c = true;
     }
@@ -906,6 +907,39 @@ TEST_F(OutputJarSimpleTest, Services) {
       "handler1\n"
       "handler2\n",
       GetEntryContents(out_path, "META-INF/spring.handlers"));
+}
+
+// The files named
+// META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat are
+// properly merged.
+TEST_F(OutputJarSimpleTest, Log4j2PluginDat) {
+  string log4j2_plugins_set1_path = runfiles->Rlocation(
+      "io_bazel/src/tools/singlejar/data/"
+      "log4j2_plugins_set_1.jar");
+  string log4j2_plugins_set2_path = runfiles->Rlocation(
+      "io_bazel/src/tools/singlejar/data/"
+      "log4j2_plugins_set_2.jar");
+
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--sources", log4j2_plugins_set1_path,
+                          log4j2_plugins_set2_path});
+
+  string result_dat_path = runfiles->Rlocation(
+      "io_bazel/src/tools/singlejar/data/"
+      "log4j2_plugins_set_result.dat");
+  std::ifstream ifs(result_dat_path, std::ios::binary);
+  ASSERT_TRUE(ifs.is_open());
+  std::stringstream buffer;
+  buffer << ifs.rdbuf();
+  std::string expected_content = buffer.str();
+  ifs.close();
+  ASSERT_FALSE(expected_content.empty());
+
+  EXPECT_EQ(
+      expected_content,
+      GetEntryContents(out_path,
+                       "META-INF/org/apache/logging/log4j/core/config/plugins/"
+                       "Log4j2Plugins.dat"));
 }
 
 // Test that in the absence of the compression option all the plain files in
@@ -1138,6 +1172,138 @@ TEST_F(OutputJarSimpleTest, AddExportsTokenize) {
       "  foo/export\r\n"
       "\r\n",
       manifest);
+}
+
+std::string CreateZipWithMalformedExtraField() {
+  std::string zip_data;
+  const std::string filename = "evil.bin";
+
+  // 1. Local File Header (LFH)
+  size_t lh_offset = zip_data.size();
+  size_t lh_size = sizeof(LH) + filename.size();
+  zip_data.resize(lh_offset + lh_size, 0);
+  auto* lh = reinterpret_cast<LH*>(&zip_data[lh_offset]);
+  lh->signature();
+  lh->version(10);
+  lh->file_name(filename.data(), filename.size());
+
+  // 2. Extra field payload containing an oversized payload_size
+  uint8_t ef_buffer[8] = {0};
+  auto* ef1 = reinterpret_cast<ExtraField*>(ef_buffer);
+  ef1->signature(0x000d);
+  ef1->payload_size(0);
+
+  auto* ef2 = reinterpret_cast<ExtraField*>(ef_buffer + ef1->size());
+  ef2->signature(0xdead);
+  ef2->payload_size(0xf000);  // Malformed size exceeding extra field buffer
+
+  // 3. Central Directory Header (CDH)
+  size_t cdh_offset = zip_data.size();
+  size_t cdh_size = sizeof(CDH) + filename.size() + sizeof(ef_buffer);
+  zip_data.resize(cdh_offset + cdh_size, 0);
+  auto* cdh = reinterpret_cast<CDH*>(&zip_data[cdh_offset]);
+  cdh->signature();
+  cdh->version(20);
+  cdh->version_to_extract(10);
+  cdh->local_header_offset32(lh_offset);
+  cdh->file_name(filename.data(), filename.size());
+  cdh->extra_fields(ef_buffer, sizeof(ef_buffer));
+
+  // 4. End of Central Directory (EOCD)
+  size_t ecd_offset = zip_data.size();
+  zip_data.resize(ecd_offset + sizeof(ECD), 0);
+  auto* ecd = reinterpret_cast<ECD*>(&zip_data[ecd_offset]);
+  ecd->signature();
+  ecd->this_disk_entries16(1);
+  ecd->total_entries16(1);
+  ecd->cen_size32(cdh_size);
+  ecd->cen_offset32(cdh_offset);
+
+  return zip_data;
+}
+
+TEST_F(OutputJarSimpleTest, MalformedExtraField) {
+  string out_path = OutputFilePath("out.jar");
+  string bad_jar = OutputFilePath("malformed.jar");
+  ASSERT_TRUE(
+      blaze_util::WriteFile(CreateZipWithMalformedExtraField(), bad_jar));
+
+  ParseCommandLine(out_path, {"--sources", bad_jar});
+  OutputJar output_jar(&options_);
+  ASSERT_DEATH(output_jar.Doit(), "malformed extra field");
+}
+
+TEST_F(OutputJarSimpleTest, BuildInfoFileNoTrailingNewline) {
+  string build_info_path =
+      CreateTextFile("buildinfo_nonewline", "k1=v1\nk2=v2");
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--build_info_file", build_info_path});
+  string build_properties = GetEntryContents(out_path, "build-data.properties");
+  EXPECT_PRED2(HasSubstr, build_properties, "k1=v1\nk2=v2");
+}
+
+TEST_F(OutputJarSimpleTest, MultipleUnixTimeAndOddZip64ExtraFields) {
+  std::string zip_data;
+  const std::string filename = "entry.txt";
+
+  size_t lh_offset = zip_data.size();
+  size_t lh_size = sizeof(LH) + filename.size();
+  zip_data.resize(lh_offset + lh_size, 0);
+  auto* lh = reinterpret_cast<LH*>(&zip_data[lh_offset]);
+  lh->signature();
+  lh->version(20);
+  lh->file_name(filename.data(), filename.size());
+
+  // Two 'UT' fields and a 4-byte payload Zip64 field in CDH.
+  uint8_t ef_buffer[] = {
+      'U',  'T',  1, 0, 0,           // UT #1 (5 bytes)
+      'U',  'T',  1, 0, 0,           // UT #2 (5 bytes)
+      1,    0,    4, 0, 1, 2, 3, 4,  // Zip64 with 4-byte payload (8 bytes)
+      0xFE, 0xCA, 0, 0,              // 0xCAFE (4 bytes, should be kept)
+  };
+
+  size_t cdh_offset = zip_data.size();
+  size_t cdh_size = sizeof(CDH) + filename.size() + sizeof(ef_buffer);
+  zip_data.resize(cdh_offset + cdh_size, 0);
+  auto* cdh = reinterpret_cast<CDH*>(&zip_data[cdh_offset]);
+  cdh->signature();
+  cdh->version(20);
+  cdh->version_to_extract(20);
+  cdh->local_header_offset32(lh_offset);
+  cdh->file_name(filename.data(), filename.size());
+  cdh->extra_fields(ef_buffer, sizeof(ef_buffer));
+
+  size_t ecd_offset = zip_data.size();
+  zip_data.resize(ecd_offset + sizeof(ECD), 0);
+  auto* ecd = reinterpret_cast<ECD*>(&zip_data[ecd_offset]);
+  ecd->signature();
+  ecd->this_disk_entries16(1);
+  ecd->total_entries16(1);
+  ecd->cen_size32(cdh_size);
+  ecd->cen_offset32(cdh_offset);
+
+  string in_jar = OutputFilePath("odd_ef.jar");
+  string out_path = OutputFilePath("out.jar");
+  ASSERT_TRUE(blaze_util::WriteFile(zip_data, in_jar));
+  CreateOutput(out_path, {"--normalize", "--sources", in_jar});
+
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH* out_lh = nullptr;
+  const CDH* out_cdh = nullptr;
+  bool found = false;
+  while ((out_cdh = input_jar.NextEntry(&out_lh))) {
+    if (out_cdh->file_name_is("entry.txt")) {
+      found = true;
+      // Both UT extra fields and the Zip64 extra field should be dropped,
+      // leaving only the 4-byte 0xCAFE extra field.
+      EXPECT_EQ(4, out_cdh->extra_fields_length());
+      EXPECT_EQ(nullptr, out_cdh->unix_time_extra_field());
+      EXPECT_EQ(nullptr, out_cdh->zip64_extra_field());
+    }
+  }
+  EXPECT_TRUE(found);
+  input_jar.Close();
 }
 
 }  // namespace

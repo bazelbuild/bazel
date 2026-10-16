@@ -218,6 +218,24 @@ function test_transitions_full() {
   assert_contains "host_dep#//$pkg:host#(exec + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
 }
 
+function test_unicode_configured_rule_input() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch "$pkg/文.csv"
+  cat > $pkg/BUILD <<'EOF'
+filegroup(
+    name = "data",
+    srcs = ["文.csv"],
+)
+EOF
+
+  bazel cquery "//$pkg:data" --output=textproto --transitions=lite \
+    > output 2>"$TEST_log" || fail "Expected success"
+  # textproto escapes each UTF-8 byte of 文 (e6 96 87); a double-encoded label has six.
+  grep -qF "label: \"//$pkg:\\346\\226\\207.csv\"" output \
+    || fail "Expected the UTF-8 label in configured_rule_input: $(grep -F csv output)"
+}
+
 function test_transitions_incompatible_target() {
   local -r pkg=$FUNCNAME
 
@@ -1238,7 +1256,7 @@ EOF
   bazel cquery "kind(rule, deps(//$pkg:foo))" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
   assert_contains "//$pkg:foo%None" output
-  assert_contains "//$pkg:bar%set(\\[\"b\", \"a\"])" output
+  assert_contains "//$pkg:bar%set(\\[\"a\", \"b\"])" output
 
   bazel cquery "//$pkg:rules.bzl" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
@@ -1817,6 +1835,47 @@ EOF
   expect_log "//$pkg:target_1.txt"
   expect_not_log "//$pkg:target_2.txt"
   expect_log "//$pkg:target_3.txt"
+}
+
+function test_rdeps_missing_target_no_npe() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch $pkg/dep.txt
+  touch $pkg/{1,2}.txt
+  cat > $pkg/BUILD <<'EOF'
+filegroup(
+    name = "dep",
+    srcs = ["dep.txt"],
+)
+
+filegroup(
+    name = "valid",
+    srcs = [
+        "1.txt",
+        ":dep",
+    ],
+)
+
+filegroup(
+    name = "missing_input",
+    srcs = [
+        "2.txt",
+        ":dep",
+    ],
+)
+EOF
+
+  bazel cquery "rdeps(//$pkg:all, //$pkg:dep)" > output 2>"$TEST_log" || fail "Unexpected failure"
+  expect_log "//$pkg:valid"
+  expect_log "//$pkg:missing_input"
+
+  # Remove input file to leave a broken target in the reverse dependency graph
+  rm $pkg/2.txt
+  bazel cquery --keep_going "rdeps(//$pkg:all, //$pkg:dep, 1)" > output 2>"$TEST_log" || true
+
+  expect_not_log "NullPointerException"
+  expect_not_log "crashed due to an internal error"
+  expect_log "//$pkg:valid"
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

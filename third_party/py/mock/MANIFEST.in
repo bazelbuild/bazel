@@ -1,2 +1,0 @@
-include LICENSE.txt tox.ini tests/*.py
-recursive-include docs *.txt *.py *.png *.css *.html *.js

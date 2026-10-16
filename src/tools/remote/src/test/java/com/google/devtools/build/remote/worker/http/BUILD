@@ -10,7 +10,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/tools/remote/src/test/java/com/google/devtools/build/remote/worker:__pkg__"],
 )
 
 java_test(
@@ -19,7 +19,7 @@ java_test(
     test_class = "com.google.devtools.build.remote.worker.http.AbstractHttpCacheServerHandlerTest",
     deps = [
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

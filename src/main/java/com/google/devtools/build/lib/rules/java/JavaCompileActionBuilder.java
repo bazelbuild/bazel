@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -157,6 +158,7 @@ public final class JavaCompileActionBuilder {
   private NestedSet<Artifact> extraData = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private Label targetLabel;
   @Nullable private String injectingRuleKind;
+  private ImmutableList<CommandLine> extraCommandLineArgs = ImmutableList.of();
   private ImmutableList<Artifact> additionalInputs = ImmutableList.of();
   private Artifact genSourceOutput;
   private JavaCompileOutputs<Artifact> outputs;
@@ -194,7 +196,7 @@ public final class JavaCompileActionBuilder {
     }
 
     NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
-    javaBuilder.addInputs(toolchain, toolsBuilder);
+    javaBuilder.addInputs(toolsBuilder);
     toolsBuilder.addTransitive(toolsJars);
 
     NestedSetBuilder<Artifact> mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
@@ -234,7 +236,7 @@ public final class JavaCompileActionBuilder {
     mandatoryInputsBuilder.addTransitive(tools);
     NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
 
-    CustomCommandLine executableLine = javaBuilder.getCommandLine(toolchain);
+    CustomCommandLine executableLine = javaBuilder.getCommandLine();
 
     ActionEnvironment actionEnvironment =
         ruleContext
@@ -260,6 +262,7 @@ public final class JavaCompileActionBuilder {
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
         /* executableLine= */ executableLine,
         /* flagLine= */ buildParamFileContents(javacOpts),
+        /* extraCommandLineArgs= */ extraCommandLineArgs,
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
         /* outputDepsProto= */ outputs.depsProto(),
@@ -375,6 +378,13 @@ public final class JavaCompileActionBuilder {
       NestedSet<Artifact> dependencyArtifacts) {
     checkNotNull(compileTimeDependencyArtifacts, "dependencyArtifacts must not be null");
     this.compileTimeDependencyArtifacts = dependencyArtifacts;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public JavaCompileActionBuilder setExtraCommandLineArgs(
+      ImmutableList<CommandLine> extraCommandLineArgs) {
+    this.extraCommandLineArgs = checkNotNull(extraCommandLineArgs);
     return this;
   }
 

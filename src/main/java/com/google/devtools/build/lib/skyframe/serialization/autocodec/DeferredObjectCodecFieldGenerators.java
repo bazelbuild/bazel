@@ -22,9 +22,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.autocodec.Typ
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.resolveBaseArrayComponentType;
 
 import com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor;
-import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.CodecHelpers;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
@@ -70,17 +68,17 @@ abstract class DeferredObjectCodecFieldGenerators {
       ProcessingEnvironment env)
       throws SerializationProcessingException {
     TypeName typeName = getErasure(parameterType, env);
-    switch (parameterType.getKind()) {
-      case ARRAY:
+    return switch (parameterType.getKind()) {
+      case ARRAY -> {
         ArrayType arrayType = (ArrayType) parameterType;
         TypeMirror componentType = arrayType.getComponentType();
         TypeKind componentKind = componentType.getKind();
         if (componentKind.isPrimitive()) {
-          return new PrimitiveArrayFieldGenerator(
+          yield new PrimitiveArrayFieldGenerator(
               name, parameterType, typeName, parentName, componentKind, hierarchyLevel, accessor);
         }
         if (componentKind.equals(TypeKind.ARRAY)) {
-          return new NestedArrayFieldGenerator(
+          yield new NestedArrayFieldGenerator(
               name,
               parameterType,
               typeName,
@@ -89,7 +87,7 @@ abstract class DeferredObjectCodecFieldGenerators {
               resolveBaseArrayComponentType(componentType).getKind(),
               accessor);
         }
-        return new ObjectArrayFieldGenerator(
+        yield new ObjectArrayFieldGenerator(
             name,
             parameterType,
             typeName,
@@ -97,45 +95,45 @@ abstract class DeferredObjectCodecFieldGenerators {
             hierarchyLevel,
             getErasure(componentType, env),
             accessor);
-      case BOOLEAN:
-        return new BooleanFieldGenerator(
-            name, parameterType, typeName, parentName, hierarchyLevel, accessor);
-      case BYTE:
-        return new ByteFieldGenerator(
-            name, parameterType, typeName, parentName, hierarchyLevel, accessor);
-      case CHAR:
-        return new CharFieldGenerator(
-            name, parameterType, typeName, parentName, hierarchyLevel, accessor);
-      case DOUBLE:
-        return new DoubleFieldGenerator(
-            name, parameterType, typeName, parentName, hierarchyLevel, accessor);
-      case FLOAT:
-        return new FloatFieldGenerator(
-            name, parameterType, typeName, parentName, hierarchyLevel, accessor);
-      case INT:
-        return new IntFieldGenerator(
-            name, parameterType, typeName, parentName, hierarchyLevel, accessor);
-      case LONG:
-        return new LongFieldGenerator(
-            name, parameterType, typeName, parentName, hierarchyLevel, accessor);
-      case SHORT:
-        return new ShortFieldGenerator(
-            name, parameterType, typeName, parentName, hierarchyLevel, accessor);
-      case TYPEVAR:
-      case DECLARED:
-        return new ObjectFieldGenerator(
-            name, parameterType, typeName, parentName, hierarchyLevel, accessor);
-      default:
-        // There are other TypeKinds, for example, NONE, NULL, VOID and WILDCARD, (and more,
-        // depending on the JDK version), but none are known to occur in code that defines the type
-        // of a member variable.
-        throw new SerializationProcessingException(
-            env.getElementUtils().getTypeElement(parentName.canonicalName()),
-            "%s had field %s having unexpected type %s",
-            parentName,
-            name,
-            parameterType);
-    }
+      }
+      case BOOLEAN ->
+          new BooleanFieldGenerator(
+              name, parameterType, typeName, parentName, hierarchyLevel, accessor);
+      case BYTE ->
+          new ByteFieldGenerator(
+              name, parameterType, typeName, parentName, hierarchyLevel, accessor);
+      case CHAR ->
+          new CharFieldGenerator(
+              name, parameterType, typeName, parentName, hierarchyLevel, accessor);
+      case DOUBLE ->
+          new DoubleFieldGenerator(
+              name, parameterType, typeName, parentName, hierarchyLevel, accessor);
+      case FLOAT ->
+          new FloatFieldGenerator(
+              name, parameterType, typeName, parentName, hierarchyLevel, accessor);
+      case INT ->
+          new IntFieldGenerator(
+              name, parameterType, typeName, parentName, hierarchyLevel, accessor);
+      case LONG ->
+          new LongFieldGenerator(
+              name, parameterType, typeName, parentName, hierarchyLevel, accessor);
+      case SHORT ->
+          new ShortFieldGenerator(
+              name, parameterType, typeName, parentName, hierarchyLevel, accessor);
+      case TYPEVAR, DECLARED ->
+          new ObjectFieldGenerator(
+              name, parameterType, typeName, parentName, hierarchyLevel, accessor);
+      default ->
+          // There are other TypeKinds, for example, NONE, NULL, VOID and WILDCARD, (and more,
+          // depending on the JDK version), but none are known to occur in code that defines the
+          // type of a member variable.
+          throw new SerializationProcessingException(
+              env.getElementUtils().getTypeElement(parentName.canonicalName()),
+              "%s had field %s having unexpected type %s",
+              parentName,
+              name,
+              parameterType);
+    };
   }
 
   /** Metadata needed to retrieve the field. */

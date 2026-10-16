@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
@@ -54,7 +56,9 @@ import java.io.PrintStream;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** Output callback for aquery, prints human readable output. */
@@ -83,9 +87,12 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       TargetAccessor<ConfiguredTargetValue> accessor,
       OutputType outputType,
       AqueryActionFilter actionFilters,
-      LabelPrinter labelPrinter) {
-    super(eventHandler, options, out, accessor);
+      LabelPrinter labelPrinter,
+      TopLevelConfigurations topLevelConfigurations,
+      @Nullable TopLevelArtifactContext topLevelArtifactContext) {
+    super(eventHandler, options, out, accessor, topLevelConfigurations, topLevelArtifactContext);
     this.outputType = outputType;
+
     this.actionFilters = actionFilters;
     this.labelPrinter = labelPrinter;
   }
@@ -99,8 +106,11 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
   public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try {
+      Set<ActionAnalysisMetadata> reachableActions = getReachableActions(partialResult);
       // Enabling includeParamFiles should enable includeCommandline by default.
-      options.includeCommandline |= options.includeParamFiles;
+
+      options.setIncludeCommandline(
+          options.getIncludeCommandline() || options.getIncludeParamFiles());
 
       for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
@@ -110,13 +120,13 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
         }
         for (ActionAnalysisMetadata action :
             ((RuleConfiguredTargetValue) configuredTargetValue).getActions()) {
-          writeAction(action, printStream);
+          writeAction(action, printStream, reachableActions);
         }
-        if (options.useAspects) {
+        if (options.getUseAspects()) {
           for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
             if (aspectValue != null) {
               for (ActionAnalysisMetadata action : aspectValue.getActions()) {
-                writeAction(action, printStream);
+                writeAction(action, printStream, reachableActions);
               }
             }
           }
@@ -127,9 +137,12 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     }
   }
 
-  private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
+  private void writeAction(
+      ActionAnalysisMetadata action,
+      PrintStream printStream,
+      @Nullable Set<ActionAnalysisMetadata> reachableActions)
       throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
-    if (options.includeParamFiles
+    if (options.getIncludeParamFiles()
         && action instanceof ParameterFileWriteAction parameterFileWriteAction) {
 
       String fileContent = String.join(" \\\n    ", parameterFileWriteAction.getArguments());
@@ -138,7 +151,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       getParamFileNameToContentMap().put(paramFileName, fileContent);
     }
 
-    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters, options.includePrunedInputs)) {
+    if (!AqueryUtils.matchesAqueryFilters(
+        action, actionFilters, options.getIncludePrunedInputs(), reachableActions)) {
       return;
     }
 
@@ -163,7 +177,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     if (actionOwner != null) {
       BuildEvent configuration = actionOwner.getBuildConfigurationEvent();
       BuildEventStreamProtos.Configuration configProto =
-          configuration.asStreamProto(/*context=*/ null).getConfiguration();
+          configuration.asStreamProto(/* context= */ null).getConfiguration();
 
       stringBuilder
           .append("  Target: ")
@@ -224,14 +238,19 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append('\n');
     }
 
-    if (options.includeArtifacts) {
-      NestedSet<Artifact> inputs = getActionInputs(action, options.includePrunedInputs);
+    if (options.getIncludeArtifacts()) {
+      NestedSet<Artifact> inputs = getActionInputs(action, options.getIncludePrunedInputs());
 
       stringBuilder
           .append("  Inputs: [")
           .append(
               inputs.toList().stream()
-                  .map(input -> internalToEscapedUnicode(input.getExecPathString()))
+                  .map(
+                      input ->
+                          internalToEscapedUnicode(
+                              input.isTreeArtifact()
+                                  ? input.getExecPathString() + " (TreeArtifact)"
+                                  : input.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n");
@@ -272,7 +291,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
             .append("]\n");
       }
     }
-    if (options.includeCommandline && action instanceof CommandAction) {
+    if (options.getIncludeCommandline() && action instanceof CommandAction) {
       stringBuilder
           .append("  Command Line: ")
           .append(
@@ -294,10 +313,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("\n");
     }
 
-    if (options.includeParamFiles) {
+    if (options.getIncludeParamFiles()) {
       // Assumption: if an Action takes a param file as an input, it will be used
       // to provide params to the command.
-      for (Artifact input : getActionInputs(action, options.includePrunedInputs).toList()) {
+      for (Artifact input : getActionInputs(action, options.getIncludePrunedInputs()).toList()) {
         String inputFileName = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileName)) {
           stringBuilder
@@ -346,7 +365,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
     if (action instanceof AbstractFileWriteAction.FileContentsProvider fileAction) {
       stringBuilder.append(String.format("  IsExecutable: %b\n", fileAction.makeExecutable()));
-      if (options.includeFileWriteContents) {
+      if (options.getIncludeFileWriteContents()) {
         String contents = fileAction.getFileContents(eventHandler);
         stringBuilder
             .append("  FileWriteContents: [")

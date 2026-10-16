@@ -16,16 +16,14 @@ package com.google.devtools.build.lib.events;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests the {@link Reporter} class.
- */
+/** Tests the {@link Reporter} class. */
 @RunWith(JUnit4.class)
 public class ReporterTest extends EventTestTemplate {
 
@@ -34,20 +32,21 @@ public class ReporterTest extends EventTestTemplate {
   private AbstractEventHandler outAppender;
 
   @Before
-  public final void initializeOutput() throws Exception  {
-    reporter = new Reporter(new EventBus());
+  public final void initializeOutput() throws Exception {
+    reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
     out = new StringBuilder();
-    outAppender = new AbstractEventHandler(EventKind.ERRORS) {
-      @Override
-      public void handle(Event event) {
-        out.append(event.getMessage());
-      }
-    };
+    outAppender =
+        new AbstractEventHandler(EventKind.ERRORS) {
+          @Override
+          public void handle(Event event) {
+            out.append(event.getMessage());
+          }
+        };
   }
 
   @Test
   public void reporterShowOutput() {
-    reporter.setOutputFilter(OutputFilter.RegexOutputFilter.forRegex("naughty"));
+    reporter.setOutputFilter(OutputFilter.RegexOutputFilter.forPattern(Pattern.compile("naughty")));
     EventCollector collector = new EventCollector();
     reporter.addHandler(collector);
     Event interesting = Event.warn(null, "show-me").withTag("naughty");

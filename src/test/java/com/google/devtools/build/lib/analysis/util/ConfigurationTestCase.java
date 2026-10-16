@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -52,6 +53,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.List;
 import java.util.UUID;
@@ -63,7 +65,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public abstract class ConfigurationTestCase extends FoundationTestCase {
 
-  public static final class TestOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class TestOptions extends OptionsBase {
     @Option(
         name = "multi_cpu",
         converter = Converters.CommaSeparatedOptionListConverter.class,
@@ -72,7 +75,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null",
         help = "Additional target CPUs.")
-    public List<String> multiCpus;
+    public abstract List<String> getMultiCpus();
   }
 
   protected MockToolsConfig mockToolsConfig;
@@ -99,7 +102,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
@@ -113,7 +115,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     AnalysisTestUtil.DummyWorkspaceStatusActionFactory workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     skyframeExecutor =
-        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(pkgFactory)
             .setFileSystem(fileSystem)
             .setDirectories(directories)
@@ -125,23 +127,24 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     BuildOptions defaultBuildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(buildOptionClasses).clone();
-    defaultBuildOptions.get(CoreOptions.class).starlarkExecConfig =
-        TestConstants.STARLARK_EXEC_TRANSITION;
+    defaultBuildOptions
+        .get(CoreOptions.class)
+        .setStarlarkExecConfig(TestConstants.STARLARK_EXEC_TRANSITION);
     skyframeExecutor.injectExtraPrecomputedValues(
         new ImmutableList.Builder<PrecomputedValue.Injected>()
             .add(
                 PrecomputedValue.injected(
-                    PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptions))
+                    BaselineOptionsFunction.BASELINE_CONFIGURATION, defaultBuildOptions))
             .add(
                 PrecomputedValue.injected(
                     // Reuse the build options as the baseline exec. This is technically wrong but
                     // will only impact the exec configuration output path.
-                    PrecomputedValue.BASELINE_EXEC_CONFIGURATION, defaultBuildOptions))
+                    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION, defaultBuildOptions))
             .addAll(analysisMock.getPrecomputedValues())
             .build());
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
@@ -152,6 +155,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         options,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -188,9 +192,22 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
 
     BuildOptions targetOptions = parseBuildOptions(starlarkOptions, args);
+    return createConfigurationWithBaseline(targetOptions, targetOptions);
+  }
 
+  /**
+   * Returns a {@link BuildConfigurationValue} for {@code targetOptions} computed against {@code
+   * baselineOptions} as the top-level (baseline) configuration.
+   *
+   * <p>Use this to simulate a configuration reached via a transition: {@code baselineOptions} play
+   * the role of the command line, and {@code targetOptions} the post-transition options. The
+   * mnemonic (and therefore {@link BuildConfigurationValue#mnemonicDependsOnBaseline}) depends on
+   * the difference between the two.
+   */
+  protected BuildConfigurationValue createConfigurationWithBaseline(
+      BuildOptions baselineOptions, BuildOptions targetOptions) throws Exception {
     skyframeExecutor.handleDiffsForTesting(reporter);
-    skyframeExecutor.setBaselineConfiguration(targetOptions, reporter);
+    skyframeExecutor.setBaselineConfiguration(baselineOptions, reporter);
     return skyframeExecutor.createConfiguration(reporter, targetOptions, false);
   }
 
@@ -205,7 +222,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
                     .add(TestOptions.class)
                     .build())
             .build();
-    parser.setStarlarkOptions(starlarkOptions);
+    parser.setStarlarkOptions(starlarkOptions, ImmutableSet.of());
     parser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     parser.parse(args);
 
@@ -225,15 +242,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   }
 
   /** Returns a raw {@link BuildConfigurationValue} with the given parameters. */
-  protected BuildConfigurationValue createRaw(
-      BuildOptions buildOptions,
-      String mnemonic,
-      boolean siblingRepositoryLayout)
+  protected BuildConfigurationValue createRaw(BuildOptions buildOptions, String mnemonic)
       throws Exception {
     return BuildConfigurationValue.createForTesting(
         buildOptions,
         mnemonic,
-        siblingRepositoryLayout,
         skyframeExecutor.getBlazeDirectoriesForTesting(),
         skyframeExecutor.getRuleClassProviderForTesting(),
         fragmentFactory);

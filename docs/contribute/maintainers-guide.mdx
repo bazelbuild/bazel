@@ -6,12 +6,11 @@ title: 'Guide for Bazel Maintainers'
 
 This is a guide for the maintainers of the Bazel open source project.
 
-If you are looking to contribute to Bazel, please read [Contributing to
-Bazel](/contribute) instead.
+If you are looking to contribute to Bazel, read [Contributing to Bazel](/contribute) instead.
 
 The objectives of this page are to:
 
-1. Serve as the maintainers' source of truth for the project’s contribution
+1. Serve as the maintainers' source of truth for the project's contribution
    process.
 1. Set expectations between the community contributors and the project
    maintainers.
@@ -20,27 +19,26 @@ Bazel's [core group of contributors](/contribute/policy) has dedicated
 subteams to manage aspects of the open source project. These are:
 
 * **Release Process**: Manage Bazel's release process.
-* **Green Team**: Grow a healthy ecosystem of rules and tools.
+* **Green Team**: Monitor Bazel CI health and report breakages.
 * **Developer Experience Gardeners**: Encourage external contributions, review
   issues and pull requests, and make our development workflow more open.
 
-## Releases
+## Releases {#releases}
 
 * [Release Playbook](https://github.com/bazelbuild/continuous-integration/blob/master/docs/release-playbook.md)
 * [Testing local changes with downstream projects](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md)
 
-## Continuous Integration
+## Continuous Integration {#integration}
 
 Read the Green team's guide to Bazel's CI infrastructure on the
 [bazelbuild/continuous-integration](https://github.com/bazelbuild/continuous-integration/blob/master/buildkite/README.md)
 repository.
 
-## Lifecycle of an Issue
+## Lifecycle of an Issue {#lifecycle-issue}
 
 1. A user creates an issue by choosing one of the
 [issue templates](https://github.com/bazelbuild/bazel/issues/new/choose)
-   and it enters the pool of [unreviewed open
-   issues](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+-label%3Auntriaged+-label%3Ap2+-label%3Ap1+-label%3Ap3+-label%3Ap4+-label%3Ateam-Starlark+-label%3Ateam-Rules-CPP+-label%3Ateam-Rules-Java+-label%3Ateam-XProduct+-label%3Ateam-Android+-label%3Ateam-Apple+-label%3Ateam-Configurability++-label%3Ateam-Performance+-label%3Ateam-Rules-Server+-label%3Ateam-Core+-label%3Ateam-Rules-Python+-label%3Ateam-Remote-Exec+-label%3Ateam-Local-Exec+-label%3Ateam-Bazel).
+   and it enters the pool of [unreviewed open issues](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+-label%3Auntriaged+-label%3Ap2+-label%3Ap1+-label%3Ap3+-label%3Ap4+-label%3Ateam-Starlark+-label%3Ateam-Rules-CPP+-label%3Ateam-Rules-Java+-label%3Ateam-XProduct+-label%3Ateam-Android+-label%3Ateam-Apple+-label%3Ateam-Configurability++-label%3Ateam-Performance+-label%3Ateam-Rules-Server+-label%3Ateam-Core+-label%3Ateam-Rules-Python+-label%3Ateam-Remote-Exec+-label%3Ateam-Local-Exec+-label%3Ateam-Bazel).
 1. A member on the Developer Experience (DevEx) subteam rotation reviews the
    issue.
    1. If the issue is **not a bug** or a **feature request**, the DevEx member
@@ -49,7 +47,7 @@ repository.
       [bazel-discuss](https://groups.google.com/forum/#!forum/bazel-discuss) for
       higher visibility on the question.
    1. If the issue belongs in one of the rules repositories owned by the
-      community, like [rules_apple](https://github.com.bazelbuild/rules_apple),
+      community, like [rules_apple](https://github.com/bazelbuild/rules_apple),
       the DevEx member will [transfer this issue](https://docs.github.com/en/free-pro-team@latest/github/managing-your-work-on-github/transferring-an-issue-to-another-repository)
       to the correct repository.
    1. If the issue is vague or has missing information, the DevEx member will
@@ -60,25 +58,22 @@ repository.
 1. After reviewing the issue, the DevEx member decides if the issue requires
    immediate attention. If it does, they will assign the **P0**
    [priority](#priority) label and an owner from the list of team leads.
-1. The DevEx member assigns the `untriaged` label and exactly one [team
-   label](#team-labels) for routing.
+1. The DevEx member assigns the `untriaged` label and exactly one [team label](#team-labels) for routing.
 1. The DevEx member also assigns exactly one `type:` label, such as `type: bug`
    or `type: feature request`, according to the type of the issue.
 1. For platform-specific issues, the DevEx member assigns one `platform:` label,
    such as `platform:apple` for Mac-specific issues.
 1. If the issue is low priority and can be worked on by a new community
    contributor, the DevEx member assigns the `good first issue` label.
-At this stage, the issue enters the pool of [untriaged open
-issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged).
+At this stage, the issue enters the pool of [untriaged open issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged).
 
 Each Bazel subteam will triage all issues under labels they own, preferably on a
 weekly basis. The subteam will review and evaluate the issue and provide a
-resolution, if possible. If you are an owner of a team label, see [this section
-](#label-own) for more information.
+resolution, if possible. If you are an owner of a team label, see [this section](#label-own) for more information.
 
 When an issue is resolved, it can be closed.
 
-## Lifecycle of a Pull Request
+## Lifecycle of a Pull Request {#lifecycle-pull-request}
 
 1. A user creates a pull request.
 1. If you a member of a Bazel team and sending a PR against your own area,
@@ -98,12 +93,12 @@ When an issue is resolved, it can be closed.
 1. When the commit merges into master, GitHub automatically closes the PR.
 
 
-## My team owns a label. What should I do?
+## My team owns a label. What should I do? {#label-own}
 
 Subteams need to triage all issues in the [labels they own](#team-labels),
 preferably on a weekly basis.
 
-### Issues
+### Issues {#issues}
 
 1. Filter the list of issues by your team label **and** the `untriaged` label.
 1. Review the issue.
@@ -114,24 +109,50 @@ preferably on a weekly basis.
      issue is either P0 or P1 we assume that is actively worked on.
 1. Remove the `untriaged` label.
 
-Note that you need to be in the [bazelbuild
-organization](https://github.com/bazelbuild) to be able to add or remove labels.
+Note that you need to be in the [bazelbuild organization](https://github.com/bazelbuild) to be able to add or remove labels.
 
-### Pull Requests
+### Pull Requests {#pull-requests}
 
-1. Filter the list of pull requests by your team label.
-1. Review open pull requests.
-  1. **Optional**: If you are assigned for the review but is not the right fit
-  for it, re-assign the appropriate reviewer to perform a code review.
-1. Work with the pull request creator to complete a code review.
-1. Approve the PR.
-1. Ensure that all tests pass.
-1. Import the patch to the internal version control system and run the internal
-   presubmits.
-1. Submit the internal patch. If the patch submits and exports successfully, the
-   PR will be closed automatically by GitHub.
+Pull requests (PRs) are a primary way that external contributors add value to
+Bazel. As an open source project, it is important to ensure that PRs are
+reviewed and handled in a timely and efficient manner.
 
-## Priority
+*   **Triage**
+
+    Regularly review incoming PRs with the `awaiting-review` label and your team
+    label. This can be done either with a rotation or a regular triage meeting.
+    We expect each PR receives an initial response within 7 business days.
+
+*   **Response**
+
+    -   If the PR looks good, approve it and apply the `awaiting-PR-merge`
+        label. The gTech team will import the PR as a CL.
+    -   Otherwise, leave your feedback and replace the `awaiting-review` label
+        with the `awaiting-user-response` label. The DevEx subteam will
+        regularly update the label if the PR author responds.
+    -   For PRs with major changes, consider asking for a design doc or a
+        prior discussion in an issue.
+
+*  **Closure**
+
+    Due to limited resources, it's important to close PRs that don't meet
+    Bazel's standards or that we don't have the capacity to review or maintain.
+
+    -   If the PR is not aligned with Bazel's goals, close it with an
+        explanation.
+    -   If the PR is too large and complex, close it with a request to break it
+        down into smaller pieces.
+    -   If the PR code quality doesn't meet our standards, close it with an
+        explanation.
+    -   If the future maintenance cost of the code is too high, close it with an
+        explanation.
+    -   If the PR has been awaiting user response for a long time and the
+        contributor hasn't responded, the PR will be automatically marked as
+        stale after 30 days and closed after another 30 days.
+
+    When closing a PR, be polite and explain the reason for closure.
+
+## Priority {#priority}
 
 The following definitions for priority will be used by the maintainers to triage
 issues.
@@ -141,8 +162,7 @@ issues.
   unusable, or a downed service that severely impacts development of the Bazel
   project. This includes regressions introduced in a new release that blocks a
   significant number of users, or an incompatible breaking change that was not
-  compliant to the [Breaking
-  Change](https://docs.google.com/document/d/1q5GGRxKrF_mnwtaPKI487P8OdDRh2nN7jX6U-FXnHL0/edit?pli=1#heading=h.ceof6vpkb3ik)
+  compliant to the [Breaking Change](https://docs.google.com/document/d/1q5GGRxKrF_mnwtaPKI487P8OdDRh2nN7jX6U-FXnHL0/edit?pli=1#heading=h.ceof6vpkb3ik)
   policy. No practical workaround exists.
 * [**P1**](https://github.com/bazelbuild/bazel/labels/P1) - Critical defect or
   feature which should be addressed in the next release, or a serious issue that
@@ -160,7 +180,7 @@ issues.
   or feature request that is unlikely to get closed. Can also be kept open for a
   potential re-prioritization if more users are impacted.
 
-## Team labels
+## Team labels {#team-labels}
 
 *   [`team-Android`](https://github.com/bazelbuild/bazel/labels/team-Android): Issues for Android team
     *   Contact: [ahumesky](https://github.com/ahumesky)

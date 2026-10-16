@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger build of bazel-docs
-        uses: peter-evans/repository-dispatch@v4
+        uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697 # v4
         with:
           repository: bazel-contrib/bazel-docs
           # Fine-grained PAT (https://github.com/settings/personal-access-tokens/new), which needs
           # to be exchanged once a year.
-          # Scoped to the `bazel-contrib/bcr-ui` repository.
+          # Scoped to the `bazel-contrib/bazel-docs` repository.
           # Requires "Read and write" permissions for "Contents" to be able to do the workflow dispatch.
           token: ${{ secrets.BAZEL_DOC_TRIGGER_TOKEN }}
           event-type: on-bazel-trigger

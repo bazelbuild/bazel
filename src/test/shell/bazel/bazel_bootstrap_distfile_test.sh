@@ -54,6 +54,21 @@ else
   declare -r EMBEDDED_JDK=""
 fi
 
+# The prerequisites documented at
+# https://bazel.build/install/compile-source#bootstrap-unix-prereq ask for a JDK
+# 25, so bootstrap with a hermetic JDK 25 from the runfiles rather than with
+# whichever JDK happens to be installed on the machine running this test. This
+# both keeps the test hermetic and verifies that a JDK 25 is in fact sufficient.
+setup_javabase
+export JAVA_HOME="${bazel_javabase}"
+# JAVA_TOOL_OPTIONS and _JAVA_OPTIONS make the JVM print an extra line, so unset
+# them for this check just like compile.sh does for the bootstrap itself.
+declare -r JAVAC_VERSION="$(unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS; \
+  "${JAVA_HOME}/bin/javac" -version 2>&1)"
+if [[ ! "${JAVAC_VERSION}" =~ ^javac\ 25(\.|$) ]]; then
+  log_fatal "expected a JDK 25 in JAVA_HOME, but got '${JAVAC_VERSION}'"
+fi
+
 function test_bootstrap() {
     cd "$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)"
     export SOURCE_DATE_EPOCH=1501234567
@@ -86,6 +101,10 @@ function test_bootstrap() {
     esac
 
     JAVABASE=$(echo reduced*)
+
+    # TODO: Enable macOS layering_check when dependencies are updated
+    export EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS:-} \
+      --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0"
 
     ./compile.sh || fail "Expected to be able to bootstrap bazel.\
  If you updated MODULE.bazel, see the NOTE in that file."
@@ -129,6 +148,7 @@ EOF
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
       build --nobuild --repository_cache=derived/repository_cache --repo_contents_cache= \
+      --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0 \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \
       --java_runtime_version=local_jdk --tool_java_runtime_version=local_jdk \

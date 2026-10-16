@@ -14,19 +14,23 @@
 
 package com.google.testing.junit.runner;
 
+import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.StackTraces;
 import com.google.testing.junit.runner.junit4.JUnit4Bazel;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.Config;
 import com.google.testing.junit.runner.junit4.JUnit4Runner;
+import com.google.testing.junit.runner.util.SuiteUtil;
 import java.io.PrintStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.junit.runner.Result;
+import sun.misc.Signal;
 
 /**
  * A class to run JUnit tests in a controlled environment.
@@ -40,10 +44,15 @@ import org.junit.runner.Result;
  * <p>It also traps SIGTERM signals to make sure that the test report is written when the signal is
  * closed by the unit test framework for running over time.
  */
+@SuppressWarnings({
+  "SunApi",
+  "JdkImmutableCollections",
+  "JdkCollectors"
+}) // SunApi for signal handling (see JDK-8349056), avoiding Guava dependency in Bazel tools
 public class BazelTestRunner {
   /**
-   * If no arguments are passed on the command line, use this System property to
-   * determine which test suite to run.
+   * If no arguments are passed on the command line, use this System property to determine which
+   * test suite to run.
    */
   static final String TEST_SUITE_PROPERTY_NAME = "bazel.test_suite";
 
@@ -57,6 +66,15 @@ public class BazelTestRunner {
 
   private BazelTestRunner() {
     // utility class; should not be instantiated
+  }
+
+  /**
+   * Gets the list of class names of the test classes that Bazel asked us to run.
+   *
+   * @return list of class names
+   */
+  public static List<String> getTestSuiteClassNames() {
+    return SuiteUtil.parseSuiteClassNames(System.getProperty(TEST_SUITE_PROPERTY_NAME));
   }
 
   /**
@@ -78,14 +96,18 @@ public class BazelTestRunner {
   public static void main(String[] args) {
     PrintStream stderr = System.err;
 
-    String suiteClassName = System.getProperty(TEST_SUITE_PROPERTY_NAME);
-    if (!checkTestSuiteProperty(suiteClassName)) {
+    // Install signal handlers early to ensure stack traces are printed even if the test
+    // is interrupted during suite creation.
+    installSignalHandlers(stderr);
+
+    List<String> suiteClassNames = getTestSuiteClassNames();
+    if (!checkTestSuiteClasses(suiteClassNames)) {
       System.exit(EXIT_CODE_TEST_RUNNER_FAILURE);
     }
 
     int exitCode;
     try {
-      exitCode = runTestsInSuite(suiteClassName, args);
+      exitCode = runTestsInSuites(suiteClassNames, args);
     } catch (Throwable e) {
       // An exception was thrown by the runner. Print the error to the output stream so it will be
       // logged
@@ -111,26 +133,28 @@ public class BazelTestRunner {
   }
 
   /**
-   * Ensures that the bazel.test_suite in argument is not {@code null} or print error and
-   * explanation.
+   * Ensures that test suites were provided or prints error and explanation.
    *
-   * @param testSuiteProperty system property to check
+   * @param suiteClassNames test suite class names to check
    */
-  private static boolean checkTestSuiteProperty(String testSuiteProperty) {
-    if (testSuiteProperty == null) {
+  private static boolean checkTestSuiteClasses(List<String> suiteClassNames) {
+    if (suiteClassNames.isEmpty()) {
       System.err.printf(
           "Error: The test suite Java system property %s is required but missing.%n",
           TEST_SUITE_PROPERTY_NAME);
       System.err.println();
       System.err.println("This property is set automatically when running with Bazel like such:");
-      System.err.printf("  java -D%s=[test-suite-class] %s%n",
+      System.err.printf(
+          "  java -D%s=[test-suite-class] %s%n",
           TEST_SUITE_PROPERTY_NAME, BazelTestRunner.class.getName());
-      System.err.printf("  java -D%s=[test-suite-class] -jar [deploy-jar]%n",
-          TEST_SUITE_PROPERTY_NAME);
+      System.err.printf(
+          "  java -D%s=[test-suite-class] -jar [deploy-jar]%n", TEST_SUITE_PROPERTY_NAME);
       System.err.println("E.g.:");
-      System.err.printf("  java -D%s=org.example.testing.junit.runner.SmallTests %s%n",
+      System.err.printf(
+          "  java -D%s=org.example.testing.junit.runner.SmallTests %s%n",
           TEST_SUITE_PROPERTY_NAME, BazelTestRunner.class.getName());
-      System.err.printf("  java -D%s=org.example.testing.junit.runner.SmallTests "
+      System.err.printf(
+          "  java -D%s=org.example.testing.junit.runner.SmallTests "
               + "-jar SmallTests_deploy.jar%n",
           TEST_SUITE_PROPERTY_NAME);
       return false;
@@ -139,23 +163,24 @@ public class BazelTestRunner {
   }
 
   /**
-   * Runs the tests in the specified suite. Looks for the suite class in the given classLoader, or
-   * in the system classloader if none is specified.
+   * Runs the tests in the specified suites. Looks for the suite classes in the given classLoader,
+   * or in the system classloader if none is specified.
    */
-  private static int runTestsInSuite(String suiteClassName, String[] args) {
-    Class<?> suite = getTestClass(suiteClassName);
-
-    if (suite == null) {
-      // No class found corresponding to the system property passed in from Bazel
-      if (args.length == 0 && suiteClassName != null) {
+  private static int runTestsInSuites(List<String> suiteClassNames, String[] args) {
+    List<Class<?>> suites = new ArrayList<>();
+    for (String suiteClassName : suiteClassNames) {
+      Class<?> suite = getTestClass(suiteClassName);
+      if (suite == null) {
+        // No class found corresponding to the system property passed in from Bazel
         System.err.printf("Class not found: [%s]%n", suiteClassName);
         return EXIT_CODE_TEST_RUNNER_FAILURE;
       }
+      suites.add(suite);
     }
 
     // TODO(kush): Use a new classloader for the following instantiation.
     JUnit4Runner runner =
-        JUnit4Bazel.builder().suiteClass(suite).config(new Config(args)).build().runner();
+        JUnit4Bazel.builder().suiteClasses(suites).config(new Config(args)).build().runner();
     Result result = runner.run();
     if (result.wasSuccessful()) {
       return EXIT_CODE_SUCCESS;
@@ -200,10 +225,10 @@ public class BazelTestRunner {
                     final List<Thread> nonDaemonAliveThreads =
                         Thread.getAllStackTraces().keySet().stream()
                             .filter(Thread::isAlive)
-                            .filter(Predicate.not(Thread::isDaemon))
-                            .filter(t -> t.threadId() != currentThread.threadId())
-                            .filter(t -> t.threadId() != mainThread.threadId())
-                            .toList();
+                            .filter(thread -> !thread.isDaemon())
+                            .filter(t -> t.getId() != currentThread.getId())
+                            .filter(t -> t.getId() != mainThread.getId())
+                            .collect(Collectors.toList());
 
                     if (nonDaemonAliveThreads.isEmpty()) {
                       return;
@@ -220,22 +245,20 @@ public class BazelTestRunner {
    * @param out Print stream to use
    */
   private static void printStackTracesIfJvmExitHangs(final PrintStream out) {
-    Thread thread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        sleepUninterruptibly(5);
-        out.println("JVM still up after five seconds. Dumping stack traces for all threads.");
-        StackTraces.printAll(out);
-      }
-    }, "BazelTestRunner: Print stack traces if JVM exit hangs");
+    Thread thread =
+        new Thread(
+            () -> {
+              sleepUninterruptibly(5);
+              out.println("JVM still up after five seconds. Dumping stack traces for all threads.");
+              StackTraces.printAll(out, /* emitJsonThreadDump= */ true);
+            },
+            "BazelTestRunner: Print stack traces if JVM exit hangs");
 
     thread.setDaemon(true);
     thread.start();
   }
 
-  /**
-   * Invokes SECONDS.{@link TimeUnit#sleep(long) sleep(sleepForSeconds)} uninterruptibly.
-   */
+  /** Invokes SECONDS.{@link TimeUnit#sleep(long) sleep(sleepForSeconds)} uninterruptibly. */
   private static void sleepUninterruptibly(long sleepForSeconds) {
     boolean interrupted = false;
     try {
@@ -254,5 +277,16 @@ public class BazelTestRunner {
         Thread.currentThread().interrupt();
       }
     }
+  }
+
+  /** Installs a SIGTERM handler that prints stack traces for all threads. */
+  private static void installSignalHandlers(PrintStream errPrintStream) {
+    SignalHandlers signalHandlers = new SignalHandlers(SignalHandlers.createRealHandlerInstaller());
+    signalHandlers.installHandler(
+        new Signal("TERM"),
+        __ -> {
+          errPrintStream.println("Received SIGTERM, dumping stack traces for all threads\n");
+          StackTraces.printAll(errPrintStream, /* emitJsonThreadDump= */ true);
+        });
   }
 }

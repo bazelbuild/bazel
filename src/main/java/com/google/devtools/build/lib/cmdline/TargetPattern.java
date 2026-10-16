@@ -665,11 +665,6 @@ public abstract class TargetPattern {
       return false;
     }
 
-    /** Is {@code containingDirectory} an ancestor of or equal to this {@link #directory}? */
-    public boolean containedIn(PathFragment containingDirectory) {
-      return directory.getPackageFragment().startsWith(containingDirectory);
-    }
-
     /**
      * Returns true if {@code containedDirectory} is contained by or equals this pattern's
      * directory.

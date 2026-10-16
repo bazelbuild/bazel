@@ -33,8 +33,10 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.SyntaxUtils;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /**
  * A StarlarkList is a mutable finite sequence of values.
@@ -82,7 +84,11 @@ import net.starlark.java.types.Types;
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python.")
 public abstract class StarlarkList<E> extends AbstractCollection<E>
-    implements Sequence<E>, StarlarkValue, Mutability.Freezable, Comparable<StarlarkList<?>> {
+    implements Sequence<E>, Mutability.Freezable, Comparable<StarlarkList<?>> {
+
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return Types.LIST_CONSTRUCTOR;
+  }
 
   // It's always possible to overeat in small bites but we'll
   // try to stop someone swallowing the world in one gulp.
@@ -94,14 +100,17 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   StarlarkList() {}
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     // TODO(ilist@): store the type for non-homogeneous lists
     // Current implementation traverses the list and computes union of all elements - same as most
     // of the native calls. This is correct, but could be expensive. Proposed optimization is
     // to store and update list's type when elements are added to it.
-    return isEmpty()
-        ? Types.list(Types.ANY)
-        : Types.list(Types.union(stream().map(TypeChecker::type).collect(toImmutableSet())));
+    if (isEmpty()) {
+      return mutability().isFrozen() ? Types.list(Types.NEVER) : Types.list(Types.ANY);
+    }
+    return Types.list(
+        Types.union(
+            stream().map(e -> Starlark.getStarlarkType(e, semantics)).collect(toImmutableSet())));
   }
 
   /**
@@ -124,6 +133,11 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   public void checkHashable() throws EvalException {
     // Even a frozen list is unhashable.
     throw Starlark.errorf("unhashable type: 'list'");
+  }
+
+  @Override
+  public boolean isAcyclic() {
+    return isEmpty();
   }
 
   /** Returns an empty frozen list of the desired type. */
@@ -259,18 +273,19 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     for (int i = 0; i < size; i++) {
       result = 31 * result + elems[i].hashCode();
     }
-    return 6047 + 4673 * result;
+    int h = 6047 + 4673 * result;
+    return h != 0 ? h : 1;
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.printList(this, "[", ", ", "]");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.printList(this, "[", ", ", "]", semantics);
   }
 
   // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   /** Returns a new StarlarkList containing n consecutive repeats of this tuple. */
@@ -290,6 +305,18 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
       System.arraycopy(elems(), 0, res, i * size, size);
     }
     return wrap(mutability, res);
+  }
+
+  @Override
+  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
+    int size = size();
+    Object[] elems = elems();
+    for (int i = 0; i < size; i++) {
+      if (Starlark.checkedEquals(key, elems[i])) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -355,12 +382,12 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     int size = size();
     Object[] elems = elems();
     for (int i = 0; i < size; i++) {
-      if (elems[i].equals(x)) {
+      if (Starlark.checkedEquals(x, elems[i])) {
         removeElementAt(i);
         return;
       }
     }
-    throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
+    throw Starlark.errorf("item %s not found in list", Starlark.repr(x, StarlarkSemantics.DEFAULT));
   }
 
   @StarlarkMethod(
@@ -378,11 +405,17 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
       name = "insert",
       doc = "Inserts an item at a given position.",
       parameters = {
-        @Param(name = "index", doc = "The index of the given position."),
+        @Param(
+            name = "index",
+            doc =
+                "The index the item will be at after insertion. If the index is out of range, it's"
+                    + " transformed into an effective index in the range from 0 to the list's"
+                    + " previous length, inclusive, in the same manner as for the start index of a"
+                    + " slice operator."),
         @Param(name = "item", doc = "The item.")
       })
   public void insert(StarlarkInt index, E item) throws EvalException {
-    addElementAt(EvalUtils.toIndex(index.toInt("index"), size()), item); // unchecked
+    addElementAt(SyntaxUtils.toSliceBound(index.toInt("index"), size()), item); // unchecked
   }
 
   @StarlarkMethod(
@@ -396,8 +429,9 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   @StarlarkMethod(
       name = "index",
       doc =
-          "Returns the index in the list of the first item whose value is x. "
-              + "It is an error if there is no such item.",
+          "Returns the index in the list of the first item whose value is x. It is an error if"
+              + " there is no such item. If <code>start</code> and <code>end</code> are given,"
+              + " they restrict the range searched in the same manner as slicing.",
       parameters = {
         @Param(name = "x", doc = "The object to search."),
         @Param(
@@ -414,14 +448,18 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   public int index(E x, Object start, Object end) throws EvalException {
     int size = size();
     Object[] elems = elems();
-    int i = start == Starlark.UNBOUND ? 0 : EvalUtils.toIndex(Starlark.toInt(start, "start"), size);
-    int j = end == Starlark.UNBOUND ? size : EvalUtils.toIndex(Starlark.toInt(end, "end"), size);
+    int i =
+        start == Starlark.UNBOUND
+            ? 0
+            : SyntaxUtils.toSliceBound(Starlark.toInt(start, "start"), size);
+    int j =
+        end == Starlark.UNBOUND ? size : SyntaxUtils.toSliceBound(Starlark.toInt(end, "end"), size);
     for (; i < j; i++) {
-      if (elems[i].equals(x)) {
+      if (Starlark.checkedEquals(elems[i], x)) {
         return i;
       }
     }
-    throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
+    throw Starlark.errorf("item %s not found in list", Starlark.repr(x, StarlarkSemantics.DEFAULT));
   }
 
   @StarlarkMethod(

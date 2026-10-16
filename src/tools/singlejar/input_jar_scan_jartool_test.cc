@@ -20,6 +20,8 @@
 // topmost header file as it defines types used by later-included headers.
 #include <stdarg.h>  // NOLINT
 #include <stdlib.h>  // NOLINT
+#include <memory>  // NOLINT
+#include <string>  // NOLINT
 
 #include "src/tools/singlejar/input_jar_scan_entries_test.h"
 

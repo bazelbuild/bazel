@@ -101,6 +101,18 @@ public class FileContentsProxyTest {
   }
 
   @Test
+  public void toMetadataOnlyFileStatusRoundTrip() throws Exception {
+    FileStatus stat =
+        new InjectedStat(/* mtime= */ 1, /* ctime= */ 2, /* size= */ 3, /* nodeId= */ 4);
+    FileStatus partial = FileContentsProxy.create(stat).toMetadataOnlyFileStatus(stat.getSize());
+
+    assertThat(partial.getLastModifiedTime()).isEqualTo(stat.getLastModifiedTime());
+    assertThat(partial.getLastChangeTime()).isEqualTo(stat.getLastChangeTime());
+    assertThat(partial.getNodeId()).isEqualTo(stat.getNodeId());
+    assertThat(partial.getSize()).isEqualTo(stat.getSize());
+  }
+
+  @Test
   public void fingerprint() throws Exception {
     FileContentsProxy p1 =
         FileContentsProxy.create(

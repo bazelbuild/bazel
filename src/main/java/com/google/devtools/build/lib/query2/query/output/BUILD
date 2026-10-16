@@ -2,22 +2,28 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
     name = "output",
     srcs = glob(["*.java"]),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+        "//src/main/java/com/google/devtools/build/lib/rules/genquery:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect:equivalence_relation",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -38,10 +44,14 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/protobuf/util:json",
     ],
 )

@@ -3,23 +3,27 @@ load("@rules_java//java:defs.bzl", "java_library")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/test/java:__subpackages__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/query2:__pkg__",
+    ],
 )
 
 java_library(
     name = "testutil",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_result",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
@@ -34,7 +38,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
@@ -46,9 +52,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
         "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/runtime:quiescing_executors_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sequenced_skyframe_executor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_target_pattern_evaluator",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageFactoryBuilderWithSkyframeForTesting",
         "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
@@ -72,9 +81,12 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestPackageFactoryBuilderFactory",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+        "//third_party/java/truth/extensions:proto",
     ],
 )

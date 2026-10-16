@@ -15,13 +15,12 @@ package com.google.devtools.build.lib.testing.common;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -70,7 +69,7 @@ public final class FakeOptions implements OptionsProvider {
      */
     @CanIgnoreReturnValue
     public <O extends OptionsBase> Builder put(O options) {
-      this.options.put(options.getClass(), options);
+      this.options.put(options.getOptionsClass(), options);
       return this;
     }
 
@@ -120,9 +119,13 @@ public final class FakeOptions implements OptionsProvider {
   }
 
   @Override
-  public Map<String, Object> getExplicitStarlarkOptions(
-      Predicate<? super ParsedOptionDescription> filter) {
+  public Map<String, Object> getExplicitCommandLineStarlarkOptions() {
     return ImmutableMap.of();
+  }
+
+  @Override
+  public ImmutableSet<String> getStarlarkOptionsAllowingMultiple() {
+    return ImmutableSet.of();
   }
 
   @Override

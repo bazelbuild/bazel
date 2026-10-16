@@ -99,8 +99,10 @@ public interface BuildConfigurationApi extends StarlarkValue {
   @StarlarkMethod(name = "stamp_binaries", documented = false, useStarlarkThread = true)
   boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(name = "is_tool_configuration", documented = false, useStarlarkThread = true)
-  boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(
+      name = "is_tool_configuration",
+      doc = "Returns true when building in the tool (exec) configuration.")
+  boolean isToolConfiguration();
 
   @StarlarkMethod(
       name = "has_separate_genfiles_directory",
@@ -108,6 +110,10 @@ public interface BuildConfigurationApi extends StarlarkValue {
       useStarlarkThread = true)
   boolean hasSeparateGenfilesDirectoryForStarlark(StarlarkThread thread) throws EvalException;
 
+  /**
+   * @deprecated Always returns false; the sibling repository layout no longer exists.
+   */
+  @Deprecated
   @StarlarkMethod(
       name = "is_sibling_repository_layout",
       documented = false,

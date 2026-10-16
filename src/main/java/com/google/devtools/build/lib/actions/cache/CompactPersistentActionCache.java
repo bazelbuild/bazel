@@ -25,6 +25,7 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataDigestUtils;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThread
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
 import com.google.devtools.build.lib.util.PersistentMap;
@@ -75,7 +77,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 23;
+  private static final int VERSION = 26;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
@@ -481,12 +483,26 @@ public class CompactPersistentActionCache implements ActionCache {
       // This also ensures that the next initialization attempt will create an empty cache.
       // To avoid using too much disk space, only keep the most recent corrupted cache around.
       corruptedCacheRoot.deleteTree();
-      cacheRoot.renameTo(corruptedCacheRoot);
+      boolean preexistingKept;
+      try {
+        cacheRoot.renameTo(corruptedCacheRoot);
+        preexistingKept = true;
+      } catch (IOException e1) {
+        // If renaming fails, delete instead.
+        preexistingKept = false;
+        try {
+          cacheRoot.deleteTree();
+        } catch (IOException e2) {
+          e2.addSuppressed(e1);
+          throw e2;
+        }
+      }
 
       e = new IOException("%s: %s".formatted(message, e.getMessage()), e);
 
       logger.atWarning().withCause(e).log(
-          "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
+          "Failed to load action cache%s",
+          preexistingKept ? ", preexisting files kept in %s".formatted(corruptedCacheRoot) : "");
 
       reporterForInitializationErrors.handle(
           Event.warn(
@@ -789,6 +805,8 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarLong(
         value.getExpirationTime() != null ? value.getExpirationTime().toEpochMilli() : -1, sink);
 
+    VarInt.putVarInt(value.isInMemoryOutput() ? 1 : 0, sink);
+
     PathFragment resolvedPath = value.getResolvedPath();
     if (resolvedPath != null) {
       VarInt.putVarInt(1, sink);
@@ -803,6 +821,7 @@ public class CompactPersistentActionCache implements ActionCache {
           + VarInt.MAX_VARLONG_SIZE // size
           + VarInt.MAX_VARINT_SIZE // locationIndex
           + VarInt.MAX_VARLONG_SIZE // expirationTime
+          + VarInt.MAX_VARINT_SIZE // inMemoryOutput
           + (1 + VarInt.MAX_VARINT_SIZE); // resolvedPath
 
   private FileArtifactValue decodeRemoteMetadata(ByteBuffer source) throws IOException {
@@ -814,6 +833,8 @@ public class CompactPersistentActionCache implements ActionCache {
 
     long expirationTimeEpochMilli = VarInt.getVarLong(source);
 
+    boolean inMemoryOutput = VarInt.getVarInt(source) != 0;
+
     PathFragment resolvedPath = null;
     int numResolvedPath = VarInt.getVarInt(source);
     if (numResolvedPath > 0) {
@@ -824,12 +845,14 @@ public class CompactPersistentActionCache implements ActionCache {
     }
 
     FileArtifactValue metadata;
-    if (expirationTimeEpochMilli < 0) {
-      metadata = FileArtifactValue.createForRemoteFile(digest, size, locationIndex);
-    } else {
+    if (expirationTimeEpochMilli >= 0 || inMemoryOutput) {
+      Instant expirationTime =
+          expirationTimeEpochMilli >= 0 ? Instant.ofEpochMilli(expirationTimeEpochMilli) : null;
       metadata =
           FileArtifactValue.createForRemoteFileWithMaterializationData(
-              digest, size, locationIndex, Instant.ofEpochMilli(expirationTimeEpochMilli));
+              digest, size, locationIndex, expirationTime, inMemoryOutput);
+    } else {
+      metadata = FileArtifactValue.createForRemoteFile(digest, size, locationIndex);
     }
 
     if (resolvedPath != null) {
@@ -848,12 +871,13 @@ public class CompactPersistentActionCache implements ActionCache {
     int maxDiscoveredInputsSize = 1; // presence marker
     if (entry.discoversInputs()) {
       maxDiscoveredInputsSize +=
-          VarInt.MAX_VARINT_SIZE // length
+          1 // pruned inputs presence marker
+              + VarInt.MAX_VARINT_SIZE // length
               + (VarInt.MAX_VARINT_SIZE // execPath
                   * entry.getDiscoveredInputPaths().size());
     }
 
-    int maxOutputMetadataSize = 1; // presence marker
+    int estimatedOutputMetadataSize = 1; // presence marker
     if (entry.hasOutputMetadata()) {
       int maxOutputFilesSize =
           VarInt.MAX_VARINT_SIZE // entry.getOutputFiles().size()
@@ -861,23 +885,23 @@ public class CompactPersistentActionCache implements ActionCache {
                       + MAX_REMOTE_METADATA_SIZE)
                   * entry.getOutputFiles().size();
 
-      int maxOutputTreesSize = VarInt.MAX_VARINT_SIZE; // entry.getOutputTrees().size()
+      int estimatedOutputTreesSize = VarInt.MAX_VARINT_SIZE; // entry.getOutputTrees().size()
       for (Map.Entry<String, SerializableTreeArtifactValue> tree :
           entry.getOutputTrees().entrySet()) {
-        maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // execPath
+        estimatedOutputTreesSize += VarInt.MAX_VARINT_SIZE; // execPath
 
         SerializableTreeArtifactValue value = tree.getValue();
 
-        maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // value.childValues().size()
-        maxOutputTreesSize +=
-            (VarInt.MAX_VARINT_SIZE // parentRelativePath
+        estimatedOutputTreesSize += VarInt.MAX_VARINT_SIZE; // value.childValues().size()
+        estimatedOutputTreesSize +=
+            (30 // Estimate for the length of parentRelativePath string
                     + MAX_REMOTE_METADATA_SIZE)
                 * value.childValues().size();
 
-        maxOutputTreesSize +=
+        estimatedOutputTreesSize +=
             // value.archivedFileValue() optional
             1 + value.archivedFileValue().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
-        maxOutputTreesSize +=
+        estimatedOutputTreesSize +=
             // value.resolvedPath() optional
             1 + value.resolvedPath().map(ignored -> VarInt.MAX_VARINT_SIZE).orElse(0);
       }
@@ -885,20 +909,22 @@ public class CompactPersistentActionCache implements ActionCache {
       int maxProxyOutputsSize =
           VarInt.MAX_VARINT_SIZE * (entry.getProxyOutputs().size() + 1); // +1 for the size itself.
 
-      maxOutputMetadataSize += maxOutputFilesSize + maxOutputTreesSize + maxProxyOutputsSize;
+      estimatedOutputMetadataSize +=
+          maxOutputFilesSize + estimatedOutputTreesSize + maxProxyOutputsSize;
     }
 
     // Estimate the size of the buffer.
-    int maxSize =
+    int estimatedSize =
         (1 + DigestUtils.ESTIMATED_SIZE) // digest length + digest
             + maxDiscoveredInputsSize
-            + maxOutputMetadataSize;
-    ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
+            + estimatedOutputMetadataSize;
+    ByteArrayOutputStream sink = new ByteArrayOutputStream(estimatedSize);
 
     MetadataDigestUtils.write(entry.getDigest(), sink);
 
     VarInt.putVarInt(entry.discoversInputs() ? 1 : 0, sink);
     if (entry.discoversInputs()) {
+      VarInt.putVarInt(entry.prunedInputs() ? 1 : 0, sink);
       ImmutableList<String> discoveredInputPaths = entry.getDiscoveredInputPaths();
       VarInt.putVarInt(discoveredInputPaths.size(), sink);
       for (String discoveredInputPath : discoveredInputPaths) {
@@ -924,7 +950,9 @@ public class CompactPersistentActionCache implements ActionCache {
         VarInt.putVarInt(serializableTreeArtifactValue.childValues().size(), sink);
         for (Map.Entry<String, FileArtifactValue> child :
             serializableTreeArtifactValue.childValues().entrySet()) {
-          VarInt.putVarInt(indexer.getOrCreateIndex(child.getKey()), sink);
+          // Don't put tree-relative paths in the string indexer. They are unlikely to be reused.
+          // Instead, write them directly into the encoding.
+          MetadataDigestUtils.write(StringUnsafe.getInternalStringBytes(child.getKey()), sink);
           encodeRemoteMetadata(child.getValue(), sink);
         }
 
@@ -975,11 +1003,19 @@ public class CompactPersistentActionCache implements ActionCache {
       byte[] digest = MetadataDigestUtils.read(source);
 
       ImmutableList<String> discoveredInputPaths = null;
+      boolean prunedInputs = false;
       int discoveredInputsPresenceMarker = VarInt.getVarInt(source);
       if (discoveredInputsPresenceMarker != 0) {
         if (discoveredInputsPresenceMarker != 1) {
           throw new IOException(
               "Invalid presence marker for discovered inputs: " + discoveredInputsPresenceMarker);
+        }
+        int prunedInputsMarker = VarInt.getVarInt(source);
+        if (prunedInputsMarker != 0) {
+          if (prunedInputsMarker != 1) {
+            throw new IOException("Invalid marker for pruned inputs: " + prunedInputsMarker);
+          }
+          prunedInputs = true;
         }
         int numDiscoveredInputs = VarInt.getVarInt(source);
         if (numDiscoveredInputs < 0) {
@@ -1003,6 +1039,7 @@ public class CompactPersistentActionCache implements ActionCache {
         return new ActionCache.Entry(
             digest,
             discoveredInputPaths,
+            prunedInputs,
             /* outputFileMetadata= */ ImmutableMap.of(),
             /* outputTreeMetadata= */ ImmutableMap.of(),
             /* proxyOutputs= */ ImmutableList.of());
@@ -1032,7 +1069,8 @@ public class CompactPersistentActionCache implements ActionCache {
         ImmutableMap.Builder<String, FileArtifactValue> childValues = ImmutableMap.builder();
         int numChildValues = VarInt.getVarInt(source);
         for (int j = 0; j < numChildValues; ++j) {
-          String childKey = getStringForIndex(indexer, VarInt.getVarInt(source));
+          String childKey =
+              StringUnsafe.newInstance(MetadataDigestUtils.read(source), StringUnsafe.LATIN1);
           FileArtifactValue value = decodeRemoteMetadata(source);
           childValues.put(childKey, value);
         }
@@ -1083,6 +1121,7 @@ public class CompactPersistentActionCache implements ActionCache {
       return new ActionCache.Entry(
           digest,
           discoveredInputPaths,
+          prunedInputs,
           outputFiles.buildOrThrow(),
           outputTrees.buildOrThrow(),
           proxyArtifacts.build());

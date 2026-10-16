@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -36,10 +37,13 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final Target target;
   @Nullable private final BuildConfigurationValue configuration;
+  @Nullable private final Label actual;
 
-  public TargetConfiguredEvent(Target target, @Nullable BuildConfigurationValue configuration) {
+  public TargetConfiguredEvent(
+      Target target, @Nullable BuildConfigurationValue configuration, @Nullable Label actual) {
     this.target = target;
     this.configuration = configuration;
+    this.actual = actual;
   }
 
   @Override
@@ -85,6 +89,9 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
     if (TargetUtils.isTestRule(target)) {
       builder.setTestSize(
           bepTestSize(target.getName(), TestSize.getTestSize(target.getAssociatedRule())));
+    }
+    if (actual != null) {
+      builder.setActual(actual.toString());
     }
     return GenericBuildEvent.protoChaining(this).setConfigured(builder.build()).build();
   }

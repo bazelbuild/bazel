@@ -87,4 +87,29 @@ public class AnsiTerminalPrinterTest {
     assertThat(codes[1].equals(codes[3])).isFalse();
     assertThat(codes[2].equals(codes[3])).isFalse();
   }
+
+  @Test
+  public void testHyperlinkFormatting() {
+    assertThat(AnsiTerminal.hyperlink("file:///foo/bar.log", "foo/bar.log"))
+        .isEqualTo("\033]8;;file:///foo/bar.log\033\\foo/bar.log\033]8;;\033\\");
+  }
+
+  @Test
+  public void testFileUriConversion() {
+    assertThat(AnsiTerminal.fileUri("/foo/bar.log")).isEqualTo("file:///foo/bar.log");
+    assertThat(AnsiTerminal.fileUri("C:/foo/bar.log")).isEqualTo("file:///C:/foo/bar.log");
+    assertThat(AnsiTerminal.fileUri("/workspace/foo#bar/test.log"))
+        .isEqualTo("file:///workspace/foo%23bar/test.log");
+    assertThat(AnsiTerminal.fileUri("/workspace/my test/test.log"))
+        .isEqualTo("file:///workspace/my%20test/test.log");
+    assertThat(AnsiTerminal.fileUri("/workspace/foo?bar/test.log"))
+        .isEqualTo("file:///workspace/foo%3Fbar/test.log");
+  }
+
+  @Test
+  public void testPrintHyperlink() {
+    String link = AnsiTerminal.hyperlink("file:///tmp/test.log", "test.log");
+    printer.print(link);
+    assertString(link);
+  }
 }

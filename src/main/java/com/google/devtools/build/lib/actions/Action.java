@@ -132,26 +132,23 @@ public interface Action extends ActionExecutionMetadata {
       throws ActionExecutionException, InterruptedException;
 
   /**
-   * Returns true iff action must be executed regardless of its current state.
-   * Default implementation can be overridden by some actions that might be
-   * executed unconditionally under certain circumstances - e.g., if caching of
-   * test results is not requested, this method could be used to force test
-   * execution even if all dependencies are up-to-date.
+   * Returns true iff action must be executed regardless of its current state. Default
+   * implementation can be overridden by some actions that might be executed unconditionally under
+   * certain circumstances - e.g., if caching of test results is not requested, this method could be
+   * used to force test execution even if all dependencies are up-to-date.
    *
-   * <p>Note, it is <b>very</b> important not to abuse this method, since it
-   * completely overrides dependency checking. Any use of this method must
-   * be carefully reviewed and proved to be necessary.
+   * <p>Note, it is <b>very</b> important not to abuse this method, since it completely overrides
+   * dependency checking. Any use of this method must be carefully reviewed and proved to be
+   * necessary.
    *
-   * <p>Note that the definition of {@link #isVolatile} depends on the
-   * definition of this method, so be sure to consider both methods together
-   * when making changes.
+   * <p>Note that the definition of {@link #isVolatile} depends on the definition of this method, so
+   * be sure to consider both methods together when making changes.
    */
   boolean executeUnconditionally();
 
   /**
-   * Returns true if it's ever possible that {@link #executeUnconditionally}
-   * could evaluate to true during the lifetime of this instance, false
-   * otherwise.
+   * Returns true if it's ever possible that {@link #executeUnconditionally} could evaluate to true
+   * during the lifetime of this instance, false otherwise.
    */
   boolean isVolatile();
 
@@ -174,6 +171,15 @@ public interface Action extends ActionExecutionMetadata {
   @Nullable
   NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
+
+  /**
+   * Whether the action detected any of its inputs as unused on its most recent execution.
+   *
+   * <p>Only actions which {@linkplain #discoversInputs() discover inputs} may prune inputs. The
+   * action updates its inputs to the pruned set during {@link #execute}. {@link #discoversInputs()}
+   * should report all of the original inputs.
+   */
+  boolean prunedInputs();
 
   /** Prepare for input discovery, called before the first call to {@link #discoverInputs}. */
   default void prepareInputDiscovery() {}
@@ -211,9 +217,7 @@ public interface Action extends ActionExecutionMetadata {
    */
   void updateInputs(NestedSet<Artifact> inputs);
 
-  /**
-   * Returns true if the output should bypass output filtering. This is used for test actions.
-   */
+  /** Returns true if the output should bypass output filtering. This is used for test actions. */
   boolean showsOutputUnconditionally();
 
   /**
@@ -234,7 +238,11 @@ public interface Action extends ActionExecutionMetadata {
    * different thread than the one this action is executed on. By definition, the method should not
    * mutate any of the called action data but if necessary, its implementation must synchronize any
    * accesses to mutable data.
+   *
+   * <p>Pass {@link PathMapper#NOOP} to obtain the analysis time form of the environment. During
+   * action execution, pass the actual {@link PathMapper} to ensure that artifact paths in
+   * environment variables are mapped correctly.
    */
-  ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-      throws CommandLineExpansionException;
+  ImmutableMap<String, String> getEffectiveEnvironment(
+      Map<String, String> clientEnv, PathMapper pathMapper) throws CommandLineExpansionException;
 }

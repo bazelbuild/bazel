@@ -2,8 +2,6 @@
 title: 'Dependency Management'
 ---
 
-
-
 In looking through the previous pages, one theme repeats over and over: managing
 your own code is fairly straightforward, but managing its dependencies is much
 more difficult. There are all sorts of dependencies: sometimes there’s a
@@ -16,7 +14,6 @@ sometimes you have external dependencies on code or data owned by another team
 need that before I can have this” is something that recurs repeatedly in the
 design of build systems, and managing dependencies is perhaps the most
 fundamental job of a build system.
-
 
 ## Dealing with Modules and Dependencies
 
@@ -71,7 +68,6 @@ Some of these tools, such as `buildifier` and `buildozer`, are available with
 Bazel in the
 [`buildtools` directory](https://github.com/bazelbuild/buildtools).
 
-
 ## Minimizing Module Visibility
 
 Bazel and other build systems allow each target to specify a visibility — a
@@ -110,7 +106,7 @@ transitive dependencies (Figure 1). Suppose target A depends on target B, which
 depends on a common library target C. Should target A be able to use classes
 defined in target C?
 
-[![Transitive dependencies](/images/transitive-dependencies.png)](/images/transitive-dependencies.png)
+[![Transitive dependencies](/versions/7.6.1/images/transitive-dependencies.png)](/versions/7.6.1/images/transitive-dependencies.png)
 
 **Figure 1**. Transitive dependencies
 

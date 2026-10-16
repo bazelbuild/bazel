@@ -4,13 +4,16 @@ load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
 #   A preprocessor for Starlark annotations.
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:__pkg__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
 java_plugin(
@@ -19,7 +22,7 @@ java_plugin(
     deps = [
         ":annotation_preprocessor_lib",
         "//src/main/java/net/starlark/java/annot",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 

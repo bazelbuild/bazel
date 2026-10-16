@@ -15,10 +15,8 @@ package com.google.devtools.build.lib.analysis.mock;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Short.MAX_VALUE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.util.AbstractMockJavaSupport;
@@ -41,9 +39,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Map;
 
 /** Subclass of {@link AnalysisMock} using Bazel-specific semantics. */
@@ -74,6 +69,16 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
     config.create(
         "build_bazel_apple_support/MODULE.bazel", "module(name = 'build_bazel_apple_support')");
+    config.create("apple_support_workspace/MODULE.bazel", "module(name = 'apple_support')");
+    config.create(
+        "apple_support_workspace/xcode/BUILD",
+        """
+        alias(
+            name = "version_config",
+            actual = "@local_config_xcode//:host_xcodes",
+            visibility = ["@rules_cc//cc/private/toolchain:__pkg__"],
+        )
+        """);
     config.create(
         "third_party/bazel_rules/rules_shell/MODULE.bazel", "module(name = 'rules_shell')");
 
@@ -88,18 +93,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "proto_bazel_features_workspace",
         "bazel_features_workspace",
         "build_bazel_apple_support",
+        "apple_support_workspace",
         "local_config_xcode_workspace",
         "third_party/bazel_rules/rules_cc",
         "third_party/bazel_rules/rules_shell");
 
     Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-    for (String filename : Arrays.asList("tools/jdk/java_toolchain_alias.bzl")) {
-      java.nio.file.Path path = Paths.get(runfiles.rlocation("io_bazel/" + filename));
-      if (!Files.exists(path)) {
-        continue; // the io_bazel workspace root only exists for Bazel
-      }
-      config.create("embedded_tools/" + filename, MoreFiles.asCharSource(path, UTF_8).read());
-    }
     config.create(
         "embedded_tools/tools/jdk/launcher_flag_alias.bzl",
         """
@@ -138,7 +137,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
 load("@rules_java//java:defs.bzl",
   "java_binary", "java_import", "java_toolchain", "java_runtime")
 load(
-    ":java_toolchain_alias.bzl",
+    "@rules_java//toolchains:java_toolchain_alias.bzl",
     "java_host_runtime_alias",
     "java_runtime_alias",
     "java_toolchain_alias",
@@ -191,6 +190,11 @@ java_binary(
     name = "proguard",
     main_class = "proguard.Proguard",
     runtime_deps = [":proguard_import"],
+)
+
+alias(
+    name = "proguard_whitelister",
+    actual = ":proguard_allowlister",
 )
 
 java_import(
@@ -250,7 +254,7 @@ exports_files([
     "GenClass_deploy.jar",
     "turbine_deploy.jar",
     "TurbineDirect_deploy.jar",
-    "proguard_allowlister.par",
+    "proguard_allowlister",
 ])
 
 toolchain_type(name = "toolchain_type")
@@ -328,19 +332,8 @@ launcher_flag_alias(
 
         config_setting(
             name = "use_default_test_toolchain",
-            values = {
-                "use_target_platform_for_tests": "false",
-            },
             flag_values = {
                 ":incompatible_use_default_test_toolchain": "true",
-            },
-            visibility = ["//visibility:private"],
-        )
-
-        config_setting(
-            name = "use_legacy_test_toolchain_due_to_use_target_platform_for_tests",
-            values = {
-                "use_target_platform_for_tests": "true",
             },
             visibility = ["//visibility:private"],
         )
@@ -366,14 +359,6 @@ launcher_flag_alias(
             name = "legacy_test_toolchain",
             toolchain_type = ":default_test_toolchain_type",
             target_settings = [":use_legacy_test_toolchain_due_to_incompatible_flag"],
-            toolchain = ":empty_toolchain",
-            visibility = ["//visibility:private"],
-        )
-
-        toolchain(
-            name = "legacy_test_toolchain_use_target_platform_for_tests",
-            toolchain_type = ":default_test_toolchain_type",
-            target_settings = [":use_legacy_test_toolchain_due_to_use_target_platform_for_tests"],
             toolchain = ":empty_toolchain",
             visibility = ["//visibility:private"],
         )
@@ -540,6 +525,14 @@ launcher_flag_alias(
         )
         """);
     config.create(
+        "embedded_tools/tools/allowlists/subdirectory_allowlist/BUILD",
+        """
+        package_group(
+            name = "subdirectory_allowlist",
+            packages = ["public"],
+        )
+        """);
+    config.create(
         "embedded_tools/tools/allowlists/subrules_allowlist/BUILD",
         """
         package_group(
@@ -609,9 +602,23 @@ launcher_flag_alias(
         """);
 
     config.create(
+        "embedded_tools/tools/launcher/toolchain.bzl",
+        """
+        def _launcher_maker_toolchain_impl(ctx):
+            return [platform_common.ToolchainInfo(binary = ctx.executable.binary)]
+
+        launcher_maker_toolchain = rule(
+            implementation = _launcher_maker_toolchain_impl,
+            attrs = {
+                "binary": attr.label(cfg = "exec", executable = True),
+            },
+        )
+        """);
+    config.create(
         "embedded_tools/tools/launcher/BUILD",
         """
         load("@bazel_tools//third_party/cc_rules/macros:defs.bzl", "cc_binary")
+        load(":toolchain.bzl", "launcher_maker_toolchain")
 
         package(default_visibility = ["//visibility:public"])
 
@@ -623,6 +630,21 @@ launcher_flag_alias(
         cc_binary(
             name = "launcher_maker",
             srcs = ["launcher_maker.cc"],
+        )
+
+        toolchain_type(name = "launcher_maker_toolchain_type")
+
+        launcher_maker_toolchain(
+            name = "launcher_maker_toolchain_impl",
+            binary = ":launcher_maker",
+            visibility = ["//visibility:private"],
+        )
+
+        toolchain(
+            name = "mock_launcher_maker_toolchain",
+            toolchain = ":launcher_maker_toolchain_impl",
+            toolchain_type = ":launcher_maker_toolchain_type",
+            visibility = ["//visibility:private"],
         )
         """);
 
@@ -688,10 +710,19 @@ launcher_flag_alias(
         "bazel_features_workspace/features.bzl",
         """
         bazel_features = struct(
+          cc = struct(
+            _get_link_args_has_param_file_name = True,
+          ),
           rules = struct(
             _has_launcher_maker_toolchain = False,
           ),
         )
+        """);
+    config.create("bazel_features_workspace/private/BUILD");
+    config.create(
+        "bazel_features_workspace/private/util.bzl",
+        """
+        ge = lambda *args, **kwargs: True
         """);
 
     config.create(
@@ -713,7 +744,8 @@ launcher_flag_alias(
     javaSupport().setupRulesJava(config, runfiles::rlocation);
     pySupport().setup(config);
     ShellConfiguration.injectShellExecutableFinder(
-        BazelRuleClassProvider::getDefaultPathFromOptions, BazelRuleClassProvider.SHELL_EXECUTABLE);
+        BazelRuleClassProvider::getDefaultPathFromOptions,
+        BazelRuleClassProvider.SHELL_EXECUTABLES);
   }
 
   @Override
@@ -722,6 +754,7 @@ launcher_flag_alias(
         "embedded_tools/MODULE.bazel",
         """
         module(name='bazel_tools')
+        register_toolchains("//tools/launcher:mock_launcher_maker_toolchain")
         register_toolchains("//tools/test:all")
         """);
     config.create("embedded_tools/tools/build_defs/repo/BUILD");
@@ -832,13 +865,6 @@ launcher_flag_alias(
 
     config.create("embedded_tools/tools/sh/BUILD");
     config.create("embedded_tools/tools/osx/BUILD");
-    config.create(
-        "embedded_tools/tools/osx/xcode_configure.bzl",
-        """
-        # no positional arguments for XCode
-        def xcode_configure(*args, **kwargs):
-            pass
-        """);
     config.create("embedded_tools/bin/sh", "def sh(**kwargs):", "  pass");
   }
 
@@ -858,6 +884,7 @@ launcher_flag_alias(
             .put("proto_bazel_features", "proto_bazel_features_workspace")
             .put("bazel_features", "bazel_features_workspace")
             .put("build_bazel_apple_support", "build_bazel_apple_support")
+            .put("apple_support", "apple_support_workspace")
             .put("local_config_xcode", "local_config_xcode_workspace")
             .put("rules_cc", "third_party/bazel_rules/rules_cc")
             .put("rules_shell", "third_party/bazel_rules/rules_shell")

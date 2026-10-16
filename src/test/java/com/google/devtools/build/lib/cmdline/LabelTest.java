@@ -337,10 +337,9 @@ public class LabelTest {
   @Test
   public void testGetWorkspaceRoot() throws Exception {
     Label label = Label.parseCanonical("//bar/baz");
-    assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT)).isEmpty();
+    assertThat(label.getWorkspaceRootForStarlarkOnly()).isEmpty();
     label = Label.parseCanonical("@repo//bar/baz");
-    assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT))
-        .isEqualTo("external/repo");
+    assertThat(label.getWorkspaceRootForStarlarkOnly()).isEqualTo("external/repo");
   }
 
   @Test
@@ -459,31 +458,30 @@ public class LabelTest {
   }
 
   @Test
-  public void starlarkStrAndRepr() throws Exception {
+  public void starlarkStrAndRepr_unambiguous() throws Exception {
     Label label = Label.parseCanonical("//x");
     assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@//x:x");
-    assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
+    assertThat(Starlark.repr(label, StarlarkSemantics.DEFAULT)).isEqualTo("Label(\"@@//x:x\")");
 
     label = Label.parseCanonical("@hello//x");
     assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@hello//x:x");
-    assertThat(Starlark.repr(label)).isEqualTo("Label(\"@@hello//x:x\")");
+    assertThat(Starlark.repr(label, StarlarkSemantics.DEFAULT))
+        .isEqualTo("Label(\"@@hello//x:x\")");
   }
 
   @Test
-  public void starlarkStr_canonicalLabelLiteral() throws Exception {
-    StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
-    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("@@//x:x");
-    assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
-  }
-
-  @Test
-  public void starlarkStr_ambiguousAndCanonicalLabelLiteral() throws Exception {
+  public void starlarkStrAndRepr_ambiguous() throws Exception {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, false)
             .build();
-    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
-    assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
+    Label label = Label.parseCanonical("//x");
+    assertThat(Starlark.str(label, semantics)).isEqualTo("//x:x");
+    assertThat(Starlark.repr(label, semantics)).isEqualTo("Label(\"//x:x\")");
+
+    label = Label.parseCanonical("@hello//x");
+    assertThat(Starlark.str(label, semantics)).isEqualTo("@@hello//x:x");
+    assertThat(Starlark.repr(label, semantics)).isEqualTo("Label(\"@@hello//x:x\")");
   }
 
   @Test

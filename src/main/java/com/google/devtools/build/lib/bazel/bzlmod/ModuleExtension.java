@@ -42,7 +42,8 @@ public record ModuleExtension(
     Location location,
     ImmutableList<String> envVariables,
     boolean osDependent,
-    boolean archDependent)
+    boolean archDependent,
+    int factsVersion)
     implements StarlarkValue {
   public ModuleExtension {
     requireNonNull(implementation, "implementation");
@@ -75,6 +76,8 @@ public record ModuleExtension(
     public abstract Builder setOsDependent(boolean osDependent);
 
     public abstract Builder setArchDependent(boolean archDependent);
+
+    public abstract Builder setFactsVersion(int factsVersion);
 
     public abstract ModuleExtension build();
   }

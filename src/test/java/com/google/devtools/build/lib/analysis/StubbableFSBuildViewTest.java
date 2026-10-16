@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -130,7 +130,7 @@ public class StubbableFSBuildViewTest extends BuildViewTestBase {
 
   private static class StubbableFs extends InMemoryFileSystem {
 
-    private final Map<PathFragment, IOException> stubbedFastDigestErrors = Maps.newHashMap();
+    private final Map<PathFragment, IOException> stubbedFastDigestErrors = new HashMap<>();
 
     StubbableFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);

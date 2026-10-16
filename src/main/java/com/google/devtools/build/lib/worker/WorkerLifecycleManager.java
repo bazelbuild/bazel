@@ -51,11 +51,11 @@ final class WorkerLifecycleManager extends Thread {
 
   public WorkerLifecycleManager(WorkerPool workerPool, WorkerOptions options, Reporter reporter) {
     this.workerPool = workerPool;
-    this.totalWorkerMemoryLimitKb = options.totalWorkerMemoryLimitMb * 1000;
-    this.workerMemoryLimitKb = options.workerMemoryLimitMb * 1000;
-    this.shrinkWorkerPool = options.shrinkWorkerPool;
-    this.workerVerbose = options.workerVerbose;
-    this.workerMetricsPollInterval = options.workerMetricsPollInterval;
+    this.totalWorkerMemoryLimitKb = options.getTotalWorkerMemoryLimitMb() * 1000;
+    this.workerMemoryLimitKb = options.getWorkerMemoryLimitMb() * 1000;
+    this.shrinkWorkerPool = options.getShrinkWorkerPool();
+    this.workerVerbose = options.getWorkerVerbose();
+    this.workerMetricsPollInterval = options.getWorkerMetricsPollInterval();
     this.reporter = reporter;
   }
 

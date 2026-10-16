@@ -25,6 +25,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkValue;
 
 /** The provider returned from Materialize Rules to materialize dependencies. */
 @StarlarkBuiltin(
@@ -38,9 +39,11 @@ public interface MaterializedDepsInfoApi extends StructApi {
 
   @StarlarkMethod(
       name = "deps",
-      doc = "The list of dependencies. These may be ConfiguredTarget or DormantDependency objects.",
+      doc =
+          "A newly allocated immutable copy of the list of dependencies. These may be"
+              + " ConfiguredTarget or DormantDependency objects.",
       structField = true)
-  ImmutableList<?> getDeps();
+  Sequence<StarlarkValue> getDepsForStarlark();
 
   /** Provider for {@link MaterializedDepsInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")

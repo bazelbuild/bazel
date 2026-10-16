@@ -442,6 +442,52 @@ function test_sigint_with_graceful_termination_sandboxed() {
   do_test_sigint_with_graceful_termination sandboxed
 }
 
+function do_test_timeout_with_graceful_termination() {
+  if is_windows; then
+    return 0
+  fi
+
+  local strategy="${1}"; shift
+
+  add_rules_shell "MODULE.bazel"
+  mkdir -p pkg
+  cat >pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+  name = "timeout_test_with_cleanup",
+  srcs = ["timeout_test_with_cleanup.sh"],
+  timeout = "short",
+)
+EOF
+  cat >pkg/timeout_test_with_cleanup.sh <<'EOF'
+#! /bin/sh
+trap 'echo "Caught SIGTERM in test"; sleep 1; echo "Graceful cleanup finished"; exit 0' TERM
+echo "Test started"
+for i in $(seq 1000); do
+  sleep 1
+done
+EOF
+  chmod +x pkg/timeout_test_with_cleanup.sh
+
+  bazel test --test_output=streamed --spawn_strategy="${strategy}" \
+      --test_timeout=1 --local_termination_grace_seconds=5 \
+      //pkg:timeout_test_with_cleanup &> $TEST_log || true
+
+  expect_log "Test started"
+  expect_log "Caught SIGTERM in test"
+  expect_log "Graceful cleanup finished"
+  expect_log "TIMEOUT"
+}
+
+function test_timeout_with_graceful_termination_local() {
+  do_test_timeout_with_graceful_termination local
+}
+
+function test_timeout_with_graceful_termination_sandboxed() {
+  do_test_timeout_with_graceful_termination sandboxed
+}
+
 function test_env_attribute() {
   add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
@@ -530,6 +576,59 @@ function test_executable_in_symlinks_only_stateful_runfiles() {
 
 function test_executable_in_symlinks_only_stateless_runfiles() {
   run_test_executable_in_symlinks_only "runfiles"
+}
+
+function test_test_runner_does_not_crash_in_build_command() {
+  # ensure Bazel gracefully handles the test runner action failing even
+  # if it's not running via "bazel test".
+  # See https://github.com/bazelbuild/bazel/issues/28697
+  add_rules_shell "MODULE.bazel"
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+
+  cat >$pkg/aspect.bzl <<'EOF'
+def _test_aspect_impl(target, ctx):
+    test_runner_action = [a for a in target.actions if a.mnemonic == "TestRunner"][0]
+    return [OutputGroupInfo(
+        test_files = test_runner_action.outputs,
+    )]
+
+test_aspect = aspect(
+    implementation = _test_aspect_impl,
+)
+EOF
+
+  cat >$pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "success",
+    srcs = ["success.sh"],
+)
+
+sh_test(
+    name = "fail",
+    srcs = ["fail.sh"],
+)
+EOF
+  cat >$pkg/success.sh <<'EOF'
+#!/bin/sh
+
+echo "success.sh is successful"
+exit 0
+EOF
+  chmod +x $pkg/success.sh
+
+  cat >$pkg/fail.sh <<'EOF'
+#!/bin/sh
+
+echo "fail.sh failed"
+exit 1
+EOF
+  chmod +x $pkg/fail.sh
+
+  bazel build --aspects //$pkg:aspect.bzl%test_aspect --output_groups=test_files //$pkg:all \
+      || fail "expected build to succeed"
 }
 
 run_suite "test tests"

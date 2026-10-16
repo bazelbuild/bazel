@@ -1,9 +1,10 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -12,7 +13,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/analysis/config/transitions:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/analysis:__pkg__"],
 )
 
 java_test(
@@ -28,10 +29,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -45,8 +46,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -54,22 +55,24 @@ java_test(
     name = "BuildConfigurationValueTest",
     srcs = ["BuildConfigurationValueTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:compilation_mode",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_class_set",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -80,43 +83,39 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_option_details",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
-java_test(
-    name = "BuildOptionsCacheTest",
-    srcs = ["BuildOptionsCacheTest.java"],
+java_library(
+    name = "BuildOptionsTestLib",
+    srcs = ["BuildOptionsTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options_cache",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
 java_test(
     name = "BuildOptionsTest",
-    srcs = ["BuildOptionsTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    test_class = "com.google.devtools.build.lib.analysis.config.BuildOptionsTest",
+    runtime_deps = [
+        ":BuildOptionsTestLib",
     ],
 )
 
@@ -128,10 +127,23 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "CoreOptionConvertersTest",
+    srcs = ["CoreOptionConvertersTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -141,7 +153,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -150,11 +162,11 @@ java_test(
     srcs = ["ExecutionInfoModifierTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/config:execution_info_modifier",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -174,13 +186,13 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -189,8 +201,8 @@ java_test(
     srcs = ["FeatureSetTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/config:feature_set",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -201,10 +213,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -215,9 +227,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_registry",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -229,11 +242,15 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:options_diff",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -243,10 +260,10 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/config:per_label_options",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -257,10 +274,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:run_under",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:run_under_converter",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -270,7 +287,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

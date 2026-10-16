@@ -15,6 +15,7 @@
 #ifndef BAZEL_SRC_TOOLS_LAUNCHER_UTIL_DATA_PARSER_H_
 #define BAZEL_SRC_TOOLS_LAUNCHER_UTIL_DATA_PARSER_H_
 
+#include <cstdint>
 #include <fstream>
 #include <memory>
 #include <string>

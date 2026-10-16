@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -160,11 +161,19 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
     ImmutableList.Builder<TargetPattern> toolchains = ImmutableList.builder();
     for (Module module : bazelDepGraphValue.getDepGraph().values()) {
+      if (module.getToolchainsToRegister().isEmpty()) {
+        continue;
+      }
+      RepositoryName repoName =
+          bazelDepGraphValue.getCanonicalRepoNameLookup().inverse().get(module.getKey());
+      RepositoryMappingValue repoMapping =
+          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
+      if (repoMapping == null) {
+        continue;
+      }
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
-              PathFragment.EMPTY_FRAGMENT,
-              bazelDepGraphValue.getCanonicalRepoNameLookup().inverse().get(module.getKey()),
-              bazelDepGraphValue.getFullRepoMapping(module.getKey()));
+              PathFragment.EMPTY_FRAGMENT, repoName, repoMapping.repositoryMapping());
       for (String pattern : module.getToolchainsToRegister()) {
         try {
           toolchains.add(parser.parse(pattern));
@@ -174,7 +183,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
         }
       }
     }
-    return toolchains.build();
+    return env.valuesMissing() ? null : toolchains.build();
   }
 
   @Nullable
@@ -257,7 +266,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
 
     private static String formatMessage(String invalidPattern, String reason) {
-      return String.format("invalid registered toolchain '%s': %s", invalidPattern, reason);
+      return StringUtil.formatNested(
+          String.format("invalid registered toolchain '%s'", invalidPattern), reason);
     }
   }
 

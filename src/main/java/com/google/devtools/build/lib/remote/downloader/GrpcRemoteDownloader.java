@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote.downloader;
 
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
@@ -25,6 +26,7 @@ import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
@@ -51,13 +53,12 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -124,18 +125,22 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     this.remoteDownloaderLocalFallback = remoteDownloaderLocalFallback;
   }
 
+  /**
+   * Releases the reference to the channel held by this downloader.
+   *
+   * <p>The {@link RemoteCacheClient} is owned by the caller and thus not closed here.
+   */
   @Override
   public void close() {
     if (closed.getAndSet(true)) {
       return;
     }
-    cacheClient.close();
     channel.release();
   }
 
   @Override
   public void download(
-      List<URL> urls,
+      List<URI> urls,
       Map<String, List<String>> headers,
       Credentials credentials,
       Optional<Checksum> checksum,
@@ -147,7 +152,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       String context)
       throws IOException, InterruptedException {
     // file: URLs can't use the gRPC downloader.
-    if (urls.stream().anyMatch(url -> url.getProtocol().equals("file"))) {
+    if (urls.stream().anyMatch(url -> Objects.equals(url.getScheme(), "file"))) {
       httpDownloader.download(
           urls,
           headers,
@@ -174,8 +179,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
     final FetchBlobRequest request =
         newFetchBlobRequest(
-            options.remoteInstanceName,
-            options.remoteDownloaderPropagateCredentials,
+            options.getRemoteInstanceName(),
+            options.getRemoteDownloaderPropagateCredentials(),
             urls,
             checksum,
             canonicalId,
@@ -205,7 +210,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           retrier.execute(
               () -> {
                 try (OutputStream out = newOutputStream(destination, checksum)) {
-                  Utils.getFromFuture(
+                  getFromFuture(
                       cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
                 } catch (OutputDigestMismatchException e) {
                   e.setOutputPath(destination.getPathString());
@@ -242,7 +247,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   static FetchBlobRequest newFetchBlobRequest(
       String instanceName,
       boolean remoteDownloaderPropagateCredentials,
-      List<URL> urls,
+      List<URI> urls,
       Optional<Checksum> checksum,
       String canonicalId,
       DigestFunction.Value digestFunction,
@@ -261,19 +266,15 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         continue;
       }
 
-      try {
-        var metadata = credentials.getRequestMetadata(url.toURI());
-        for (var entry : metadata.entrySet()) {
-          for (var value : entry.getValue()) {
-            requestBuilder.addQualifiers(
-                Qualifier.newBuilder()
-                    .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
-                    .setValue(value)
-                    .build());
-          }
+      var metadata = credentials.getRequestMetadata(url);
+      for (var entry : metadata.entrySet()) {
+        for (var value : entry.getValue()) {
+          requestBuilder.addQualifiers(
+              Qualifier.newBuilder()
+                  .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
+                  .setValue(value)
+                  .build());
         }
-      } catch (URISyntaxException e) {
-        throw new IOException(e);
       }
     }
 
@@ -297,6 +298,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     }
 
     for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      if (!remoteDownloaderPropagateCredentials
+          && (Ascii.equalsIgnoreCase(entry.getKey(), "Authorization")
+              || Ascii.equalsIgnoreCase(entry.getKey(), "Proxy-Authorization")
+              || Ascii.equalsIgnoreCase(entry.getKey(), "Cookie"))) {
+        continue;
+      }
       // https://www.rfc-editor.org/rfc/rfc9110.html#name-field-order permits
       // merging the field-values with a comma.
       requestBuilder.addQualifiers(
@@ -314,9 +321,10 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return FetchGrpc.newBlockingStub(channel)
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-        .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
-        .withCallCredentials(credentials.orElse(null))
-        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
+        .withInterceptors(
+            TracingMetadataUtils.newDownloaderHeadersInterceptor(
+                options.getRemoteHeaders(), options.getRemoteDownloaderHeaders()))
+        .withCallCredentials(credentials.orElse(null));
   }
 
   private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)

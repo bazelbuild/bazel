@@ -112,7 +112,7 @@ public class PreciseAspectResolver implements AspectResolver {
       // If we fail to expand the full package (e.g. because a package piece for a symbolic macro
       // is in error), fall back to iterating only over the targets in the BUILD file's package
       // piece. The error encountered will be reported in the eventHandler.
-      return buildFile.getPackageoid().getTargets().values();
+      return buildFile.getPackageoid().getTargets();
     }
   }
 

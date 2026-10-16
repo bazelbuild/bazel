@@ -19,18 +19,24 @@ import static java.util.Comparator.comparing;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Ordering;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** The universal predeclared functions of core Starlark. */
+@StarlarkLibrary
 class MethodLibrary {
 
   @StarlarkMethod(
@@ -56,7 +62,9 @@ class MethodLibrary {
               @ParamType(type = StarlarkCallable.class),
               @ParamType(type = NoneType.class),
             },
-            doc = "An optional function applied to each element before comparison.",
+            doc =
+                "An optional function applied to each element before comparison. Must not mutate"
+                    + " the args sequence.",
             defaultValue = "None")
       },
       useStarlarkThread = true)
@@ -92,7 +100,9 @@ class MethodLibrary {
               @ParamType(type = StarlarkCallable.class),
               @ParamType(type = NoneType.class),
             },
-            doc = "An optional function applied to each element before comparison.",
+            doc =
+                "An optional function applied to each element before comparison. Must not mutate"
+                    + " the args sequence.",
             defaultValue = "None")
       },
       useStarlarkThread = true)
@@ -113,6 +123,7 @@ class MethodLibrary {
     // iterable of items to compare. In either case, there must be at least one item to compare.
     Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
     try {
+      EvalUtils.addIterator(items); // to prevent keyFn from mutating items
       if (keyFn.isPresent()) {
         try {
           return stream(items)
@@ -132,6 +143,8 @@ class MethodLibrary {
       throw new EvalException(ex.getMessage()); // e.g. unsupported comparison: int <=> string
     } catch (NoSuchElementException ex) {
       throw new EvalException("expected at least one item", ex);
+    } finally {
+      EvalUtils.removeIterator(items);
     }
   }
 
@@ -286,6 +299,9 @@ class MethodLibrary {
         Arrays.sort(array, order);
       } catch (ClassCastException ex) {
         throw Starlark.errorf("%s", ex.getMessage());
+      } catch (IllegalArgumentException ex) {
+        maybeRethrowBadComparisonException(ex, Iterators.forArray(array), "element");
+        throw ex;
       }
       return StarlarkList.wrap(thread.mutability(), array);
     }
@@ -324,13 +340,15 @@ class MethodLibrary {
     KeyComparator comp = new KeyComparator();
     try {
       Arrays.sort(array, comp);
-    } catch (IllegalArgumentException unused) {
+    } catch (IllegalArgumentException ex) {
       // Arrays.sort failed because comp violated the Comparator contract.
       if (comp.e == null) {
         // There was no exception from order.compare.
         // Likely the application defined a Comparable type whose
         // compareTo is not a strict weak order.
-        throw new IllegalStateException("sort: element ordering is not self-consistent");
+        maybeRethrowBadComparisonException(
+            ex, Arrays.stream(array).map(pair -> ((Object[]) pair)[0]).iterator(), "key");
+        throw new IllegalStateException("sort: element ordering is not self-consistent", ex);
       }
     }
 
@@ -345,6 +363,47 @@ class MethodLibrary {
     }
 
     return StarlarkList.wrap(thread.mutability(), array);
+  }
+
+  private static final int MAX_DISTINCT_SORT_TYPES_TO_REPORT = 20;
+
+  /**
+   * Throws an {@link IllegalStateException} if the given {@link IllegalArgumentException} appears
+   * to be caused by an inconsistent comparison (violating the {@link Comparable} or {@link
+   * Comparator} contract) during TimSort. The exception message includes the distinct types
+   * appearing in the given elements.
+   */
+  private static void maybeRethrowBadComparisonException(
+      IllegalArgumentException ex, Iterator<?> elements, String typeDescription) {
+    String msg = ex.getMessage();
+    if (msg == null || msg.contains("Comparison method violates its general contract")) {
+      LinkedHashSet<Class<?>> types = new LinkedHashSet<>();
+      while (elements.hasNext()) {
+        types.add(elements.next().getClass());
+      }
+
+      List<String> typeNames = new ArrayList<>();
+      for (Class<?> cls : types) {
+        if (typeNames.size() < MAX_DISTINCT_SORT_TYPES_TO_REPORT) {
+          typeNames.add(cls.getName());
+        } else {
+          break;
+        }
+      }
+
+      StringBuilder sb = new StringBuilder();
+      sb.append("[");
+      sb.append(String.join(", ", typeNames));
+      if (types.size() > MAX_DISTINCT_SORT_TYPES_TO_REPORT) {
+        sb.append(", ... (truncated ").append(types.size()).append(" distinct types)");
+      }
+      sb.append("]");
+
+      throw new IllegalStateException(
+          String.format(
+              "sort: element ordering is not self-consistent (%s types: %s)", typeDescription, sb),
+          ex);
+    }
   }
 
   private static void reverse(Object[] array) {
@@ -379,7 +438,8 @@ class MethodLibrary {
               + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
-      parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")})
+      parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")},
+      isTypeConstructor = true)
   public Tuple tuple(StarlarkIterable<?> x) throws EvalException {
     if (x instanceof Tuple) {
       return (Tuple) x;
@@ -395,7 +455,8 @@ class MethodLibrary {
               + "list((2, 3, 2)) == [2, 3, 2]\n"
               + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
       parameters = {@Param(name = "x", defaultValue = "[]", doc = "The object to convert.")},
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public StarlarkList<?> list(StarlarkIterable<?> x, StarlarkThread thread) throws EvalException {
     return StarlarkList.wrap(thread.mutability(), Starlark.toArray(x));
   }
@@ -430,7 +491,8 @@ class MethodLibrary {
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
       parameters = {@Param(name = "x", doc = "The object to convert.")},
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public String str(Object x, StarlarkThread thread) throws EvalException {
     return Starlark.str(x, thread.getSemantics());
   }
@@ -440,9 +502,10 @@ class MethodLibrary {
       doc =
           "Converts any object to a string representation. This is useful for debugging.<br>"
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  public String repr(Object x) {
-    return Starlark.repr(x);
+      parameters = {@Param(name = "x", doc = "The object to convert.")},
+      useStarlarkThread = true)
+  public String repr(Object x, StarlarkThread thread) {
+    return Starlark.repr(x, thread.getSemantics());
   }
 
   @StarlarkMethod(
@@ -453,7 +516,8 @@ class MethodLibrary {
               + "</code>, an empty string (<code>\"\"</code>), the number <code>0</code>, or an "
               + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
               + "Otherwise, it returns <code>True</code>.",
-      parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")})
+      parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")},
+      isTypeConstructor = true)
   public boolean bool(Object x) throws EvalException {
     return Starlark.truth(x);
   }
@@ -486,7 +550,8 @@ class MethodLibrary {
               @ParamType(type = StarlarkInt.class),
               @ParamType(type = StarlarkFloat.class),
             }),
-      })
+      },
+      isTypeConstructor = true)
   public StarlarkFloat floatForStarlark(Object x) throws EvalException {
     if (x instanceof String s) {
       if (s.isEmpty()) {
@@ -586,7 +651,6 @@ class MethodLibrary {
               + "int(\"0xFF\", 16) == 255\n"
               + "int(\"10\", 0) == 10\n"
               + "int(\"-0x10\", 0) == -16\n"
-              + "int(\"-0x10\", 0) == -16\n"
               + "int(\"123.456\") == 123\n"
               + "</pre>",
       parameters = {
@@ -609,7 +673,8 @@ class MethodLibrary {
                     + "string.",
             named = true,
             allowedTypes = {@ParamType(type = StarlarkInt.class)})
-      })
+      },
+      isTypeConstructor = true)
   public StarlarkInt intForStarlark(Object x, Object baseO) throws EvalException {
     if (x instanceof String) {
       int base = baseO == Starlark.UNBOUND ? 10 : Starlark.toInt(baseO, "base");
@@ -652,7 +717,8 @@ class MethodLibrary {
             doc = "A dict, or an iterable whose elements are each of length 2 (key, value)."),
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public Dict<?, ?> dict(Object pairs, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
     // common case: dict(k=v, ...)
@@ -683,8 +749,9 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
       parameters = {
         @Param(name = "elements", defaultValue = "[]", doc = "An iterable of hashable values."),
       },
-      useStarlarkThread = true)
-  public StarlarkSet<Object> set(StarlarkIterable<?> elements, StarlarkThread thread)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
+  public StarlarkSet<?> set(StarlarkIterable<?> elements, StarlarkThread thread)
       throws EvalException {
     // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
     // top-level symbols, so enforce it here instead.
@@ -795,7 +862,7 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
       },
       useStarlarkThread = true)
   public boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
-    return Starlark.hasattr(thread.getSemantics(), obj, name);
+    return Starlark.hasattr(thread, obj, name);
   }
 
   @StarlarkMethod(
@@ -820,11 +887,7 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
   public Object getattr(Object obj, String name, Object defaultValue, StarlarkThread thread)
       throws EvalException, InterruptedException {
     return Starlark.getattr(
-        thread.mutability(),
-        thread.getSemantics(),
-        obj,
-        name,
-        defaultValue == Starlark.UNBOUND ? null : defaultValue);
+        thread, obj, name, defaultValue == Starlark.UNBOUND ? null : defaultValue);
   }
 
   @StarlarkMethod(
@@ -835,7 +898,7 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
       parameters = {@Param(name = "x", doc = "The object to check.")},
       useStarlarkThread = true)
   public StarlarkList<String> dir(Object object, StarlarkThread thread) throws EvalException {
-    return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
+    return Starlark.dir(thread, object);
   }
 
   @StarlarkMethod(
@@ -884,7 +947,8 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
                   "A list of values, formatted with debugPrint (which is equivalent to str by"
                       + " default) and joined with sep (defaults to \" \"), that appear in the"
                       + " error message."),
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      doesNotReturn = true)
   public void fail(
       Object msg, Object attr, String sep, Boolean stackTrace, Tuple args, StarlarkThread thread)
       throws EvalException {

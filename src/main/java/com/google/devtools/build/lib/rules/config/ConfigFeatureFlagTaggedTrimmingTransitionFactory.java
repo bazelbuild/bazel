@@ -63,7 +63,7 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
     public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       var configFeatureFlagOptions = options.get(ConfigFeatureFlagOptions.class);
       if (configFeatureFlagOptions == null
-          || !configFeatureFlagOptions.enforceTransitiveConfigsForConfigFeatureFlag) {
+          || !configFeatureFlagOptions.getEnforceTransitiveConfigsForConfigFeatureFlag()) {
         return options.underlying();
       }
       return FeatureFlagValue.trimFlagValues(options.underlying(), flags);

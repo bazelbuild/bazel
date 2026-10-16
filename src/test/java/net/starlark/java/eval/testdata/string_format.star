@@ -53,6 +53,11 @@ assert_eq('{0} can be reused: {0}'.format('this', 'obsolete'), "this can be reus
 assert_eq('{test} and {}'.format(2, test = 1), "1 and 2")
 assert_eq('{test} and {0}'.format(2, test = 1), "1 and 2")
 
+# Self-referential values
+self_ref = []
+self_ref.append(self_ref)
+assert_eq("self_ref == {}".format(self_ref), "self_ref == [[...]]")
+
 ---
 '{{}'.format(1) ### Found '}' without matching '\{'
 ---

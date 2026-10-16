@@ -174,7 +174,13 @@ public class CommandFailureUtils {
     output.append(mnemonic);
     output.append(" command ");
     if (targetDescription != null) {
-      output.append("(from ").append(targetDescription).append(") ");
+      output.append("(from ").append(targetDescription);
+      if (configurationChecksum != null
+          && !configurationChecksum.isEmpty()
+          && !configurationChecksum.equals("null")) {
+        output.append(" [").append(configurationChecksum).append("]");
+      }
+      output.append(") ");
     }
     if (verbose) {
       output.append("\n  ");
@@ -194,11 +200,14 @@ public class CommandFailureUtils {
   }
 
   public static String describeCommandFailure(
-      boolean verboseFailures, @Nullable String cwd, DescribableExecutionUnit command) {
+      boolean verboseFailures,
+      boolean expandParamFiles,
+      @Nullable String cwd,
+      DescribableExecutionUnit command) {
     return describeCommandFailure(
         verboseFailures,
         command.getMnemonic(),
-        command.getArguments(),
+        expandParamFiles ? command.getArgumentsWithExpandedParamFiles() : command.getArguments(),
         command.getEnvironment(),
         cwd,
         command.getConfigurationChecksum(),

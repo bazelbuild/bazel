@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelParser.Parts;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetsShouldBeInternedByEquality;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -86,7 +87,12 @@ import net.starlark.java.eval.StarlarkValue;
             + " the perspective of the main repository if possible.")
 @Immutable
 @ThreadSafe
-public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, CommandLineItem {
+public final class Label
+    implements Comparable<Label>,
+        StarlarkValue,
+        SkyKey,
+        CommandLineItem,
+        NestedSetsShouldBeInternedByEquality {
   /**
    * Package names that aren't made relative to the current repository because they mean special
    * things to Bazel.
@@ -97,13 +103,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
           "conditions",
           // Used for the public and private visibility labels (not targets)
           "visibility");
-
-  // Intern "__pkg__" and "__subpackages__" pseudo-targets, which appears in labels used for
-  // visibility specifications. This saves a couple tenths of a percent of RAM off the loading
-  // phase. Note that general interning of all values for `name` is *not* beneficial. See
-  // Google-internal cl/386077913 and cl/185394812 for more context.
-  private static final String PKG_VISIBILITY_NAME = "__pkg__";
-  private static final String SUBPACKAGES_VISIBILITY_NAME = "__subpackages__";
 
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.createHermetic("TRANSITIVE_TRAVERSAL");
@@ -317,17 +316,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * arbitrary {@code name} inputs
    */
   public static Label createUnvalidated(PackageIdentifier packageIdentifier, String name) {
-    return interner.intern(new Label(packageIdentifier, internIfConstantName(name)));
-  }
-
-  static String internIfConstantName(String name) {
-    if (name.equals(PKG_VISIBILITY_NAME)) {
-      return PKG_VISIBILITY_NAME;
-    }
-    if (name.equals(SUBPACKAGES_VISIBILITY_NAME)) {
-      return SUBPACKAGES_VISIBILITY_NAME;
-    }
-    return name;
+    return interner.intern(
+        new Label(packageIdentifier, LabelNameDeduper.deduplicateTargetName(name)));
   }
 
   /** The name and repository of the package. */
@@ -369,9 +359,9 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   /**
-   * Returns the execution root for the workspace, relative to the execroot (e.g., for label
-   * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
-   * it will returns an empty string.
+   * Returns the execution root for the repository, relative to the execroot (e.g., for label
+   * {@code @repo//pkg:b}, it will return {@code external/repo} and for label {@code //pkg:a}, it
+   * will return an empty string).
    *
    * @deprecated The sole purpose of this method is to implement the workspace_root method. For
    *     other purposes, use {@link RepositoryName#getExecPath} instead.
@@ -380,18 +370,41 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       name = "workspace_root",
       structField = true,
       doc =
-          "Returns the execution root for the repository containing the target referred to by this"
-              + " label, relative to the execroot. For instance:<br><pre"
+          "<strong>Deprecated.</strong> The field name \"workspace root\" is a misnomer here; use"
+              + " the identically-behaving <a href=\"#repo_root\"><code>Label.repo_root</code></a>"
+              + " instead.<p>Returns the execution root for the repository containing the target"
+              + " referred to by this label, relative to the execroot. For instance:<br><pre"
               + " class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
               + " \"external/repo\"</pre>",
-      useStarlarkSemantics = true)
+      enableOnlyWithFlag = BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS)
   @Deprecated
-  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) throws EvalException {
+  public String getWorkspaceRootForStarlarkOnly() throws EvalException {
     checkRepoVisibilityForStarlark("workspace_root");
-    return packageIdentifier
-        .getRepository()
-        .getExecPath(semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
-        .toString();
+    return packageIdentifier.getRepository().getExecPath().toString();
+  }
+
+  /**
+   * Returns the execution root for the repository, relative to the execroot (e.g., for label
+   * {@code @repo//pkg:b}, it will return {@code external/repo} and for label {@code //pkg:a}, it
+   * will return an empty string).
+   *
+   * @deprecated The sole purpose of this method is to implement the repo_root method. For other
+   *     purposes, use {@link RepositoryName#getExecPath} instead.
+   */
+  @StarlarkMethod(
+      name = "repo_root",
+      structField = true,
+      doc =
+          "The root directory of the repository containing the target referred to by this label,"
+              + " relative to the execution root. This is the empty string for the main repository"
+              + " and <code>external/</code> followed by the canonical repository name for all"
+              + " other repositories. For instance:<br><pre"
+              + " class=language-python>Label(\"@@repo//pkg/foo:abc\").repo_root =="
+              + " \"external/repo\"</pre>")
+  @Deprecated
+  public String getRepoRootForStarlarkOnly() throws EvalException {
+    checkRepoVisibilityForStarlark("repo_root");
+    return packageIdentifier.getRepository().getExecPath().toString();
   }
 
   /**
@@ -457,7 +470,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * yield the same label! For that, use {@link #getUnambiguousCanonicalForm()}.
    */
   public String getCanonicalForm() {
-    return packageIdentifier.getCanonicalForm() + ":" + name;
+    return getRepository().getCanonicalForm() + "//" + getPackageName() + ":" + name;
   }
 
   /**
@@ -466,7 +479,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * Label.parse*(x.getUnambiguousCanonicalForm(), ...).equals(x)}).
    */
   public String getUnambiguousCanonicalForm() {
-    return packageIdentifier.getUnambiguousCanonicalForm() + ":" + name;
+    return getRepository().getNameWithAt() + "//" + getPackageName() + ":" + name;
   }
 
   /**
@@ -566,6 +579,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
               + " containing an apparent repo name. Prefer <a"
               + " href=\"#same_package_label\"><code>Label.same_package_label()</code></a>, <a"
               + " href=\"../toplevel/native.html#package_relative_label\"><code>native.package_relative_label()</code></a>,"
+              + " <a href=\"ctx.html#package_relative_label\"><code>ctx.package_relative_label()</code></a>,"
               + " or <a href=\"#Label\"><code>Label()</code></a> instead.<p>Resolves a label that"
               + " is either absolute (starts with <code>//</code>) or relative to the current"
               + " package. If this label is in a remote repository, the argument will be resolved"
@@ -683,10 +697,29 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   @Override
-  public void repr(Printer printer) {
-    // TODO(wyv): Consider using StarlarkSemantics here too for optional unambiguity.
+  public boolean isAcyclic() {
+    return true;
+  }
+
+  private String toStringInternal(StarlarkSemantics semantics) {
+    if (getRepository().isMain()
+        && !semantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION)) {
+      // If this label is in the main repo and we're not using unambiguous label stringification,
+      // the result should always be "//foo:bar".
+      return getCanonicalForm();
+    }
+
+    // Otherwise, we use canonical label literal syntax here and prepend an extra '@'.
+    // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
+    // other repos.
+    return getUnambiguousCanonicalForm();
+  }
+
+  @Override
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("Label(");
-    printer.repr(getCanonicalForm());
+    printer.repr(toStringInternal(semantics), semantics);
     printer.append(")");
   }
 
@@ -706,19 +739,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   @Override
   public void str(Printer printer, StarlarkSemantics semantics) {
-    if (getRepository().isMain()
-        && !semantics.getBool(
-            BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION)) {
-      // If this label is in the main repo and we're not using unambiguous label stringification,
-      // the result should always be "//foo:bar".
-      printer.append(getCanonicalForm());
-      return;
-    }
-
-    // Otherwise, we use canonical label literal syntax here and prepend an extra '@'.
-    // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
-    // other repos.
-    printer.append(getUnambiguousCanonicalForm());
+    printer.append(toStringInternal(semantics));
   }
 
   @Override

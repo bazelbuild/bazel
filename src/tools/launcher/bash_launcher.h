@@ -15,6 +15,8 @@
 #ifndef BAZEL_SRC_TOOLS_LAUNCHER_BASH_LAUNCHER_H_
 #define BAZEL_SRC_TOOLS_LAUNCHER_BASH_LAUNCHER_H_
 
+#include <string>
+
 #include "src/tools/launcher/launcher.h"
 
 namespace bazel {
@@ -28,9 +30,6 @@ class BashBinaryLauncher : public BinaryLauncherBase {
       : BinaryLauncherBase(launch_info, launcher_path, argc, argv) {}
   ~BashBinaryLauncher() override = default;
   ExitCode Launch() override;
-
- protected:
-  std::wstring EscapeArg(const std::wstring& arg) const override;
 };
 
 }  // namespace launcher

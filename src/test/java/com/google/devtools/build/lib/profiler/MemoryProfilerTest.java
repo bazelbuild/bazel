@@ -29,7 +29,9 @@ import java.lang.management.MemoryUsage;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,13 +41,20 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 public class MemoryProfilerTest {
 
-  private static final Pattern NO_OP_PATTERN = Pattern.compile("no_match");
+  // Match something that's guaranteed to be in the heap histogram. The actual FillerArray class
+  // varies by JDK version, and it's an error if nothing matches.
+  private static final Pattern FILLER_PATTERN = Pattern.compile("java\\.lang\\.Class");
+
+  @After
+  public void tearDown() {
+    MemoryProfiler.instance().stop();
+  }
 
   @Test
   public void profilerDoesOneGcAndNoSleepNormally() throws Exception {
     MemoryProfiler profiler = MemoryProfiler.instance();
     profiler.setStableMemoryParameters(
-        new MemoryProfileStableHeapParameters.Converter().convert("1,10"), NO_OP_PATTERN);
+        new MemoryProfileStableHeapParameters.Converter().convert("1,10"), FILLER_PATTERN);
     profiler.start(ByteStreams.nullOutputStream());
     MemoryMXBean bean = Mockito.mock(MemoryMXBean.class);
     MemoryUsage heapUsage = new MemoryUsage(0, 0, 0, 0);
@@ -68,7 +77,7 @@ public class MemoryProfilerTest {
   public void profilerDoesOneGcAndNoSleepExceptInFinish() throws Exception {
     MemoryProfiler profiler = MemoryProfiler.instance();
     profiler.setStableMemoryParameters(
-        new MemoryProfileStableHeapParameters.Converter().convert("3,10"), NO_OP_PATTERN);
+        new MemoryProfileStableHeapParameters.Converter().convert("3,10"), FILLER_PATTERN);
     profiler.start(ByteStreams.nullOutputStream());
     MemoryMXBean bean = Mockito.mock(MemoryMXBean.class);
     MemoryUsage emptyHeap = new MemoryUsage(0, 0, 0, 0);
@@ -106,7 +115,7 @@ public class MemoryProfilerTest {
   public void profilerHasMultiplePairs() throws Exception {
     MemoryProfiler profiler = MemoryProfiler.instance();
     profiler.setStableMemoryParameters(
-        new MemoryProfileStableHeapParameters.Converter().convert("2,1,3,4,5,6"), NO_OP_PATTERN);
+        new MemoryProfileStableHeapParameters.Converter().convert("2,1,3,4,5,6"), FILLER_PATTERN);
     profiler.start(ByteStreams.nullOutputStream());
     MemoryMXBean bean = Mockito.mock(MemoryMXBean.class);
 
@@ -150,7 +159,7 @@ public class MemoryProfilerTest {
             () ->
                 profiler.setStableMemoryParameters(
                     new MemoryProfileStableHeapParameters.Converter().convert("1,10,7"),
-                    NO_OP_PATTERN));
+                    FILLER_PATTERN));
     assertThat(e)
         .hasMessageThat()
         .contains("Expected even number of comma-separated integer values");
@@ -166,12 +175,45 @@ public class MemoryProfilerTest {
                 profiler.setStableMemoryParameters(
                     new MemoryProfileStableHeapParameters.Converter()
                         .convert("1,10,74,22,horse,goat"),
-                    NO_OP_PATTERN));
+                    FILLER_PATTERN));
     assertThat(e)
         .hasMessageThat()
         .contains(
             "Expected even number of comma-separated integer values, could not parse integer in"
                 + " list");
+  }
+
+  @Test
+  public void markPhase_awaitsQuiescenceAtFinish() throws Exception {
+    MemoryProfiler profiler = MemoryProfiler.instance();
+    profiler.setStableMemoryParameters(
+        new MemoryProfileStableHeapParameters.Converter().convert("1,10"), FILLER_PATTERN);
+    profiler.start(ByteStreams.nullOutputStream());
+    AtomicBoolean awaitCalled = new AtomicBoolean(false);
+    profiler.setQuiescenceAwaiter(() -> awaitCalled.set(true));
+
+    profiler.markPhase(ProfilePhase.ANALYZE);
+    assertThat(awaitCalled.get()).isFalse();
+
+    profiler.markPhase(ProfilePhase.FINISH);
+    assertThat(awaitCalled.get()).isTrue();
+  }
+
+  @Test
+  public void markPhase_quiescenceAwaiterResetOnStop() throws Exception {
+    MemoryProfiler profiler = MemoryProfiler.instance();
+    profiler.setStableMemoryParameters(
+        new MemoryProfileStableHeapParameters.Converter().convert("1,10"), FILLER_PATTERN);
+    profiler.start(ByteStreams.nullOutputStream());
+    AtomicBoolean awaitCalled = new AtomicBoolean(false);
+    profiler.setQuiescenceAwaiter(() -> awaitCalled.set(true));
+    profiler.stop();
+
+    profiler.setStableMemoryParameters(
+        new MemoryProfileStableHeapParameters.Converter().convert("1,10"), FILLER_PATTERN);
+    profiler.start(ByteStreams.nullOutputStream());
+    profiler.markPhase(ProfilePhase.FINISH);
+    assertThat(awaitCalled.get()).isFalse();
   }
 
   private static class RecordingSleeper implements Sleeper {

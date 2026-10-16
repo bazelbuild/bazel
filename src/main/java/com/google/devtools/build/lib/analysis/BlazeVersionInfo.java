@@ -15,10 +15,11 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.flogger.GoogleLogger;
 import java.util.Date;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -44,10 +45,10 @@ public class BlazeVersionInfo {
 
   private static BlazeVersionInfo instance = null;
 
-  private final Map<String, String> buildData = Maps.newTreeMap();
+  private final ImmutableSortedMap<String, String> buildData;
 
   public BlazeVersionInfo(Map<String, String> info) {
-    buildData.putAll(info);
+    buildData = ImmutableSortedMap.copyOf(info);
   }
 
   /**
@@ -74,8 +75,8 @@ public class BlazeVersionInfo {
   /**
    * Sets build info.
    *
-   * <p>This should be called once in the program execution, as early soon as possible, so we
-   * can have the version information even before modules are initialized.
+   * <p>This should be called once in the program execution, as early soon as possible, so we can
+   * have the version information even before modules are initialized.
    */
   public static synchronized void setBuildInfo(Map<String, String> info) {
     if (instance != null) {
@@ -83,6 +84,11 @@ public class BlazeVersionInfo {
     }
     instance = new BlazeVersionInfo(info);
     logVersionInfo(instance);
+  }
+
+  @VisibleForTesting
+  public static synchronized void setBuildInfoForTesting(Map<String, String> info) {
+    instance = new BlazeVersionInfo(info);
   }
 
   /**
@@ -153,7 +159,28 @@ public class BlazeVersionInfo {
   }
 
   @VisibleForTesting
-  public Map<String, String> getBuildData() {
+  public SortedMap<String, String> getBuildData() {
     return buildData;
+  }
+
+  @Override
+  public int hashCode() {
+    return buildData.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof BlazeVersionInfo that)) {
+      return false;
+    }
+    return buildData.equals(that.buildData);
+  }
+
+  @Override
+  public String toString() {
+    return "BlazeVersionInfo{" + "buildData=" + buildData + '}';
   }
 }

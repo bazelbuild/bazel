@@ -24,6 +24,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -32,7 +33,8 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 /** Options for execution log converter. */
-public class ConverterOptions extends OptionsBase {
+@OptionsClass
+public abstract class ConverterOptions extends OptionsBase {
   private static final Splitter COLON_SPLITTER = Splitter.on(':').limit(2);
 
   @Option(
@@ -42,7 +44,7 @@ public class ConverterOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Input log format and path.")
-  public FormatAndPath input;
+  public abstract FormatAndPath getInput();
 
   @Option(
       name = "output",
@@ -51,7 +53,7 @@ public class ConverterOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Output log format and path.")
-  public FormatAndPath output;
+  public abstract FormatAndPath getOutput();
 
   @Option(
       name = "sort",
@@ -59,7 +61,7 @@ public class ConverterOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to sort the output in a deterministic order.")
-  public boolean sort;
+  public abstract boolean getSort();
 
   enum Format {
     BINARY,

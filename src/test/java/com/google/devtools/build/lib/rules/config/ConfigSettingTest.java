@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -30,12 +31,15 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
@@ -46,10 +50,11 @@ import org.junit.runner.RunWith;
 
 /** Tests for {@link ConfigSetting}. */
 @RunWith(TestParameterInjector.class)
-public class ConfigSettingTest extends BuildViewTestCase {
+public final class ConfigSettingTest extends BuildViewTestCase {
 
   /** Extra options for this test. */
-  public static class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
 
     @Option(
@@ -58,7 +63,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "super secret",
         metadataTags = {OptionMetadataTag.INTERNAL})
-    public String internalOption;
+    public abstract String getInternalOption();
 
     @Option(
         name = "allow_multiple_option",
@@ -67,7 +72,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP})
-    public List<String> allowMultipleOption;
+    public abstract List<String> getAllowMultipleOption();
 
     @Option(
         name = "new_option_name",
@@ -75,7 +80,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "",
         oldName = "old_option_name")
-    public String optionWithOldName;
+    public abstract String getOptionWithOldName();
 
     @Option(
         name = "non_configurable_option",
@@ -83,7 +88,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "non-configurable",
         metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
-    public String nonConfigurableOption;
+    public abstract String getNonConfigurableOption();
   }
 
   /** Test fragment. */
@@ -127,7 +132,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
     return getConfiguredTarget(label).getProvider(ConfigMatchingProvider.class);
   }
 
-  private boolean forceConvertMatchResult(ConfigMatchingProvider.MatchResult result) {
+  private static boolean forceConvertMatchResult(ConfigMatchingProvider.MatchResult result) {
     if (result instanceof Match) {
       return true;
     } else if (result instanceof NoMatch) {
@@ -1813,6 +1818,63 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
+  public void refinesSettingWithRefinedConstraintValue() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        platform(
+            name = "p",
+            constraint_values = [
+                "//libc:glibc",
+                "//libc/glibc:2.42",
+            ],
+        )
+
+        config_setting(
+            name = "refining",
+            constraint_values = ["//libc/glibc:2.42"],
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = ["//libc:glibc"],
+        )
+        """);
+    useConfiguration("--platforms=//test:p");
+    assertThat(
+            getConfigMatchingProvider("//test:refining")
+                .refines(getConfigMatchingProvider("//test:refined")))
+        .isTrue();
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:refining")))
+        .isFalse();
+  }
+
+  @Test
   public void matchesAliasedFlagsInFlagValues() throws Exception {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
@@ -3382,5 +3444,50 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertContainsEvent(
         "\"v1,v2\" not a valid value for flag //test:my_flag. "
             + "Only single, exact values are allowed");
+  }
+
+  @Test
+  public void stampNotInSelectValues_stampSettingMarkerNotApplied(@TestParameter boolean stampFlag)
+      throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {"compilation_mode": "opt"},
+        )
+        """);
+
+    useConfiguration("--stamp=" + stampFlag);
+
+    ActionLookupKey key = getConfiguredTarget("//test:match").getLookupKey();
+    NodeEntry node =
+        getSkyframeExecutor().getEvaluator().getExistingEntryAtCurrentlyEvaluatingVersion(key);
+    assertThat(node.getDirectDeps()).doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+  }
+
+  @Test
+  public void stampInSelectValues_stampSettingMarkerAppliedIfStampFlag(
+      @TestParameter boolean stampFlag) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {"stamp": "False"},
+        )
+        """);
+
+    useConfiguration("--stamp=" + stampFlag);
+
+    ActionLookupKey key = getConfiguredTarget("//test:match").getLookupKey();
+    NodeEntry node =
+        getSkyframeExecutor().getEvaluator().getExistingEntryAtCurrentlyEvaluatingVersion(key);
+    if (stampFlag) {
+      assertThat(node.getDirectDeps()).contains(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    } else {
+      assertThat(node.getDirectDeps())
+          .doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    }
   }
 }

@@ -25,13 +25,15 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.time.Duration;
 import java.util.OptionalInt;
 
 /** Options for responding to memory pressure. */
-public final class MemoryPressureOptions extends OptionsBase {
+@OptionsClass
+public abstract class MemoryPressureOptions extends OptionsBase {
 
   @Option(
       name = "skyframe_high_water_mark_threshold",
@@ -45,7 +47,9 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " time impact of GC thrashing, when the GC thrashing is (i) caused by the memory"
               + " usage of this temporary state and (ii) more costly than reconstituting the state"
               + " when it is needed.")
-  public int skyframeHighWaterMarkMemoryThreshold;
+  public abstract int getSkyframeHighWaterMarkMemoryThreshold();
+
+  public abstract void setSkyframeHighWaterMarkMemoryThreshold(int value);
 
   @Option(
       name = "skyframe_high_water_mark_minor_gc_drops_per_invocation",
@@ -61,7 +65,9 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " Defaults to 10. Zero means that minor GC events will never trigger drops. If the"
               + " limit is reached, Skyframe state will no longer be dropped when a minor GC event"
               + " occurs and that retained heap percentage threshold is exceeded.")
-  public int skyframeHighWaterMarkMinorGcDropsPerInvocation;
+  public abstract int getSkyframeHighWaterMarkMinorGcDropsPerInvocation();
+
+  public abstract void setSkyframeHighWaterMarkMinorGcDropsPerInvocation(int value);
 
   @Option(
       name = "skyframe_high_water_mark_full_gc_drops_per_invocation",
@@ -77,7 +83,9 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " Defaults to 10. Zero means that full GC events will never trigger drops. If the"
               + " limit is reached, Skyframe state will no longer be dropped when a full GC event"
               + " occurs and that retained heap percentage threshold is exceeded.")
-  public int skyframeHighWaterMarkFullGcDropsPerInvocation;
+  public abstract int getSkyframeHighWaterMarkFullGcDropsPerInvocation();
+
+  public abstract void setSkyframeHighWaterMarkFullGcDropsPerInvocation(int value);
 
   @Option(
       name = "gc_thrashing_limits",
@@ -92,7 +100,7 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " (old gen heap) remains occupied after <count> consecutive full GCs within"
               + " <period>, an OOM is triggered. Multiple limits can be specified separated by"
               + " commas.")
-  public ImmutableList<GcThrashingDetector.Limit> gcThrashingLimits;
+  public abstract ImmutableList<GcThrashingDetector.Limit> getGcThrashingLimits();
 
   @Option(
       name = "gc_thrashing_threshold",
@@ -106,7 +114,7 @@ public final class MemoryPressureOptions extends OptionsBase {
           "The percent of tenured space occupied (0-100) above which GcThrashingDetector considers"
               + " memory pressure events against its limits (--gc_thrashing_limits). If set to 100,"
               + " GcThrashingDetector is disabled.")
-  public int gcThrashingThreshold;
+  public abstract int getGcThrashingThreshold();
 
   @Option(
       name = "gc_churning_threshold",
@@ -119,7 +127,7 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " spent at least this percentage of the invocation's wall time doing full GCs,"
               + " Blaze will give up and fail with an OOM. A value of 100 effectively means to"
               + " never give up for this reason.")
-  public int gcChurningThreshold;
+  public abstract int getGcChurningThreshold();
 
   @Option(
       name = "gc_churning_threshold_if_multiple_top_level_targets",
@@ -134,7 +142,7 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " (i.e. a lower value than --gc_churning_threshold) when they are multiple"
               + " top-level targets so that the invoker of Bazel can split and retry while still"
               + " having less aggressive behavior when there is a single top-level target.")
-  public OptionalInt gcChurningThresholdIfMultipleTopLevelTargets;
+  public abstract OptionalInt getGcChurningThresholdIfMultipleTopLevelTargets();
 
   // NOTE: 2024-06-11, this matches both known patterns of:
   // jdk.internal.vm.Filler[Array|Element[]] but does not match the thread
@@ -151,7 +159,7 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " details to get a clean memory metric, this option allows us to adapt"
               + " to changes in that internal implementation without having to wait"
               + " for a binary release.  Passed to JDK Matcher.find()")
-  public RegexPatternOption jvmHeapHistogramInternalObjectPattern;
+  public abstract RegexPatternOption getJvmHeapHistogramInternalObjectPattern();
 
   static final class NonNegativeIntegerConverter extends RangeConverter {
     NonNegativeIntegerConverter() {

@@ -61,7 +61,7 @@ public class CachingTest extends BuildViewTestCase {
     for (Action action : actions) {
       if (action instanceof SpawnAction) {
         for (ActionInput string :
-            ((SpawnAction) action).getSpawnForTesting().getInputFiles().toList()) {
+            ((SpawnAction) action).getSpawnForTesting().getInputFiles().flatten()) {
           lookedAtAnyAction = true;
           if (string.getExecPathString().endsWith("tool.runfiles")
               || string.getExecPathString().endsWith("tool.exe.runfiles")) {

@@ -95,6 +95,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
     scratch.file(
         "pkg1/BUILD",
         getPyLoad("py_binary"),
+        "exports_files(['bar.py'])",
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['bar.py'])");
@@ -115,6 +116,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
     scratch.file(
         "pkg1/BUILD",
         getPyLoad("py_binary"),
+        "exports_files(['bar.py'])",
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['bar.py'])");

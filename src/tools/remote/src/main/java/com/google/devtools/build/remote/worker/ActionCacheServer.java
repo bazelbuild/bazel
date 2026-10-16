@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
@@ -26,9 +26,9 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.protobuf.ByteString;

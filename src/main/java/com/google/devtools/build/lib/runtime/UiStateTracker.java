@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.primitives.Booleans.trueFirst;
 import static java.util.Comparator.comparing;
+import static java.util.Comparator.comparingLong;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Comparators;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
+import com.google.devtools.build.lib.actions.UploadingActionEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -59,15 +61,15 @@ import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -75,7 +77,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -110,7 +111,7 @@ class UiStateTracker {
 
   // Desired maximal width of the progress bar, if positive.
   // Non-positive values indicate not to aim for a particular width.
-  protected final int targetWidth;
+  protected int targetWidth;
 
   /**
    * Tracker of strategy names to unique IDs and viceversa.
@@ -196,6 +197,7 @@ class UiStateTracker {
     PREPARING("Preparing"),
     SCANNING("Scanning"),
     CACHING("Caching"),
+    UPLOADING("Uploading"),
     SCHEDULING("Scheduling"),
     RUNNING("Running");
 
@@ -235,7 +237,7 @@ class UiStateTracker {
      * <p>When multiple strategies are applied, this is the phase of the strategy that has made the
      * most progress.
      */
-    ActionPhase currentPhase = ActionPhase.PREPARING;
+    private ActionPhase currentPhase = ActionPhase.PREPARING;
 
     /** The set of strategies that have been applied to this action. */
     int strategyBitmap = 0;
@@ -259,7 +261,7 @@ class UiStateTracker {
     }
 
     /** Returns the phase this action is currently in. */
-    synchronized ActionPhase getPhase() {
+    private synchronized ActionPhase getPhase() {
       return currentPhase;
     }
 
@@ -309,6 +311,20 @@ class UiStateTracker {
     }
 
     /**
+     * Marks the action as uploading inputs with the given strategy.
+     *
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already uploading, scheduling or running for any other strategy.
+     */
+    synchronized void setUploading(String strategy, long nanoChangeTime) {
+      strategyBitmap |= strategyIds.getId(strategy);
+      if (currentPhase.compareTo(ActionPhase.UPLOADING) < 0) {
+        currentPhase = ActionPhase.UPLOADING;
+        nanoStartTime = nanoChangeTime;
+      }
+    }
+
+    /**
      * Marks the action as scheduling with the given strategy.
      *
      * <p>Because we may receive events out of order, this does not affect the current phase if the
@@ -349,7 +365,7 @@ class UiStateTracker {
       state.latestEvent = event;
     }
 
-    synchronized Optional<ProgressState> firstProgress() {
+    private synchronized Optional<ProgressState> firstProgress() {
       if (runningProgresses.isEmpty()) {
         return Optional.empty();
       }
@@ -361,10 +377,11 @@ class UiStateTracker {
   private final AtomicInteger activeActionUploads = new AtomicInteger(0);
   private final AtomicInteger activeActionDownloads = new AtomicInteger(0);
 
-  // running downloads are identified by the original URL they were trying to access.
-  private final Deque<String> runningDownloads;
-  private final Map<String, Long> downloadNanoStartTimes;
-  private final Map<String, FetchProgress> downloads;
+  // Running downloads are identified by the original URL they were trying to access.
+  private final ConcurrentHashMap<String, DownloadData> runningDownloads =
+      new ConcurrentHashMap<>();
+
+  private record DownloadData(FetchProgress latestEvent, long nanoStartTime) {}
 
   /**
    * For each test, the list of actions (as identified by the primary output artifact) currently
@@ -396,9 +413,6 @@ class UiStateTracker {
 
     this.actionsCompleted = new AtomicInteger();
     this.testActions = new ConcurrentHashMap<>();
-    this.runningDownloads = new ArrayDeque<>();
-    this.downloads = new TreeMap<>();
-    this.downloadNanoStartTimes = new TreeMap<>();
     this.ok = true;
     this.clock = clock;
     this.targetWidth = targetWidth;
@@ -412,6 +426,11 @@ class UiStateTracker {
   /** Set the progress bar sample size. */
   void setProgressSampleSize(int sampleSize) {
     this.sampleSize = Math.max(1, sampleSize);
+  }
+
+  /** Set the desired maximal width of the progress bar. */
+  synchronized void setTargetWidth(int targetWidth) {
+    this.targetWidth = targetWidth;
   }
 
   void setNewStatsSummary(boolean newStatsSummary) {
@@ -429,8 +448,8 @@ class UiStateTracker {
   }
 
   void loadingStarted(LoadingPhaseStartedEvent event) {
-    status = null;
     packageProgressReceiver = event.getPackageProgressReceiver();
+    status = packageProgressReceiver != null ? null : "Loading";
   }
 
   void configurationStarted(ConfigurationPhaseStartedEvent event) {
@@ -443,7 +462,7 @@ class UiStateTracker {
     if (count == 1) {
       additionalMessage = "target " + Iterables.getOnlyElement(event.getLabels());
     } else {
-      additionalMessage = count + " targets";
+      additionalMessage = StringUtil.formatCount(count) + " targets";
     }
     mainRepositoryMapping = event.getMainRepositoryMapping();
   }
@@ -521,23 +540,14 @@ class UiStateTracker {
     buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
   }
 
-  synchronized void downloadProgress(FetchProgress event) {
-    String url = event.getResourceIdentifier();
-    if (event.isFinished()) {
-      // a download is finished, clean it up
-      runningDownloads.remove(url);
-      downloadNanoStartTimes.remove(url);
-      downloads.remove(url);
-    } else if (runningDownloads.contains(url)) {
-      // a new progress update on an already known, still running download
-      downloads.put(url, event);
-    } else {
-      // Start of a new download
-      long nanoTime = clock.nanoTime();
-      runningDownloads.add(url);
-      downloads.put(url, event);
-      downloadNanoStartTimes.put(url, nanoTime);
-    }
+  void downloadProgress(FetchProgress event) {
+    runningDownloads.compute(
+        event.getResourceIdentifier(),
+        (unusedKey, latestData) ->
+            event.isFinished()
+                ? null
+                : new DownloadData(
+                    event, latestData != null ? latestData.nanoStartTime : clock.nanoTime()));
   }
 
   private ActionState getActionState(
@@ -587,6 +597,13 @@ class UiStateTracker {
     Artifact actionId = action.getPrimaryOutput();
     long now = clock.nanoTime();
     getActionState(action, actionId, now).setCaching(event.strategy(), now);
+  }
+
+  void uploadingAction(UploadingActionEvent event) {
+    ActionExecutionMetadata action = event.action();
+    Artifact actionId = action.getPrimaryOutput();
+    long now = clock.nanoTime();
+    getActionState(action, actionId, now).setUploading(event.strategy(), now);
   }
 
   void schedulingAction(SchedulingActionEvent event) {
@@ -821,10 +838,11 @@ class UiStateTracker {
     long nanoRuntime = nanoTime - actionState.nanoStartTime;
     long runtimeSeconds = nanoRuntime / NANOS_PER_SECOND;
     String strategy = null;
-    ActionPhase phase = actionState.getPhase();
-    if (phase.equals(ActionPhase.CACHING) || phase.equals(ActionPhase.RUNNING)) {
+    if (actionState.getStrategyBitmap() != 0) {
       strategy = strategyIds.formatNames(actionState.getStrategyBitmap());
-    } else {
+    }
+    ActionPhase phase = actionState.getPhase();
+    if (!phase.equals(ActionPhase.CACHING) && !phase.equals(ActionPhase.RUNNING)) {
       String status = phase.describe();
       if (status == null) {
         status = NO_STATUS;
@@ -841,7 +859,7 @@ class UiStateTracker {
       postfix = "; " + runtimeSeconds + "s";
     }
     if (strategy != null) {
-      postfix += " " + strategy;
+      postfix += " (" + strategy + ")";
     }
 
     String message = action.getProgressMessage(mainRepositoryMapping);
@@ -1067,7 +1085,7 @@ class UiStateTracker {
     if (packageProgressReceiver != null) {
       return true;
     }
-    if (runningDownloads.size() >= 1) {
+    if (!runningDownloads.isEmpty()) {
       return true;
     }
     if (buildCompleted() && hasActivities()) {
@@ -1146,15 +1164,19 @@ class UiStateTracker {
   }
 
   private void reportOnOneDownload(
-      String url, long nanoTime, int width, AnsiTerminalWriter terminalWriter) throws IOException {
+      String url,
+      DownloadData downloadData,
+      long currentNanoTime,
+      int width,
+      AnsiTerminalWriter terminalWriter)
+      throws IOException {
 
     String postfix = "";
 
-    FetchProgress download = downloads.get(url);
-    long nanoDownloadTime = nanoTime - downloadNanoStartTimes.get(url);
+    long nanoDownloadTime = currentNanoTime - downloadData.nanoStartTime();
     long downloadSeconds = nanoDownloadTime / NANOS_PER_SECOND;
 
-    String progress = download.getProgress();
+    String progress = downloadData.latestEvent().getProgress();
     if (!progress.isEmpty()) {
       postfix = postfix + " " + progress;
     }
@@ -1170,11 +1192,14 @@ class UiStateTracker {
 
   protected void reportOnDownloads(PositionAwareAnsiTerminalWriter terminalWriter)
       throws IOException {
+    ArrayList<Map.Entry<String, DownloadData>> runningDownloadsSnapshot =
+        new ArrayList<>(runningDownloads.entrySet());
+    runningDownloadsSnapshot.sort(comparingLong(entry -> entry.getValue().nanoStartTime()));
     int count = 0;
     long nanoTime = clock.nanoTime();
-    int downloadCount = runningDownloads.size();
+    int downloadCount = runningDownloadsSnapshot.size();
     String suffix = AND_MORE + " (" + downloadCount + " fetches)";
-    for (String url : runningDownloads) {
+    for (Map.Entry<String, DownloadData> download : runningDownloadsSnapshot) {
       if (count >= sampleSize) {
         break;
       }
@@ -1184,7 +1209,8 @@ class UiStateTracker {
       }
       terminalWriter.append(FETCH_PREFIX);
       reportOnOneDownload(
-          url,
+          download.getKey(),
+          download.getValue(),
           nanoTime,
           targetWidth
               - FETCH_PREFIX.length()
@@ -1320,7 +1346,7 @@ class UiStateTracker {
         maybeShowRecentTest(
             terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
         String statusMessage =
-            describeAction(oldestAction, clock.nanoTime(), targetWidth - 4, /*toSkip=*/ null);
+            describeAction(oldestAction, clock.nanoTime(), targetWidth - 4, /* toSkip= */ null);
         terminalWriter.normal().newline().append("    " + statusMessage);
       } else {
         String statusMessage =
@@ -1328,7 +1354,7 @@ class UiStateTracker {
                 oldestAction,
                 clock.nanoTime(),
                 targetWidth - terminalWriter.getPosition() - 1,
-                /*toSkip=*/ null);
+                /* toSkip= */ null);
         terminalWriter.normal().append(" " + statusMessage);
       }
     } else {
@@ -1338,7 +1364,7 @@ class UiStateTracker {
                 oldestAction,
                 clock.nanoTime(),
                 targetWidth - terminalWriter.getPosition(),
-                /*toSkip=*/ null);
+                /* toSkip= */ null);
         statusMessage += " ... (" + countActions() + ")";
         terminalWriter.normal().append(" " + statusMessage);
       } else {
@@ -1374,15 +1400,26 @@ class UiStateTracker {
         terminalWriter.failStatus();
       }
       terminalWriter.append(status + ":").normal().append(" " + additionalMessage);
-      if (packageProgressReceiver != null) {
-        Pair<String, String> progress = packageProgressReceiver.progressState();
-        terminalWriter.append(" (" + progress.getFirst());
+      if (packageProgressReceiver != null || analysisProgressReceiver != null) {
+        terminalWriter.append(" (");
+        boolean first = true;
+        if (packageProgressReceiver != null) {
+          Pair<String, String> progress = packageProgressReceiver.progressState();
+          terminalWriter.append(progress.getFirst());
+          first = false;
+        }
         if (analysisProgressReceiver != null) {
-          terminalWriter.append(", " + analysisProgressReceiver.getProgressString());
+          if (!first) {
+            terminalWriter.append(", ");
+          }
+          terminalWriter.append(analysisProgressReceiver.getProgressString());
         }
         terminalWriter.append(")");
-        if (!progress.getSecond().isEmpty() && !shortVersion) {
-          terminalWriter.newline().append("    " + progress.getSecond());
+        if (packageProgressReceiver != null) {
+          Pair<String, String> progress = packageProgressReceiver.progressState();
+          if (!progress.getSecond().isEmpty() && !shortVersion) {
+            terminalWriter.newline().append("    " + progress.getSecond());
+          }
         }
       }
       if (!shortVersion) {

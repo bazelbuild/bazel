@@ -17,8 +17,10 @@
 #include <stdlib.h>
 
 #include <memory>
+#include <vector>
 
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/exit_code.h"
 #ifdef __linux
 #include "src/main/cpp/util/file_platform.h"
 #endif  // __linux

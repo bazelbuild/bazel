@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.starlarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * An entry in the runfiles map.
@@ -77,11 +78,11 @@ public final class SymlinkEntry implements SymlinkEntryApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("SymlinkEntry(path = ");
-    printer.repr(getPathString());
+    printer.repr(getPathString(), semantics);
     printer.append(", target_file = ");
-    artifact.repr(printer);
+    artifact.repr(printer, semantics);
     printer.append(")");
   }
 }

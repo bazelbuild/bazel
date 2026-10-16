@@ -32,10 +32,11 @@ java_test(
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
         "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",

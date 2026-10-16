@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
@@ -182,7 +180,7 @@ public final class CompletionFunction<
       importantInputMap = new ActionInputMap(importantArtifacts.size());
     }
 
-    ActionExecutionException firstActionExecutionException = null;
+    ActionExecutionException worstActionExecutionException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
     Set<Artifact> builtArtifacts = new HashSet<>();
     // Don't double-count files due to Skyframe restarts.
@@ -224,9 +222,11 @@ public final class CompletionFunction<
           rootCausesBuilder.addTransitive(e.getRootCauses());
         }
         // Prefer a catastrophic exception as the one we propagate.
-        if (firstActionExecutionException == null
-            || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
-          firstActionExecutionException = e;
+        if (worstActionExecutionException == null) {
+          worstActionExecutionException = e;
+        } else {
+          worstActionExecutionException =
+              ActionExecutionException.SEVERITY_ORDERING.max(worstActionExecutionException, e);
         }
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
@@ -236,9 +236,7 @@ public final class CompletionFunction<
         handleSourceFileError(input, e.getDetailedExitCode(), rootCausesBuilder, env, value, key);
       }
     }
-    CompletionContext ctx =
-        CompletionContext.create(
-            key.topLevelArtifactContext().expandFilesets(), importantInputMap, pathResolverFactory);
+    CompletionContext ctx = CompletionContext.create(importantInputMap, pathResolverFactory);
 
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
@@ -277,8 +275,8 @@ public final class CompletionFunction<
         // we'll get another opportunity to post an event after rewinding.
         return rewindPlanResult.toNullIfMissingDependenciesElseReset();
       }
-      if (firstActionExecutionException != null) {
-        throw new CompletionFunctionException(firstActionExecutionException);
+      if (worstActionExecutionException != null) {
+        throw new CompletionFunctionException(worstActionExecutionException);
       }
       Object locationPrefix = completor.getLocationIdentifier(key, value, env);
       Pair<DetailedExitCode, String> codeAndMessage =
@@ -401,7 +399,11 @@ public final class CompletionFunction<
     }
 
     Label label = key.actionLookupKey().getLabel();
-    InputMetadataProvider fullMetadataProvider = new ActionInputMetadataProvider(inputMap);
+    InputMetadataProvider metadataProvider =
+        new ActionInputMetadataProvider(
+            importantOutputHandler.requiresHiddenOutputMetadata()
+                ? inputMap
+                : ctx.getImportantInputMap());
     try {
       LostArtifacts lostOutputs;
       try (var ignored =
@@ -411,46 +413,29 @@ public final class CompletionFunction<
               ImportantOutputHandler.LOG_THRESHOLD)) {
         lostOutputs =
             importantOutputHandler.processOutputsAndGetLostArtifacts(
-                key.topLevelArtifactContext().expandFilesets()
-                    ? importantArtifacts
-                    : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
-                new ActionInputMetadataProvider(ctx.getImportantInputMap()),
-                fullMetadataProvider);
+                importantArtifacts, metadataProvider);
       }
       if (lostOutputs.isEmpty()) {
         return null;
       }
 
-      var owners =
-          lostOutputs
-              .owners()
-              .orElseGet(
-                  () ->
-                      ActionRewindStrategy.calculateLostInputOwners(
-                          lostOutputs.byDigest().values(), fullMetadataProvider));
-      // Filter out lost outputs from the set of built artifacts so that they are not reported. If
-      // rewinding is successful, we'll report them later on.
-      for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
-        builtArtifacts.remove(lostOutput);
-        builtArtifacts.removeAll(owners.getOwners(lostOutput));
-      }
-
       Iterable<Artifact> artifactsRelevantForRewinding = importantArtifacts;
-      // Runfiles are not considered important outputs, but can arise as dep keys to which lost
-      // outputs are attributed in Bazel (but not Blaze).
-      var hiddenTopLevelArtifacts =
-          artifactsToBuild.getAllArtifactsByOutputGroup().get(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-      if (hiddenTopLevelArtifacts != null) {
-        artifactsRelevantForRewinding =
-            Iterables.concat(
-                artifactsRelevantForRewinding, hiddenTopLevelArtifacts.getArtifacts().toList());
+      if (importantOutputHandler.requiresHiddenOutputMetadata()) {
+        var hiddenTopLevelArtifacts =
+            artifactsToBuild.getAllArtifactsByOutputGroup().get(OutputGroupInfo.HIDDEN_TOP_LEVEL);
+        if (hiddenTopLevelArtifacts != null) {
+          artifactsRelevantForRewinding =
+              Iterables.concat(
+                  artifactsRelevantForRewinding, hiddenTopLevelArtifacts.getArtifacts().toList());
+        }
       }
 
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
           key,
           ImmutableSet.copyOf(Artifact.keys(artifactsRelevantForRewinding)),
           lostOutputs.byDigest(),
-          owners,
+          metadataProvider,
+          builtArtifacts,
           env);
     } catch (ActionRewindException | ImportantOutputException e) {
       LabelCause cause = new LabelCause(label, e.getDetailedExitCode());

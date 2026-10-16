@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -73,30 +74,6 @@ import javax.annotation.Nullable;
  * @see Options a simpler class which you can use if you only have one options specification class
  */
 public class OptionsParser implements OptionsParsingResult {
-
-  // TODO(b/65049598) make ConstructionException checked.
-  /**
-   * An unchecked exception thrown when there is a problem constructing a parser, e.g. an error
-   * while validating an {@link OptionDefinition} in one of its {@link OptionsBase} subclasses.
-   *
-   * <p>This exception is unchecked because it generally indicates an internal error affecting all
-   * invocations of the program. I.e., any such error should be immediately obvious to the
-   * developer. Although unchecked, we explicitly mark some methods as throwing it as a reminder in
-   * the API.
-   */
-  public static class ConstructionException extends RuntimeException {
-    public ConstructionException(String message) {
-      super(message);
-    }
-
-    public ConstructionException(Throwable cause) {
-      super(cause);
-    }
-
-    public ConstructionException(String message, Throwable cause) {
-      super(message, cause);
-    }
-  }
 
   /**
    * A cache for the parsed options data. Both keys and values are immutable, so this is always
@@ -195,15 +172,6 @@ public class OptionsParser implements OptionsParsingResult {
           (OpaqueOptionsData) getOptionsDataInternal(ImmutableList.copyOf(optionsClasses), false));
     }
 
-    /**
-     * Enables the Parser to handle params files using the provided {@link ParamsFilePreProcessor}.
-     */
-    @CanIgnoreReturnValue
-    public Builder argsPreProcessor(ArgsPreProcessor preProcessor) {
-      this.implBuilder.argsPreProcessor(preProcessor);
-      return this;
-    }
-
     /** Skip all the prefixes associated with Starlark options */
     @CanIgnoreReturnValue
     public Builder skipStarlarkOptionPrefixes() {
@@ -261,6 +229,12 @@ public class OptionsParser implements OptionsParsingResult {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder isFirstRoundOfParsing(boolean isFirstRoundOfParsing) {
+      this.implBuilder.isFirstRoundOfParsing(isFirstRoundOfParsing);
+      return this;
+    }
+
     /** Returns a new {@link OptionsParser}. */
     public OptionsParser build() {
       return new OptionsParser(implBuilder.build(), allowResidue, ignoreUserOptions);
@@ -283,9 +257,10 @@ public class OptionsParser implements OptionsParsingResult {
   private final boolean ignoreUserOptions;
 
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
+  private ImmutableSet<String> starlarkOptionsAllowingMultiple = ImmutableSet.of();
   // scopes for starlark options
   private ImmutableSortedMap<String, String> scopesAttributes = ImmutableSortedMap.of();
-  private final ImmutableSortedMap<String, Object> onLeaveScopeValues = ImmutableSortedMap.of();
+  private ImmutableSortedMap<String, Object> onLeaveScopeValues = ImmutableSortedMap.of();
   private final Map<String, String> aliases = new HashMap<>();
   private boolean success = true;
 
@@ -315,12 +290,14 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
-  public ImmutableSortedMap<String, Object> getExplicitStarlarkOptions(
-      Predicate<? super ParsedOptionDescription> filter) {
+  public ImmutableSortedMap<String, Object> getExplicitCommandLineStarlarkOptions() {
     ImmutableSet<String> explicitOptions =
         impl.getSkippedOptions().stream()
-            .filter(ParsedOptionDescription::isExplicit)
-            .filter(filter)
+            .filter(
+                d ->
+                    d.isExplicit()
+                        && d.getPriority().getPriorityCategory()
+                            == OptionPriority.PriorityCategory.COMMAND_LINE)
             // Since this was passed from OptionsParserImpl unparsed, it still appears in its raw
             // form "--//foo=bar". Do some more string manipulation to reduce it to "//foo". By
             // contract, getStarlarkOptions(), which we compare against below, contains options that
@@ -348,12 +325,23 @@ public class OptionsParser implements OptionsParsingResult {
     return result.buildOrThrow();
   }
 
-  public void setStarlarkOptions(Map<String, Object> starlarkOptions) {
+  @Override
+  public ImmutableSet<String> getStarlarkOptionsAllowingMultiple() {
+    return starlarkOptionsAllowingMultiple;
+  }
+
+  public void setStarlarkOptions(
+      Map<String, Object> starlarkOptions, Set<String> starlarkOptionsAllowingMultiple) {
     this.starlarkOptions = ImmutableSortedMap.copyOf(starlarkOptions);
+    this.starlarkOptionsAllowingMultiple = ImmutableSet.copyOf(starlarkOptionsAllowingMultiple);
   }
 
   public void setScopesAttributes(Map<String, String> scopesAttributes) {
     this.scopesAttributes = ImmutableSortedMap.copyOf(scopesAttributes);
+  }
+
+  public void setOnLeaveScopeValues(Map<String, Object> onLeaveScopeValues) {
+    this.onLeaveScopeValues = ImmutableSortedMap.copyOf(onLeaveScopeValues);
   }
 
   public void parseAndExitUponError(String[] args) {
@@ -418,16 +406,6 @@ public class OptionsParser implements OptionsParsingResult {
     public int hashCode() {
       return optionDefinition.hashCode() + evaluatedExpansion.hashCode();
     }
-  }
-
-  /**
-   * The verbosity with which option help messages are displayed: short (just the name), medium
-   * (name, type, default, abbreviation), and long (full description).
-   */
-  public enum HelpVerbosity {
-    LONG,
-    MEDIUM,
-    SHORT
   }
 
   /**
@@ -875,7 +853,10 @@ public class OptionsParser implements OptionsParsingResult {
 
     asCompleteListOfParsedOptions().stream()
         .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
-        .filter(option -> !option.getCanonicalForm().contains("default_override"))
+        // Exclude the synthetic launcher option --default_override from user options.
+        // We match by option definition name rather than canonical form substring so that
+        // valid user options whose values contain "default_override" are not dropped.
+        .filter(option -> !option.getOptionDefinition().getOptionName().equals("default_override"))
         .forEach(option -> userOptions.put(option.getCanonicalForm(), getFinalExpansion(option)));
     impl.getSkippedOptions().stream()
         .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
@@ -887,12 +868,6 @@ public class OptionsParser implements OptionsParsingResult {
         .forEach(option -> userOptions.put(option, ""));
 
     return ImmutableMap.copyOf(userOptions);
-  }
-
-  /** Returns all options fields of the given options class, in alphabetic order. */
-  public static ImmutableList<? extends OptionDefinition> getOptionDefinitions(
-      Class<? extends OptionsBase> optionsClass) {
-    return OptionsData.getAllOptionDefinitionsForClass(optionsClass);
   }
 
   /**
@@ -907,18 +882,9 @@ public class OptionsParser implements OptionsParsingResult {
    */
   public static OptionDefinition getOptionDefinitionByName(
       Class<? extends OptionsBase> optionsClass, String optionName) {
-    return getOptionDefinitions(optionsClass).stream()
+    return OptionDefinition.getOptionDefinitions(optionsClass).stream()
         .filter(definition -> definition.getOptionName().equals(optionName))
         .collect(MoreCollectors.onlyElement());
-  }
-
-  /**
-   * Returns whether the given options class uses only the core types listed in {@link
-   * UsesOnlyCoreTypes#CORE_TYPES}. These are guaranteed to be deeply immutable and serializable.
-   */
-  public static boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
-    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
-    return data.getUsesOnlyCoreTypes(optionsClass);
   }
 
   /**

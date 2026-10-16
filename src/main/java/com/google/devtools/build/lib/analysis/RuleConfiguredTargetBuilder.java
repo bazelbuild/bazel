@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -57,12 +57,12 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkFunction;
 
 /**
  * Builder class for analyzed rule instances.
@@ -115,7 +115,8 @@ public final class RuleConfiguredTargetBuilder {
       // If there are any, propagate their union in a TransitiveVisibilityProvider.
       // One packageSpecificationProvider is created for each package_group, corresponding to the
       // restrictions imposed by a single bottom level dependency.
-      ImmutableSet.Builder<PackageSpecificationProvider> tvBuilder = ImmutableSet.builder();
+      ImmutableSet.Builder<TransitiveVisibilityProvider.Requirement> tvBuilder =
+          ImmutableSet.builder();
       if (ruleContext.getTransitiveVisibilityImposedByThisPackage() != null) {
         tvBuilder.add(ruleContext.getTransitiveVisibilityImposedByThisPackage());
       }
@@ -131,7 +132,8 @@ public final class RuleConfiguredTargetBuilder {
           }
         }
       }
-      ImmutableSet<PackageSpecificationProvider> finalTransitiveVisibility = tvBuilder.build();
+      ImmutableSet<TransitiveVisibilityProvider.Requirement> finalTransitiveVisibility =
+          tvBuilder.build();
       if (!finalTransitiveVisibility.isEmpty()) {
         addProvider(new TransitiveVisibilityProvider(finalTransitiveVisibility));
       }
@@ -271,7 +273,11 @@ public final class RuleConfiguredTargetBuilder {
         return null;
       }
 
-      AnalysisTestActionBuilder.writeAnalysisTestAction(ruleContext, testResultInfo);
+      AnalysisTestActionBuilder.writeAnalysisTestAction(
+          ruleContext,
+          ruleContext.isDefaultExecGroupExecutingOnWindows(),
+          ruleContext.createOutputArtifactScriptForAnalysisTest(),
+          testResultInfo);
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
@@ -279,7 +285,8 @@ public final class RuleConfiguredTargetBuilder {
     try {
       Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
           analysisEnvironment.getActionKeyContext(), actions, ruleContext.getOwner());
-    } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
+    } catch (Actions.ArtifactGeneratedByOtherRuleException
+        | Actions.SourceArtifactUsedAsOutputException e) {
       ruleContext.ruleError(e.getMessage());
       return null;
     }
@@ -328,7 +335,7 @@ public final class RuleConfiguredTargetBuilder {
    * <p>For Stalark rules the provider is already added in {@link
    * com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil}.
    *
-   * <p>See {@link RequiredFragmentsUtil} for a description of the meaning of this provider's
+   * <p>See {@code RequiredFragmentsUtil} for a description of the meaning of this provider's
    * content. That class contains methods that populate the results of {@link
    * RuleContext#getRequiredConfigFragments}.
    */
@@ -364,18 +371,20 @@ public final class RuleConfiguredTargetBuilder {
    * <p>This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
    * automatically propagates the validation action output group.
    */
-  private void propagateTransitiveValidationOutputGroups() {
+  private void propagateTransitiveValidationOutputGroups() throws InterruptedException {
     if (outputGroupBuilders.containsKey(OutputGroupInfo.VALIDATION_TRANSITIVE)) {
-      Label rdeLabel =
-          ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
-      // only allow native and builtins to override transitive validation propagation
-      if (rdeLabel != null
-          && BuiltinRestriction.isNotAllowed(
-              rdeLabel,
-              RepositoryMapping.EMPTY,
-              BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
-        ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
-        return;
+      var implementation = ruleContext.getRule().getRuleClassObject().getConfiguredTargetFunction();
+      // Only allow native rules and allowlisted Starlark implementations to override propagation.
+      if (implementation instanceof StarlarkFunction function) {
+        BazelModuleContext moduleContext = BazelModuleContext.of(function.getModule());
+        if (BuiltinRestriction.isNotAllowed(
+            moduleContext.label(),
+            moduleContext.moduleRepoName(),
+            BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
+          ruleContext.ruleError(
+              moduleContext.label() + " cannot access the _transitive_validation private API");
+          return;
+        }
       }
       addOutputGroup(
           OutputGroupInfo.VALIDATION,
@@ -454,6 +463,9 @@ public final class RuleConfiguredTargetBuilder {
     }
     ConstraintSemantics<RuleContext> constraintSemantics =
         ruleContext.getRuleClassProvider().getConstraintSemantics();
+    if (constraintSemantics == null) {
+      return;
+    }
     EnvironmentCollection supportedEnvironments =
         constraintSemantics.getSupportedEnvironments(ruleContext);
     if (supportedEnvironments != null) {
@@ -557,20 +569,6 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Adds "declared providers" defined in native code to the rule. Use this method for declared
-   * providers in definitions of native rules.
-   *
-   * <p>Use {@link #addStarlarkDeclaredProvider(Info)} for Starlark rule implementations.
-   */
-  @CanIgnoreReturnValue
-  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
-    for (Info provider : providers) {
-      addNativeDeclaredProvider(provider);
-    }
-    return this;
-  }
-
-  /**
    * Adds a "declared provider" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
@@ -584,41 +582,12 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
-  /**
-   * Returns true if a provider matching the given provider key has already been added to the
-   * configured target builder.
-   */
-  public boolean containsProviderKey(Provider.Key providerKey) {
-    return providersBuilder.contains(providerKey);
-  }
-
-  /**
-   * Returns true if a provider matching the given legacy key has already been added to the
-   * configured target builder.
-   */
-  public boolean containsLegacyKey(String legacyId) {
-    return providersBuilder.contains(legacyId);
-  }
-
-  /** Add a Starlark transitive info. The provider value must be safe. */
-  @CanIgnoreReturnValue
-  public RuleConfiguredTargetBuilder addStarlarkTransitiveInfo(String name, Object value) {
-    providersBuilder.put(name, value);
-    return this;
-  }
-
   /** Set the runfiles support for executable targets. */
   @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder setRunfilesSupport(
       RunfilesSupport runfilesSupport, Artifact executable) {
     this.runfilesSupport = runfilesSupport;
     this.executable = executable;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public RuleConfiguredTargetBuilder addTestActionTools(List<Artifact> tools) {
-    this.additionalTestActionTools.addAll(tools);
     return this;
   }
 

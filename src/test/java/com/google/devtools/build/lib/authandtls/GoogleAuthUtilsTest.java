@@ -15,15 +15,16 @@
 package com.google.devtools.build.lib.authandtls;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.auth.Credentials;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -31,7 +32,11 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
+import io.grpc.ManagedChannel;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.kqueue.KQueue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
@@ -45,6 +50,21 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class GoogleAuthUtilsTest {
+  @Test
+  public void testNewChannel_keepAliveEnabled() throws Exception {
+    AuthAndTLSOptions options = Options.getDefaults(AuthAndTLSOptions.class);
+    ManagedChannel channel =
+        GoogleAuthUtils.newChannel(
+            /* executor= */ null,
+            "localhost:12345",
+            /* proxy= */ null,
+            options,
+            /* interceptors= */ null,
+            /* serviceConfig= */ null);
+    assertThat(channel).isNotNull();
+    channel.shutdownNow();
+  }
+
   @Test
   public void testNetrc_emptyEnv_shouldIgnore() throws Exception {
     ImmutableMap<String, String> clientEnv = ImmutableMap.of();
@@ -122,9 +142,9 @@ public class GoogleAuthUtilsTest {
 
     CredentialHelperEnvironment credentialHelperEnvironment =
         CredentialHelperEnvironment.newBuilder()
-            .setEventReporter(new Reporter(new EventBus()))
+            .setEventReporter(new Reporter(EventBusEventHandler.createWithNewEventBus()))
             .setWorkspacePath(workspace)
-            .setClientEnvironment(ImmutableMap.of("PATH", pathValue.getPathString()))
+            .setClientEnvironment(() -> ImmutableMap.of("PATH", pathValue.getPathString()))
             .setHelperExecutionTimeout(Duration.ZERO)
             .build();
     CommandLinePathFactory commandLinePathFactory =
@@ -318,6 +338,36 @@ public class GoogleAuthUtilsTest {
                 .get()
                 .getPath())
         .isEqualTo(exampleOrgHelper);
+  }
+
+  @Test
+  public void testNewChannel_unixSocket_authorityIsLocalhost() throws Exception {
+    assumeTrue(Epoll.isAvailable() || KQueue.isAvailable());
+    AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+    ManagedChannel channel =
+        GoogleAuthUtils.newChannel(
+            /* executor= */ null,
+            "unix:///tmp/test.sock",
+            /* proxy= */ null,
+            authAndTlsOptions,
+            /* interceptors= */ null,
+            /* serviceConfig= */ null);
+    assertThat(channel.authority()).isEqualTo("localhost");
+  }
+
+  @Test
+  public void testNewChannel_unixSocketProxy_authorityIsTargetUrl() throws Exception {
+    assumeTrue(Epoll.isAvailable() || KQueue.isAvailable());
+    AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+    ManagedChannel channel =
+        GoogleAuthUtils.newChannel(
+            /* executor= */ null,
+            "grpc://remote.example.com",
+            /* proxy= */ "unix:///tmp/proxy.sock",
+            authAndTlsOptions,
+            /* interceptors= */ null,
+            /* serviceConfig= */ null);
+    assertThat(channel.authority()).isEqualTo("remote.example.com");
   }
 
   private static Path createExecutable(FileSystem fileSystem, String path) throws IOException {

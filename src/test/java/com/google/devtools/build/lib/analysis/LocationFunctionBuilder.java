@@ -36,21 +36,35 @@ import java.util.stream.Collectors;
 final class LocationFunctionBuilder {
   private final Label root;
   private final boolean multiple;
+  private String name;
   private LocationFunction.PathType pathType = LocationFunction.PathType.LOCATION;
   private final Map<Label, Collection<Artifact>> labelMap = new HashMap<>();
 
   LocationFunctionBuilder(String rootLabel, boolean multiple) {
     this.root = Label.parseCanonicalUnchecked(rootLabel);
     this.multiple = multiple;
+    this.name = multiple ? "locations" : "location";
   }
 
   public LocationFunction build() {
-    return new LocationFunction(root, Suppliers.ofInstance(labelMap), pathType, multiple);
+    return new LocationFunction(root, Suppliers.ofInstance(labelMap), name, pathType, multiple);
+  }
+
+  @CanIgnoreReturnValue
+  public LocationFunctionBuilder setName(String name) {
+    this.name = name;
+    return this;
   }
 
   @CanIgnoreReturnValue
   public LocationFunctionBuilder setPathType(LocationFunction.PathType pathType) {
     this.pathType = pathType;
+    this.name =
+        switch (pathType) {
+          case EXEC -> multiple ? "execpaths" : "execpath";
+          case RLOCATION -> multiple ? "rlocationpaths" : "rlocationpath";
+          case LOCATION -> multiple ? "locations" : "location";
+        };
     return this;
   }
 

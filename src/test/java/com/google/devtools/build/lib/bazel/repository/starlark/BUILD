@@ -3,14 +3,16 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository:__pkg__",
+    ],
 )
 
 java_library(
@@ -18,7 +20,6 @@ java_library(
     testonly = 1,
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
@@ -31,44 +32,47 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
+        "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
+        "//src/main/java/com/google/devtools/build/lib/runtime:repository_remote_executor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bazel_skyframe_executor_constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/annot:annot_sans_processor",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
-        "@maven//:org_apache_commons_commons_lang3",
+        "//third_party/java/apache_commons_lang3",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
     ],
 )
 
 java_test(
     name = "StarlarkTests",
     testonly = 1,
-    jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
     tags = [
         "rules",
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":StarlarkTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )

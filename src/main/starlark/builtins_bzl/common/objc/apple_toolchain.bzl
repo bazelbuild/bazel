@@ -15,21 +15,13 @@
 """Utilities for resolving items for the Apple toolchain (such as common tool
 flags, and paths)."""
 
-def _sdk_dir():
+def _sdk_dir() -> str:
     return "__BAZEL_XCODE_SDKROOT__"
 
-def _developer_dir():
+def _developer_dir() -> str:
     return "__BAZEL_XCODE_DEVELOPER_DIR__"
-
-def _platform_developer_framework_dir(apple_fragment):
-    platform_name = apple_fragment.single_arch_platform.name_in_plist
-    return "{}/Platforms/{}.platform/Developer/Library/Frameworks".format(
-        _developer_dir(),
-        platform_name,
-    )
 
 apple_toolchain = struct(
     developer_dir = _developer_dir,
-    platform_developer_framework_dir = _platform_developer_framework_dir,
     sdk_dir = _sdk_dir,
 )

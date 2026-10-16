@@ -33,6 +33,7 @@
 #include <mutex>  // NOLINT
 #include <set>
 #include <sstream>
+#include <string>
 #include <thread>       // NOLINT (to silence Google-internal linter)
 #include <type_traits>  // static_assert
 #include <utility>
@@ -54,6 +55,7 @@
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -306,7 +308,8 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
               SignalHandler::Get().GetServerProcessInfo()->server_pid_,
-              SignalHandler::Get().GetOutputBase());
+              SignalHandler::Get().GetOutputBase(),
+              /*from_signal_handler=*/true);
         }
         _exit(1);
       }
@@ -324,12 +327,14 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
 
 void SignalHandler::Install(const string& product_name,
                             const blaze_util::Path& output_base,
-                            const ServerProcessInfo* server_process_info_,
-                            SignalHandler::Callback cancel_server) {
+                            const ServerProcessInfo* server_process_info,
+                            SignalHandler::Callback cancel_server,
+                            SignalHandler::Callback terminal_size_changed) {
   product_name_ = product_name;
   output_base_ = output_base;
-  server_process_info_ = server_process_info_;
+  server_process_info_ = server_process_info;
   cancel_server_ = cancel_server;
+  terminal_size_changed_ = terminal_size_changed;
   ::SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
 
@@ -360,27 +365,6 @@ void SigPrintf(const char* format, ...) {
   }
 }
 
-static void PrintErrorW(const wstring& op) {
-  DWORD last_error = ::GetLastError();
-  if (last_error == 0) {
-    return;
-  }
-
-  WCHAR* message_buffer;
-  FormatMessageW(
-      /* dwFlags */ FORMAT_MESSAGE_ALLOCATE_BUFFER |
-          FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-      /* lpSource */ nullptr,
-      /* dwMessageId */ last_error,
-      /* dwLanguageId */ MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      /* lpBuffer */ message_buffer,
-      /* nSize */ 0,
-      /* Arguments */ nullptr);
-
-  fwprintf(stderr, L"ERROR: %s: %s (%d)\n", op.c_str(), message_buffer,
-           last_error);
-  LocalFree(message_buffer);
-}
 
 void WarnFilesystemType(const blaze_util::Path& output_base) {}
 
@@ -398,7 +382,16 @@ string GetSelfPath(const char* argv0) {
 }
 
 string GetCacheDir() {
-  string home = GetHomeDir();
+  // Respect $XDG_CACHE_HOME if set, for consistency with Linux / macOS and
+  // to provide a uniform way to configure caches in CI environments without
+  // explicitly setting --output_user_root.
+  //
+  // See https://github.com/bazelbuild/bazel/issues/27808
+  const string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
+  if (!xdg_cache_home.empty()) {
+    return blaze_util::JoinPath(xdg_cache_home, "bazel");
+  }
+  const string home = GetHomeDir();
   if (home.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Cannot find a good output root.\n"
@@ -473,12 +466,13 @@ bool IsSharedLibrary(const string& filename) {
 string GetSystemJavabase() {
   string javahome(GetPathEnv("JAVA_HOME"));
   if (!javahome.empty()) {
-    string javac = blaze_util::JoinPath(javahome, "bin/javac.exe");
-    if (blaze_util::PathExists(javac.c_str())) {
+    string java = blaze_util::JoinPath(javahome, "bin/java.exe");
+    if (blaze_util::PathExists(java.c_str())) {
       return javahome;
     }
     BAZEL_LOG(WARNING)
-        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
+        << "Ignoring JAVA_HOME, because it does not contain a bin/java.exe "
+           "executable.";
   }
 
   return "";
@@ -589,7 +583,7 @@ static HANDLE CreateJvmOutputFile(const blaze_util::Path& path,
         /* hTemplateFile */ nullptr);
     if (handle != INVALID_HANDLE_VALUE) {
       if (daemon_out_append &&
-          !SetFilePointerEx(handle, {0}, nullptr, FILE_END)) {
+          !SetFilePointerEx(handle, {}, nullptr, FILE_END)) {
         fprintf(stderr, "Could not seek to end of file (%s)\n",
                 path.AsPrintablePath().c_str());
         return INVALID_HANDLE_VALUE;
@@ -690,7 +684,7 @@ int ExecuteDaemon(
   }
 
   PROCESS_INFORMATION processInfo = {0};
-  STARTUPINFOEXW startupInfoEx = {0};
+  STARTUPINFOEXW startupInfoEx = {};
   lpAttributeList->InitStartupInfoExW(&startupInfoEx);
 
   std::vector<std::wstring> wesc_args_vector;
@@ -750,11 +744,9 @@ int ExecuteDaemon(
 }
 
 // Run the given program in the current working directory, using the given
-// argument vector, wait for it to finish, then exit ourselves with the exitcode
-// of that program.
-ATTRIBUTE_NORETURN static void ExecuteProgram(
-    const blaze_util::Path& exe,
-    const std::vector<std::wstring>& wargs_vector) {
+// argument vector, wait for it to finish, then return its exit code.
+static int RunProgram(const blaze_util::Path& exe,
+                      const std::vector<std::wstring>& wargs_vector) {
   CmdLine cmdline;
   CreateCommandLine(&cmdline, blaze_util::Path(), wargs_vector);
 
@@ -776,21 +768,76 @@ ATTRIBUTE_NORETURN static void ExecuteProgram(
         << "ExecuteProgram(" << exe.AsPrintablePath()
         << ") failed: " << blaze_util::WstringToCstring(werror);
   }
-  exit(x);
+  return x;
+}
+
+// Run the given program in the current working directory, using the given
+// argument vector, wait for it to finish, then exit ourselves with the exitcode
+// of that program.
+ATTRIBUTE_NORETURN static void ExecuteProgram(
+    const blaze_util::Path& exe,
+    const std::vector<std::wstring>& wargs_vector) {
+  exit(RunProgram(exe, wargs_vector));
+}
+
+// Appends an argument quoted for a Java launcher argument file to *out.
+// Within quotes, a backslash starts an escape sequence and a line break ends
+// the argument.
+static void AppendQuotedForJavaArgFile(const string& arg, string* out) {
+  *out += '"';
+  for (char c : arg) {
+    switch (c) {
+      case '\\':
+      case '"':
+        *out += '\\';
+        *out += c;
+        break;
+      case '\n':
+        *out += "\\n";
+        break;
+      case '\r':
+        *out += "\\r";
+        break;
+      default:
+        *out += c;
+    }
+  }
+  *out += '"';
 }
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args,
+                      const blaze_util::Path& argfile,
                       bool run_in_user_cgroup) {
-  std::vector<std::wstring> wargs;
-  wargs.reserve(server_jvm_args.size());
-  for (const string& a : server_jvm_args) {
-    std::wstring wa = blaze_util::CstringToWstring(a);
-    std::wstring wesc = bazel::windows::WindowsEscapeArg(wa);
-    wargs.push_back(wesc);
+  // The arguments can exceed the command line length limit of CreateProcessW,
+  // for example in batch mode with a large client environment passed via
+  // --client_env. Let the Java launcher read them from a file instead. The
+  // embedded JDK's java.exe uses UTF-8 as its active code page and thus reads
+  // the file as UTF-8.
+  string content;
+  // Skip the first argument, it is equal to 'exe'.
+  for (size_t i = 1; i < server_jvm_args.size(); ++i) {
+    AppendQuotedForJavaArgFile(server_jvm_args[i], &content);
+    content += '\n';
   }
-
-  ExecuteProgram(exe, wargs);
+  if (!blaze_util::WriteFile(content, argfile, 0600)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ExecuteServerJvm: failed to write " << argfile.AsPrintablePath()
+        << ": " << GetLastErrorString();
+  }
+  wstring wshort_argfile;
+  string error;
+  if (!blaze_util::AsShortWindowsPath(argfile.AsNativePath(), &wshort_argfile,
+                                      &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ExecuteServerJvm: AsShortWindowsPath(" << argfile.AsPrintablePath()
+        << "): " << error;
+  }
+  int exit_code = RunProgram(
+      exe, {exe.AsNativePath(),
+            bazel::windows::WindowsEscapeArg(L"@" + wshort_argfile)});
+  blaze_util::UnlinkPath(argfile);
+  exit(exit_code);
 }
 
 void ExecuteRunRequest(const blaze_util::Path& exe,
@@ -855,7 +902,15 @@ bool VerifyServerProcess(int pid, const blaze_util::Path& output_base) {
          recorded_start_time == blaze_util::ToString(start_time);
 }
 
-bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
+std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
+                                   int /*pid*/) {
+  return "";
+}
+
+std::string GetProcessTerminationDiagnosis(int /*pid*/) { return ""; }
+
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler) {
   AutoHandle process(::OpenProcess(
       PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
   DWORD exitcode = 0;
@@ -867,12 +922,21 @@ bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
   }
 
   BOOL result = TerminateProcess(process, /*uExitCode*/ 0);
-  if (!result || !AwaitServerProcessTermination(pid, output_base,
-                                                kPostKillGracePeriodSeconds)) {
+  if (!result || !AwaitServerProcessTermination(
+                     pid, output_base, kPostKillGracePeriodSeconds,
+                     TerminationReason::kKillSignal)) {
     string err = GetLastErrorString();
+    string diagnosis;
+    if (!from_signal_handler) {
+      diagnosis = GetProcessTerminationDiagnosis(pid);
+      if (!diagnosis.empty()) {
+        diagnosis = " Diagnosis: " + diagnosis;
+      }
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Cannot terminate server process with PID " << pid
-        << ", output_base=(" << output_base.AsPrintablePath() << "): " << err;
+        << ", output_base=(" << output_base.AsPrintablePath() << "): " << err
+        << diagnosis;
   }
   return result;
 }
@@ -1126,7 +1190,8 @@ static bool StillExists(HANDLE handle, const string& name) {
 std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
                                                   const blaze_util::Path& path,
                                                   LockMode mode,
-                                                  bool batch_mode, bool block) {
+                                                  bool batch_mode,
+                                                  absl::Duration timeout) {
   const uint64_t start_time = GetMillisecondsMonotonic();
   bool multiple_attempts = false;
 
@@ -1177,22 +1242,36 @@ std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
 
     if (!multiple_attempts) {
       BAZEL_LOG(USER) << "Another command holds the " << name << " lock.";
-      if (block) {
-        BAZEL_LOG(USER) << "Waiting for it to complete...";
-      }
-      fflush(stderr);
     }
 
-    if (!block) {
+    if (timeout <= absl::ZeroDuration()) {
       BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
           << "Exiting because the " << name
           << " lock is held and --noblock_for_lock was given.";
     }
 
-    multiple_attempts = true;
+    DWORD sleep_ms = 500;
+    if (timeout != absl::InfiniteDuration()) {
+      const uint64_t elapsed = GetMillisecondsMonotonic() - start_time;
+      const uint64_t timeout_ms = absl::ToInt64Milliseconds(timeout);
+      if (elapsed >= timeout_ms) {
+        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+            << "Exiting because the " << name
+            << " lock is held and --block_for_lock=" << timeout_ms
+            << "ms timeout expired.";
+      }
+      sleep_ms =
+          static_cast<DWORD>(std::min<uint64_t>(500ULL, timeout_ms - elapsed));
+    }
 
+    if (!multiple_attempts) {
+      BAZEL_LOG(USER) << "Waiting for it to complete...";
+      fflush(stderr);
+    }
+
+    multiple_attempts = true;
     CloseHandle(handle);
-    Sleep(/* dwMilliseconds */ 500);
+    Sleep(/* dwMilliseconds */ sleep_ms);
   }
 }
 
@@ -1217,25 +1296,28 @@ string GetUserName() {
   // Check USER, for sake of consistency with Linux / macOS. This is only set
   // under MSYS2, or potentially in tests.
   string user = GetEnv("USER");
-  if (!user.empty()) {
-    return user;
+  if (user.empty()) {
+    // Check USERNAME before calling GetUserNameW. Doing so allows the user to
+    // customize (or override) the user name.
+    // See
+    // https://github.com/bazelbuild/bazel/issues/7819#issuecomment-533050947
+    user = GetEnv("USERNAME");
   }
-
-  // Check USERNAME before calling GetUserNameW. Doing so allows the user to
-  // customize (or override) the user name.
-  // See https://github.com/bazelbuild/bazel/issues/7819#issuecomment-533050947
-  user = GetEnv("USERNAME");
-  if (!user.empty()) {
-    return user;
+  if (user.empty()) {
+    WCHAR buffer[UNLEN + 1];
+    DWORD len = UNLEN + 1;
+    if (!::GetUserNameW(buffer, &len)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "GetUserNameW failed: " << GetLastErrorString();
+    }
+    user = blaze_util::WstringToCstring(buffer);
   }
-
-  WCHAR buffer[UNLEN + 1];
-  DWORD len = UNLEN + 1;
-  if (!::GetUserNameW(buffer, &len)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "GetUserNameW failed: " << GetLastErrorString();
-  }
-  return blaze_util::WstringToCstring(buffer);
+  // Replace slashes and backslashes with underscores so that usernames like
+  // "DOMAIN\\user" or "foo/bar" do not cause issues in paths (e.g.
+  // output_user_root). See https://github.com/bazelbuild/bazel/issues/20289
+  std::replace(user.begin(), user.end(), '/', '_');
+  std::replace(user.begin(), user.end(), '\\', '_');
+  return user;
 }
 
 bool IsEmacsTerminal() {
@@ -1250,7 +1332,7 @@ bool IsEmacsTerminal() {
 bool IsStandardTerminal() {
   for (DWORD i : {STD_OUTPUT_HANDLE, STD_ERROR_HANDLE}) {
     DWORD mode = 0;
-    HANDLE handle = ::GetStdHandle(STD_ERROR_HANDLE);
+    HANDLE handle = ::GetStdHandle(i);
     // handle may be invalid when std{out,err} is redirected
     if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
         !(mode & ENABLE_PROCESSED_OUTPUT) ||

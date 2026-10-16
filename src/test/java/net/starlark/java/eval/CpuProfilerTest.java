@@ -13,31 +13,36 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
-import com.google.common.io.ByteStreams;
-import java.io.ByteArrayOutputStream;
+import com.google.perftools.profiles.ProfileProto.Function;
+import com.google.perftools.profiles.ProfileProto.Line;
+import com.google.perftools.profiles.ProfileProto.Location;
+import com.google.perftools.profiles.ProfileProto.Profile;
+import com.google.perftools.profiles.ProfileProto.Sample;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.TreeSet;
+import java.util.zip.GZIPInputStream;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 
 /**
  * CpuProfilerTest is a simple integration test that the Starlark CPU profiler emits minimally
  * plausible pprof-compatible output.
- *
- * <p>It runs under Blaze only, because it requires a pprof executable.
  */
 public final class CpuProfilerTest {
 
   private CpuProfilerTest() {} // uninstantiable
 
-  public static void main(String[] args) throws Exception {
-    String pprofCmd = args.length == 0 ? "/bin/pprof" : args[0];
-    if (!new File(pprofCmd).exists()) {
-      throw new AssertionError("no pprof command: " + pprofCmd);
-    }
+  static {
+    CpuProfiler.setNativeSupport(new CpuProfilerNativeSupportImpl());
+  }
 
+  public static void main(String[] args) throws Exception {
     // This test will fail during profiling of the Java tests
     // because a process (the JVM) can have only one profiler.
     // That's ok; just ignore it.
@@ -52,21 +57,24 @@ public final class CpuProfilerTest {
       System.exit(1);
     }
 
-    // This program consumes about 3s of CPU.
+    // This program consumes about 5s of CPU.
     ParserInput input =
         ParserInput.fromLines(
-            "x = [0]", //
-            "",
-            "def f():",
-            "    for i in range(10000):",
-            "        g()",
-            "",
-            "def g():",
-            "    list(range(10000))",
-            "    int(3)",
-            "    sorted(range(10000))",
-            "",
-            "f()");
+            """
+            x = [0]
+
+            def f():
+                for i in range(10000):
+                    g()
+
+            def g():
+                for _ in range(1000):
+                    list(range(10))
+                int(3)
+                sorted(range(10000))
+
+            f()
+            """);
 
     // Execute the workload.
     Module module = Module.create();
@@ -77,40 +85,37 @@ public final class CpuProfilerTest {
 
     Starlark.stopCpuProfile();
 
-    // Run pprof -top. Typical output (may vary by pprof release):
-    //
-    // Type: CPU
-    // Time: Jan 21, 2020 at 11:08am (PST)
-    // Duration: 3.26s, Total samples = 2640ms (80.97%)
-    // Showing nodes accounting for 2640ms, 100% of 2640ms total
-    //       flat  flat%   sum%        cum   cum%
-    //     1390ms 52.65% 52.65%     1390ms 52.65%  sorted
-    //      960ms 36.36% 89.02%      960ms 36.36%  list
-    //      220ms  8.33% 97.35%      220ms  8.33%  range
-    //       70ms  2.65%   100%       70ms  2.65%  int
-    //          0     0%   100%     2640ms   100%  <unknown>
-    //          0     0%   100%     2640ms   100%  f
-    //          0     0%   100%     2640ms   100%  g
+    Profile proto;
+    try (InputStream in = new GZIPInputStream(new FileInputStream(profile))) {
+      proto = Profile.parseFrom(in);
+    }
+    var functionNames = new HashMap<Long, String>();
+    for (Function function : proto.getFunctionList()) {
+      functionNames.put(function.getId(), proto.getStringTable((int) function.getName()));
+    }
+    var locations = new HashMap<Long, Location>();
+    for (Location location : proto.getLocationList()) {
+      locations.put(location.getId(), location);
+    }
+    var sampledFunctions = new TreeSet<String>();
+    for (Sample sample : proto.getSampleList()) {
+      for (long locationId : sample.getLocationIdList()) {
+        for (Line line : locations.get(locationId).getLineList()) {
+          sampledFunctions.add(functionNames.get(line.getFunctionId()));
+        }
+      }
+    }
 
-    // Runtime.exec is deprecated at Google but its open-source replacement is not yet available.
-    @SuppressWarnings("RuntimeExec")
-    Process pprof =
-        Runtime.getRuntime()
-            .exec(pprofCmd + " -top " + profile, /*envp=*/ new String[0], /*dir=*/ null);
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ByteStreams.copy(pprof.getInputStream(), out);
-    String got = out.toString(); // encoding undefined but unimportant---result is ASCII
-
-    // We'll assert that a few key substrings are present.
+    // We'll assert that a few key functions have been sampled.
     boolean ok = true;
-    for (String want : new String[] {"flat%", "sorted", "range"}) {
-      if (!got.contains(want)) {
-        System.err.println("pprof output does not contain substring: " + got);
+    for (String want : new String[] {"list", "sorted", "range"}) {
+      if (!sampledFunctions.contains(want)) {
+        System.err.println("profile contains no samples in function: " + want);
         ok = false;
       }
     }
     if (!ok) {
-      System.err.println("pprof output:\n" + out);
+      System.err.println("sampled functions: " + sampledFunctions);
       System.exit(1);
     }
   }

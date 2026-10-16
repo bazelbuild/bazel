@@ -81,7 +81,11 @@ public class ImportDepsCheckerTest extends AbstractClassCacheTest {
       throws IOException {
     try (ImportDepsChecker checker =
         new ImportDepsChecker(
-            bootclasspath, regularClasspath, regularClasspath, inputJars, false)) {
+            bootclasspath,
+            regularClasspath,
+            regularClasspath,
+            inputJars,
+            false)) {
       assertThat(checker.check()).isEqualTo(expectedCheckResult);
       Dependencies deps = checker.emitJdepsProto(DUMMY_RULE_LABEL);
       assertThat(deps.getDependencyList())
@@ -149,4 +153,5 @@ public class ImportDepsCheckerTest extends AbstractClassCacheTest {
       assertThat(dep.getPath().startsWith("/")).isFalse();
     }
   }
+
 }

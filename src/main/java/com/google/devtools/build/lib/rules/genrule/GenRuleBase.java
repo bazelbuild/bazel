@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines;
@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.ForOverride;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -156,7 +157,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
           }
         };
 
-    Map<String, String> executionInfo = Maps.newLinkedHashMap();
+    Map<String, String> executionInfo = new LinkedHashMap<>();
     executionInfo.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));
 
     if (ruleContext.attributes().get("local", Type.BOOLEAN)) {
@@ -186,7 +187,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         break;
       case BASH:
       default:
-        // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
         PathFragment shExecutable =
             ShToolchain.getPathForPlatform(
                 ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
@@ -194,7 +194,12 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             CommandHelper.buildBashCommandConstructor(
                 executionInfo, shExecutable, ".genrule_script.sh");
     }
-    ImmutableList<String> argv = commandHelper.buildCommandLine(command, inputs, constructor);
+    ImmutableList<String> argv =
+        commandHelper.buildCommandLine(
+            command,
+            inputs,
+            constructor,
+            getOsFromConstraintsOrHost(ruleContext.getExecutionPlatform()));
 
     if (isStampingEnabled(ruleContext)) {
       inputs.add(ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact());
@@ -258,7 +263,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   private static Pair<CommandType, String> determineCommandTypeAndAttribute(
       RuleContext ruleContext) {
     AttributeMap attributeMap = ruleContext.attributes();
-    if (ruleContext.isExecutedOnWindows()) {
+    if (ruleContext.isDefaultExecGroupExecutingOnWindows()) {
       if (attributeMap.isAttributeValueExplicitlySpecified("cmd_ps")) {
         return Pair.of(CommandType.WINDOWS_POWERSHELL, "cmd_ps");
       }

@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
 /** Provides key bytes for {@link FingerprintValueStore}. */
-public sealed interface KeyBytesProvider permits PackedFingerprint, StringKey {
+@SkybridgeInterface
+public interface KeyBytesProvider {
   /** Produces the {@code byte[]} representation of the key. */
   byte[] toBytes();
 

@@ -15,28 +15,37 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
 /** The basic cache operations needed to upload a {@link MerkleTree} and its associated blobs. */
 public interface MerkleTreeUploader {
   /** Uploads an in-memory blob to the remote cache. */
   ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, byte[] data);
+      RemoteActionExecutionContext context, Digest digest, byte[] data, boolean force);
 
-  /** Uploads a local file to the remote cache. */
+  /**
+   * Uploads a local file to the remote cache.
+   *
+   * @param execPath the exec path of the action input backing the file, which is used to report it
+   *     as a lost input if it is available neither locally nor remotely
+   */
   ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context,
-      RemotePathResolver remotePathResolver,
       Digest digest,
-      Path path);
+      Path path,
+      PathFragment execPath,
+      boolean force);
 
-  /** Uploads a virtual action input to the remote cache. */
-  ListenableFuture<Void> uploadVirtualActionInput(
-      RemoteActionExecutionContext context, Digest digest, VirtualActionInput virtualActionInput);
+  /** Uploads in-memory content provided by a {@link DeterministicWriter} to the remote cache. */
+  ListenableFuture<Void> uploadDeterministicWriter(
+      RemoteActionExecutionContext context,
+      Digest digest,
+      DeterministicWriter deterministicWriter,
+      boolean force);
 
   /**
    * Ensures that all inputs as well as metadata protos in the given Merkle tree are present in the
@@ -46,9 +55,6 @@ public interface MerkleTreeUploader {
    *     uploaded before.
    */
   void ensureInputsPresent(
-      RemoteActionExecutionContext context,
-      MerkleTree.Uploadable merkleTree,
-      boolean force,
-      RemotePathResolver remotePathResolver)
+      RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force)
       throws IOException, InterruptedException;
 }

@@ -60,11 +60,10 @@ add_to_bazelrc "common --repository_cache="
 
 # Basic test.
 function test_macro_local_repository() {
-  create_new_workspace
-  repo2=$new_workspace_dir
-
-  mkdir -p carnivore
-  cat > carnivore/BUILD <<'EOF'
+  local repo2="$(mktemp -d "${TEST_TMPDIR}/repo2XXXXXX")"
+  touch "${repo2}/REPO.bazel"
+  mkdir -p "${repo2}/carnivore"
+  cat > "${repo2}/carnivore/BUILD" <<'EOF'
 genrule(
     name = "mongoose",
     cmd = "echo 'Tra-la!' | tee $@",
@@ -73,7 +72,6 @@ genrule(
 )
 EOF
 
-  cd ${WORKSPACE_DIR}
   cat > $(setup_module_dot_bazel) <<EOF
 ext = use_extension("//:test.bzl", "repo_ext")
 use_repo(ext, "endangered")
@@ -111,11 +109,10 @@ EOF
   expect_not_log "Tra-la!"  # No invalidation
 
   # Test invalidation of the WORKSPACE file
-  create_new_workspace
-  repo2=$new_workspace_dir
-
-  mkdir -p carnivore
-  cat > carnivore/BUILD <<'EOF'
+  repo2="$(mktemp -d "${TEST_TMPDIR}/repo2XXXXXX")"
+  touch "${repo2}/REPO.bazel"
+  mkdir -p "${repo2}/carnivore"
+  cat > "${repo2}/carnivore/BUILD" <<'EOF'
 genrule(
     name = "mongoose",
     cmd = "echo 'Tra-la-la!' | tee $@",
@@ -123,7 +120,6 @@ genrule(
     visibility = ["//visibility:public"],
 )
 EOF
-  cd ${WORKSPACE_DIR}
   cat >test.bzl <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 def macro():
@@ -143,14 +139,12 @@ EOF
 }
 
 function test_starlark_local_repository() {
-  create_new_workspace
-  repo2=$new_workspace_dir
-
-  cat > BUILD <<'EOF'
+  local repo2="$(mktemp -d "${TEST_TMPDIR}/repo2XXXXXX")"
+  touch "${repo2}/REPO.bazel"
+  cat > "${repo2}/BUILD" <<'EOF'
 genrule(name='bar', cmd='echo foo | tee $@', outs=['bar.txt'])
 EOF
 
-  cd ${WORKSPACE_DIR}
   cat > $(setup_module_dot_bazel) <<EOF
 repo = use_repo_rule('//:test.bzl', 'repo')
 repo(name='foo', path='$repo2')
@@ -176,13 +170,10 @@ EOF
 }
 
 function setup_starlark_repository() {
-  create_new_workspace
-  repo2=$new_workspace_dir
+  repo2="$(mktemp -d "${TEST_TMPDIR}/repo2XXXXXX")"
+  touch "${repo2}/REPO.bazel" "${repo2}/bar.txt"
+  echo "filegroup(name='bar', srcs=['bar.txt'])" > "${repo2}/BUILD"
 
-  cat > bar.txt
-  echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
-
-  cd "${WORKSPACE_DIR}"
   cat > $(setup_module_dot_bazel) <<EOF
 repo = use_repo_rule('//:test.bzl', 'repo')
 repo(name = 'foo')
@@ -628,6 +619,73 @@ function test_starlark_repository_environ_invalidation_action_env_batch() {
   environ_invalidation_action_env_test_template --batch
 }
 
+# Regression test for the repository environment being a single whole-map Skyframe
+# node (introduced together with RepoEnvironmentFunction): changing one environment
+# variable invalidated every repository rule and module extension, even ones that
+# don't depend on that variable.
+#
+# In particular, running an interleaved command such as `bazel mod` with an
+# environment variable changed that the build doesn't even read (e.g. TERM, set
+# differently by an IDE/BSP server than by the user's shell) caused the next build
+# to spuriously refetch repositories and discard the analysis cache.
+#
+# The repo here only depends on FOO, yet an interleaved `mod` invocation with an
+# unrelated variable OTHER changed must not cause it to be refetched.
+function test_unrelated_env_var_does_not_invalidate_repo() {
+  local execution_file="${TEST_TMPDIR}/execution"
+  echo 0 > "${execution_file}"
+
+  cat > $(setup_module_dot_bazel) <<'EOF'
+ext = use_extension("//:ext.bzl", "ext")
+use_repo(ext, "foo")
+EOF
+  cat > ext.bzl <<EOF
+def _repo_impl(repository_ctx):
+  # Declares a dependency on FOO only.
+  foo = repository_ctx.getenv("FOO")
+  count = int(repository_ctx.execute(["cat", "${execution_file}"]).stdout.strip()) + 1
+  repository_ctx.execute(["bash", "-c", "echo %s > ${execution_file}" % count])
+  repository_ctx.file(
+      "BUILD", "filegroup(name = 'bar', visibility = ['//visibility:public'])")
+  repository_ctx.file("REPO.bazel", "")
+
+# A local repo is refetched whenever its node is recomputed, which makes spurious
+# invalidation directly observable through the fetch counter.
+repo = repository_rule(implementation = _repo_impl, local = True)
+
+def _ext_impl(module_ctx):
+  repo(name = "foo")
+
+ext = module_extension(implementation = _ext_impl)
+EOF
+  cat > BUILD <<'EOF'
+filegroup(name = "t", srcs = ["@foo//:bar"])
+EOF
+
+  # Initial fetch.
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+  # Rebuilding with the same environment must not refetch.
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Evaluate the whole module/repo graph with an unrelated variable (OTHER)
+  # changed, then build again with the original environment. The repo only reads
+  # FOO, so it must not be refetched.
+  FOO=1 OTHER=b bazel mod graph >& $TEST_log || fail "Failed to run mod"
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # A second interleaving with yet another value must likewise not refetch.
+  FOO=1 OTHER=c bazel mod graph >& $TEST_log || fail "Failed to run mod"
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Sanity check: changing FOO, which the repo does depend on, must refetch.
+  FOO=2 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
 # Test invalidation based on change to the bzl files
 function bzl_invalidation_test_template() {
   local startup_flag="${1-}"
@@ -676,7 +734,6 @@ function test_starlark_repository_bzl_invalidation_batch() {
 
 function test_starlark_repo_bzl_invalidation_wrong_digest() {
   # regression test for https://github.com/bazelbuild/bazel/pull/21131#discussion_r1471924084
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 ext = use_extension("//:r.bzl", "ext")
 use_repo(ext, "r")
@@ -957,8 +1014,6 @@ EOF
 
 function test_repo_env_invalidation() {
     # regression test for https://github.com/bazelbuild/bazel/issues/8869
-    WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-    cd "${WRKDIR}"
     cat > $(setup_module_dot_bazel) <<'EOF'
 my_repository_rule = use_repo_rule("//:my_repository_rule.bzl", "my_repository_rule")
 
@@ -1178,11 +1233,7 @@ function test_starlark_repository_download_args() {
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
-  create_new_workspace
-  repo2=$new_workspace_dir
-
-  cat > bar.txt
-  echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
+  touch BUILD
 
   cat > $(setup_module_dot_bazel) <<EOF
 repo = use_repo_rule('//:test.bzl', 'repo')
@@ -1678,18 +1729,159 @@ EOF
   expect_not_log "authrepo is being evaluated"
 }
 
-function test_disallow_unverified_http() {
+# Sets up a repository rule that calls `read_user_netrc` and a target that
+# compares the result with the value of `expected` in expected.bzl. Points
+# HOME (USERPROFILE on Windows) at an empty directory named home.
+function setup_read_user_netrc() {
+  cat > def.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_user_netrc")
+def _impl(ctx):
+  rc = read_user_netrc(ctx)
+  ctx.file("data.bzl", "netrc = %s" % (rc,))
+  ctx.file("BUILD", "")
+  ctx.file("REPO.bazel", "")
+
+netrcrepo = repository_rule(implementation = _impl)
+EOF
+
+  cat > $(setup_module_dot_bazel) <<'EOF'
+netrcrepo = use_repo_rule("//:def.bzl", "netrcrepo")
+
+netrcrepo(name = "netrc")
+EOF
+
+  cat > verify.bzl <<'EOF'
+load("@netrc//:data.bzl", "netrc")
+load("//:expected.bzl", "expected")
+
+def check_equal_expected():
+  print("Parsed value:   %s" % (netrc,))
+  print("Expected value: %s" % (expected,))
+  if netrc == expected:
+    return "OK"
+  else:
+    return "BAD"
+EOF
+  cat > BUILD <<'EOF'
+load ("//:verify.bzl", "check_equal_expected")
+genrule(
+  name = "check_expected",
+  outs = ["check_expected.txt"],
+  cmd = "echo %s > $@" % (check_equal_expected(),)
+)
+EOF
+
+  mkdir home
+  export HOME="$(pwd)/home"
+  if is_windows; then
+    export USERPROFILE="$(cygpath -m ${HOME})"
+  fi
+}
+
+function test_read_user_netrc_honors_netrc_env() {
+  setup_read_user_netrc
+  cat > home/.netrc <<'EOF'
+machine home.example.com login homeuser password homepass
+EOF
+  cat > alt-netrc <<'EOF'
+machine alt.example.com login altuser password altpass
+EOF
+  export NETRC="$(pwd)/alt-netrc"
+  if is_windows; then
+    export NETRC="$(cygpath -m ${NETRC})"
+  fi
+  cat > expected.bzl <<'EOF'
+expected = {
+  "alt.example.com" : { "login" : "altuser", "password" : "altpass" },
+}
+EOF
+
+  bazel build //:check_expected &> $TEST_log || fail "Expected success"
+  grep 'OK' `bazel info bazel-bin`/check_expected.txt \
+       || fail "Expected the file named by NETRC to be read instead of \$HOME/.netrc"
+}
+
+function test_read_user_netrc_reads_home_netrc() {
+  setup_read_user_netrc
+  unset NETRC
+  cat > home/.netrc <<'EOF'
+machine home.example.com login homeuser password homepass
+EOF
+  cat > expected.bzl <<'EOF'
+expected = {
+  "home.example.com" : { "login" : "homeuser", "password" : "homepass" },
+}
+EOF
+
+  bazel build //:check_expected &> $TEST_log || fail "Expected success"
+  grep 'OK' `bazel info bazel-bin`/check_expected.txt \
+       || fail "Expected \$HOME/.netrc to be read"
+}
+
+function test_read_user_netrc_without_netrc_file() {
+  setup_read_user_netrc
+  unset NETRC
+  cat > expected.bzl <<'EOF'
+expected = {}
+EOF
+
+  bazel build //:check_expected &> $TEST_log || fail "Expected success"
+  grep 'OK' `bazel info bazel-bin`/check_expected.txt \
+       || fail "Expected an empty result without a .netrc file"
+}
+
+function test_read_user_netrc_missing_netrc_env_file() {
+  setup_read_user_netrc
+  cat > home/.netrc <<'EOF'
+machine home.example.com login homeuser password homepass
+EOF
+  export NETRC="$(pwd)/does-not-exist"
+  if is_windows; then
+    export NETRC="$(cygpath -m ${NETRC})"
+  fi
+  cat > expected.bzl <<'EOF'
+expected = {}
+EOF
+
+  bazel build //:check_expected &> $TEST_log \
+      && fail "Expected failure when NETRC names a missing file"
+  expect_log "does-not-exist"
+}
+
+function test_localhost_http_without_checksum() {
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
   echo 'Hello World' > x/file.txt
   tar cvf x.tar x
   sha256="$(sha256sum x.tar | head -c 64)"
   serve_file x.tar
-  cat > MODULE.bazel <<EOF
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
+
+  # Localhost (127.0.0.1) is exempt from the http+checksum requirement,
+  # so downloading without a checksum should succeed.
+  # We use a custom repository rule instead of http_archive because we need
+  # rctx.download() with allow_fail=True to verify the URL passes filtering.
+  cat > $(setup_module_dot_bazel) <<EOF
+local_http = use_repo_rule("//:local_http.bzl", "local_http")
+local_http(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
+)
+EOF
+  cat > local_http.bzl <<'EOF'
+def _impl(rctx):
+  result = rctx.download(
+    url = rctx.attr.url,
+    output = "x.tar",
+    allow_fail = True,
+  )
+  if not result.success:
+    fail("Download failed: " + str(result))
+  rctx.extract("x.tar")
+  rctx.delete("x.tar")
+
+local_http = repository_rule(
+  implementation = _impl,
+  attrs = {"url": attr.string(mandatory = True)},
 )
 EOF
   cat > BUILD <<'EOF'
@@ -1700,19 +1892,51 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
+  bazel build //:it || fail "Expected success for localhost http without checksum"
+
+  # Non-localhost http without checksum should still be rejected.
+  bazel clean --expunge
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://nonlocalhost.example.com:$nc_port/x.tar",
+  build_file_content = "exports_files([\"file.txt\"])",
+  strip_prefix = "x",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
   expect_log 'plain http.*missing checksum'
 
-  # After adding a good checksum, we expect success
-  ed MODULE.bazel <<EOF
-/url
-a
-sha256 = "$sha256",
-.
-w
-q
+  # http with a checksum should always succeed (even non-localhost).
+  bazel clean --expunge
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256 = "$sha256",
+  build_file_content = "exports_files([\"file.txt\"])",
+  strip_prefix = "x",
+)
 EOF
-  bazel build //:it || fail "Expected success one the checksum is given"
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:it || fail "Expected success when checksum is provided"
 
 }
 
@@ -1820,8 +2044,6 @@ login foo
 password bar
 EOF
 
-  mkdir main
-  cd main
   cat > $(setup_module_dot_bazel) <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -1901,8 +2123,6 @@ login badusername
 password badpassword
 EOF
 
-  mkdir main
-  cd main
   cat > $(setup_module_dot_bazel) <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -1931,8 +2151,6 @@ function test_disable_download_should_prevent_downloading() {
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file x.tar
 
-  mkdir main
-  cd main
   cat > $(setup_module_dot_bazel) <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -2173,7 +2391,6 @@ EOF
 }
 
 function test_repo_boundary_files() {
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2191,7 +2408,6 @@ EOF
 
 function test_repo_mapping_change_in_rule_impl() {
   # regression test for #20722
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2237,7 +2453,6 @@ EOF
 
 function test_repo_mapping_change_in_bzl_init() {
   # same as above, but tests .bzl init time repo mapping usages
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2285,7 +2500,6 @@ EOF
 function test_file_watching_inside_working_dir() {
   # when reading a file inside the working directory (where the repo
   # is to be fetched), we shouldn't watch it.
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2313,7 +2527,6 @@ function test_file_watching_inside_working_dir_forcing_error() {
   # when reading a file inside the working directory (where the repo
   # is to be fetched), we shouldn't watch it. Forcing the watch should
   # result in an error.
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2337,7 +2550,6 @@ function test_file_watching_outside_workspace() {
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2369,7 +2581,6 @@ function test_file_watching_in_other_repo() {
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
@@ -2414,7 +2625,6 @@ function test_incompatible_no_implicit_watch_label() {
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
@@ -2461,7 +2671,6 @@ function test_no_incompatible_no_implicit_watch_label() {
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
@@ -2506,7 +2715,6 @@ function test_bad_marker_file_ignored() {
   mkdir -p "${outside_dir}"
   echo nothing > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
@@ -2549,7 +2757,6 @@ EOF
 }
 
 function test_file_watching_in_undefined_repo() {
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:foo.bzl", "foo")
 foo(name = "foo")
@@ -2589,7 +2796,6 @@ EOF
 }
 
 function test_file_watching_in_other_repo_cycle() {
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
@@ -2617,7 +2823,6 @@ function test_watch_file_status_change() {
   mkdir -p "${outside_dir}"
   echo something > ${outside_dir}/data.txt
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2678,7 +2883,6 @@ function test_watch_file_status_change_dangling_symlink() {
   mkdir -p "${outside_dir}"
   ln -s ${outside_dir}/pointee ${outside_dir}/pointer
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2719,7 +2923,6 @@ function test_watch_file_status_change_symlink_parent() {
   local outside_dir=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   mkdir -p "${outside_dir}/a"
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2764,7 +2967,6 @@ function test_path_readdir_watches_dirents() {
   touch ${outside_dir}/bar
   touch ${outside_dir}/baz
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2813,8 +3015,11 @@ function test_watch_tree() {
   touch ${outside_dir}/foo
   touch ${outside_dir}/bar
   touch ${outside_dir}/baz
+  mkdir ${outside_dir}/.ignored
+  touch ${outside_dir}/.ignored/qux
+  mkdir -p ${outside_dir}/other/dir/not/.ignored
+  touch ${outside_dir}/other/dir/not/.ignored/grault
 
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
@@ -2824,7 +3029,7 @@ EOF
 def _r(rctx):
   rctx.file("BUILD", "filegroup(name='r')")
   print("I'm running!")
-  rctx.watch_tree("${outside_dir}")
+  rctx.watch_tree("${outside_dir}", exclude=[".ignored/**"])
 r=repository_rule(_r)
 EOF
 
@@ -2836,10 +3041,25 @@ EOF
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I'm running!"
 
+  # Same with this other file, which is NOT ignored.
+  echo haha > ${outside_dir}/other/dir/not/.ignored/grault
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I'm running!"
+
+  # changing the contents under an excluded directory does nothing
+  echo haha > ${outside_dir}/.ignored/qux
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I'm running!"
+
   # adding a file should trigger a refetch.
   touch ${outside_dir}/quux
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I'm running!"
+
+  # adding a file under an excluded directory does nothing
+  touch ${outside_dir}/.ignored/corge
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I'm running!"
 
   # just touching an existing file shouldn't cause a refetch.
   touch ${outside_dir}/bar
@@ -2856,6 +3076,164 @@ EOF
   touch ${outside_dir}/baz/inner
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I'm running!"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/30883.
+function test_path_readdir_deleted_dir() {
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  rctx.watch(p)
+  if p.exists:
+    print("I see: " + ",".join(sorted([c.basename for c in p.readdir()])))
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir foo
+  touch foo/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar"
+
+  # deleting the watched directory should trigger a refetch, not an error.
+  rm -r foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+
+  # recreating the watched directory should trigger a refetch again.
+  mkdir foo
+  touch foo/quux
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: quux"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/30883.
+function test_path_readdir_deleted_dir_without_watch() {
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  if p.exists:
+    print("I see: " + ",".join(sorted([c.basename for c in p.readdir()])))
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir foo
+  touch foo/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar"
+
+  # deleting the directory whose entries are watched should trigger a refetch,
+  # not an error.
+  rm -r foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/30883.
+function test_watch_tree_deleted_dir() {
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  rctx.watch(p)
+  if p.is_dir:
+    rctx.watch_tree(p)
+    print("I see: a directory")
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir -p foo/sub
+  touch foo/sub/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: a directory"
+
+  # deleting the watched directory tree should trigger a refetch, not an error.
+  rm -r foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+
+  # recreating the watched directory tree should trigger a refetch again.
+  mkdir foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: a directory"
+}
+
+# Documents the current behavior when a directory whose entries are recorded
+# as a repo or module extension input becomes non-readable between builds: the
+# build fails. This is not necessarily the desired behavior.
+function test_path_readdir_unreadable_dir() {
+  if is_windows; then
+    echo "Skipping test on Windows (no POSIX permissions)"
+    return 0
+  fi
+  if [[ "$(id -u)" == 0 ]]; then
+    echo "Skipping test when running as root (permissions are not enforced)"
+    return 0
+  fi
+
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  rctx.watch(p)
+  if p.exists:
+    print("I see: " + ",".join(sorted([c.basename for c in p.readdir()])))
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir foo
+  touch foo/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar"
+
+  chmod 000 foo
+  local exit_code=0
+  bazel build @r >& $TEST_log || exit_code=$?
+  chmod 755 foo
+  (( exit_code != 0 )) || fail "expected bazel to fail"
+  expect_log "foo (Permission denied)"
+
+  bazel shutdown
+  chmod 000 foo
+  exit_code=0
+  bazel build @r >& $TEST_log || exit_code=$?
+  chmod 755 foo
+  (( exit_code != 0 )) || fail "expected bazel to fail"
+  expect_log "foo (Permission denied)"
+
+  # After the directory becomes readable again, the build succeeds without a
+  # refetch since its contents didn't change.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/21823.
@@ -2911,7 +3289,6 @@ function test_keep_going_weird_deadlock() {
     # no symlinks on windows
     return
   fi
-  create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
 r=use_repo_rule("//:r.bzl", "r")
 r(name="r")
@@ -2936,8 +3313,6 @@ EOF
 }
 
 function test_legacy_label_print() {
-    WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-    cd "${WRKDIR}"
     cat > $(setup_module_dot_bazel) <<'EOF'
 my_repository_rule = use_repo_rule("//:my_repository_rule.bzl", "my_repository_rule")
 
@@ -3155,6 +3530,34 @@ EOF
   expect_log 'result_err.output: "err"'
   expect_log 'result_err.return_code: 1'
   expect_log 'result_err.error_message: ""'
+}
+
+function test_wasm_compilation() {
+  setup_starlark_repository
+
+  declare -r exec_wasm="$(rlocation "io_bazel/src/test/shell/bazel/testdata/exec_wasm.wasm")"
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  wasm_file = "$exec_wasm"
+  wasm_module = repository_ctx.load_wasm("$exec_wasm", compile=True)
+
+  result_ok = repository_ctx.execute_wasm(wasm_module, "run_ok", input="")
+  print('result_ok.output: %r' % (result_ok.output,))
+  print('result_ok.return_code: %r' % (result_ok.return_code,))
+  print('result_ok.error_message: %r' % (result_ok.error_message,))
+
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build --experimental_repository_ctx_execute_wasm --experimental_repository_ctx_wasm_compilation @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+
+  expect_log 'result_ok.output: "ok"'
+  expect_log 'result_ok.return_code: 0'
+  expect_log 'result_ok.error_message: ""'
 }
 
 function test_resolved_attributes_shows_no_message_if_unchanged() {
@@ -3456,6 +3859,37 @@ EOF
   assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
 }
 
+# Verifies that PAX names containing only Latin-1 code points remain distinguishable from raw
+# single-byte USTAR names.
+function test_extract_pax_tar_latin1_unicode_file_names() {
+  local archive_tar="${TEST_TMPDIR}/pax-latin1.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_pax"
+  echo "bar" > "Ä_pax/Ä_foo.txt"
+  tar --format=pax -cvf pax-latin1.tar "Ä_pax"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_pax/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo.txt"
+}
+
 # Verifies that tar entries with USTAR headers, for which an encoding isn't specified, are extracted
 # correctly if that encoding happens to be UTF-8.
 function test_extract_ustar_tar_non_ascii_utf8_file_names() {
@@ -3598,6 +4032,95 @@ EOF
   [[ -f "$output_base/external/+repo+foo/ruff" ]] || fail "Expected ruff binary to be extracted"
 }
 
+# Verifies that files without user-readable permissions in archives are made
+# readable after extraction.
+function _run_extract_test() {
+  local archive_path="$1"
+  local path_in_archive="$2"
+  local expected_content="$3"
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_path}', 'out_dir')
+  # Verify the file is readable by reading it
+  content = repository_ctx.read('out_dir/${path_in_archive}')
+  if '${expected_content}' not in content:
+    fail('Expected to read file content, got: ' + content)
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+}
+
+function test_extract_non_readable_file_tar() {
+  local archive_tar="${TEST_TMPDIR}/non_readable.tar.gz"
+
+  python3 -c "
+import tarfile
+import io
+import gzip
+
+content = b'secret content'
+with gzip.open('${archive_tar}', 'wb') as gz:
+    with tarfile.open(fileobj=gz, mode='w') as tar:
+        info = tarfile.TarInfo(name='non_readable_dir/non_readable.txt')
+        info.size = len(content)
+        info.mode = 0o000  # No permissions
+        tar.addfile(info, io.BytesIO(content))
+"
+
+  _run_extract_test "${archive_tar}" "non_readable_dir/non_readable.txt" "secret content"
+}
+
+function test_extract_non_readable_file_zip() {
+  local archive_zip="${TEST_TMPDIR}/non_readable.zip"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir -p non_readable_zip_dir
+  echo "secret zip content" > non_readable_zip_dir/non_readable.txt
+  python3 -c "
+import zipfile
+with zipfile.ZipFile('non_readable.zip', 'w') as zf:
+    info = zipfile.ZipInfo('non_readable_zip_dir/non_readable.txt')
+    # S_IFREG (0o100000) marks it as a regular file, but with no permission bits.
+    # This ensures getPermissions() returns the actual mode rather than defaulting to 0755.
+    info.external_attr = 0o100000 << 16
+    zf.writestr(info, 'secret zip content')
+"
+  popd
+
+  _run_extract_test "${archive_zip}" "non_readable_zip_dir/non_readable.txt" "secret zip content"
+}
+
+function test_extract_non_readable_file_ar() {
+  local archive_ar="${TEST_TMPDIR}/non_readable.ar"
+
+  # Create a valid AR file, then patch the permission field to 0000
+  pushd "${TEST_TMPDIR}"
+  echo "secret ar content" > non_readable.txt
+  ar rc non_readable.ar non_readable.txt
+  # Patch the mode field (bytes 40-47 after the 8-byte magic) to "0       "
+  python3 -c "
+with open('non_readable.ar', 'r+b') as f:
+    # AR magic is 8 bytes, then header starts
+    # Header format: filename(16) + mtime(12) + owner(6) + group(6) + mode(8) + size(10) + magic(2)
+    # Mode is at offset 8 + 16 + 12 + 6 + 6 = 48
+    f.seek(48)
+    f.write(b'0       ')  # 8 bytes for mode 0000 in octal
+"
+  popd
+
+  _run_extract_test "${archive_ar}" "non_readable.txt" "secret ar content"
+}
+
 # Regression test for https://github.com/bazelbuild/bazel/issues/27446.
 function do_test_local_module_file_patch() {
   cat > $(setup_module_dot_bazel) <<'EOF'
@@ -3648,6 +4171,45 @@ function test_local_module_file_patch_with_hardlinks() {
 
 function test_local_module_file_patch_with_copy() {
   do_test_local_module_file_patch "--noexperimental_repository_cache_hardlinks"
+}
+
+function test_http_file_root_build_alias() {
+  local file="${TEST_TMPDIR}/AvailablePortFinder.java"
+  printf "final class AvailablePortFinder {}\n" > "$file"
+  if is_windows; then
+    file_url="file:///$(cygpath -m "$file")"
+  else
+    file_url="file://${file}"
+  fi
+
+  cat > "$(setup_module_dot_bazel)" <<MODULE
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(
+    name = "data_repo",
+    url = "${file_url}",
+    downloaded_file_path = "AvailablePortFinder.java",
+    sha256 = "59959c069902364aa88ced5552ac70009435bca7f689419f0e5f2375c541cb01",
+)
+MODULE
+
+  cat > BUILD <<BUILD_FILE
+filegroup(
+    name = "by_root_alias",
+    srcs = ["@data_repo//:file"],
+)
+
+filegroup(
+    name = "by_downloaded_name",
+    srcs = ["@data_repo//:AvailablePortFinder.java"],
+)
+
+filegroup(
+    name = "by_repo_name",
+    srcs = ["@data_repo"],
+)
+BUILD_FILE
+
+  bazel build //:by_root_alias //:by_downloaded_name //:by_repo_name >& $TEST_log || fail "Expected build to succeed"
 }
 
 run_suite "local repository tests"

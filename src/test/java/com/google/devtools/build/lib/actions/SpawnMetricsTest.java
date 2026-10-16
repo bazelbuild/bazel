@@ -32,6 +32,7 @@ public final class SpawnMetricsTest {
             .setInputBytes(10)
             .setInputFiles(20)
             .setMemoryEstimateBytes(30)
+            .setMeasuredMemoryPeakBytes(35)
             .setInputBytesLimit(20)
             .setInputFilesLimit(40)
             .setOutputBytesLimit(50)
@@ -46,6 +47,7 @@ public final class SpawnMetricsTest {
             .setInputBytes(100)
             .setInputFiles(200)
             .setMemoryEstimateBytes(300)
+            .setMeasuredMemoryPeakBytes(300)
             .setInputBytesLimit(200)
             .setInputFilesLimit(400)
             .setOutputBytesLimit(500)
@@ -67,6 +69,7 @@ public final class SpawnMetricsTest {
     assertThat(result.inputBytes()).isEqualTo(110);
     assertThat(result.inputFiles()).isEqualTo(220);
     assertThat(result.memoryEstimate()).isEqualTo(330);
+    assertThat(result.measuredMemoryPeak()).isEqualTo(335);
     assertThat(result.inputBytesLimit()).isEqualTo(220);
     assertThat(result.inputFilesLimit()).isEqualTo(440);
     assertThat(result.outputBytesLimit()).isEqualTo(550);
@@ -84,6 +87,7 @@ public final class SpawnMetricsTest {
             .setInputBytes(10)
             .setInputFiles(20)
             .setMemoryEstimateBytes(30)
+            .setMeasuredMemoryPeakBytes(35)
             .setInputBytesLimit(20)
             .setInputFilesLimit(40)
             .setOutputBytesLimit(50)
@@ -98,6 +102,7 @@ public final class SpawnMetricsTest {
             .setInputBytes(100)
             .setInputFiles(200)
             .setMemoryEstimateBytes(300)
+            .setMeasuredMemoryPeakBytes(300)
             .setInputBytesLimit(200)
             .setInputFilesLimit(400)
             .setOutputBytesLimit(500)
@@ -119,11 +124,54 @@ public final class SpawnMetricsTest {
     assertThat(result.inputBytes()).isEqualTo(100);
     assertThat(result.inputFiles()).isEqualTo(200);
     assertThat(result.memoryEstimate()).isEqualTo(300);
+    assertThat(result.measuredMemoryPeak()).isEqualTo(300);
     assertThat(result.inputBytesLimit()).isEqualTo(200);
     assertThat(result.inputFilesLimit()).isEqualTo(400);
     assertThat(result.outputBytesLimit()).isEqualTo(500);
     assertThat(result.outputFilesLimit()).isEqualTo(600);
     assertThat(result.memoryLimit()).isEqualTo(700);
     assertThat(result.timeLimitInMs()).isEqualTo(800 * 1000);
+  }
+
+  @Test
+  public void retryTimeInMs_emptyMapReturnsZeroWithoutAllocation() {
+    SpawnMetrics metrics = SpawnMetrics.Builder.forRemoteExec().build();
+    assertThat(metrics.retryTimeInMs()).isEqualTo(0);
+    assertThat(metrics.retryTimeByError()).isEmpty();
+  }
+
+  @Test
+  public void retryTimeInMs_nonEmptyCalculatesSum() {
+    SpawnMetrics metrics =
+        SpawnMetrics.Builder.forRemoteExec()
+            .addRetryTimeInMs(1, 100)
+            .addRetryTimeInMs(2, 250)
+            .build();
+    assertThat(metrics.retryTimeInMs()).isEqualTo(350);
+    assertThat(metrics.retryTimeByError()).containsExactly(1, 100, 2, 250);
+  }
+
+  @Test
+  public void builder_setRetryTimeInMs_thenAddRetryTimeInMs_handlesMutability() {
+    SpawnMetrics metrics =
+        SpawnMetrics.Builder.forRemoteExec()
+            .setRetryTimeInMs(com.google.common.collect.ImmutableMap.of(1, 100))
+            .addRetryTimeInMs(2, 200)
+            .addRetryTimeInMs(1, 50)
+            .build();
+
+    assertThat(metrics.retryTimeInMs()).isEqualTo(350);
+    assertThat(metrics.retryTimeByError()).containsExactly(1, 150, 2, 200);
+  }
+
+  @Test
+  public void builder_setRetryTimeInMs_emptyMapNormalizesToNull() {
+    SpawnMetrics metrics =
+        SpawnMetrics.Builder.forRemoteExec()
+            .setRetryTimeInMs(com.google.common.collect.ImmutableMap.of())
+            .build();
+
+    assertThat(metrics.retryTimeInMs()).isEqualTo(0);
+    assertThat(metrics.retryTimeByError()).isEmpty();
   }
 }

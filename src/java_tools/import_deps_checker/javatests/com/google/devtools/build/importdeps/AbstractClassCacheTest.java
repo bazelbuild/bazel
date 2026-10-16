@@ -88,6 +88,8 @@ public abstract class AbstractClassCacheTest {
 
   final Path libraryModuleInfoJar = getPathFromSystemProperty("classcache.test.LibraryModuleInfo");
 
+  final Path condyJar = getPathFromSystemProperty("classcache.test.Condy");
+
   static Path getPathFromSystemProperty(String propertyName) {
     String path =
         checkNotNull(

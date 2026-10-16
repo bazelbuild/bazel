@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.core;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestTrimmingTransitionFactory;
@@ -30,6 +31,7 @@ public final class CoreRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
+    builder.setConstraintSemantics(new RuleContextConstraintSemantics());
     builder.setShouldInvalidateCacheForOptionDiff(
         TestConfiguration.SHOULD_INVALIDATE_FOR_OPTION_DIFF);
     builder.addConfigurationFragment(TestConfiguration.class);

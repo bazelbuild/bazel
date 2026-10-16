@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import javax.annotation.Nullable;
 
 /**
  * A converter is a little helper object that can take a String and turn it into an instance of type
  * T (the type parameter to the converter). A context object is optionally provided.
  */
+@SkybridgeInterface
 public interface Converter<T> {
 
   /**

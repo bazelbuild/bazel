@@ -53,10 +53,25 @@ public final class InvocationPolicyEnforcer {
 
   // LINT.IfChange
   private static final String INVOCATION_POLICY_SOURCE = "Invocation policy";
-  // LINT.ThenChange(//src/main/java/com/google/devtools/common/options/GlobalRcUtils.java, src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
+  // LINT.ThenChange(//src/main/java/com/google/devtools/common/options/GlobalRcUtils.java, //src/main/java/com/google/devtools/common/options/GlobalRcUtils.java.oss)
   private final InvocationPolicy invocationPolicy;
   private final Level loglevel;
   @Nullable private final Object conversionContext;
+
+  @Nullable
+  private static Object redactValueForLogging(
+      OptionDefinition optionDefinition, @Nullable Object value) {
+    if (value == null) {
+      return null;
+    }
+    if (optionDefinition.isFullyRedactedInLogs()) {
+      if (value instanceof List<?> list) {
+        return list.stream().map(_ -> "<REDACTED>").toList();
+      }
+      return "<REDACTED>";
+    }
+    return value;
+  }
 
   /**
    * Creates an InvocationPolicyEnforcer that enforces the given policy.
@@ -579,10 +594,10 @@ public final class InvocationPolicyEnforcer {
           logger.at(loglevel).log(
               "Keeping value '%s' from source '%s' for %s because the invocation policy specifying "
                   + "the value(s) '%s' is overridable",
-              valueDescription.getValue(),
+              redactValueForLogging(optionDefinition, valueDescription.getValue()),
               valueDescription.getSourceString(),
               optionDefinition,
-              setValue.getFlagValueList());
+              redactValueForLogging(optionDefinition, setValue.getFlagValueList()));
           // Nothing to do -- the value already has an override.
           return;
         }
@@ -600,7 +615,8 @@ public final class InvocationPolicyEnforcer {
                   "User set a value for %s which is not permitted by the invocation policy. This"
                       + " flag value will always be overridden to %s. %s",
                   optionDefinition,
-                  flagPolicy.policy.getSetValue().getFlagValueList(),
+                  redactValueForLogging(
+                      optionDefinition, flagPolicy.policy.getSetValue().getFlagValueList()),
                   flagPolicy.policy.getCustomErrorMessage()));
         }
         break;
@@ -612,13 +628,16 @@ public final class InvocationPolicyEnforcer {
         logger.at(loglevel).log(
             "Setting value for %s from invocation policy to '%s', overriding the default value "
                 + "'%s'",
-            optionDefinition, flagValue, optionDefinition.getDefaultValue(conversionContext));
+            optionDefinition,
+            redactValueForLogging(optionDefinition, flagValue),
+            redactValueForLogging(
+                optionDefinition, optionDefinition.getDefaultValue(conversionContext)));
       } else {
         logger.at(loglevel).log(
             "Setting value for %s from invocation policy to '%s', overriding value '%s' from '%s'",
             optionDefinition,
-            flagValue,
-            valueDescription.getValue(),
+            redactValueForLogging(optionDefinition, flagValue),
+            redactValueForLogging(optionDefinition, valueDescription.getValue()),
             valueDescription.getSourceString());
       }
 
@@ -647,10 +666,12 @@ public final class InvocationPolicyEnforcer {
       logger.at(loglevel).log(
           "Using default value '%s' for flag '%s' as specified by %s invocation policy, "
               + "overriding original value '%s' from '%s'",
-          clearedFlagDefaultValue,
+          redactValueForLogging(
+              clearedValueDescription.getOptionDefinition(), clearedFlagDefaultValue),
           clearedFlagName,
           policyType,
-          clearedValueDescription.getValue(),
+          redactValueForLogging(
+              clearedValueDescription.getOptionDefinition(), clearedValueDescription.getValue()),
           clearedValueDescription.getSourceString());
       invocationPolicyFlagListBuilder.add(
           OptionAndRawValue.create(
@@ -756,7 +777,8 @@ public final class InvocationPolicyEnforcer {
                   "%sValues policy disallows the default value '%s' for %s but also specifies to "
                       + "use the default value",
                   policyType,
-                  optionDefinition.getDefaultValue(conversionContext),
+                  redactValueForLogging(
+                      optionDefinition, optionDefinition.getDefaultValue(conversionContext)),
                   optionDefinition));
         }
       }
@@ -812,11 +834,12 @@ public final class InvocationPolicyEnforcer {
           logger.at(loglevel).log(
               "Overriding default value '%s' for %s with value '%s' specified by invocation "
                   + "policy. %sed values are: %s",
-              optionDefinition.getDefaultValue(conversionContext),
+              redactValueForLogging(
+                  optionDefinition, optionDefinition.getDefaultValue(conversionContext)),
               optionDefinition,
-              newValue,
+              redactValueForLogging(optionDefinition, newValue),
               policyType,
-              policyValues);
+              redactValueForLogging(optionDefinition, policyValues));
           parser.clearValue(optionDefinition);
           parser.setOptionValueAtSpecificPriorityWithoutExpansion(
               origin, optionDefinition, newValue);
@@ -828,10 +851,12 @@ public final class InvocationPolicyEnforcer {
               String.format(
                   "Default flag value '%s' for %s is not allowed by invocation policy, but "
                       + "the policy does not provide a new value. %sed values are: %s",
-                  optionDescription.getOptionDefinition().getDefaultValue(conversionContext),
+                  redactValueForLogging(
+                      optionDefinition,
+                      optionDescription.getOptionDefinition().getDefaultValue(conversionContext)),
                   optionDefinition,
                   policyType,
-                  policyValues));
+                  redactValueForLogging(optionDefinition, policyValues)));
         }
       }
     }
@@ -867,7 +892,10 @@ public final class InvocationPolicyEnforcer {
                   String.format(
                       "Flag value '%s' for %s is not allowed by invocation policy. %sed values "
                           + "are: %s",
-                      value, option, policyType, policyValues));
+                      redactValueForLogging(option, value),
+                      option,
+                      policyType,
+                      redactValueForLogging(option, policyValues)));
             }
           }
         }
@@ -879,7 +907,11 @@ public final class InvocationPolicyEnforcer {
             logger.at(loglevel).log(
                 "Overriding disallowed value '%s' for %s with value '%s' "
                     + "specified by invocation policy. %sed values are: %s",
-                valueDescription.getValue(), option, newValue, policyType, policyValues);
+                redactValueForLogging(option, valueDescription.getValue()),
+                option,
+                redactValueForLogging(option, newValue),
+                policyType,
+                redactValueForLogging(option, policyValues));
             parser.clearValue(option);
             parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, option, newValue);
             invocationPolicyFlagListBuilder.add(
@@ -897,7 +929,10 @@ public final class InvocationPolicyEnforcer {
                 String.format(
                     "Flag value '%s' for %s is not allowed by invocation policy and the "
                         + "policy does not specify a new value. %sed values are: %s",
-                    valueDescription.getValue(), option, policyType, policyValues));
+                    redactValueForLogging(option, valueDescription.getValue()),
+                    option,
+                    policyType,
+                    redactValueForLogging(option, policyValues)));
           }
         }
       }

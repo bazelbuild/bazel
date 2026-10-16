@@ -73,12 +73,12 @@ public abstract sealed class PackagePiece extends Packageoid
    * which are instances of the specified class. Doesn't search in any other package pieces.
    */
   public <T extends Target> Iterable<T> getTargets(Class<T> targetClass) {
-    return Iterables.filter(targets.values(), targetClass);
+    return Iterables.filter(targets, targetClass);
   }
 
   @Override
   public Target getTarget(String targetName) throws NoSuchTargetException {
-    Target target = targets.get(targetName);
+    Target target = getTargetOrNull(targetName);
     if (target != null) {
       return target;
     }
@@ -114,7 +114,7 @@ public abstract sealed class PackagePiece extends Packageoid
           String.format("target '%s' not declared in %s", targetName, getShortDescription()));
     } else {
       String alternateTargetSuggestion =
-          Package.getAlternateTargetSuggestion(getMetadata(), targetName, targets.keySet());
+          Package.getAlternateTargetSuggestion(getMetadata(), targetName, targets);
       return new NoSuchTargetException(
           label,
           String.format(
@@ -213,6 +213,7 @@ public abstract sealed class PackagePiece extends Packageoid
         Optional<String> associatedModuleVersion,
         boolean noImplicitFileExport,
         boolean simplifyUnconditionalSelectsInRuleAttrs,
+        boolean symbolicMacroStrictAttrs,
         RepositoryMapping repositoryMapping,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
@@ -222,6 +223,7 @@ public abstract sealed class PackagePiece extends Packageoid
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation,
+        PackageValidator packageValidator,
         PackageLimits packageLimits) {
       Metadata metadata =
           Metadata.builder()
@@ -240,6 +242,7 @@ public abstract sealed class PackagePiece extends Packageoid
           packageSettings.precomputeTransitiveLoads(),
           noImplicitFileExport,
           simplifyUnconditionalSelectsInRuleAttrs,
+          symbolicMacroStrictAttrs,
           mainRepositoryMapping,
           cpuBoundSemaphore,
           packageOverheadEstimator,
@@ -247,6 +250,7 @@ public abstract sealed class PackagePiece extends Packageoid
           globber,
           enableNameConflictChecking,
           trackFullMacroInformation,
+          packageValidator,
           packageLimits);
     }
 
@@ -303,6 +307,7 @@ public abstract sealed class PackagePiece extends Packageoid
           boolean precomputeTransitiveLoads,
           boolean noImplicitFileExport,
           boolean simplifyUnconditionalSelectsInRuleAttrs,
+          boolean symbolicMacroStrictAttrs,
           RepositoryMapping mainRepositoryMapping,
           @Nullable Semaphore cpuBoundSemaphore,
           PackageOverheadEstimator packageOverheadEstimator,
@@ -310,6 +315,7 @@ public abstract sealed class PackagePiece extends Packageoid
           @Nullable Globber globber,
           boolean enableNameConflictChecking,
           boolean trackFullMacroInformation,
+          PackageValidator packageValidator,
           PackageLimits packageLimits) {
         super(
             forBuildFile.getMetadata(),
@@ -318,6 +324,7 @@ public abstract sealed class PackagePiece extends Packageoid
             precomputeTransitiveLoads,
             noImplicitFileExport,
             simplifyUnconditionalSelectsInRuleAttrs,
+            symbolicMacroStrictAttrs,
             mainRepositoryMapping,
             cpuBoundSemaphore,
             packageOverheadEstimator,
@@ -326,6 +333,7 @@ public abstract sealed class PackagePiece extends Packageoid
             enableNameConflictChecking,
             trackFullMacroInformation,
             /* enableTargetMapSnapshotting= */ false,
+            packageValidator,
             packageLimits);
       }
     }
@@ -428,6 +436,7 @@ public abstract sealed class PackagePiece extends Packageoid
         MacroInstance evaluatedMacro,
         PackagePieceIdentifier parentIdentifier,
         boolean simplifyUnconditionalSelectsInRuleAttrs,
+        boolean symbolicMacroStrictAttrs,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
@@ -439,6 +448,7 @@ public abstract sealed class PackagePiece extends Packageoid
       return new Builder(
           forMacro,
           simplifyUnconditionalSelectsInRuleAttrs,
+          symbolicMacroStrictAttrs,
           mainRepositoryMapping,
           cpuBoundSemaphore,
           packageOverheadEstimator,
@@ -515,6 +525,7 @@ public abstract sealed class PackagePiece extends Packageoid
       private Builder(
           ForMacro forMacro,
           boolean simplifyUnconditionalSelectsInRuleAttrs,
+          boolean symbolicMacroStrictAttrs,
           RepositoryMapping mainRepositoryMapping,
           @Nullable Semaphore cpuBoundSemaphore,
           PackageOverheadEstimator packageOverheadEstimator,
@@ -527,6 +538,7 @@ public abstract sealed class PackagePiece extends Packageoid
             forMacro,
             SymbolGenerator.create(forMacro.getIdentifier()),
             simplifyUnconditionalSelectsInRuleAttrs,
+            symbolicMacroStrictAttrs,
             mainRepositoryMapping,
             cpuBoundSemaphore,
             packageOverheadEstimator,

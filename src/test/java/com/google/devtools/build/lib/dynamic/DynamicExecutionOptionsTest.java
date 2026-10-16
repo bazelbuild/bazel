@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.dynamic.DynamicExecutionOptions.SignalListConverter;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,5 +48,32 @@ public class DynamicExecutionOptionsTest {
     assertThrows(OptionsParsingException.class, () -> converter.convert("5.3", null));
     assertThrows(OptionsParsingException.class, () -> converter.convert("", null));
     assertThrows(OptionsParsingException.class, () -> converter.convert("SIGTERM", null));
+  }
+
+  @Test
+  public void testCancelRemoteBranchOnLocalWinOption_defaultsToTrue() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(DynamicExecutionOptions.class).build();
+    parser.parse();
+    DynamicExecutionOptions options = parser.getOptions(DynamicExecutionOptions.class);
+    assertThat(options.getCancelRemoteBranchOnLocalWin()).isTrue();
+  }
+
+  @Test
+  public void testCancelRemoteBranchOnLocalWinOption_canBeExplicitlyEnabled() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(DynamicExecutionOptions.class).build();
+    parser.parse("--experimental_dynamic_cancel_remote_branch_on_local_win");
+    DynamicExecutionOptions options = parser.getOptions(DynamicExecutionOptions.class);
+    assertThat(options.getCancelRemoteBranchOnLocalWin()).isTrue();
+  }
+
+  @Test
+  public void testCancelRemoteBranchOnLocalWinOption_canBeDisabled() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(DynamicExecutionOptions.class).build();
+    parser.parse("--noexperimental_dynamic_cancel_remote_branch_on_local_win");
+    DynamicExecutionOptions options = parser.getOptions(DynamicExecutionOptions.class);
+    assertThat(options.getCancelRemoteBranchOnLocalWin()).isFalse();
   }
 }

@@ -17,14 +17,17 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class OptionWithContradictingNoopEffects extends OptionsBase {
+@OptionsClass
+public abstract class OptionWithContradictingNoopEffects extends OptionsBase {
   @Option(
-    name = "affect_terminal_without_affecting_anything",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP, OptionEffectTag.TERMINAL_OUTPUT}
-  )
-  public boolean effectAndNoopEffect;
+      name = "affect_terminal_without_affecting_anything",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP, OptionEffectTag.AFFECTS_OUTPUTS})
+  public abstract boolean getEffectAndNoopEffect();
+
+  public abstract void setEffectAndNoopEffect(boolean value);
 }

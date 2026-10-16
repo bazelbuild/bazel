@@ -64,7 +64,7 @@ public class BazelStrategyModule extends BlazeModule {
     ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
 
-    List<String> spawnStrategies = new ArrayList<>(options.spawnStrategy);
+    List<String> spawnStrategies = new ArrayList<>(options.getSpawnStrategy());
 
     if (spawnStrategies.isEmpty()) {
       if (RemoteModule.shouldEnableRemoteExecution(remoteOptions)) {
@@ -81,17 +81,17 @@ public class BazelStrategyModule extends BlazeModule {
 
     // By adding this filter before the ones derived from --strategy the latter can override the
     // former.
-    registryBuilder.addMnemonicFilter("Genrule", options.genruleStrategy);
+    registryBuilder.addMnemonicFilter("Genrule", options.getGenruleStrategy());
 
-    for (Map.Entry<String, List<String>> strategy : options.strategy) {
+    for (Map.Entry<String, List<String>> strategy : options.getStrategy()) {
       registryBuilder.addMnemonicFilter(strategy.getKey(), strategy.getValue());
     }
 
-    for (Map.Entry<RegexFilter, List<String>> entry : options.strategyByRegexp) {
+    for (Map.Entry<RegexFilter, List<String>> entry : options.getStrategyByRegexp()) {
       registryBuilder.addDescriptionFilter(entry.getKey(), entry.getValue());
     }
 
-    for (Map.Entry<Label, List<String>> strategy : options.allowedStrategiesByExecPlatform) {
+    for (Map.Entry<Label, List<String>> strategy : options.getAllowedStrategiesByExecPlatform()) {
       registryBuilder.addExecPlatformFilter(strategy.getKey(), strategy.getValue());
     }
   }

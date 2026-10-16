@@ -16,21 +16,5 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /** Event reporting about the place where a Starlark repository rule was defined. */
-public final class StarlarkRepositoryDefinitionLocationEvent implements Postable {
-
-  private final String name;
-  private final String definitionInformation;
-
-  public StarlarkRepositoryDefinitionLocationEvent(String name, String definitionInformation) {
-    this.name = name;
-    this.definitionInformation = definitionInformation;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public String getDefinitionInformation() {
-    return definitionInformation;
-  }
-}
+public record StarlarkRepositoryDefinitionLocationEvent(String name, String definitionInformation)
+    implements Postable {}

@@ -21,6 +21,7 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path_platform.h"
 
@@ -36,6 +37,7 @@ BazelStartupOptions::BazelStartupOptions()
   RegisterNullaryStartupFlagNoRc("system_rc", &use_system_rc);
   RegisterNullaryStartupFlagNoRc("workspace_rc", &use_workspace_rc);
   RegisterUnaryStartupFlag("bazelrc");
+  use_compact_object_headers_ = true;
 }
 
 blaze_util::Path BazelStartupOptions::GetDefaultOutputRoot() const {

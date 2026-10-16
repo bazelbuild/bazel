@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -39,6 +40,13 @@ interface RunnableExtension {
 
   byte[] getBzlTransitiveDigest();
 
+  /**
+   * The current schema version of the facts produced by this extension. Persisted in the lockfile
+   * alongside the facts and compared against the value before the extension runs: if they differ,
+   * the persisted facts are discarded and the extension is invoked with empty facts.
+   */
+  int getFactsVersion();
+
   /** Runs the extension. Returns null if a Skyframe restart is required. */
   @Nullable
   RunModuleExtensionResult run(
@@ -47,7 +55,8 @@ interface RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping,
-      Facts facts)
+      Facts facts,
+      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
       throws InterruptedException, ExternalDepsException;
 
   /* Holds the result data from running a module extension */

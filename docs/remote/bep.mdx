@@ -4,14 +4,12 @@ title: 'Build Event Protocol'
 
 
 
-The [Build Event
-Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
+The [Build Event Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
 (BEP) allows third-party programs to gain insight into a Bazel invocation. For
 example, you could use the BEP to gather information for an IDE
 plugin or a dashboard that displays build results.
 
-The protocol is a set of [protocol
-buffer](https://developers.google.com/protocol-buffers/) messages with some
+The protocol is a set of [protocol buffer](https://developers.google.com/protocol-buffers/) messages with some
 semantics defined on top of it. It includes information about build and test
 results, build progress, the build configuration and much more. The BEP is
 intended to be consumed programmatically and makes parsing Bazel’s
@@ -22,16 +20,13 @@ build event is a protocol buffer message consisting of a build event identifier,
 a set of child event identifiers, and a payload.
 
 *  __Build Event Identifier:__ Depending on the kind of build event, it might be
-an [opaque
-string](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L131-L140)
-or [structured
-information](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L194-L205)
+an [opaque string](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L131-L140)
+or [structured information](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L194-L205)
 revealing more about the build event. A build event identifier is unique within
 a build.
 
 *  __Children:__ A build event may announce other build events, by including
-their build event identifiers in its [children
-field](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L1276).
+their build event identifiers in its [children field](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L1276).
 For example, the `PatternExpanded` build event announces the targets it expands
 to as children. The protocol guarantees that all events, except for the first
 event, are announced by a previous event.
@@ -41,32 +36,40 @@ encoded as a protocol buffer message specific to that event. Note that the
 payload might not be the expected type, but could be an `Aborted` message
 if the build aborted prematurely.
 
-### Build event graph
+### Build event graph {#build-event-graph}
 
-All build events form a directed acyclic graph through their parent and child
-relationship. Every build event except for the initial build event has one or
-more parent events. Please note that not all parent events of a child event must
-necessarily be posted before it. When a build is complete (succeeded or failed)
-all announced events will have been posted. In case of a Bazel crash or a failed
-network transport, some announced build events may never be posted.
+All build events form a directed acyclic graph (DAG) through their parent and child
+relationships. Every build event except for the initial `BuildStarted` event is announced
+by one or more earlier parent events.
 
-The event graph's structure reflects the lifecycle of a command. Every BEP
-graph has the following characteristic shape:
+#### Announcement contract
 
-1. The root event is always a [`BuildStarted`](/remote/bep-glossary#buildstarted)
-   event. All other events are its descendants.
-1. Immediate children of the BuildStarted event contain metadata about the
-   command.
-1. Events containing data produced by the command, such as files built and test
-   results, appear before the [`BuildFinished`](/remote/bep-glossary#buildfinished)
-   event.
-1. The [`BuildFinished`](/remote/bep-glossary#buildfinished) event *may* be followed
-   by events containing summary information about the build (for example, metric
-   or profiling data).
+The protocol requires that every event in the stream (except `BuildStarted`) is announced in the `children` list of an earlier event:
 
-## Consuming Build Event Protocol
+* **Static parents:** High-level lifecycle events announce their natural children. For example, `BuildStarted` announces `PatternExpanded` and `BuildFinished`, and `PatternExpanded` announces `TargetConfigured` for each matching target.
+* **Dynamic chaining via Progress:** Events discovered dynamically during evaluation that have no natural static parent—such as `NamedSetOfFiles`, `Configuration`, `WorkspaceConfig`, and `Fetch`—are announced on the fly by intervening `Progress` events before they are posted.
+* **Completion invariant:** A build is considered complete if and only if all announced children have been posted or accounted for with an [`Aborted`](/remote/bep-glossary#aborted) event.
 
-### Consume in binary format
+#### Announcement vs. delivery ordering
+
+Being announced in `children` advertises that an event will eventually occur, but it does *not* imply delivery sequence:
+
+* Bazel posts events concurrently as actions complete across worker threads.
+* Some events (such as `TargetComplete`, `TestResult`, and `TestSummary`) specify order constraints (`postedAfter` in the Bazel implementation). Bazel holds back delivering these events until their prerequisite events have been posted.
+* For test executions, `TargetComplete` announces initial test attempts (`TestResult`), while each retry attempt is announced by the attempt that immediately preceded it.
+
+#### Lifecycle stages
+
+The event graph reflects the phases of a Bazel invocation:
+
+1. **Invocation Start:** The root [`BuildStarted`](/remote/bep-glossary#buildstarted) event is published first. It announces command metadata (`OptionsParsed`, `CommandLine`, `WorkspaceStatus`), target pattern expansion (`PatternExpanded`), and build completion (`BuildFinished`).
+2. **Analysis & Configuration:** `PatternExpanded` announces `TargetConfigured` events for parsed targets. Intervening `Progress` events chain in build configurations (`Configuration`).
+3. **Execution:** Each `TargetConfigured` event announces its corresponding [`TargetComplete`](/remote/bep-glossary#targetcomplete) event. `TargetComplete` references output file sets (`NamedSetOfFiles`, which are dynamically announced via intervening `Progress` events) and announces target-level summaries ([`TargetSummary`](/remote/bep-glossary#targetsummary)) as well as test events ([`TestResult`](/remote/bep-glossary#testresult), [`TestSummary`](/remote/bep-glossary#testsummary)) for test targets.
+4. **Completion & Tool Logs:** The [`BuildFinished`](/remote/bep-glossary#buildfinished) event is published after command evaluation finishes, providing the authoritative exit code. It announces post-build events such as [`BuildMetrics`](/remote/bep-glossary#buildmetrics), [`BuildToolLogs`](/remote/bep-glossary#buildtoollogs), and, for `bazel run` without `--script_path`, [`ExecRequestConstructed`](/remote/bep-glossary#execrequestconstructed). These may arrive in any order; the final event of the stream has `last_message` set.
+
+## Consuming Build Event Protocol {#consuming-bep}
+
+### Consume in binary format {#consuming-bep-binary}
 
 To consume the BEP in a binary format:
 
@@ -81,7 +84,7 @@ To consume the BEP in a binary format:
 2. Then, write a program that extracts the relevant information from the
    serialized protocol buffer message.
 
-### Consume in text or JSON formats
+### Consume in text or JSON formats {#consuming-bep-text-json}
 
 The following Bazel command line flags will output the BEP in
 human-readable formats, such as text and JSON:
@@ -91,10 +94,9 @@ human-readable formats, such as text and JSON:
 --build_event_json_file
 ```
 
-## Build Event Service
+## Build Event Service {#build-event-service}
 
-The [Build Event
-Service](https://github.com/googleapis/googleapis/blob/master/google/devtools/build/v1/publish_build_event.proto)
+The [Build Event Service](https://github.com/googleapis/googleapis/blob/master/google/devtools/build/v1/publish_build_event.proto)
 Protocol is a generic [gRPC](https://www.grpc.io) service for publishing build events. The Build Event
 Service protocol is independent of the BEP and treats BEP events as opaque bytes.
 Bazel ships with a gRPC client implementation of the Build Event Service protocol that
@@ -103,7 +105,7 @@ events to using the `--bes_backend=HOST:PORT` flag. If your backend uses gRPC,
 you must prefix the address with the appropriate scheme: `grpc://` for plaintext
 gRPC and `grpcs://` for gRPC with TLS enabled.
 
-### Build Event Service flags
+### Build Event Service flags {#bes-flags}
 
 Bazel has several flags related to the Build Event Service protocol, including:
 
@@ -116,7 +118,7 @@ Bazel has several flags related to the Build Event Service protocol, including:
 For a description of each of these flags, see the
 [Command-Line Reference](/reference/command-line-reference).
 
-### Authentication and security
+### Authentication and security {#authentication-security}
 
 Bazel’s Build Event Service implementation also supports authentication and TLS.
 These settings can be controlled using the below flags. Please note that these
@@ -133,13 +135,12 @@ authentication and TLS infrastructure.
 For a description of each of these flags, see the
 [Command-Line Reference](/reference/command-line-reference).
 
-### Build Event Service and remote caching
+### Build Event Service and remote caching {#bes-remote-caching}
 
 The BEP typically contains many references to log files (test.log, test.xml,
 etc. ) stored on the machine where Bazel is running. A remote BES server
 typically can't access these files as they are on different machines. A way to
-work around this issue is to use Bazel with [remote
-caching](/remote/caching).
+work around this issue is to use Bazel with [remote caching](/remote/caching).
 Bazel will upload all output files to the remote cache (including files
 referenced in the BEP) and the BES server can then fetch the referenced files
 from the cache.

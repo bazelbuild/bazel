@@ -55,9 +55,7 @@ import javax.annotation.Nullable;
  * {@code src/main/java/com/google/devtools/build/lib/analysis}, {@code src/test/cpp}, and more.
  *
  * <p>"Project data" is any useful information that might be associated with a project. Possible
- * consumers include <a
- * href="https://github.com/bazelbuild/bazel/commit/693215317a6732085731809266f63ff0e7fc31a5">
- * Skyfocus</a>> and project-sanctioned build flags (i.e. "these are the correct flags to use with
+ * consumers include project-sanctioned build flags (i.e. "these are the correct flags to use with
  * this project").
  *
  * <p>Projects are defined in .scl files that are checked into source control with BUILD files and
@@ -307,7 +305,7 @@ public final class Project {
    *     active or some targets have project files and others don't, this method checks there's a
    *     sound way to set the desired config and throws an {@link InvalidConfigurationException} if
    *     not.
-   * @param sclConfig the {@link CoreOptions.sclConfig} to apply
+   * @param sclConfig the {@link CoreOptions.getSclConfig()} to apply
    * @param allOptionNames the names of every native option the parser recognizes, in {@code "name"}
    *     form. Not all entries are {@link BuildOptions}.
    * @param userOptions options that were set by users (vs. global bazelrcs), in name=value form

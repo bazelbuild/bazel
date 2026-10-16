@@ -18,6 +18,8 @@ import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
@@ -44,14 +46,22 @@ public class SerializationModule extends BlazeModule {
     builder.setAnalysisCodecRegistrySupplier(
         getAnalysisCodecRegistrySupplier(runtime, directories));
 
-    remoteAnalysisCachingServicesSupplier = getAnalysisCachingServicesSupplier();
+    remoteAnalysisCachingServicesSupplier = getAnalysisCachingServicesSupplier(runtime);
     builder.setRemoteAnalysisCachingServicesSupplier(remoteAnalysisCachingServicesSupplier);
+    builder.setFingerprinterForAnalysisCaching(getFingerprinterForAnalysisCaching());
   }
 
   @Override
-  public void commandComplete() {
+  public void afterCommand() {
     if (remoteAnalysisCachingServicesSupplier != null) {
-      remoteAnalysisCachingServicesSupplier.shutdown();
+      remoteAnalysisCachingServicesSupplier.resetCommandState();
+    }
+  }
+
+  @Override
+  public void blazeShutdown() {
+    if (remoteAnalysisCachingServicesSupplier != null) {
+      remoteAnalysisCachingServicesSupplier.blazeShutdown();
     }
   }
 
@@ -69,34 +79,40 @@ public class SerializationModule extends BlazeModule {
   }
 
   @ForOverride
-  protected RemoteAnalysisCachingServicesSupplier getAnalysisCachingServicesSupplier() {
+  protected RemoteAnalysisCachingServicesSupplier getAnalysisCachingServicesSupplier(
+      BlazeRuntime runtime) {
     return InMemoryRemoteAnalysisCachingServicesSupplier.INSTANCE;
   }
 
-  /** A supplier that uses an in-memory fingerprint value service. */
+  @ForOverride
+  protected Fingerprinter getFingerprinterForAnalysisCaching() {
+    return FingerprintValueService.NONPROD_FINGERPRINTER;
+  }
+
+  /** A supplier that uses an in-memory fingerprint value store. */
   private static final class InMemoryRemoteAnalysisCachingServicesSupplier
       implements RemoteAnalysisCachingServicesSupplier {
     private static final InMemoryRemoteAnalysisCachingServicesSupplier INSTANCE =
         new InMemoryRemoteAnalysisCachingServicesSupplier();
 
-    private static final FingerprintValueService SERVICE_INSTANCE =
-        new FingerprintValueService(
-            commonPool(),
-            // TODO: b/358347099 - use a persistent store
-            FingerprintValueStore.inMemoryStore(),
-            new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
-            FingerprintValueService.NONPROD_FINGERPRINTER,
-            /* jsonLogWriter= */ null);
+    /** This is safe and does not leak because the underlying commonPool is never shut down. */
+    private static final SafeExecutorOwner commandExecutor = new SafeExecutorOwner(commonPool());
 
-    private static final ListenableFuture<FingerprintValueService> WRAPPED_SERVICE_INSTANCE =
-        immediateFuture(SERVICE_INSTANCE);
+    private static final ListenableFuture<FingerprintValueStore>
+        // TODO: b/358347099 - use a persistent store
+        WRAPPED_STORE_INSTANCE = immediateFuture(new InMemoryFingerprintValueStore());
 
     @Override
-    public ListenableFuture<FingerprintValueService> getFingerprintValueService() {
-      return WRAPPED_SERVICE_INSTANCE;
+    public ListenableFuture<? extends FingerprintValueStore> getFingerprintValueStore() {
+      return WRAPPED_STORE_INSTANCE;
     }
 
     @Override
-    public void shutdown() {}
+    public SafeExecutor getCommandExecutor() {
+      return commandExecutor;
+    }
+
+    @Override
+    public void resetCommandState() {}
   }
 }

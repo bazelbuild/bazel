@@ -91,13 +91,13 @@ public interface JavaGenJarsProvider
   @Immutable
   @AutoCodec
   public record NativeJavaGenJarsProvider(
-      @Override boolean usesAnnotationProcessing,
-      @Nullable @Override Artifact getGenClassJar,
-      @Nullable @Override Artifact getGenSourceJar,
-      @Override NestedSet<Artifact> getProcessorClasspath,
+      boolean usesAnnotationProcessing,
+      @Nullable Artifact getGenClassJar,
+      @Nullable Artifact getGenSourceJar,
+      NestedSet<Artifact> getProcessorClasspath,
       NestedSet<String> getProcessorClassnames,
-      @Override NestedSet<Artifact> getTransitiveGenClassJars,
-      @Override NestedSet<Artifact> getTransitiveGenSourceJars)
+      NestedSet<Artifact> getTransitiveGenClassJars,
+      NestedSet<Artifact> getTransitiveGenSourceJars)
       implements JavaGenJarsProvider {
     public NativeJavaGenJarsProvider {
       requireNonNull(getProcessorClasspath, "getProcessorClasspath");

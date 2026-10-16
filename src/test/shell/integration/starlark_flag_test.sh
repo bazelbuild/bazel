@@ -236,4 +236,60 @@ EOF
 }
 
 
+function test_require_mnemonic() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load(":starlark.bzl", "no_mnemonic_rule", "with_mnemonic_rule")
+
+no_mnemonic_rule(
+    name = "no_mnemonic",
+    out = "no_mnemonic.txt"
+)
+
+with_mnemonic_rule(
+    name = "with_mnemonic",
+    out = "with_mnemonic.txt"
+)
+EOF
+
+  cat >$pkg/starlark.bzl <<'EOF'
+def _no_mnemonic_impl(ctx):
+  ctx.actions.run_shell(outputs = [ctx.outputs.out],
+                        command = "touch " + ctx.outputs.out.path)
+  return [DefaultInfo(files = depset([ctx.outputs.out]))]
+
+no_mnemonic_rule = rule(
+    implementation=_no_mnemonic_impl,
+    attrs = {
+        "out": attr.output(mandatory = True),
+    },
+)
+
+def _with_mnemonic_impl(ctx):
+  ctx.actions.run_shell(outputs = [ctx.outputs.out],
+                        command = "touch " + ctx.outputs.out.path,
+                        mnemonic = "MyMnemonic")
+  return [DefaultInfo(files = depset([ctx.outputs.out]))]
+
+with_mnemonic_rule = rule(
+    implementation=_with_mnemonic_impl,
+    attrs = {
+        "out": attr.output(mandatory = True),
+    },
+)
+EOF
+
+  # 1. By default (flag is false), both should succeed.
+  bazel build //$pkg:with_mnemonic &> $TEST_log || fail "should have succeeded"
+  bazel build //$pkg:no_mnemonic &> $TEST_log || fail "should have succeeded"
+
+  # 2. When flag is true, with_mnemonic succeeds, no_mnemonic fails.
+  bazel build --incompatible_require_mnemonic_for_run_actions=true //$pkg:with_mnemonic &> $TEST_log || fail "should have succeeded"
+
+  bazel build --incompatible_require_mnemonic_for_run_actions=true //$pkg:no_mnemonic &> $TEST_log \
+      && fail "should have failed without explicit mnemonic"
+  expect_log "actions.run and actions.run_shell require an explicit mnemonic"
+}
+
 run_suite "starlark_flag_test"

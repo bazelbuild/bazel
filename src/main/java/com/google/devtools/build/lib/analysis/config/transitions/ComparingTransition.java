@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.common.options.OptionDefinition;
 import java.util.Map;
 import java.util.StringJoiner;
 import java.util.TreeMap;
@@ -192,30 +193,32 @@ public class ComparingTransition implements PatchTransition {
   private static ImmutableMap<String, String> serialize(BuildOptions o) {
     var ans = ImmutableMap.<String, String>builder();
     for (FragmentOptions f : o.getNativeOptions()) {
-      for (Map.Entry<String, Object> op : f.asMap().entrySet()) {
-        if (op.getKey().equals("define")) {
+      for (OptionDefinition op : OptionDefinition.getOptionDefinitions(f.getOptionsClass())) {
+        if (op.getOptionName().equals("define")) {
           ans.putAll(
               serializeUserDefinedOption(
-                  o.get(CoreOptions.class).commandLineBuildVariables.stream()
+                  o.get(CoreOptions.class).getCommandLineBuildVariables().stream()
                       .map(d -> Map.entry(d.getKey(), d.getValue()))
                       .collect(toImmutableList()),
                   "define"));
-        } else if (op.getKey().equals("features")) {
+        } else if (op.getOptionName().equals("features")) {
           ans.putAll(
               serializeUserDefinedOption(
-                  o.get(CoreOptions.class).defaultFeatures.stream()
+                  o.get(CoreOptions.class).getDefaultFeatures().stream()
                       .map(d -> Map.entry(d, ""))
                       .collect(toImmutableList()),
                   "feature"));
-        } else if (op.getKey().equals("host_features")) {
+        } else if (op.getOptionName().equals("host_features")) {
           ans.putAll(
               serializeUserDefinedOption(
-                  o.get(CoreOptions.class).hostFeatures.stream()
+                  o.get(CoreOptions.class).getHostFeatures().stream()
                       .map(d -> Map.entry(d, ""))
                       .collect(toImmutableList()),
                   "host feature"));
         } else {
-          ans.put(prettyClassName(f.getClass()) + " " + op.getKey(), String.valueOf(op.getValue()));
+          ans.put(
+              prettyClassName(f.getOptionsClass()) + " " + op.getOptionName(),
+              String.valueOf(op.getValue(f)));
         }
       }
     }

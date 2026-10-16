@@ -2,8 +2,6 @@
 title: 'Artifact-Based Build Systems'
 ---
 
-
-
 This page covers artifact-based build systems and the philosophy behind their
 creation. Bazel is an artifact-based build system. While task-based build
 systems are good step above build scripts, they give too much power to
@@ -171,7 +169,7 @@ at a known location. Just like any other dependency, if the Java compiler
 changes, every artifact that depends on it is rebuilt.
 
 Bazel solves the second part of the problem, platform independence, by setting
-[build configurations](/run/build#build-config-cross-compilation). Rather than
+[build configurations](/versions/8.2.1/run/build#build-config-cross-compilation). Rather than
 targets depending directly on their tools, they depend on types of configurations:
 
 *   **Host configuration**: building tools that run during the build
@@ -184,7 +182,7 @@ box, but engineers will always want to do more—part of the benefit of task-bas
 systems is their flexibility in supporting any kind of build process, and it
 would be better not to give that up in an artifact-based build system.
 Fortunately, Bazel allows its supported target types to be extended by
-[adding custom rules](/extending/rules).
+[adding custom rules](/versions/8.2.1/extending/rules).
 
 To define a rule in Bazel, the rule author declares the inputs that the rule
 requires (in the form of attributes passed in the `BUILD` file) and the fixed
@@ -211,7 +209,7 @@ those rules without ever having to worry about their implementation.
 Actions sound like they might run into the same problems as tasks in other
 systems—isn’t it still possible to write actions that both write to the same
 file and end up conflicting with one another? Actually, Bazel makes these
-conflicts impossible by using _[sandboxing](/docs/sandboxing)_. On supported
+conflicts impossible by using _[sandboxing](/versions/8.2.1/docs/sandboxing)_. On supported
 systems, every action is isolated from every other action via a filesystem
 sandbox. Effectively, each action can see only a restricted view of the
 filesystem that includes the inputs it has declared and any outputs it has

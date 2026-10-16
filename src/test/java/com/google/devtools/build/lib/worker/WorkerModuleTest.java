@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingExceptionHandler;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -75,7 +76,7 @@ public class WorkerModuleTest {
     setupEnvironment("/outputRoot");
 
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
 
     assertThat(storedEventHandler.getEvents()).isEmpty();
     assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isFalse();
@@ -96,7 +97,7 @@ public class WorkerModuleTest {
     setupEnvironment("/outputRoot");
 
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
 
     Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
@@ -104,9 +105,9 @@ public class WorkerModuleTest {
     workerDir.createDirectoryAndParents();
     aLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
     WorkerPool oldPool = module.workerPool;
-    options.workerSandboxing = !options.workerSandboxing;
+    options.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("", true)));
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
     assertThat(module.workerPool).isSameInstanceAs(oldPool);
     assertThat(aLog.exists()).isTrue();
@@ -120,7 +121,7 @@ public class WorkerModuleTest {
     setupEnvironment("/outputRoot");
 
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
 
     // Log file from old root, doesn't get cleaned
@@ -132,7 +133,7 @@ public class WorkerModuleTest {
     WorkerPool oldPool = module.workerPool;
     setupEnvironment("/otherRootDir");
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker factory configuration has changed");
@@ -155,7 +156,7 @@ public class WorkerModuleTest {
 
     module.beforeCommand(env);
     // Check that new pools/factories are made with default options
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
 
     WorkerPool oldPool = module.workerPool;
@@ -165,7 +166,7 @@ public class WorkerModuleTest {
     when(request.getOptions(WorkerOptions.class)).thenReturn(newOptions);
 
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker factory configuration has changed");
@@ -185,7 +186,7 @@ public class WorkerModuleTest {
     oldLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
 
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
 
     assertThat(storedEventHandler.getEvents()).isEmpty();
     assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isTrue();
@@ -202,13 +203,13 @@ public class WorkerModuleTest {
 
     module.beforeCommand(env);
     // Check that new pools/factories are made with default options
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
 
     WorkerPool oldPool = module.workerPool;
-    options.workerMaxMultiplexInstances = Lists.newArrayList(Maps.immutableEntry("foo", 42));
+    options.setWorkerMaxMultiplexInstances(Lists.newArrayList(Maps.immutableEntry("foo", 42)));
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker pool configuration has changed");
@@ -225,13 +226,13 @@ public class WorkerModuleTest {
 
     module.beforeCommand(env);
     // Check that new pools/factories are made with default options
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
 
     WorkerPool oldPool = module.workerPool;
-    options.workerMaxInstances = Lists.newArrayList(Maps.immutableEntry("bar", 3));
+    options.setWorkerMaxInstances(Lists.newArrayList(Maps.immutableEntry("bar", 3)));
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker pool configuration has changed");
@@ -250,7 +251,7 @@ public class WorkerModuleTest {
     Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
 
     // Check that new pools/factories can be created without a worker dir.
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
 
     // But once we try to get a worker, it should fail. This forces a situation where we can't
     // have a workerDir.
@@ -279,12 +280,12 @@ public class WorkerModuleTest {
     Path staleTrash = trashBase.getChild("random-trash");
 
     staleTrash.createDirectoryAndParents();
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     // Trash is cleaned upon first build.
     assertThat(staleTrash.exists()).isFalse();
 
     staleTrash.createDirectoryAndParents();
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     // Trash is not cleaned upon subsequent builds.
     assertThat(staleTrash.exists()).isTrue();
   }
@@ -307,8 +308,7 @@ public class WorkerModuleTest {
             .setStartupOptionsProvider(startupOptionsProvider)
             .build();
     when(env.getRuntime()).thenReturn(blazeRuntime);
-    BlazeDirectories blazeDirectories =
-        new BlazeDirectories(serverDirectories, null, null, "blaze");
+    BlazeDirectories blazeDirectories = new BlazeDirectories(serverDirectories, null, "blaze");
     BlazeWorkspace blazeWorkspace =
         new BlazeWorkspace(
             blazeRuntime,
@@ -316,17 +316,22 @@ public class WorkerModuleTest {
             /* skyframeExecutor= */ null,
             new RecordingExceptionHandler(),
             /* workspaceStatusActionFactory= */ null,
-            BinTools.forUnitTesting(blazeDirectories, ImmutableList.of()),
+            BinTools.forUnitTesting(fs.getPath("/execroot"), ImmutableList.of()),
             /* allocationTracker= */ null,
             /* syscallCache= */ null,
             /* analysisCodecRegistrySupplier= */ null,
-            /* fingerprintValueServiceFactory= */ null,
+            /* remoteAnalysisCachingServicesSupplier= */ null,
+            /* fingerprinterForAnalysisCaching= */ null,
             /* allowExternalRepositories= */ true);
     when(env.getBlazeWorkspace()).thenReturn(blazeWorkspace);
     when(env.getDirectories()).thenReturn(blazeDirectories);
     EventBus eventBus = new EventBus();
     when(env.getEventBus()).thenReturn(eventBus);
-    when(env.getReporter()).thenReturn(new Reporter(eventBus, storedEventHandler));
-    when(env.determineOutputFileSystem()).thenReturn("OutputFileSystem");
+    when(env.getReporter())
+        .thenReturn(new Reporter(new EventBusEventHandler(eventBus), storedEventHandler));
+  }
+
+  private static BuildStartingEvent buildStartingEvent(BuildRequest request) {
+    return BuildStartingEvent.create("", false, request, "/workspace", "/workspace");
   }
 }

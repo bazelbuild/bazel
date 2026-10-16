@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -59,8 +58,8 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       Path workingDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> repoEnvVariables,
-      Map<String, String> clientEnvVariables,
+      ImmutableMap<String, String> repoEnv,
+      ImmutableMap<String, String> nonstrictRepoEnv,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -76,8 +75,8 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         workingDirectory,
         directories,
         env,
-        repoEnvVariables,
-        clientEnvVariables,
+        repoEnv,
+        nonstrictRepoEnv,
         downloadManager,
         timeoutScaling,
         processWrapper,
@@ -91,7 +90,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
     // Record inputs to the extension that are known prior to evaluation.
     RepoRecordedInput.EnvVar.wrap(staticEnvVars)
-        .forEach((input, value) -> recordInput(input, value.orElse(null)));
+        .forEach((input, value) -> recordInputWithValue(input, value.orElse(null)));
     repoMappingRecorder.record(staticRepoMappingEntries);
   }
 
@@ -159,6 +158,29 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       })
   public boolean isDevDependency(TypeCheckedTag tag) {
     return tag.isDevDependency();
+  }
+
+  @StarlarkMethod(
+      name = "tag_sort_key",
+      doc =
+          """
+          Returns an opaque <code>sort_key</code> object for the given tag, which can be compared \
+          with other <code>sort_key</code> objects to determine the relative order of tags, even \
+          across tag classes. Tags are ordered by their position within a module file and by the \
+          BFS ordering of modules in the dependency graph. This can be used with \
+          <code>sorted()</code> to recover the original order of tags: \
+          <code>sorted(tags, key=lambda tag: module_ctx.tag_sort_key(tag))</code>
+          """,
+      parameters = {
+        @Param(
+            name = "tag",
+            doc =
+                "A tag obtained from <a"
+                    + " href=\"../builtins/bazel_module.html#tags\">bazel_module.tags</a>.",
+            allowedTypes = {@ParamType(type = TypeCheckedTag.class)})
+      })
+  public Object getTagSortKey(TypeCheckedTag tag) {
+    return tag.getSortKey();
   }
 
   @StarlarkMethod(
@@ -245,8 +267,12 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         @Param(
             name = "reproducible",
             doc =
-                "States that this module extension ensures complete reproducibility, thereby it "
-                    + "should not be stored in the lockfile.",
+                "States that this module extension ensures complete reproducibility, which means "
+                    + "that given the same usages, tags, and watched inputs, it will always "
+                    + "instantiate the same set of repository rules with the same attributes. "
+                    + "Note that the repository rules themselves do not have to be reproducible."
+                    + "<p>A reproducible module extension does not result in an entry in the "
+                    + "<code>MODULE.bazel.lock</code> file.",
             positional = false,
             named = true,
             defaultValue = "False",

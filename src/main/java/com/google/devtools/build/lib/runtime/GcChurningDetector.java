@@ -71,8 +71,10 @@ class GcChurningDetector {
 
   static GcChurningDetector createForCommand(MemoryPressureOptions options) {
     return new GcChurningDetector(
-        options.gcChurningThreshold,
-        options.gcChurningThresholdIfMultipleTopLevelTargets.orElse(options.gcChurningThreshold),
+        options.getGcChurningThreshold(),
+        options
+            .getGcChurningThresholdIfMultipleTopLevelTargets()
+            .orElse(options.getGcChurningThreshold()),
         BlazeClock.instance(),
         BugReporter.defaultInstance());
   }

@@ -14,6 +14,9 @@
 #ifndef BAZEL_SRC_TEST_CPP_TEST_UTIL_H
 #define BAZEL_SRC_TEST_CPP_TEST_UTIL_H
 
+#include <string>
+#include <vector>
+
 #include "src/main/cpp/startup_options.h"
 #include "googletest/include/gtest/gtest.h"
 
@@ -23,6 +26,7 @@ void ExpectValidNullaryOption(const StartupOptions* options,
                               const std::string& flag_name);
 void ExpectIsUnaryOption(const StartupOptions* options,
                          const std::string& flag_name);
+void ExpectValidBlockForLockOption(const StartupOptions* options);
 void ParseStartupOptionsAndExpectWarning(
     StartupOptions* startup_options,
     const std::vector<std::string>& options_to_parse,

@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Pat
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PatternExpandingError;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -86,6 +87,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -265,6 +267,14 @@ public final class LoadingPhaseRunnerTest {
   public void testEmptyTarget() {
     TargetParsingException e = assertThrows(TargetParsingException.class, () -> tester.load(""));
     assertThat(e).hasMessageThat().contains("invalid target name '': empty target name");
+  }
+
+  @Test
+  public void testEmptyTargetKeepGoing() throws Exception {
+    TargetPatternPhaseValue result = tester.loadKeepGoing("");
+    assertThat(result.hasError()).isTrue();
+    tester.assertContainsError("Skipping '': invalid target name '': empty target name");
+    tester.assertContainsWarning("Target pattern parsing failed.");
   }
 
   @Test
@@ -458,6 +468,32 @@ public final class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getLabels("//tests:t1", "//tests:t2"));
     assertThat(tester.getFilteredTargets()).isEmpty();
     assertThat(tester.getTestFilteredTargets()).isEmpty();
+  }
+
+  @Test
+  public void testBuildManualTestsIncludesNonTestManualTargets() throws Exception {
+    tester.addFile(
+        "pkg/BUILD",
+        """
+        filegroup(
+            name = "fg_manual",
+            srcs = ["foo.txt"],
+            tags = ["manual"],
+        )
+        filegroup(
+            name = "fg_regular",
+            srcs = ["bar.txt"],
+        )
+        """);
+    TargetPatternPhaseValue defaultResult = assertNoErrors(tester.load("//pkg:all"));
+    assertThat(defaultResult.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//pkg:fg_regular"));
+
+    tester.useLoadingOptions("--build_manual_tests");
+    TargetPatternPhaseValue manualResult = assertNoErrors(tester.load("//pkg:all"));
+    assertThat(manualResult.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//pkg:fg_regular", "//pkg:fg_manual"));
+    assertThat(tester.getFilteredTargets()).isEmpty();
   }
 
   @Test
@@ -811,6 +847,32 @@ public final class LoadingPhaseRunnerTest {
     TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//cc:all_tests"));
     assertThat(result.getTargetLabels())
         .containsExactlyElementsIn(getLabels("//cc:test1", "//cc:test2"));
+  }
+
+  // Regression test for b/489243968.
+  @Test
+  public void testStarlarkRuleNamedTestSuite_notExpandedLikeTestSuite() throws Exception {
+    tester.addFile(
+        "test_suite.bzl",
+        """
+        # Custom Starlark rule whose name happens to be test_suite.
+        test_suite = rule(
+            implementation = lambda ctx: [],
+        )
+        """);
+
+    tester.addFile(
+        "BUILD",
+        """
+        load(":test_suite.bzl", "test_suite")
+
+        test_suite(name = "not_a_real_test_suite")
+        """);
+
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//:not_a_real_test_suite"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//:not_a_real_test_suite"));
+    assertThat(result.getTestsToRunLabels()).isEmpty();
   }
 
   @Test
@@ -1609,32 +1671,32 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testPackageLoadingError_keepGoing_explicitTarget() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad:BUILD");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//bad:BUILD");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_explicitTarget() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad:BUILD");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//bad:BUILD");
   }
 
   @Test
   public void testPackageLoadingError_keepGoing_targetsInPackage() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad:all");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//bad:all");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_targetsInPackage() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad:all");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//bad:all");
   }
 
   @Test
   public void testPackageLoadingError_keepGoing_targetsBeneathDirectory() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad/...");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//bad/...");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_targetsBeneathDirectory() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad/...");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//bad/...");
   }
 
   @Test
@@ -1774,7 +1836,7 @@ public final class LoadingPhaseRunnerTest {
 
     private final MockToolsConfig mockToolsConfig;
 
-    LoadingPhaseTester() throws IOException, OptionsParsingException {
+    LoadingPhaseTester() throws IOException, OptionsParsingException, AbruptExitException {
       this.workspace = fs.getPath("/workspace");
       workspace.createDirectory();
       mockToolsConfig = new MockToolsConfig(workspace);
@@ -1785,7 +1847,6 @@ public final class LoadingPhaseRunnerTest {
               new ServerDirectories(
                   fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/userRoot")),
               workspace,
-              /*defaultSystemJavabase=*/ null,
               analysisMock.getProductName());
       workspace.getRelative("base").deleteTree();
 
@@ -1795,27 +1856,28 @@ public final class LoadingPhaseRunnerTest {
       PackageOptions options = Options.getDefaults(PackageOptions.class);
       storedErrors = new StoredEventHandler();
       skyframeExecutor =
-          BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+          SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
               .setPkgFactory(pkgFactory)
               .setFileSystem(fs)
               .setDirectories(directories)
               .setActionKeyContext(new ActionKeyContext())
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
               .setSyscallCache(SyscallCache.NO_CACHE)
+              .setCompressionService(new CompressionServiceImpl())
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
           PathPackageLocator.create(
-              /*outputBase=*/ null,
-              options.packagePath,
+              /* outputBase= */ null,
+              options.getPackagePath(),
               storedErrors,
               workspace.asFragment(),
               workspace,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = RuleVisibility.PRIVATE;
-      packageOptions.showLoadingProgress = true;
-      packageOptions.globbingThreads = 7;
+      packageOptions.setDefaultVisibility(RuleVisibility.PRIVATE);
+      packageOptions.setShowLoadingProgress(true);
+      packageOptions.setGlobbingThreads(7);
       skyframeExecutor.injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
@@ -1823,6 +1885,7 @@ public final class LoadingPhaseRunnerTest {
           defaultBuildLanguageOptions(),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          /* repoEnv= */ ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(clock));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -1885,19 +1948,19 @@ public final class LoadingPhaseRunnerTest {
     }
 
     public TargetPatternPhaseValue load(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ false, /*determineTests=*/ false, patterns);
+      return loadWithFlags(/* keepGoing= */ false, /* determineTests= */ false, patterns);
     }
 
     TargetPatternPhaseValue loadKeepGoing(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ true, /*determineTests=*/ false, patterns);
+      return loadWithFlags(/* keepGoing= */ true, /* determineTests= */ false, patterns);
     }
 
     TargetPatternPhaseValue loadTests(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ false, /*determineTests=*/ true, patterns);
+      return loadWithFlags(/* keepGoing= */ false, /* determineTests= */ true, patterns);
     }
 
     TargetPatternPhaseValue loadTestsKeepGoing(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ true, /*determineTests=*/ true, patterns);
+      return loadWithFlags(/* keepGoing= */ true, /* determineTests= */ true, patterns);
     }
 
     TargetPatternPhaseValue loadWithFlags(
@@ -2039,7 +2102,7 @@ public final class LoadingPhaseRunnerTest {
    * IOException instead of the usual behavior.
    */
   private static final class CustomInMemoryFs extends InMemoryFileSystem {
-    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = new HashMap<>();
 
     CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);

@@ -235,8 +235,10 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
                             "in filegroup rule //foo:foo: "
                                 + createVisibilityErrorMessage(
                                     "target '//bar:bar.sh'", "target '//foo:foo'")
-                                + ". To set the visibility of that source file target, use the"
-                                + " exports_files() function")
+                                + ". To depend on that source file target, either add it to a"
+                                + " filegroup() and depend on that filegroup, or else use the"
+                                + " exports_files() function to change the source file's"
+                                + " visibility")
                         .setAnalysis(
                             Analysis.newBuilder()
                                 .setCode(Analysis.Code.CONFIGURED_VALUE_CREATION_FAILED))

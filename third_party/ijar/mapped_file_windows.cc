@@ -94,12 +94,6 @@ MappedInputFile::~MappedInputFile() {
   delete impl_;
 }
 
-void MappedInputFile::Discard(size_t bytes) {
-  // This is not supported on Windows for now. I'm not sure if we can unmap
-  // parts of an existing view and that this is necessary for Windows at all.
-  // At any rate, this only matters for >2GB (or maybe >4GB?) input files.
-}
-
 int MappedInputFile::Close() {
   if (!UnmapViewOfFile(buffer_)) {
     string errormsg = blaze_util::GetLastErrorString();
@@ -190,8 +184,10 @@ int MappedOutputFile::Close(size_t size) {
         << blaze_util::GetLastErrorString();
   }
 
-  if (!SetFilePointer(impl_->file_, size, NULL, FILE_BEGIN)) {
-    BAZEL_DIE(255) << "MappedOutputFile::Close: SetFilePointer failed: "
+  LARGE_INTEGER distance_to_move;
+  distance_to_move.QuadPart = size;
+  if (!SetFilePointerEx(impl_->file_, distance_to_move, NULL, FILE_BEGIN)) {
+    BAZEL_DIE(255) << "MappedOutputFile::Close: SetFilePointerEx failed: "
                    << blaze_util::GetLastErrorString();
   }
 

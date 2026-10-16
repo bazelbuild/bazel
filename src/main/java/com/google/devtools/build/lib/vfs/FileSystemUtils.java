@@ -25,6 +25,7 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -36,7 +37,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** Helper functions that implement often-used complex operations on file systems. */
@@ -489,16 +489,58 @@ public class FileSystemUtils {
     }
   }
 
+  /**
+   * Atomically renames a source file to a target file, tolerating the case where another thread has
+   * concurrently created the target file (e.g. because it is known to have the same content in a
+   * CAS-like structure).
+   *
+   * <p>This handles a Windows-specific edge case: when the target file is being read by another
+   * process (e.g., during a concurrent cache lookup), the rename operation fails with a {@link
+   * FileAccessException}. If the target file already exists when this happens, it means another
+   * thread won the race to create it, so we can safely delete the source file.
+   *
+   * <p>The parent directories of the target file must already exist.
+   *
+   * @param source the file to rename
+   * @param target the destination path
+   */
+  @ThreadSafe
+  public static void renameToleratingConcurrentCreation(Path source, Path target)
+      throws IOException {
+    try {
+      source.renameTo(target);
+    } catch (FileAccessException e) {
+      // On Windows, atomically replacing a file that is currently opened (e.g. due to a concurrent
+      // get on the cache) results in renameTo throwing this exception, which wraps an
+      // AccessDeniedException. This case is benign since if the target path already exists, we know
+      // that another thread won the race to place the file in the cache. As the exception is rather
+      // generic and could result from other failure types, we rethrow the exception if the cache
+      // entry hasn't been created.
+      if (OS.getCurrent() != OS.WINDOWS || !target.exists()) {
+        throw e;
+      }
+      source.delete();
+    }
+  }
+
   /* Directory tree operations. */
+
+  /** Determines whether a tree traversal should visit a path. */
+  @FunctionalInterface
+  public interface TraverseTreePredicate {
+    /** Returns whether a tree traversal should visit the given path. */
+    boolean shouldTraverse(Path path) throws IOException;
+  }
 
   /**
    * Returns a new collection containing all of the paths below a given root path, for which the
    * given predicate is true. Symbolic links are not followed, and may appear in the result.
    *
-   * @throws IOException If the root does not denote a directory
+   * @throws IOException if the root does not denote a directory, or if the predicate throws an
+   *     IOException
    */
   @ThreadSafe
-  public static Collection<Path> traverseTree(Path root, Predicate<Path> predicate)
+  public static Collection<Path> traverseTree(Path root, TraverseTreePredicate predicate)
       throws IOException {
     List<Path> paths = new ArrayList<>();
     traverseTree(paths, root, predicate);
@@ -512,14 +554,15 @@ public class FileSystemUtils {
    * @throws IOException If the root does not denote a directory
    */
   @ThreadSafe
-  public static void traverseTree(Collection<Path> paths, Path root, Predicate<Path> predicate)
-      throws IOException {
-    for (Path p : root.getDirectoryEntries()) {
-      if (predicate.test(p)) {
-        paths.add(p);
+  public static void traverseTree(
+      Collection<Path> paths, Path root, TraverseTreePredicate predicate) throws IOException {
+    for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      Path childPath = root.getChild(dirent.getName());
+      if (predicate.shouldTraverse(childPath)) {
+        paths.add(childPath);
       }
-      if (p.isDirectory(Symlinks.NOFOLLOW)) {
-        traverseTree(paths, p, predicate);
+      if (dirent.getType() == Dirent.Type.DIRECTORY) {
+        traverseTree(paths, childPath, predicate);
       }
     }
   }

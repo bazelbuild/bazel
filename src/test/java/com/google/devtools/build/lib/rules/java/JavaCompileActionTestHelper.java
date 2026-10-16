@@ -28,8 +28,6 @@ import java.util.Set;
  */
 public final class JavaCompileActionTestHelper {
 
-  public static final String JAVA_LANGUAGE_VERSION_FOR_TESTING = "21";
-
   public static Set<String> getDirectJars(JavaCompileAction javac) throws Exception {
     return getOptions(javac).directJars();
   }

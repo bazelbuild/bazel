@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.Collection;
+import java.util.HashSet;
 import org.junit.Before;
 
 /** Test cases for {@link FileWriteAction}. */
@@ -88,7 +89,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
 
   protected void checkDestinationArtifactIsOutput() {
     Collection<Artifact> outputs = action.getOutputs();
-    assertThat(Sets.newHashSet(outputs)).isEqualTo(Sets.newHashSet(outputArtifact));
+    assertThat(new HashSet<>(outputs)).isEqualTo(Sets.newHashSet(outputArtifact));
     assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
   }
 

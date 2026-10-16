@@ -28,8 +28,10 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -77,6 +79,7 @@ import net.starlark.java.eval.StarlarkValue;
  * <p>This class is immutable and can safely be shared among threads.
  */
 @Immutable
+@StarlarkBuiltin(name = "DottedVersion", documented = false)
 public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   /**
    * Wrapper class for {@link DottedVersion} whose {@link #equals(Object)} method is string
@@ -111,7 +114,12 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public boolean isAcyclic() {
+      return true;
+    }
+
+    @Override
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(version.toString());
     }
 
@@ -391,7 +399,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(stringRepresentation);
   }
 

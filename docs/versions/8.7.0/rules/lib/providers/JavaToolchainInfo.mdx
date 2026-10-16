@@ -1,0 +1,109 @@
+---
+title: 'JavaToolchainInfo'
+---
+
+Provides access to information about the Java toolchain rule. Accessible as a 'java_toolchain' field on a Target struct.
+
+## Members
+
+* [bootclasspath](#bootclasspath)
+* [ijar](#ijar)
+* [jacocorunner](#jacocorunner)
+* [java_runtime](#java_runtime)
+* [jvm_opt](#jvm_opt)
+* [label](#label)
+* [proguard_allowlister](#proguard_allowlister)
+* [single_jar](#single_jar)
+* [source_version](#source_version)
+* [target_version](#target_version)
+* [tools](#tools)
+
+## bootclasspath
+
+```
+depset JavaToolchainInfo.bootclasspath
+```
+
+The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.
+
+## ijar
+
+```
+FilesToRunProvider JavaToolchainInfo.ijar
+```
+
+A FilesToRunProvider representing the ijar executable.
+
+## jacocorunner
+
+```
+FilesToRunProvider JavaToolchainInfo.jacocorunner
+```
+
+The jacocorunner used by the toolchain.
+May return `None`.
+
+## java_runtime
+
+```
+JavaRuntimeInfo JavaToolchainInfo.java_runtime
+```
+
+The java runtime information.
+
+## jvm_opt
+
+```
+depset JavaToolchainInfo.jvm_opt
+```
+
+The default options for the JVM running the java compiler and associated tools.
+
+## label
+
+```
+Label JavaToolchainInfo.label
+```
+
+The toolchain label.
+
+## proguard_allowlister
+
+```
+FilesToRunProvider JavaToolchainInfo.proguard_allowlister
+```
+
+Return the binary to validate proguard configuration
+May return `None`.
+
+## single_jar
+
+```
+FilesToRunProvider JavaToolchainInfo.single_jar
+```
+
+The SingleJar deploy jar.
+
+## source_version
+
+```
+string JavaToolchainInfo.source_version
+```
+
+The java source version.
+
+## target_version
+
+```
+string JavaToolchainInfo.target_version
+```
+
+The java target version.
+
+## tools
+
+```
+depset JavaToolchainInfo.tools
+```
+
+The compilation tools.

@@ -2,13 +2,16 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+        "//src/test/shell/bazel:__pkg__",
+    ],
 )
 
 java_library(
@@ -18,25 +21,34 @@ java_library(
         "ProtoWorkerProtocol.java",
         "WorkerProtocolImpl.java",
     ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/worker:__pkg__",
+    ],
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:gson",
-        "@com_google_protobuf//:protobuf_java_util",
+        "//third_party/java/gson",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf/util:json",
     ],
 )
 
 java_library(
     name = "worker_files_hash",
     srcs = ["WorkerFilesHash.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/worker:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:hash",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -57,12 +69,14 @@ java_library(
         ":worker_process_metrics",
         ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
+        "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
@@ -77,9 +91,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -99,25 +116,26 @@ java_library(
         ":worker_pool_impl",
         ":worker_process_metrics",
         ":worker_spawn_runner",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
-        "//src/main/java/com/google/devtools/build/lib/exec:runfiles_tree_updater",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/events",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_util",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
         "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -128,13 +146,15 @@ java_library(
         "ProtoWorkerMessageProcessor.java",
         "WorkRequestHandler.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:error_prone_annotations",
-        "//third_party:gson",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/gson",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/protobuf/util:json",
     ],
 )
 
@@ -148,7 +168,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:command_failure_utils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
     ],
 )
 
@@ -165,19 +187,25 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/metrics:resource_collector",
         "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "worker_options",
     srcs = ["WorkerOptions.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib/remote:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/worker:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:ram_resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -200,9 +228,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -214,7 +242,7 @@ java_library(
     deps = [
         ":worker",
         ":worker_key",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -237,9 +265,9 @@ java_library(
         ":worker_pool",
         ":worker_pool_config",
         ":worker_process_status",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -256,8 +284,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -267,8 +296,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -289,7 +318,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_util",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
@@ -298,9 +326,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -330,9 +359,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -344,8 +375,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -354,13 +385,17 @@ java_library(
     srcs = ["ErrorMessage.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
     ],
 )
 
 java_library(
     name = "recording_input_stream",
     srcs = ["RecordingInputStream.java"],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:io",
+        "//third_party/java/guava:primitives",
+    ],
 )

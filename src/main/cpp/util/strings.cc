@@ -29,7 +29,10 @@
 #include <stdlib.h>
 
 #include <cassert>
+#include <cctype>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "src/main/cpp/util/exit_code.h"
 

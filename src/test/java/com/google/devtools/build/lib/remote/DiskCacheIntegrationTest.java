@@ -21,11 +21,13 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
@@ -34,9 +36,14 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -48,9 +55,8 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
   // Collect digests of AC entries uploaded to the disk cache during the build.
   // Filter out actions other than genrules (e.g. WorkspaceStatusAction).
@@ -88,6 +94,14 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
   private static PathFragment getDiskCacheDir() {
     PathFragment testTmpDir = PathFragment.create(tmpDirFile().getAbsolutePath());
     return testTmpDir.getRelative("disk_cache");
+  }
+
+  @Override
+  protected ImmutableList<Class<? extends OptionsBase>> getStartupOptionClasses() {
+    return ImmutableList.<Class<? extends OptionsBase>>builder()
+        .addAll(super.getStartupOptionClasses())
+        .add(RemoteStartupOptions.class)
+        .build();
   }
 
   @Override
@@ -143,73 +157,296 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     assertRecentlyModified(actionDigests, getBlobDigests("foo", "foobar", "out", "err"));
   }
 
-  private void doBlobsReferencedInAcAreMissingFromCasIgnoresAc(String... additionalOptions)
-      throws Exception {
+  private static boolean isWindows() {
+    return OS.getCurrent() == OS.WINDOWS;
+  }
+
+  private void setupStdoutOutputWorkspace() throws IOException {
+    // Rules whose only output is the stdout of a tool captured via the `stdout` parameter of
+    // ctx.actions.run.
+    write(
+        "defs.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run(
+                outputs = [],
+                executable = "%s",
+                arguments = ["%s", ctx.attr.command],
+                stdout = out,
+                mnemonic = "Capture",
+            )
+            return DefaultInfo(files = depset([out]))
+
+        capture = rule(
+            implementation = _impl,
+            attrs = {"command": attr.string(mandatory = True)},
+        )
+        """
+            .formatted(
+                isWindows() ? "C:/Windows/System32/cmd.exe" : "/bin/bash",
+                isWindows() ? "/c" : "-c"));
+    write(
+        "BUILD",
+        """
+        load(":defs.bzl", "capture")
+
+        capture(
+            name = "capture",
+            command = "%s",
+        )
+
+        capture(
+            name = "capture_empty",
+            command = "%s",
+        )
+        """
+            .formatted(
+                isWindows() ? "echo hello stdout" : "echo -n 'hello stdout'",
+                isWindows() ? "rem" : "true"));
+  }
+
+  private void assertStdoutOutputContents() throws Exception {
+    String expected = isWindows() ? "hello stdout\r\n" : "hello stdout";
+    var out = Iterables.getOnlyElement(getArtifacts("//:capture"));
+    assertThat(FileSystemUtils.readContent(out.getPath(), UTF_8)).isEqualTo(expected);
+    var emptyOut = Iterables.getOnlyElement(getArtifacts("//:capture_empty"));
+    assertThat(FileSystemUtils.readContent(emptyOut.getPath(), UTF_8)).isEmpty();
+  }
+
+  @Test
+  public void stdoutOutput_hitDiskCache() throws Exception {
+    // Arrange: Populate the disk cache from locally executed actions whose stdout is captured
+    // into an output file. The captured stdout is uploaded as the action result's stdout digest
+    // rather than as an output file.
+    setupStdoutOutputWorkspace();
+    buildTarget("//:capture", "//:capture_empty");
+    assertStdoutOutputContents();
+
+    // Act: Do a clean build.
+    cleanAndRestartServer();
+    buildTarget("//:capture", "//:capture_empty");
+
+    // Assert: Should hit the disk cache and reconstruct the stdout outputs from the stdout
+    // digests.
+    events.assertContainsInfo("2 disk cache hit");
+    assertStdoutOutputContents();
+  }
+
+  @Test
+  public void stdoutOutput_hitRemoteCache() throws Exception {
+    // Arrange: Populate the remote cache from locally executed actions whose stdout is captured
+    // into an output file.
+    setupStdoutOutputWorkspace();
+    enableRemoteCache();
+    buildTarget("//:capture", "//:capture_empty");
+    assertStdoutOutputContents();
+
+    // Act: Drop the disk cache so that the clean build can only hit the remote cache.
+    getWorkspace().getFileSystem().getPath(getDiskCacheDir()).deleteTree();
+    cleanAndRestartServer();
+    enableRemoteCache();
+    buildTarget("//:capture", "//:capture_empty");
+
+    // Assert: Should hit the remote cache and reconstruct the stdout outputs from the stdout
+    // digests.
+    events.assertContainsInfo("2 remote cache hit");
+    assertStdoutOutputContents();
+  }
+
+  private void doBlobsReferencedInAcAreMissingFromCas(
+      boolean rewindLostInputs, String... additionalOptions) throws Exception {
     // Arrange: Prepare the workspace and populate disk cache.
     setupWorkspace();
+    addOptions("--rewind_lost_inputs=" + rewindLostInputs);
     addOptions(additionalOptions);
     buildTarget("//:foobar");
 
     // Act: Delete blobs in CAS from disk cache and do a clean build.
     getWorkspace().getFileSystem().getPath(getDiskCacheDir().getRelative("cas")).deleteTree();
     cleanAndRestartServer();
+    addOptions("--rewind_lost_inputs=" + rewindLostInputs);
     addOptions(additionalOptions);
     buildTarget("//:foobar");
+  }
 
-    // Assert: Should ignore the stale AC and rerun the generating action.
+  @Test
+  public void blobsReferencedInAcAreMissingFromCas(@TestParameter boolean rewindLostInputs)
+      throws Exception {
+    doBlobsReferencedInAcAreMissingFromCas(rewindLostInputs, "--remote_download_all");
+
     events.assertDoesNotContainEvent("disk cache hit");
   }
 
   @Test
-  public void blobsReferencedInAcAreMissingFromCas_ignoresAc() throws Exception {
-    doBlobsReferencedInAcAreMissingFromCasIgnoresAc();
+  public void bwob_blobsReferencedInAcAreMissingFromCas(@TestParameter boolean rewindLostInputs)
+      throws Exception {
+    doBlobsReferencedInAcAreMissingFromCas(rewindLostInputs, "--remote_download_minimal");
+
+    if (rewindLostInputs) {
+      events.assertContainsInfo("1 disk cache hit");
+    } else {
+      events.assertDoesNotContainEvent("disk cache hit");
+    }
   }
 
   @Test
-  public void bwob_blobsReferencedInAcAreMissingFromCas_ignoresAc() throws Exception {
-    doBlobsReferencedInAcAreMissingFromCasIgnoresAc("--remote_download_minimal");
-  }
-
-  @Test
-  public void bwobAndRemoteExec_blobsReferencedInAcAreMissingFromCas_ignoresAc() throws Exception {
+  public void bwobAndRemoteExec_blobsReferencedInAcAreMissingFromCas(
+      @TestParameter boolean rewindLostInputs) throws Exception {
     enableRemoteExec("--remote_download_minimal");
-    doBlobsReferencedInAcAreMissingFromCasIgnoresAc();
+    doBlobsReferencedInAcAreMissingFromCas(rewindLostInputs);
+
+    if (rewindLostInputs) {
+      events.assertContainsInfo("1 disk cache hit");
+    } else {
+      events.assertDoesNotContainEvent("disk cache hit");
+    }
   }
 
   @Test
-  public void bwobAndRemoteCache_blobsReferencedInAcAreMissingFromCas_ignoresAc() throws Exception {
+  public void bwobAndRemoteCache_blobsReferencedInAcAreMissingFromCas(
+      @TestParameter boolean rewindLostInputs) throws Exception {
     enableRemoteCache("--remote_download_minimal");
-    doBlobsReferencedInAcAreMissingFromCasIgnoresAc();
+    doBlobsReferencedInAcAreMissingFromCas(rewindLostInputs);
+
+    if (rewindLostInputs) {
+      events.assertContainsInfo("1 disk cache hit");
+    } else {
+      events.assertDoesNotContainEvent("disk cache hit");
+    }
   }
 
-  private void doRemoteExecWithDiskCache(String... additionalOptions) throws Exception {
+  private void doRemoteExecWithDiskCache(boolean rewindLostInputs, String... additionalOptions)
+      throws Exception {
     // Arrange: Prepare the workspace and populate disk cache.
     setupWorkspace();
+    addOptions("--rewind_lost_inputs=" + rewindLostInputs);
     enableRemoteExec(additionalOptions);
     buildTarget("//:foobar");
 
-    // Act: Do a clean build.
+    // Act: Do a clean build with Build without the Bytes.
     cleanAndRestartServer();
+    addOptions("--rewind_lost_inputs=" + rewindLostInputs);
     enableRemoteExec("--remote_download_minimal");
     buildTarget("//:foobar");
   }
 
   @Test
-  public void remoteExecWithDiskCache_hitDiskCache() throws Exception {
+  public void remoteExecWithDiskCache_hitDiskCache(@TestParameter boolean rewindLostInputs)
+      throws Exception {
     // Download all outputs to populate the disk cache.
-    doRemoteExecWithDiskCache("--remote_download_all");
+    doRemoteExecWithDiskCache(rewindLostInputs, "--remote_download_all");
 
     // Assert: Should hit the disk cache.
     events.assertContainsInfo("2 disk cache hit");
   }
 
   @Test
-  public void bwob_remoteExecWithDiskCache_hitRemoteCache() throws Exception {
-    doRemoteExecWithDiskCache("--remote_download_minimal");
+  public void bwob_remoteExecWithDiskCache_hitRemoteCache(@TestParameter boolean rewindLostInputs)
+      throws Exception {
+    doRemoteExecWithDiskCache(rewindLostInputs, "--remote_download_minimal");
 
-    // Assert: Should hit the remote cache because blobs referenced by the AC are missing from disk
-    // cache due to BwoB.
-    events.assertContainsInfo("2 remote cache hit");
+    if (rewindLostInputs) {
+      // Assert: Should hit the disk cache because AC entries with blobs missing from the disk
+      // cache due to BwoB are accepted with action rewinding enabled.
+      events.assertContainsInfo("2 disk cache hit");
+    } else {
+      // Assert: Should hit the remote cache because blobs referenced by the AC are missing from
+      // disk cache due to BwoB.
+      events.assertContainsInfo("2 remote cache hit");
+    }
+  }
+
+  @Test
+  public void remoteExecWithDiskCache_inputsNotUploadedToDiskCache() throws Exception {
+    // Arrange: Set up workspace with tree artifact, runfiles, and source file as inputs.
+    write(
+        "defs.bzl",
+        """
+        def _tree_impl(ctx):
+            out = ctx.actions.declare_directory(ctx.attr.name + "_tree")
+            ctx.actions.run_shell(
+                mnemonic = "TreeGen",
+                outputs = [out],
+                command = "mkdir -p {0}/subdir && echo -n tree_content > {0}/subdir/file.txt".format(
+                    out.path
+                ),
+            )
+            return DefaultInfo(files = depset([out]))
+
+        tree = rule(implementation = _tree_impl)
+
+        def _runfiles_lib_impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.name + ".txt")
+            ctx.actions.write(out, "runfiles_content")
+            return DefaultInfo(
+                files = depset([out]),
+                runfiles = ctx.runfiles(files = [out]),
+            )
+
+        runfiles_lib = rule(implementation = _runfiles_lib_impl)
+
+        def _consumer_impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.name + ".out")
+            tree_input = ctx.attr.tree[DefaultInfo].files.to_list()[0]
+            runfiles_input = ctx.attr.runfiles_lib[DefaultInfo].files.to_list()[0]
+            source_input = ctx.file.src
+            ctx.actions.run_shell(
+                mnemonic = "Consumer",
+                inputs = depset(
+                    [tree_input, runfiles_input, source_input],
+                    transitive = [ctx.attr.runfiles_lib[DefaultInfo].default_runfiles.files],
+                ),
+                outputs = [out],
+                command = "cat {0}/subdir/file.txt {1} {2} > {3}".format(
+                    tree_input.path, runfiles_input.path, source_input.path, out.path
+                ),
+            )
+            return DefaultInfo(files = depset([out]))
+
+        consumer = rule(
+            implementation = _consumer_impl,
+            attrs = {
+                "tree": attr.label(mandatory = True),
+                "runfiles_lib": attr.label(mandatory = True),
+                "src": attr.label(mandatory = True, allow_single_file = True),
+            },
+        )
+        """);
+    write("source_input.txt", "source_content");
+    write(
+        "BUILD",
+        """
+        load(":defs.bzl", "tree", "runfiles_lib", "consumer")
+        tree(name = "my_tree")
+        runfiles_lib(name = "my_runfiles")
+        consumer(
+            name = "my_consumer",
+            tree = ":my_tree",
+            runfiles_lib = ":my_runfiles",
+            src = "source_input.txt",
+        )
+        """);
+
+    enableRemoteExec();
+    buildTarget("//:my_consumer");
+
+    // Assert: The tree artifact content, runfiles content, and source content should be in the
+    // remote cache but NOT in the disk cache (inputs should only be uploaded to remote, not disk
+    // cache).
+    Digest treeContentDigest = digestUtil.compute("tree_content".getBytes(UTF_8));
+    Digest runfilesContentDigest = digestUtil.compute("runfiles_content".getBytes(UTF_8));
+    Digest sourceContentDigest = digestUtil.compute("source_content\n".getBytes(UTF_8));
+
+    // Verify inputs are in the remote cache (so the remote action could execute).
+    assertThat(remoteCacheEntryExists(treeContentDigest)).isTrue();
+    assertThat(remoteCacheEntryExists(runfilesContentDigest)).isTrue();
+    assertThat(remoteCacheEntryExists(sourceContentDigest)).isTrue();
+
+    // Verify inputs are NOT in the disk cache.
+    assertThat(diskCacheEntryExists(Store.CAS, treeContentDigest)).isFalse();
+    assertThat(diskCacheEntryExists(Store.CAS, runfilesContentDigest)).isFalse();
+    assertThat(diskCacheEntryExists(Store.CAS, sourceContentDigest)).isFalse();
   }
 
   private void cleanAndRestartServer() throws Exception {
@@ -289,5 +526,13 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
                 .getRelative(store.toString())
                 .getRelative(digest.getHash().substring(0, 2))
                 .getRelative(digest.getHash()));
+  }
+
+  private boolean diskCacheEntryExists(Store store, Digest digest) throws IOException {
+    return getDiskCacheEntryPath(store, digest).exists();
+  }
+
+  private boolean remoteCacheEntryExists(Digest digest) throws IOException {
+    return fileSystem.getPath(worker.getCasBlobPath(digest)).exists();
   }
 }

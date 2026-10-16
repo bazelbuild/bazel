@@ -18,6 +18,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -37,13 +38,18 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.StarlarkProviderStats;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.Distribution;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.Entry;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.LatencyBySkyFunction;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
@@ -57,6 +63,7 @@ import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochCon
 import com.google.devtools.build.lib.dynamic.DynamicExecutionFinishedEvent;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.metrics.ExtremaPackageMetricsRecorder;
 import com.google.devtools.build.lib.packages.metrics.PackageLoadMetrics;
 import com.google.devtools.build.lib.packages.metrics.PackageMetricsPackageLoadingListener;
@@ -65,14 +72,20 @@ import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.LocationPrinter;
 import com.google.devtools.build.lib.runtime.SpawnStats;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
-import com.google.devtools.build.lib.skyframe.SkyKeyStats;
 import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
+import com.google.devtools.build.lib.util.Bucket;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
@@ -84,12 +97,15 @@ import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAccumulator;
+import java.util.function.LongConsumer;
 import java.util.stream.Stream;
 
 class MetricsCollector {
@@ -103,10 +119,13 @@ class MetricsCollector {
   // For CumulativeMetrics.
   private final AtomicInteger numAnalyses;
   private final AtomicInteger numBuilds;
+  private final String instanceId;
 
   private final ActionSummary.Builder actionSummary = ActionSummary.newBuilder();
   private final TargetMetrics.Builder targetMetrics = TargetMetrics.newBuilder();
   private final PackageMetrics.Builder packageMetrics = PackageMetrics.newBuilder();
+  private final BzlMetrics.Builder bzlMetrics = BzlMetrics.newBuilder();
+
   private final TimingMetrics.Builder timingMetrics = TimingMetrics.newBuilder();
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
@@ -125,10 +144,12 @@ class MetricsCollector {
       CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
     this.env = env;
     Options options = env.getOptions().getOptions(Options.class);
-    this.recordMetricsForAllMnemonics = options != null && options.recordMetricsForAllMnemonics;
-    this.recordSkyframeMetrics = options != null && options.recordSkyframeMetrics;
+    this.recordMetricsForAllMnemonics =
+        options != null && options.getRecordMetricsForAllMnemonics();
+    this.recordSkyframeMetrics = options != null && options.getRecordSkyframeMetrics();
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
+    this.instanceId = env.getRuntime().getInstanceId().toString();
     env.getEventBus().register(this);
     WorkerProcessMetricsCollector.instance().setClock(env.getClock());
     this.buildAccountedFor = new AtomicBoolean();
@@ -175,6 +196,7 @@ class MetricsCollector {
           metrics = metrics.limit(5L * extremaPackageMetricsRecorder.getNumPackagesToTrack());
         }
         metrics.forEach(packageMetrics::addPackageLoadMetrics);
+        bzlMetrics.mergeFrom(recorder.getBzlMetrics());
       }
     }
 
@@ -349,6 +371,7 @@ class MetricsCollector {
             .setMemoryMetrics(createMemoryMetrics())
             .setTargetMetrics(targetMetrics.build())
             .setPackageMetrics(packageMetrics.build())
+            .setBzlMetrics(bzlMetrics.build())
             .setTimingMetrics(finishTimingMetrics())
             .setCumulativeMetrics(createCumulativeMetrics())
             .setArtifactMetrics(artifactMetrics.build())
@@ -366,38 +389,146 @@ class MetricsCollector {
     return buildMetrics.build();
   }
 
+  private Distribution computeDistributionProto(List<Bucket> buckets) {
+    Distribution.Builder result = Distribution.newBuilder();
+
+    for (var b : buckets) {
+      result.addHistogramBucket(
+          Distribution.HistogramBucket.newBuilder()
+              .setMin(b.minInclusive())
+              .setMax(b.maxExclusive())
+              .setCount(b.count())
+              .build());
+    }
+    return result.build();
+  }
+
   private RemoteAnalysisCacheStatistics collectRemoteAnalysisCacheStats() {
+    RemoteAnalysisCachingEventListener listener = env.getRemoteAnalysisCachingEventListener();
     RemoteAnalysisCacheStatistics.Builder result =
         RemoteAnalysisCacheStatistics.newBuilder()
-            .setCacheHits(env.getRemoteAnalysisCachingEventListener().getCacheHits().size())
-            .setCacheMisses(env.getRemoteAnalysisCachingEventListener().getCacheMisses().size());
+            .setCacheHits(listener.getCacheHits().size())
+            .setCacheMisses(listener.getCacheMisses().size());
+
+    for (var entry : listener.getMissesByReason().entrySet()) {
+      result.addCacheMissesByReason(
+          Entry.newBuilder()
+              .setKey(entry.getKey().name())
+              .setValue(entry.getValue().get())
+              .build());
+    }
+
+    for (var entry : listener.getMissesBySkyFunctionName().entrySet()) {
+      result.addCacheMissesBySkyfunction(
+          Entry.newBuilder()
+              .setKey(entry.getKey().getName())
+              .setValue(entry.getValue().get())
+              .build());
+    }
+
+    for (var entry : listener.getHitsBySkyFunctionName().entrySet()) {
+      result.addCacheHitsBySkyfunction(
+          Entry.newBuilder()
+              .setKey(entry.getKey().getName())
+              .setValue(entry.getValue().get())
+              .build());
+    }
+
+    for (var entry : listener.getHitLatenciesBySkyFunctionName().entrySet()) {
+      result.addLatencyBySkyfunction(
+          LatencyBySkyFunction.newBuilder()
+              .setSkyfunction(entry.getKey().functionName().getName())
+              .setOutcome(LatencyBySkyFunction.Outcome.HIT)
+              .setPhase(toProtoPhase(entry.getKey().phase()))
+              .setLatency(computeDistributionProto(entry.getValue().getBuckets()))
+              .build());
+    }
+
+    for (var entry : listener.getMissLatenciesBySkyFunctionName().entrySet()) {
+      result.addLatencyBySkyfunction(
+          LatencyBySkyFunction.newBuilder()
+              .setSkyfunction(entry.getKey().functionName().getName())
+              .setOutcome(LatencyBySkyFunction.Outcome.MISS)
+              .setPhase(toProtoPhase(entry.getKey().phase()))
+              .setLatency(computeDistributionProto(entry.getValue().getBuckets()))
+              .build());
+    }
 
     FingerprintValueStore.Stats fvsStats =
         env.getRemoteAnalysisCachingEventListener().getFingerprintValueStoreStats();
-    if (fvsStats != null) {
-      result
-          .setValueStoreValueBytesReceived(fvsStats.valueBytesReceived())
-          .setValueStoreValueBytesSent(fvsStats.valueBytesSent())
-          .setValueStoreKeyBytesSent(fvsStats.keyBytesSent())
-          .setValueStoreWriteOps(fvsStats.entriesWritten())
-          .setValueStoreReadOpsSuccessful(fvsStats.entriesFound())
-          .setValueStoreReadOpsNotFound(fvsStats.entriesNotFound())
-          .setValueStoreReadBatches(fvsStats.getBatches())
-          .setValueStoreWriteBatches(fvsStats.setBatches());
-    }
+    result
+        .setValueStoreValueBytesReceived(fvsStats.valueBytesReceived())
+        .setValueStoreValueBytesSent(fvsStats.valueBytesSent())
+        .setValueStoreKeyBytesSent(fvsStats.keyBytesSent())
+        .setValueStoreWriteOps(fvsStats.entriesWritten())
+        .setValueStoreReadOpsSuccessful(fvsStats.entriesFound())
+        .setValueStoreReadOpsNotFound(fvsStats.entriesNotFound())
+        .setValueStoreReadBatches(fvsStats.getBatches())
+        .setValueStoreWriteBatches(fvsStats.setBatches())
+        .setValueStoreReadLatencyMicros(computeDistributionProto(fvsStats.getLatencyMicros()))
+        .setValueStoreReadBatchLatencyMicros(
+            computeDistributionProto(fvsStats.getBatchLatencyMicros()))
+        .setValueStoreWriteLatencyMicros(computeDistributionProto(fvsStats.setLatencyMicros()))
+        .setValueStoreWriteBatchLatencyMicros(
+            computeDistributionProto(fvsStats.setBatchLatencyMicros()));
 
     RemoteAnalysisCacheClient.Stats raccStats =
         env.getRemoteAnalysisCachingEventListener().getRemoteAnalysisCacheStats();
-    if (raccStats != null) {
-      result
-          .setAnalysisCacheBytesReceived(raccStats.bytesReceived())
-          .setAnalysisCacheKeyBytesSent(raccStats.bytesSent())
-          .setAnalysisCacheOps(raccStats.requestsSent())
-          .setAnalysisCacheBatches(raccStats.batches())
-          .setMetadataLookupResult(raccStats.matchStatus());
+    TopLevelTargetsMatchStatus matchStatus =
+        TopLevelTargetsMatchStatus.forNumber(raccStats.matchStatus());
+    if (matchStatus == null) {
+      // Possible version skew: the old LC doesn't know about the new enum value.
+      matchStatus = TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED;
+    }
+    result
+        .setAnalysisCacheBytesReceived(raccStats.bytesReceived())
+        .setAnalysisCacheKeyBytesSent(raccStats.bytesSent())
+        .setAnalysisCacheOps(raccStats.requestsSent())
+        .setAnalysisCacheBatches(raccStats.batches())
+        .setAnalysisCacheReadLatencyMicros(computeDistributionProto(raccStats.latencyMicros()))
+        .setAnalysisCacheReadBatchLatencyMicros(
+            computeDistributionProto(raccStats.batchLatencyMicros()))
+        .setMetadataLookupResult(matchStatus);
+
+    RemoteAnalysisCacheStatistics.InvalidationLookupMetrics invalidationMetrics =
+        listener.getInvalidationLookupMetrics();
+    if (invalidationMetrics != null) {
+      result.setInvalidationLookupMetrics(invalidationMetrics);
+    }
+
+    result.setSerializationExceptionCount(listener.getSerializationExceptionCounts());
+
+    RemoteAnalysisCachingServicesSupplier supplier =
+        env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+    if (supplier != null && supplier.getPeers() != null) {
+      listener.recordPeers(supplier.getPeers());
+    }
+
+    for (var entry : listener.getPeers().entrySet()) {
+      var peer = entry.getKey();
+      result.addPeers(
+          RemoteAnalysisCacheStatistics.Peer.newBuilder()
+              .setServiceName(peer.serviceName())
+              .setId(peer.id())
+              .setRequestCount(entry.getValue().get())
+              .build());
     }
 
     return result.build();
+  }
+
+  private static LatencyBySkyFunction.Phase toProtoPhase(RetrievalPhase phase) {
+    return switch (phase) {
+      case TOTAL -> LatencyBySkyFunction.Phase.TOTAL;
+      case INITIAL_QUERY -> LatencyBySkyFunction.Phase.INITIAL_QUERY;
+      case WAITING_FOR_CACHE_SERVICE_RESPONSE ->
+          LatencyBySkyFunction.Phase.WAITING_FOR_CACHE_SERVICE_RESPONSE;
+      case WAITING_FOR_FUTURE_LOOKUP_CONTINUATION ->
+          LatencyBySkyFunction.Phase.WAITING_FOR_FUTURE_LOOKUP_CONTINUATION;
+      case WAITING_FOR_LOOKUP_CONTINUATION ->
+          LatencyBySkyFunction.Phase.WAITING_FOR_LOOKUP_CONTINUATION;
+      case WAITING_FOR_FUTURE_RESULT -> LatencyBySkyFunction.Phase.WAITING_FOR_FUTURE_RESULT;
+    };
   }
 
   private ActionData buildActionData(ActionStats actionStats) {
@@ -476,43 +607,64 @@ class MetricsCollector {
 
     // getSkyframeStats return Nullable for unsupported implementations, so
     // ensure we get stats before proceeding.
-    SkyframeStats skyframeStats = env.getSkyframeExecutor().getSkyframeStats(env.getReporter());
+    SkyframeStats skyframeStats = env.getSkyframeExecutor().getSkyframeStats();
     if (skyframeStats == null) {
       return;
     }
 
-    Stream<SkyKeyStats> ruleActionStats = skyframeStats.ruleStats().stream();
-    Stream<SkyKeyStats> aspectActionStats = skyframeStats.aspectStats().stream();
+    skyframeStats
+        .ruleStats()
+        .forEach(
+            a ->
+                builder.addRuleClass(
+                    RuleClassCount.newBuilder()
+                        .setKey(a.getKey())
+                        .setRuleClass(a.getName())
+                        .setCount(a.getCount())
+                        .setActionCount(a.getActionCount())
+                        .build()));
+    skyframeStats
+        .aspectStats()
+        .forEach(
+            a ->
+                builder.addAspect(
+                    AspectCount.newBuilder()
+                        .setKey(a.getKey())
+                        .setAspectName(a.getName())
+                        .setCount(a.getCount())
+                        .setActionCount(a.getActionCount())
+                        .build()));
 
-    ruleActionStats.forEach(
-        a ->
-            builder.addRuleClass(
-                RuleClassCount.newBuilder()
-                    .setKey(a.getKey())
-                    .setRuleClass(a.getName())
-                    .setCount(a.getCount())
-                    .setActionCount(a.getActionCount())
-                    .build()));
-    aspectActionStats.forEach(
-        a ->
-            builder.addAspect(
-                AspectCount.newBuilder()
-                    .setKey(a.getKey())
-                    .setAspectName(a.getName())
-                    .setCount(a.getCount())
-                    .setActionCount(a.getActionCount())
-                    .build()));
+    ImmutableMultiset<StarlarkProvider> starlarkProviders = skyframeStats.starlarkProviders();
+    StarlarkProviderStats.Builder providerStats =
+        builder.getStarlarkProviderStatsBuilder().setTotalCount(starlarkProviders.size());
+    LocationPrinter printer =
+        new LocationPrinter(
+            /* attemptToPrintRelativePaths= */ true,
+            env.getDirectories().getWorkspace().asFragment());
+    printer.packageLocatorCreated(env.getPackageLocator());
+    starlarkProviders.forEachEntry(
+        (provider, count) -> {
+          var providerBuilder =
+              providerStats
+                  .addProvidersBuilder()
+                  .setName(provider.getName())
+                  .setLocation(printer.getLocationString(provider.getLocation()))
+                  .setCount(count);
+          ImmutableMap<String, Integer> fields = provider.getFields();
+          if (fields != null) {
+            providerBuilder.getSchemaBuilder().setFieldCount(fields.size());
+          }
+        });
   }
 
-  private MemoryMetrics createMemoryMetrics() {
+  private static MemoryMetrics createMemoryMetrics() {
     MemoryMetrics.Builder memoryMetrics = MemoryMetrics.newBuilder();
     if (MemoryProfiler.instance().getHeapUsedMemoryAtFinish() > 0) {
       memoryMetrics.setUsedHeapSizePostBuild(MemoryProfiler.instance().getHeapUsedMemoryAtFinish());
     }
-    PostGCMemoryUseRecorder.get()
-        .getPeakPostGcHeap()
-        .map(PeakHeap::bytes)
-        .ifPresent(memoryMetrics::setPeakPostGcHeapSize);
+    setPeakHeapSize(
+        PostGCMemoryUseRecorder.get().getPeakPostGcHeap(), memoryMetrics::setPeakPostGcHeapSize);
 
     if (memoryMetrics.getPeakPostGcHeapSize() < memoryMetrics.getUsedHeapSizePostBuild()) {
       // If we just did a GC and computed the heap size, update the one we got from the GC
@@ -520,10 +672,17 @@ class MetricsCollector {
       memoryMetrics.setPeakPostGcHeapSize(memoryMetrics.getUsedHeapSizePostBuild());
     }
 
-    PostGCMemoryUseRecorder.get()
-        .getPeakPostGcHeapTenuredSpace()
-        .map(PeakHeap::bytes)
-        .ifPresent(memoryMetrics::setPeakPostGcTenuredSpaceHeapSize);
+    setPeakHeapSize(
+        PostGCMemoryUseRecorder.get().getPeakPostGcHeapTenuredSpace(),
+        memoryMetrics::setPeakPostGcTenuredSpaceHeapSize);
+
+    setPeakHeapSize(
+        PostGCMemoryUseRecorder.get().getPeakPostGcHeapDuringExecution(),
+        memoryMetrics::setPeakPostGcHeapSizeDuringExecution);
+
+    setPeakHeapSize(
+        PostGCMemoryUseRecorder.get().getPeakPostGcHeapTenuredSpaceDuringExecution(),
+        memoryMetrics::setPeakPostGcTenuredSpaceHeapSizeDuringExecution);
 
     Map<String, Long> garbageStats = PostGCMemoryUseRecorder.get().getGarbageStats();
     for (Map.Entry<String, Long> garbageEntry : garbageStats.entrySet()) {
@@ -535,10 +694,15 @@ class MetricsCollector {
     return memoryMetrics.build();
   }
 
+  private static void setPeakHeapSize(Optional<PeakHeap> peakHeap, LongConsumer setter) {
+    peakHeap.ifPresent(peak -> setter.accept(peak.bytes()));
+  }
+
   private CumulativeMetrics createCumulativeMetrics() {
     return CumulativeMetrics.newBuilder()
         .setNumAnalyses(numAnalyses.get())
         .setNumBuilds(numBuilds.get())
+        .setInstanceId(instanceId)
         .build();
   }
 
@@ -550,6 +714,16 @@ class MetricsCollector {
     Duration cpuTime = Profiler.instance().getServerProcessCpuTime();
     if (cpuTime != null) {
       timingMetrics.setCpuTimeInMs(cpuTime.toMillis());
+    }
+    BuildResultListener buildResultListener = env.getBuildResultListener();
+    if (buildResultListener != null) {
+      if (timingMetrics.getAnalysisPhaseTimeInMs() == 0) {
+        timingMetrics.setAnalysisPhaseTimeInMs(buildResultListener.getAnalysisPhaseTimeInMillis());
+      }
+      if (timingMetrics.getExecutionPhaseTimeInMs() == 0) {
+        timingMetrics.setExecutionPhaseTimeInMs(
+            buildResultListener.getExecutionPhaseTimeInMillis());
+      }
     }
     return timingMetrics.build();
   }

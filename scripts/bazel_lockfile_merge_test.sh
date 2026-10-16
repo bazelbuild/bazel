@@ -273,7 +273,7 @@ EOF
 function test_merge_facts() {
   cat > base <<'EOF'
 {
-  "lockFileVersion": 22,
+  "lockFileVersion": 28,
   "registryFileHashes": {
     "https://example.org/modules/foo/1.0/MODULE.bazel": "1234"
   },
@@ -283,7 +283,7 @@ function test_merge_facts() {
 EOF
   cat > left <<'EOF'
 {
-  "lockFileVersion": 22,
+  "lockFileVersion": 28,
   "registryFileHashes": {
     "https://example.org/modules/foo/1.0/MODULE.bazel": "1234"
   },
@@ -311,7 +311,7 @@ EOF
 EOF
   cat > right <<'EOF'
 {
-  "lockFileVersion": 22,
+  "lockFileVersion": 28,
   "registryFileHashes": {
     "https://example.org/modules/foo/1.0/MODULE.bazel": "1234"
   },
@@ -339,7 +339,7 @@ EOF
 EOF
   cat > expected <<'EOF'
 {
-  "lockFileVersion": 22,
+  "lockFileVersion": 28,
   "registryFileHashes": {
     "https://example.org/modules/foo/1.0/MODULE.bazel": "1234"
   },
@@ -375,6 +375,92 @@ EOF
   }
 }
 EOF
+
+  do_merge base left right
+  diff -u expected left || fail "output differs"
+}
+
+# When two lockfiles have facts at different schema versions (tracked in the
+# parallel factsVersions map), only the entries at the highest version survive
+# for each extension: facts at a lower version would be misinterpreted under
+# the new schema.
+function test_merge_facts_with_mismatched_versions() {
+  cat > base <<'EOF'
+{
+  "lockFileVersion": 28,
+  "registryFileHashes": {},
+  "selectedYankedVersions": {},
+  "moduleExtensions": {}
+}
+EOF
+  cat > left <<'EOF'
+{
+  "lockFileVersion": 28,
+  "registryFileHashes": {},
+  "selectedYankedVersions": {},
+  "moduleExtensions": {},
+  "facts": {
+    "@@rules_foo+//:foo_deps.bzl%foo_deps": {
+      "old_key": "old_value"
+    }
+  },
+  "factsVersions": {
+    "@@rules_foo+//:foo_deps.bzl%foo_deps": 1
+  }
+}
+EOF
+  cat > right <<'EOF'
+{
+  "lockFileVersion": 28,
+  "registryFileHashes": {},
+  "selectedYankedVersions": {},
+  "moduleExtensions": {},
+  "facts": {
+    "@@rules_foo+//:foo_deps.bzl%foo_deps": {
+      "new_key": "new_value"
+    }
+  },
+  "factsVersions": {
+    "@@rules_foo+//:foo_deps.bzl%foo_deps": 2
+  }
+}
+EOF
+  cat > expected <<'EOF'
+{
+  "lockFileVersion": 28,
+  "registryFileHashes": {},
+  "selectedYankedVersions": {},
+  "moduleExtensions": {},
+  "facts": {
+    "@@rules_foo+//:foo_deps.bzl%foo_deps": {
+      "new_key": "new_value"
+    }
+  },
+  "factsVersions": {
+    "@@rules_foo+//:foo_deps.bzl%foo_deps": 2
+  }
+}
+EOF
+
+  do_merge base left right
+  diff -u expected left || fail "output differs"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/29742.
+function test_merge_preserves_empty_facts_versions() {
+  cat > base <<'EOF'
+{
+  "lockFileVersion": 28,
+  "registryFileHashes": {},
+  "selectedYankedVersions": {},
+  "moduleExtensions": {},
+  "facts": {},
+  "factsVersions": {}
+}
+EOF
+  cp base left
+  cp base right
+  cp base expected
 
   do_merge base left right
   diff -u expected left || fail "output differs"

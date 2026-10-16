@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -102,7 +104,7 @@ public class CompressedFunctionTest {
     os.write(("test compressed " + compressedFileName + " file contents\n").getBytes(UTF_8));
     os.close();
 
-    testFs = TestArchiveDescriptor.getFileSystem();
+    testFs = FileSystems.getNativeFileSystem();
   }
 
   /** Basic decompression. Verifies that the uncompressed file name and contents are correct. */
@@ -150,7 +152,7 @@ public class CompressedFunctionTest {
   /** Test renaming the single compressed file. */
   @Test
   public void testDecompressWithRenamedFiles() throws Exception {
-    FileSystem testFs = TestArchiveDescriptor.getFileSystem();
+    FileSystem testFs = FileSystems.getNativeFileSystem();
     HashMap<String, String> renameFiles = new HashMap<>();
     renameFiles.put(EXTRACTED_FILE_NAME, "renamedFile");
     DecompressorDescriptor.Builder descriptor =
@@ -172,5 +174,22 @@ public class CompressedFunctionTest {
 
   private Path decompress(DecompressorDescriptor descriptor) throws Exception {
     return ((Decompressor) clazz.getConstructor().newInstance()).decompress(descriptor);
+  }
+
+  /** Test renaming the single compressed file to something that escapes. */
+  @Test
+  public void testDecompressWithRenamedFileEscape() throws Exception {
+    FileSystem testFs = FileSystems.getNativeFileSystem();
+    HashMap<String, String> renameFiles = new HashMap<>();
+    renameFiles.put(EXTRACTED_FILE_NAME, "../escaped.txt");
+    DecompressorDescriptor.Builder descriptor =
+        DecompressorDescriptor.builder()
+            .setDestinationPath(testFs.getPath(extractionDir.getCanonicalPath()))
+            .setRenameFiles(renameFiles)
+            .setArchivePath(
+                testFs.getPath(archiveDir.getCanonicalPath()).getRelative(compressedFileName));
+
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor.build()));
+    assertThat(thrown).hasMessageThat().contains("path is escaping the destination directory");
   }
 }

@@ -38,9 +38,12 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.LtoAction;
 import com.google.devtools.build.lib.server.FailureDetails.LtoAction.Code;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -208,9 +211,7 @@ public final class LtoBackendAction extends SpawnAction {
     return bitcodeInputs.build();
   }
 
-  @Nullable
-  @Override
-  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  private NestedSet<Artifact> computeImports(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
     Path importsFilePath = actionExecutionContext.getInputPath(imports);
     ImmutableList<String> lines;
@@ -221,7 +222,18 @@ public final class LtoBackendAction extends SpawnAction {
           String.format(
               "error reading imports file %s: %s",
               actionExecutionContext.getInputPath(imports), e.getMessage());
-      DetailedExitCode code = createDetailedExitCode(message, Code.IMPORTS_READ_IO_EXCEPTION);
+      DetailedExitCode code;
+      if (e instanceof CacheNotFoundException
+          || BulkTransferException.allCausedByCacheNotFoundException(e)) {
+        code =
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(message)
+                    .setSpawn(Spawn.newBuilder().setCode(Spawn.Code.REMOTE_CACHE_EVICTED))
+                    .build());
+      } else {
+        code = createDetailedExitCode(message, Code.IMPORTS_READ_IO_EXCEPTION);
+      }
       throw new ActionExecutionException(message, e, this, false, code);
     }
 
@@ -246,10 +258,23 @@ public final class LtoBackendAction extends SpawnAction {
 
     // Convert the import set of paths to the set of bitcode file artifacts.
     // Throws an error if there is any path in the importset that is not pat of any artifact
-    NestedSet<Artifact> bitcodeInputSet = computeBitcodeInputs(importSet, actionExecutionContext);
+    return computeBitcodeInputs(importSet, actionExecutionContext);
+  }
+
+  @Nullable
+  @Override
+  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
+    NestedSet<Artifact> bitcodeInputSet = computeImports(actionExecutionContext);
     updateInputs(
         NestedSetBuilder.fromNestedSet(bitcodeInputSet).addTransitive(mandatoryInputs).build());
     return bitcodeInputSet;
+  }
+
+  @Override
+  public NestedSet<Artifact> getInputFilesForExtraAction(
+      ActionExecutionContext actionExecutionContext) throws ActionExecutionException {
+    return computeImports(actionExecutionContext);
   }
 
   @Override

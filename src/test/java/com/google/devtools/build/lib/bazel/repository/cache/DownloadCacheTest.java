@@ -108,7 +108,7 @@ public class DownloadCacheTest {
   }
 
   @Test
-  public void testNonExistentCacheValue() {
+  public void testNonExistentCacheValue() throws Exception {
     String fakeHash = "a".repeat(64);
     assertThat(downloadCache.exists(fakeHash, keyType)).isFalse();
   }
@@ -158,7 +158,6 @@ public class DownloadCacheTest {
 
   /** Test that the put method is safe to call concurrently. */
   @Test
-  @SuppressWarnings("AllowVirtualThreads")
   public void testPutCacheValueConcurrent() throws Exception {
     var exceptions = new ConcurrentLinkedQueue<Throwable>();
     try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.TestRuleModule;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -46,6 +45,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -64,20 +65,26 @@ import org.junit.runner.RunWith;
 public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
   /** test options to cause the output directory to change */
-  public static final class PathTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class PathTestOptions extends FragmentOptions {
+
     @Option(
         name = "output_directory_name",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         defaultValue = "default")
-    public String outputDirectoryName;
+    public abstract String getOutputDirectoryName();
+
+    public abstract void setOutputDirectoryName(String value);
 
     @Option(
         name = "useless_option",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "default")
-    public String uselessOption;
+    public abstract String getUselessOption();
+
+    public abstract void setUselessOption(String value);
   }
 
   /** Test fragment. */
@@ -86,7 +93,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     private final String outputDirectoryName;
 
     public PathTestConfiguration(BuildOptions buildOptions) {
-      this.outputDirectoryName = buildOptions.get(PathTestOptions.class).outputDirectoryName;
+      this.outputDirectoryName = buildOptions.get(PathTestOptions.class).getOutputDirectoryName();
     }
 
     @Override
@@ -116,7 +123,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         @Override
         public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
           BuildOptionsView clone = options.clone();
-          clone.get(PathTestOptions.class).outputDirectoryName = newPath;
+          clone.get(PathTestOptions.class).setOutputDirectoryName(newPath);
           return clone.underlying();
         }
       };
@@ -142,7 +149,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         @Override
         public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
           BuildOptionsView clone = options.clone();
-          clone.get(PathTestOptions.class).outputDirectoryName = newPath;
+          clone.get(PathTestOptions.class).setOutputDirectoryName(newPath);
           return clone.underlying();
         }
       };
@@ -169,7 +176,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     @Override
     public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       BuildOptionsView clone = options.clone();
-      clone.get(PathTestOptions.class).uselessOption = newValue;
+      clone.get(PathTestOptions.class).setUselessOption(newValue);
       return clone.underlying();
     }
   }
@@ -290,18 +297,14 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
   /** Gets a mapping from the workspace-relative paths of symlinks to the paths they point to. */
   private ImmutableMap<String, Path> getConvenienceSymlinks() throws IOException {
-    return getWorkspace().getDirectoryEntries().stream()
-        .filter(Path::isSymbolicLink)
-        .collect(
-            toImmutableMap(
-                (path) -> path.relativeTo(getWorkspace()).toString(),
-                (path) -> {
-                  try {
-                    return getWorkspace().getRelative(path.readSymbolicLinkUnchecked());
-                  } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                  }
-                }));
+    ImmutableMap.Builder<String, Path> symlinks = ImmutableMap.builder();
+    for (Dirent entry : getWorkspace().readdir(Symlinks.NOFOLLOW)) {
+      if (entry.getType().equals(Dirent.Type.SYMLINK)) {
+        Path target = getWorkspace().getRelative(entry.getName()).resolveSymbolicLinks();
+        symlinks.put(entry.getName(), target);
+      }
+    }
+    return symlinks.buildOrThrow();
   }
 
   @Test
@@ -358,7 +361,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                         (target) -> target.getLabel().toString(),
                         (target) ->
                             getConfigurationFromLastBuildResult(target)
-                                .getOutputDirectory(RepositoryName.MAIN)
+                                .getOutputDirectory()
                                 .getRoot()
                                 .asPath()
                                 .relativeTo(getOutputPath())
@@ -869,7 +872,10 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path workspaceLink = getWorkspace().getChild("replaced-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("replaced-out");
 
-    Path original = getWorkspace().getRelative("/arbitrary/somewhere/else/in/the/filesystem");
+    // Derived from the workspace so that the path is absolute on Windows too, where
+    // CreateSymlink rejects a target without a drive letter. Outside the exec root,
+    // which lives under the output base.
+    Path original = getWorkspace().getParentDirectory().getRelative("arbitrary/somewhere/else");
     binLink.createSymbolicLink(original);
     genfilesLink.createSymbolicLink(original);
     testlogsLink.createSymbolicLink(original);
@@ -1116,7 +1122,10 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path workspaceLink = getWorkspace().getChild("deleted-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("deleted-out");
 
-    Path original = getWorkspace().getRelative("/arbitrary/somewhere/else/in/the/filesystem");
+    // Derived from the workspace so that the path is absolute on Windows too, where
+    // CreateSymlink rejects a target without a drive letter. Outside the exec root,
+    // which lives under the output base.
+    Path original = getWorkspace().getParentDirectory().getRelative("arbitrary/somewhere/else");
     binLink.createSymbolicLink(original);
     genfilesLink.createSymbolicLink(original);
     testlogsLink.createSymbolicLink(original);

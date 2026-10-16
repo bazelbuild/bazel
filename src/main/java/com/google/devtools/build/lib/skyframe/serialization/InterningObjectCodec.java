@@ -20,10 +20,10 @@ import java.io.IOException;
 public abstract class InterningObjectCodec<T> implements ObjectCodec<T> {
 
   @Override
-  public final MemoizationStrategy getStrategy() {
+  public final MemoizationTiming getMemoizationTiming() {
     // There is no fixed reference to an interned object until after it has been constructed and
-    // passes through the interner. Therefore this is always MEMOIZE_AFTER.
-    return MemoizationStrategy.MEMOIZE_AFTER;
+    // passes through the interner. Therefore this is always AFTER.
+    return MemoizationTiming.AFTER;
   }
 
   /**

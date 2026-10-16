@@ -14,7 +14,11 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.primitives.Booleans.falseFirst;
+import static java.util.Comparator.comparing;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.causes.ActionFailed;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -23,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.ExitCode;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -34,7 +39,19 @@ import net.starlark.java.syntax.Location;
 @ThreadSafe
 public class ActionExecutionException extends Exception implements DetailedException {
 
-  private final ActionAnalysisMetadata action;
+  /**
+   * Ordering function that ranks {@link ActionExecutionException}s by severity, with less severe
+   * exceptions comparing "less than" more severe exceptions.
+   */
+  public static final Ordering<ActionExecutionException> SEVERITY_ORDERING =
+      Ordering.compound(
+          ImmutableList.of(
+              comparing(ActionExecutionException::isCatastrophe, falseFirst()),
+              comparing(
+                  ActionExecutionException::getDetailedExitCode,
+                  DetailedExitCodeComparator.INSTANCE)));
+
+  @Nullable private final ActionAnalysisMetadata action;
   private final NestedSet<Cause> rootCauses;
   private final boolean catastrophe;
   private final DetailedExitCode detailedExitCode;
@@ -156,7 +173,8 @@ public class ActionExecutionException extends Exception implements DetailedExcep
         message, exception, action, exception.isCatastrophic(), code);
   }
 
-  /** Returns the action that failed. */
+  /** Returns the action that failed, or {@code null} if there is no associated action. */
+  @Nullable
   public ActionAnalysisMetadata getAction() {
     return action;
   }
@@ -169,11 +187,10 @@ public class ActionExecutionException extends Exception implements DetailedExcep
     return rootCauses;
   }
 
-  /**
-   * Returns the location of the owner of this action.  May be null.
-   */
+  /** Returns the location of the owner of this action. May be null. */
+  @Nullable
   public Location getLocation() {
-    return action.getOwner().getLocation();
+    return action == null || action.getOwner() == null ? null : action.getOwner().getLocation();
   }
 
   /**

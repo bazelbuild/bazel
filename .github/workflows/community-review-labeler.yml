@@ -1,0 +1,29 @@
+name: Community Review Labeler
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Run every hour
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label_community_reviewed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout master branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: master
+
+      - name: Run Labeler Script
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/community_review_labeler.sh

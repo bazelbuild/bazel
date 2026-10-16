@@ -16,12 +16,14 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
+#include "src/main/native/windows/jni-util.h"
+
 #include <windows.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <string>
 #include <type_traits>  // static_assert
-
-#include "src/main/native/windows/jni-util.h"
 
 namespace bazel {
 namespace windows {
@@ -37,10 +39,12 @@ static_assert(sizeof(jchar) == sizeof(WCHAR),
 wstring GetJavaWstring(JNIEnv* env, jstring str) {
   wstring result;
   if (str != nullptr) {
+    const jsize len = env->GetStringLength(str);
     const jchar* jstr = env->GetStringChars(str, nullptr);
     // We can safely reinterpret_cast because of the static_assert checking that
     // sizeof(jchar) = sizeof(WCHAR).
-    result.assign(reinterpret_cast<const WCHAR*>(jstr));
+    result.assign(reinterpret_cast<const WCHAR*>(jstr),
+                  static_cast<size_t>(len));
     env->ReleaseStringChars(str, jstr);
   }
   return result;

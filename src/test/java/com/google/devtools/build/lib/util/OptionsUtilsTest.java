@@ -25,6 +25,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -38,34 +39,35 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class OptionsUtilsTest {
 
-  public static class IntrospectionExample extends OptionsBase {
+  @OptionsClass
+  public abstract static class IntrospectionExample extends OptionsBase {
     @Option(
         name = "alpha",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "alpha")
-    public String alpha;
+    public abstract String getAlpha();
 
     @Option(
         name = "beta",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "beta")
-    public String beta;
+    public abstract String getBeta();
 
     @Option(
         name = "gamma",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "gamma")
-    public String gamma;
+    public abstract String getGamma();
 
     @Option(
         name = "delta",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "delta")
-    public String delta;
+    public abstract String getDelta();
 
     @Option(
         name = "echo",
@@ -73,7 +75,7 @@ public class OptionsUtilsTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "echo")
-    public String echo;
+    public abstract String getEcho();
   }
 
   @Test
@@ -99,20 +101,21 @@ public class OptionsUtilsTest {
         .inOrder();
   }
 
-  public static class BooleanOpts extends OptionsBase {
+  @OptionsClass
+  public abstract static class BooleanOpts extends OptionsBase {
     @Option(
         name = "b_one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "true")
-    public boolean bOne;
+    public abstract boolean getBOne();
 
     @Option(
         name = "b_two",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
-    public boolean bTwo;
+    public abstract boolean getBTwo();
   }
 
   @Test
@@ -126,8 +129,8 @@ public class OptionsUtilsTest {
 
     parser = OptionsParser.builder().optionsClasses(BooleanOpts.class).build();
     parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--b_one=true", "--b_two=0"));
-    assertThat(parser.getOptions(BooleanOpts.class).bOne).isTrue();
-    assertThat(parser.getOptions(BooleanOpts.class).bTwo).isFalse();
+    assertThat(parser.getOptions(BooleanOpts.class).getBOne()).isTrue();
+    assertThat(parser.getOptions(BooleanOpts.class).getBTwo()).isFalse();
     assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--b_one --nob_two");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--b_one", "--nob_two")

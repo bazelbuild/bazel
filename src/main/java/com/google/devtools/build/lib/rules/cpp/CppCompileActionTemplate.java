@@ -113,7 +113,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
           CppFileTypes.ASSEMBLER,
           CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR);
 
-  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:cc_and_objc_file_types)
+  // LINT.ThenChange(@rules_cc//cc/private/compile/compile.bzl:cc_and_objc_file_types)
 
   @Override
   public ImmutableList<CppCompileAction> generateActionsForInputArtifacts(
@@ -205,7 +205,6 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
       throws CommandLineExpansionException, InterruptedException {
     CompileCommandLine commandLine =
         CppCompileAction.buildCommandLine(
-            cppCompileActionBuilder.getCoptsFilter(),
             CppActionNames.CPP_COMPILE,
             cppCompileActionBuilder.getFeatureConfiguration(),
             cppCompileActionBuilder.getVariables());
@@ -218,6 +217,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
           cppCompileActionBuilder.getExecutionInfo(),
           CppCompileAction.computeCommandLineKey(
               commandLine.getCompilerOptions(/* overwrittenVariables= */ null, PathMapper.NOOP)),
+          CppCompileAction.getParameterFileType(cppCompileActionBuilder.getFeatureConfiguration()),
           cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
           mandatoryInputs,
           mandatoryInputs,

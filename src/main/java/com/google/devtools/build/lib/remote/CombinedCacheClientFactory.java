@@ -25,10 +25,11 @@ import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
-import java.util.concurrent.ExecutorService;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /** A factory class for providing a {@link CombinedCacheClient}. */
@@ -45,12 +46,13 @@ public final class CombinedCacheClientFactory {
 
   public static CombinedCacheClient create(
       RemoteOptions options,
+      @Nullable PathFragment diskCachePath,
       @Nullable Credentials creds,
       AuthAndTLSOptions authAndTlsOptions,
       Path workingDirectory,
       DigestUtil digestUtil,
-      ExecutorService executorService,
-      RemoteRetrier retrier)
+      RemoteRetrier retrier,
+      boolean checkActionResultIntegrity)
       throws IOException {
     Preconditions.checkNotNull(workingDirectory, "workingDirectory");
     RemoteCacheClient httpCacheClient = null;
@@ -58,14 +60,9 @@ public final class CombinedCacheClientFactory {
     if (isHttpCache(options)) {
       httpCacheClient = createHttp(options, creds, authAndTlsOptions, digestUtil, retrier);
     }
-    if (isDiskCache(options)) {
+    if (diskCachePath != null) {
       diskCacheClient =
-          createDiskCache(
-              workingDirectory,
-              options,
-              digestUtil,
-              executorService,
-              options.remoteVerifyDownloads);
+          createDiskCache(workingDirectory, diskCachePath, digestUtil, checkActionResultIntegrity);
     }
     if (httpCacheClient == null && diskCacheClient == null) {
       throw new IllegalArgumentException(
@@ -76,7 +73,7 @@ public final class CombinedCacheClientFactory {
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return isHttpCache(options) || isDiskCache(options);
+    return isHttpCache(options) || options.isDiskCacheEnabled();
   }
 
   private static RemoteCacheClient createHttp(
@@ -85,37 +82,37 @@ public final class CombinedCacheClientFactory {
       AuthAndTLSOptions authAndTlsOptions,
       DigestUtil digestUtil,
       RemoteRetrier retrier) {
-    Preconditions.checkNotNull(options.remoteCache, "remoteCache");
+    Preconditions.checkNotNull(options.getRemoteCache(), "remoteCache");
 
     try {
-      URI uri = URI.create(options.remoteCache);
+      URI uri = URI.create(options.getRemoteCache());
       Preconditions.checkArgument(
           Ascii.toLowerCase(uri.getScheme()).startsWith("http"),
           "remoteCache should start with http");
 
-      if (options.remoteProxy != null) {
-        if (options.remoteProxy.startsWith("unix:")) {
+      if (options.getRemoteProxy() != null) {
+        if (options.getRemoteProxy().startsWith("unix:")) {
           return HttpCacheClient.create(
-              new DomainSocketAddress(options.remoteProxy.replaceFirst("^unix:", "")),
+              new DomainSocketAddress(options.getRemoteProxy().replaceFirst("^unix:", "")),
               uri,
-              Math.toIntExact(options.remoteTimeout.toSeconds()),
-              options.remoteMaxConnections,
-              options.remoteVerifyDownloads,
-              ImmutableList.copyOf(options.remoteHeaders),
+              Math.toIntExact(options.getRemoteTimeout().toSeconds()),
+              options.getRemoteMaxConnections(),
+              options.getRemoteVerifyDownloads(),
+              effectiveHeaders(options),
               digestUtil,
               retrier,
               creds,
               authAndTlsOptions);
         } else {
-          throw new Exception("Remote cache proxy unsupported: " + options.remoteProxy);
+          throw new Exception("Remote cache proxy unsupported: " + options.getRemoteProxy());
         }
       } else {
         return HttpCacheClient.create(
             uri,
-            Math.toIntExact(options.remoteTimeout.toSeconds()),
-            options.remoteMaxConnections,
-            options.remoteVerifyDownloads,
-            ImmutableList.copyOf(options.remoteHeaders),
+            Math.toIntExact(options.getRemoteTimeout().toSeconds()),
+            options.getRemoteMaxConnections(),
+            options.getRemoteVerifyDownloads(),
+            effectiveHeaders(options),
             digestUtil,
             retrier,
             creds,
@@ -128,22 +125,24 @@ public final class CombinedCacheClientFactory {
 
   public static DiskCacheClient createDiskCache(
       Path workingDirectory,
-      RemoteOptions options,
+      PathFragment diskCachePath,
       DigestUtil digestUtil,
-      ExecutorService executorService,
-      boolean verifyDownloads)
+      boolean checkActionResultIntegrity)
       throws IOException {
-    Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(options.diskCache));
-    return new DiskCacheClient(cacheDir, digestUtil, executorService, verifyDownloads);
-  }
-
-  public static boolean isDiskCache(RemoteOptions options) {
-    return options.diskCache != null && !options.diskCache.isEmpty();
+    Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath));
+    return new DiskCacheClient(cacheDir, digestUtil, checkActionResultIntegrity);
   }
 
   public static boolean isHttpCache(RemoteOptions options) {
-    return options.remoteCache != null
-        && (Ascii.toLowerCase(options.remoteCache).startsWith("http://")
-            || Ascii.toLowerCase(options.remoteCache).startsWith("https://"));
+    return options.getRemoteCache() != null
+        && (Ascii.toLowerCase(options.getRemoteCache()).startsWith("http://")
+            || Ascii.toLowerCase(options.getRemoteCache()).startsWith("https://"));
+  }
+
+  public static ImmutableList<Entry<String, String>> effectiveHeaders(RemoteOptions options) {
+    return ImmutableList.<Entry<String, String>>builder()
+        .addAll(options.getRemoteHeaders())
+        .addAll(options.getRemoteCacheHeaders())
+        .build();
   }
 }

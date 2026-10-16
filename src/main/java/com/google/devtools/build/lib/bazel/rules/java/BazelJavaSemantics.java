@@ -14,16 +14,20 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import java.util.Optional;
 
 /** Semantics for Bazel Java rules */
 public class BazelJavaSemantics implements JavaSemantics {
@@ -74,8 +78,20 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public ImmutableMap<String, String> utf8Environment(PlatformInfo executionPlatform) {
-    return ConstraintConstants.getOsFromConstraints(executionPlatform.constraints()) == OS.DARWIN
+    return getOsFromConstraintsOrHost(executionPlatform) == OS.DARWIN
         ? MACOS_UTF8_ENVIRONMENT
         : DEFAULT_UTF8_ENVIRONMENT;
+  }
+
+  @Override
+  public boolean turbineParallelism() {
+    // Disable parallelism
+    // See also https://github.com/bazelbuild/bazel/issues/29350
+    return false;
+  }
+
+  @Override
+  public Optional<String> getFixDepsTool(Rule rule, JavaConfiguration javaConfiguration) {
+    return Optional.empty();
   }
 }

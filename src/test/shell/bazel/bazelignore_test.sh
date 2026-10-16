@@ -236,6 +236,30 @@ EOF
   assert_contains "//foo/notsub:fg" "$TEST_TMPDIR/targets"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/30526: the target pattern "//..."
+# resolves to the root directory, which used to be handled incorrectly when filtering the patterns
+# passed to ignore_directories.
+test_root_target_pattern_with_wildcards_in_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+  cat >REPO.bazel <<'EOF'
+ignore_directories([".ignored", "**/sub"])
+EOF
+
+  for pkg in foo .ignored .ignored/pkg foo/sub foo/sub/subsub foo/notsub; do
+    mkdir -p "$pkg"
+    echo 'filegroup(name="fg")' > "$pkg/BUILD.bazel"
+  done
+
+  bazel query //... > "$TEST_TMPDIR/targets"
+  assert_not_contains "//.ignored:fg" "$TEST_TMPDIR/targets"
+  assert_not_contains "//.ignored/pkg:fg" "$TEST_TMPDIR/targets"
+  assert_not_contains "//foo/sub:fg" "$TEST_TMPDIR/targets"
+  assert_not_contains "//foo/sub/subsub:fg" "$TEST_TMPDIR/targets"
+  assert_contains "//foo:fg" "$TEST_TMPDIR/targets"
+  assert_contains "//foo/notsub:fg" "$TEST_TMPDIR/targets"
+}
+
 test_globs_with_wildcards_in_repo_bazel() {
   rm -rf work && mkdir work && cd work
   setup_module_dot_bazel
@@ -307,6 +331,34 @@ EOF
   if [[ $? != 7 ]]; then
     fail "expected an analysis failure"
   fi
+}
+
+test_build_ignored_package_reports_bazelignore() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+
+  mkdir -p pkg
+  echo 'filegroup(name="fg")' > pkg/BUILD.bazel
+  echo pkg > .bazelignore
+
+  bazel build //pkg:fg >& "$TEST_log" && fail "expected failure" || true
+  expect_log "Package is considered deleted due to .bazelignore"
+  expect_not_log "--deleted_packages"
+}
+
+test_build_ignored_package_reports_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+
+  mkdir -p pkg
+  echo 'filegroup(name="fg")' > pkg/BUILD.bazel
+  cat > REPO.bazel <<'EOF'
+ignore_directories(["pkg"])
+EOF
+
+  bazel build //pkg:fg >& "$TEST_log" && fail "expected failure" || true
+  expect_log "Package is considered deleted due to ignore_directories() in REPO.bazel"
+  expect_not_log "--deleted_packages"
 }
 
 run_suite "Integration tests for .bazelignore"

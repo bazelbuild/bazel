@@ -161,13 +161,16 @@ public class Rule extends RuleOrMacroInstance implements Target {
 
   /**
    * Returns true iff the outputs of this rule should be created beneath the bin directory, false if
-   * beneath genfiles. For most rule classes, this is constant, but for genrule, it is a property of
-   * the individual target, derived from the 'output_to_bindir' attribute.
+   * beneath genfiles. For most rule classes, this is constant, but for the native genrule, it is a
+   * property of the individual target, derived from the 'output_to_bindir' attribute.
    */
   public boolean outputsToBindir() {
-    return ruleClass.getName().equals("genrule") // this is unfortunate...
-        ? NonconfigurableAttributeMapper.of(this).get("output_to_bindir", Type.BOOLEAN)
-        : ruleClass.outputsToBindir();
+    // A Starlark rule may also be named "genrule", but isn't subject to this special case.
+    if (ruleClass.isStarlark() || !ruleClass.getName().equals("genrule")) {
+      return ruleClass.outputsToBindir();
+    }
+    // This is unfortunate...
+    return NonconfigurableAttributeMapper.of(this).get("output_to_bindir", Type.BOOLEAN);
   }
 
   /** Returns true if this rule is an analysis test (set by analysis_test = true). */
@@ -204,9 +207,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return ruleClass.hasAspects();
   }
 
-  /**
-   * Returns true if the given attribute is configurable.
-   */
+  /** Returns true if the given attribute is configurable. */
   public boolean isConfigurableAttribute(String attributeName) {
     // TODO(murali): This method should be property of ruleclass not rule instance.
     // Further, this call to AbstractAttributeMapper.isConfigurable is delegated right back
@@ -214,16 +215,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return AbstractAttributeMapper.isConfigurable(this, attributeName);
   }
 
-  /**
-   * Returns the attribute definition whose name is {@code attrName}, or null if not found. (Use
-   * get[X]Attr for the actual value.)
-   *
-   * @deprecated use {@link AbstractAttributeMapper#getAttributeDefinition} instead
-   */
-  @Deprecated
-  public Attribute getAttributeDefinition(String attrName) {
-    return ruleClass.getAttributeProvider().getAttributeByNameMaybe(attrName);
-  }
 
   /**
    * Constructs and returns an immutable list containing all the declared output files of this rule.
@@ -398,8 +389,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return switch (attr.getName()) {
       case GENERATOR_FUNCTION -> interiorCallStack != null ? interiorCallStack.functionName() : "";
       case GENERATOR_LOCATION -> interiorCallStack != null ? getRelativeLocation() : "";
-      case GENERATOR_NAME ->
-          generatorNamePrefixLength > 0 ? getName().substring(0, generatorNamePrefixLength) : "";
       default -> attr.getDefaultValue(this);
     };
   }
@@ -413,15 +402,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
   public boolean isRuleCreatedInMacro() {
     // TODO(bazel-team): do we really need the `hasStringAttribute(GENERATOR_NAME)` check?
     return interiorCallStack != null || hasStringAttribute(GENERATOR_NAME);
-  }
-
-  /** Returns the macro that generated this rule, or an empty string. */
-  public String getGeneratorFunction() {
-    Object value = getAttr(GENERATOR_FUNCTION);
-    if (value instanceof String valString) {
-      return valString;
-    }
-    return "";
   }
 
   private boolean hasStringAttribute(String attrName) {
@@ -481,23 +461,32 @@ public class Rule extends RuleOrMacroInstance implements Target {
    */
   void populateOutputFiles(EventHandler eventHandler, PackageIdentifier pkgId)
       throws LabelSyntaxException, InterruptedException {
+    populateOutputFiles(eventHandler, pkgId, /* computeImplicitOutputs= */ true);
+  }
+
+  void populateOutputFiles(
+      EventHandler eventHandler, PackageIdentifier pkgId, boolean computeImplicitOutputs)
+      throws LabelSyntaxException, InterruptedException {
     populateOutputFilesInternal(
         eventHandler,
         pkgId,
         ruleClass.getDefaultImplicitOutputsFunction(),
-        /* checkLabels= */ true);
+        /* checkLabels= */ true,
+        computeImplicitOutputs);
   }
 
   void populateOutputFilesUnchecked(
       TargetDefinitionContext targetDefinitionContext,
-      ImplicitOutputsFunction implicitOutputsFunction)
+      ImplicitOutputsFunction implicitOutputsFunction,
+      boolean computeImplicitOutputs)
       throws InterruptedException {
     try {
       populateOutputFilesInternal(
           NullEventHandler.INSTANCE,
           targetDefinitionContext.getPackageIdentifier(),
           implicitOutputsFunction,
-          /* checkLabels= */ false);
+          /* checkLabels= */ false,
+          computeImplicitOutputs);
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -517,7 +506,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
       EventHandler eventHandler,
       PackageIdentifier pkgId,
       ImplicitOutputsFunction implicitOutputsFunction,
-      boolean checkLabels)
+      boolean checkLabels,
+      boolean computeImplicitOutputs)
       throws LabelSyntaxException, InterruptedException {
     Preconditions.checkState(outputFiles == null);
 
@@ -556,26 +546,30 @@ public class Rule extends RuleOrMacroInstance implements Target {
         };
 
     // Populate the implicit outputs.
-    try {
-      RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
-      // TODO(bazel-team): Reconsider the ImplicitOutputsFunction abstraction. It doesn't seem to be
-      // a good fit if it forces us to downcast in situations like this. It also causes
-      // getImplicitOutputs() to declare that it throws EvalException (which then has to be
-      // explicitly disclaimed by the subclass SafeImplicitOutputsFunction).
-      if (implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction) {
-        for (Map.Entry<String, String> e :
-            ((StarlarkImplicitOutputsFunction) implicitOutputsFunction)
-                .calculateOutputs(eventHandler, attributeMap)
-                .entrySet()) {
-          implicitOutputHandler.accept(e.getKey(), e.getValue());
+    if (computeImplicitOutputs) {
+      try {
+        RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
+        // TODO(bazel-team): Reconsider the ImplicitOutputsFunction abstraction. It doesn't seem to
+        // be a good fit if it forces us to downcast in situations like this. It also causes
+        // getImplicitOutputs() to declare that it throws EvalException (which then has to be
+        // explicitly disclaimed by the subclass SafeImplicitOutputsFunction).
+        if (implicitOutputsFunction
+            instanceof StarlarkImplicitOutputsFunction starlarkImplicitOutputsFunction) {
+          for (Map.Entry<String, String> e :
+              starlarkImplicitOutputsFunction
+                  .calculateOutputs(eventHandler, attributeMap)
+                  .entrySet()) {
+            implicitOutputHandler.accept(e.getKey(), e.getValue());
+          }
+        } else {
+          for (String out :
+              implicitOutputsFunction.getImplicitOutputs(eventHandler, attributeMap)) {
+            implicitOutputHandler.accept(/* outputKey= */ "", out);
+          }
         }
-      } else {
-        for (String out : implicitOutputsFunction.getImplicitOutputs(eventHandler, attributeMap)) {
-          implicitOutputHandler.accept(/*outputKey=*/ "", out);
-        }
+      } catch (EvalException e) {
+        reportError(String.format("In rule %s: %s", label, e.getMessageWithStack()), eventHandler);
       }
-    } catch (EvalException e) {
-      reportError(String.format("In rule %s: %s", label, e.getMessageWithStack()), eventHandler);
     }
 
     ExplicitOutputHandler explicitOutputHandler =
@@ -638,8 +632,12 @@ public class Rule extends RuleOrMacroInstance implements Target {
     if (label.getName().equals(getName())) {
       // TODO(bazel-team): for now (23 Apr 2008) this is just a warning.  After
       // June 1st we should make it an error.
-      reportWarning("target '" + getName() + "' is both a rule and a file; please choose "
-                    + "another name for the rule", eventHandler);
+      reportWarning(
+          "target '"
+              + getName()
+              + "' is both a rule and a file; please choose "
+              + "another name for the rule",
+          eventHandler);
     }
   }
 
@@ -650,10 +648,14 @@ public class Rule extends RuleOrMacroInstance implements Target {
    * <p>This method may only be called while the rule's package or package piece is being
    * constructed.
    */
-  @Override
   void reportError(String message, EventHandler eventHandler) {
     eventHandler.handle(Package.error(location, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
     pkg.setContainsErrors();
+  }
+
+  @Override
+  void reportError(String message, TargetDefinitionContext targetDefinitionContext) {
+    reportError(message, targetDefinitionContext.getLocalEventHandler());
   }
 
   private void reportWarning(String message, EventHandler eventHandler) {
@@ -723,7 +725,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return Iterables.filter(rawLabels, label -> PackageSpecification.fromLabel(label) == null);
   }
 
-
   @Override
   public boolean isConfigurable() {
     return true;
@@ -765,13 +766,28 @@ public class Rule extends RuleOrMacroInstance implements Target {
   }
 
   /** Returns only the `tags` attribute value. */
+  @Override
   public ImmutableList<String> getOnlyTagsAttribute() {
     Attribute tagsAttribute = ruleClass.getAttributeProvider().getAttributeByName("tags");
+    if (tagsAttribute == null) {
+      return ImmutableList.of();
+    }
     Type<?> attrType = tagsAttribute.getType();
     String name = tagsAttribute.getName();
     // This enforces the expectation that taggable attributes are non-configurable.
     Object value = NonconfigurableAttributeMapper.of(this).get(name, attrType);
     return ImmutableList.copyOf(attrType.toTagSet(value, name));
+  }
+
+  @Override
+  public boolean isMaterializerRule() {
+    return ruleClass.isMaterializerRule();
+  }
+
+  @Override
+  @Nullable // null if the rule is native
+  public Label getRuleDefinitionEnvironmentLabel() {
+    return ruleClass.getRuleDefinitionEnvironmentLabel();
   }
 
   @Override
@@ -881,7 +897,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
         getLabel(),
         getDeprecationWarning(),
         isTestOnly(),
-        getTestTimeout());
+        getTestTimeout(),
+        getOnlyTagsAttribute());
   }
 
   @VisibleForSerialization // (private) allows RuleDataCodec visibility
@@ -895,6 +912,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
     @Nullable private final String deprecationWarning;
     private final boolean isTestOnly;
     @Nullable private final TestTimeout testTimeout;
+    private final ImmutableList<String> onlyTagsAttribute;
 
     @VisibleForSerialization // (private) allows RuleDataCodec visibility
     RuleData(
@@ -904,7 +922,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
         Label label,
         @Nullable String deprecationWarning,
         boolean isTestOnly,
-        @Nullable TestTimeout testTimeout) {
+        @Nullable TestTimeout testTimeout,
+        ImmutableList<String> onlyTagsAttribute) {
       this.ruleClassData = ruleClassData;
       this.location = location;
       this.ruleTags = ruleTags;
@@ -912,6 +931,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
       this.deprecationWarning = deprecationWarning;
       this.isTestOnly = isTestOnly;
       this.testTimeout = testTimeout;
+      this.onlyTagsAttribute = onlyTagsAttribute;
     }
 
     RuleClassData getRuleClassData() {
@@ -965,6 +985,11 @@ public class Rule extends RuleOrMacroInstance implements Target {
     }
 
     @Override
+    public boolean isMaterializerRule() {
+      return ruleClassData.isMaterializerRule();
+    }
+
+    @Override
     public boolean isForDependencyResolution() {
       return ruleClassData.isDependencyResolutionRule();
     }
@@ -981,6 +1006,17 @@ public class Rule extends RuleOrMacroInstance implements Target {
     }
 
     @Override
+    public ImmutableList<String> getOnlyTagsAttribute() {
+      return onlyTagsAttribute;
+    }
+
+    @Override
+    @Nullable // null if the rule is native
+    public Label getRuleDefinitionEnvironmentLabel() {
+      return ruleClassData.getRuleDefinitionEnvironmentLabel();
+    }
+
+    @Override
     public boolean equals(Object obj) {
       if (!(obj instanceof RuleData that)) {
         return false;
@@ -990,7 +1026,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
           && label.equals(that.label)
           && Objects.equals(deprecationWarning, that.deprecationWarning)
           && isTestOnly == that.isTestOnly
-          && Objects.equals(testTimeout, that.testTimeout);
+          && Objects.equals(testTimeout, that.testTimeout)
+          && Objects.equals(onlyTagsAttribute, that.onlyTagsAttribute);
     }
 
     @Override
@@ -1009,6 +1046,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
           .add("deprecationWarning", deprecationWarning)
           .add("isTestOnly", isTestOnly)
           .add("testTimeout", testTimeout)
+          .add("onlyTagsAttribute", onlyTagsAttribute)
           .toString();
     }
   }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -89,6 +90,7 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
     if (testTimeout != null) {
       context.serialize(testTimeout, codedOut);
     }
+    context.serialize(obj.getOnlyTagsAttribute(), codedOut);
   }
 
   @Override
@@ -127,6 +129,8 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
       context.deserialize(codedIn, builder, Builder::setTestTimeout);
     }
 
+    context.deserialize(codedIn, builder, Builder::setOnlyTagsAttribute);
+
     return builder;
   }
 
@@ -150,6 +154,7 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
     private ImmutableSet<String> ruleTags;
     private String deprecationWarning;
     private TestTimeout testTimeout;
+    private ImmutableList<String> onlyTagsAttribute;
 
     Builder(byte presenceMask) {
       this.presenceMask = presenceMask;
@@ -164,7 +169,8 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
           label,
           deprecationWarning,
           (presenceMask & IS_TEST_ONLY_MASK) != 0,
-          testTimeout);
+          testTimeout,
+          onlyTagsAttribute);
     }
 
     abstract RuleClassData getRuleClassData();
@@ -188,6 +194,11 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
 
     private static void setTestTimeout(Builder builder, Object value) {
       builder.testTimeout = (TestTimeout) value;
+    }
+
+    @SuppressWarnings("unchecked") // parameter type for deserialized object
+    private static void setOnlyTagsAttribute(Builder builder, Object value) {
+      builder.onlyTagsAttribute = (ImmutableList<String>) value;
     }
   }
 
@@ -250,7 +261,8 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
             obj.isDependencyResolutionRule(),
             obj.isMaterializerRule(),
             obj.materializerRuleAllowsRealDeps(),
-            obj.getAdvertisedProviders()),
+            obj.getAdvertisedProviders(),
+            obj.getRuleDefinitionEnvironmentLabel()),
         codedOut);
   }
 

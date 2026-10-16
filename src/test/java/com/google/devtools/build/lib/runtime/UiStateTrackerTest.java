@@ -40,10 +40,11 @@ import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.actions.UploadingActionEvent;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -84,7 +85,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
-import java.net.URL;
+import java.net.URI;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
@@ -293,6 +294,92 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(loadingConfigurationOutput).contains(loadingActivity);
     // It should contain the analysis progress string along with the loading information.
     assertThat(loadingConfigurationOutput).contains(analysisProgressString);
+  }
+
+  @Test
+  public void testNoShowLoadingProgress() throws IOException {
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+
+    stateTracker.loadingStarted(new LoadingPhaseStartedEvent(null));
+
+    // During loading phase when package progress receiver is null (--noshow_loading_progress),
+    // should display "Loading: " without package loading progress.
+    LoggingTerminalWriter terminalWriterLoading =
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriterLoading);
+    String loadingOutput = terminalWriterLoading.getTranscript();
+
+    assertThat(loadingOutput).contains("Loading");
+    assertThat(loadingOutput).doesNotContain("packages loaded");
+
+    // When it is configuring targets during analysis phase.
+    stateTracker.loadingComplete(
+        new LoadingPhaseCompleteEvent(
+            ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.EMPTY));
+    String additionalMessage = "5 targets";
+    stateTracker.additionalMessage = additionalMessage;
+    String analysisProgressString = "5 targets and 0 aspects configured";
+    AnalysisProgressReceiver analysisProgressReceiver = mock(AnalysisProgressReceiver.class);
+    when(analysisProgressReceiver.getProgressString()).thenReturn(analysisProgressString);
+    stateTracker.configurationStarted(new ConfigurationPhaseStartedEvent(analysisProgressReceiver));
+
+    LoggingTerminalWriter terminalWriterLoadingConfiguration =
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriterLoadingConfiguration);
+    String loadingConfigurationOutput = terminalWriterLoadingConfiguration.getTranscript();
+    assertThat(loadingConfigurationOutput).contains("Analyzing");
+    assertThat(loadingConfigurationOutput).contains(additionalMessage);
+    assertThat(loadingConfigurationOutput).doesNotContain("packages loaded");
+    assertThat(loadingConfigurationOutput).contains(analysisProgressString);
+  }
+
+  @Test
+  public void testLargeTargetCountFormattedWithCommas() throws IOException {
+    // Verify that large target counts in "Analyzing: X targets" are formatted with comma
+    // separators.
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+
+    ImmutableSet.Builder<Label> labelsBuilder = ImmutableSet.builder();
+    for (int i = 0; i < 12345; i++) {
+      labelsBuilder.add(Label.parseCanonicalUnchecked("//pkg:target" + i));
+    }
+    ImmutableSet<Label> labels = labelsBuilder.build();
+
+    stateTracker.loadingComplete(
+        new LoadingPhaseCompleteEvent(labels, ImmutableSet.of(), RepositoryMapping.EMPTY));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Analyzing:");
+    assertThat(output).contains("12,345 targets");
+  }
+
+  @Test
+  public void testSmallTargetCountNotFormattedWithCommas() throws IOException {
+    // Verify that target counts below 10,000 (IEEE style threshold) are NOT formatted with commas.
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+
+    ImmutableSet.Builder<Label> labelsBuilder = ImmutableSet.builder();
+    for (int i = 0; i < 1234; i++) {
+      labelsBuilder.add(Label.parseCanonicalUnchecked("//pkg:target" + i));
+    }
+    ImmutableSet<Label> labels = labelsBuilder.build();
+
+    stateTracker.loadingComplete(
+        new LoadingPhaseCompleteEvent(labels, ImmutableSet.of(), RepositoryMapping.EMPTY));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Analyzing:");
+    assertThat(output).contains("1234 targets");
+    assertThat(output).doesNotContain("1,234 targets");
   }
 
   @Test
@@ -694,8 +781,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Output should mention strategy '%s', but was: %s", strategy, output)
-        .that(output.contains(strategy))
+    assertWithMessage("Output should mention strategy '(%s)', but was: %s", strategy, output)
+        .that(output.contains("(" + strategy + ")"))
         .isTrue();
   }
 
@@ -729,6 +816,30 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // assert
     String output = terminalWriter.getTranscript();
     assertThat(output).contains("action progress");
+  }
+
+  @Test
+  public void setTargetWidth_affectsSubsequentProgressBarRendering() throws Exception {
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 70);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id", "action progress", false));
+
+    LoggingTerminalWriter wideTerminalWriter =
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(wideTerminalWriter);
+    assertThat(wideTerminalWriter.getTranscript()).contains("action progress");
+
+    stateTracker.setTargetWidth(30);
+
+    LoggingTerminalWriter narrowTerminalWriter =
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(narrowTerminalWriter);
+    assertThat(narrowTerminalWriter.getTranscript()).doesNotContain("action progress");
   }
 
   @Test
@@ -1294,7 +1405,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advance(Duration.ofSeconds(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
 
-    URL url = new URL("http://example.org/first/dep");
+    URI url = URI.create("http://example.org/first/dep");
 
     stateTracker.buildStarted();
     stateTracker.downloadProgress(new DownloadProgressEvent(url));
@@ -1336,7 +1447,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advance(Duration.ofSeconds(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
 
-    URL url = new URL("http://example.org/first/dep");
+    URI url = URI.create("http://example.org/first/dep");
 
     stateTracker.mainRepoMappingComputationStarted();
     stateTracker.downloadProgress(new DownloadProgressEvent(url));
@@ -1379,7 +1490,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 60);
-    URL url = new URL("http://example.org/some/really/very/very/long/path/filename.tar.gz");
+    URI url = URI.create("http://example.org/some/really/very/very/long/path/filename.tar.gz");
 
     stateTracker.buildStarted();
     stateTracker.downloadProgress(new DownloadProgressEvent(url));
@@ -1387,7 +1498,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     for (int i = 0; i < 10; i++) {
       stateTracker.downloadProgress(
           new DownloadProgressEvent(
-              new URL(
+              URI.create(
                   "http://otherhost.example/another/also/length/path/to/another/download"
                       + i
                       + ".zip")));
@@ -1723,5 +1834,45 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output).contains("Running action");
     assertThat(output).contains("(2 actions, 1 running)");
     assertThat(output).doesNotContain("Scheduled action");
+  }
+
+  @Test
+  public void testUploadingAction() throws Exception {
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    simulateExecutionPhase(stateTracker);
+
+    Action uploadingAction = mockAction("Uploading action", "uploading/action");
+    when(uploadingAction.getOwner()).thenReturn(dummyActionOwner());
+    stateTracker.actionStarted(new ActionStartedEvent(uploadingAction, clock.nanoTime()));
+    stateTracker.uploadingAction(new UploadingActionEvent(uploadingAction, "remote"));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Uploading action");
+    assertThat(output).contains("[Uploa]");
+    assertThat(output).contains("(remote)");
+  }
+
+  @Test
+  public void testSchedulingAction_showsStrategy() throws Exception {
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    simulateExecutionPhase(stateTracker);
+
+    Action scheduledAction = mockAction("Scheduled action", "scheduled/action");
+    when(scheduledAction.getOwner()).thenReturn(dummyActionOwner());
+    stateTracker.actionStarted(new ActionStartedEvent(scheduledAction, clock.nanoTime()));
+    stateTracker.schedulingAction(new SchedulingActionEvent(scheduledAction, "remote-queue"));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Scheduled action");
+    assertThat(output).contains("[Sched]");
+    assertThat(output).contains("(remote-queue)");
   }
 }

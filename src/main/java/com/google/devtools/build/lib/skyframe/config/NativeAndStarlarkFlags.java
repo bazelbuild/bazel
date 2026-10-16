@@ -45,6 +45,9 @@ public abstract class NativeAndStarlarkFlags {
 
     public abstract Builder starlarkFlagDefaults(ImmutableMap<String, Object> starlarkFlagDefaults);
 
+    public abstract Builder starlarkOptionAllowingMultiple(
+        ImmutableSet<String> starlarkOptionAllowingMultiple);
+
     public abstract Builder optionsClasses(
         ImmutableSet<Class<? extends FragmentOptions>> optionsClasses);
 
@@ -59,6 +62,7 @@ public abstract class NativeAndStarlarkFlags {
         .nativeFlags(ImmutableList.of())
         .starlarkFlags(ImmutableMap.of())
         .starlarkFlagDefaults(ImmutableMap.of())
+        .starlarkOptionAllowingMultiple(ImmutableSet.of())
         .scopesAttributes(ImmutableMap.of())
         .optionsClasses(ImmutableSet.of());
   }
@@ -82,6 +86,9 @@ public abstract class NativeAndStarlarkFlags {
   // option definitions and do not store this.
   public abstract ImmutableMap<String, Object> starlarkFlagDefaults();
 
+  // TODO: https://github.com/bazelbuild/bazel/issues/22365 - Same as above.
+  public abstract ImmutableSet<String> starlarkOptionAllowingMultiple();
+
   abstract ImmutableSet<Class<? extends FragmentOptions>> optionsClasses();
 
   @Nullable
@@ -96,7 +103,7 @@ public abstract class NativeAndStarlarkFlags {
             .withConversionContext(this.repoMapping())
             .build();
     parser.parse(this.nativeFlags());
-    parser.setStarlarkOptions(this.starlarkFlags());
+    parser.setStarlarkOptions(this.starlarkFlags(), this.starlarkOptionAllowingMultiple());
     parser.setScopesAttributes(this.scopesAttributes());
     return parser;
   }

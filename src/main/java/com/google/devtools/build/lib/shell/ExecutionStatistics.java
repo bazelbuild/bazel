@@ -72,27 +72,33 @@ public final class ExecutionStatistics {
           resourceUsageProto.getStimeSec(), resourceUsageProto.getStimeUsec() * 1000);
     }
 
-    /** Returns the maximum resident set size (in bytes) during command execution, if available. */
+    /**
+     * Returns the maximum resident set size during command execution, if available. The units are
+     * kibibytes on Linux and bytes on Darwin.
+     */
     public long getMaximumResidentSetSize() {
       return resourceUsageProto.getMaxrss();
     }
 
     /**
-     * Returns the integral shared memory size (in bytes) during command execution, if available.
+     * Returns the integral shared memory size during command execution, if available. The units are
+     * kibibytes on Linux and bytes on Darwin.
      */
     public long getIntegralSharedMemorySize() {
       return resourceUsageProto.getIxrss();
     }
 
     /**
-     * Returns the integral unshared data size (in bytes) during command execution, if available.
+     * Returns the integral unshared data size during command execution, if available. The units are
+     * kibibytes on Linux and bytes on Darwin.
      */
     public long getIntegralUnsharedDataSize() {
       return resourceUsageProto.getIdrss();
     }
 
     /**
-     * Returns the integral unshared stack size (in bytes) during command execution, if available.
+     * Returns the integral unshared stack size during command execution, if available. The units
+     * are kibibytes on Linux and bytes on Darwin.
      */
     public long getIntegralUnsharedStackSize() {
       return resourceUsageProto.getIsrss();

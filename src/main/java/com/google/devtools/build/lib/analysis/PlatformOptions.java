@@ -33,12 +33,14 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** Command-line options for platform-related configuration. */
-public class PlatformOptions extends FragmentOptions {
+@OptionsClass
+public abstract class PlatformOptions extends FragmentOptions {
 
   private static final ImmutableSet<String> DEFAULT_PLATFORM_NAMES =
       ImmutableSet.of("host", "host_platform", "target_platform", "default_host", "default_target");
@@ -61,7 +63,9 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       help = "The label of a platform rule that describes the host system.")
-  public Label hostPlatform;
+  public abstract Label getHostPlatform();
+
+  public abstract void setHostPlatform(Label value);
 
   @Option(
       name = "extra_execution_platforms",
@@ -77,7 +81,7 @@ public class PlatformOptions extends FragmentOptions {
           `register_execution_platforms()`. This option may only be set once; later
           instances will override earlier flag settings.
           """)
-  public List<String> extraExecutionPlatforms;
+  public abstract List<String> getExtraExecutionPlatforms();
 
   @Option(
       name = "platforms",
@@ -93,7 +97,9 @@ public class PlatformOptions extends FragmentOptions {
       help =
           "The labels of the platform rules describing the target platforms for the current "
               + "command.")
-  public List<Label> platforms;
+  public abstract List<Label> getPlatforms();
+
+  public abstract void setPlatforms(List<Label> value);
 
   @Option(
       name = "extra_toolchains",
@@ -113,7 +119,9 @@ public class PlatformOptions extends FragmentOptions {
           These toolchains will be considered before those declared in the `WORKSPACE` file
           by `register_toolchains()`.
           """)
-  public List<String> extraToolchains;
+  public abstract List<String> getExtraToolchains();
+
+  public abstract void setExtraToolchains(List<String> value);
 
   @Option(
       name = "toolchain_resolution_debug",
@@ -127,8 +135,7 @@ public class PlatformOptions extends FragmentOptions {
               + "Multiple regexes may be  separated by commas, and then each regex is checked "
               + "separately. Note: The output of this flag is very complex and will likely only be "
               + "useful to experts in toolchain resolution.")
-  public RegexFilter toolchainResolutionDebug;
-
+  public abstract RegexFilter getToolchainResolutionDebug();
 
   @Option(
       name = "incompatible_use_toolchain_resolution_for_java_rules",
@@ -137,7 +144,7 @@ public class PlatformOptions extends FragmentOptions {
       effectTags = OptionEffectTag.UNKNOWN,
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "No-op. Kept here for backwards compatibility.")
-  public boolean useToolchainResolutionForJavaRules;
+  public abstract boolean getUseToolchainResolutionForJavaRules();
 
   @Option(
       name = "platform_mappings",
@@ -159,7 +166,7 @@ public class PlatformOptions extends FragmentOptions {
           workspace root. Defaults to `platform_mappings` (a file directly under the
           workspace root).
           """)
-  public PlatformMappingKey platformMappingKey;
+  public abstract PlatformMappingKey getPlatformMappingKey();
 
   /**
    * Deduplicate the given list, keeping the last copy of any duplicates.
@@ -188,26 +195,26 @@ public class PlatformOptions extends FragmentOptions {
   @Override
   public PlatformOptions getNormalized() {
     PlatformOptions result = (PlatformOptions) clone();
-    result.extraToolchains =
+    result.setExtraToolchains(
         dedupeKeepingLast(
-            result.extraToolchains == null
+            result.getExtraToolchains() == null
                 ? ImmutableList.of()
-                : ImmutableList.copyOf(result.extraToolchains));
+                : ImmutableList.copyOf(result.getExtraToolchains())));
     // Only the first entry of platforms is used (it should have been Label and not List<Label>)
     // So drop all but the first entry.
-    if (result.platforms.size() > 1) {
-      result.platforms = ImmutableList.of(result.platforms.get(0));
+    if (result.getPlatforms().size() > 1) {
+      result.setPlatforms(ImmutableList.of(result.getPlatforms().get(0)));
     }
     return result;
   }
 
   /** Returns the intended target platform value based on options defined in this fragment. */
   public Label computeTargetPlatform() {
-    if (!platforms.isEmpty()) {
-      return Iterables.getFirst(platforms, null);
+    if (!getPlatforms().isEmpty()) {
+      return Iterables.getFirst(getPlatforms(), null);
     } else {
       // Default to the host platform, whatever it is.
-      return hostPlatform;
+      return getHostPlatform();
     }
   }
 

@@ -34,9 +34,9 @@ public final class PlatformUtilsTest {
 
   private static RemoteOptions remoteOptions() {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteDefaultExecProperties =
+    remoteOptions.setRemoteDefaultExecPropertiesField(
         ImmutableList.of(
-            new AbstractMap.SimpleEntry<>("b", "2"), new AbstractMap.SimpleEntry<>("a", "1"));
+            new AbstractMap.SimpleEntry<>("b", "2"), new AbstractMap.SimpleEntry<>("a", "1")));
     return remoteOptions;
   }
 

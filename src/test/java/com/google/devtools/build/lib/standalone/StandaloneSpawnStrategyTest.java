@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -41,6 +40,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
@@ -76,11 +77,17 @@ import org.mockito.Mockito;
 /** Test StandaloneSpawnStrategy. */
 @RunWith(JUnit4.class)
 public class StandaloneSpawnStrategyTest {
+  static {
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+  }
+
   private static final String WINDOWS_SYSTEM_DRIVE = "C:";
   private static final String CMD_EXE = getWinSystemBinary("cmd.exe");
 
   private final Reporter reporter =
-      new Reporter(new EventBus(), PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
+      new Reporter(
+          EventBusEventHandler.createWithNewEventBus(),
+          PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
   private BlazeExecutor executor;
   private FileSystem fileSystem;
   private FileOutErr outErr;
@@ -120,7 +127,6 @@ public class StandaloneSpawnStrategyTest {
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
             workspaceDir,
-            /* defaultSystemJavabase= */ null,
             "mock-product-name");
     // This call implicitly symlinks the integration bin tools into the exec root.
     IntegrationMock.get().getIntegrationBinTools(fileSystem, directories);
@@ -144,7 +150,7 @@ public class StandaloneSpawnStrategyTest {
                 binTools,
                 /* processWrapper= */ null,
                 Mockito.mock(RunfilesTreeUpdater.class)),
-            new ExecutionOptions());
+            Options.getDefaults(ExecutionOptions.class));
     this.executor =
         new TestExecutorBuilder(fileSystem, directories)
             .addStrategy(strategy, "standalone")

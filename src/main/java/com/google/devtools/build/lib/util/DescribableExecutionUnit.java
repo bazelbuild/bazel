@@ -32,6 +32,17 @@ public interface DescribableExecutionUnit {
   ImmutableList<String> getArguments();
 
   /**
+   * Returns the command (the first element) and its arguments, replacing param file references with
+   * the respective param file contents.
+   *
+   * <p>For implementations that don't support param files, this is equivalent to {@link
+   * #getArguments()}.
+   */
+  default ImmutableList<String> getArgumentsWithExpandedParamFiles() {
+    return getArguments();
+  }
+
+  /**
    * Returns the initial environment of the process. If null, the environment is inherited from the
    * parent process.
    */

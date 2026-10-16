@@ -89,8 +89,7 @@ public class TestSummaryTest {
         .setStatus(BlazeTestStatus.PASSED)
         .setNumCached(NOT_CACHED)
         .setActionRan(true)
-        .setRanRemotely(false)
-        .setWasUnreportedWrongSize(false);
+        .setRanRemotely(false);
   }
 
   private List<Path> getPathList(String... names) {
@@ -610,7 +609,7 @@ public class TestSummaryTest {
         getTemplateBuilder().collectTestCases(null).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(1);
-    assertThat(summary.getUnkownTestCases()).isEqualTo(1);
+    assertThat(summary.getUnknownTestCases()).isEqualTo(1);
   }
 
   @Test
@@ -628,7 +627,7 @@ public class TestSummaryTest {
         getTemplateBuilder().collectTestCases(a).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(2);
-    assertThat(summary.getUnkownTestCases()).isEqualTo(0);
+    assertThat(summary.getUnknownTestCases()).isEqualTo(0);
     assertThat(summary.getFailedTestCases()).isEmpty();
   }
 
@@ -705,7 +704,6 @@ public class TestSummaryTest {
         .setNumCached(numCached)
         .setActionRan(true)
         .setRanRemotely(false)
-        .setWasUnreportedWrongSize(false)
         .addFailedTestCases(emptyList, FailedTestCasesStatus.FULL)
         .addTestTimes(SMALL_TIMING)
         .build();

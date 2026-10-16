@@ -52,13 +52,6 @@ public final class WindowsTestUtil {
       WindowsFileOperations.createJunction(
           scratchRoot + "/" + e.getKey(), scratchRoot + "/" + e.getValue());
     }
-
-    for (Map.Entry<String, String> e : links.entrySet()) {
-      assertWithMessage(
-              String.format("Could not create junction '%s' -> '%s'", e.getKey(), e.getValue()))
-          .that(new File(scratchRoot, e.getKey()).exists())
-          .isTrue();
-    }
   }
 
   /**

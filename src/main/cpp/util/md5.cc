@@ -43,6 +43,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <string>
+
 #if !_STRING_ARCH_unaligned
 #if defined(_LP64) || defined(_WIN64)
 #  define UNALIGNED_P(p) (reinterpret_cast<uint64_t>(p) % \

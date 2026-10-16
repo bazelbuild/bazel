@@ -34,6 +34,7 @@ cc_library(
     ],
     deps = [
         "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:inlined_vector",
         "@abseil-cpp//absl/strings",
     ],
 )
@@ -45,6 +46,7 @@ cc_test(
     ],
     deps = [
         ":duplicate_class_collector",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -70,6 +72,7 @@ cc_test(
         ":duplicate_class_collector",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -101,7 +104,6 @@ cc_binary(
         "//src/tools/singlejar:token_stream",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
-        "@abseil-cpp//absl/log:die_if_null",
         "@abseil-cpp//absl/strings",
     ],
 )

@@ -1,0 +1,78 @@
+diff --git a/private/rules/jvm_import.bzl b/private/rules/jvm_import.bzl
+index 0fbbd10..de36b90 100644
+--- a/private/rules/jvm_import.bzl
++++ b/private/rules/jvm_import.bzl
+@@ -7,7 +7,7 @@
+ # [0]: https://github.com/square/bazel_maven_repository/pull/48
+ # [1]: https://github.com/bazelbuild/bazel/issues/4549
+
+-load("@rules_java//java:defs.bzl", "JavaInfo")
++load("@rules_java//java:defs.bzl", "JavaInfo", "java_common")
+ load("@rules_license//rules:providers.bzl", "PackageInfo")
+ load("//private/lib:coordinates.bzl", "to_external_form", "to_purl", "unpack_coordinates")
+ load("//private/lib:urls.bzl", "scheme_and_host")
+@@ -26,6 +26,8 @@ def _jvm_import_impl(ctx):
+     if not ctx.attr.jar:
+         print(ctx.attr.name, "The `jars` attribute is deprecated and will be removed in `rules_jvm_external` 7.0. Please use the `jar` attribute instead.")
+
++    java_runtime = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
++    add_jar_manifest_entry = ctx.file._add_jar_manifest_entry
+     injar = ctx.file.jar if ctx.attr.jar else ctx.files.jars[0]
+
+     if ctx.attr._stamp_manifest[StampManifestProvider].stamp_enabled:
+@@ -33,11 +35,15 @@ def _jvm_import_impl(ctx):
+         args = ctx.actions.args()
+         args.add_all(["--source", injar, "--output", outjar])
+         args.add("--manifest-entry", ctx.label, format = "Target-Label:%s")
++        java_args = ctx.actions.args()
++        java_args.add_all(["-jar", add_jar_manifest_entry])
+         ctx.actions.run(
+-            executable = ctx.executable._add_jar_manifest_entry,
+-            arguments = [args],
++            executable = java_runtime.java_executable_exec_path,
++            arguments = [java_args, args],
+             inputs = [injar],
+             outputs = [outjar],
++            env = {"LC_CTYPE": "C.UTF-8"},
++            tools = [add_jar_manifest_entry, java_runtime.files],
+             mnemonic = "StampJarManifest",
+             progress_message = "Stamping the manifest of %{label}",
+         )
+@@ -59,13 +65,17 @@ def _jvm_import_impl(ctx):
+     # Make sure the compile jar is safe to compile with
+     args.add("--make-safe")
+
++    java_args = ctx.actions.args()
++    java_args.add_all(["-jar", add_jar_manifest_entry])
+     ctx.actions.run(
+-        executable = ctx.executable._add_jar_manifest_entry,
+-        arguments = [args],
++        executable = java_runtime.java_executable_exec_path,
++        arguments = [java_args, args],
+         inputs = [outjar],
+         outputs = [compilejar],
++        env = {"LC_CTYPE": "C.UTF-8"},
++        tools = [add_jar_manifest_entry, java_runtime.files],
+         mnemonic = "CreateCompileJar",
+-        progress_message = "Creating compile jar for %s" % ctx.label,
++        progress_message = "Creating compile jar for %{label}",
+     )
+
+     additional_providers = []
+@@ -129,9 +139,14 @@ jvm_import = rule(
+             doc = "URL from where `jar` will be downloaded from.",
+         ),
+         "_add_jar_manifest_entry": attr.label(
+-            executable = True,
++            allow_single_file = True,
++            cfg = "exec",
++            default = "//private/tools/java/com/github/bazelbuild/rules_jvm_external/jar:AddJarManifestEntry_deploy.jar",
++        ),
++        "_java_runtime": attr.label(
++            default = "@rules_java//toolchains:current_java_runtime",
++            providers = [java_common.JavaRuntimeInfo],
+             cfg = "exec",
+-            default = "//private/tools/java/com/github/bazelbuild/rules_jvm_external/jar:AddJarManifestEntry",
+         ),
+         "_stamp_manifest": attr.label(
+             default = "@rules_jvm_external//settings:stamp_manifest",

@@ -32,6 +32,33 @@ public class BlazeServerStartupOptionsTest {
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     parser.parse();
     BlazeServerStartupOptions result = parser.getOptions(BlazeServerStartupOptions.class);
-    assertThat(result.outputBase).isNull();
+    assertThat(result.getOutputBase()).isNull();
+  }
+
+  @Test
+  public void testDeleteOutputBaseOnShutdownDefaultIsFalse() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    parser.parse();
+    BlazeServerStartupOptions result = parser.getOptions(BlazeServerStartupOptions.class);
+    assertThat(result.getDeleteOutputBaseOnShutdown()).isFalse();
+  }
+
+  @Test
+  public void testDeleteOutputBaseOnShutdownOption() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    parser.parse("--delete_output_base_on_shutdown");
+    BlazeServerStartupOptions result = parser.getOptions(BlazeServerStartupOptions.class);
+    assertThat(result.getDeleteOutputBaseOnShutdown()).isTrue();
+  }
+
+  @Test
+  public void testNoDeleteOutputBaseOnShutdownOption() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    parser.parse("--nodelete_output_base_on_shutdown");
+    BlazeServerStartupOptions result = parser.getOptions(BlazeServerStartupOptions.class);
+    assertThat(result.getDeleteOutputBaseOnShutdown()).isFalse();
   }
 }

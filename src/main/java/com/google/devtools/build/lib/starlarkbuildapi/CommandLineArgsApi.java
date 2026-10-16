@@ -519,4 +519,19 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "</ul><p>The format defaults to \"shell\" if not called.")
       })
   CommandLineArgsApi setParamFileFormat(String format) throws EvalException;
+
+  @StarlarkMethod(
+      name = "set_param_file_path",
+      doc =
+          "Sets the name of the parameter file when used in an action. "
+              + "By default, Bazel chooses a path derived from the primary output of the action.",
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+            },
+            doc = "The name for the parameter file.")
+      })
+  CommandLineArgsApi setParamFileName(String path) throws EvalException;
 }

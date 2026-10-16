@@ -313,7 +313,10 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "[0-9] processes: [0-9] internal, 2 remote\\."
+  # The exact number of actions depends on the toolchain in use (e.g. the Xcode
+  # toolchain from apple_support runs additional actions to set up its module
+  # maps), so only check that no action fell back to local execution.
+  expect_log "[0-9]* processes: [0-9]* internal, [0-9]* remote\\."
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
@@ -667,6 +670,44 @@ EOF
       || fail "Failed to build //a:large_output with remote execution"
   diff bazel-genfiles/a/large_blob.txt ${TEST_TMPDIR}/large_blob_expected.txt \
       || fail "Remote execution generated different result"
+}
+
+# Tests an action with so many output files that the serialized ActionResult
+# proto exceeds the default gRPC maximum message size of 4 MiB.
+# Regression test for https://github.com/bazelbuild/bazel/issues/29821.
+function test_action_result_exceeding_grpc_max_message_size() {
+  mkdir -p a
+  # 15000 outputs with ~290 character paths serialize to an ActionResult of
+  # more than 5 MB.
+  cat > a/BUILD <<'EOF'
+DIR = "x" * 250
+
+N = 15000
+
+genrule(
+    name = "many_outputs",
+    outs = ["%s/%s.txt" % (DIR, i) for i in range(N)],
+    cmd = ("mkdir -p $(RULEDIR)/{dir} && cd $(RULEDIR)/{dir} && " +
+           "seq 0 {max} | sed 's/$$/.txt/' | xargs touch").format(
+        dir = DIR,
+        max = N - 1,
+    ),
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:many_outputs >& $TEST_log \
+      || fail "Failed to build //a:many_outputs with remote execution"
+
+  # Also exercise the remote cache hit path, which fetches the same
+  # ActionResult via GetActionResult.
+  bazel clean >& $TEST_log
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:many_outputs >& $TEST_log \
+      || fail "Failed to build //a:many_outputs from the remote cache"
+  expect_log "1 remote cache hit"
 }
 
 function test_py_test() {
@@ -2079,15 +2120,6 @@ function test_exclusive_test_wont_remote_exec() {
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
-# This test uses the flag experimental_split_coverage_postprocessing. Without
-# the flag coverage won't work remotely. Without the flag, tests and coverage
-# post-processing happen in the same spawn, but only the runfiles tree of the
-# tests is made available to the spawn. The solution was not to merge the
-# runfiles tree which could cause its own problems but to split both into
-# different spawns. The reason why this only failed remotely and not locally was
-# because the coverage post-processing tool escaped the sandbox to find its own
-# runfiles. The error we would see here without the flag would be "Cannot find
-# runfiles". See #4685.
 function test_java_rbe_coverage_produces_report() {
   add_rules_java "MODULE.bazel"
   mkdir -p java/factorial
@@ -2146,8 +2178,6 @@ EOF
 
   bazel coverage \
     --test_output=all \
-    --experimental_fetch_all_coverage_outputs \
-    --experimental_split_coverage_postprocessing \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     --instrumentation_filter=//java/factorial \
@@ -2217,13 +2247,6 @@ function test_empty_tree_artifact_as_inputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_sibling_repository_layout \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
 }
 
 function test_empty_tree_artifact_as_inputs_remote_cache() {
@@ -2288,15 +2311,6 @@ function test_create_tree_artifact_outputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
-  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
-  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_sibling_repository_layout \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 }
@@ -2464,8 +2478,6 @@ EOF
 
   bazel coverage \
       --test_output=all \
-      --experimental_fetch_all_coverage_outputs \
-      --experimental_split_coverage_postprocessing \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       //"$test_dir":hello-test >& $TEST_log \
@@ -2605,9 +2617,7 @@ EOF
   BAZEL_USE_LLVM_NATIVE_COVERAGE=1 BAZEL_LLVM_PROFDATA=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
     bazel coverage \
       --test_output=all \
-      --experimental_fetch_all_coverage_outputs \
       --experimental_generate_llvm_lcov \
-      --experimental_split_coverage_postprocessing \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       //"$test_dir":hello-test >& $TEST_log \
@@ -3039,16 +3049,6 @@ function test_external_cc_test() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
-function test_external_cc_test_sibling_repository_layout() {
-  setup_external_cc_test
-
-  bazel test \
-      --test_output=errors \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_sibling_repository_layout \
-      @other_repo//test >& $TEST_log || fail "Test should pass"
-}
-
 function do_test_unresolved_symlink() {
   local -r strategy=$1
   local -r link_target=$2
@@ -3139,7 +3139,7 @@ function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "apple_support", version = "1.21.0")
+bazel_dep(name = "apple_support", version = "2.8.4")
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
@@ -3215,28 +3215,10 @@ function test_cc_binary_tool_with_dynamic_deps() {
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
-function test_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  setup_cc_binary_tool_with_dynamic_deps .
-
-  bazel build \
-      --experimental_sibling_repository_layout \
-      --remote_executor=grpc://localhost:${worker_port} \
-      //pkg:rule >& $TEST_log || fail "Build should succeed"
-}
-
 function test_external_cc_binary_tool_with_dynamic_deps() {
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
-      --remote_executor=grpc://localhost:${worker_port} \
-      @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
-}
-
-function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  setup_cc_binary_tool_with_dynamic_deps other_repo
-
-  bazel build \
-      --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }
@@ -3256,7 +3238,6 @@ EOF
 
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
-      --incompatible_check_sharding_support \
       --remote_download_minimal \
       //:x  &> $TEST_log && fail "expected failure"
   expect_log "Sharding requested, but the test runner did not advertise support for it by touching TEST_SHARD_STATUS_FILE."
@@ -3264,7 +3245,6 @@ EOF
   echo 'touch "$TEST_SHARD_STATUS_FILE"' > x.sh
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
-      --incompatible_check_sharding_support \
       --remote_download_minimal \
       //:x  &> $TEST_log || fail "expected success"
 }
@@ -3790,6 +3770,51 @@ EOF
     --remote_executor=grpc://localhost:${worker_port} \
     //a:gen >& $TEST_log && fail "build //a:gen should fail"
   expect_log "The file type of '.*a/dir/symlink.txt' is not supported."
+}
+
+function do_test_concurrent_modification_during_upload() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name = "gen_and_overwrite",
+    srcs = ["in"],
+    outs = ["out"],
+    # Non-hermetically overwrite the source file.
+    cmd = """
+cat $< $< > $@
+echo -n "overwritten" > $<
+""",
+    tags = ["local"],
+)
+
+genrule(
+    name = "remote",
+    # Forced to run after gen_and_overwrite.
+    srcs = ["in", "out"],
+    outs = ["combined"],
+    cmd = "cat $(SRCS) > $@",
+)
+EOF
+  echo -n "$1" > a/in
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:remote >& $TEST_log && fail "build //a:remote should fail"
+  assert_contains "overwritten" a/in
+  expect_log "while uploading file .*/a/in:"
+  expect_log_n "a/in" 1
+}
+
+function test_concurrent_modification_during_upload_shorter() {
+  do_test_concurrent_modification_during_upload "very long content that will be overwritten"
+}
+
+function test_concurrent_modification_during_upload_longer() {
+  do_test_concurrent_modification_during_upload "short"
+}
+
+function test_concurrent_modification_during_upload_same_length() {
+  do_test_concurrent_modification_during_upload "same length"
 }
 
 run_suite "Remote execution and remote cache tests"

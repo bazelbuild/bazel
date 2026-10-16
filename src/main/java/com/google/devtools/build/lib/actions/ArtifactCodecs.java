@@ -29,11 +29,13 @@ import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.ValueSharingAdapter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Codec implementations for {@link Artifact} subclasses.
@@ -43,49 +45,11 @@ import java.io.IOException;
  */
 public final class ArtifactCodecs {
 
-  // TODO: b/359437873 - generate with @AutoCodec.
   public static final ImmutableList<ObjectCodec<? extends Artifact>> VALUE_SHARING_CODECS =
       ImmutableList.of(
-          new DerivedArtifactValueSharingCodec(),
-          new SourceArtifactValueSharingCodec(),
-          new SpecialArtifactValueSharingCodec());
-
-  @Keep
-  private static final class DerivedArtifactValueSharingCodec
-      extends DeferredObjectCodec<DerivedArtifact> {
-
-    @Override
-    public boolean autoRegister() {
-      return false;
-    }
-
-    @Override
-    public Class<DerivedArtifact> getEncodedClass() {
-      return DerivedArtifact.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, DerivedArtifact obj, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.putSharedValue(
-          obj, /* distinguisher= */ null, DerivedArtifactCodec.INSTANCE, codedOut);
-    }
-
-    @Override
-    public DeferredValue<DerivedArtifact> deserializeDeferred(
-        AsyncDeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      SimpleDeferredValue<DerivedArtifact> value = SimpleDeferredValue.create();
-      context.getSharedValue(
-          codedIn,
-          /* distinguisher= */ null,
-          DerivedArtifactCodec.INSTANCE,
-          value,
-          SimpleDeferredValue::set);
-      return value;
-    }
-  }
+          new ValueSharingAdapter<>(DerivedArtifactCodec.INSTANCE),
+          new ValueSharingAdapter<>(SourceArtifactCodec.INSTANCE),
+          new ValueSharingAdapter<>(SpecialArtifactCodec.INSTANCE));
 
   /**
    * {@link ObjectCodec} for {@link DerivedArtifact}.
@@ -211,43 +175,6 @@ public final class ArtifactCodecs {
     return root.getExecPath().getRelative(rootRelativePath);
   }
 
-  @Keep
-  private static final class SourceArtifactValueSharingCodec
-      extends DeferredObjectCodec<SourceArtifact> {
-
-    @Override
-    public boolean autoRegister() {
-      return false;
-    }
-
-    @Override
-    public Class<SourceArtifact> getEncodedClass() {
-      return SourceArtifact.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, SourceArtifact obj, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.putSharedValue(
-          obj, /* distinguisher= */ null, SourceArtifactCodec.INSTANCE, codedOut);
-    }
-
-    @Override
-    public DeferredValue<SourceArtifact> deserializeDeferred(
-        AsyncDeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      SimpleDeferredValue<SourceArtifact> value = SimpleDeferredValue.create();
-      context.getSharedValue(
-          codedIn,
-          /* distinguisher= */ null,
-          SourceArtifactCodec.INSTANCE,
-          value,
-          SimpleDeferredValue::set);
-      return value;
-    }
-  }
-
   /** {@link ObjectCodec} for {@link SourceArtifact} */
   @Keep // Used by reflection.
   private static final class SourceArtifactCodec extends DeferredObjectCodec<SourceArtifact> {
@@ -310,43 +237,6 @@ public final class ArtifactCodecs {
     }
   }
 
-  @Keep
-  private static final class SpecialArtifactValueSharingCodec
-      extends DeferredObjectCodec<SpecialArtifact> {
-
-    @Override
-    public boolean autoRegister() {
-      return false;
-    }
-
-    @Override
-    public Class<SpecialArtifact> getEncodedClass() {
-      return SpecialArtifact.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, SpecialArtifact obj, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.putSharedValue(
-          obj, /* distinguisher= */ null, SpecialArtifactCodec.INSTANCE, codedOut);
-    }
-
-    @Override
-    public DeferredValue<SpecialArtifact> deserializeDeferred(
-        AsyncDeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      SimpleDeferredValue<SpecialArtifact> value = SimpleDeferredValue.create();
-      context.getSharedValue(
-          codedIn,
-          /* distinguisher= */ null,
-          SpecialArtifactCodec.INSTANCE,
-          value,
-          SimpleDeferredValue::set);
-      return value;
-    }
-  }
-
   /**
    * {@link ObjectCodec} for {@link SpecialArtifact}.
    *
@@ -370,6 +260,8 @@ public final class ArtifactCodecs {
       context.serialize(obj.getRootRelativePath(), codedOut);
       serializeOrOmitGeneratingActionKey(context, obj, codedOut);
       context.serialize(obj.getSpecialArtifactType(), codedOut);
+      context.serialize(obj.getParent(), codedOut);
+      context.serialize(obj.getParentRelativePath(), codedOut);
     }
 
     @Override
@@ -383,6 +275,9 @@ public final class ArtifactCodecs {
       deserializeOrGetGeneratingActionKey(
           context, codedIn, builder, DeserializedSpecialArtifactBuilder::setGeneratingActionKey);
       context.deserialize(codedIn, builder, DeserializedSpecialArtifactBuilder::setType);
+      context.deserialize(codedIn, builder, DeserializedSpecialArtifactBuilder::setParent);
+      context.deserialize(
+          codedIn, builder, DeserializedSpecialArtifactBuilder::setParentRelativePath);
       return builder;
     }
   }
@@ -394,6 +289,8 @@ public final class ArtifactCodecs {
     private PathFragment rootRelativePath;
     private ActionLookupData generatingActionKey;
     private SpecialArtifactType type;
+    @Nullable private SpecialArtifact parent;
+    @Nullable private PathFragment parentRelativePath;
 
     private DeserializedSpecialArtifactBuilder(AsyncDeserializationContext context) {
       this.context = context;
@@ -409,7 +306,9 @@ public final class ArtifactCodecs {
                       root,
                       getExecPathForDeserialization(root, rootRelativePath, generatingActionKey),
                       generatingActionKey,
-                      type),
+                      type,
+                      parent,
+                      parentRelativePath),
                   context);
     }
 
@@ -429,6 +328,15 @@ public final class ArtifactCodecs {
 
     private static void setType(DeserializedSpecialArtifactBuilder builder, Object value) {
       builder.type = (SpecialArtifactType) value;
+    }
+
+    private static void setParent(DeserializedSpecialArtifactBuilder builder, Object value) {
+      builder.parent = (SpecialArtifact) value;
+    }
+
+    private static void setParentRelativePath(
+        DeserializedSpecialArtifactBuilder builder, Object value) {
+      builder.parentRelativePath = (PathFragment) value;
     }
   }
 

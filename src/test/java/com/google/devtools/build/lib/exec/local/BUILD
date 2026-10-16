@@ -3,14 +3,14 @@ load("@rules_java//java:defs.bzl", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/exec:__pkg__"],
 )
 
 java_test(
@@ -18,24 +18,28 @@ java_test(
     srcs = ["LocalSpawnRunnerTest.java"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
         "//src/test/shell/integration:spend_cpu_time",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
+        "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:runfiles_tree_updater",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
+        "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/testing/common:directory_listing_helper",
-        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util/io",
@@ -49,10 +53,11 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )
 
@@ -61,9 +66,9 @@ java_test(
     srcs = ["PosixLocalEnvProviderTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/exec/local",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -72,9 +77,9 @@ java_test(
     srcs = ["WindowsLocalEnvProviderTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/exec/local",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

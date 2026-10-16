@@ -9,8 +9,9 @@ site/* linguist-documentation
 #   https://docs.github.com/en/search-github/searching-on-github/finding-files-on-github#customizing-excluded-files
 **/build/** linguist-generated=false
 
-# Files should not use CRLF line endings, even on Windows.
-* -text
+# Normalize line endings to LF on checkin and always check out LF, even on
+# Windows. Binary files are detected by content and left untouched.
+* text=auto eol=lf
 
 # A custom merge driver for the Bazel lockfile.
 # https://bazel.build/external/lockfile#automatic-resolution

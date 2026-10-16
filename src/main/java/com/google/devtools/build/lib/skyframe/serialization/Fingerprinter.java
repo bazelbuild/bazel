@@ -16,4 +16,8 @@ package com.google.devtools.build.lib.skyframe.serialization;
 /** Injectable fingerprint function. */
 public interface Fingerprinter {
   PackedFingerprint fingerprint(byte[] input);
+
+  /** Computes a fingerprint for the given {@code input} bytes combined with a {@code salt}. */
+  PackedFingerprint fingerprint(byte[] input, String salt);
 }
+

@@ -17,9 +17,10 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor.VisitedState;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.Reportable;
 import java.util.Set;
 
 /**
@@ -29,20 +30,21 @@ import java.util.Set;
  * <p>Also tracks warnings for purposes of deduplication, since those are not {@linkplain
  * Event#storeForReplay stored}.
  */
-public final class EmittedEventState implements NestedSetVisitor.VisitedState {
+public final class EmittedEventState {
 
-  private final Set<Object> seenNodes = Sets.newConcurrentHashSet();
+  private final Set<Reportable> seenEvents = Sets.newConcurrentHashSet();
   private final Set<Event> seenWarnings = Sets.newConcurrentHashSet();
+  private VisitedState<Reportable> visitedState = VisitedState.createConcurrent(seenEvents::add);
 
   /** Clears the seen nodes and warnings. */
   public void clear() {
-    seenNodes.clear();
+    seenEvents.clear();
     seenWarnings.clear();
+    visitedState = VisitedState.createConcurrent(seenEvents::add);
   }
 
-  @Override
-  public boolean needToVisit(Object node) {
-    return seenNodes.add(node);
+  VisitedState<Reportable> asVisitedState() {
+    return visitedState;
   }
 
   /** Returns {@code true} if the given warning was not seen before. */

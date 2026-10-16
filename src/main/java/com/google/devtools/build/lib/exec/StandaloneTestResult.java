@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
  * @param testResultDataBuilder Returns the TestResultData for the test.
  */
 public record StandaloneTestResult(
-    @Override ImmutableList<SpawnResult> spawnResults,
+    ImmutableList<SpawnResult> spawnResults,
     TestResultData.Builder testResultDataBuilder,
     BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo)
     implements TestActionContext.TestAttemptResult {

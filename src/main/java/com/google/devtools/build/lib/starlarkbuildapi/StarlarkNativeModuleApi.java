@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.List;
@@ -45,7 +45,7 @@ import net.starlark.java.eval.StarlarkValue;
             + "<code>None</code> values, and treat them as if the attribute was unset.<br>"
             + "The following functions are also available:")
 // Methods in this class are also available at the top level in BUILD files.
-@GlobalMethods(environment = Environment.BUILD)
+@GlobalMethodDocs(environment = Environment.BUILD)
 public interface StarlarkNativeModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
@@ -283,8 +283,8 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " function. <p>The result of this function is the same <code>Label</code> value as"
               + " would be produced by passing the given string to a label-valued attribute of a"
               + " target declared in the BUILD file. <p><i>Usage note:</i> The difference between"
-              + " this function and <a href='../builtins/Label.html#Label'>Label()</a></code> is"
-              + " that <code>Label()</code> uses the context of the package of the"
+              + " this function and <a href='../builtins/Label.html#Label'><code>Label()</code>"
+              + "</a> is that <code>Label()</code> uses the context of the package of the"
               + " <code>.bzl</code> file that called it, not the package of the <code>BUILD</code>"
               + " file. Use <code>Label()</code> when you need to refer to a fixed target that is"
               + " hardcoded into the macro, such as a compiler. Use"
@@ -292,7 +292,10 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " supplied by the BUILD file to a <code>Label</code> object. (There is no way to"
               + " convert a string to a <code>Label</code> in the context of a package other than"
               + " the BUILD file or the calling .bzl file. For that reason, outer macros should"
-              + " always prefer to pass Label objects to inner macros rather than label strings.)",
+              + " always prefer to pass Label objects to inner macros rather than label strings.)"
+              + "<a href='ctx.html#package_relative_label'><code>ctx.package_relative_label()"
+              + "</code></a> provides the same functionality within a rule or aspect implementation"
+              + " function.",
       parameters = {
         @Param(
             name = "input",

@@ -24,6 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -2693,6 +2696,203 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     assertContainsEvent("Facts cannot be nested more than 7 levels deep");
   }
 
+  @Test
+  public void requireRepoExtensionMetadata_defaultAllowsModuleExtensionDefault() throws Exception {
+    var result = evaluateSimpleModuleExtension("");
+
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+  }
+
+  @Test
+  public void requireRepoExtensionMetadata_allErrorsForModuleExtensionDefault() throws Exception {
+    setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ALL);
+    reporter.removeHandler(failFastHandler);
+
+    var result = evaluateSimpleModuleExtension("");
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains("did not return extension_metadata");
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains("--incompatible_require_repo_extension_metadata=all requires it");
+  }
+
+  @Test
+  public void requireRepoExtensionMetadata_rootErrorsForRootModuleExtensionDefault()
+      throws Exception {
+    setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ROOT);
+    reporter.removeHandler(failFastHandler);
+
+    var result = evaluateSimpleModuleExtension("");
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains("did not return extension_metadata");
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains("--incompatible_require_repo_extension_metadata=root requires it");
+  }
+
+  @Test
+  public void requireRepoExtensionMetadata_rootAllowsDepDefinedModuleExtensionUsedByRootModule()
+      throws Exception {
+    setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ROOT);
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='root')",
+        "bazel_dep(name='foo', version='1.0')",
+        "ext = use_extension('@foo//:defs.bzl', 'ext')");
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
+    scratch.file(moduleRoot.getRelative("foo+1.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("foo+1.0/BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("foo+1.0/defs.bzl").getPathString(),
+        "def _ext_impl(ctx):",
+        "  pass",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.overwriteFile("BUILD");
+    invalidatePackages(false);
+
+    ModuleExtensionId extensionId =
+        ModuleExtensionId.create(
+            Label.parseCanonical("@@foo+//:defs.bzl"), "ext", Optional.empty());
+    EvaluationResult<SingleExtensionValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            skyframeExecutor, SingleExtensionValue.key(extensionId), false, reporter);
+
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+  }
+
+  @Test
+  public void requireRepoExtensionMetadata_allAllowsExplicitModuleExtensionMetadata()
+      throws Exception {
+    setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ALL);
+
+    var result = evaluateSimpleModuleExtension("return ctx.extension_metadata()");
+
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+  }
+
+  @Test
+  public void requireRepoExtensionMetadata_allErrorsForRepoRuleDefault() throws Exception {
+    setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ALL);
+    setupRootUseRepoRuleReturning("");
+    reporter.removeHandler(failFastHandler);
+
+    EvaluationResult<BzlLoadValue> result = loadRootDataBzl();
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("did not return repo_metadata");
+    assertContainsEvent("--incompatible_require_repo_extension_metadata=all requires it");
+  }
+
+  @Test
+  public void requireRepoExtensionMetadata_rootErrorsForRootRepoRuleDefault() throws Exception {
+    setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ROOT);
+    setupRootUseRepoRuleReturning("");
+    reporter.removeHandler(failFastHandler);
+
+    EvaluationResult<BzlLoadValue> result = loadRootDataBzl();
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("did not return repo_metadata");
+    assertContainsEvent("--incompatible_require_repo_extension_metadata=root requires it");
+  }
+
+  @Test
+  public void requireRepoExtensionMetadata_rootAllowsDepDefinedRepoRuleUsedByRootModule()
+      throws Exception {
+    setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ROOT);
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='root')",
+        "bazel_dep(name='foo', version='1.0')",
+        "repo = use_repo_rule('@foo//:repo.bzl', 'repo')",
+        "repo(name = 'gen')");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@gen//:data.bzl', repo_data = 'data')", "data = repo_data");
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
+    scratch.file(moduleRoot.getRelative("foo+1.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("foo+1.0/BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("foo+1.0/repo.bzl").getPathString(),
+        "def _repo_impl(ctx):",
+        "  ctx.file('BUILD')",
+        "  ctx.file('data.bzl', \"data = 'ok'\")",
+        "repo = repository_rule(implementation = _repo_impl)");
+    invalidatePackages(false);
+
+    EvaluationResult<BzlLoadValue> result = loadRootDataBzl();
+
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+  }
+
+  @Test
+  public void requireRepoExtensionMetadata_allAllowsExplicitRepoMetadata() throws Exception {
+    setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ALL);
+    setupRootUseRepoRuleReturning("return ctx.repo_metadata(reproducible = True)");
+
+    EvaluationResult<BzlLoadValue> result = loadRootDataBzl();
+
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+  }
+
+  @Test
+  public void requireRepoExtensionMetadata_allAllowsLegacyRepoMetadataDict() throws Exception {
+    setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ALL);
+    setupRootUseRepoRuleReturning("return {}");
+
+    EvaluationResult<BzlLoadValue> result = loadRootDataBzl();
+
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+  }
+
+  private void setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode mode)
+      throws Exception {
+    skyframeExecutor.injectExtraPrecomputedValues(
+        ImmutableList.of(
+            PrecomputedValue.injected(
+                RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA, mode)));
+  }
+
+  private void setupRootUseRepoRuleReturning(String returnStatement) throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel", "repo = use_repo_rule('//:repo.bzl', 'repo')", "repo(name = 'foo')");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@foo//:data.bzl', repo_data = 'data')", "data = repo_data");
+    scratch.file(
+        "repo.bzl",
+        "def _repo_impl(ctx):",
+        "  ctx.file('BUILD')",
+        "  ctx.file('data.bzl', \"data = 'ok'\")",
+        returnStatement.indent(2),
+        "repo = repository_rule(implementation = _repo_impl)");
+    invalidatePackages(false);
+  }
+
+  private EvaluationResult<BzlLoadValue> loadRootDataBzl() throws Exception {
+    return SkyframeExecutorTestUtils.evaluate(
+        skyframeExecutor,
+        BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl")),
+        false,
+        reporter);
+  }
+
   private EvaluationResult<SingleExtensionValue> evaluateSimpleModuleExtension(
       String returnStatement) throws Exception {
     return evaluateSimpleModuleExtension(returnStatement, /* devDependency= */ false);
@@ -2801,6 +3001,59 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         "Conflict between 'foo' tag at /workspace/MODULE.bazel:2:8 and 'foo' tag at"
             + " /workspace/MODULE.bazel:3:8",
         ImmutableSet.of(EventKind.DEBUG));
+  }
+
+  @Test
+  public void tagSortOrder() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='root',version='1.0')",
+        "bazel_dep(name='foo',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')",
+        "ext = use_extension('//:defs.bzl', 'ext')",
+        "ext.baz(id = 7)",
+        "ext.foo(id = 2)",
+        "ext.baz(id = 9)",
+        "ext.bar(id = 42)",
+        "ext.foo(id = -1)",
+        "ext.foo(id = 5)",
+        "use_repo(ext, 'ext_data')");
+    scratch.file(
+        "defs.bzl",
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  tags = []",
+        "  for module in ctx.modules:",
+        "    tags += module.tags.foo",
+        "    tags += module.tags.bar",
+        "    tags += module.tags.baz",
+        "  ids = [tag.id for tag in sorted(tags, key=lambda tag: ctx.tag_sort_key(tag))]",
+        "  data_repo(name='ext_data',data=str(ids))",
+        "foo = tag_class(attrs = {'id': attr.int()})",
+        "bar = tag_class(attrs = {'id': attr.int()})",
+        "baz = tag_class(attrs = {'id': attr.int()})",
+        "ext = module_extension(implementation=_ext_impl,tag_classes={'foo':foo, 'bar':bar,"
+            + " 'baz':baz})");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@ext_data//:data.bzl', ext_data='data')", "data=ext_data");
+    registry.addModule(
+        createModuleKey("foo", "1.0"),
+        "module(name='foo',version='1.0')",
+        "bazel_dep(name='root',version='1.0')",
+        "ext = use_extension('@root//:defs.bzl','ext')",
+        "ext.bar(id = 3)",
+        "ext.foo(id = 4)",
+        "ext.baz(id = 1)");
+    invalidatePackages(false);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("[7, 2, 9, 42, -1, 5, 3, 4, 1]"); // sorted order
   }
 
   @Test
@@ -3122,6 +3375,121 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
             "@@+other_ext+other_foo//:foo",
             "@@+other_ext+other_bar//:bar")
         .inOrder();
+  }
+
+  @Test
+  public void overrideRepo_mainRepoCannotBeImported(
+      @TestParameter boolean customRepoName,
+      @TestParameter boolean importFirst,
+      @TestParameter boolean devDependency)
+      throws Exception {
+    String repoName = customRepoName ? "app_self" : "app";
+    String importStatement = "use_repo(ext, alias = 'self')";
+    String overrideStatement = "override_repo(ext, self = '%s')".formatted(repoName);
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        customRepoName ? "module(name='app', repo_name='app_self')" : "module(name='app')",
+        "ext = use_extension('//:defs.bzl', 'ext', dev_dependency = %s)"
+            .formatted(devDependency ? "True" : "False"),
+        importFirst ? importStatement : overrideStatement,
+        importFirst ? overrideStatement : importStatement);
+    invalidatePackages(false);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            skyframeExecutor, ModuleFileValue.KEY_FOR_ROOT_MODULE, false, reporter);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("Error in use_repo: Cannot import repo 'self' from module extension 'ext'");
+    assertContainsEvent("because it is overridden with the root module");
+    assertContainsEvent("Please refer to @%s directly.".formatted(repoName));
+  }
+
+  @Test
+  public void overrideRepo_mainRepoCanBeImportedByOtherModules() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = "app", repo_name = "app_self")
+        bazel_dep(name = "ext", version = "1.0")
+        ext = use_extension("@ext//:defs.bzl", "ext")
+        override_repo(ext, self = "app_self")
+        """);
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "data = 'from the root module'");
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        """
+        module(name = "ext", version = "1.0")
+        ext = use_extension("//:defs.bzl", "ext")
+        use_repo(ext, alias = "self")
+        """);
+    scratch.file(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("ext+1.0/BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/data.bzl").getPathString(),
+        "load('@alias//:data.bzl', _data = 'data')",
+        "data = _data");
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
+        """
+        def _repo_impl(ctx):
+            fail("The overridden repository must not be fetched")
+        repo = repository_rule(implementation = _repo_impl)
+        def _ext_impl(ctx):
+            repo(name = "self")
+        ext = module_extension(implementation = _ext_impl)
+        """);
+    invalidatePackages(false);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@@ext+//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("from the root module");
+  }
+
+  @Test
+  public void overrideRepo_mainRepoIsExcludedFromTidyImports(
+      @TestParameter boolean allRepos, @TestParameter boolean devDependency) throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='app', repo_name='app_self')",
+        "bazel_dep(name='data_repo', version='1.0')",
+        "ext = use_extension('//:defs.bzl', 'ext', dev_dependency = %s)"
+            .formatted(devDependency ? "True" : "False"),
+        "override_repo(ext, self = 'app_self', dep = 'data_repo')");
+    scratch.overwriteFile("BUILD");
+    String directDeps = allRepos ? "'all'" : "['self', 'dep']";
+    scratch.file(
+        "defs.bzl",
+        """
+        load('@data_repo//:defs.bzl', 'data_repo')
+        def _ext_impl(ctx):
+            data_repo(name = 'self')
+            data_repo(name = 'dep')
+            return ctx.extension_metadata(
+                root_module_direct_deps = %s,
+                root_module_direct_dev_deps = %s,
+            )
+        ext = module_extension(implementation = _ext_impl)
+        """
+            .formatted(devDependency ? "[]" : directDeps, devDependency ? directDeps : "[]"));
+    invalidatePackages(false);
+
+    SkyKey skyKey =
+        SingleExtensionValue.evalKey(
+            ModuleExtensionId.create(Label.parseCanonical("//:defs.bzl"), "ext", Optional.empty()));
+    EvaluationResult<SingleExtensionValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(skyKey).fixup()).isPresent();
+    // Keep suggesting imports of overrides backed by other repositories.
+    assertThat(result.get(skyKey).fixup().get().moduleFilePathToBuildozerCommands())
+        .containsExactly(PathFragment.create("MODULE.bazel"), "use_repo_add ext dep");
   }
 
   @Test

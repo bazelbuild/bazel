@@ -20,6 +20,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.time.Duration;
@@ -27,7 +28,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /** Options for remote execution and distributed caching that shared between Bazel and Blaze. */
-public class CommonRemoteOptions extends OptionsBase {
+@OptionsClass
+public abstract class CommonRemoteOptions extends OptionsBase {
   @Option(
       name = "remote_download_regex",
       oldName = "experimental_remote_download_regex",
@@ -40,7 +42,7 @@ public class CommonRemoteOptions extends OptionsBase {
           "Force remote build outputs whose path matches this pattern to be downloaded,"
               + " irrespective of --remote_download_outputs. Multiple patterns may be specified by"
               + " repeating this flag.")
-  public List<RegexPatternOption> remoteDownloadRegex;
+  public abstract List<RegexPatternOption> getRemoteDownloadRegex();
 
   @Option(
       name = "experimental_remote_cache_ttl",
@@ -55,7 +57,7 @@ public class CommonRemoteOptions extends OptionsBase {
               + " GetActionResult in an incremental build. The value should be set slightly less"
               + " than the real TTL since there is a gap between when the server returns the"
               + " digests and when Bazel receives them.")
-  public Duration remoteCacheTtl;
+  public abstract Duration getRemoteCacheTtl();
 
   /** Returns the specified duration. Assumes seconds if unitless. */
   public static class RemoteDurationConverter extends Converter.Contextless<Duration> {

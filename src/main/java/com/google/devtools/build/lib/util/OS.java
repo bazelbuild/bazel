@@ -13,31 +13,33 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import java.util.EnumSet;
-
 /**
  * Detects the running operating system and returns a describing enum value.
  */
 public enum OS {
-  DARWIN("osx", "Mac OS X"),
-  FREEBSD("freebsd", "FreeBSD"),
-  OPENBSD("openbsd", "OpenBSD"),
-  LINUX("linux", "Linux"),
-  WINDOWS("windows", "Windows"),
-  UNKNOWN("unknown", "");
-
-  private static final EnumSet<OS> POSIX_COMPATIBLE = EnumSet.of(DARWIN, FREEBSD, OPENBSD, LINUX);
+  DARWIN("osx", "Mac OS X", true),
+  FREEBSD("freebsd", "FreeBSD", true),
+  OPENBSD("openbsd", "OpenBSD", true),
+  LINUX("linux", "Linux", true),
+  WINDOWS("windows", "Windows", false),
+  UNKNOWN("unknown", "", false);
 
   private final String canonicalName;
   private final String detectionName;
+  private final boolean isPosixCompatible;
 
-  OS(String canonicalName, String detectionName) {
+  OS(String canonicalName, String detectionName, boolean isPosixCompatible) {
     this.canonicalName = canonicalName;
     this.detectionName = detectionName;
+    this.isPosixCompatible = isPosixCompatible;
   }
 
   public String getCanonicalName() {
     return canonicalName;
+  }
+
+  public boolean isPosixCompatible() {
+    return isPosixCompatible;
   }
 
   @Override
@@ -52,10 +54,6 @@ public enum OS {
    */
   public static OS getCurrent() {
     return HOST_SYSTEM;
-  }
-
-  public static boolean isPosixCompatible() {
-    return POSIX_COMPATIBLE.contains(getCurrent());
   }
 
   public static String getVersion() {

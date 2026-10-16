@@ -1965,8 +1965,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain_exec_1,//toolchain:foo_toolchain_exec_2",
         "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2",
-        "--incompatible_auto_exec_groups=True",
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_auto_exec_groups=True");
 
     var analysisResult = update(ImmutableList.of("//test:defs.bzl%my_aspect"), "//test:t1");
 
@@ -2001,7 +2000,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
                 .getConfigurationKey()
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:platform_1"));
   }
 
@@ -2043,8 +2042,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain_exec_1,//toolchain:foo_toolchain_exec_2",
         "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2",
-        "--incompatible_auto_exec_groups=False",
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_auto_exec_groups=False");
 
     var analysisResult = update(ImmutableList.of("//test:defs.bzl%my_aspect"), "//test:t1");
 
@@ -2080,7 +2078,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
                 .getConfigurationKey()
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:platform_2"));
   }
 
@@ -2122,8 +2120,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain_exec_1,//toolchain:foo_toolchain_exec_2",
         "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2",
-        "--incompatible_auto_exec_groups=" + autoExecGroups,
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_auto_exec_groups=" + autoExecGroups);
 
     var analysisResult = update(ImmutableList.of("//test:defs.bzl%my_aspect"), "//test:t1");
 
@@ -2155,7 +2152,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
                 .getConfigurationKey()
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:platform_2"));
   }
 
@@ -2205,21 +2202,22 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain",
         "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2",
-        "--incompatible_auto_exec_groups=" + autoExecGroups,
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_auto_exec_groups=" + autoExecGroups);
 
     var unused = update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1");
 
     // //test:rule_tool uses //platforms:platform_2
     ConfiguredTargetKey ruleTool =
         Iterables.getOnlyElement(getConfiguredTargetKey("//test:rule_tool"));
-    assertThat(ruleTool.getConfigurationKey().getOptions().get(PlatformOptions.class).platforms)
+    assertThat(
+            ruleTool.getConfigurationKey().getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:platform_2"));
 
     // //test:aspect_tool uses //platforms:platform_1
     ConfiguredTargetKey aspectTool =
         Iterables.getOnlyElement(getConfiguredTargetKey("//test:aspect_tool"));
-    assertThat(aspectTool.getConfigurationKey().getOptions().get(PlatformOptions.class).platforms)
+    assertThat(
+            aspectTool.getConfigurationKey().getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:platform_1"));
 
     // aspect propagates to the rule's toolchain (with //platforms:platform_2 execution platform)
@@ -2621,6 +2619,64 @@ var_supplier(
         ViewCreationFailedException.class,
         () -> update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1"));
     assertContainsEvent("at index 0 of toolchains_aspects, got element of type string, want Label");
+  }
+
+  @Test
+  public void toolchainTypesFunc_wildcardEnumeratesResolvedToolchains(
+      @TestParameter boolean autoExecGroups) throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        AspectInfo = provider()
+
+        def _impl(target, ctx):
+          res = ['my_aspect on ' + str(target.label)]
+          for toolchain_type in ctx.rule.toolchains.toolchain_types():
+            if AspectInfo in ctx.rule.toolchains[toolchain_type]:
+              res.extend(ctx.rule.toolchains[toolchain_type][AspectInfo].res)
+          return [AspectInfo(res = res)]
+
+        toolchain_aspect = aspect(
+          implementation = _impl,
+          toolchains_aspects = ['*'],
+        )
+
+        def _rule_impl(ctx):
+          pass
+
+        r1 = rule(
+          implementation = _rule_impl,
+          toolchains = ['//rule:toolchain_type_1', '//rule:toolchain_type_2'],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1')
+        """);
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:foo_toolchain_with_provider",
+        "--incompatible_auto_exec_groups=" + autoExecGroups);
+
+    var analysisResult = update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1");
+
+    var aspectKeys = getAspectKeys("//test:defs.bzl%toolchain_aspect");
+    assertThat(aspectKeys)
+        .containsExactly(
+            "//test:defs.bzl%toolchain_aspect on //test:t1",
+            "//test:defs.bzl%toolchain_aspect on //toolchain:foo",
+            "//test:defs.bzl%toolchain_aspect on //toolchain:foo_with_provider");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    assertThat(
+            getStarlarkProvider(configuredAspect, "//test:defs.bzl", "AspectInfo")
+                .getValue("res", Sequence.class))
+        .containsExactly(
+            "my_aspect on @@//test:t1",
+            "my_aspect on @@//toolchain:foo",
+            "my_aspect on @@//toolchain:foo_with_provider");
   }
 
   @Test

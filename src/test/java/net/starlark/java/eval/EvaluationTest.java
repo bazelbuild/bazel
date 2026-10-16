@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,6 +33,13 @@ import org.junit.runners.JUnit4;
 public final class EvaluationTest {
 
   private final EvaluationTestCase ev = new EvaluationTestCase();
+
+  @Test
+  public void testDefaultStarlarkSemanticsAndDefaultFileOptionsConsistent() {
+    assertThat(StarlarkSemantics.DEFAULT.getDefaultFileOptions()).isEqualTo(FileOptions.DEFAULT);
+    assertThat(StarlarkSemantics.DEFAULT.updateFileOptions(FileOptions.builder()).build())
+        .isEqualTo(FileOptions.DEFAULT);
+  }
 
   @Test
   public void testExecutionStopsAtFirstError() throws Exception {
@@ -628,7 +636,7 @@ public final class EvaluationTest {
     Object obj =
         new StarlarkValue() {
           @Override
-          public void repr(Printer printer) {
+          public void repr(Printer printer, StarlarkSemantics semantics) {
             printer.append("<str marker>");
           }
         };
@@ -654,7 +662,7 @@ public final class EvaluationTest {
     Object obj =
         new StarlarkValue() {
           @Override
-          public void repr(Printer printer) {
+          public void repr(Printer printer, StarlarkSemantics semantics) {
             printer.append("<str marker>");
           }
         };
@@ -913,5 +921,131 @@ public final class EvaluationTest {
   public void isinstanceExpression_notYetSupported() throws Exception {
     ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     ev.new Scenario().testIfExactError("isinstance() is not yet supported", "isinstance(x, list)");
+  }
+
+  @Test
+  public void testForLoopOverSequences() throws Exception {
+    StarlarkList<String> singletonImm = StarlarkList.immutableOf("only");
+    StarlarkList<String> regularImm = StarlarkList.immutableOf("a", "b", "c");
+    StarlarkList<String> lazyImm = StarlarkList.lazyImmutable(() -> ImmutableList.of("x", "y"));
+    ev.new Scenario()
+        .update("singleton_imm", singletonImm)
+        .update("regular_imm", regularImm)
+        .update("lazy_imm", lazyImm)
+        .setUp(
+            """
+            def collect(seq):
+                out = []
+                for item in seq:
+                    if item == "skip" or item == 1:
+                        continue
+                    if item == "stop" or item == 3:
+                        break
+                    out.append(item)
+                return out
+
+            def first(seq):
+                for item in seq:
+                    return item
+                return "empty"
+
+            def pairs(outer, inner):
+                out = []
+                for o in outer:
+                    for i in inner:
+                        if i == "stop":
+                            break
+                        out.append(o + i)
+                return out
+            """)
+        .testEval("collect([])", "[]")
+        .testEval("collect(())", "[]")
+        .testEval("collect(range(0))", "[]")
+        .testEval("collect(singleton_imm)", "['only']")
+        .testEval("collect(('single',))", "['single']")
+        .testEval("collect(range(1))", "[0]")
+        .testEval("collect(regular_imm)", "['a', 'b', 'c']")
+        .testEval("collect(('t1', 'skip', 't2', 'stop', 't3'))", "['t1', 't2']")
+        .testEval("collect(['l1', 'skip', 'l2', 'stop', 'l3'])", "['l1', 'l2']")
+        .testEval("collect(lazy_imm)", "['x', 'y']")
+        .testEval("collect(range(5))", "[0, 2]")
+        .testEval("collect({'k1': 1, 'k2': 2})", "['k1', 'k2']")
+        .testEval("first([])", "'empty'")
+        .testEval("first(())", "'empty'")
+        .testEval("first(range(0))", "'empty'")
+        .testEval("first(['f1', 'f2'])", "'f1'")
+        .testEval("first(('t1', 't2'))", "'t1'")
+        .testEval("first(range(5, 7))", "5")
+        .testEval("pairs(['a', 'b'], ['1', 'stop', '2'])", "['a1', 'b1']")
+        .testEval("pairs(('a', 'b'), ('1', 'stop', '2'))", "['a1', 'b1']");
+  }
+
+  @Test
+  public void testForLoopIterationLock() throws Exception {
+    ev.new Scenario()
+        .setUp(
+            """
+            def iter_mutable_with_spare_capacity():
+                xs = [1, 2]
+                xs.append(3)  # capacity > size
+                out = []
+                for x in xs:
+                    if x == 2:
+                        break
+                    out.append(x)
+                xs.append(4)  # verify iterator lock was released after break
+                return (out, xs)
+
+            def mutate_during_for():
+                xs = [1, 2]
+                xs.append(3)
+                for x in xs:
+                    xs.append(x)
+            """)
+        .testEval("iter_mutable_with_spare_capacity()", "([1], [1, 2, 3, 4])")
+        .testIfErrorContains(
+            "list value is temporarily immutable due to active for-loop iteration",
+            "mutate_during_for()");
+  }
+
+  @Test
+  public void testForLoopOverListAbortedOnInterrupt() throws Exception {
+    ParserInput input =
+        ParserInput.fromLines(
+            "def f():",
+            "  xs = list(range(100))",
+            "  for i in xs:",
+            "    interrupt(i == 5)",
+            "f()");
+    InterruptFunction interrupt = new InterruptFunction();
+    assertThrows(
+        InterruptedException.class, () -> execWithInterrupt(input, interrupt, new ArrayList<>()));
+
+    assertThat(interrupt.callCount).isEqualTo(6);
+  }
+
+  @Test
+  public void testPostAssignHookOnlyForToplevelStatements() throws Exception {
+    List<String> assignedNames = new ArrayList<>();
+    // The resolver rejects top-level if- and for- statements, so nested blocks can only appear
+    // inside functions, whose assignments must not be exported.
+    ParserInput input =
+        ParserInput.fromLines(
+            "a = 1",
+            "def fn():",
+            "  if True:",
+            "    b = 2",
+            "  for c in [3]:",
+            "    d = c",
+            "  e = 4",
+            "fn()",
+            "f = 5");
+    Module module = Module.create();
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+      thread.setPostAssignHook((name, loc, val) -> assignedNames.add(name));
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+    }
+    assertThat(assignedNames).containsExactly("a", "f").inOrder();
   }
 }

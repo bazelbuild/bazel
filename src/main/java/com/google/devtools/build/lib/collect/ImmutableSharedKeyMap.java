@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.collect;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
@@ -24,6 +23,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -41,14 +41,15 @@ import javax.annotation.concurrent.Immutable;
  * lot of GC churn.
  */
 @Immutable
-public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
+public class ImmutableSharedKeyMap<K, V> implements CompactImmutableMap<K, V> {
   private static final Interner<OffsetTable<?>> offsetTables = BlazeInterners.newWeakInterner();
 
   private final OffsetTable<K> offsetTable;
-  @VisibleForSerialization protected final Object[] values;
+  // If size is 1, this is the value itself.
+  @VisibleForSerialization protected final Object values;
 
   private static final class OffsetTable<K> {
-    private final Object[] keys;
+    final Object[] keys;
     // Keep a map around to speed up get lookups for larger maps.
     // We make this value lazy to avoid computing for values that end up being thrown away
     // during interning anyway (the majority).
@@ -97,8 +98,12 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
 
   protected ImmutableSharedKeyMap(Object[] keys, Object[] values) {
     Preconditions.checkArgument(keys.length == values.length);
-    this.values = values;
     this.offsetTable = createOffsetTable(keys);
+    if (values.length == 1) {
+      this.values = values[0];
+    } else {
+      this.values = values;
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -113,12 +118,19 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
   @Override
   public V get(K key) {
     int offset = offsetTable.offsetForKey(key);
-    return offset != -1 ? (V) values[offset] : null;
+    if (offset == -1) {
+      return null;
+    }
+    int size = offsetTable.keys.length;
+    if (size == 1) {
+      return (V) values;
+    }
+    return (V) ((Object[]) values)[offset];
   }
 
   @Override
   public int size() {
-    return values.length;
+    return offsetTable.keys.length;
   }
 
   @SuppressWarnings("unchecked")
@@ -130,7 +142,12 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
   @SuppressWarnings("unchecked")
   @Override
   public V valueAt(int index) {
-    return (V) values[index];
+    int size = offsetTable.keys.length;
+    if (size == 1) {
+      Preconditions.checkElementIndex(index, 1);
+      return (V) values;
+    }
+    return (V) ((Object[]) values)[index];
   }
 
   /** Do not use! Present only for serialization. (Annotated as @Deprecated just to prevent use.) */
@@ -138,6 +155,17 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
   @VisibleForSerialization
   public Object[] getKeys() {
     return offsetTable.keys;
+  }
+
+  /** Do not use! Present only for serialization. (Annotated as @Deprecated just to prevent use.) */
+  @Deprecated
+  @VisibleForSerialization
+  public Object[] getValuesAsArray() {
+    int size = offsetTable.keys.length;
+    if (size == 1) {
+      return new Object[] {values};
+    }
+    return (Object[]) values;
   }
 
   @Override
@@ -150,14 +178,23 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
       return false;
     }
     ImmutableSharedKeyMap<?, ?> that = (ImmutableSharedKeyMap<?, ?>) o;
-    // We can use object identity for the offset table due to
-    // it being interned
-    return offsetTable == that.offsetTable && Arrays.equals(values, that.values);
+    if (offsetTable != that.offsetTable) {
+      return false;
+    }
+    int size = offsetTable.keys.length;
+    if (size == 1) {
+      return Objects.equals(values, that.values);
+    }
+    return Arrays.equals((Object[]) values, (Object[]) that.values);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(offsetTable, Arrays.hashCode(values));
+    int size = offsetTable.keys.length;
+    if (size == 1) {
+      return Objects.hash(offsetTable, values);
+    }
+    return Objects.hash(offsetTable, Arrays.hashCode((Object[]) values));
   }
 
   /**

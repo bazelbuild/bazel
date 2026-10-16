@@ -65,20 +65,21 @@ public final class WindowsPathOperations {
   public static String getLongPath(String path) throws IOException {
     String[] result = new String[] {null};
     String[] error = new String[] {null};
-    if (nativeGetLongPath(asLongPath(path), result, error)) {
+    if (nativeGetLongPath(addUncPrefixAndUseBackslashes(path), result, error)) {
       return removeUncPrefixAndUseSlashes(result[0]);
     } else {
       throw new IOException(error[0]);
     }
   }
 
-  /** Returns a Windows-style path suitable to pass to unicode WinAPI functions. */
-  static String asLongPath(String path) {
+  /** Adds a UNC prefix (if not present) and converts slashes to backslashes. */
+  static String addUncPrefixAndUseBackslashes(String path) {
     return !path.startsWith("\\\\?\\")
         ? ("\\\\?\\" + path.replace('/', '\\'))
         : path.replace('/', '\\');
   }
 
+  /** Removes a UNC prefix (if present) and converts backslashes to slashes. */
   static String removeUncPrefixAndUseSlashes(String p) {
     if (p.length() >= 4
         && p.charAt(0) == '\\'

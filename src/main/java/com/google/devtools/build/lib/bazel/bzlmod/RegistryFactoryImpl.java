@@ -23,16 +23,15 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
 
-  public RegistryFactoryImpl(Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  public RegistryFactoryImpl(Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier) {
+    this.nonstrictRepoEnvSupplier = nonstrictRepoEnvSupplier;
   }
 
   @Override
@@ -63,7 +62,8 @@ public class RegistryFactoryImpl implements RegistryFactory {
               switch (lockfileMode) {
                 case ERROR -> KnownFileHashesMode.ENFORCE;
                 case REFRESH -> KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE;
-                case OFF, UPDATE -> KnownFileHashesMode.USE_AND_UPDATE;
+                case UPDATE -> KnownFileHashesMode.USE_AND_UPDATE;
+                case OFF -> KnownFileHashesMode.IGNORE;
               };
           case "file" -> KnownFileHashesMode.IGNORE;
           default ->
@@ -75,7 +75,7 @@ public class RegistryFactoryImpl implements RegistryFactory {
     }
     return new IndexRegistry(
         uri,
-        clientEnvironmentSupplier.get(),
+        nonstrictRepoEnvSupplier.get(),
         knownFileHashes,
         knownFileHashesMode,
         previouslySelectedYankedVersions,

@@ -55,6 +55,12 @@ public interface ExtendedEventHandler extends EventHandler {
   /** Posts a {@link Postable} object about an important build event. */
   void post(Postable obj);
 
+  /**
+   * Cleans up any resources used by the event handler. This is called when the event handler is no
+   * longer needed.
+   */
+  default void cleanup() {}
+
   /** A progress event that reports about fetching from a remote site. */
   interface FetchProgress extends Postable {
 

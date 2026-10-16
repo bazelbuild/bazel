@@ -51,6 +51,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Identifier;
 
 /** Information about attributes of a rule an aspect is applied to. */
@@ -64,9 +65,6 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
   private final String ruleClassName;
   private final Dict<String, String> ruleVariables;
 
-  static final String ERROR_MESSAGE_FOR_NO_ATTR =
-      "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.";
-
   private StarlarkAttributesCollection(
       StarlarkRuleContext starlarkRuleContext,
       String ruleClassName,
@@ -78,7 +76,9 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
       Dict<String, String> ruleVariables) {
     this.starlarkRuleContext = starlarkRuleContext;
     this.ruleClassName = ruleClassName;
-    attrObject = StructProvider.STRUCT.create(attrs, ERROR_MESSAGE_FOR_NO_ATTR);
+    attrObject =
+        StructProvider.STRUCT.create(
+            attrs, StarlarkAttributeTransitionProvider.ERROR_MESSAGE_FOR_NO_ATTR);
     executableObject =
         StructProvider.STRUCT.create(
             executables,
@@ -172,7 +172,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<rule collection for " + starlarkRuleContext.getRuleLabelCanonicalName() + ">");
   }
 

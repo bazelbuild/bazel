@@ -2,8 +2,6 @@
 title: 'Installing Bazel on openSUSE Tumbleweed & Leap'
 ---
 
-
-
 This page describes how to install Bazel on openSUSE Tumbleweed and Leap.
 
 `NOTE:` The Bazel team does not officially maintain openSUSE support. For issues
@@ -14,7 +12,7 @@ available Bazel versions via openSUSE's [software search](https://software.opens
 
 The commands below must be run either via `sudo` or while logged in as `root`.
 
-## Installing Bazel on openSUSE
+## Installing Bazel on openSUSE {#install-opensuse}
 
 Run the following commands to install the package. If you need a specific
 version, you can install it via the specific `bazelXXX` package, otherwise,
@@ -27,7 +25,7 @@ zypper install bazel
 ```
 
 You can also install a specific version of Bazel by specifying the package
-version with `bazel{{ '<var>' }}version{{ '</var>' }}`. For example, to install
+version with `bazel<var>version</var>`. For example, to install
 Bazel 4.2, run:
 
 ```posix-terminal

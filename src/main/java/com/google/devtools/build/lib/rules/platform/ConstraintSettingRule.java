@@ -22,15 +22,18 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@link ConstraintSetting}. */
 public class ConstraintSettingRule implements RuleDefinition {
   public static final String RULE_NAME = "constraint_setting";
   public static final String DEFAULT_CONSTRAINT_VALUE_ATTR = "default_constraint_value";
+  public static final String REFINES_CONSTRAINT_VALUE_ATTR = "refines_constraint_value";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -60,6 +63,25 @@ public class ConstraintSettingRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(DEFAULT_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL)
+                .nonconfigurable("constants must be consistent across configurations"))
+        /* <!-- #BLAZE_RULE(constraint_setting).ATTRIBUTE(refines_constraint_value) -->
+        The label of a <code>constraint_value</code> that this setting refines. If set, any
+        <code>platform</code> that specifies a non-default <code>constraint_value</code> for this
+        setting must also specify the refined <code>constraint_value</code> in its
+        <code>constraint_values</code> attribute. Platforms that resolve to the default
+        <code>constraint_value</code> for this setting (either implicitly via
+        <code>default_constraint_value</code> or explicitly) are exempt from this requirement.
+
+        <p>When both the refined <code>constraint_value</code> and a <code>constraint_value</code>
+        for this setting appear as conditions in the same <code>select</code> and both are
+        satisfied, the condition that includes the refining <code>constraint_value</code> is
+        considered more specific and is chosen unambiguously.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(REFINES_CONSTRAINT_VALUE_ATTR, BuildType.LABEL)
+                .allowedRuleClasses(ConstraintValueRule.RULE_NAME)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                 .nonconfigurable("constants must be consistent across configurations"))
         .build();
   }

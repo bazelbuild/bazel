@@ -78,16 +78,12 @@ public final class PrerequisiteArtifacts {
     return artifacts;
   }
 
-  private PrerequisiteArtifacts filter(Predicate<String> fileType, boolean errorsForNonMatching) {
+  private PrerequisiteArtifacts filter(Predicate<String> fileType) {
     ImmutableList.Builder<Artifact> filtered = new ImmutableList.Builder<>();
 
     for (Artifact artifact : artifacts) {
       if (fileType.apply(artifact.getFilename())) {
         filtered.add(artifact);
-      } else if (errorsForNonMatching) {
-        ruleContext.attributeError(
-            attributeName,
-            String.format("%s does not match expected type: %s", artifact, fileType));
       }
     }
 
@@ -96,27 +92,11 @@ public final class PrerequisiteArtifacts {
 
   /** Returns an equivalent instance but only containing artifacts of the given type. */
   public PrerequisiteArtifacts filter(FileType fileType) {
-    return filter(fileType, /*errorsForNonMatching=*/ false);
+    return filter((Predicate<String>) fileType);
   }
 
   /** Returns an equivalent instance but only containing artifacts of the given types. */
   public PrerequisiteArtifacts filter(FileTypeSet fileTypeSet) {
-    return filter(fileTypeSet, /*errorsForNonMatching=*/ false);
-  }
-
-  /**
-   * Returns an equivalent instance but only containing artifacts of the given type, reporting
-   * errors for non-matching artifacts.
-   */
-  public PrerequisiteArtifacts errorsForNonMatching(FileType fileType) {
-    return filter(fileType, /*errorsForNonMatching=*/true);
-  }
-
-  /**
-   * Returns an equivalent instance but only containing artifacts of the given types, reporting
-   * errors for non-matching artifacts.
-   */
-  public PrerequisiteArtifacts errorsForNonMatching(FileTypeSet fileTypeSet) {
-    return filter(fileTypeSet, /*errorsForNonMatching=*/true);
+    return filter((Predicate<String>) fileTypeSet);
   }
 }

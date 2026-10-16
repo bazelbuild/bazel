@@ -17,17 +17,28 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.SUPPORTS_MULTIPLEX_SANDBOXING;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -87,9 +98,9 @@ public class WorkerParserTest {
 
   @Test
   public void createWorkerKey_understandsMultiplexSandboxing() {
-    WorkerOptions options = new WorkerOptions();
-    options.multiplexSandboxing = false;
-    options.workerMultiplex = true;
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setMultiplexSandboxing(false);
+    options.setWorkerMultiplex(true);
 
     WorkerKey keyNoMultiplexSandboxing =
         WorkerTestUtils.createWorkerKeyWithRequirements(
@@ -112,7 +123,7 @@ public class WorkerParserTest {
     assertThat(keyForcedeMultiplexSandboxing.isSandboxed()).isTrue();
     assertThat(keyForcedeMultiplexSandboxing.getWorkerTypeName()).isEqualTo("worker");
 
-    options.multiplexSandboxing = true;
+    options.setMultiplexSandboxing(true);
 
     WorkerKey keyBaseMultiplexNoSandbox =
         WorkerTestUtils.createWorkerKeyWithRequirements(
@@ -136,11 +147,200 @@ public class WorkerParserTest {
     assertThat(keyDynamicMultiplexSandboxing.getWorkerTypeName()).isEqualTo("multiplex-worker");
   }
 
+  private static WorkerOptions parseWorkerOptions(String... args) throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(WorkerOptions.class).build();
+    parser.parse(args);
+    return parser.getOptions(WorkerOptions.class);
+  }
+
+  @Test
+  public void workerSandboxing_legacyBooleanFormsStillParse() throws Exception {
+    // Bare flag and --no prefix keep working (backwards compatible with the old boolean option).
+    assertThat(parseWorkerOptions("--worker_sandboxing").getWorkerSandboxingMap())
+        .containsExactly("", true);
+    assertThat(parseWorkerOptions("--noworker_sandboxing").getWorkerSandboxingMap())
+        .containsExactly("", false);
+    assertThat(parseWorkerOptions("--worker_sandboxing=yes").getWorkerSandboxingMap())
+        .containsExactly("", true);
+    assertThat(parseWorkerOptions("--worker_sandboxing=no").getWorkerSandboxingMap())
+        .containsExactly("", false);
+  }
+
+  @Test
+  public void workerSandboxing_perMnemonicFormsParse() throws Exception {
+    assertThat(
+            parseWorkerOptions("--worker_sandboxing", "--worker_sandboxing=Javac=no")
+                .getWorkerSandboxingMap())
+        .containsExactly("", true, "Javac", false);
+    assertThat(
+            parseWorkerOptions(
+                    "--worker_sandboxing", "--worker_sandboxing=Javac=no", "--worker_sandboxing")
+                .getWorkerSandboxingMap())
+        .containsExactly("", true);
+    // Later mnemonic-specific values override earlier ones for that mnemonic.
+    assertThat(
+            parseWorkerOptions("--worker_sandboxing=Javac=yes", "--worker_sandboxing=Javac=no")
+                .getWorkerSandboxingMap())
+        .containsExactly("Javac", false);
+  }
+
+  @Test
+  public void workerSandboxing_invalidAssignmentsThrow() {
+    assertThrows(
+        OptionsParsingException.class, () -> parseWorkerOptions("--worker_sandboxing=Javac"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseWorkerOptions("--worker_sandboxing=Javac=foo=bar"));
+  }
+
+  @Test
+  public void workerSandboxing_defaultsToEmptyMap() throws Exception {
+    assertThat(parseWorkerOptions().getWorkerSandboxingMap()).isEmpty();
+  }
+
+  @Test
+  public void createWorkerKey_perMnemonicSandboxingOverridesGlobalDefault() {
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerMultiplex(false);
+    // Global default sandboxed, but disabled for the "Foo" mnemonic.
+    options.setWorkerSandboxing(
+        ImmutableList.of(Maps.immutableEntry("", true), Maps.immutableEntry("Foo", false)));
+
+    WorkerKey fooKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Foo", /* dynamic= */ false);
+    assertThat(fooKey.isSandboxed()).isFalse();
+
+    WorkerKey barKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Bar", /* dynamic= */ false);
+    assertThat(barKey.isSandboxed()).isTrue();
+  }
+
+  @Test
+  public void createWorkerKey_laterGlobalSandboxingOverridesEarlierPerMnemonicValue()
+      throws Exception {
+    WorkerOptions options =
+        parseWorkerOptions(
+            "--worker_sandboxing", "--worker_sandboxing=Javac=no", "--worker_sandboxing");
+    options.setWorkerMultiplex(false);
+
+    WorkerKey javacKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Javac", /* dynamic= */ false);
+    assertThat(javacKey.isSandboxed()).isTrue();
+
+    WorkerKey otherKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Other", /* dynamic= */ false);
+    assertThat(otherKey.isSandboxed()).isTrue();
+  }
+
+  @Test
+  public void createWorkerKey_perMnemonicSandboxingEnablesForSingleMnemonic() {
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerMultiplex(false);
+    // Global default unsandboxed, but enabled for the "Foo" mnemonic.
+    options.setWorkerSandboxing(
+        ImmutableList.of(Maps.immutableEntry("", false), Maps.immutableEntry("Foo", true)));
+
+    WorkerKey fooKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Foo", /* dynamic= */ false);
+    assertThat(fooKey.isSandboxed()).isTrue();
+
+    WorkerKey barKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Bar", /* dynamic= */ false);
+    assertThat(barKey.isSandboxed()).isFalse();
+  }
+
+  @Test
+  public void createWorkerKey_perMnemonicSandboxingLastValueWins() {
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerMultiplex(false);
+    options.setWorkerSandboxing(
+        ImmutableList.of(Maps.immutableEntry("Foo", true), Maps.immutableEntry("Foo", false)));
+
+    WorkerKey fooKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Foo", /* dynamic= */ false);
+    assertThat(fooKey.isSandboxed()).isFalse();
+  }
+
+  @Test
+  public void createWorkerKey_perMnemonicSandboxingDoesNotOverrideDynamic() {
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerMultiplex(false);
+    // Even when sandboxing is disabled for the mnemonic, dynamic execution forces sandboxing.
+    options.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("Foo", false)));
+
+    WorkerKey fooKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Foo", /* dynamic= */ true);
+    assertThat(fooKey.isSandboxed()).isTrue();
+  }
+
+  @Test
+  public void createWorkerKey_perMnemonicSandboxingDoesNotAffectMultiplexWorkers() {
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerMultiplex(true);
+    options.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("Foo", true)));
+
+    WorkerKey fooKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Foo", /* dynamic= */ false);
+    assertThat(fooKey.isMultiplex()).isTrue();
+    assertThat(fooKey.isSandboxed()).isFalse();
+  }
+
+  @Test
+  public void compute_cachesWorkerSandboxingMapAcrossWorkerKeys() throws Exception {
+    WorkerOptions options = mock(WorkerOptions.class, CALLS_REAL_METHODS);
+    when(options.getWorkerMultiplex()).thenReturn(false);
+    when(options.getWorkerExtraFlags()).thenReturn(ImmutableList.of());
+    when(options.getWorkerSandboxing())
+        .thenReturn(
+            ImmutableList.of(Maps.immutableEntry("Foo", true), Maps.immutableEntry("Bar", false)));
+
+    AtomicInteger sandboxingMapCalls = new AtomicInteger();
+    doAnswer(
+            invocation -> {
+              sandboxingMapCalls.incrementAndGet();
+              return invocation.callRealMethod();
+            })
+        .when(options)
+        .getWorkerSandboxingMap();
+
+    WorkerParser parser =
+        new WorkerParser(
+            fs.getPath("/outputbase/execroot"),
+            options,
+            LocalEnvProvider.NOOP,
+            /* binTools= */ null);
+    SpawnExecutionContext context = mock(SpawnExecutionContext.class);
+    when(context.getInputMetadataProvider()).thenReturn(mock(InputMetadataProvider.class));
+    when(context.speculating()).thenReturn(false);
+
+    WorkerKey fooKey = parser.compute(createWorkerSpawn("Foo"), context).getWorkerKey();
+    WorkerKey barKey = parser.compute(createWorkerSpawn("Bar"), context).getWorkerKey();
+
+    assertThat(fooKey.isSandboxed()).isTrue();
+    assertThat(barKey.isSandboxed()).isFalse();
+    assertThat(sandboxingMapCalls.get()).isEqualTo(1);
+  }
+
+  private static Spawn createWorkerSpawn(String mnemonic) {
+    return WorkerTestUtils.createSpawn(
+        ImmutableList.of("--foo", "@bar"),
+        WorkerTestUtils.execRequirementsBuilder(mnemonic).buildOrThrow());
+  }
+
   @Test
   public void splitSpawnArgsIntoWorkerArgsAndFlagFiles_splitsArgsBasicCase()
       throws UserExecException {
-    WorkerOptions options = new WorkerOptions();
-    options.workerExtraFlags = ImmutableList.of();
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerExtraFlags(ImmutableList.of());
     WorkerParser parser = new WorkerParser(null, options, null, null);
 
     Spawn spawn = WorkerTestUtils.createSpawn(ImmutableList.of("--foo", "@bar"), ImmutableMap.of());
@@ -152,12 +352,12 @@ public class WorkerParserTest {
 
   @Test
   public void splitSpawnArgsIntoWorkerArgsAndFlagFiles_addsExtras() throws UserExecException {
-    WorkerOptions options = new WorkerOptions();
-    options.workerExtraFlags =
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerExtraFlags(
         ImmutableList.of(
             Maps.immutableEntry("Null", "--qux"),
             Maps.immutableEntry("Other action", "--should_not_appear"),
-            Maps.immutableEntry("Null", "--quxify"));
+            Maps.immutableEntry("Null", "--quxify")));
     WorkerParser parser = new WorkerParser(null, options, null, null);
     Spawn spawn = WorkerTestUtils.createSpawn(ImmutableList.of("--foo", "@bar"), ImmutableMap.of());
 
@@ -170,9 +370,9 @@ public class WorkerParserTest {
 
   @Test
   public void splitSpawnArgsIntoWorkerArgsAndFlagFiles_addsFlagFiles() throws UserExecException {
-    WorkerOptions options = new WorkerOptions();
-    options.workerExtraFlags = ImmutableList.of();
-    options.strictFlagfiles = false;
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerExtraFlags(ImmutableList.of());
+    options.setStrictFlagfiles(false);
     WorkerParser parser = new WorkerParser(null, options, null, null);
     Spawn spawn =
         WorkerTestUtils.createSpawn(
@@ -192,9 +392,9 @@ public class WorkerParserTest {
   @Test
   public void splitSpawnArgsIntoWorkerArgsAndFlagFiles_addsFlagFilesStrict()
       throws UserExecException {
-    WorkerOptions options = new WorkerOptions();
-    options.workerExtraFlags = ImmutableList.of();
-    options.strictFlagfiles = true;
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerExtraFlags(ImmutableList.of());
+    options.setStrictFlagfiles(true);
     WorkerParser parser = new WorkerParser(null, options, null, null);
     Spawn spawn =
         WorkerTestUtils.createSpawn(
@@ -223,9 +423,9 @@ public class WorkerParserTest {
   }
 
   private void assertIllegalFlags(String message, String... args) {
-    WorkerOptions options = new WorkerOptions();
-    options.workerExtraFlags = ImmutableList.of();
-    options.strictFlagfiles = true;
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerExtraFlags(ImmutableList.of());
+    options.setStrictFlagfiles(true);
     WorkerParser parser = new WorkerParser(null, options, null, null);
     Spawn spawn = WorkerTestUtils.createSpawn(ImmutableList.copyOf(args), ImmutableMap.of());
 

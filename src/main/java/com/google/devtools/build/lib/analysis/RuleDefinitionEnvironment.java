@@ -50,4 +50,9 @@ public interface RuleDefinitionEnvironment {
   default Optional<Label> getNetworkAllowlistForTests() {
     return Optional.empty();
   }
+
+  /** Returns a label for explicit mnemonic allowlist if one should be added. */
+  default Optional<Label> getNoExplicitMnemonicAllowlist() {
+    return Optional.empty();
+  }
 }

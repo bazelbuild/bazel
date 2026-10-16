@@ -19,7 +19,9 @@ import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
+import build.bazel.remote.execution.v2.FastCdc2020Params;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
+import build.bazel.remote.execution.v2.RepMaxCdcParams;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.google.devtools.build.lib.remote.ApiVersion;
@@ -45,7 +47,7 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
     DigestFunction.Value df = digestUtil.getDigestFunction();
 
     var builder = ServerCapabilities.newBuilder();
-    if (workerOptions.legacyApi) {
+    if (workerOptions.getLegacyApi()) {
       builder
           .setLowApiVersion(ApiVersion.twoPointZero.toSemVer())
           .setHighApiVersion(ApiVersion.twoPointZero.toSemVer());
@@ -62,6 +64,18 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
                 .setActionCacheUpdateCapabilities(
                     ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                 .setMaxBatchTotalSizeBytes(CasServer.MAX_BATCH_SIZE_BYTES)
+                .setSplitBlobSupport(true)
+                .setSpliceBlobSupport(true)
+                .setFastCdc2020Params(
+                    FastCdc2020Params.newBuilder()
+                        .setAvgChunkSizeBytes(512 * 1024)
+                        .setSeed(0)
+                        .build())
+                .setRepMaxCdcParams(
+                    RepMaxCdcParams.newBuilder()
+                        .setMinChunkSizeBytes(256 * 1024)
+                        .setHorizonSizeBytes(8 * 256 * 1024)
+                        .build())
                 .build());
     if (execEnabled) {
       response.setExecutionCapabilities(

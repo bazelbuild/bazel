@@ -20,16 +20,17 @@ import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -48,16 +49,20 @@ public final class PathCanonicalizerTest {
 
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
-  private final PathCanonicalizer canonicalizer = new PathCanonicalizer(this::resolve);
+  private final PathCanonicalizer canonicalizer =
+      new PathCanonicalizer(
+          new PathCanonicalizer.Resolver() {
+            @Override
+            @Nullable
+            public FileStatus statIfFound(PathFragment path) throws IOException {
+              return fs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
+            }
 
-  private @Nullable PathFragment resolve(PathFragment pathFragment) throws IOException {
-    Path path = fs.getPath(pathFragment);
-    try {
-      return path.readSymbolicLink();
-    } catch (NotASymlinkException e) {
-      return null;
-    }
-  }
+            @Override
+            public PathFragment readSymbolicLink(PathFragment path) throws IOException {
+              return fs.getPath(path).readSymbolicLink();
+            }
+          });
 
   @Test
   public void testRoot() throws Exception {
@@ -225,6 +230,19 @@ public final class PathCanonicalizerTest {
   }
 
   @Test
+  public void testClearPathDescendingThroughSymlinkInvalidatesIt() throws Exception {
+    createSymlink("/a/b", "/d");
+    createNonSymlink("/d/c");
+    assertSuccess("/a/b/c", "/d/c");
+
+    fs.getPath(pathFragment("/a/b")).delete();
+    createNonSymlink("/a/b/c");
+    canonicalizer.clearPrefix(pathFragment("/a/b/c"));
+
+    assertSuccess("/a/b/c", "/a/b/c");
+  }
+
+  @Test
   public void testSymlinkSelfLoop() throws Exception {
     createSymlink("/a/b", "/a/b");
     assertFailure(FileSymlinkLoopException.class, "/a/b");
@@ -250,6 +268,18 @@ public final class PathCanonicalizerTest {
     assertFailure(FileNotFoundException.class, "/a/b");
     createNonSymlink("/a/b");
     assertSuccess("/a/b", "/a/b");
+  }
+
+  @Test
+  public void testIntermediatePathIsNonDirectory() throws Exception {
+    createNonSymlink("/a/file");
+    createSymlink("/a/link", "file");
+    assertFailure(FileNotFoundException.class, "/a/file/child");
+    assertFailure(FileNotFoundException.class, "/a/link/child");
+
+    deleteTree("/a/file");
+    createNonSymlink("/a/file/child");
+    assertSuccess("/a/file/child", "/a/file/child");
   }
 
   @Test

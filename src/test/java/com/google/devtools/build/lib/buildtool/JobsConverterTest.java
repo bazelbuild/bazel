@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
-import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.LocalHostComputeResources;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.common.options.OptionsParsingException;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,16 +36,21 @@ public class JobsConverterTest {
     jobsConverter = new JobsConverter();
   }
 
+  @After
+  public void tearDown() {
+    LocalHostComputeResources.resetOverrides();
+  }
+
   @Test
   public void testAutoJobsUsesHardwareSettings() throws Exception {
-    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(1, 123));
+    LocalHostComputeResources.setLocalHostComputeResourcesOverride(1, 123);
     assertThat(jobsConverter.convert("auto")).isEqualTo(123);
   }
 
   @Test
   public void testAutoJobsAdjustsIfHardwareDetectionIsBogus() throws Exception {
-    LocalHostCapacity.setLocalHostCapacity(
-        ResourceSet.createWithRamCpu(1, BuildRequestOptions.MAX_JOBS + 1));
+    LocalHostComputeResources.setLocalHostComputeResourcesOverride(
+        1, BuildRequestOptions.MAX_JOBS + 1);
     assertThat(jobsConverter.convert("auto")).isEqualTo(BuildRequestOptions.MAX_JOBS);
   }
 

@@ -63,9 +63,7 @@ public final class ResourceFileLoader {
    * as {@link #loadResource}.
    */
   public static String resolveResource(Class<?> relativeToClass, String resourceName) {
-    // TODO(bazel-team): use relativeToClass.getPackage().getName().
-    String className = relativeToClass.getName();
-    String packageName = className.substring(0, className.lastIndexOf('.'));
+    String packageName = relativeToClass.getPackageName();
     String path = packageName.replace('.', '/');
     return path + '/' + resourceName;
   }

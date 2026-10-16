@@ -24,6 +24,7 @@
 #define SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE 0x2
 #endif
 
+#include <cstdint>
 #include <memory>
 #include <string>
 

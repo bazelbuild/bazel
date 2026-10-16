@@ -163,7 +163,7 @@ EOF
 
 function disabled_test_py_test_coverage() {
   set_up_py_test_coverage
-  bazel coverage --incompatible_autoload_externally= --test_output=all //:hello_test &>$TEST_log || fail "Coverage for //:hello_test failed"
+  bazel coverage --test_output=all //:hello_test &>$TEST_log || fail "Coverage for //:hello_test failed"
   local coverage_file_path
   coverage_file_path="$( get_coverage_file_path_from_test_log )"
   diff expected.dat "$coverage_file_path" >> $TEST_log

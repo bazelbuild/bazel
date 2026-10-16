@@ -22,6 +22,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.syntax.Types;
 
 /**
  * A sequence returned by the {@code range} function invocation.
@@ -86,10 +87,21 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
       long diff = (long) high - low - 1;
       long size = diff / absStep + 1;
       if ((int) size != size) {
-        throw Starlark.errorf("len(%s) exceeds signed 32-bit range", Starlark.repr(this));
+        throw Starlark.errorf(
+            "len(%s) exceeds signed 32-bit range", Starlark.repr(this, StarlarkSemantics.DEFAULT));
       }
       this.size = (int) size;
     }
+  }
+
+  @Override
+  public boolean isAcyclic() {
+    return true;
+  }
+
+  @Override
+  public boolean containsKey(StarlarkSemantics semantics, Object key) {
+    return contains(key);
   }
 
   @Override
@@ -204,11 +216,16 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     if (step == 1) {
       printer.append(String.format("range(%d, %d)", start, stop));
     } else {
       printer.append(String.format("range(%d, %d, %d)", start, stop, step));
     }
+  }
+
+  @Override
+  public Types.SequenceType getStarlarkType(StarlarkSemantics semantics) {
+    return Types.sequence(Types.INT);
   }
 }

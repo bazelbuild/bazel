@@ -34,3 +34,16 @@ assert_eq((1,) * 3, (1, 1, 1))
 assert_eq((1, 2, 3) * -1, ())
 assert_eq((1, 2, 3) * 0, ())
 assert_fails(lambda: (1,) * (1 << 35), "got 34359738368 for repeat, want value in signed 32-bit range")
+
+# membership test on self-referential values
+self_ref = ([],)
+self_ref[0].append(self_ref)
+self_ref2 = ([],)
+self_ref2[0].append(self_ref2)
+
+assert_fails(lambda: self_ref in (self_ref2,), r"cannot compare self-referential or overly nested data structures \(\[...\],\) and \(\[...\],\)")
+assert_fails(lambda: self_ref not in (self_ref2,), r"cannot compare self-referential or overly nested data structures \(\[...\],\) and \(\[...\],\)")
+
+# membership test works if either the key or the container is not self-referential
+assert_eq(self_ref in (1, (2, 3)), False)
+assert_eq(1 in (self_ref,), False)

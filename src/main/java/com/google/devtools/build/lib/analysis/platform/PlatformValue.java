@@ -16,15 +16,25 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -48,24 +58,40 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
     return new PlatformValue(platformInfo, Optional.of(parsedFlags));
   }
 
-  public static Key key(Label platformLabel, List<Map.Entry<String, String>> flagAliasMappings) {
+  public static Key key(Label platformLabel, ImmutableMap<String, Label> flagAliasMappings) {
     return Key.create(platformLabel, flagAliasMappings);
   }
 
-  /**
-   * Key definition.
-   *
-   * @param label The platform label.
-   * @param flagAliasMappings {@code --flag_alias} maps that apply to this build.
-   */
+  /** Key definition. */
   @AutoCodec
-  public record Key(Label label, List<Map.Entry<String, String>> flagAliasMappings)
-      implements SkyKey {
+  public static final class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = new SkyKeyInterner<>();
 
+    private final Label label;
+    private final ImmutableMap<String, Label> flagAliasMappings;
+    private final int hashCode;
+
+    private Key(Label label, ImmutableMap<String, Label> flagAliasMappings) {
+      this.label = requireNonNull(label);
+      this.flagAliasMappings = requireNonNull(flagAliasMappings);
+      // Deliberately uses flagAliasMappings.size() instead of hashing the full map:
+      // hashing an ImmutableMap allocates an entry set and an iterator on every call.
+      // Using size() provides O(1) non-allocating differentiation between empty and
+      // populated alias mappings, while equals() still compares both fields completely.
+      this.hashCode = 31 * label.hashCode() + flagAliasMappings.size();
+    }
+
     @AutoCodec.Instantiator
-    static Key create(Label label, List<Map.Entry<String, String>> flagAliasMappings) {
+    static Key create(Label label, ImmutableMap<String, Label> flagAliasMappings) {
       return interner.intern(new Key(label, flagAliasMappings));
+    }
+
+    public Label label() {
+      return label;
+    }
+
+    public ImmutableMap<String, Label> flagAliasMappings() {
+      return flagAliasMappings;
     }
 
     @Override
@@ -77,5 +103,87 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
     public SkyKeyInterner<Key> getSkyKeyInterner() {
       return interner;
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Key key)) {
+        return false;
+      }
+      return label.equals(key.label) && flagAliasMappings.equals(key.flagAliasMappings);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+
+    @Override
+    public String toString() {
+      return "Key[label=" + label + ", flagAliasMappings=" + flagAliasMappings + "]";
+    }
+  }
+
+  /** Interface for evaluating SkyKeys. */
+  public interface SkyframeEvaluator {
+    /**
+     * Returns the evaluated SkyValue, or null if an error occurred. The implementation is
+     * responsible for reporting evaluation errors.
+     */
+    SkyValue evaluate(SkyKey key) throws InterruptedException;
+  }
+
+  /**
+   * Utility method to get the {@link ParsedFlagsValue} for a platform label.
+   *
+   * <p>This can be used to canonically apply platform-based flags to a {@link BuildOptions}.
+   *
+   * @return a non-empty Optional if the platform declares flags, an empty {@code Optional} if it
+   *     doesn't, and an empty {@code Optional} if the {@code skyframeEvaluator} failed. In that
+   *     last case we assume the {@code skyframeEvaluator}'s event handler handles error messaging.
+   * @throws NoSuchTargetException if the label is not a valid platform. }
+   */
+  public static Optional<ParsedFlagsValue> getFlags(
+      Label platformLabel, SkyframeEvaluator skyframeEvaluator, RepositoryMapping repositoryMapping)
+      throws InterruptedException, NoSuchTargetException {
+    Target platformTarget = null;
+    while (platformTarget == null || platformTarget.getRuleClass().equals("alias")) {
+      PackageValue pkgValue =
+          ((PackageValue) skyframeEvaluator.evaluate(platformLabel.getPackageIdentifier()));
+      if (pkgValue == null) {
+        return Optional.empty();
+      }
+      Package pkg = pkgValue.getPackage();
+
+      platformTarget = pkg.getTarget(platformLabel.getName());
+      if (platformTarget.getRuleClass().equals("alias")) {
+        // TODO(bazel-team): RawAttributeMapper won't handle alias(actual = select(...)). Provide
+        //   some user signal when that happens.
+        platformLabel =
+            RawAttributeMapper.of(platformTarget.getAssociatedRule())
+                .get("actual", BuildType.LABEL);
+      } else if (!platformTarget.getRuleClass().equals("platform")) {
+        throw new NoSuchTargetException(String.format("%s is not a platform rule", platformLabel));
+      }
+    }
+
+    var platformFlags =
+        NonconfigurableAttributeMapper.of(platformTarget.getAssociatedRule())
+            .get("flags", Types.STRING_LIST);
+    if (platformFlags.isEmpty()) {
+      return Optional.empty();
+    }
+
+    ParsedFlagsValue.Key parsedFlagsKey =
+        ParsedFlagsValue.Key.create(
+            ImmutableList.copyOf(platformFlags),
+            PackageContext.of(platformLabel.getPackageIdentifier(), repositoryMapping),
+            /* includeDefaultValues= */ true,
+            ImmutableMap.of(),
+            /* allowNonFlagBuildSettings= */ true);
+    ParsedFlagsValue ans = (ParsedFlagsValue) skyframeEvaluator.evaluate(parsedFlagsKey);
+    return Optional.ofNullable(ans);
   }
 }

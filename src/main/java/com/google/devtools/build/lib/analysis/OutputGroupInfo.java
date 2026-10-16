@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.OutputGroupInfoApi;
 import com.google.errorprone.annotations.ForOverride;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -151,6 +151,13 @@ public abstract class OutputGroupInfo extends StructImpl
   public static final ImmutableSortedSet<String> DEFAULT_GROUPS =
       ImmutableSortedSet.of(DEFAULT, TEMP_FILES, HIDDEN_TOP_LEVEL);
 
+  /** The set of default and validation output groups that should not be validated as missing. */
+  public static final ImmutableSortedSet<String> IGNORED_OUTPUT_GROUPS =
+      ImmutableSortedSet.<String>naturalOrder()
+          .addAll(DEFAULT_GROUPS)
+          .add(VALIDATION, VALIDATION_TOP_LEVEL, VALIDATION_TRANSITIVE)
+          .build();
+
   private static final NestedSet<Artifact> EMPTY_FILES =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
@@ -216,7 +223,7 @@ public abstract class OutputGroupInfo extends StructImpl
       ValidationMode validationMode,
       boolean shouldRunTests) {
 
-    Set<String> current = Sets.newHashSet();
+    Set<String> current = new HashSet<>();
 
     // If all of the requested output groups start with "+" or "-", then these are added or
     // subtracted to the set of default output groups.
@@ -346,6 +353,10 @@ public abstract class OutputGroupInfo extends StructImpl
 
   @ForOverride
   abstract boolean containsKey(String name);
+
+  public final boolean containsOutputGroup(String name) {
+    return containsKey(name);
+  }
 
   @Nullable
   @Override

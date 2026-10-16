@@ -184,7 +184,7 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
                 .getOptions()
                 .get(CoreOptions.class)
                 .getClass()
-                .getField("defaultFeatures"))
+                .getMethod("getDefaultFeatures"))
         .isNotNull();
     assertThat(parent1.getConfigurationKey()).isNotEqualTo(parent2.getConfigurationKey());
     assertThat(getDirectPrerequisite(parent1, "//foo:config_free_target"))

@@ -17,32 +17,35 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.aggregateWriteStatuses;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.Hashing;
+import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.PutOperation;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 
@@ -119,10 +122,14 @@ public class NestedSetStore {
   /** Creates a NestedSetStore with an in-memory storage backend and no caching context. */
   public static NestedSetStore inMemory() {
     return new NestedSetStore(
-        FingerprintValueStore.inMemoryStore(),
+        new InMemoryFingerprintValueStore(),
         directExecutor(),
         BugReporter.defaultInstance(),
         NO_CONTEXT);
+  }
+
+  public void cancelPendingFetches() {
+    nestedSetCache.cancelPendingFetches();
   }
 
   /**
@@ -242,7 +249,7 @@ public class NestedSetStore {
       DeserializationContext deserializationContext,
       Object cacheContext)
       throws IOException {
-    SettableFuture<Object[]> future = SettableFuture.create();
+    DeserializationFuture future = new DeserializationFuture();
     Object contents = nestedSetCache.putFutureIfAbsent(fingerprint, future, cacheContext);
     if (contents != null) {
       return contents;
@@ -259,7 +266,7 @@ public class NestedSetStore {
 
               Duration fetchDuration = fetchStopwatch.elapsed();
               if (FETCH_FROM_STORAGE_LOGGING_THRESHOLD.compareTo(fetchDuration) < 0) {
-                logger.atInfo().log(
+                logger.atInfo().atMostEvery(5, SECONDS).log(
                     "NestedSet fetch took: %dms, size: %dB",
                     fetchDuration.toMillis(), bytes.length);
               }
@@ -276,6 +283,9 @@ public class NestedSetStore {
               ImmutableList.Builder<ListenableFuture<?>> deserializationFutures =
                   ImmutableList.builderWithExpectedSize(numberOfElements);
               for (int i = 0; i < numberOfElements; i++) {
+                if (future.isCancelled()) {
+                  throw new CancellationException("NestedSet deserialization cancelled");
+                }
                 Object deserializedElement = newDeserializationContext.deserialize(codedIn);
                 if (deserializedElement instanceof PackedFingerprint transitiveFingerprint) {
                   Object innerContents =
@@ -292,5 +302,29 @@ public class NestedSetStore {
             },
             executor));
     return future;
+  }
+
+  /**
+   * Future representing in-progress {@link NestedSet} deserialization that overrides {@link
+   * #toString} to avoid recursively formatting its {@code setFuture} delegate chain.
+   *
+   * <p>Without this override, {@link AbstractFuture#toString} would traverse pending futures across
+   * the {@link NestedSet} DAG without visited node deduplication, causing exponential string
+   * expansion and OOMs on deep diamond DAGs. Notably, this is called in production code when
+   * constructing a {@link TimeoutException} message in {@link NestedSet#toListWithTimeout}.
+   */
+  private static final class DeserializationFuture extends AbstractFuture<Object[]> {
+
+    @Override // Increase visibility.
+    protected boolean setFuture(ListenableFuture<? extends Object[]> future) {
+      return super.setFuture(future);
+    }
+
+    @Override
+    public String toString() {
+      String status = isCancelled() ? "CANCELLED" : isDone() ? "DONE" : "PENDING";
+      return "DeserializationFuture@%s[status=%s]"
+          .formatted(Integer.toHexString(System.identityHashCode(this)), status);
+    }
   }
 }

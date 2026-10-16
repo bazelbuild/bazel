@@ -17,11 +17,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.HashCodes;
@@ -79,6 +81,12 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
       AspectDefinition aspectDefinition,
       AspectParameters parameters) {
     return createInterned(starlarkAspectClass, aspectDefinition, parameters);
+  }
+
+  @VisibleForTesting
+  public static Aspect createUninternedForTesting(
+      AspectDescriptor aspectDescriptor, AspectDefinition aspectDefinition) {
+    return new Aspect(aspectDescriptor, aspectDefinition);
   }
 
   private static Aspect createInterned(
@@ -159,6 +167,11 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
       if (!isNativeAspect) {
         context.serialize(obj.getDefinition(), codedOut);
       }
+    }
+
+    @Override
+    public MemoizationEquality getMemoizationEquality(Aspect obj) {
+      return MemoizationEquality.BY_VALUE;
     }
 
     @Override

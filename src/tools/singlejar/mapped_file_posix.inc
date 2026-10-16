@@ -34,7 +34,7 @@
 MappedFile::MappedFile()
     : mapped_start_(nullptr), mapped_end_(nullptr), fd_(-1) {}
 
-bool MappedFile::Open(const std::string& path) {
+bool MappedFile::Open(const std::string& path, bool populate) {
   if (is_open()) {
     diag_errx(1, "%s:%d: This instance is already open", __FILE__, __LINE__);
   }
@@ -47,10 +47,12 @@ bool MappedFile::Open(const std::string& path) {
 
   int flags = MAP_PRIVATE;
 
-  // We know we'll need the whole file, so we prepopulate to avoid page faults
+  // If we know we'll need the whole file, prepopulate to avoid page faults
   // later. This improves runtime: b/460101200#comment73
 #ifdef MAP_POPULATE
-  flags |= MAP_POPULATE;
+  if (populate) {
+    flags |= MAP_POPULATE;
+  }
 #endif
 
   if (fstat(fd_, &st) || (mapped_start_ = static_cast<unsigned char*>(

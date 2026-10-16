@@ -16,6 +16,7 @@ package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -31,6 +32,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,6 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -57,12 +60,23 @@ import javax.tools.JavaFileObject;
  */
 public final class DependencyModule {
 
-  public static enum StrictJavaDeps {
+  /** Strictness levels for dependency checking. */
+  public static enum StrictDepsMode {
     /** Legacy behavior: Silently allow referencing transitive dependencies. */
     OFF,
     /** Warn about transitive dependencies being used directly. */
     WARN,
     /** Fail the build when transitive dependencies are used directly. */
+    ERROR
+  }
+
+  /** Strictness levels for unused dependency checking. */
+  public static enum UnusedDepsMode {
+    /** Legacy behavior: Silently allow unused dependencies. */
+    OFF,
+    /** Warn about unused dependencies. */
+    WARN,
+    /** Fail the build when unused dependencies are present. */
     ERROR
   }
 
@@ -73,7 +87,8 @@ public final class DependencyModule {
           // Relax strict deps for Hilt-generated code (b/21307381).
           "dagger.hilt.processor.internal.root.RootProcessor");
 
-  private final StrictJavaDeps strictJavaDeps;
+  private final StrictDepsMode strictJavaDeps;
+  private final UnusedDepsMode unusedDeps;
   private final FixTool fixDepsTool;
   private final ImmutableSet<Path> directJars;
   private final boolean strictClasspathMode;
@@ -88,9 +103,12 @@ public final class DependencyModule {
   private final FixMessage fixMessage;
   private final Set<String> exemptGenerators;
   private final Set<PackageSymbol> packages;
+  @Nonnull private final Path workDir;
+  private final ImmutableSet<String> targetDeclaredDeps;
 
   DependencyModule(
-      StrictJavaDeps strictJavaDeps,
+      StrictDepsMode strictJavaDeps,
+      UnusedDepsMode unusedDeps,
       FixTool fixDepsTool,
       ImmutableSet<Path> directJars,
       boolean strictClasspathMode,
@@ -99,8 +117,11 @@ public final class DependencyModule {
       String targetLabel,
       Path outputDepsProtoFile,
       FixMessage fixMessage,
-      Set<String> exemptGenerators) {
+      Set<String> exemptGenerators,
+      @Nonnull Path workDir,
+      ImmutableSet<String> targetDeclaredDeps) {
     this.strictJavaDeps = strictJavaDeps;
+    this.unusedDeps = unusedDeps;
     this.fixDepsTool = fixDepsTool;
     this.directJars = directJars;
     this.strictClasspathMode = strictClasspathMode;
@@ -113,6 +134,38 @@ public final class DependencyModule {
     this.fixMessage = fixMessage;
     this.exemptGenerators = exemptGenerators;
     this.packages = new HashSet<>();
+    this.workDir = requireNonNull(workDir);
+    this.targetDeclaredDeps = targetDeclaredDeps;
+  }
+
+  /**
+   * Returns the target labels of the declared direct dependencies that are compiled with this
+   * target. These are used to filter and match used compile-time jars back to their originating
+   * Bazel target dependencies.
+   */
+  public ImmutableSet<String> getTargetDeclaredDeps() {
+    return targetDeclaredDeps;
+  }
+
+  /** Returns the sandbox working directory that output paths are relativized against. */
+  @Nonnull
+  public Path getWorkDir() {
+    return workDir;
+  }
+
+  /**
+   * Strips the sandbox working directory prefix from {@code path} and returns a deterministic,
+   * exec-root-relative path string for use in the deps proto.
+   *
+   * <p>Without stripping, multiplex worker sandboxing embeds a non-deterministic slot number (e.g.
+   * {@code __sandbox/1088/_main/...}) in the output. {@code path} is left unchanged if it is not
+   * under {@code workDir} (including when {@code workDir} is empty). {@link Path#toString} uses the
+   * platform separator (`\` on Windows), but the proto must always use `/`.
+   */
+  public static String stripWorkDir(Path workDir, Path path) {
+    Path relative =
+        !workDir.toString().isEmpty() && path.startsWith(workDir) ? workDir.relativize(path) : path;
+    return relative.toString().replace(File.separatorChar, '/');
   }
 
   /** Returns a plugin to be enabled in the compiler. */
@@ -177,8 +230,13 @@ public final class DependencyModule {
   }
 
   /** Returns the strict dependency checking (strictJavaDeps) setting. */
-  public StrictJavaDeps getStrictJavaDeps() {
+  public StrictDepsMode getStrictJavaDeps() {
     return strictJavaDeps;
+  }
+
+  /** Returns the unused dependency checking setting. */
+  public UnusedDepsMode getUnusedDeps() {
+    return unusedDeps;
   }
 
   /** Returns which tool to use for adding missing dependencies. */
@@ -330,7 +388,8 @@ public final class DependencyModule {
   /** Builder for {@link DependencyModule}. */
   public static class Builder {
 
-    private StrictJavaDeps strictJavaDeps = StrictJavaDeps.OFF;
+    private StrictDepsMode strictJavaDeps = StrictDepsMode.OFF;
+    private UnusedDepsMode unusedDeps = UnusedDepsMode.OFF;
     private FixTool fixDepsTool = null;
     private ImmutableSet<Path> directJars = ImmutableSet.of();
     private final Set<Path> depsArtifacts = new HashSet<>();
@@ -340,6 +399,8 @@ public final class DependencyModule {
     private boolean strictClasspathMode = false;
     private FixMessage fixMessage = new DefaultFixMessage();
     private final Set<String> exemptGenerators = new LinkedHashSet<>(SJD_EXEMPT_PROCESSORS);
+    private Path workDir;
+    private final Set<String> targetDeclaredDeps = new LinkedHashSet<>();
 
     private static class DefaultFixMessage implements FixMessage {
       @Override
@@ -368,6 +429,7 @@ public final class DependencyModule {
     public DependencyModule build() {
       return new DependencyModule(
           strictJavaDeps,
+          unusedDeps,
           fixDepsTool,
           directJars,
           strictClasspathMode,
@@ -376,18 +438,38 @@ public final class DependencyModule {
           targetLabel,
           outputDepsProtoFile,
           fixMessage,
-          exemptGenerators);
+          exemptGenerators,
+          workDir,
+          ImmutableSet.copyOf(targetDeclaredDeps));
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setWorkDir(@Nonnull Path workDir) {
+      this.workDir = workDir;
+      return this;
     }
 
     /**
      * Sets the strictness level for dependency checking.
      *
-     * @param strictJavaDeps level, as specified by {@link StrictJavaDeps}
+     * @param strictJavaDeps level, as specified by {@link StrictDepsMode}
      * @return this Builder instance
      */
     @CanIgnoreReturnValue
     public Builder setStrictJavaDeps(String strictJavaDeps) {
-      this.strictJavaDeps = StrictJavaDeps.valueOf(strictJavaDeps);
+      this.strictJavaDeps = StrictDepsMode.valueOf(strictJavaDeps);
+      return this;
+    }
+
+    /**
+     * Sets the strictness level for unused dependency checking.
+     *
+     * @param unusedDeps level, as specified by {@link UnusedDepsMode}
+     * @return this Builder instance
+     */
+    @CanIgnoreReturnValue
+    public Builder setUnusedDeps(String unusedDeps) {
+      this.unusedDeps = UnusedDepsMode.valueOf(unusedDeps);
       return this;
     }
 
@@ -486,6 +568,20 @@ public final class DependencyModule {
     @CanIgnoreReturnValue
     public Builder addExemptGenerator(String exemptGenerator) {
       exemptGenerators.add(exemptGenerator);
+      return this;
+    }
+
+    /**
+     * Adds target labels of declared direct dependencies. These will be passed to {@link
+     * DependencyModule} to distinguish declared dependencies from exported transitive dependencies
+     * during unused dependency analysis.
+     *
+     * @param targetDeclaredDeps target labels to add
+     * @return this Builder instance
+     */
+    @CanIgnoreReturnValue
+    public Builder addTargetDeclaredDeps(Collection<String> targetDeclaredDeps) {
+      this.targetDeclaredDeps.addAll(targetDeclaredDeps);
       return this;
     }
   }

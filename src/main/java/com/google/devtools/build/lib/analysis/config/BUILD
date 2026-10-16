@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
@@ -11,7 +11,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/output:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/analysis:__pkg__"],
 )
 
 java_library(
@@ -32,21 +32,23 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "build_configuration",
     srcs = [
-        "BuildConfigurationInfo.java",
         "BuildConfigurationValue.java",
         "OutputDirectories.java",
         "OutputPathMnemonicComputer.java",
+        "RemoteAnalysisCachingEnabledEvent.java",
         "TopLevelConfigRequestedEvent.java",
     ],
     deps = [
+        ":build_configuration_info",
         ":build_option_details",
         ":build_options",
         ":compilation_mode",
@@ -69,7 +71,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_logic",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -80,6 +81,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:env_var",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -88,9 +90,12 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:cache",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -109,23 +114,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "build_options_cache",
-    srcs = ["BuildOptionsCache.java"],
-    deps = [
-        ":build_options",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:auto_value",
-        "//third_party:caffeine",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -135,6 +130,7 @@ java_library(
     deps = [
         ":build_options",
         ":core_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/common/options",
     ],
 )
@@ -142,10 +138,7 @@ java_library(
 java_library(
     name = "compilation_mode",
     srcs = ["CompilationMode.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/java/net/starlark/java/eval",
-    ],
+    deps = ["//src/main/java/com/google/devtools/common/options"],
 )
 
 java_library(
@@ -162,11 +155,10 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -179,18 +171,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
 java_library(
     name = "configuration_transition_event",
     srcs = ["ConfigurationTransitionEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:auto_value",
-    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/events"],
 )
 
 java_library(
@@ -198,7 +186,7 @@ java_library(
     srcs = ["AdditionalConfigurationChangeEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -208,7 +196,6 @@ java_library(
     deps = [
         ":build_configuration",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:auto_value",
     ],
 )
 
@@ -220,8 +207,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -238,9 +226,10 @@ java_library(
         ":run_under_converter",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:env_var",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
+        "//third_party/java/caffeine",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -250,8 +239,9 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -263,14 +253,12 @@ java_library(
         ":common_options",
         ":core_options",
         ":starlark_defined_config_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -293,9 +281,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/config:feature_flag_value",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
-        "//third_party:caffeine",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/caffeine",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -304,8 +292,7 @@ java_library(
     srcs = ["FeatureSet.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -318,9 +305,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -333,11 +320,10 @@ java_library(
         ":fragment",
         ":fragment_options",
         ":invalid_configuration_exception",
-        "//third_party:auto_value",
-        "//third_party:caffeine",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/caffeine",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -349,7 +335,7 @@ java_library(
         ":fragment",
         ":fragment_class_set",
         ":fragment_options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -360,9 +346,12 @@ java_library(
         "RequiresOptions.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:env_var",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -373,8 +362,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -384,10 +373,17 @@ java_library(
     deps = [
         ":build_options",
         ":fragment_options",
+        ":scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -399,7 +395,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -409,8 +405,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -423,7 +419,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -445,10 +441,11 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:caffeine",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -459,8 +456,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:starlark_toolchain_type_requirement",
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -471,8 +468,9 @@ java_library(
         ":fragment_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -483,7 +481,8 @@ java_library(
         ":build_options",
         ":fragment_options",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:cache",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -493,15 +492,16 @@ java_library(
     deps = [
         ":build_options",
         ":core_options",
+        ":scope",
         ":starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:caffeine",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/caffeine",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -510,8 +510,8 @@ java_library(
     srcs = ["Scope.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -524,7 +524,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -533,10 +533,20 @@ java_library(
     srcs = ["SymlinkDefinition.java"],
     deps = [
         ":build_configuration",
-        ":build_options",
-        "//src/main/java/com/google/devtools/build/lib:build-request-options",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "build_configuration_info",
+    srcs = ["BuildConfigurationInfo.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_limits",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/jsr305_annotations",
     ],
 )

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdlib>
 #include <optional>
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -29,6 +30,7 @@
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/sem_ver.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
@@ -36,16 +38,21 @@
 #include "src/main/cpp/workspace_layout.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/strings/str_cat.h"
 
 namespace blaze {
+using ::testing::AllOf;
 using ::testing::ContainsRegex;
 using ::testing::ElementsAre;
 using ::testing::Eq;
+using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::MatchesRegex;
 using ::testing::Optional;
+using ::testing::Pair;
 using ::testing::Pointee;
+using ::testing::UnorderedElementsAre;
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 constexpr const char* kNullDevice = "NUL";
@@ -266,33 +273,6 @@ TEST_F(GetRcFileTest,
   EXPECT_EQ("check that this string is not modified", error);
 
   EXPECT_THAT(parsed_rcs, IsEmpty());
-}
-
-TEST_F(GetRcFileTest, GetRcFilesWarnsAboutIgnoredMasterRcFiles) {
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileInWorkspace("", &workspace_rc));
-  std::string binary_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileAlongsideBinary("", &binary_rc));
-
-  const CommandLine cmd_line = CommandLine(binary_path_, {}, "build", {});
-  std::string error = "check that this string is not modified";
-  std::vector<std::unique_ptr<RcFile>> parsed_rcs;
-
-  testing::internal::CaptureStderr();
-  const blaze_exit_code::ExitCode exit_code =
-      option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
-                                    &cmd_line, &parsed_rcs, &error);
-  const std::string output = testing::internal::GetCapturedStderr();
-
-  EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
-  EXPECT_EQ("check that this string is not modified", error);
-
-  // Expect that GetRcFiles outputs a warning about these files that are not
-  // read as expected.
-  EXPECT_THAT(output,
-              HasSubstr("The following rc files are no longer being read"));
-  EXPECT_THAT(output, HasSubstr(workspace_rc));
-  EXPECT_THAT(output, HasSubstr(binary_rc));
 }
 
 TEST_F(GetRcFileTest, GetRcFilesReadsCommandLineRc) {
@@ -608,6 +588,57 @@ TEST_F(ParseOptionsTest, CommandLineBazelrcHasPriorityOverDefaultBazelrc) {
                    "--max_idle_secs=123\n"));
 }
 
+TEST_F(ParseOptionsTest, PlatformSpecificBazelrcOptions) {
+  std::string workspace_rc;
+  ASSERT_TRUE(
+      SetUpWorkspaceRcFile("startup --max_idle_secs=1\n"
+                           "startup:linux --max_idle_secs=2\n"
+                           "startup:macos --max_idle_secs=3\n"
+                           "startup:windows --max_idle_secs=4\n"
+                           "startup:freebsd --max_idle_secs=5\n"
+                           "startup:openbsd --max_idle_secs=6\n"
+                           "startup --max_idle_secs=7\n",
+                           &workspace_rc));
+
+  const std::vector<std::string> args = {binary_path_, "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+
+  int expected = 1;
+#if defined(__linux__)
+  expected = 2;
+#elif defined(__APPLE__)
+  expected = 3;
+#elif defined(_WIN32)
+  expected = 4;
+#elif defined(__FreeBSD__)
+  expected = 5;
+#elif defined(__OpenBSD__)
+  expected = 6;
+#endif
+
+  EXPECT_EQ(expected,
+            option_processor_->GetParsedStartupOptions()->max_idle_secs);
+
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string output = testing::internal::GetCapturedStderr();
+
+  if (expected > 1) {
+    EXPECT_THAT(
+        output,
+        MatchesRegex(
+            "INFO: Reading 'startup' options from .*workspace.*bazelrc: "
+            "--max_idle_secs=1 --max_idle_secs=7 --max_idle_secs=" +
+            std::to_string(expected) + "\n"));
+  } else {
+    EXPECT_THAT(
+        output,
+        MatchesRegex(
+            "INFO: Reading 'startup' options from .*workspace.*bazelrc: "
+            "--max_idle_secs=1 --max_idle_secs=7\n"));
+  }
+}
+
 class BlazercImportTest : public ParseOptionsTest {
  protected:
   void TestBazelRcImportsMaintainsFlagOrdering(const std::string& import_type) {
@@ -851,6 +882,23 @@ TEST_F(BlazercImportTest, BazelRcTryImportDoesNotFallBackToLiteralPlaceholder) {
   ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
 }
 
+TEST_F(BlazercImportTest, WorkspaceRelativeImportFailsOutsideOfWorkspace) {
+  const std::string rc_path = blaze_util::JoinPath(cwd_, "mybazelrc");
+  ASSERT_TRUE(
+      blaze_util::WriteFile("import %workspace%/some_rc", rc_path, 0755));
+
+  const std::vector<std::string> args = {binary_path_, "--bazelrc=" + rc_path,
+                                         "build"};
+  std::string error;
+  // Use empty string for workspace to simulate being outside of a workspace
+  // directory.
+  const blaze_exit_code::ExitCode exit_code =
+      option_processor_->ParseOptions(args, "", cwd_, &error);
+
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, exit_code);
+  EXPECT_THAT(error, HasSubstr("This is because no workspace was found"));
+}
+
 TEST_F(BlazercImportTest, SuccessfulTryImportIfBazelVersion) {
   const std::string imported_rc_path =
       blaze_util::JoinPath(workspace_, "myimportedbazelrc");
@@ -964,6 +1012,50 @@ TEST_F(BlazercImportTest, TryImportVersionInvalidConditionSemanticVersion) {
       "Invalid import declaration in config file.*Could not parse version "
       "'no_version' as a valid semantic version",
       "");
+}
+
+TEST_F(BlazercImportTest, ImportDepthExceeded) {
+  // Create a chain of rc files, each importing the next one.
+  const int import_depth = 5;
+  for (int i = 0; i < import_depth; ++i) {
+    const std::string imported_rc_path =
+        blaze_util::JoinPath(workspace_, absl::StrCat("import_", i, ".rc"));
+    std::string contents;
+    if (i < import_depth - 1) {
+      const std::string next_imported_rc_path = blaze_util::JoinPath(
+          workspace_, absl::StrCat("import_", i + 1, ".rc"));
+      contents = absl::StrCat("import ", next_imported_rc_path);
+    } else {
+      contents = "startup --max_idle_secs=123";
+    }
+    ASSERT_TRUE(blaze_util::WriteFile(contents, imported_rc_path, 0755));
+  }
+
+  const std::string base_rc_path =
+      blaze_util::JoinPath(workspace_, "import_0.rc");
+
+  // Test with a limit that is too small.
+  RcFile::ParseError error;
+  std::string error_text;
+  std::unique_ptr<RcFile> rc_file =
+      RcFile::Parse(base_rc_path, workspace_layout_.get(), workspace_,
+                    /*build_label=*/"", /*sem_ver=*/std::nullopt, &error,
+                    &error_text, /*max_import_depth=*/2,
+                    RcFile::ReadFileDefault, RcFile::CanonicalizePathDefault);
+
+  EXPECT_EQ(error, RcFile::ParseError::IMPORT_DEPTH_EXCEEDED);
+  EXPECT_THAT(error_text, HasSubstr("Maximum import depth exceeded"));
+  EXPECT_EQ(rc_file, nullptr);
+
+  // Test with a limit that is large enough.
+  rc_file =
+      RcFile::Parse(base_rc_path, workspace_layout_.get(), workspace_,
+                    /*build_label=*/"", /*sem_ver=*/std::nullopt, &error,
+                    &error_text, /*max_import_depth=*/10,
+                    RcFile::ReadFileDefault, RcFile::CanonicalizePathDefault);
+
+  EXPECT_EQ(error, RcFile::ParseError::NONE);
+  EXPECT_NE(rc_file, nullptr);
 }
 
 #if defined(_WIN32)
@@ -1089,6 +1181,25 @@ TEST_F(ParseOptionsTest, ImportingStandardRcBeforeItIsLoadedCausesAWarning) {
       "unnecessarily imported earlier.\n");
 }
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
+
+TEST(RcFileCreateTest, CreatesRcFileSuccessfully) {
+  std::vector<std::string> paths = {"/path/to/rc1", "/path/to/rc2"};
+  RcFile::OptionMap options;
+  options["build"].push_back({"--foo", 0});
+  options["test"].push_back({"--bar", 1});
+
+  std::unique_ptr<RcFile> rc_file = RcFile::Create(paths, options);
+
+  ASSERT_NE(rc_file, nullptr);
+  EXPECT_EQ(rc_file->canonical_source_paths(), paths);
+  EXPECT_THAT(
+      rc_file->options(),
+      UnorderedElementsAre(
+          Pair("build", ElementsAre(AllOf(Field(&RcOption::option, "--foo"),
+                                          Field(&RcOption::source_index, 0)))),
+          Pair("test", ElementsAre(AllOf(Field(&RcOption::option, "--bar"),
+                                         Field(&RcOption::source_index, 1))))));
+}
 
 TEST(BazelVersionMatchesCondition_Tilde, VersionFullSemanticVersion) {
   std::string error_text;

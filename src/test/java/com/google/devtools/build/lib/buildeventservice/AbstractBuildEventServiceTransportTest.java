@@ -33,9 +33,9 @@ import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.InvocationStatus;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceProtoUtil;
+import com.google.devtools.build.lib.buildeventservice.client.CommandContext;
+import com.google.devtools.build.lib.buildeventservice.client.LifecycleEvent.InvocationStatus;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -71,9 +71,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.Any;
-import com.google.protobuf.ByteString;
 import io.grpc.Status;
-import io.grpc.StatusException;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import java.io.IOException;
@@ -115,7 +113,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
   private static final ImmutableSet<String> KEYWORDS = ImmutableSet.of("foo=bar", "spam=eggs");
   private static final Instant COMMAND_START_TIME = Instant.ofEpochMilli(500L);
   private static final CommandContext COMMAND_CONTEXT =
-      CommandContext.builder()
+      CommandContextImpl.builder()
           .setBuildId(BUILD_REQUEST_ID)
           .setInvocationId(BUILD_INVOCATION_ID)
           .setAttemptNumber(1)
@@ -215,17 +213,17 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                progress.asStreamProto(buildEventContext).toByteString()),
+                progress.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 3,
-                lastEvent.asStreamProto(buildEventContext).toByteString()),
+                lastEvent.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4))
         .inOrder();
   }
@@ -250,19 +248,106 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                progress.asStreamProto(buildEventContext).toByteString()),
+                progress.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 3,
-                success.asStreamProto(buildEventContext).toByteString()),
+                success.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4))
         .inOrder();
+  }
+
+  @Test(timeout = TIMEOUT_MILLIS)
+  public void quiescenceFuture_completesWhenLastAckIsWithheld() throws Exception {
+    clock.advanceMillis(1000L);
+    Instant timestamp = clock.now();
+    // Simulate BES backend behavior (b/73904614): withhold ACK for the last event (seq 2).
+    fakeBesServer.setSendResponsesOnRequestPredicate(
+        req -> req.getOrderedBuildEvent().getSequenceNumber() != 2);
+
+    BuildEventServiceTransport transport =
+        newBuildEventServiceTransport(/* publishLifecycleEvents= */ false);
+    transport.sendBuildEvent(started);
+    transport.sendBuildEvent(progress);
+
+    ListenableFuture<Void> quiescenceFuture = transport.getQuiescenceFuture();
+    quiescenceFuture.get();
+
+    // Quiescence completes even though the ACK for event 2 has not been received yet.
+    assertThat(quiescenceFuture.isDone()).isTrue();
+    assertThat(transport.getHalfCloseFuture().isDone()).isFalse();
+
+    // Restore predicate so subsequent events can be ACKed, then close the stream.
+    fakeBesServer.setSendResponsesOnRequestPredicate(req -> true);
+    transport.sendBuildEvent(success);
+    transport.close().get();
+
+    assertThat(transport.getHalfCloseFuture().isDone()).isTrue();
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
+        .containsExactly(
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                1,
+                started.asStreamProto(buildEventContext).toByteArray()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                2,
+                progress.asStreamProto(buildEventContext).toByteArray()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                3,
+                success.asStreamProto(buildEventContext).toByteArray()),
+            BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4))
+        .inOrder();
+  }
+
+  @Test(timeout = TIMEOUT_MILLIS)
+  public void quiescenceFuture_emptyQueueOrAfterClose() throws Exception {
+    BuildEventServiceTransport transport =
+        newBuildEventServiceTransport(/* publishLifecycleEvents= */ false);
+    // Immediately completes when no events are enqueued.
+    assertThat(transport.getQuiescenceFuture().isDone()).isTrue();
+
+    transport.sendBuildEvent(started);
+    transport.sendBuildEvent(success);
+    transport.close().get();
+
+    // Immediately completes after transport is closed.
+    assertThat(transport.getQuiescenceFuture().isDone()).isTrue();
+  }
+
+  @Test(timeout = TIMEOUT_MILLIS)
+  public void quiescenceFuture_completesEvenWhenSubsequentEventsArrive() throws Exception {
+    BuildEventServiceTransport transport =
+        newBuildEventServiceTransport(/* publishLifecycleEvents= */ false);
+    transport.sendBuildEvent(started);
+
+    ListenableFuture<Void> quiescenceFuture = transport.getQuiescenceFuture();
+
+    // Enqueue subsequent events behind Quiesce. Since event 1 was the only event sent so far, its
+    // ACK is held back by the server (b/73904614) until subsequent events are dispatched.
+    transport.sendBuildEvent(progress);
+    transport.sendBuildEvent(success);
+
+    quiescenceFuture.get();
+    assertThat(quiescenceFuture.isDone()).isTrue();
+
+    // Calling getQuiescenceFuture again returns the same future.
+    assertThat(transport.getQuiescenceFuture()).isSameInstanceAs(quiescenceFuture);
+
+    transport.close().get();
+    assertThat(transport.getHalfCloseFuture().isDone()).isTrue();
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
@@ -324,9 +409,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.UNAVAILABLE.getCode());
+    assertThat(exception.getMessage())
+        .containsMatch(
+            "The Build Event Protocol upload failed: no publishBuildEvents retry attempts left:"
+                + " .*UNAVAILABLE");
 
     assertThat(
             fakeBesServer.getStreamEvents(
@@ -336,17 +422,17 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                progress.asStreamProto(buildEventContext).toByteString()),
+                progress.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 3,
-                success.asStreamProto(buildEventContext).toByteString()),
+                success.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4),
             // Verify retry on streamFinished message
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4))
@@ -372,9 +458,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.UNAVAILABLE.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: all 4 publishLifecycleEvent retry attempts"
+                + " failed: UNAVAILABLE");
 
     // should not proceed as lifecycle event failed
     assertThat(
@@ -405,7 +492,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     clock.advanceMillis(1000L);
     Instant timestamp = clock.now();
 
-    ByteString expectedPayload = progress.asStreamProto(buildEventContext).toByteString();
+    byte[] expectedPayload = progress.asStreamProto(buildEventContext).toByteArray();
     fakeBesServer.setStreamEventPredicateAndResponseStatus(
         (req) ->
             Objects.equals(
@@ -423,9 +510,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.CANCELLED.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: no publishBuildEvents retry attempts left:"
+                + " CANCELLED");
 
     assertThat(
             fakeBesServer.getSuccessfulStreamEvents(
@@ -435,7 +523,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()));
+                started.asStreamProto(buildEventContext).toByteArray()));
 
     assertThat(
             fakeBesServer.getStreamEvents(
@@ -469,12 +557,12 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                success.asStreamProto(buildEventContext).toByteString()),
+                success.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 3));
 
     assertThat(
@@ -485,22 +573,22 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                success.asStreamProto(buildEventContext).toByteString()),
+                success.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                success.asStreamProto(buildEventContext).toByteString()),
+                success.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 3),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 3));
   }
@@ -569,9 +657,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertExecutionException(exception, exitCode, buildProgressCode);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(status.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: not retrying publishBuildEvents: "
+                + status.getCode().name());
 
     assertThat(
             fakeBesServer.getStreamEvents(
@@ -581,7 +670,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()));
+                started.asStreamProto(buildEventContext).toByteArray()));
 
     assertThat(
             fakeBesServer.getSuccessfulStreamEvents(
@@ -601,9 +690,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertPersistentError(exception, BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.FAILED_PRECONDITION.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: not retrying publishLifecycleEvent:"
+                + " FAILED_PRECONDITION");
 
     assertThat(
             fakeBesServer.getLifecycleEvents(
@@ -678,9 +768,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertPersistentError(
         exception, BuildProgress.Code.BES_STREAM_COMPLETED_WITH_UNACK_EVENTS_ERROR);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.FAILED_PRECONDITION.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: server closed stream with status OK but not"
+                + " all ACKs have been received");
   }
 
   /** Tests that uploading files referenced by a build event works. */
@@ -854,7 +945,8 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_LOCAL_FILE_ERROR);
-    assertThat(exception).hasCauseThat().hasCauseThat().isEqualTo(uploadFailed);
+    assertThat(exception.getMessage())
+        .contains("The Build Event Protocol local file upload failed: File upload failed.");
 
     assertThat(fakeBesServer.eventStreamError().getCode())
         .isAnyOf(Status.CANCELLED.getCode(), Status.INTERNAL.getCode());
@@ -881,9 +973,11 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_TIMEOUT_ERROR);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.FAILED_PRECONDITION.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: not retrying publishBuildEvents:"
+                + " FAILED_PRECONDITION: expected ACK with seqNum=1 but received ACK with"
+                + " seqNum=2");
   }
 
   /**
@@ -946,8 +1040,8 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
       @Nullable BuildEventArtifactUploader artifactUploader) {
 
     BuildEventServiceOptions besOptions = Options.getDefaults(BuildEventServiceOptions.class);
-    besOptions.besTimeout = closeTimeout;
-    besOptions.besLifecycleEvents = publishLifecycleEvents;
+    besOptions.setBesTimeout(closeTimeout);
+    besOptions.setBesLifecycleEvents(publishLifecycleEvents);
 
     return new BuildEventServiceTransport.Builder()
         .besOptions(besOptions)

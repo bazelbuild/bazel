@@ -16,13 +16,14 @@ package net.starlark.java.eval;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
-import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.syntax.TestUtils;
 
 /**
  * Examples of typical API usage of the Starlark interpreter.<br>
@@ -74,7 +75,7 @@ final class Examples {
     // Resolve, compile, and execute the expression.
     try (Mutability mu = Mutability.create(input.getFile())) {
       StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
-      return Starlark.eval(input, FileOptions.DEFAULT, module, thread);
+      return Starlark.eval(input, module, thread);
     }
   }
 
@@ -90,7 +91,7 @@ final class Examples {
 
     // Compile the program, with additional predeclared environment bindings.
     // TODO(adonovan): supply Starlark.UNIVERSE somehow.
-    Program prog = Program.compileFile(file, Resolver.moduleWithPredeclared("zero", "square"));
+    Program prog = Program.compileFile(file, TestUtils.Module.withPredeclared("zero", "square"));
 
     // . . .
 
@@ -121,6 +122,7 @@ final class Examples {
    * The annotated methods of this class are added to the environment by {@link
    * Starlark#addMethods}.
    */
+  @StarlarkLibrary
   static final class MyFunctions {
     @StarlarkMethod(
         name = "square",

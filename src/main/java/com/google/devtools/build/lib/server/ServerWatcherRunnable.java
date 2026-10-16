@@ -25,13 +25,12 @@ import com.google.devtools.build.lib.platform.SystemMemoryPressureMonitor;
 import com.google.devtools.build.lib.platform.SystemMemoryPressureMonitor.Level;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
-import io.grpc.Server;
 import java.io.IOException;
 import java.time.Duration;
 
 /**
- * Runnable that checks to see if a {@link Server} server has been idle for too long and shuts down
- * the server if so.
+ * Runnable that checks to see if a {@link GrpcCommandServer} has been idle for too long and shuts
+ * down the server if so.
  */
 class ServerWatcherRunnable implements Runnable {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -40,27 +39,24 @@ class ServerWatcherRunnable implements Runnable {
   private static final long FREE_MEMORY_KB_ABSOLUTE_THRESHOLD = 1L << 20;
   private static final double FREE_MEMORY_PERCENTAGE_THRESHOLD = 0.05;
 
-  private final Server server;
+  private final GrpcCommandServer server;
   private final long maxIdleSeconds;
   private final CommandManager commandManager;
   private final LowMemoryChecker lowMemoryChecker;
   private final boolean shutdownOnLowSysMem;
 
   /** Generic abstraction to check for low memory conditions on different platforms. */
-  private abstract static class LowMemoryChecker {
+  abstract static class LowMemoryChecker {
 
     /** Timestamp of the moment the server went idle. */
     private long lastIdleTimeMillis = -1;
 
     /** Creates a memory checker that makes sense for the current platform. */
-    static LowMemoryChecker forCurrentOS() {
-      switch (OS.getCurrent()) {
-        case LINUX:
-          return new ProcMeminfoLowMemoryChecker(ProcMeminfoParser::new);
-
-        default:
-          return new MemoryPressureLowMemoryChecker();
-      }
+    static LowMemoryChecker forCurrentOs() {
+      return switch (OS.getCurrent()) {
+        case LINUX -> new ProcMeminfoLowMemoryChecker(ProcMeminfoParser::new);
+        default -> new MemoryPressureLowMemoryChecker();
+      };
     }
 
     /** Checks if the server should shut down due to a low memory condition. */
@@ -134,7 +130,7 @@ class ServerWatcherRunnable implements Runnable {
   }
 
   ServerWatcherRunnable(
-      Server server,
+      GrpcCommandServer server,
       long maxIdleSeconds,
       boolean shutdownOnLowSysMem,
       CommandManager commandManager) {
@@ -143,12 +139,12 @@ class ServerWatcherRunnable implements Runnable {
         maxIdleSeconds,
         shutdownOnLowSysMem,
         commandManager,
-        LowMemoryChecker.forCurrentOS());
+        LowMemoryChecker.forCurrentOs());
   }
 
   @VisibleForTesting
   ServerWatcherRunnable(
-      Server server,
+      GrpcCommandServer server,
       long maxIdleSeconds,
       boolean shutdownOnLowSysMem,
       CommandManager commandManager,
@@ -166,13 +162,18 @@ class ServerWatcherRunnable implements Runnable {
 
   @Override
   public void run() {
-    boolean idle = commandManager.isEmpty();
+    long lastCommandCounter;
+    boolean idle;
+    do {
+      lastCommandCounter = commandManager.getCommandCounter();
+      idle = commandManager.isEmpty();
+    } while (lastCommandCounter != commandManager.getCommandCounter());
     boolean wasIdle = false;
     long shutdownTimeMillis = -1;
+    long now = BlazeClock.instance().currentTimeMillis();
 
     while (true) {
       if (!wasIdle && idle) {
-        long now = BlazeClock.instance().currentTimeMillis();
         shutdownTimeMillis = now + Duration.ofSeconds(maxIdleSeconds).toMillis();
         lowMemoryChecker.reset(now);
       }
@@ -180,12 +181,18 @@ class ServerWatcherRunnable implements Runnable {
       try {
         if (idle) {
           Verify.verify(shutdownTimeMillis > 0);
-          if (shutdownOnLowSysMem && lowMemoryChecker.shouldShutdown()) {
+          if (shutdownOnLowSysMem
+              && lowMemoryChecker.shouldShutdown()
+              && commandManager.getCommandCounter() == lastCommandCounter) {
             logger.atSevere().log("Available RAM is low. Shutting down idle server...");
             break;
           }
-          // Re-run the check every 5 seconds if no other commands have been sent to the server.
-          commandManager.waitForChange(IDLE_MEMORY_CHECK_INTERVAL.toMillis());
+          long remainingIdleMillis = shutdownTimeMillis - now;
+          Verify.verify(remainingIdleMillis > 0);
+          // Re-run the check every 5 seconds if no other commands have been sent to the server,
+          // or when the remaining idle timeout expires, whichever comes first.
+          commandManager.waitForChange(
+              Math.min(IDLE_MEMORY_CHECK_INTERVAL.toMillis(), remainingIdleMillis));
         } else {
           commandManager.waitForChange();
         }
@@ -193,9 +200,18 @@ class ServerWatcherRunnable implements Runnable {
         // Dealt with by checking the current time below.
       }
 
-      wasIdle = idle;
-      idle = commandManager.isEmpty();
-      if (wasIdle && idle && BlazeClock.instance().currentTimeMillis() >= shutdownTimeMillis) {
+      long currentCommandCounter;
+      boolean currentlyIdle;
+      do {
+        currentCommandCounter = commandManager.getCommandCounter();
+        currentlyIdle = commandManager.isEmpty();
+      } while (currentCommandCounter != commandManager.getCommandCounter());
+      boolean commandRan = currentCommandCounter != lastCommandCounter;
+      lastCommandCounter = currentCommandCounter;
+      wasIdle = idle && !commandRan;
+      idle = currentlyIdle;
+      now = BlazeClock.instance().currentTimeMillis();
+      if (wasIdle && idle && now >= shutdownTimeMillis) {
         logger.atInfo().log("About to shutdown due to idleness");
         break;
       }

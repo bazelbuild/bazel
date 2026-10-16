@@ -1,0 +1,71 @@
+---
+title: 'py'
+---
+
+A configuration fragment for Python.
+
+## Members
+
+* [build_python_zip](#build_python_zip)
+* [default_python_version](#default_python_version)
+* [default_to_explicit_init_py](#default_to_explicit_init_py)
+* [disable_py2](#disable_py2)
+* [disallow_native_rules](#disallow_native_rules)
+* [include_label_in_linkstamp](#include_label_in_linkstamp)
+* [use_toolchains](#use_toolchains)
+
+## build_python_zip
+
+```
+bool py.build_python_zip
+```
+
+The effective value of --build_python_zip
+
+## default_python_version
+
+```
+string py.default_python_version
+```
+
+The default python version from --incompatible_py3_is_default
+
+## default_to_explicit_init_py
+
+```
+bool py.default_to_explicit_init_py
+```
+
+The value from the --incompatible_default_to_explicit_init_py flag
+
+## disable_py2
+
+```
+bool py.disable_py2
+```
+
+The value of the --incompatible_python_disable_py2 flag.
+
+## disallow_native_rules
+
+```
+bool py.disallow_native_rules
+```
+
+The value of the --incompatible_python_disallow_native_rules flag.
+
+## include_label_in_linkstamp
+
+```
+bool py.include_label_in_linkstamp
+```
+
+Whether the build label is included in unstamped builds.
+
+## use_toolchains
+
+```
+bool py.use_toolchains
+```
+
+The value from the --incompatible_use_python_toolchains flag

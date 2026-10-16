@@ -18,12 +18,14 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** Legacy action. Only here to keep Options subclass, which is used by `mobile-install`. */
 public final class WriteAdbArgsAction {
   /** Options of the {@code mobile-install} command pertaining to the way {@code adb} is invoked. */
-  public static final class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "adb",
         defaultValue = "",
@@ -33,7 +35,7 @@ public final class WriteAdbArgsAction {
             "adb binary to use for the 'mobile-install' command. If unspecified, the one in "
                 + "the Android SDK specified by the --android_sdk_channel command line option (or "
                 + " the default SDK if --android_sdk_channel is not specified) is used.")
-    public String adb;
+    public abstract String getAdb();
 
     @Option(
         name = "adb_arg",
@@ -42,57 +44,52 @@ public final class WriteAdbArgsAction {
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
         help = "Extra arguments to pass to adb. Usually used to designate a device to install to.")
-    public List<String> adbArgs;
+    public abstract List<String> getAdbArgs();
 
     @Option(
-      name = "device",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help = "The adb device serial number. If not specified, the first device will be used."
-    )
-    public String device;
+        name = "device",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+        help = "The adb device serial number. If not specified, the first device will be used.")
+    public abstract String getDevice();
 
     @Option(
-      name = "incremental_install_verbosity",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "The verbosity for incremental install. Set to 1 for debug logging."
-    )
-    public String incrementalInstallVerbosity;
+        name = "incremental_install_verbosity",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "The verbosity for incremental install. Set to 1 for debug logging.")
+    public abstract String getIncrementalInstallVerbosity();
 
     @Option(
-      name = "start",
-      converter = StartTypeConverter.class,
-      defaultValue = "NO",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "How the app should be started after installing it. Set to WARM to preserve "
-              + "and restore application state on incremental installs."
-    )
-    public StartType start;
+        name = "start",
+        converter = StartTypeConverter.class,
+        defaultValue = "NO",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help =
+            "How the app should be started after installing it. Set to WARM to preserve "
+                + "and restore application state on incremental installs.")
+    public abstract StartType getStart();
 
     @Option(
-      name = "start_app",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "Whether to start the app after installing it.",
-      expansion = {"--start=COLD"}
-    )
-    public Void startApp;
+        name = "start_app",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "Whether to start the app after installing it.",
+        expansion = {"--start=COLD"})
+    public abstract Void getStartApp();
 
     @Option(
-      name = "debug_app",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "Whether to wait for the debugger before starting the app.",
-      expansion = {"--start=DEBUG"}
-    )
-    public Void debugApp;
+        name = "debug_app",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "Whether to wait for the debugger before starting the app.",
+        expansion = {"--start=DEBUG"})
+    public abstract Void getDebugApp();
   }
 
   private WriteAdbArgsAction() {}

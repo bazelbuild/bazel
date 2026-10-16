@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.bazel.BazelServices.BAZEL_SERVICES;
 
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -24,8 +25,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -33,6 +32,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
@@ -45,55 +45,52 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BlazeCommandDispatcherRcoptionsTest {
 
-  /**
-   * Example options to be used by the tests.
-   */
-  public static class FooOptions extends OptionsBase {
+  /** Example options to be used by the tests. */
+  @OptionsClass
+  public abstract static class FooOptions extends OptionsBase {
     @Option(
-      name = "numoption",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int numOption;
+        name = "numoption",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getNumOption();
 
     @Option(
-      name = "stringoption",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "[unspecified]"
-    )
-    public String stringOption;
+        name = "stringoption",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "[unspecified]")
+    public abstract String getStringOption();
   }
 
   @Command(
-    name = "reportnum",
-    options = {FooOptions.class},
-    shortDescription = "",
-    help = ""
-  )
+      name = "reportnum",
+      options = {FooOptions.class},
+      shortDescription = "",
+      help = "")
   private static class ReportNumCommand implements BlazeCommand {
 
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       FooOptions fooOptions = options.getOptions(FooOptions.class);
-      env.getReporter().getOutErr().printOut(String.valueOf(fooOptions.numOption));
+      env.getReporter().getOutErr().printOut(String.valueOf(fooOptions.getNumOption()));
       return BlazeCommandResult.success();
     }
   }
 
   @Command(
-    name = "reportall",
-    options = {FooOptions.class},
-    shortDescription = "",
-    help = ""
-  )
+      name = "reportall",
+      options = {FooOptions.class},
+      shortDescription = "",
+      help = "")
   private static class ReportAllCommand implements BlazeCommand {
 
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       FooOptions fooOptions = options.getOptions(FooOptions.class);
-      env.getReporter().getOutErr().printOut(fooOptions.numOption + " " + fooOptions.stringOption);
+      env.getReporter()
+          .getOutErr()
+          .printOut(fooOptions.getNumOption() + " " + fooOptions.getStringOption());
       return BlazeCommandResult.success();
     }
   }
@@ -116,19 +113,22 @@ public class BlazeCommandDispatcherRcoptionsTest {
   @Before
   public final void initializeRuntime() throws Exception {
     String productName = TestConstants.PRODUCT_NAME;
-    Profiler.setTraceProfilerServiceForTesting(new TraceProfilerServiceImpl());
+    OptionsParsingResult startupOptionsProvider =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    for (var service : BAZEL_SERVICES) {
+      service.globalInit(startupOptionsProvider, BAZEL_SERVICES);
+    }
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install_base"),
             scratch.dir("output_base"),
             scratch.dir("user_output_root"));
-    this.runtime =
+    var runtimeBuilder =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())
             .setProductName(productName)
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(
-                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
+            .setStartupOptionsProvider(startupOptionsProvider)
             .addBlazeModule(
                 new BlazeModule() {
                   @Override
@@ -140,13 +140,14 @@ public class BlazeCommandDispatcherRcoptionsTest {
                     // The tools repository is needed for createGlobals
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                   }
-                })
-            .build();
-
+                });
+    for (var service : BAZEL_SERVICES) {
+      runtimeBuilder.addBlazeService(service);
+    }
+    this.runtime = runtimeBuilder.build();
     BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories, scratch.dir("pkg"), /* defaultSystemJavabase= */ null, productName);
-    this.runtime.initWorkspace(directories, /*binTools=*/null);
+        new BlazeDirectories(serverDirectories, scratch.dir("pkg"), productName);
+    this.runtime.initWorkspace(directories, /* binTools= */ null);
   }
 
   @Test
@@ -298,15 +299,15 @@ public class BlazeCommandDispatcherRcoptionsTest {
   }
 
   /** Options class for testing, so that defaults package has some content. */
-  public static class MockFragmentOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class MockFragmentOptions extends FragmentOptions {
     public MockFragmentOptions() {}
 
     @Option(
-      name = "fake_opt",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean fakeOpt;
+        name = "fake_opt",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFakeOpt();
   }
 }

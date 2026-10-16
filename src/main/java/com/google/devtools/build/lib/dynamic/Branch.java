@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -151,12 +152,17 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
           // in turn cancel us, thus causing an interruption. Don't consider that a failure as
           // we otherwise risk canceling both branches.
           var state = future.state();
-          if (state == Future.State.SUCCESS
+          if ((state == Future.State.SUCCESS
+                  && (getMode() == DynamicMode.REMOTE || options.getCancelRemoteBranchOnLocalWin()))
               || (state == Future.State.FAILED
-                  && !(future.exceptionNow() instanceof InterruptedException))) {
+                  && !(future.exceptionNow() instanceof InterruptedException)
+                  // An input lost while setting up the local branch may not be needed by the remote
+                  // one at all, e.g. for a remote cache hit, so that one is left to finish.
+                  && !(getMode() == DynamicMode.LOCAL
+                      && future.exceptionNow() instanceof LostInputsExecException))) {
             otherBranch.cancel();
           }
-          if (options.debugSpawnScheduler) {
+          if (options.getDebugSpawnScheduler()) {
             logger.atInfo().log(
                 "In listener callback, the future of the remote branch is %s",
                 future.state().name());
@@ -237,7 +243,9 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
       }
     }
 
-    moveFileOutErr(fileOutErr, context.getFileOutErr());
+    if (strategyThatCancelled.get() == null || strategyThatCancelled.get() == getMode()) {
+      moveFileOutErr(fileOutErr, context.getFileOutErr());
+    }
 
     if (exception != null) {
       throw exception;

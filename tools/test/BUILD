@@ -1,6 +1,7 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//tools/res:win_res.bzl", "windows_resources")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -43,17 +44,39 @@ filegroup(
 cc_binary(
     name = "tw",
     srcs = ["windows/tw_main.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "//src/conditions:windows_gcc_like": ["-municode"],
+        "//conditions:default": [],
+    }),
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
-    deps = [":tw_lib"],
+    deps = [
+        ":tw_lib",
+        ":tw_resources",
+    ],
+)
+
+windows_resources(
+    name = "tw_resources",
+    rc_files = ["windows/tw_resources.rc"],
+    resources = ["windows/tw_manifest.xml"],
 )
 
 cc_binary(
     name = "xml",
     srcs = ["windows/xml_main.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "//src/conditions:windows_gcc_like": ["-municode"],
+        "//conditions:default": [],
+    }),
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
-    deps = [":tw_lib"],
+    deps = [
+        ":tw_lib",
+        ":tw_resources",
+    ],
 )
 
 # Test wrapper binary to run tests on Windows.
@@ -96,7 +119,6 @@ cc_test(
     }),
     deps = [
         ":tw_lib",
-        "//src/main/cpp/util:filesystem",
         "//src/test/cpp/util:windows_test_util",
         "@com_google_googletest//:gtest_main",
     ] + select({

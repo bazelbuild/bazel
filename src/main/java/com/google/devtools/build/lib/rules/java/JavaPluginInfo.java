@@ -181,7 +181,9 @@ public abstract class JavaPluginInfo extends NativeInfo
             Depset.cast(struct.getValue("processor_jars"), Artifact.class, "processor_jars"),
             Depset.cast(struct.getValue("processor_data"), Artifact.class, "processor_data"));
       }
-      throw new RuleErrorException("Should never happen! Got unexpected type: " + obj.getClass());
+      throw new RuleErrorException(
+          String.format(
+              "expected JavaPluginData or a struct, but got unexpected type: %s", obj.getClass()));
     }
 
     /**

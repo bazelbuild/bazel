@@ -60,7 +60,8 @@ public class StarlarkBazelModuleTest {
         .setImplementation(() -> "maven")
         .setEnvVariables(ImmutableList.of())
         .setOsDependent(false)
-        .setArchDependent(false);
+        .setArchDependent(false)
+        .setFactsVersion(0);
   }
 
   @Test
@@ -106,11 +107,14 @@ public class StarlarkBazelModuleTest {
                     fooKey, fooKey.getCanonicalRepoNameWithoutVersion(),
                     barKey, barKey.getCanonicalRepoNameWithoutVersion())),
             usage,
-            repoMappingRecorder);
+            repoMappingRecorder,
+            /* moduleIndex= */ 0);
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");
     assertThat(moduleProxy.getVersion()).isEqualTo("1.0");
-    assertThat(moduleProxy.getTags().getFieldNames()).containsExactly("dep", "repos", "pom");
+    assertThat(moduleProxy.getTags().getFieldNames())
+        .containsExactly("dep", "repos", "pom")
+        .inOrder();
 
     // We have 2 "dep" tags...
     @SuppressWarnings("unchecked")
@@ -158,7 +162,32 @@ public class StarlarkBazelModuleTest {
                     module.getRepoMappingWithBazelDepsOnly(
                         ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithoutVersion())),
                     usage,
-                    new Label.SimpleRepoMappingRecorder()));
+                    new Label.SimpleRepoMappingRecorder(),
+                    /* moduleIndex= */ 0));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
+  }
+
+  @Test
+  public void flagAliases() throws Exception {
+    ModuleKey fooKey = createModuleKey("foo", "");
+    Module module =
+        buildModule("foo", "1.0")
+            .setKey(fooKey)
+            .setFlagAliases(ImmutableMap.of("custom_flag", "//my:starlark_flag"))
+            .build();
+    AbridgedModule abridgedModule = AbridgedModule.from(module);
+
+    StarlarkBazelModule moduleProxy =
+        StarlarkBazelModule.create(
+            abridgedModule,
+            getBaseExtensionBuilder().setTagClasses(ImmutableMap.of()).build(),
+            module.getRepoMappingWithBazelDepsOnly(
+                ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithoutVersion())),
+            /* usage= */ null,
+            new Label.SimpleRepoMappingRecorder(),
+            /* moduleIndex= */ 0);
+
+    assertThat(moduleProxy.getName()).isEqualTo("foo");
+    assertThat(moduleProxy.getVersion()).isEqualTo("1.0");
   }
 }

@@ -22,11 +22,13 @@ import static javax.tools.StandardLocation.CLASS_PATH;
 
 import com.google.auto.value.AutoOneOf;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
-import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
+import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictDepsMode;
+import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.UnusedDepsMode;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
@@ -36,6 +38,7 @@ import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.PackageTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
@@ -57,10 +60,13 @@ import com.sun.tools.javac.util.Log.WriterKind;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Position;
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.invoke.VarHandle;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -150,7 +156,9 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     errWriter = log.getWriter(WriterKind.ERROR);
     implicitDependencyExtractor =
         new ImplicitDependencyExtractor(
-            dependencyModule.getImplicitDependenciesMap(), dependencyModule.getPlatformJars());
+            dependencyModule.getImplicitDependenciesMap(),
+            dependencyModule.getPlatformJars(),
+            dependencyModule.getWorkDir());
     checkingTreeScanner = context.get(CheckingTreeScanner.class);
     if (checkingTreeScanner == null) {
       checkingTreeScanner =
@@ -197,6 +205,10 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   public void finish() {
     implicitDependencyExtractor.accumulate(context, checkingTreeScanner.getSeenClasses());
 
+    if (dependencyModule.getUnusedDeps() != UnusedDepsMode.OFF) {
+      checkUnusedDeps();
+    }
+
     for (SjdDiagnostic diagnostic : diagnostics) {
       JavaFileObject prev = log.useSource(diagnostic.source());
       try {
@@ -228,11 +240,94 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
               // suggest private build labels.
               .map(owner -> owner.withLabel(owner.label().map(label -> canonicalizeTarget(label))))
               .collect(toImmutableSet());
-      if (dependencyModule.getStrictJavaDeps() != StrictJavaDeps.OFF) {
+      if (dependencyModule.getStrictJavaDeps() != StrictDepsMode.OFF) {
         errWriter.print(
             dependencyModule.getFixMessage().get(canonicalizedMissing, canonicalizedLabel));
         dependencyModule.setHasMissingTargets();
       }
+    }
+  }
+
+  private void checkUnusedDeps() {
+    if (dependencyModule.getTargetLabel() == null) {
+      return;
+    }
+    String targetLabel = StrictJavaDepsPlugin.canonicalizeTarget(dependencyModule.getTargetLabel());
+
+    Map<Path, Dependency> explicitDeps = dependencyModule.getExplicitDependenciesMap();
+    Map<Path, Dependency> implicitDeps = dependencyModule.getImplicitDependenciesMap();
+    ImmutableSet<String> declaredDeps = dependencyModule.getTargetDeclaredDeps();
+
+    if (declaredDeps.isEmpty()) {
+      return;
+    }
+
+    Set<String> usedLabels = new HashSet<>();
+    for (Path jar : explicitDeps.keySet()) {
+      normalizedLabelFromManifest(jar).ifPresent(usedLabels::add);
+    }
+    for (Map.Entry<Path, Dependency> entry : implicitDeps.entrySet()) {
+      if (entry.getValue().getKind() != Dependency.Kind.INCOMPLETE) {
+        normalizedLabelFromManifest(entry.getKey()).ifPresent(usedLabels::add);
+      }
+    }
+
+    for (String dep : declaredDeps) {
+      String normalizedDep = normalizeLabelForComparison(dep);
+      if (usedLabels.contains(normalizedDep)) {
+        continue;
+      }
+      String message =
+          String.format(
+              "[unused-deps] Dependency '%s' is declared as a direct dependency but is not"
+                  + " referenced in jdeps.\n"
+                  + "\033[35m\033[1m ** You can use the following buildozer command:\033[0m"
+                  + " \n"
+                  + "buildozer 'remove deps %s' %s\n",
+              dep, canonicalizeTarget(dep), targetLabel);
+
+      switch (dependencyModule.getUnusedDeps()) {
+        case ERROR -> log.error(Position.NOPOS, Errors.ProcMessager(message));
+        case WARN -> log.warning(Position.NOPOS, Warnings.ProcMessager(message));
+        case OFF -> {}
+      }
+    }
+  }
+
+  private static Optional<String> normalizedLabelFromManifest(Path jar) {
+    JarOwner owner = readJarOwnerFromManifest(NonPlatformJar.forClasspathJar(jar));
+    // TODO(#29770): what if Target-Label is absent from the manifest?
+    return owner.label().map(StrictJavaDepsPlugin::normalizeLabelForComparison);
+  }
+
+  /**
+   * Reads the target label representing the owner of the given classpath jar file from its
+   * manifest.
+   *
+   * @param jar the classpath jar file to read the manifest from
+   * @return the resolved {@link JarOwner} representing the target that built the jar, or a fallback
+   *     representing the jar file path if target metadata is absent or unreadable
+   */
+  private static JarOwner readJarOwnerFromManifest(NonPlatformJar jar) {
+    if (jar.getKind() == FOR_JSPECIFY_FROM_PLATFORM) {
+      return JSPECIFY_JAR_OWNER;
+    }
+    Path jarPath = jar.inClasspath();
+    try (JarFile jarFile = new JarFile(jarPath.toFile())) {
+      Manifest manifest = jarFile.getManifest();
+      if (manifest == null) {
+        return JarOwner.create(jarPath);
+      }
+      Attributes attributes = manifest.getMainAttributes();
+      String label = (String) attributes.get(TARGET_LABEL);
+      if (label == null) {
+        return JarOwner.create(jarPath);
+      }
+      String injectingRuleKind = (String) attributes.get(INJECTING_RULE_KIND);
+      return JarOwner.create(jarPath, label, Optional.ofNullable(injectingRuleKind));
+    } catch (IOException e) {
+      // This jar file pretty much has to exist, we just used it in the compiler. Throw unchecked.
+      throw new UncheckedIOException(e);
     }
   }
 
@@ -244,6 +339,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private static class CheckingTreeScanner extends TreePathScanner<Void, Void> {
 
     private final ImmutableSet<Path> directJars;
+    private final DependencyModule dependencyModule;
 
     /** Strict deps diagnostics. */
     private final List<SjdDiagnostic> diagnostics;
@@ -282,6 +378,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         JavaFileManager fileManager,
         Names names) {
       this.directJars = dependencyModule.directJars();
+      this.dependencyModule = dependencyModule;
       this.diagnostics = diagnostics;
       this.missingTargets = missingTargets;
       this.directDependenciesMap = dependencyModule.getExplicitDependenciesMap();
@@ -354,37 +451,12 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         // Also update the dependency proto
         Dependency dep =
             Dependency.newBuilder()
-                // Path.toString uses the platform separator (`\` on Windows), but the proto must
-                // use the same separator as in the arguments.
-                //
                 // An empty path is OK in the cases we produce it. See readJarOwnerFromManifest.
-                .setPath(jar.pathOrEmpty().toString().replace(File.separatorChar, '/'))
+                .setPath(
+                    DependencyModule.stripWorkDir(dependencyModule.getWorkDir(), jar.pathOrEmpty()))
                 .setKind(Dependency.Kind.EXPLICIT)
                 .build();
         directDependenciesMap.put(jar.pathOrEmpty(), dep);
-      }
-    }
-
-    private JarOwner readJarOwnerFromManifest(NonPlatformJar jar) {
-      if (jar.getKind() == FOR_JSPECIFY_FROM_PLATFORM) {
-        return JSPECIFY_JAR_OWNER;
-      }
-      Path jarPath = jar.inClasspath();
-      try (JarFile jarFile = new JarFile(jarPath.toFile())) {
-        Manifest manifest = jarFile.getManifest();
-        if (manifest == null) {
-          return JarOwner.create(jarPath);
-        }
-        Attributes attributes = manifest.getMainAttributes();
-        String label = (String) attributes.get(TARGET_LABEL);
-        if (label == null) {
-          return JarOwner.create(jarPath);
-        }
-        String injectingRuleKind = (String) attributes.get(INJECTING_RULE_KIND);
-        return JarOwner.create(jarPath, label, Optional.ofNullable(injectingRuleKind));
-      } catch (IOException e) {
-        // This jar file pretty much has to exist, we just used it in the compiler. Throw unchecked.
-        throw new UncheckedIOException(e);
       }
     }
 
@@ -419,8 +491,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
       JCTree vartype = varDecl.vartype;
       JCCompilationUnit unit = (JCCompilationUnit) getCurrentPath().getCompilationUnit();
-      if (vartype.pos == Position.NOPOS
-          || vartype.getEndPosition(unit.endPositions) == Position.NOPOS) {
+      if (vartype.pos == Position.NOPOS || getEndPosition(vartype, unit) == Position.NOPOS) {
         return true;
       }
       return false;
@@ -650,6 +721,27 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     return target;
   }
 
+  /**
+   * Normalizes a target label for comparison by stripping any repository name prefix (i.e.
+   * returning the part starting with "//") and canonicalizing the target label format (e.g.,
+   * removing the target name if it matches the package name). This ensures that labels from
+   * different repository contexts or formatting styles can be compared correctly during unused
+   * dependency checking.
+   *
+   * @param label the target label to normalize, which may include a repository name prefix
+   * @return the normalized label, or an empty string if the label is null
+   */
+  static String normalizeLabelForComparison(String label) {
+    if (label == null) {
+      return "";
+    }
+    int doubleSlashIndex = label.indexOf("//");
+    if (doubleSlashIndex != -1) {
+      label = label.substring(doubleSlashIndex);
+    }
+    return canonicalizeTarget(label);
+  }
+
   /** Returns true if the given classSymbol corresponds to one of the sources being compiled. */
   private static boolean haveSourceForSymbol(ClassSymbol classSymbol) {
     if (classSymbol.sourcefile == null) {
@@ -724,4 +816,44 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private static final JarOwner JSPECIFY_JAR_OWNER =
       JarOwner.create(
           EMPTY_PATH, "//third_party/java/jspecify_annotations", /* aspect= */ Optional.empty());
+
+  /** Returns the source end position of the tree. */
+  private static int getEndPosition(Tree tree, CompilationUnitTree unit) {
+    try {
+      return (int) GET_END_POS_HANDLE.invokeExact((JCTree) tree, (JCCompilationUnit) unit);
+    } catch (Throwable e) {
+      Throwables.throwIfUnchecked(e);
+      throw new AssertionError(e);
+    }
+  }
+
+  private static final MethodHandle GET_END_POS_HANDLE = getEndPosMethodHandle();
+
+  private static MethodHandle getEndPosMethodHandle() {
+    MethodHandles.Lookup lookup = MethodHandles.lookup();
+    try {
+      // JDK versions after https://bugs.openjdk.org/browse/JDK-8372948
+      // (tree, unit) -> tree.getEndPosition()
+      return MethodHandles.dropArguments(
+          lookup.findVirtual(JCTree.class, "getEndPosition", MethodType.methodType(int.class)),
+          1,
+          JCCompilationUnit.class);
+    } catch (ReflectiveOperationException e1) {
+      try {
+        // JDK versions before https://bugs.openjdk.org/browse/JDK-8372948
+        // (tree, unit) -> tree.getEndPosition(unit.endPositions)
+        Class<?> endPosTableClass = Class.forName("com.sun.tools.javac.tree.EndPosTable");
+        return MethodHandles.filterArguments(
+            lookup.findVirtual(
+                JCTree.class, "getEndPosition", MethodType.methodType(int.class, endPosTableClass)),
+            1,
+            lookup
+                .findVarHandle(JCCompilationUnit.class, "endPositions", endPosTableClass)
+                .toMethodHandle(VarHandle.AccessMode.GET));
+      } catch (ReflectiveOperationException e2) {
+        e2.addSuppressed(e1);
+        throw new LinkageError(e2.getMessage(), e2);
+      }
+    }
+  }
 }

@@ -34,8 +34,10 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -124,8 +126,8 @@ public class StandaloneTestStrategy extends TestStrategy {
     executionInfo.put(
         ExecutionRequirements.TIMEOUT, Long.toString(action.getTimeout().toSeconds()));
 
-    SimpleSpawn.LocalResourcesSupplier localResourcesSupplier =
-        () ->
+    ResourceSetOrBuilder localResources =
+        (os, inputsSize) ->
             action
                 .getTestProperties()
                 .getLocalResourceUsage(
@@ -137,11 +139,11 @@ public class StandaloneTestStrategy extends TestStrategy {
             getArgs(action),
             ImmutableMap.copyOf(testEnvironment),
             ImmutableMap.copyOf(executionInfo),
-            /* inputs= */ action.getInputs(),
+            SpawnInputs.of(action.getInputs()),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
             /* mandatoryOutputs= */ ImmutableSet.of(),
-            localResourcesSupplier);
+            localResources);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
     Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
@@ -318,7 +320,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Path err = resolvedPaths.getTestStderr();
     FileOutErr testOutErr = new FileOutErr(out, err);
     Closeable streamed = null;
-    if (executionOptions.testOutput.equals(ExecutionOptions.TestOutputFormat.STREAMED)) {
+    if (executionOptions.getTestOutput().equals(ExecutionOptions.TestOutputFormat.STREAMED)) {
       streamed =
           createStreamedTestOutput(
               Reporter.outErrForReporter(actionExecutionContext.getEventHandler()), out);
@@ -345,7 +347,7 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   private static void writeOutFile(Path inFilePath, Path outFilePath) throws IOException {
-    FileStatus stat = inFilePath.statNullable();
+    FileStatus stat = inFilePath.statIfFound();
     if (stat != null) {
       try {
         if (stat.getSize() > 0) {
@@ -474,15 +476,21 @@ public class StandaloneTestStrategy extends TestStrategy {
         action,
         args,
         envBuilder.buildOrThrow(),
-        // Pass the execution info of the action which is identical to the supported tags set on the
-        // test target. In particular, this does not set the test timeout on the spawn.
+        // Pass the execution info of the action which is identical to the supported tags set on
+        // the test target. In particular, this does not set the test timeout on the spawn.
         action.getExecutionInfo(),
-        /* inputs= */ NestedSetBuilder.create(
-            Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
+        SpawnInputs.of(
+            NestedSetBuilder.create(
+                Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog())),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
-        SpawnAction.DEFAULT_RESOURCE_SET);
+        // The resources are fixed because the execution info above carries the test target's
+        // `resources:` tags (and, via TestTargetProperties, its exec_properties), which
+        // describe the test process, not this script. Letting them override the default would
+        // make a log-to-XML conversion book the whole test's CPU/memory/custom resources and
+        // queue behind unrelated actions.
+        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET));
   }
 
   private static Spawn createCoveragePostProcessingSpawn(
@@ -512,15 +520,18 @@ public class StandaloneTestStrategy extends TestStrategy {
         args,
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),
-        /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
-            .addTransitive(action.getInputs())
-            .addAll(expandedCoverageDir)
-            .add(action.getCoverageManifest())
-            .build(),
+        SpawnInputs.of(
+            action.getInputs(),
+            ImmutableList.<ActionInput>builderWithExpectedSize(expandedCoverageDir.size() + 1)
+                .addAll(expandedCoverageDir)
+                .add(action.getCoverageManifest())
+                .build()),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getCoverageData()),
         /* mandatoryOutputs= */ null,
-        SpawnAction.DEFAULT_RESOURCE_SET);
+        // As in createXmlGeneratingSpawn: the test target's `resources:` entries describe the
+        // test process, not this post-processing step.
+        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET));
   }
 
   private static Map<String, String> createEnvironment(
@@ -575,7 +586,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     @Override
     public TestAttemptResult execute() throws InterruptedException, IOException, ExecException {
-      prepareFileSystem(testAction, execRoot, tmpDir);
+      prepareFileSystem(testAction, execRoot, tmpDir, actionExecutionContext);
       return beginTestAttempt(testAction, spawn, actionExecutionContext, execRoot);
     }
 
@@ -614,6 +625,12 @@ public class StandaloneTestStrategy extends TestStrategy {
               .setExecutionInfo(ExecutionInfo.getDefaultInstance())
               .build();
       finalizeTest(standaloneTestResult, failedAttempts);
+    }
+
+    @Override
+    public TestRunnerSpawn getFlakyRetryRunner(List<SpawnResult> previousAttemptResults)
+        throws ExecException, InterruptedException {
+      return createTestRunnerSpawn(testAction, actionExecutionContext);
     }
   }
 
@@ -699,23 +716,23 @@ public class StandaloneTestStrategy extends TestStrategy {
     // Do not override a more informative test failure with a generic failure due to the missing
     // shard file, which may have been caused by the test failing before the runner had a chance to
     // touch the file
-    if (testResultDataBuilder.getTestPassed() && testAction.isSharded()) {
-      if (testAction.checkShardingSupport()
-          && !actionExecutionContext
-              .getPathResolver()
-              .convertPath(resolvedPaths.getTestShard())
-              .exists()) {
-        TestExecException e =
-            createTestExecException(
-                TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
-                "Sharding requested, but the test runner did not advertise support for it by "
-                    + "touching TEST_SHARD_STATUS_FILE. Either remove the 'shard_count' attribute, "
-                    + "use a test runner that supports sharding or temporarily disable this check "
-                    + "via --noincompatible_check_sharding_support.");
-        closeSuppressed(e, streamed);
-        closeSuppressed(e, fileOutErr);
-        throw e;
-      }
+    if (testResultDataBuilder.getTestPassed()
+        && testAction.isSharded()
+        && !actionExecutionContext
+            .getPathResolver()
+            .convertPath(resolvedPaths.getTestShard())
+            .exists()) {
+      TestExecException e =
+          createTestExecException(
+              TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
+              """
+              Sharding requested, but the test runner did not advertise support for it by touching \
+              TEST_SHARD_STATUS_FILE. Either remove the 'shard_count' attribute or use a test \
+              runner that supports sharding.\
+              """);
+      closeSuppressed(e, streamed);
+      closeSuppressed(e, fileOutErr);
+      throw e;
     }
 
     // SpawnActionContext guarantees the first entry to correspond to the spawn passed in (there
@@ -736,81 +753,93 @@ public class StandaloneTestStrategy extends TestStrategy {
         .setHasCoverage(testAction.isCoverageMode());
 
     if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
-      if (testAction.getCoverageDirectoryTreeArtifact() == null) {
-        // Otherwise we'll get a NPE https://github.com/bazelbuild/bazel/issues/13185
-        TestExecException e =
-            createTestExecException(
-                TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
-                "coverageDirectoryTreeArtifact is null:"
-                    + " --experimental_split_coverage_postprocessing depends on"
-                    + " --experimental_fetch_all_coverage_outputs being enabled");
-        closeSuppressed(e, streamed);
-        closeSuppressed(e, fileOutErr);
-        throw e;
-      }
-      var unused =
-          actionExecutionContext
-              .getOutputMetadataStore()
-              .getOutputMetadata(testAction.getCoverageDirectoryTreeArtifact());
-
-      ImmutableSortedSet<TreeFileArtifact> expandedCoverageDir =
-          actionExecutionContext
-              .getOutputMetadataStore()
-              .getTreeArtifactValue((SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact())
-              .getChildren();
-      ImmutableSet<Artifact> coverageSpawnMetadata =
-          ImmutableSet.<Artifact>builder()
-              .addAll(expandedCoverageDir)
-              .add(testAction.getCoverageDirectoryTreeArtifact())
-              .build();
-
-      Spawn coveragePostProcessingSpawn =
-          createCoveragePostProcessingSpawn(
-              actionExecutionContext,
-              testAction,
-              ImmutableList.copyOf(expandedCoverageDir),
-              tmpDirRoot);
-      SpawnStrategyResolver spawnStrategyResolver =
-          actionExecutionContext.getContext(SpawnStrategyResolver.class);
-
-      Path testRoot =
-          actionExecutionContext.getInputPath(testAction.getTestLog()).getParentDirectory();
-
-      Path out = testRoot.getChild("coverage.log");
-      Path err = testRoot.getChild("coverage.err");
-      FileOutErr coverageOutErr = new FileOutErr(out, err);
-      ActionExecutionContext coverageActionExecutionContext =
-          actionExecutionContext
-              .withFileOutErr(coverageOutErr)
-              .withOutputsAsInputs(coverageSpawnMetadata);
-
-      try {
-        spawnStrategyResolver.exec(coveragePostProcessingSpawn, coverageActionExecutionContext);
-      } catch (SpawnExecException e) {
-        if (e.isCatastrophic()) {
+      if (testResultDataBuilder.getTestPassed()) {
+        if (testAction.getCoverageDirectoryTreeArtifact() == null) {
+          // Otherwise we'll get a NPE https://github.com/bazelbuild/bazel/issues/13185
+          TestExecException e =
+              createTestExecException(
+                  TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
+                  "coverageDirectoryTreeArtifact is null:"
+                      + " --experimental_split_coverage_postprocessing depends on"
+                      + " --experimental_fetch_all_coverage_outputs being enabled");
           closeSuppressed(e, streamed);
           closeSuppressed(e, fileOutErr);
           throw e;
         }
-        if (!e.getSpawnResult().setupSuccess()) {
+        var unused =
+            actionExecutionContext
+                .getOutputMetadataStore()
+                .getOutputMetadata(testAction.getCoverageDirectoryTreeArtifact());
+
+        ImmutableSortedSet<TreeFileArtifact> expandedCoverageDir =
+            actionExecutionContext
+                .getOutputMetadataStore()
+                .getTreeArtifactValue(
+                    (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact())
+                .getChildren();
+        ImmutableSet<Artifact> coverageSpawnMetadata =
+            ImmutableSet.<Artifact>builder()
+                .addAll(expandedCoverageDir)
+                .add(testAction.getCoverageDirectoryTreeArtifact())
+                .build();
+
+        Spawn coveragePostProcessingSpawn =
+            createCoveragePostProcessingSpawn(
+                actionExecutionContext,
+                testAction,
+                ImmutableList.copyOf(expandedCoverageDir),
+                tmpDirRoot);
+        SpawnStrategyResolver spawnStrategyResolver =
+            actionExecutionContext.getContext(SpawnStrategyResolver.class);
+
+        Path testRoot =
+            actionExecutionContext.getInputPath(testAction.getTestLog()).getParentDirectory();
+
+        Path out = testRoot.getChild("coverage.log");
+        Path err = testRoot.getChild("coverage.err");
+        FileOutErr coverageOutErr = new FileOutErr(out, err);
+        ActionExecutionContext coverageActionExecutionContext =
+            actionExecutionContext
+                .withFileOutErr(coverageOutErr)
+                .withOutputsAsInputs(coverageSpawnMetadata);
+
+        try {
+          spawnStrategyResolver.exec(coveragePostProcessingSpawn, coverageActionExecutionContext);
+        } catch (SpawnExecException e) {
+          if (e.isCatastrophic()) {
+            closeSuppressed(e, streamed);
+            closeSuppressed(e, fileOutErr);
+            closeSuppressed(e, coverageOutErr);
+            throw e;
+          }
+          if (!e.getSpawnResult().setupSuccess()) {
+            closeSuppressed(e, streamed);
+            closeSuppressed(e, fileOutErr);
+            closeSuppressed(e, coverageOutErr);
+            // Rethrow as the test could not be run and thus there's no point in retrying.
+            throw e;
+          }
+          testResultDataBuilder
+              .setCachable(e.getSpawnResult().status().isConsideredUserError())
+              .setTestPassed(false)
+              .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
+        } catch (ExecException | InterruptedException e) {
           closeSuppressed(e, streamed);
           closeSuppressed(e, fileOutErr);
-          // Rethrow as the test could not be run and thus there's no point in retrying.
+          closeSuppressed(e, coverageOutErr);
           throw e;
         }
-        testResultDataBuilder
-            .setCachable(e.getSpawnResult().status().isConsideredUserError())
-            .setTestPassed(false)
-            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
-      } catch (ExecException | InterruptedException e) {
-        closeSuppressed(e, streamed);
-        closeSuppressed(e, fileOutErr);
-        throw e;
-      }
 
-      // Append all output from the coverage spawn to the test log.
-      writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
-      appendCoverageLog(coverageOutErr, fileOutErr);
+        // Append all output from the coverage spawn to the test log.
+        coverageOutErr.close();
+        appendCoverageLog(coverageOutErr, fileOutErr);
+      } else {
+        Artifact coverageData = testAction.getCoverageData();
+        if (coverageData != null) {
+          FileSystemUtils.touchFile(
+              actionExecutionContext.getPathResolver().convertPath(coverageData.getPath()));
+        }
+      }
     }
 
     Verify.verify(

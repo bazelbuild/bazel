@@ -53,7 +53,7 @@ public record CompiledModuleFile(
     ImmutableList<IncludeStatement> includeStatements) {
   public static final String INCLUDE_IDENTIFIER = "include";
 
-  record IncludeStatement(String includeLabel, Location location) {}
+  record IncludeStatement(String includeLabel, boolean devDependency, Location location) {}
 
   /** Parses and compiles a given module file, checking it for syntax errors. */
   public static CompiledModuleFile parseAndCompile(
@@ -120,17 +120,28 @@ public record CompiledModuleFile(
           && call.getFunction() instanceof Identifier id
           && id.getName().equals(INCLUDE_IDENTIFIER)) {
         // Found a top-level call to `include`!
-        if (call.getArguments().size() == 1
+        if (!call.getArguments().isEmpty()
             && call.getArguments().getFirst() instanceof Argument.Positional pos
-            && pos.getValue() instanceof StringLiteral str) {
-          includeStatements.add(new IncludeStatement(str.getValue(), call.getStartLocation()));
+            && pos.getValue() instanceof StringLiteral str
+            && (call.getArguments().size() == 1
+                || (call.getArguments().size() == 2
+                    && call.getArguments().get(1) instanceof Argument.Keyword keyword
+                    && keyword.getName().equals("dev_dependency")
+                    && keyword.getValue() instanceof Identifier devDependency
+                    && (devDependency.getName().equals("True")
+                        || devDependency.getName().equals("False"))))) {
+          boolean devDependency =
+              call.getArguments().size() == 2
+                  && ((Identifier) call.getArguments().get(1).getValue()).getName().equals("True");
+          includeStatements.add(
+              new IncludeStatement(str.getValue(), devDependency, call.getStartLocation()));
           // Nothing else to check, we can stop visiting sub-nodes now.
           return;
         }
         error(
             node.getStartLocation(),
-            "the `include` directive MUST be called with exactly one positional argument that "
-                + "is a string literal");
+            "the `include` directive MUST be called with one positional string literal argument "
+                + "and, optionally, `dev_dependency` as a boolean literal");
         return;
       }
       super.visit(node);
@@ -168,8 +179,9 @@ public record CompiledModuleFile(
    * Checks the given `starlarkFile` for module file syntax, and returns the list of `include`
    * statements it contains. This is a somewhat crude sweep over the AST; we loudly complain about
    * any usage of `include` that is not in a top-level function call statement with one single
-   * string literal positional argument, *except* that we don't do this check once `include` is
-   * assigned to, due to backwards compatibility concerns.
+   * string literal positional argument and an optional boolean literal {@code dev_dependency}
+   * keyword argument, *except* that we don't do this check once `include` is assigned to, due to
+   * backwards compatibility concerns.
    */
   @VisibleForTesting
   static ImmutableList<IncludeStatement> checkModuleFileSyntax(StarlarkFile starlarkFile)

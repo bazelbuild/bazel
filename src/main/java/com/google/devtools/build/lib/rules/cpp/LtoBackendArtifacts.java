@@ -244,6 +244,6 @@ public final class LtoBackendArtifacts {
         outputs,
         env);
   }
-  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/lto_backends.bzl:lto_backends)
+  // LINT.ThenChange(@rules_cc//cc/private/link/lto_backends.bzl:lto_backends)
 
 }

@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -238,7 +237,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final DiscoveredModulesPruner discoveredModulesPruner;
   private final SyscallCache syscallCache;
   private final ThreadStateReceiver threadStateReceiverForMetrics;
-  private final boolean fileSystemSupportsInputDiscovery;
+  private final boolean bustCaches;
 
   private ActionExecutionContext(
       Executor executor,
@@ -256,7 +255,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics,
-      boolean fileSystemSupportsInputDiscovery) {
+      boolean bustCaches) {
     this.inputMetadataProvider = inputMetadataProvider;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
@@ -275,7 +274,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         executor == null ? null : executor.getExecRoot());
     this.discoveredModulesPruner = discoveredModulesPruner;
     this.syscallCache = syscallCache;
-    this.fileSystemSupportsInputDiscovery = fileSystemSupportsInputDiscovery;
+    this.bustCaches = bustCaches;
   }
 
   public ActionExecutionContext(
@@ -309,7 +308,42 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        /* fileSystemSupportsInputDiscovery= */ false);
+        /* bustCaches= */ false);
+  }
+
+  public ActionExecutionContext(
+      Executor executor,
+      InputMetadataProvider inputMetadataProvider,
+      ActionInputPrefetcher actionInputPrefetcher,
+      ActionKeyContext actionKeyContext,
+      OutputMetadataStore outputMetadataStore,
+      boolean rewindingEnabled,
+      LostInputsCheck lostInputsCheck,
+      FileOutErr fileOutErr,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      @Nullable FileSystem actionFileSystem,
+      DiscoveredModulesPruner discoveredModulesPruner,
+      SyscallCache syscallCache,
+      ThreadStateReceiver threadStateReceiverForMetrics,
+      boolean bustCaches) {
+    this(
+        executor,
+        inputMetadataProvider,
+        actionInputPrefetcher,
+        actionKeyContext,
+        outputMetadataStore,
+        rewindingEnabled,
+        lostInputsCheck,
+        fileOutErr,
+        eventHandler,
+        clientEnv,
+        /* env= */ null,
+        actionFileSystem,
+        discoveredModulesPruner,
+        syscallCache,
+        threadStateReceiverForMetrics,
+        bustCaches);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -326,8 +360,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscalls,
-      ThreadStateReceiver threadStateReceiverForMetrics,
-      boolean fileSystemSupportsInputDiscovery) {
+      ThreadStateReceiver threadStateReceiverForMetrics) {
     return new ActionExecutionContext(
         executor,
         actionInputFileCache,
@@ -344,7 +377,11 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics,
-        fileSystemSupportsInputDiscovery);
+        /* bustCaches= */ false);
+  }
+
+  public boolean bustCaches() {
+    return bustCaches;
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -375,10 +412,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable
   public FileSystem getActionFileSystem() {
     return actionFileSystem;
-  }
-
-  public boolean fileSystemSupportsInputDiscovery() {
-    return fileSystemSupportsInputDiscovery;
   }
 
   public boolean isRewindingEnabled() {
@@ -488,7 +521,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         CommandFailureUtils.describeCommand(
             CommandDescriptionForm.COMPLETE,
             showSubcommands.prettyPrintArgs,
-            spawn.getArguments(),
+            executor.expandsParamFiles()
+                ? spawn.getArgumentsWithExpandedParamFiles()
+                : spawn.getArguments(),
             spawn.getEnvironment(),
             /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),
@@ -536,7 +571,14 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   @Override
   public void close() throws IOException {
-    fileOutErr.close();
+    // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
+    try {
+      fileOutErr.close();
+    } finally {
+      if (actionFileSystem instanceof Closeable closeable) {
+        closeable.close();
+      }
+    }
   }
 
   private ActionExecutionContext withInputMetadataProvider(
@@ -557,7 +599,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        fileSystemSupportsInputDiscovery);
+        bustCaches);
   }
 
   /**
@@ -611,7 +653,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        fileSystemSupportsInputDiscovery);
+        bustCaches);
   }
 
   /**

@@ -50,9 +50,10 @@ The first three events provide information about how Bazel was invoked.
 The `PatternExpanded` build event provides insight
 into which specific targets the `...` pattern expanded to:
 `//foo:foo_lib` and `//foo:foo_test`. It does so by declaring two
-`TargetConfigured` events as children. Note that the `TargetConfigured` event
-declares the `Configuration` event as a child event, even though `Configuration`
-has been posted before the `TargetConfigured` event.
+`TargetConfigured` events as children. Each `TargetConfigured` event then
+declares the corresponding `TargetComplete` event as a child. Target configurations
+(`Configuration`) are posted during analysis and dynamically announced by
+intervening `Progress` events.
 
 Besides the parent and child relationship, events may also refer to each other
 using their build event identifiers. For example, in the above graph the
@@ -100,7 +101,7 @@ built.
 }
 ```
 
-## Aspect Results in BEP
+## Aspect Results in BEP {#aspect-results}
 
 Ordinary builds evaluate actions associated with `(target, configuration)`
 pairs. When building with [aspects](/extending/aspects) enabled, Bazel
@@ -142,7 +143,7 @@ Note: The only difference between the IDs is the presence of the `aspect`
 field. A tool that does not check the `aspect` ID field and accumulates output
 files by target may conflate target outputs with aspect outputs.
 
-## Consuming `NamedSetOfFiles`
+## Consuming `NamedSetOfFiles` {#consuming-namedsetoffiles}
 
 Determining the artifacts produced by a given target (or aspect) is a common
 BEP use-case that can be done efficiently with some preparation. This section

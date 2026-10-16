@@ -32,13 +32,14 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.lib.json.Json;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 
 /** Script-based tests of Starlark evaluator. */
+@StarlarkLibrary
 public final class ScriptTest {
 
   // Tests for Starlark.
@@ -100,12 +101,16 @@ public final class ScriptTest {
         reportErrorf(
             thread,
             "assert_eq: %s (%s) != %s (%s)",
-            Starlark.repr(x),
+            Starlark.repr(x, StarlarkSemantics.DEFAULT),
             HexFormat.of().formatHex(xStr.getBytes(encoding)),
-            Starlark.repr(y),
+            Starlark.repr(y, StarlarkSemantics.DEFAULT),
             HexFormat.of().formatHex(yStr.getBytes(encoding)));
       } else {
-        reportErrorf(thread, "assert_eq: %s != %s", Starlark.repr(x), Starlark.repr(y));
+        reportErrorf(
+            thread,
+            "assert_eq: %s != %s",
+            Starlark.repr(x, StarlarkSemantics.DEFAULT),
+            Starlark.repr(y, StarlarkSemantics.DEFAULT));
       }
     }
     return Starlark.NONE;
@@ -263,7 +268,7 @@ public final class ScriptTest {
         try (Mutability mu = Mutability.createAllowingShallowFreeze("test")) {
           StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
           thread.setThreadLocal(Reporter.class, ScriptTest::reportError);
-          Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+          Starlark.execFile(input, module, thread);
 
         } catch (SyntaxError.Exception ex) {
           // parser/resolver errors
@@ -377,14 +382,14 @@ public final class ScriptTest {
     }
 
     @Override
-    public void repr(Printer p) {
+    public void repr(Printer p, StarlarkSemantics semantics) {
       // This repr function prints only the fields.
       // Any methods are still accessible through dir/getattr/hasattr.
       p.append(Starlark.type(this));
       p.append("(");
       String sep = "";
       for (Map.Entry<String, Object> e : fields.entrySet()) {
-        p.append(sep).append(e.getKey()).append(" = ").repr(e.getValue());
+        p.append(sep).append(e.getKey()).append(" = ").repr(e.getValue(), semantics);
         sep = ", ";
       }
       p.append(")");

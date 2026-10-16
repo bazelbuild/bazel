@@ -17,6 +17,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sstream>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/util/exit_code.h"

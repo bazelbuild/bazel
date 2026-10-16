@@ -18,12 +18,12 @@
 
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/zlib_client.h"
-#include <zlib.h>
+#include <zlib.h>  // TODO: b/459821432 - migrate to rust zlib when OOM issue is resolved
 
 namespace devtools_ijar {
 
 u4 ComputeCrcChecksum(u1 *buf, size_t length) {
-  return crc32(0, buf, length);
+  return crc32_z(0, buf, length);
 }
 
 size_t TryDeflate(u1 *buf, size_t length) {

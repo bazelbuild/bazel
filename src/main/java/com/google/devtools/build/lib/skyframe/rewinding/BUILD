@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__"],
 )
 
 java_library(
@@ -21,15 +21,6 @@ java_library(
 )
 
 java_library(
-    name = "lost_input_owners",
-    srcs = ["LostInputOwners.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "rewinding",
     srcs = [
         "ActionRewindException.java",
@@ -38,8 +29,8 @@ java_library(
     ],
     deps = [
         ":action_rewound_event",
-        ":lost_input_owners",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
@@ -50,6 +41,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/profiler:auto_profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common:lost_inputs_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_function",
@@ -61,9 +53,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:graph",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -77,9 +72,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:graph_inconsistency_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -104,23 +100,21 @@ java_library(
     testonly = True,
     srcs = ["LostImportantOutputHandlerModule.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_input_owners",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:error_prone_annotations",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/truth",
     ],
 )

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -59,7 +58,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
         "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0', '<5.1.4'])");
     invalidatePackages(false);
 
-    embedBazelVersion("5.1.4");
+    setBlazeVersion("5.1.4");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -82,7 +81,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
                 BazelCompatibilityMode.WARNING)));
     invalidatePackages(false);
 
-    embedBazelVersion("5.1.4");
+    setBlazeVersion("5.1.4");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -105,7 +104,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
                 BazelCompatibilityMode.OFF)));
     invalidatePackages(false);
 
-    embedBazelVersion("5.1.4");
+    setBlazeVersion("5.1.4");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -120,7 +119,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
   public void testBazelCompatibilitySuccess() throws Exception {
     setupModulesForCompatibility();
 
-    embedBazelVersion("5.1.4-pre.20220421.3");
+    setBlazeVersion("5.1.4-pre.20220421.3");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -131,7 +130,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
   public void testBazelCompatibilityFailure() throws Exception {
     setupModulesForCompatibility();
 
-    embedBazelVersion("5.1.5rc444");
+    setBlazeVersion("5.1.5rc444");
     reporter.removeHandler(failFastHandler);
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
@@ -149,7 +148,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
         "MODULE.bazel", "module(name='mod', version='1.0', bazel_compatibility=['>=6.4.0'])");
     invalidatePackages(false);
 
-    embedBazelVersion("6.4.0rc1");
+    setBlazeVersion("6.4.0rc1");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -164,7 +163,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
         "MODULE.bazel", "module(name='mod', version='1.0', bazel_compatibility=['>=6.4.0'])");
     invalidatePackages(false);
 
-    embedBazelVersion("6.4.0-pre-1");
+    setBlazeVersion("6.4.0-pre-1");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -175,19 +174,8 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
             + " [>=6.4.0])");
   }
 
-  private void embedBazelVersion(String version) {
-    // Double-get version-info to determine if it's the cached instance or not, and if not cache it.
-    BlazeVersionInfo blazeInfo1 = BlazeVersionInfo.instance();
-    BlazeVersionInfo blazeInfo2 = BlazeVersionInfo.instance();
-    if (blazeInfo1 != blazeInfo2) {
-      BlazeVersionInfo.setBuildInfo(ImmutableMap.of());
-      blazeInfo1 = BlazeVersionInfo.instance();
-    }
-
-    // embed new version
-    Map<String, String> blazeInfo = blazeInfo1.getBuildData();
-    blazeInfo.remove(BlazeVersionInfo.BUILD_LABEL);
-    blazeInfo.put(BlazeVersionInfo.BUILD_LABEL, version);
+  private void setBlazeVersion(String version) {
+    BlazeVersionInfo.setBuildInfoForTesting(ImmutableMap.of(BlazeVersionInfo.BUILD_LABEL, version));
   }
 
   private void setupModulesForCompatibility() throws Exception {
@@ -347,12 +335,12 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
         .addModule(createModuleKey("c", "1.1"), "module(name='c', version='1.1')")
         .addModule(
             createModuleKey("b", "1.0"),
-            "module(name='b', version='1.0', compatibility_level = 2)",
+            "module(name='b', version='1.0')",
             "bazel_dep(name='c', version='1.1')",
             "print('hello from b@1.0')")
         .addModule(
             createModuleKey("b", "1.1"),
-            "module(name='b', version='1.1', compatibility_level = 3)",
+            "module(name='b', version='1.1')",
             "bazel_dep(name='c', version='1.0')",
             "print('hello from b@1.1')");
     invalidatePackages(false);
@@ -496,79 +484,6 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
     assertThat(depGraph).doesNotContainKey(createModuleKey("d", "1.1"));
     assertThat(depGraph.get(createModuleKey("b", "1.0")).getDeps().get("d").version())
         .isEqualTo(Version.parse("1.0"));
-    assertThat(depGraph.get(createModuleKey("c", "1.0")).getDeps()).doesNotContainKey("d");
-  }
-
-  @Test
-  public void nodep_crossesCompatLevelBoundary() throws Exception {
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        """
-        bazel_dep(name='b',version='1.0')
-        bazel_dep(name='c',version='1.0')
-        """);
-
-    registry
-        .addModule(
-            createModuleKey("b", "1.0"),
-            "module(name='b', version='1.0')",
-            "bazel_dep(name='d', version='1.0')")
-        .addModule(
-            createModuleKey("c", "1.0"),
-            "module(name='c', version='1.0')",
-            "bazel_dep(name='d',version='2.0',repo_name=None)")
-        .addModule(createModuleKey("d", "1.0"), "module(name='d', version='1.0')")
-        .addModule(
-            createModuleKey("d", "2.0"), "module(name='d', version='2.0', compatibility_level=2)");
-    reporter.removeHandler(failFastHandler);
-    invalidatePackages(false);
-
-    EvaluationResult<BazelModuleResolutionValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
-
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException())
-        .hasMessageThat()
-        .isEqualTo(
-            "c@1.0 depends on d@2.0 with compatibility level 2, but b@1.0 depends on d@1.0 with"
-                + " compatibility level 0 which is different");
-  }
-
-  @Test
-  public void nodep_crossesCompatLevelBoundary_butWithMaxCompatibilityLevel() throws Exception {
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        """
-        bazel_dep(name='b',version='1.0')
-        bazel_dep(name='c',version='1.0')
-        """);
-
-    registry
-        .addModule(
-            createModuleKey("b", "1.0"),
-            "module(name='b', version='1.0')",
-            "bazel_dep(name='d', version='1.0', max_compatibility_level=2)")
-        .addModule(
-            createModuleKey("c", "1.0"),
-            "module(name='c', version='1.0')",
-            "bazel_dep(name='d',version='2.0',repo_name=None)")
-        .addModule(createModuleKey("d", "1.0"), "module(name='d', version='1.0')")
-        .addModule(
-            createModuleKey("d", "2.0"), "module(name='d', version='2.0', compatibility_level=2)");
-    invalidatePackages(false);
-
-    EvaluationResult<BazelModuleResolutionValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
-
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    var depGraph = result.get(BazelModuleResolutionValue.KEY).getResolvedDepGraph();
-    assertThat(depGraph).doesNotContainKey(createModuleKey("d", "1.0"));
-    assertThat(depGraph.get(createModuleKey("b", "1.0")).getDeps().get("d").version())
-        .isEqualTo(Version.parse("2.0"));
     assertThat(depGraph.get(createModuleKey("c", "1.0")).getDeps()).doesNotContainKey("d");
   }
 }

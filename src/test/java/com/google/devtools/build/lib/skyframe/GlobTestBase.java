@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -133,10 +132,7 @@ public abstract class GlobTestBase {
         new AtomicReference<>(ImmutableSet.of());
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(root, root, root),
-            root,
-            /* defaultSystemJavabase= */ null,
-            TestConstants.PRODUCT_NAME);
+            new ServerDirectories(root, root, root), root, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(
             pkgLocator,
@@ -902,6 +898,17 @@ public abstract class GlobTestBase {
           }
         });
 
+    RootedPath inconsistentDirRootedPath =
+        RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("inconsistent"));
+    SkyValue dirListingValue =
+        DirectoryListingStateValue.create(
+            ImmutableList.of(
+                new Dirent("good", Dirent.Type.SYMLINK), new Dirent("bad", Dirent.Type.SYMLINK)));
+    differencer.inject(
+        ImmutableMap.of(
+            DirectoryListingStateValue.key(inconsistentDirRootedPath),
+            Delta.justNew(dirListingValue)));
+
     SkyKey skyKey = createdGlobRelatedSkyKey("inconsistent/*", Globber.Operation.FILES_AND_DIRS);
     EvaluationResult<GlobValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
@@ -938,7 +945,7 @@ public abstract class GlobTestBase {
   }
 
   static final class CustomInMemoryFs extends InMemoryFileSystem {
-    private final Map<PathFragment, FileStatus> stubbedStats = Maps.newHashMap();
+    private final Map<PathFragment, FileStatus> stubbedStats = new HashMap<>();
 
     CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);

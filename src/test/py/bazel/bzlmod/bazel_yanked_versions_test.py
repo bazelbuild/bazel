@@ -277,6 +277,44 @@ class BazelYankedVersionsTest(test_base.TestBase):
         env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked2@1.0'},
     )
 
+  def testDowngradedDepWithStaleLockfileReportsMissingChecksum(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.1")',
+            # Keep aaa@1.0's MODULE.bazel in the lockfile without selecting it.
+            'bazel_dep(name = "bbb", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name="hello")'])
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "bbb", version = "1.0")',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '--lockfile_mode=error', '//:all'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 32, stderr)
+    self.assertIn(
+        'Missing checksum for registry file '
+        + self.main_registry.getURL()
+        + '/modules/aaa/1.0/source.json not permitted with'
+        ' --lockfile_mode=error. Please run'
+        ' `bazel mod deps --lockfile_mode=update` to update your lockfile.',
+        ''.join(stderr),
+    )
+    self.assertNotIn(
+        'Cannot fetch a file without a checksum in ENFORCE mode.',
+        ''.join(stderr),
+    )
+
   def testYankedVersionsFetchedIncrementally(self):
     self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile(

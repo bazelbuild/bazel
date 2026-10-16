@@ -113,6 +113,7 @@ EOF
 #### TESTS #############################################################
 
 function test_dirty_file() {
+  add_rules_python MODULE.bazel
   export DONT_SANITY_CHECK_SERIALIZATION=1
   cat > foo/BUILD <<EOF
 load(":foo.bzl", "foo_library", "foo_binary")

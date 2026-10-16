@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/bazel/repository:__pkg__"],
 )
 
 java_library(
@@ -16,9 +16,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/docgen/annot",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
@@ -38,13 +36,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/remote:lazy_materializer",
         "//src/main/java/com/google/devtools/build/lib/repository:repository_events",
         "//src/main/java/com/google/devtools/build/lib/repository:request_repository_information_event",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
+        "//src/main/java/com/google/devtools/build/lib/runtime:repository_remote_executor",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_tree_digest_value",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -56,12 +55,16 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:error_prone_annotations",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:java-diff-utils",
-        "//third_party:jsr305",
         "//third_party/chicory",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/java_diff_utils",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

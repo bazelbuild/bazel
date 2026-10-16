@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.runtime.OptionsSupplier;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.commands.BuiltinCommandModule;
 import com.google.devtools.build.lib.runtime.commands.RunCommand;
-import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.HashSet;
@@ -76,7 +76,9 @@ abstract class DocumentationTestUtil {
     var startupOptionsClasses = BlazeCommandUtils.getStartupOptions(optionsSuppliers);
     // collect all startup options
     for (Class<? extends OptionsBase> optionsClass : startupOptionsClasses) {
-      validOptions.addAll(Options.getDefaults(optionsClass).asMap().keySet());
+      for (OptionDefinition def : OptionDefinition.getOptionDefinitions(optionsClass)) {
+        validOptions.add(def.getOptionName());
+      }
     }
     validOptions.addAll(extraValidOptions);
 
@@ -96,7 +98,9 @@ abstract class DocumentationTestUtil {
     for (BlazeCommand command : blazeCommands) {
       for (Class<? extends OptionsBase> optionClass :
           BlazeCommandUtils.getOptions(command.getClass(), optionsSuppliers, ruleClassProvider)) {
-        validOptions.addAll(Options.getDefaults(optionClass).asMap().keySet());
+        for (OptionDefinition def : OptionDefinition.getOptionDefinitions(optionClass)) {
+          validOptions.add(def.getOptionName());
+        }
       }
     }
 

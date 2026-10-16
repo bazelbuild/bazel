@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import static com.google.devtools.build.lib.util.OsUtils.executableExtension;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -29,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -41,8 +45,7 @@ public final class IntegrationTestUtils {
   private IntegrationTestUtils() {}
 
   private static final String WORKER_RLOCATIONPATH =
-      "io_bazel/src/tools/remote/worker"
-          + (OS.getCurrent() == OS.WINDOWS ? ".exe" : "");
+      "io_bazel/src/tools/remote/worker" + executableExtension();
 
   /**
    * Manages a remote worker instance as a {@link TestRule}.
@@ -50,8 +53,8 @@ public final class IntegrationTestUtils {
    * <p>Should be kept in a static variable annotated with both {@link org.junit.ClassRule} and
    * {@link org.junit.Rule}.
    */
-  public static WorkerInstance createWorker() {
-    return createWorker(/* useHttp= */ false);
+  public static WorkerInstance createWorker(String... extraArgs) {
+    return createWorker(/* useHttp= */ false, extraArgs);
   }
 
   /**
@@ -60,20 +63,45 @@ public final class IntegrationTestUtils {
    * <p>Should be kept in a static variable annotated with both {@link org.junit.ClassRule} and
    * {@link org.junit.Rule}.
    */
-  public static WorkerInstance createWorker(boolean useHttp) {
+  public static WorkerInstance createWorker(boolean useHttp, String... extraArgs) {
+    return new WorkerInstance(
+        useHttp,
+        newWorkerTmpDir(),
+        /* failureCount= */ 0,
+        /* failureMethod= */ "",
+        ImmutableList.copyOf(extraArgs));
+  }
+
+  /**
+   * Creates a worker that returns {@code UNAVAILABLE} for the first {@code n} {@code
+   * ByteStream.Read} calls made while its failure marker is armed (see {@link
+   * WorkerInstance#armReadFailures}). This injects a transient remote read failure that then heals
+   * on its own — e.g. to trip and then recover the remote failure circuit breaker.
+   *
+   * <p>Should be kept in a static variable annotated with both {@link org.junit.ClassRule} and
+   * {@link org.junit.Rule}.
+   */
+  public static WorkerInstance createFailFirstReadWorker(int n) {
+    return new WorkerInstance(
+        /* useHttp= */ false,
+        newWorkerTmpDir(),
+        /* failureCount= */ n,
+        /* failureMethod= */ "google.bytestream.ByteStream/Read",
+        /* extraArgs= */ ImmutableList.of());
+  }
+
+  private static Path newWorkerTmpDir() {
     // The worker directory must not be a subdirectory of the test temporary directory for two
     // reasons:
     // 1. It should be preserved between individual tests so that the worker can be kept running.
     // 2. Even if that wasn't needed, JUnit runs "after" methods of rules after those of
     //    superclasses, which means that BuildIntegrationtestCase's cleanup method would attempt
     //    to delete the worker directory before the worker is stopped, which fails on Windows.
-    Path workerTmpDir;
     try {
-      workerTmpDir = Files.createTempDirectory(systemTmpDir(), "remote.");
+      return Files.createTempDirectory(systemTmpDir(), "remote.");
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
-    return new WorkerInstance(useHttp, workerTmpDir);
   }
 
   private static Path systemTmpDir() {
@@ -101,17 +129,31 @@ public final class IntegrationTestUtils {
     private final Path stderrPath;
     private final Path workPath;
     private final Path casPath;
+    private final int failureCount;
+    private final String failureMethod;
+    private final Path markerPath;
+    private final ImmutableList<String> extraArgs;
 
     @Nullable private Integer port;
     @Nullable private Subprocess process;
 
-    private WorkerInstance(boolean useHttp, Path dir) {
+    private WorkerInstance(
+        boolean useHttp,
+        Path dir,
+        int failureCount,
+        String failureMethod,
+        ImmutableList<String> extraArgs) {
       this.useHttp = useHttp;
       this.stdPath = dir.resolve("std");
       this.stdoutPath = stdPath.resolve("stdout");
       this.stderrPath = stdPath.resolve("stderr");
       this.workPath = dir.resolve("work_path");
       this.casPath = dir.resolve("cas_path");
+      this.failureCount = failureCount;
+      this.failureMethod = failureMethod;
+      // Sibling of casPath so reset()'s CAS clear does not touch it.
+      this.markerPath = dir.resolve("fail_marker");
+      this.extraArgs = extraArgs;
     }
 
     @Override
@@ -120,11 +162,8 @@ public final class IntegrationTestUtils {
         return new Statement() {
           @Override
           public void evaluate() throws Throwable {
-            start();
-            try {
+            try (var ignored = start()) {
               base.evaluate();
-            } finally {
-              stop();
             }
           }
         };
@@ -144,62 +183,129 @@ public final class IntegrationTestUtils {
       }
     }
 
-    private void start() throws IOException, InterruptedException {
+    public AutoCloseable start() throws IOException, InterruptedException {
       Preconditions.checkState(process == null);
       Preconditions.checkState(port == null);
 
-      ensureMkdir(workPath);
-      ensureMkdir(casPath);
-      ensureMkdir(stdPath);
-      Files.createFile(stdoutPath);
-      Files.createFile(stderrPath);
-      Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-      String workerPath = runfiles.rlocation(WORKER_RLOCATIONPATH);
-      ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
-      env.putAll(System.getenv());
-      env.putAll(runfiles.getEnvVars());
-      port = FreePortFinder.pickUnusedRandomPort();
-      process =
-          new SubprocessBuilder(System.getenv())
-              .setEnv(env.buildKeepingLast())
-              .setStdout(stdoutPath.toFile())
-              .setStderr(stderrPath.toFile())
-              .setArgv(
-                  ImmutableList.of(
+      boolean started = false;
+      try {
+        ensureMkdir(workPath);
+        ensureMkdir(casPath);
+        ensureMkdir(stdPath);
+        Path pidPath = stdPath.resolve("worker.pid");
+        Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+        String workerPath = runfiles.rlocation(WORKER_RLOCATIONPATH);
+        ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
+        env.putAll(System.getenv());
+        env.putAll(runfiles.getEnvVars());
+        var builtEnv = env.buildKeepingLast();
+
+        IOException lastException = null;
+        for (int attempt = 0; attempt < 3; ++attempt) {
+          Files.deleteIfExists(stdoutPath);
+          Files.deleteIfExists(stderrPath);
+          Files.deleteIfExists(pidPath);
+          Files.createFile(stdoutPath);
+          Files.createFile(stderrPath);
+          port = FreePortFinder.pickUnusedRandomPort();
+          ImmutableList.Builder<String> argv =
+              ImmutableList.<String>builder()
+                  .add(
                       workerPath,
                       "--work_path=" + workPath,
                       "--cas_path=" + casPath,
-                      (useHttp ? "--http_listen_port=" : "--listen_port=") + port))
-              .start();
-      waitForPortOpen(process, port);
+                      "--pid_file=" + pidPath);
+          if (useHttp) {
+            argv.add("--listen_port=0", "--http_listen_port=" + port);
+          } else {
+            argv.add("--listen_port=" + port);
+          }
+          if (failureCount > 0) {
+            argv.add("--failure_count=" + failureCount)
+                .add("--failure_method=" + failureMethod)
+                .add("--failure_marker_file=" + markerPath);
+          }
+          argv.addAll(extraArgs);
+          process =
+              new SubprocessBuilder(System.getenv())
+                  .setEnv(builtEnv)
+                  .setStdout(stdoutPath.toFile())
+                  .setStderr(stderrPath.toFile())
+                  .setArgv(argv.build())
+                  .start();
+          try {
+            waitForPortOpen(process, port, pidPath);
+            started = true;
+            return this::stop;
+          } catch (IOException e) {
+            if (lastException != null) {
+              e.addSuppressed(lastException);
+            }
+            lastException = e;
+            process.destroyAndWait();
+            process = null;
+            port = null;
+          } catch (Throwable t) {
+            process.destroyAndWait();
+            process = null;
+            port = null;
+            throw t;
+          }
+        }
+        throw lastException;
+      } finally {
+        if (!started) {
+          deleteTree(stdPath);
+          deleteTree(workPath);
+          deleteTree(casPath);
+        }
+      }
     }
 
-    private void waitForPortOpen(Subprocess process, int port)
+    private void waitForPortOpen(Subprocess process, int port, Path pidPath)
         throws IOException, InterruptedException {
       var addr = new InetSocketAddress("localhost", port);
-      var timeout = new IOException("Timed out while trying to connect to worker");
+      var connectFailures = new ArrayList<IOException>();
       for (var i = 0; i < 20; ++i) {
         if (!process.isAlive()) {
-          throw new IOException(
-              String.format(
-                  "Worker died while trying to connect\n"
-                      + "----- STDOUT -----\n%s\n"
-                      + "----- STDERR -----\n%s\n",
-                  getStdout(), getStderr()));
+          throw workerStartupFailure("Worker died while trying to connect", connectFailures);
         }
 
         try {
+          if (!Files.exists(pidPath) || Files.size(pidPath) == 0) {
+            throw new IOException("Worker pid file not yet written");
+          }
           try (var socketChannel = SocketChannel.open()) {
             socketChannel.configureBlocking(/* block= */ true);
             socketChannel.connect(addr);
           }
           return;
         } catch (IOException e) {
-          timeout.addSuppressed(e);
+          connectFailures.add(e);
           Thread.sleep(1000);
         }
       }
-      throw timeout;
+      throw workerStartupFailure("Timed out while trying to connect to worker", connectFailures);
+    }
+
+    /**
+     * Returns an exception describing a failure to start the worker, including its stdout and
+     * stderr. The output must be captured here because {@link #start} deletes the worker's
+     * directories before the exception reaches the test.
+     */
+    private IOException workerStartupFailure(String reason, List<IOException> connectFailures) {
+      var failure =
+          new IOException(
+              """
+              %s
+              ----- STDOUT -----
+              %s
+              ----- STDERR -----
+              %s
+              """
+                  .formatted(reason, getStdout(), getStderr()));
+      connectFailures.forEach(failure::addSuppressed);
+      return failure;
     }
 
     private void stop() throws IOException {
@@ -213,6 +319,8 @@ public final class IntegrationTestUtils {
     }
 
     public void reset() throws IOException, InterruptedException {
+      // Disarm any injected read failures so the next test starts clean.
+      disarmReadFailures();
       // The DiskCacheClient in the worker expects the CAS subdirectories to exist.
       List<Path> toClear;
       try (var stream = Files.list(casPath)) {
@@ -222,6 +330,20 @@ public final class IntegrationTestUtils {
         deleteTree(path);
         ensureMkdir(path);
       }
+    }
+
+    /**
+     * Arms the injected read failures configured via {@link #createFailFirstReadWorker}: the next
+     * {@code failureCount} matching calls will fail with {@code UNAVAILABLE}. Re-arming (calling
+     * this again after {@link #disarmReadFailures}) resets the budget for another build.
+     */
+    public void armReadFailures() throws IOException {
+      Files.write(markerPath, new byte[0]);
+    }
+
+    /** Disarms injected read failures so matching calls succeed again. */
+    public void disarmReadFailures() throws IOException {
+      Files.deleteIfExists(markerPath);
     }
 
     public String getStdout() {
@@ -243,6 +365,11 @@ public final class IntegrationTestUtils {
     }
 
     private static void deleteTree(Path path) throws IOException {
+      if (!Files.exists(path)) {
+        // Tolerate a missing path so that cleanup in a finally block doesn't mask the failure that
+        // prevented the path from being created in the first place.
+        return;
+      }
       List<Path> toDelete;
       try (var stream = Files.walk(path)) {
         toDelete = stream.sorted(Comparator.reverseOrder()).toList();
@@ -258,6 +385,53 @@ public final class IntegrationTestUtils {
 
     public PathFragment getCasPath() {
       return PathFragment.create(casPath.toString());
+    }
+
+    /** Returns the path of the blob with the given contents in the worker's CAS. */
+    public PathFragment getCasBlobPath(byte[] contents) {
+      return getCasBlobPath(
+          Digest.newBuilder()
+              .setHash(Hashing.sha256().hashBytes(contents).toString())
+              .setSizeBytes(contents.length)
+              .build());
+    }
+
+    /** Returns the path of the blob with the given digest in the worker's CAS. */
+    public PathFragment getCasBlobPath(Digest digest) {
+      return PathFragment.create(casBlobPath(digest).toString());
+    }
+
+    /** Returns whether the blob with the given contents is present in the worker's CAS. */
+    public boolean hasCasBlob(byte[] contents) {
+      return Files.exists(Path.of(getCasBlobPath(contents).getPathString()));
+    }
+
+    /**
+     * Deletes every blob from the worker's CAS, while leaving the AC entries that reference them
+     * intact.
+     */
+    public void evictAllCasBlobs() throws IOException {
+      List<Path> toClear;
+      try (var stream = Files.list(casPath.resolve("cas"))) {
+        toClear = stream.toList();
+      }
+      for (var path : toClear) {
+        deleteTree(path);
+      }
+    }
+
+    /**
+     * Deletes the blob with the given contents from the worker's CAS, leaving all other state (in
+     * particular action cache entries referencing the blob) intact.
+     */
+    public void evictBlob(byte[] contents) throws IOException {
+      Files.delete(Path.of(getCasBlobPath(contents).getPathString()));
+    }
+
+    // Mirrors the on-disk layout of DiskCacheClient.
+    private Path casBlobPath(Digest digest) {
+      String hash = digest.getHash();
+      return casPath.resolve("cas").resolve(hash.substring(0, 2)).resolve(hash);
     }
   }
 }

@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -36,26 +37,26 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.BuiltinRestriction.Allowlist;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
+import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.TriState;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -133,17 +134,24 @@ public class BuildConfigurationValue
    */
   private final String mnemonic;
 
+  /**
+   * Whether {@link #mnemonic} depends on the baseline options rather than being a pure function of
+   * {@link #buildOptions}.
+   */
+  private final boolean mnemonicDependsOnBaseline;
+
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
   /** Data for introspecting the options used by this configuration. */
   private final BuildOptionDetails buildOptionDetails;
 
-  private final boolean siblingRepositoryLayout;
-
   private final FeatureSet defaultFeatures;
 
   @Nullable // lazily initialized
   private transient volatile BuildConfigurationEvent buildEvent;
+
+  @Nullable // lazily initialized
+  private transient volatile BuildEventId buildEventId;
 
   /**
    * Validates the options for this BuildConfigurationValue. Issues warnings for the use of
@@ -154,13 +162,14 @@ public class BuildConfigurationValue
     // directly instead of using reportInvalidOptions.
     // TODO: blaze-configurability-team - Remove this when --cpu is fully deprecated.
     CoreOptions coreOptions = getOptions().get(CoreOptions.class);
-    if (!coreOptions.allowedCpuValues.isEmpty()) {
-      if (!coreOptions.allowedCpuValues.contains(coreOptions.cpu)) {
+    if (!coreOptions.getAllowedCpuValues().isEmpty()) {
+      if (!coreOptions.getAllowedCpuValues().contains(coreOptions.getCpu())) {
         reporter.handle(
             Event.error(
                 String.format(
                     "Invalid --cpu value \"%s\": allowed values are %s.",
-                    coreOptions.cpu, Joiner.on(", ").join(coreOptions.allowedCpuValues))));
+                    coreOptions.getCpu(),
+                    Joiner.on(", ").join(coreOptions.getAllowedCpuValues()))));
       }
     }
 
@@ -181,11 +190,11 @@ public class BuildConfigurationValue
     }
     // Order doesn't matter here as ActionEnvironment sorts by key.
     Map<String, String> testEnv = new HashMap<>();
-    for (Converters.EnvVar envVar : buildOptions.get(TestOptions.class).testEnvironment) {
+    for (EnvVar envVar : buildOptions.get(TestOptions.class).getTestEnvironment()) {
       switch (envVar) {
-        case Converters.EnvVar.Set(String name, String value) -> testEnv.put(name, value);
-        case Converters.EnvVar.Inherit(String name) -> testEnv.put(name, null);
-        case Converters.EnvVar.Unset(String name) -> testEnv.remove(name);
+        case EnvVar.Set(String name, String value) -> testEnv.put(name, value);
+        case EnvVar.Inherit(String name) -> testEnv.put(name, null);
+        case EnvVar.Unset(String name) -> testEnv.remove(name);
       }
     }
     return ActionEnvironment.split(testEnv);
@@ -195,7 +204,6 @@ public class BuildConfigurationValue
   public static BuildConfigurationValue create(
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
-      boolean siblingRepositoryLayout,
       String platformCpu,
       // Arguments below this are server-global.
       BlazeDirectories directories,
@@ -210,13 +218,13 @@ public class BuildConfigurationValue
     ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments =
         getConfigurationFragments(buildOptions, fragmentClasses, fragmentFactory);
 
-    String mnemonic =
+    OutputPathMnemonicComputer.Result mnemonic =
         OutputPathMnemonicComputer.computeMnemonic(buildOptions, baselineOptions, fragments);
 
     return new BuildConfigurationValue(
         buildOptions,
-        mnemonic,
-        siblingRepositoryLayout,
+        mnemonic.mnemonic(),
+        mnemonic.dependsOnBaseline(),
         platformCpu,
         globalProvider.getRunfilesPrefix(),
         directories,
@@ -232,7 +240,6 @@ public class BuildConfigurationValue
   public static BuildConfigurationValue createForTesting(
       BuildOptions buildOptions,
       String mnemonic,
-      boolean siblingRepositoryLayout,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -249,7 +256,8 @@ public class BuildConfigurationValue
     return new BuildConfigurationValue(
         buildOptions,
         mnemonic,
-        siblingRepositoryLayout,
+        // The mnemonic passed to createForTesting is taken at face value.
+        /* mnemonicDependsOnBaseline= */ false,
         "",
         globalProvider.getRunfilesPrefix(),
         directories,
@@ -276,7 +284,7 @@ public class BuildConfigurationValue
   BuildConfigurationValue(
       BuildOptions buildOptions,
       String mnemonic,
-      boolean siblingRepositoryLayout,
+      boolean mnemonicDependsOnBaseline,
       String platformCpu,
       // Arguments below this are either server-global and constant or completely dependent values.
       String workspaceName,
@@ -290,17 +298,12 @@ public class BuildConfigurationValue
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
     this.mnemonic = mnemonic;
+    this.mnemonicDependsOnBaseline = mnemonicDependsOnBaseline;
     this.options = buildOptions.get(CoreOptions.class);
     this.outputDirectories =
         new OutputDirectories(
-            directories,
-            options,
-            buildOptions.get(PlatformOptions.class),
-            mnemonic,
-            workspaceName,
-            siblingRepositoryLayout);
+            directories, options, buildOptions.get(PlatformOptions.class), mnemonic, workspaceName);
     this.workspaceName = workspaceName;
-    this.siblingRepositoryLayout = siblingRepositoryLayout;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -321,17 +324,17 @@ public class BuildConfigurationValue
     globalMakeEnv =
         ImmutableMap.of(
             "TARGET_CPU",
-            options.incompatibleTargetCpuFromPlatform ? platformCpu : options.cpu,
+            options.getIncompatibleTargetCpuFromPlatform() ? platformCpu : options.getCpu(),
             "COMPILATION_MODE",
-            options.compilationMode.toString(),
+            options.getCompilationMode().toString(),
             "BINDIR",
-            getBinDirectory(RepositoryName.MAIN).getExecPathString(),
+            getBinDirectory().getExecPathString(),
             "GENDIR",
-            getGenfilesDirectory(RepositoryName.MAIN).getExecPathString());
+            getGenfilesDirectory().getExecPathString());
 
     this.reservedActionMnemonics = reservedActionMnemonics;
-    this.commandLineLimits = new CommandLineLimits(options.minParamFileSize);
-    this.defaultFeatures = FeatureSet.parse(options.defaultFeatures);
+    this.commandLineLimits = new CommandLineLimits(options.getMinParamFileSize());
+    this.defaultFeatures = FeatureSet.parse(options.getDefaultFeatures());
   }
 
   @Override
@@ -345,13 +348,12 @@ public class BuildConfigurationValue
     // Only considering arguments that are non-dependent and non-server-global.
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.workspaceName.equals(otherVal.workspaceName)
-        && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout
         && this.mnemonic.equals(otherVal.mnemonic);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildOptions, workspaceName, siblingRepositoryLayout, mnemonic);
+    return Objects.hash(buildOptions, workspaceName, mnemonic);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
@@ -383,8 +385,8 @@ public class BuildConfigurationValue
   }
 
   /** Returns the output directory for this build configuration. */
-  public ArtifactRoot getOutputDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getOutputDirectory(repositoryName);
+  public ArtifactRoot getOutputDirectory() {
+    return outputDirectories.getOutputDirectory();
   }
 
   /**
@@ -393,22 +395,17 @@ public class BuildConfigurationValue
   @Override
   @Deprecated
   public ArtifactRoot getBinDir() {
-    return outputDirectories.getBinDirectory(RepositoryName.MAIN);
+    return outputDirectories.getBinDirectory();
   }
 
   /**
    * Returns the bin directory for this build configuration.
    *
-   * <p>TODO(kchodorow): This (and the other get*Directory functions) won't work with external
-   * repositories without changes to how ArtifactFactory resolves derived roots. This is not an
-   * issue right now because it only effects Blaze's include scanning (internal) and Bazel's
-   * repositories (external) but will need to be fixed.
-   *
    * @deprecated Use {@code RuleContext#getBinDirectory} instead whenever possible.
    */
   @Deprecated
-  public ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getBinDirectory(repositoryName);
+  public ArtifactRoot getBinDirectory() {
+    return outputDirectories.getBinDirectory();
   }
 
   /**
@@ -417,8 +414,8 @@ public class BuildConfigurationValue
    * @deprecated Use {@code RuleContext#getBinFragment} instead whenever possible.
    */
   @Deprecated
-  public PathFragment getBinFragment(RepositoryName repositoryName) {
-    return outputDirectories.getBinDirectory(repositoryName).getExecPath();
+  public PathFragment getBinFragment() {
+    return outputDirectories.getBinDirectory().getExecPath();
   }
 
   /**
@@ -427,7 +424,7 @@ public class BuildConfigurationValue
   @Override
   @Deprecated
   public ArtifactRoot getGenfilesDir() {
-    return outputDirectories.getGenfilesDirectory(RepositoryName.MAIN);
+    return outputDirectories.getGenfilesDirectory();
   }
 
   /**
@@ -436,8 +433,8 @@ public class BuildConfigurationValue
    * @deprecated Use {@code RuleContext#getGenfilesDirectory} instead whenever possible.
    */
   @Deprecated
-  public ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getGenfilesDirectory(repositoryName);
+  public ArtifactRoot getGenfilesDirectory() {
+    return outputDirectories.getGenfilesDirectory();
   }
 
   public boolean hasSeparateGenfilesDirectory() {
@@ -456,8 +453,8 @@ public class BuildConfigurationValue
    *
    * <p>Use {@code RuleContext#getTestLogsDirectory} instead whenever possible.
    */
-  public ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getTestLogsDirectory(repositoryName);
+  public ArtifactRoot getTestLogsDirectory() {
+    return outputDirectories.getTestLogsDirectory();
   }
 
   /**
@@ -466,8 +463,8 @@ public class BuildConfigurationValue
    * @deprecated Use {@code RuleContext#getGenfilesFragment} instead whenever possible.
    */
   @Deprecated
-  public PathFragment getGenfilesFragment(RepositoryName repositoryName) {
-    return outputDirectories.getGenfilesFragment(repositoryName);
+  public PathFragment getGenfilesFragment() {
+    return outputDirectories.getGenfilesFragment();
   }
 
   /**
@@ -481,14 +478,6 @@ public class BuildConfigurationValue
     return outputDirectories.getHostPathSeparator();
   }
 
-  public boolean isStrictFilesets() {
-    return options.strictFilesets;
-  }
-
-  public boolean isStrictFilesetOutput() {
-    return options.strictFilesetOutput;
-  }
-
   public String getWorkspaceName() {
     return workspaceName;
   }
@@ -498,9 +487,24 @@ public class BuildConfigurationValue
     return outputDirectories.getMnemonic();
   }
 
+  /**
+   * Returns whether {@link #getMnemonic} depends on the baseline options used to construct this
+   * configuration, as opposed to being a pure function of {@link #getOptions}.
+   *
+   * <p>When false, two configurations with equal {@link BuildOptions} (built by the same Blaze
+   * release) are guaranteed to have equal mnemonics and thus equal output directories, so {@link
+   * BuildConfigurationKey} suffices to identify the output directory. When true, the mnemonic
+   * contains a segment (such as the starlark transition hash, {@code ST-<hash>}) whose presence or
+   * value varies with the baseline, and callers that need to distinguish output directories must
+   * additionally incorporate {@link #getMnemonic}.
+   */
+  public boolean mnemonicDependsOnBaseline() {
+    return mnemonicDependsOnBaseline;
+  }
+
   /** Returns whether to use automatic exec groups. */
   public boolean useAutoExecGroups() {
-    return options.useAutoExecGroups;
+    return options.getUseAutoExecGroups();
   }
 
   /**
@@ -520,7 +524,6 @@ public class BuildConfigurationValue
 
   @Override
   public void debugPrint(PrintStream out) {
-    out.printf("BuildConfigurationValue: %s\n", this.checksum());
     out.printf("  %s\n", this.options);
   }
 
@@ -528,14 +531,14 @@ public class BuildConfigurationValue
     return actionEnv;
   }
 
-  public boolean isSiblingRepositoryLayout() {
-    return siblingRepositoryLayout;
-  }
-
+  /**
+   * @deprecated Always returns false; the sibling repository layout no longer exists.
+   */
+  @Deprecated
   @Override
   public boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException {
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
-    return isSiblingRepositoryLayout();
+    return false;
   }
 
   /**
@@ -544,7 +547,7 @@ public class BuildConfigurationValue
    * <p>An action's full set of environment variables consist of a "fixed" part and of a "variable"
    * part. The "fixed" variables are independent of the Bazel client's own environment, and are
    * returned by this function. The "variable" ones are inherited from the Bazel client's own
-   * environment, and are returned by {@link #getVariableShellEnvironment}.
+   * environment, and are accessible via {@link #getActionEnvironment}.
    *
    * <p>Since values of the "fixed" variables are already known at analysis phase, it is returned
    * here as a map.
@@ -555,30 +558,11 @@ public class BuildConfigurationValue
   }
 
   /**
-   * Return the "variable" part of the actions' environment variables.
-   *
-   * <p>An action's full set of environment variables consist of a "fixed" part and of a "variable"
-   * part. The "fixed" variables are independent of the Bazel client's own environment, and are
-   * returned by {@link #getLocalShellEnvironment}. The "variable" ones are inherited from the Bazel
-   * client's own environment, and are returned by this function.
-   *
-   * <p>The values of the "variable" variables are tracked in Skyframe via the {@link
-   * com.google.devtools.build.lib.skyframe.SkyFunctions#CLIENT_ENVIRONMENT_VARIABLE} skyfunction.
-   * This method only returns the names of those variables to be inherited, if set in the client's
-   * environment. (Variables where the name is not returned in this set should not be taken from the
-   * client environment.)
-   */
-  @Deprecated // Use getActionEnvironment instead.
-  public Iterable<String> getVariableShellEnvironment() {
-    return actionEnv.getInheritedEnv();
-  }
-
-  /**
    * Returns a regex-based instrumentation filter instance that used to match label names to
    * identify targets to be instrumented in the coverage mode.
    */
   public RegexFilter getInstrumentationFilter() {
-    return options.instrumentationFilter;
+    return options.getInstrumentationFilter();
   }
 
   /**
@@ -587,12 +571,12 @@ public class BuildConfigurationValue
    * instrumentation.
    */
   public boolean shouldInstrumentTestTargets() {
-    return options.instrumentTestTargets;
+    return options.getInstrumentTestTargets();
   }
 
   /** Returns a boolean of whether to collect code coverage for generated files or not. */
   public boolean shouldCollectCodeCoverageForGeneratedFiles() {
-    return options.collectCodeCoverageForGeneratedFiles;
+    return options.getCollectCodeCoverageForGeneratedFiles();
   }
 
   /**
@@ -648,16 +632,6 @@ public class BuildConfigurationValue
     return getFragment(clazz) != null;
   }
 
-  /** Returns true if all requested configuration fragment are present (this may be slow). */
-  public boolean hasAllFragments(Set<Class<?>> fragmentClasses) {
-    for (Class<?> fragmentClass : fragmentClasses) {
-      if (!hasFragment(fragmentClass.asSubclass(Fragment.class))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   public BlazeDirectories getDirectories() {
     return outputDirectories.getDirectories();
   }
@@ -668,35 +642,48 @@ public class BuildConfigurationValue
 
   /** Returns true if non-functional build stamps are enabled. */
   public boolean stampBinaries() {
-    return options.stampBinaries;
+    return options.getStampBinaries();
   }
+
+  /**
+   * Allowlist for {@link #stampBinariesForStarlark}: a superset of the default allowlist.
+   *
+   * <p>Note that calling {@link #stampBinariesForStarlark} does not entail a dependency on {@link
+   * com.google.devtools.build.lib.skyframe.PrecomputedValue#STAMP_SETTING_MARKER}, so callers must
+   * be well-behaved (i.e., they should use the return value only to decide whether to add stamp
+   * file inputs, not to diverge other behavior). Consult the owners of b/419546090 prior to adding
+   * to this allowlist.
+   */
+  private static final Allowlist STAMP_BINARIES_ALLOWLIST =
+      Allowlist.defaultPlus(
+          BuiltinRestriction.mainRepoAllowlistEntry("tools/build_defs/gcl/internal"));
 
   @Override
   public boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, STAMP_BINARIES_ALLOWLIST);
     return stampBinaries();
   }
 
   /** Returns true if extended sanity checks should be enabled. */
   public boolean extendedSanityChecks() {
-    return options.extendedSanityChecks;
+    return options.getExtendedSanityChecks();
   }
 
   /** Returns true if we are building runfiles manifests for this configuration. */
   public boolean buildRunfileManifests() {
-    return options.buildRunfileManifests;
+    return options.getBuildRunfileManifests();
   }
 
   /** Returns true if we are building runfile links for this configuration. */
   public boolean buildRunfileLinks() {
-    return options.buildRunfileManifests && options.buildRunfileLinks;
+    return options.getBuildRunfileManifests() && options.getBuildRunfileLinks();
   }
 
   /**
    * Returns true if Runfiles should merge in FilesToBuild from deps when collecting data runfiles.
    */
   public boolean alwaysIncludeFilesToBuildInData() {
-    return options.alwaysIncludeFilesToBuildInData;
+    return options.getAlwaysIncludeFilesToBuildInData();
   }
 
   /**
@@ -726,7 +713,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean isCodeCoverageEnabled() {
-    return options.collectCodeCoverage;
+    return options.getCollectCodeCoverage();
   }
 
   @Override
@@ -736,17 +723,17 @@ public class BuildConfigurationValue
 
   @Nullable
   public RunUnder getRunUnder() {
-    return options.runUnder;
+    return options.getRunUnder();
   }
 
   /** Should the {@code --run_under} be configured in the exec configuration? */
   public boolean runUnderExecConfigForTests() {
-    return options.bazelTestExecRunUnder;
+    return options.getBazelTestExecRunUnder();
   }
 
   /** Returns true if this is an execution configuration. */
   public boolean isExecConfiguration() {
-    return options.isExec;
+    return options.getIsExec();
   }
 
   @Override
@@ -754,63 +741,53 @@ public class BuildConfigurationValue
     return isExecConfiguration();
   }
 
-  @Override
-  public boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
-    return isToolConfiguration();
-  }
-
   public boolean checkVisibility() {
-    return options.checkVisibility;
+    return options.getCheckVisibility();
   }
 
   public boolean enforceTransitiveVisibility() {
-    return options.enforceTransitiveVisibility;
+    return options.getEnforceTransitiveVisibility();
   }
 
   public boolean verboseVisibilityErrors() {
-    return options.verboseVisibilityErrors;
+    return options.getVerboseVisibilityErrors();
   }
 
   public boolean checkTestonlyForOutputFiles() {
-    return options.checkTestonlyForOutputFiles;
-  }
-
-  public boolean checkLicenses() {
-    return options.checkLicenses;
+    return options.getCheckTestonlyForOutputFiles();
   }
 
   public boolean enforceConstraints() {
-    return options.enforceConstraints;
+    return options.getEnforceConstraints();
   }
 
   public boolean allowAnalysisFailures() {
-    return options.allowAnalysisFailures;
+    return options.getAllowAnalysisFailures();
   }
 
   public boolean evaluatingForAnalysisTest() {
-    return options.evaluatingForAnalysisTest;
+    return options.getEvaluatingForAnalysisTest();
   }
 
   public int analysisTestingDepsLimit() {
-    return options.analysisTestingDepsLimit;
+    return options.getAnalysisTestingDepsLimit();
   }
 
   public List<Label> getActionListeners() {
-    return options.actionListeners;
+    return options.getActionListeners();
   }
 
   public boolean allowUnresolvedSymlinks() {
-    return options.allowUnresolvedSymlinks;
+    return options.getAllowUnresolvedSymlinks();
   }
 
   public boolean allowMapDirectory() {
-    return options.allowMapDirectory;
+    return options.getAllowMapDirectory();
   }
 
   /** Returns compilation mode. */
   public CompilationMode getCompilationMode() {
-    return options.compilationMode;
+    return options.getCompilationMode();
   }
 
   @Override
@@ -847,12 +824,12 @@ public class BuildConfigurationValue
   }
 
   public String getCpu() {
-    return options.cpu;
+    return options.getCpu();
   }
 
   @VisibleForTesting
   public String getHostCpu() {
-    return options.hostCpu;
+    return options.getHostCpu();
   }
 
   /**
@@ -869,8 +846,8 @@ public class BuildConfigurationValue
   @VisibleForTesting
   public static RunfileSymlinksMode getRunfileSymlinksMode(CoreOptions options) {
     // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
-    if (options.enableRunfiles == TriState.YES
-        || (options.enableRunfiles == TriState.AUTO && OS.getCurrent() != OS.WINDOWS)) {
+    if (options.getEnableRunfiles() == TriState.YES
+        || (options.getEnableRunfiles() == TriState.AUTO && OS.getCurrent() != OS.WINDOWS)) {
       return RunfileSymlinksMode.CREATE;
     }
     return RunfileSymlinksMode.SKIP;
@@ -895,8 +872,28 @@ public class BuildConfigurationValue
   }
 
   public boolean remotableSourceManifestActions() {
-    return options.remotableSourceManifestActions;
+    return options.getRemotableSourceManifestActions();
   }
+
+  private static record ExecutionInfoInternerKey(
+      ImmutableMap<String, String> executionInfo,
+      String mnemonic,
+      List<ExecutionInfoModifier> executionInfoModifiers) {}
+
+  private static final LoadingCache<ExecutionInfoInternerKey, ImmutableMap<String, String>>
+      modifiedExecutionInfoInterner =
+          CacheBuilder.newBuilder()
+              .weakValues()
+              .build(
+                  new CacheLoader<ExecutionInfoInternerKey, ImmutableMap<String, String>>() {
+                    @Override
+                    public ImmutableMap<String, String> load(ExecutionInfoInternerKey key) {
+                      Map<String, String> mutableCopy = new HashMap<>(key.executionInfo());
+                      ExecutionInfoModifier.apply(
+                          key.executionInfoModifiers(), key.mnemonic(), mutableCopy);
+                      return ImmutableSortedMap.copyOf(mutableCopy);
+                    }
+                  });
 
   /**
    * Returns a modified copy of {@code executionInfo} if any {@code executionInfoModifiers} apply to
@@ -904,22 +901,25 @@ public class BuildConfigurationValue
    */
   public ImmutableMap<String, String> modifiedExecutionInfo(
       ImmutableMap<String, String> executionInfo, String mnemonic) {
-    if (!ExecutionInfoModifier.matches(
-        options.executionInfoModifier, options.additiveModifyExecutionInfo, mnemonic)) {
+    if (!ExecutionInfoModifier.matches(options.getExecutionInfoModifier(), mnemonic)) {
       return executionInfo;
     }
-    Map<String, String> mutableCopy = new HashMap<>(executionInfo);
-    modifyExecutionInfo(mutableCopy, mnemonic);
-    return ImmutableSortedMap.copyOf(mutableCopy);
+    if (!ExecutionInfoModifier.wouldChange(
+        options.getExecutionInfoModifier(), mnemonic, executionInfo)) {
+      return executionInfo;
+    }
+    try {
+      return modifiedExecutionInfoInterner.get(
+          new ExecutionInfoInternerKey(
+              executionInfo, mnemonic, options.getExecutionInfoModifier()));
+    } catch (ExecutionException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
   public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
-    ExecutionInfoModifier.apply(
-        options.executionInfoModifier,
-        options.additiveModifyExecutionInfo,
-        mnemonic,
-        executionInfo);
+    ExecutionInfoModifier.apply(options.getExecutionInfoModifier(), mnemonic, executionInfo);
   }
 
   /** Returns the list of default features used for all packages. */
@@ -938,12 +938,7 @@ public class BuildConfigurationValue
    * must be compatible with. An empty value implies no restrictions.
    */
   public List<Label> getTargetEnvironments() {
-    return options.targetEnvironments;
-  }
-
-  public ImmutableMap<String, String> getCommandLineFlagAliases() {
-    return options.commandLineFlagAliases.stream()
-        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+    return options.getTargetEnvironments();
   }
 
   @Nullable
@@ -956,7 +951,14 @@ public class BuildConfigurationValue
   }
 
   public BuildEventId getEventId() {
-    return BuildEventIdUtil.configurationId(checksum());
+    if (buildEventId == null) {
+      synchronized (this) {
+        if (buildEventId == null) {
+          buildEventId = BuildEventIdUtil.configurationId(checksum());
+        }
+      }
+    }
+    return buildEventId;
   }
 
   @Override
@@ -973,7 +975,7 @@ public class BuildConfigurationValue
 
   private BuildConfigurationEvent createBuildEvent() {
     String cpu = getCpu();
-    if (options.incompatibleBepCpuFromPlatform) {
+    if (options.getIncompatibleBepCpuFromPlatform()) {
       cpu = platformCpu;
     }
     BuildEventId eventId = getEventId();

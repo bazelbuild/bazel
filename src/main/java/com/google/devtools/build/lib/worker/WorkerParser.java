@@ -66,6 +66,7 @@ public class WorkerParser {
   private final Path execRoot;
 
   private final WorkerOptions workerOptions;
+  private final ImmutableMap<String, Boolean> workerSandboxingMap;
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
 
@@ -76,6 +77,7 @@ public class WorkerParser {
       BinTools binTools) {
     this.execRoot = execRoot;
     this.workerOptions = workerOptions;
+    this.workerSandboxingMap = workerOptions.getWorkerSandboxingMap();
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
   }
@@ -110,6 +112,7 @@ public class WorkerParser {
             workerFilesCombinedHash,
             workerFiles,
             workerOptions,
+            workerSandboxingMap,
             context.speculating(),
             Spawns.getWorkerProtocolFormat(spawn));
     return new WorkerConfig(key, flagFiles);
@@ -130,11 +133,36 @@ public class WorkerParser {
       WorkerOptions options,
       boolean dynamic,
       WorkerProtocolFormat protocolFormat) {
+    return createWorkerKey(
+        spawn,
+        workerArgs,
+        env,
+        execRoot,
+        workerFilesCombinedHash,
+        workerFiles,
+        options,
+        options.getWorkerSandboxingMap(),
+        dynamic,
+        protocolFormat);
+  }
+
+  private static WorkerKey createWorkerKey(
+      Spawn spawn,
+      ImmutableList<String> workerArgs,
+      ImmutableMap<String, String> env,
+      Path execRoot,
+      HashCode workerFilesCombinedHash,
+      SortedMap<PathFragment, byte[]> workerFiles,
+      WorkerOptions options,
+      ImmutableMap<String, Boolean> workerSandboxingMap,
+      boolean dynamic,
+      WorkerProtocolFormat protocolFormat) {
     String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
     boolean mustSandbox = dynamic || Spawns.usesPathMapping(spawn);
-    boolean shouldMultiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
+    boolean shouldMultiplex =
+        options.getWorkerMultiplex() && Spawns.supportsMultiplexWorkers(spawn);
     boolean canSandboxMultiplex =
-        options.multiplexSandboxing && Spawns.supportsMultiplexSandboxing(spawn);
+        options.getMultiplexSandboxing() && Spawns.supportsMultiplexSandboxing(spawn);
     boolean sandboxed;
     boolean multiplex;
     if (mustSandbox) {
@@ -144,12 +172,13 @@ public class WorkerParser {
       sandboxed = canSandboxMultiplex;
       multiplex = true;
     } else {
-      sandboxed = options.workerSandboxing;
+      Boolean perMnemonic = workerSandboxingMap.get(workerKeyMnemonic);
+      sandboxed = perMnemonic != null ? perMnemonic : workerSandboxingMap.getOrDefault("", false);
       multiplex = false;
     }
     boolean useInMemoryTracking = false;
     if (sandboxed) {
-      List<String> mnemonics = options.workerSandboxInMemoryTracking;
+      List<String> mnemonics = options.getWorkerSandboxInMemoryTracking();
       useInMemoryTracking = mnemonics != null && mnemonics.contains(workerKeyMnemonic);
     }
     return new WorkerKey(
@@ -187,7 +216,7 @@ public class WorkerParser {
     if (args.isEmpty()) {
       throwFlagFileFailure(REASON_NO_FLAGFILE, spawn);
     }
-    if (workerOptions.strictFlagfiles) {
+    if (workerOptions.getStrictFlagfiles()) {
       if (!isFlagFileArg(Iterables.getLast(args))) {
         throwFlagFileFailure(REASON_NO_FINAL_FLAGFILE, spawn);
       }
@@ -214,7 +243,7 @@ public class WorkerParser {
 
     ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
 
-    workerOptions.workerExtraFlags.stream()
+    workerOptions.getWorkerExtraFlags().stream()
         .filter(entry -> entry.getKey().equals(Spawns.getWorkerKeyMnemonic(spawn)))
         .forEach(entry -> mnemonicFlags.add(entry.getValue()));
 

@@ -29,11 +29,11 @@ public class JavaOptionsTest extends BuildViewTestCase {
   @Test
   public void hostJavacOptions() throws Exception {
     BuildOptions options = targetConfig.getOptions().clone();
-    options.get(JavaOptions.class).javacOpts = ImmutableList.of("-XDtarget");
-    options.get(JavaOptions.class).hostJavacOpts = ImmutableList.of("-XDhost");
+    options.get(JavaOptions.class).setJavacOpts(ImmutableList.of("-XDtarget"));
+    options.get(JavaOptions.class).setHostJavacOpts(ImmutableList.of("-XDhost"));
 
     BuildOptions execOptions = AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter);
-    assertThat(execOptions.get(JavaOptions.class).javacOpts).contains("-XDhost");
-    assertThat(execOptions.get(JavaOptions.class).hostJavacOpts).contains("-XDhost");
+    assertThat(execOptions.get(JavaOptions.class).getJavacOpts()).contains("-XDhost");
+    assertThat(execOptions.get(JavaOptions.class).getHostJavacOpts()).contains("-XDhost");
   }
 }

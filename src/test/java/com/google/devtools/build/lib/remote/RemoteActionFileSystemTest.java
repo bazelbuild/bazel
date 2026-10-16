@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -38,9 +39,11 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -177,7 +180,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
         .prefetchFiles(
-            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
+            any(),
+            any(),
+            argThat(arg -> arg.get().equals(ImmutableList.of(artifact))),
+            any(),
+            eq(Priority.CRITICAL),
+            eq(Reason.INPUTS));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -188,7 +196,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
         .prefetchFiles(
-            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
+            any(),
+            any(),
+            argThat(arg -> arg.get().equals(ImmutableList.of(artifact))),
+            any(),
+            eq(Priority.CRITICAL),
+            eq(Reason.INPUTS));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -387,6 +400,29 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
 
     assertThat(actionFs.getPath(linkPath).resolveSymbolicLinks())
         .isEqualTo(actionFs.getPath(linkPath));
+  }
+
+  @Test
+  public void createOutputDirectories_afterMissingParentDelete(
+      @TestParameter({"ns/a", "ns/nested/a"}) String outputPath) throws Exception {
+    FileSystem actionFs = createActionFileSystem();
+    PathFragment namespace = getOutputPath("ns");
+    fs.getPath(namespace).createSymbolicLink(PathFragment.create("missing"));
+
+    // Output preparation caches a dangling parent left by a previous build. Another output's
+    // preparation then replaces it with a directory, as in AbstractActionInputPrefetcher.
+    assertThat(actionFs.delete(getOutputPath(outputPath))).isFalse();
+    ActionOutputDirectoryHelper helper = ActionOutputDirectoryHelper.createForTesting();
+    helper.createOutputDirectories(
+        ImmutableList.of(ActionsTestUtil.createArtifact(outputRoot, "ns/b")));
+    assertThat(fs.getPath(namespace).isDirectory(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(fs.getPath(getOutputPath("missing")).exists()).isFalse();
+    helper.createActionFsOutputDirectories(
+        ImmutableList.of(ActionsTestUtil.createArtifact(outputRoot, outputPath)),
+        ArtifactPathResolver.createPathResolver(actionFs, execRoot));
+
+    assertThat(actionFs.getPath(getOutputPath(outputPath)).getParentDirectory().isDirectory())
+        .isTrue();
   }
 
   @Test
@@ -1152,9 +1188,14 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     byte[] digest = getDigest(content);
     int size = Utf8.encodedLength(content);
     ((RemoteActionFileSystem) actionFs)
-        .injectRemoteFile(path, digest, size, /* expirationTime= */ null);
+        .injectRemoteFile(
+            path, digest, size, /* expirationTime= */ null, /* inMemoryOutput= */ false);
     return FileArtifactValue.createForRemoteFileWithMaterializationData(
-        digest, size, /* locationIndex= */ 1, /* expirationTime= */ null);
+        digest,
+        size,
+        /* locationIndex= */ 1,
+        /* expirationTime= */ null,
+        /* inMemoryOutput= */ false);
   }
 
   @Override
@@ -1174,7 +1215,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             getDigest(content),
             Utf8.encodedLength(content),
             /* locationIndex= */ 1,
-            /* expirationTime= */ null);
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false);
     inputs.put(a, f);
     return a;
   }
@@ -1199,7 +1241,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
               getDigest(content),
               Utf8.encodedLength(content),
               /* locationIndex= */ 0,
-              /* expirationTime= */ null);
+              /* expirationTime= */ null,
+              /* inMemoryOutput= */ false);
       builder.putChild(child, childMeta);
     }
     return builder.build();

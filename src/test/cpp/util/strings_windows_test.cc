@@ -11,15 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/cpp/util/strings.h"
-
 #include <wchar.h>
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "googletest/include/gtest/gtest.h"
+#include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
 

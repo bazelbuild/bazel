@@ -14,11 +14,17 @@
 
 #include "src/tools/singlejar/combiners.h"
 
+#include <algorithm>
 #include <cctype>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <iterator>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "src/tools/singlejar/diag.h"
 
@@ -156,13 +162,18 @@ bool XmlCombiner::Merge(const CDH* cdh, const LH* lh) {
   char* buf = reinterpret_cast<char*>(malloc(bytes_.data_size()));
   // TODO(b/37631490): optimize this to avoid copying the bytes twice
   bytes_.CopyOut(reinterpret_cast<uint8_t*>(buf), &checksum);
-  int start_offset = 0;
-  if (strncmp(buf, start_tag_.c_str(), start_tag_.length()) == 0) {
+  size_t start_offset = 0;
+  if (bytes_.data_size() >= start_tag_.length() &&
+      strncmp(buf, start_tag_.c_str(), start_tag_.length()) == 0) {
     start_offset = start_tag_.length();
   }
   uint64_t end = bytes_.data_size();
-  while (end >= end_tag_.length() && IsAsciiSpace(buf[end - 1])) end--;
-  if (strncmp(buf + end - end_tag_.length(), end_tag_.c_str(),
+  while (end >= start_offset + end_tag_.length() &&
+         IsAsciiSpace(buf[end - 1])) {
+    end--;
+  }
+  if (end >= start_offset + end_tag_.length() &&
+      strncmp(buf + end - end_tag_.length(), end_tag_.c_str(),
               end_tag_.length()) == 0) {
     end -= end_tag_.length();
   } else {
@@ -248,7 +259,7 @@ void ManifestCombiner::AppendLine(const std::string& line) {
     return;
   }
   concatenator_->Append(line);
-  if (line[line.size() - 1] != '\n') {
+  if (line.empty() || line[line.size() - 1] != '\n') {
     concatenator_->Append("\r\n");
   }
 }

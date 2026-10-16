@@ -43,7 +43,7 @@ public final class UsedHeapSizeAfterGcInfoItem extends InfoItem {
                 - HeapOffsetHelper.getSizeOfFillerArrayOnHeap(
                     env.getOptions()
                         .getOptions(MemoryPressureOptions.class)
-                        .jvmHeapHistogramInternalObjectPattern
+                        .getJvmHeapHistogramInternalObjectPattern()
                         .regexPattern(),
                     BugReporter.defaultInstance())));
   }

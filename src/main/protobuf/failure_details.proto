@@ -149,8 +149,9 @@ message FailureDetail {
     DiffAwareness diff_awareness = 182;
     ModCommand mod_command = 183;
     BuildReport build_report = 184;
-    Skyfocus skyfocus = 185;
+    Skyfocus skyfocus = 185 [deprecated = true];
     RemoteAnalysisCaching remote_analysis_caching = 186;
+    JniLinking jni_linking = 190;
   }
 
   reserved 102; // For internal use
@@ -261,6 +262,8 @@ message ExternalRepository {
     CREDENTIALS_INIT_FAILURE = 4 [(metadata) = { exit_code: 2 }];
     BAD_REPO_CONTENTS_CACHE = 5 [(metadata) = { exit_code: 2 }];
     UNKNOWN_REGISTRY = 6 [(metadata) = { exit_code: 2 }];
+    SYMLINKING_FAILED = 7 [(metadata) = { exit_code: 2 }];
+    REPOSITORY_MAPPING_IO_EXCEPTION = 8 [(metadata) = { exit_code: 36 }];
   }
   Code code = 1;
   // Additional data could include external repository names.
@@ -306,6 +309,7 @@ message RemoteOptions {
     CREDENTIALS_WRITE_FAILURE = 3 [(metadata) = { exit_code: 36 }];
     DOWNLOADER_WITHOUT_GRPC_CACHE = 4 [(metadata) = { exit_code: 2 }];
     EXECUTION_WITH_INVALID_CACHE = 5 [(metadata) = { exit_code: 2 }];
+    REMOTE_GRPC_SERVICE_CONFIG_INVALID = 7 [(metadata) = { exit_code: 2 }];
 
     reserved 6;
   }
@@ -402,6 +406,8 @@ message BuildReport {
 
 // Failure details for errors produced when using Skyfocus
 message Skyfocus {
+  option deprecated = true;
+
   enum Code {
     // The defined working set cannot be used for the focused targets. For
     // example, this happens when the intersection of the working set and the
@@ -425,6 +431,7 @@ message RemoteAnalysisCaching {
     INCOMPATIBLE_OPTIONS = 3 [(metadata) = { exit_code: 2 }];
     INVALID_SERVER_ADDRESS = 4 [(metadata) = { exit_code: 2 }];
     CANNOT_OPEN_LOG_FILE = 5 [(metadata) = { exit_code: 36 }];
+    UPLOAD_FAILED = 6 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -437,6 +444,7 @@ message PackageOptions {
     PACKAGE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     PACKAGE_PATH_INVALID = 1 [(metadata) = { exit_code: 2 }];
     NONSINGLETON_PACKAGE_PATH = 4 [(metadata) = { exit_code: 2 }];
+    PACKAGE_PATH_IO_EXCEPTION = 5 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -529,6 +537,8 @@ message Execution {
     reserved 38;
     SOURCE_INPUT_IO_EXCEPTION = 39 [(metadata) = { exit_code: 1 }];
     SYMLINK_TREE_DELETION_IO_EXCEPTION = 40 [(metadata) = { exit_code: 36 }];
+    NONDETERMINISTIC_TREE_ARTIFACT = 41 [(metadata) = { exit_code: 1 }];
+    REWOUND_ACTION_OUTPUT_CHANGED = 42 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -601,6 +611,7 @@ message ExecutionOptions {
     STRATEGY_NOT_FOUND = 9 [(metadata) = { exit_code: 2 }];
     DYNAMIC_STRATEGY_NOT_SANDBOXED = 10 [(metadata) = { exit_code: 2 }];
     MULTIPLE_EXECUTION_LOG_FORMATS = 11 [(metadata) = { exit_code: 2 }];
+    EXECUTION_LOG_STREAMING_DISABLED = 14 [(metadata) = { exit_code: 2 }];
 
     reserved 1, 2, 12, 13; // For internal use
   }
@@ -839,6 +850,8 @@ message Sandbox {
     FORBIDDEN_INPUT = 11 [(metadata) = { exit_code: 1 }];
     COPY_INPUTS_IO_EXCEPTION = 12 [(metadata) = { exit_code: 36 }];
     COPY_OUTPUTS_IO_EXCEPTION = 13 [(metadata) = { exit_code: 36 }];
+    MOUNT_SOURCE_STAT_ERROR = 14 [(metadata) = { exit_code: 36 }];
+    MOUNT_TARGET_STAT_ERROR = 15 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -1142,6 +1155,7 @@ message CppCompile {
     COVERAGE_NOTES_CREATION_FAILURE = 10 [(metadata) = { exit_code: 1 }];
     MODULE_EXPANSION_MISSING_DATA = 11 [(metadata) = { exit_code: 1 }];
     MODMAP_INPUT_FILE_READ_FAILURE = 12 [(metadata) = { exit_code: 36 }];
+    MODULE_EXPANSION_SERIALIZATION_ERROR = 13 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1292,6 +1306,7 @@ message Analysis {
     ANALYSIS_FAILURE_PROPAGATION_FAILED = 20 [(metadata) = { exit_code: 1 }];
     ANALYSIS_CACHE_DISCARDED = 21 [(metadata) = { exit_code: 1 }];
     INVALID_RUNFILES_TREE = 22 [(metadata) = { exit_code: 1 }];
+    UNKNOWN_OUTPUT_GROUP = 23 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1373,6 +1388,7 @@ message StarlarkLoading {
     LABEL_CROSSES_PACKAGE_BOUNDARY = 8 [(metadata) = { exit_code: 1 }];
     BUILTINS_ERROR = 9 [(metadata) = { exit_code: 1 }];
     VISIBILITY_ERROR = 10 [(metadata) = { exit_code: 1 }];
+    TYPING_ERROR = 11 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1411,6 +1427,15 @@ message ModCommand {
     INVALID_ARGUMENTS = 3 [(metadata) = { exit_code: 2 }];
     BUILDOZER_FAILED = 4 [(metadata) = { exit_code: 2 }];
     ERROR_DURING_GRAPH_INSPECTION = 5 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message JniLinking {
+  enum Code {
+    JNI_LINKING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    JNI_LINKING_ERROR = 1 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;

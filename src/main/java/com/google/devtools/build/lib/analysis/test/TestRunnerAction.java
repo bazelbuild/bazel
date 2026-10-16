@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
@@ -64,6 +62,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -155,6 +154,9 @@ public class TestRunnerAction extends AbstractAction
    */
   @Nullable private Optional<TestResultData> cachedTestResultData;
 
+  /** Environment variables specific to running code coverage */
+  private final ImmutableMap<String, String> coverageEnv;
+
   /** Any extra environment variables (and values) added by the rule that created this action. */
   private final ActionEnvironment extraTestEnv;
 
@@ -169,8 +171,11 @@ public class TestRunnerAction extends AbstractAction
   private final boolean splitCoveragePostProcessing;
   private final NestedSet<Artifact> lcovMergerFilesToRun;
 
-  // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
-  private final PackageSpecificationProvider networkAllowlist;
+  /**
+   * If not null, the reason why this test can't be run in the current build, to be reported when
+   * the action is executed. The action is still created so that the test target can be built.
+   */
+  @Nullable private final String unrunnableReason;
 
   private static ImmutableSet<Artifact> nonNullAsSet(Artifact... artifacts) {
     ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
@@ -205,6 +210,7 @@ public class TestRunnerAction extends AbstractAction
       @Nullable Artifact coverageDirectory,
       Artifact undeclaredOutputsDir,
       TestTargetProperties testProperties,
+      ImmutableMap<String, String> coverageEnv,
       ActionEnvironment extraTestEnv,
       TestTargetExecutionSettings executionSettings,
       int shardNum,
@@ -215,7 +221,7 @@ public class TestRunnerAction extends AbstractAction
       CancelConcurrentTests cancelConcurrentTests,
       boolean splitCoveragePostProcessing,
       NestedSet<Artifact> lcovMergerFilesToRun,
-      PackageSpecificationProvider networkAllowlist) {
+      @Nullable String unrunnableReason) {
     super(
         owner,
         inputs,
@@ -269,6 +275,7 @@ public class TestRunnerAction extends AbstractAction
     this.testInfrastructureFailure = baseDir.getChild("test.infrastructure_failure");
     this.workspaceName = workspaceName;
 
+    this.coverageEnv = coverageEnv;
     this.extraTestEnv = extraTestEnv;
     this.requiredClientEnvVariables =
         LazySetConcatenation.from(
@@ -278,7 +285,7 @@ public class TestRunnerAction extends AbstractAction
     this.cancelConcurrentTests = cancelConcurrentTests;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
-    this.networkAllowlist = networkAllowlist;
+    this.unrunnableReason = unrunnableReason;
 
     // Mark all possible test outputs for deletion before test execution.
     // TestRunnerAction potentially can create many more non-declared outputs - xml output, coverage
@@ -317,6 +324,16 @@ public class TestRunnerAction extends AbstractAction
 
   public boolean allowLocalTests() {
     return testConfiguration.allowLocalTests();
+  }
+
+  /**
+   * Returns the reason why this test can't be run in the current build, or {@code null} if it can
+   * be run.
+   */
+  @VisibleForTesting
+  @Nullable
+  public String getUnrunnableReason() {
+    return unrunnableReason;
   }
 
   @Override
@@ -361,10 +378,6 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public boolean showsOutputUnconditionally() {
     return true;
-  }
-
-  public boolean checkShardingSupport() {
-    return testConfiguration.checkShardingSupport();
   }
 
   public List<ActionInput> getSpawnOutputs() {
@@ -511,6 +524,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addBoolean(executionSettings.getTestRunnerFailFast());
     RunUnder runUnder = executionSettings.getRunUnder();
     fp.addString(runUnder == null ? "" : runUnder.value());
+    fp.addStringMap(coverageEnv);
     extraTestEnv.addTo(fp);
     // TODO(ulfjack): It might be better for performance to hash the action and test envs in config,
     // and only add a hash here.
@@ -519,6 +533,7 @@ public class TestRunnerAction extends AbstractAction
     // The 'requiredClientEnvVariables' are handled by Skyframe and don't need to be added here.
     fp.addString(testProperties.getSize().toString());
     fp.addString(testProperties.getTimeout().toString());
+    fp.addString(getTimeout().toString());
     fp.addStrings(testProperties.getTags());
     fp.addBoolean(testProperties.isRemotable());
     fp.addInt(shardNum);
@@ -528,6 +543,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addBoolean(configuration.isCodeCoverageEnabled());
     fp.addBoolean(testConfiguration.getZipUndeclaredTestOutputs());
     fp.addStringMap(getExecutionInfo());
+    fp.addNullableString(unrunnableReason);
   }
 
   /**
@@ -709,6 +725,11 @@ public class TestRunnerAction extends AbstractAction
     return directoriesToDeleteBeforeExecution;
   }
 
+  @Override
+  public boolean allowsStrategyRegexpMatching() {
+    return false;
+  }
+
   void createEmptyOutputs(ActionExecutionContext context) throws IOException {
     for (Artifact output : TestRunnerAction.this.getOutputs()) {
       FileSystemUtils.touchFile(context.getInputPath(output));
@@ -716,6 +737,9 @@ public class TestRunnerAction extends AbstractAction
   }
 
   public void setupEnvVariables(Map<String, String> env) {
+    // Allow --test_env and rules to overwite these values
+    coverageEnv.forEach(env::putIfAbsent);
+
     env.put("TEST_TARGET", Label.print(getOwner().getLabel()));
     env.put("TEST_SIZE", getTestProperties().getSize().toString());
     env.put("TEST_TIMEOUT", Long.toString(getTimeout().toSeconds()));
@@ -959,7 +983,7 @@ public class TestRunnerAction extends AbstractAction
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return mergeMaps(super.getExecutionInfo(), testProperties.getExecutionInfo());
+    return testProperties.getExecutionInfo();
   }
 
   public TestTargetExecutionSettings getExecutionSettings() {
@@ -988,10 +1012,6 @@ public class TestRunnerAction extends AbstractAction
     return workspaceName;
   }
 
-  public PackageSpecificationProvider getNetworkAllowlist() {
-    return networkAllowlist;
-  }
-
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -1003,6 +1023,15 @@ public class TestRunnerAction extends AbstractAction
   public ActionResult execute(
       ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
       throws ActionExecutionException, InterruptedException {
+    if (unrunnableReason != null) {
+      FailureDetail failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage(unrunnableReason)
+              .setToolchain(Toolchain.newBuilder().setCode(Toolchain.Code.NO_MATCHING_TOOLCHAIN))
+              .build();
+      throw new ActionExecutionException(
+          unrunnableReason, this, /* catastrophe= */ false, DetailedExitCode.of(failureDetail));
+    }
 
     List<SpawnResult> spawnResults = new ArrayList<>();
     List<ProcessedAttemptResult> failedAttempts = new ArrayList<>();

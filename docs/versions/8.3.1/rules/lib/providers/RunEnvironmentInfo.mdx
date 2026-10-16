@@ -1,0 +1,26 @@
+---
+title: 'RunEnvironmentInfo'
+---
+
+A provider that can be returned from executable rules to control the environment in which their executable is executed.
+
+## Members
+
+* [environment](#environment)
+* [inherited\_environment](#inherited_environment)
+
+## environment
+
+```
+dict RunEnvironmentInfo.environment
+```
+
+A map of string keys and values that represent environment variables and their values. These will be made available when the target that returns this provider is executed, either as a test or via the run command.
+
+## inherited\_environment
+
+```
+List RunEnvironmentInfo.inherited_environment
+```
+
+A sequence of names of environment variables. These variables are made available with their current value taken from the shell environment when the target that returns this provider is executed, either as a test or via the run command. If a variable is contained in both `environment` and `inherited_environment`, the value inherited from the shell environment will take precedence if set.

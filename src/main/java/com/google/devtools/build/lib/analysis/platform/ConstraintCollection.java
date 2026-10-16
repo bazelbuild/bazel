@@ -17,15 +17,18 @@ package com.google.devtools.build.lib.analysis.platform;
 import static com.google.common.collect.ImmutableListMultimap.flatteningToImmutableListMultimap;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -49,6 +52,10 @@ import net.starlark.java.eval.StarlarkSemantics;
 @AutoValue
 public abstract class ConstraintCollection
     implements ConstraintCollectionApi<ConstraintSettingInfo, ConstraintValueInfo> {
+
+  @Override
+  @Memoized
+  public abstract int hashCode();
 
   /** A builder class to help create instances of {@link ConstraintCollection}. */
   public static final class Builder {
@@ -81,10 +88,17 @@ public abstract class ConstraintCollection
     public ConstraintCollection build() throws DuplicateConstraintException {
       ImmutableList<ConstraintValueInfo> constraintValues = this.constraintValues.build();
       validateConstraints(constraintValues);
+      // validateConstraints allows repeated instances of the same constraint value, which can e.g.
+      // happen if a constraint value is referenced both directly and via an alias. Keep the first
+      // one instead of failing on the duplicate key.
       return new AutoValue_ConstraintCollection(
           this.parent,
           constraintValues.stream()
-              .collect(toImmutableMap(ConstraintValueInfo::constraint, Function.identity())));
+              .collect(
+                  toImmutableMap(
+                      ConstraintValueInfo::constraint,
+                      Function.identity(),
+                      (first, second) -> first)));
     }
   }
 
@@ -140,22 +154,9 @@ public abstract class ConstraintCollection
    * ConstraintCollection} and {@code other} have different {@link ConstraintValueInfo values}.
    */
   public ImmutableSet<ConstraintSettingInfo> diff(ConstraintCollection other) {
-    ImmutableSet<ConstraintSettingInfo> constraintsToCheck =
-        new ImmutableSet.Builder<ConstraintSettingInfo>()
-            .addAll(this.constraintSettings())
-            .addAll(other.constraintSettings())
-            .build();
-    ImmutableSet.Builder<ConstraintSettingInfo> mismatchSettings = new ImmutableSet.Builder<>();
-    for (ConstraintSettingInfo constraintSetting : constraintsToCheck) {
-      ConstraintValueInfo thisConstraint = this.get(constraintSetting);
-      ConstraintValueInfo otherConstraint = other.get(constraintSetting);
-
-      if (thisConstraint != null && !thisConstraint.equals(otherConstraint)) {
-        mismatchSettings.add(constraintSetting);
-      }
-    }
-
-    return mismatchSettings.build();
+    return Sets.union(this.allConstraintSettings(), other.allConstraintSettings()).stream()
+        .filter(setting -> !Objects.equals(this.get(setting), other.get(setting)))
+        .collect(toImmutableSet());
   }
 
   private static ConstraintSettingInfo convertKey(Object key) throws EvalException {
@@ -229,6 +230,18 @@ public abstract class ConstraintCollection
     return StarlarkList.immutableCopyOf(constraints().keySet());
   }
 
+  /**
+   * Returns the {@link ConstraintSettingInfo settings} set by this collection or any of its
+   * parents, without considering defaults.
+   */
+  private ImmutableSet<ConstraintSettingInfo> allConstraintSettings() {
+    var settings = new ImmutableSet.Builder<ConstraintSettingInfo>();
+    for (ConstraintCollection current = this; current != null; current = current.parent()) {
+      settings.addAll(current.constraints().keySet());
+    }
+    return settings.build();
+  }
+
   @Override
   public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     ConstraintSettingInfo constraintSettingInfo = convertKey(key);
@@ -247,15 +260,15 @@ public abstract class ConstraintCollection
   // It's easier to use the Starlark repr as a string form, not what AutoValue produces.
   @Override
   public final String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<");
     if (parent() != null) {
       printer.append("parent: ");
-      parent().repr(printer);
+      parent().repr(printer, semantics);
       printer.append(", ");
     }
     printer.append("[");

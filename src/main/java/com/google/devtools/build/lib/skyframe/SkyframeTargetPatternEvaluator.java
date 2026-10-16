@@ -93,7 +93,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
     if (catastrophe != null) {
       throwIfInstanceOf(catastrophe, TargetParsingException.class);
       throwIfUnchecked(catastrophe);
-      throw wrapException(catastrophe, null, result);
+      throw wrapException(catastrophe, result);
     }
     WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
     for (PatternLookup patternLookup : patternLookups) {
@@ -134,7 +134,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
           if (exception instanceof TargetParsingException tpe) {
             targetParsingException = tpe;
           } else {
-            targetParsingException = wrapException(exception, key, key);
+            targetParsingException = wrapException(exception, key);
           }
         } else {
           Preconditions.checkState(
@@ -163,16 +163,12 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
     return resultBuilder.buildOrThrow();
   }
 
-  private static TargetParsingException wrapException(
-      Exception exception, @Nullable SkyKey key, Object debugging) {
-    if ((key == null || key instanceof PackageIdentifier)
-        && exception instanceof NoSuchPackageException) {
-      // A "simple" target pattern (like "//pkg:t") doesn't have a TargetPatternKey, just a Package
-      // key, so it results in NoSuchPackageException that we transform here.
+  private static TargetParsingException wrapException(Exception exception, Object debugging) {
+    if (exception instanceof NoSuchPackageException noSuchPackageException) {
+      // Transform NoSuchPackageException into TargetParsingException to avoid triggering
+      // non-fatal bug reports on user errors (e.g. broken BUILD files).
       return new TargetParsingException(
-          exception.getMessage(),
-          exception,
-          ((NoSuchPackageException) exception).getDetailedExitCode());
+          exception.getMessage(), exception, noSuchPackageException.getDetailedExitCode());
     }
     if (exception instanceof DetailedIOException detailedException) {
       return new TargetParsingException(

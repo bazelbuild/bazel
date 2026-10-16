@@ -27,8 +27,6 @@ import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Location;
 
 /**
  * A provider that supplies information about a specific language toolchain, including what platform
@@ -55,18 +53,15 @@ public final class ToolchainInfo extends StructImpl
     }
 
     @Override
-    public ToolchainInfo toolchainInfo(Dict<String, Object> kwargs, StarlarkThread thread) {
-      return new ToolchainInfo(kwargs, thread.getCallerLocation());
+    public ToolchainInfo toolchainInfo(Dict<String, Object> kwargs) {
+      return new ToolchainInfo(kwargs);
     }
   }
 
   @VisibleForSerialization final ImmutableSortedMap<String, Object> values;
 
-  private final Location location;
-
   /** Constructs a ToolchainInfo. The {@code values} map itself is not retained. */
-  protected ToolchainInfo(Map<String, Object> values, Location location) {
-    this.location = location;
+  ToolchainInfo(Map<String, Object> values) {
     this.values = copyValues(values);
   }
 
@@ -97,10 +92,5 @@ public final class ToolchainInfo extends StructImpl
   @Override
   public ImmutableSortedSet<String> getFieldNames() {
     return values.keySet();
-  }
-
-  @Override
-  public Location getCreationLocation() {
-    return location;
   }
 }

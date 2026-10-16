@@ -40,7 +40,7 @@ import net.starlark.java.syntax.Location;
 public class FakeOwner implements ActionExecutionMetadata {
   private final String mnemonic;
   private final String progressMessage;
-  private final String ownerLabel;
+  @Nullable private final String ownerLabel;
   private final String ownerRuleKind;
   @Nullable private final Artifact primaryOutput;
   @Nullable private final PlatformInfo platform;
@@ -58,7 +58,7 @@ public class FakeOwner implements ActionExecutionMetadata {
       boolean isBuiltForToolConfiguration) {
     this.mnemonic = mnemonic;
     this.progressMessage = progressMessage;
-    this.ownerLabel = checkNotNull(ownerLabel);
+    this.ownerLabel = ownerLabel;
     this.ownerRuleKind = checkNotNull(ownerRuleKind);
     this.primaryOutput = primaryOutput;
     this.platform = platform;
@@ -85,8 +85,9 @@ public class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public ActionOwner getOwner() {
+    Label parsedLabel = ownerLabel != null ? Label.parseCanonicalUnchecked(ownerLabel) : null;
     return ActionOwner.createDummy(
-        Label.parseCanonicalUnchecked(ownerLabel),
+        parsedLabel,
         new Location("dummy-file", 0, 0),
         ownerRuleKind,
         mnemonic,

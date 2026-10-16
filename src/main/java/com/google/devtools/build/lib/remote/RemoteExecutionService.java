@@ -21,14 +21,12 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.remote.CombinedCache.createFailureDetail;
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionForCredentialHelperException;
-import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionFromRemoteExecutionCapabilitiesException;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
-import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.util.Collections.min;
@@ -55,6 +53,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -63,24 +62,28 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
+import com.google.devtools.build.lib.concurrent.CancellableTask;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -94,6 +97,7 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultM
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.SymlinkMetadata;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
@@ -101,8 +105,6 @@ import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -152,12 +154,13 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -191,10 +194,10 @@ public class RemoteExecutionService {
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Set<String> reportedErrors = new HashSet<>();
 
-  @SuppressWarnings("AllowVirtualThreads")
-  private final ExecutorService backgroundTaskExecutor =
-      Executors.newThreadPerTaskExecutor(
-          Thread.ofVirtual().name("remote-execution-bg-", 0).factory());
+  private final ListeningExecutorService backgroundTaskExecutor =
+      MoreExecutors.listeningDecorator(
+          Executors.newThreadPerTaskExecutor(
+              Thread.ofVirtual().name("remote-execution-bg-", 0).factory()));
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
@@ -204,6 +207,7 @@ public class RemoteExecutionService {
 
   @Nullable private final Scrubber scrubber;
   private final Set<Digest> knownMissingCasDigests;
+  private final Predicate<ActionAnalysisMetadata> wasRewound;
 
   private Boolean useOutputPaths;
 
@@ -224,7 +228,8 @@ public class RemoteExecutionService {
       @Nullable Path captureCorruptedOutputsDir,
       @Nullable RemoteOutputChecker remoteOutputChecker,
       OutputService outputService,
-      Set<Digest> knownMissingCasDigests) {
+      Set<Digest> knownMissingCasDigests,
+      Predicate<ActionAnalysisMetadata> wasRewound) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -247,7 +252,7 @@ public class RemoteExecutionService {
             commandId,
             workspaceName);
 
-    this.scrubber = remoteOptions.scrubber;
+    this.scrubber = remoteOptions.getScrubber();
 
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
@@ -255,6 +260,19 @@ public class RemoteExecutionService {
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputService = outputService;
     this.knownMissingCasDigests = knownMissingCasDigests;
+    this.wasRewound = wasRewound;
+  }
+
+  /**
+   * Returns the spawn's output files excluding the output into which its standard output is
+   * redirected, if any.
+   */
+  private static Collection<? extends ActionInput> outputsExcludingStdout(Spawn spawn) {
+    Artifact stdoutOutput = spawn.getStdout();
+    if (stdoutOutput == null) {
+      return spawn.getOutputFiles();
+    }
+    return Collections2.filter(spawn.getOutputFiles(), artifact -> !artifact.equals(stdoutOutput));
   }
 
   private Command buildCommand(
@@ -301,7 +319,7 @@ public class RemoteExecutionService {
       }
       if (first && executionPlatform != null) {
         first = false;
-        OS executionOs = ConstraintConstants.getOsFromConstraints(executionPlatform.constraints());
+        OS executionOs = getOsFromConstraintsOrHost(executionPlatform);
         arg = OsPathPolicy.of(executionOs).postProcessPathStringForExecution(arg);
       }
       command.addArguments(internalToUnicode(arg));
@@ -315,10 +333,7 @@ public class RemoteExecutionService {
           .setValue(internalToUnicode(env.get(var)));
     }
 
-    return command
-        .setWorkingDirectory(
-            internalToUnicode(remotePathResolver.getWorkingDirectory().getPathString()))
-        .build();
+    return command.build();
   }
 
   private boolean useRemoteCache() {
@@ -335,7 +350,9 @@ public class RemoteExecutionService {
     }
 
     boolean allowRemoteCache =
-        useRemoteCache() && remoteOptions.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
+        useRemoteCache()
+            && remoteOptions.getRemoteAcceptCached()
+            && Spawns.mayBeCachedRemotely(spawn);
     boolean allowDiskCache = useDiskCache() && Spawns.mayBeCached(spawn);
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
@@ -353,6 +370,13 @@ public class RemoteExecutionService {
     boolean allowDiskCache = useDiskCache() && Spawns.mayBeCached(spawn);
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
+  }
+
+  private static boolean shouldUploadLocalResultsToRemoteCache(
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
+    return remoteOptions.getRemoteUploadLocalResults()
+        && Spawns.mayBeCachedRemotely(executionInfo)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
   }
 
   /** Returns {@code true} if the spawn may be executed remotely. */
@@ -401,7 +425,7 @@ public class RemoteExecutionService {
   @Nullable
   private ToolSignature getToolSignature(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
-    return remoteOptions.markToolInputs
+    return remoteOptions.getMarkToolInputs()
             && Spawns.supportsWorkers(spawn)
             && !spawn.getToolFiles().isEmpty()
         ? computePersistentWorkerSignature(spawn, context)
@@ -410,7 +434,7 @@ public class RemoteExecutionService {
 
   private void maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask task)
       throws InterruptedException {
-    if (!remoteOptions.throttleRemoteActionBuilding) {
+    if (!remoteOptions.getThrottleRemoteActionBuilding()) {
       return;
     }
 
@@ -420,7 +444,7 @@ public class RemoteExecutionService {
   }
 
   private void maybeReleaseRemoteActionBuildingSemaphore() {
-    if (!remoteOptions.throttleRemoteActionBuilding) {
+    if (!remoteOptions.getThrottleRemoteActionBuilding()) {
       return;
     }
 
@@ -492,7 +516,7 @@ public class RemoteExecutionService {
     return buildRemoteAction(
         spawn,
         context,
-        remoteOptions.remoteDiscardMerkleTrees
+        remoteOptions.getRemoteDiscardMerkleTrees()
             ? MerkleTreeComputer.BlobPolicy.DISCARD
             : MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD);
   }
@@ -518,29 +542,31 @@ public class RemoteExecutionService {
                 toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                 scrubber,
                 context,
-                remotePathResolver,
                 blobPolicy);
       } catch (CredentialHelperException e) {
         throw createExecExceptionForCredentialHelperException(e);
-      } catch (RemoteExecutionCapabilitiesException e) {
-        throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
       }
 
       // Get the remote platform properties.
       Platform platform;
+      ImmutableMap.Builder<String, String> additionalPropertiesBuilder = ImmutableMap.builder();
       if (toolSignature != null) {
-        platform =
-            PlatformUtils.getPlatformProto(
-                spawn, remoteOptions, ImmutableMap.of("persistentWorkerKey", toolSignature.key));
-      } else {
-        platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+        additionalPropertiesBuilder.put(
+            PlatformProperties.PERSISTENT_WORKER_KEY, toolSignature.key);
+        if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL)) {
+          additionalPropertiesBuilder.put(
+              PlatformProperties.PERSISTENT_WORKER_PROTOCOL,
+              spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL));
+        }
       }
+      platform =
+          PlatformUtils.getPlatformProto(spawn, remoteOptions, additionalPropertiesBuilder.build());
 
       SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
       Command command =
           buildCommand(
               useOutputPaths(),
-              spawn.getOutputFiles(),
+              outputsExcludingStdout(spawn),
               spawn.getArguments(),
               spawn.getEnvironment(),
               platform,
@@ -559,9 +585,17 @@ public class RemoteExecutionService {
 
       ActionKey actionKey = digestUtil.computeActionKey(action);
 
+      ActionExecutionMetadata actionMetadata = spawn.getResourceOwner();
       RequestMetadata metadata =
           TracingMetadataUtils.buildMetadata(
-              buildRequestId, commandId, actionKey.digest().getHash(), spawn.getResourceOwner());
+              buildRequestId,
+              commandId,
+              actionKey.digest().getHash(),
+              actionMetadata != null ? actionMetadata.getMnemonic() : null,
+              actionMetadata != null && actionMetadata.getOwner().getLabel() != null
+                  ? actionMetadata.getOwner().getLabel().getCanonicalForm()
+                  : null,
+              actionMetadata != null ? actionMetadata.getOwner().getConfigurationChecksum() : null);
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
               spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
@@ -705,10 +739,12 @@ public class RemoteExecutionService {
               Iterables.transform(
                   Iterables.concat(outputFiles, outputDirPaths, outputSymlinkPaths),
                   StringEncoding::unicodeToInternal));
-      // Check that all mandatory outputs are created.
+      // Check that all mandatory outputs are created. The stdout output is captured as the action
+      // result's stdout rather than as a regular output file of the RemoteAction, so it has to be
+      // excluded here.
       var spawn = action.getSpawn();
       var remotePathResolver = action.getRemotePathResolver();
-      return spawn.getOutputFiles().stream()
+      return outputsExcludingStdout(spawn).stream()
           .filter(spawn::isMandatoryOutput)
           .filter(
               output -> !allOutputPaths.contains(remotePathResolver.localPathToOutputPath(output)))
@@ -763,6 +799,15 @@ public class RemoteExecutionService {
         action.getRemoteActionExecutionContext().getReadCachePolicy().allowAnyCache(),
         "spawn doesn't accept cached result");
 
+    // A rewound action must regenerate its lost outputs even if the cache still serves its stale
+    // action result. Treat this as a cache miss.
+    // TODO(https://github.com/bazelbuild/remote-apis/pull/386): Allow cache lookup for rewound
+    // actions when CacheCapabilities.verifies_action_results is advertised, while still bypassing
+    // unverified cache layers.
+    if (wasRewound.test(action.getSpawn().getResourceOwner())) {
+      return null;
+    }
+
     ImmutableSet<String> inlineOutputFiles = ImmutableSet.of();
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {
@@ -783,16 +828,24 @@ public class RemoteExecutionService {
 
     var result = RemoteActionResult.createFromCache(cachedActionResult);
 
-    // We only add digests to `knownMissingCasDigests` when LostInputsEvent occurs which will cause
-    // the build to abort and rewind, so there is no data race here. This allows us to avoid the
-    // check until cache eviction happens.
+    // The legacy whole-invocation retry path uses knownMissingCasDigests to prevent a retried
+    // invocation from accepting the same stale action result. Action rewinding bypasses cache
+    // lookup above without populating this set.
     if (!knownMissingCasDigests.isEmpty()) {
-      var metadata =
-          result.getOrParseActionResultMetadata(
-              combinedCache,
-              digestUtil,
-              action.getRemoteActionExecutionContext(),
-              action.getRemotePathResolver());
+      ActionResultMetadata metadata;
+      try {
+        metadata =
+            result.getOrParseActionResultMetadata(
+                combinedCache,
+                digestUtil,
+                action.getRemoteActionExecutionContext(),
+                action.getRemotePathResolver());
+      } catch (BulkTransferException e) {
+        if (!e.allCausedByCacheNotFoundException()) {
+          throw e;
+        }
+        return null; // Handle dangling reference to lost Tree message as AC miss.
+      }
 
       // If we already know digests referenced by this AC is missing from remote cache, ignore it so
       // that we can fall back to execution. This could happen when the remote cache is an HTTP
@@ -805,6 +858,20 @@ public class RemoteExecutionService {
     }
 
     return result;
+  }
+
+  /**
+   * Returns the (exec root relative) path of a spawn output that should be made available via
+   * {@link SpawnResult#getInMemoryOutput(ActionInput)}.
+   */
+  @Nullable
+  private static PathFragment getInMemoryOutputPath(Spawn spawn) {
+    String outputPath =
+        spawn.getExecutionInfo().get(ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS);
+    if (outputPath != null) {
+      return PathFragment.create(outputPath);
+    }
+    return null;
   }
 
   /**
@@ -845,6 +912,7 @@ public class RemoteExecutionService {
               internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
               remotePathResolver.localPathToExecPath(file.path().asFragment()),
               tmpPath,
+              /* finalPath= */ file.path(),
               file.digest(),
               new CombinedCache.DownloadProgressReporter(
                   progressStatusListener,
@@ -922,6 +990,18 @@ public class RemoteExecutionService {
 
   private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
     for (SymlinkMetadata symlink : symlinks) {
+      // Ensure the symlink is materialized inside the exec root. The local path is derived from an
+      // ActionResult output symlink path via execRoot.getRelative(...), which returns an absolute
+      // path verbatim, so without this check an absolute (or otherwise escaping) symlink path would
+      // be created outside the output tree. Output files already enforce containment via
+      // file.path.relativeTo(execRoot) in downloadOutputs(); apply the same guarantee to output
+      // symlinks (including tree-nested symlinks, which also flow through here).
+      if (!symlink.path().startsWith(execRoot)) {
+        throw new IOException(
+            String.format(
+                "Failed to create symlink %s: the output path escapes the output tree %s",
+                symlink.path(), execRoot));
+      }
       Preconditions.checkNotNull(
               symlink.path().getParentDirectory(),
               "Failed creating directory and parents for %s",
@@ -1050,13 +1130,21 @@ public class RemoteExecutionService {
     }
   }
 
+  private static void validatePathComponent(String name) throws IOException {
+    if (name.isEmpty() || name.contains("/") || name.equals(".") || name.equals("..")) {
+      throw new IOException("Malformed path component: " + name);
+    }
+  }
+
   private static DirectoryMetadata parseDirectory(
-      Path parent, Directory dir, Map<Digest, Directory> childDirectoriesMap) {
+      Path parent, Directory dir, Map<Digest, Directory> childDirectoriesMap) throws IOException {
     ImmutableList.Builder<FileMetadata> filesBuilder = ImmutableList.builder();
     for (FileNode file : dir.getFilesList()) {
+      String name = unicodeToInternal(file.getName());
+      validatePathComponent(name);
       filesBuilder.add(
           new FileMetadata(
-              parent.getRelative(unicodeToInternal(file.getName())),
+              parent.getRelative(name),
               file.getDigest(),
               file.getIsExecutable(),
               ByteString.EMPTY));
@@ -1064,14 +1152,18 @@ public class RemoteExecutionService {
 
     ImmutableList.Builder<SymlinkMetadata> symlinksBuilder = ImmutableList.builder();
     for (SymlinkNode symlink : dir.getSymlinksList()) {
+      String name = unicodeToInternal(symlink.getName());
+      validatePathComponent(name);
       symlinksBuilder.add(
           new SymlinkMetadata(
-              parent.getRelative(unicodeToInternal(symlink.getName())),
+              parent.getRelative(name),
               PathFragment.create(unicodeToInternal(symlink.getTarget()))));
     }
 
     for (DirectoryNode directoryNode : dir.getDirectoriesList()) {
-      Path childPath = parent.getRelative(unicodeToInternal(directoryNode.getName()));
+      String name = unicodeToInternal(directoryNode.getName());
+      validatePathComponent(name);
+      Path childPath = parent.getRelative(name);
       Directory childDir =
           Preconditions.checkNotNull(childDirectoriesMap.get(directoryNode.getDigest()));
       DirectoryMetadata childMetadata = parseDirectory(childPath, childDir, childDirectoriesMap);
@@ -1117,7 +1209,7 @@ public class RemoteExecutionService {
         dirMetadataDownloads.put(
             localPath,
             Futures.transformAsync(
-                combinedCache.downloadBlob(
+                combinedCache.downloadBlobAsByteString(
                     context,
                     outputPath,
                     remotePathResolver.localPathToExecPath(localPath.asFragment()),
@@ -1155,6 +1247,18 @@ public class RemoteExecutionService {
               outputFile.getDigest(),
               outputFile.getIsExecutable(),
               outputFile.getContents()));
+    }
+
+    Artifact stdoutArtifact = context.getSpawn().getStdout();
+    if (stdoutArtifact != null) {
+      Path localPath = stdoutArtifact.getPath();
+      files.put(
+          localPath,
+          new FileMetadata(
+              localPath,
+              result.getStdoutDigest(),
+              /* isExecutable= */ false,
+              result.getStdoutRaw()));
     }
 
     var symlinkMap = new HashMap<Path, SymlinkMetadata>();
@@ -1227,7 +1331,7 @@ public class RemoteExecutionService {
             combinedCache, digestUtil, context, action.getRemotePathResolver());
 
     // The expiration time for remote cache entries.
-    var expirationTime = Instant.now().plus(remoteOptions.remoteCacheTtl);
+    var expirationTime = Instant.now().plus(remoteOptions.getRemoteCacheTtl());
 
     ActionInput inMemoryOutput = null;
     AtomicReference<ByteString> inMemoryOutputData = new AtomicReference<>(null);
@@ -1272,7 +1376,8 @@ public class RemoteExecutionService {
                   file.path().asFragment(),
                   DigestUtil.toBinaryDigest(file.digest()),
                   file.digest().getSizeBytes(),
-                  expirationTime);
+                  expirationTime,
+                  isInMemoryOutputFile);
         }
 
         if (isInMemoryOutputFile) {
@@ -1286,13 +1391,13 @@ public class RemoteExecutionService {
             } else {
               downloadsBuilder.add(
                   transform(
-                      combinedCache.downloadBlob(
+                      combinedCache.downloadBlobAsByteString(
                           context,
                           inMemoryOutputPath.getPathString(),
                           inMemoryOutputPath,
                           file.digest()),
                       data -> {
-                        inMemoryOutputData.set(ByteString.copyFrom(data));
+                        inMemoryOutputData.set(data);
                         return null;
                       },
                       directExecutor()));
@@ -1326,17 +1431,23 @@ public class RemoteExecutionService {
                   file.path().asFragment(),
                   DigestUtil.toBinaryDigest(file.digest()),
                   file.digest().getSizeBytes(),
-                  expirationTime);
+                  expirationTime,
+                  /* inMemoryOutput= */ false);
         }
       }
     }
 
     FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
 
-    // Always download the action stdout/stderr.
+    // Always download the action stdout/stderr, except for stdout that was redirected into an
+    // output above (in which case it must not be reported as regular action stdout).
     FileOutErr tmpOutErr = outErr.childOutErr();
     List<ListenableFuture<Void>> outErrDownloads =
-        combinedCache.downloadOutErr(context, result.actionResult, tmpOutErr);
+        combinedCache.downloadOutErr(
+            context,
+            result.actionResult,
+            tmpOutErr,
+            /* downloadStdout= */ context.getSpawn().getStdout() == null);
     for (ListenableFuture<Void> future : outErrDownloads) {
       downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
     }
@@ -1624,6 +1735,27 @@ public class RemoteExecutionService {
         }
       }
 
+      // The stdout output is captured as the action result's stdout rather than as a regular
+      // output file, so it isn't part of the command's output paths and has to be copied
+      // separately.
+      Artifact stdoutOutput = action.getSpawn().getStdout();
+      if (stdoutOutput != null) {
+        Artifact previousStdoutOutput = previousExecution.action.getSpawn().getStdout();
+        if (previousStdoutOutput == null) {
+          // The previous spawn reported its stdout as regular action output, so it isn't
+          // available as a file. Rerun the action instead.
+          return null;
+        }
+        Path tmpPath = tempPathGenerator.generateTempPath();
+        tmpPath.getParentDirectory().createDirectoryAndParents();
+        try {
+          FileSystemUtils.copyFile(previousStdoutOutput.getPath(), tmpPath);
+          realToTmpPath.put(stdoutOutput.getPath(), tmpPath);
+        } catch (FileNotFoundException e) {
+          return null;
+        }
+      }
+
       // TODO: FileOutErr is action-scoped, not spawn-scoped, but this is not a problem for the
       //  current use case of supporting deduplication of path mapped spawns:
       //  1. Starlark and C++ compilation actions always create a single spawn.
@@ -1644,12 +1776,12 @@ public class RemoteExecutionService {
       moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
     } catch (InterruptedException | IOException e) {
       // Delete any copied output files.
-      try {
-        for (Path tmpPath : realToTmpPath.values()) {
+      for (Path tmpPath : realToTmpPath.values()) {
+        try {
           tmpPath.delete();
+        } catch (IOException ignored) {
+          // Best effort, will be cleaned up at server restart.
         }
-      } catch (IOException ignored) {
-        // Best effort, will be cleaned up at server restart.
       }
       throw e;
     }
@@ -1699,8 +1831,16 @@ public class RemoteExecutionService {
       throws IOException, ExecException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("build upload manifest")) {
       ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
+      // If the spawn redirected its stdout into an output, upload that file as the action's stdout
+      // digest rather than as an output file.
+      Artifact stdoutOutput = action.getSpawn().getStdout();
+      FileOutErr fileOutErr = action.getSpawnExecutionContext().getFileOutErr();
+      if (stdoutOutput != null) {
+        fileOutErr = new FileOutErr(stdoutOutput.getPath(), fileOutErr.getErrorPath());
+      }
+
       // Check that all mandatory outputs are created.
-      for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
+      for (ActionInput outputFile : outputsExcludingStdout(action.getSpawn())) {
         Symlinks followSymlinks = outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
         Path localPath = execRoot.getRelative(outputFile.getExecPath());
         if (action.getSpawn().isMandatoryOutput(outputFile) && !localPath.exists(followSymlinks)) {
@@ -1718,7 +1858,7 @@ public class RemoteExecutionService {
           action.getAction(),
           action.getCommand(),
           outputFiles.build(),
-          action.getSpawnExecutionContext().getFileOutErr(),
+          fileOutErr,
           spawnResult.exitCode(),
           spawnResult.getStartTime(),
           spawnResult.getWallTimeInMs(),
@@ -1754,31 +1894,121 @@ public class RemoteExecutionService {
       return;
     }
 
-    if (remoteOptions.remoteCacheAsync
+    // The output blobs of a rewound action may have been evicted after this invocation uploaded
+    // them, so bypass the deduplication of completed uploads. Otherwise, the refreshed action
+    // result could still reference missing blobs. Evaluate this here rather than in the upload
+    // task, which may run after the build's rewinding state has been discarded.
+    boolean force = wasRewound.test(action.getSpawn().getResourceOwner());
+    if (remoteOptions.getRemoteCacheAsync()
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      backgroundTaskExecutor.execute(
-          () -> {
-            try {
-              doUploadOutputs(action, spawnResult, onUploadComplete);
-            } catch (ExecException e) {
-              reportUploadError(e);
-            } catch (InterruptedException ignored) {
-              // ThreadPerTaskExecutor does not care about interrupt status.
-            }
-          });
+      new OutputUploadTask(action, spawnResult, force, onUploadComplete).start();
     } else {
-      doUploadOutputs(action, spawnResult, onUploadComplete);
+      doUploadOutputs(action, spawnResult, force, onUploadComplete);
+    }
+  }
+
+  @Nullable
+  private RemoteRewoundActionSynchronizer getRewoundActionSynchronizer() {
+    if (outputService instanceof RemoteOutputService remoteOutputService
+        && remoteOutputService.getRewoundActionSynchronizer()
+            instanceof RemoteRewoundActionSynchronizer rewoundActionSynchronizer) {
+      return rewoundActionSynchronizer;
+    }
+    return null;
+  }
+
+  /**
+   * A cancellable background upload of an action's outputs.
+   *
+   * <p>Registers itself with the {@link RemoteRewoundActionSynchronizer}, if there is one, before
+   * the upload starts and unregisters itself when it is done, so that a rewinding of the action
+   * waits for uploads that are still in flight.
+   *
+   * <p>{@link CancellableTask} ensures that the completion callback runs exactly once and that
+   * cancellation only completes once the upload no longer accesses the action's outputs.
+   */
+  @VisibleForTesting
+  final class OutputUploadTask implements RemoteRewoundActionSynchronizer.Cancellable {
+    private final CancellableTask<InterruptedException> upload;
+    private final ActionExecutionMetadata spawnOwner;
+    @Nullable private final RemoteRewoundActionSynchronizer rewoundActionSynchronizer;
+
+    // Written by start() before the upload is handed to the executor, which establishes a
+    // happens-before edge to the reads in run() on the executor thread.
+    private Runnable unregisterHandle = () -> {};
+
+    OutputUploadTask(
+        RemoteAction action, SpawnResult spawnResult, boolean force, Runnable onUploadComplete) {
+      this.upload =
+          new CancellableTask<>(
+              () -> {
+                try {
+                  doUploadOutputs(action, spawnResult, force, /* onUploadComplete= */ () -> {});
+                } catch (ExecException e) {
+                  reportUploadError(e);
+                }
+              },
+              onUploadComplete);
+      this.spawnOwner = action.getRemoteActionExecutionContext().getSpawnOwner();
+      this.rewoundActionSynchronizer = getRewoundActionSynchronizer();
+    }
+
+    /** Registers the task for cancellation and starts the upload in the background. */
+    void start() {
+      // Register before starting the upload so that it can't unregister itself before it has been
+      // registered.
+      if (rewoundActionSynchronizer != null) {
+        unregisterHandle = rewoundActionSynchronizer.registerOutputUploadTask(spawnOwner, this);
+      }
+      try {
+        // Executes rather than submits the upload: the body of a task submitted to an
+        // ExecutorService is skipped entirely if its future is cancelled before the body starts,
+        // which is why cancellation goes through the task itself instead of its future.
+        backgroundTaskExecutor.execute(this::run);
+      } catch (RejectedExecutionException e) {
+        // The upload will never run. Cancelling it runs the completion callback if no cancellation
+        // got there first. A concurrent cancellation may still be running the callback, whose
+        // effects are part of the upload's completion contract, so wait for it before propagating
+        // the rejection.
+        try {
+          upload.requestCancellation();
+          upload.awaitCompletionUninterruptibly();
+        } finally {
+          unregisterHandle.run();
+        }
+        throw e;
+      }
+    }
+
+    private void run() {
+      try {
+        var unused = upload.runIfNotCancelled();
+      } catch (InterruptedException ignored) {
+        // ThreadPerTaskExecutor does not care about interrupt status.
+      } finally {
+        unregisterHandle.run();
+      }
+    }
+
+    @Override
+    public void requestCancellation() {
+      upload.requestCancellation();
+    }
+
+    @Override
+    public void awaitCompletion() throws InterruptedException {
+      upload.awaitCompletion();
     }
   }
 
   private void doUploadOutputs(
-      RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete)
+      RemoteAction action, SpawnResult spawnResult, boolean force, Runnable onUploadComplete)
       throws ExecException, InterruptedException {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
       UploadManifest manifest = buildUploadManifest(action, spawnResult);
       var unused =
-          manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter);
+          manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter, force);
     } catch (IOException e) {
       reportUploadError(e);
     } finally {
@@ -1870,7 +2100,6 @@ public class RemoteExecutionService {
                     toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                     scrubber,
                     context,
-                    action.getRemotePathResolver(),
                     force
                         ? MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD
                         : MerkleTreeComputer.BlobPolicy.KEEP);
@@ -1882,8 +2111,7 @@ public class RemoteExecutionService {
               .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
           merkleTree,
           additionalInputs,
-          force,
-          action.getRemotePathResolver());
+          force);
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }
@@ -1903,17 +2131,23 @@ public class RemoteExecutionService {
 
     ExecuteRequest.Builder requestBuilder =
         ExecuteRequest.newBuilder()
-            .setInstanceName(remoteOptions.remoteInstanceName)
+            .setInstanceName(remoteOptions.getRemoteInstanceName())
             .setDigestFunction(digestUtil.getDigestFunction())
             .setActionDigest(action.getActionKey().digest())
-            .setSkipCacheLookup(!acceptCachedResult);
-    if (remoteOptions.remoteResultCachePriority != 0) {
+            // TODO(https://github.com/bazelbuild/remote-apis/pull/386): Allow cached execution
+            // results for rewound actions when ExecutionCapabilities.verifies_action_results is
+            // advertised.
+            .setSkipCacheLookup(
+                !acceptCachedResult || wasRewound.test(action.getSpawn().getResourceOwner()));
+    if (remoteOptions.getRemoteResultCachePriority() != 0) {
       requestBuilder
           .getResultsCachePolicyBuilder()
-          .setPriority(remoteOptions.remoteResultCachePriority);
+          .setPriority(remoteOptions.getRemoteResultCachePriority());
     }
-    if (remoteOptions.remoteExecutionPriority != 0) {
-      requestBuilder.getExecutionPolicyBuilder().setPriority(remoteOptions.remoteExecutionPriority);
+    if (remoteOptions.getRemoteExecutionPriority() != 0) {
+      requestBuilder
+          .getExecutionPolicyBuilder()
+          .setPriority(remoteOptions.getRemoteExecutionPriority());
     }
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {
@@ -1948,15 +2182,25 @@ public class RemoteExecutionService {
     ActionResult actionResult = resp.getResult();
     if (resp.getServerLogsCount() > 0
         && (actionResult.getExitCode() != 0 || resp.getStatus().getCode() != Code.OK.value())) {
+      // Always read from remote cache for just remotely executed action, even if the spawn doesn't
+      // accept cached results (e.g. because it is tagged with no-cache).
+      var context = action.getRemoteActionExecutionContext();
+      context = context.withReadCachePolicy(context.getReadCachePolicy().addRemoteCache());
       for (Map.Entry<String, LogFile> e : resp.getServerLogsMap().entrySet()) {
         if (e.getValue().getHumanReadable()) {
-          serverLogs.lastLogPath = serverLogs.directory.getRelative(e.getKey());
+          Path lastLogPath = serverLogs.directory.getRelative(e.getKey());
+          if (!lastLogPath.startsWith(serverLogs.directory)) {
+            throw new IOException(
+                String.format(
+                    "Path traversal detected in server log key: %s (resolved: %s, expected"
+                        + " descendant of %s)",
+                    e.getKey(), lastLogPath, serverLogs.directory));
+          }
+          serverLogs.lastLogPath = lastLogPath;
           serverLogs.logCount++;
           getFromFuture(
               combinedCache.downloadFile(
-                  action.getRemoteActionExecutionContext(),
-                  serverLogs.lastLogPath,
-                  e.getValue().getDigest()));
+                  context, serverLogs.lastLogPath, e.getValue().getDigest()));
         }
       }
     }
@@ -2012,6 +2256,12 @@ public class RemoteExecutionService {
     }
   }
 
+  /** Shuts down the background task executor so that new task submissions are rejected. */
+  @VisibleForTesting
+  void shutdownBackgroundTaskExecutorForTesting() {
+    backgroundTaskExecutor.shutdown();
+  }
+
   /**
    * Whether parameter files should be written locally, even when using remote execution or caching.
    */
@@ -2019,8 +2269,8 @@ public class RemoteExecutionService {
     if (!executionOptions.shouldMaterializeParamFiles()) {
       return;
     }
-    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
-      if (actionInput instanceof CommandLines.ParamFileActionInput paramFileActionInput) {
+    for (ActionInput actionInput : spawn.getInputFiles().flatten()) {
+      if (actionInput instanceof ParamFileActionInput paramFileActionInput) {
         paramFileActionInput.atomicallyWriteRelativeTo(execRoot);
       }
     }

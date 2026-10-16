@@ -67,8 +67,8 @@ public class DocLinkMapTest {
     Files.write(path, content.getBytes(UTF_8));
 
     DocLinkMap map = DocLinkMap.createFromFile(path.toString());
-    assertThat(map.beRoot).isEqualTo("/be_root");
-    assertThat(map.beReferences)
+    assertThat(map.beRoot()).isEqualTo("/be_root");
+    assertThat(map.beReferences())
         .containsExactly(
             "build-ref1",
             "build-ref1.html",
@@ -77,8 +77,8 @@ public class DocLinkMapTest {
             "build-ref3",
             "build-ref3.html")
         .inOrder();
-    assertThat(map.sourceUrlRoot).isEqualTo("https://example.com/");
-    assertThat(map.repoPathRewrites)
+    assertThat(map.sourceUrlRoot()).isEqualTo("https://example.com/");
+    assertThat(map.repoPathRewrites())
         .containsExactly(
             "@_builtins//common/",
             "https://example.com/common/builtins_bzl",

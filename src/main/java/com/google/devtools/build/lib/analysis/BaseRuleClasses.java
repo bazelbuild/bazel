@@ -21,13 +21,13 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Types.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -290,13 +289,7 @@ public class BaseRuleClasses {
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
                 .nonconfigurable("applicable_metadata is not configurable"))
-        .add(attr("aspect_hints", LABEL_LIST).allowedFileTypes(FileTypeSet.NO_FILE));
-  }
-
-  public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)
-      throws ConversionException {
-    return builder.add(
-        attr(RuleClass.EXEC_PROPERTIES_ATTR, STRING_DICT).defaultValue(ImmutableMap.of()));
+        .add(attr(RuleClass.ASPECT_HINTS_ATTR, LABEL_LIST).allowedFileTypes(FileTypeSet.NO_FILE));
   }
 
   /**
@@ -324,6 +317,7 @@ public class BaseRuleClasses {
           // has to be excluded in `IncompatibleTargetChecker`.
           .add(
               attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)
+                  .mandatoryBuiltinProviders(ImmutableList.of(ConfigMatchingProvider.class))
                   .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                   // This should be configurable to allow for complex types of restrictions.
                   .tool(

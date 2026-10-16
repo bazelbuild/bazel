@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -127,13 +126,13 @@ public interface InputMetadataProvider {
    */
   static List<ActionInput> expandArtifacts(
       InputMetadataProvider inputMetadataProvider,
-      NestedSet<? extends ActionInput> inputs,
+      Iterable<? extends ActionInput> inputs,
       boolean keepEmptyTreeArtifacts,
       boolean keepRunfilesTrees) {
     List<ActionInput> result = new ArrayList<>();
     Set<Artifact> emptyTreeArtifacts = new TreeSet<>();
     Set<Artifact> treeFileArtifactParents = new HashSet<>();
-    for (ActionInput input : inputs.toList()) {
+    for (ActionInput input : inputs) {
       if (!(input instanceof Artifact artifact)) {
         result.add(input);
       } else if (artifact.isRunfilesTree()) {

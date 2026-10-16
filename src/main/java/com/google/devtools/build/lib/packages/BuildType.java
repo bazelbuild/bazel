@@ -41,6 +41,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -483,7 +484,7 @@ public final class BuildType {
         errorMessage.append(' ');
         errorMessage.append(entry.getKey().getCanonicalForm());
         errorMessage.append(" (as ");
-        errorMessage.repr(entry.getValue());
+        errorMessage.repr(entry.getValue(), StarlarkSemantics.DEFAULT);
         errorMessage.append(')');
       }
       throw new ConversionException(errorMessage.toString());
@@ -640,14 +641,14 @@ public final class BuildType {
 
     @Override
     public String toString() {
-      return Starlark.repr(this);
+      return Starlark.repr(this, StarlarkSemantics.DEFAULT);
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       // Convert to a lib.packages.SelectorList to guarantee consistency with callers that serialize
       // directly on that type.
-      printer.repr(Attribute.valueToStarlark(this));
+      printer.repr(Attribute.valueToStarlark(this), semantics);
     }
   }
 
@@ -768,6 +769,15 @@ public final class BuildType {
     }
 
     /**
+     * Returns the value to use when none of the attribute's selection keys match, or {@link
+     * Starlark#NONE} if the default condition was explicitly specified as {@code None}.
+     */
+    @Nullable
+    public Object getStarlarkDefault() {
+      return isValueSet(DEFAULT_CONDITION_LABEL) ? getDefault() : Starlark.NONE;
+    }
+
+    /**
      * Returns a new {@link ArrayList} containing all the values in the entries of this {@link
      * Selector}, in the same order they were initially specified.
      *
@@ -791,6 +801,17 @@ public final class BuildType {
       // the ordering of our original map, so we use LinkedHashMap instead of HashMap.
       LinkedHashMap<Label, T> result = Maps.newLinkedHashMapWithExpectedSize(getNumEntries());
       forEach(result::put);
+      return result;
+    }
+
+    /**
+     * Returns a new {@link Map} representing the branches of this {@link Selector}, in the same
+     * order they were initially specified, mapping conditions with {@code None} value to {@link
+     * Starlark#NONE}.
+     */
+    public Map<Label, Object> starlarkMapCopy() {
+      LinkedHashMap<Label, Object> result = Maps.newLinkedHashMapWithExpectedSize(getNumEntries());
+      forEach((label, value) -> result.put(label, isValueSet(label) ? value : Starlark.NONE));
       return result;
     }
 

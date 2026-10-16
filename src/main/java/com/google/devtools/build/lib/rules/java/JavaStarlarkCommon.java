@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfigur
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -201,7 +203,8 @@ public class JavaStarlarkCommon
       boolean enableJSpecify,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Sequence<?> additionalOutputs)
+      Sequence<?> additionalOutputs,
+      Sequence<?> extraArgs)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -217,6 +220,11 @@ public class JavaStarlarkCommon
             .nativeHeader(nativeHeader == Starlark.NONE ? null : (Artifact) nativeHeader)
             .manifestProto(manifestProto)
             .build();
+    ImmutableList.Builder<CommandLine> extraCommandLineArgs = ImmutableList.builder();
+    for (Args args : Sequence.cast(extraArgs, Args.class, "extra_args")) {
+      extraCommandLineArgs.add(
+          args.build(ctx.getRuleContext().getAnalysisEnvironment()::getMainRepoMapping));
+    }
     JavaTargetAttributes.Builder attributesBuilder =
         new JavaTargetAttributes.Builder()
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
@@ -261,6 +269,7 @@ public class JavaStarlarkCommon
         Depset.cast(javaBuilderJvmFlags, String.class, "javabuilder_jvm_flags"));
     compilationHelper.enableJspecify(enableJSpecify);
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
+    compilationHelper.setExtraCommandLineArgs(extraCommandLineArgs.build());
     compilationHelper.createCompileAction(outputs);
   }
 

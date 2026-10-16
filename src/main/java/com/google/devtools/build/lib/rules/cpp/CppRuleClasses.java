@@ -167,6 +167,12 @@ public class CppRuleClasses {
   /** A string constant for enabling fsafdo for AutoFDO implicitly. */
   public static final String ENABLE_FSAFDO = "enable_fsafdo";
 
+  /** A string constant for enabling memprof_optimize for FDO implicitly. */
+  public static final String ENABLE_FDO_MEMPROF_OPTIMIZE = "enable_fdo_memprof_optimize";
+
+  /** A string constant for allowing memprof_optimize for FDO implicitly. */
+  public static final String FDO_IMPLICIT_MEMPROF_OPTIMIZE = "fdo_implicit_memprof_optimize";
+
   /** A string constant for enabling memprof_optimize for AutoFDO implicitly. */
   public static final String ENABLE_AUTOFDO_MEMPROF_OPTIMIZE = "enable_autofdo_memprof_optimize";
 
@@ -282,6 +288,7 @@ public class CppRuleClasses {
 
 
   public static final String COMPILER_PARAM_FILE = "compiler_param_file";
+  public static final String COMPILER_PARAM_FILE_ON_DEMAND = "compiler_param_file_on_demand";
 
   /**
    * A feature to control whether to use param files for archiving commands. This can be applied to
@@ -291,6 +298,9 @@ public class CppRuleClasses {
 
   /** A feature to use gcc quoting for linking param files. */
   public static final String GCC_QUOTING_FOR_PARAM_FILES = "gcc_quoting_for_param_files";
+
+  /** A feature to use Windows quoting for compiler and linker param files. */
+  public static final String WINDOWS_QUOTING_FOR_PARAM_FILES = "windows_quoting_for_param_files";
 
   /**
    * A feature to indicate that this target generates debug symbols for a dSYM file. For Apple

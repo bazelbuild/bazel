@@ -20,9 +20,11 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Options class for cquery specific query options. */
-public class CqueryOptions extends CommonQueryOptions {
+@OptionsClass
+public abstract class CqueryOptions extends CommonQueryOptions {
 
   /** Converter for {@link CqueryOptions.Transitions} enum. */
   public static class TransitionsConverter extends EnumConverter<Transitions> {
@@ -48,7 +50,7 @@ public class CqueryOptions extends CommonQueryOptions {
               + "are: label, label_kind, textproto, transitions, proto, streamed_proto, jsonproto. "
               + "If you select 'transitions', you also have to specify the "
               + "--transitions=(lite|full) option.")
-  public String outputFormat;
+  public abstract String getOutputFormat();
 
   @Option(
       name = "transitions",
@@ -56,9 +58,10 @@ public class CqueryOptions extends CommonQueryOptions {
       defaultValue = "none",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "The format in which cquery will print transition information."
-  )
-  public Transitions transitions;
+      help = "The format in which cquery will print transition information.")
+  public abstract Transitions getTransitions();
+
+  public abstract void setTransitions(Transitions value);
 
   @Option(
       name = "show_config_fragments",
@@ -72,7 +75,7 @@ public class CqueryOptions extends CommonQueryOptions {
               + "graph can be trimmed.")
   // This implicitly sets the option --include_config_fragments_provider (see CoreOptions), which
   // makes configured targets compute the data cquery needs to enable this feature.
-  public IncludeConfigFragmentsEnum showRequiredConfigFragments;
+  public abstract IncludeConfigFragmentsEnum getShowRequiredConfigFragments();
 
   @Option(
       name = "proto:include_configurations",
@@ -82,7 +85,9 @@ public class CqueryOptions extends CommonQueryOptions {
       help =
           "if enabled, proto output will include information about configurations. When disabled,"
               + "cquery proto output format resembles query output format.")
-  public boolean protoIncludeConfigurations;
+  public abstract boolean getProtoIncludeConfigurations();
+
+  public abstract void setProtoIncludeConfigurations(boolean value);
 
   @Option(
       name = "starlark:expr",
@@ -95,7 +100,7 @@ public class CqueryOptions extends CommonQueryOptions {
               + " If neither --starlark:expr nor --starlark:file is specified, this option will"
               + " default to 'str(target.label)'. It is an error to specify both --starlark:expr"
               + " and --starlark:file.")
-  public String expr;
+  public abstract String getExpr();
 
   @Option(
       name = "starlark:file",
@@ -107,5 +112,5 @@ public class CqueryOptions extends CommonQueryOptions {
               + " that is applied to each configured target to format it as a string. It is an"
               + " error to specify both --starlark:expr and --starlark:file. See help for"
               + " --output=starlark for additional detail.")
-  public String file;
+  public abstract String getFile();
 }

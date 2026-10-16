@@ -13,24 +13,26 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
 // TODO(bazel-team) - remove the transition-period waive of compatibility requirements.
 /**
  * These tags should describe the intent and effects of an option.
  *
  * <p>These will be used for filtering noise in long and complex command-lines, to help provide an
  * overview of which options were likely to have an effect on an issue. This should help reproduce
- * both working or broken behavior, as we want this to be useful both for debugging and for
- * avoiding users blindly copying command lines. For this reason, even experimental and undocumented
- * flags should list their effects. All flags have at least one effect (if not, NO_OP is provided)
- * so all @Options will require at least one value.
+ * both working or broken behavior, as we want this to be useful both for debugging and for avoiding
+ * users blindly copying command lines. For this reason, even experimental and undocumented flags
+ * should list their effects. All flags have at least one effect (if not, NO_OP is provided) so
+ * all @Options will require at least one value.
  *
  * <p>This file must be kept in sync with the matching proto. The information is duplicated to keep
  * the proto dependency out of users of this options library.
  *
  * <p>IMPORTANT NOTE**: Changing this enum has specific compatibility requirements:
  *
- * <p>These tags are used for flag filtering, so are consumed by tools that process bazel's
- * output, and for this reason must be kept backwards compatible until the build horizon has passed.
+ * <p>These tags are used for flag filtering, so are consumed by tools that process bazel's output,
+ * and for this reason must be kept backwards compatible until the build horizon has passed.
  *
  * <ul>
  *   <li>To add a new tag, add it here and to all flags it applies to. If you cannot do this in a
@@ -52,6 +54,7 @@ package com.google.devtools.common.options;
  * file a bug against flag owners or go through them yourself. This is not meant to block you from
  * adding tags, just to keep the end state sane.
  */
+@SkybridgeInterface
 public enum OptionEffectTag {
   /**
    * This option's effect or intent is unknown.

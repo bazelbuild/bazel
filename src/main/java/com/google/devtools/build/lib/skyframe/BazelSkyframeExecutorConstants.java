@@ -19,8 +19,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor.DiffCheckNotificationOptions;
-import java.time.Duration;
 
 /** Hardcoded constants describing bazel-on-skyframe behavior. */
 public class BazelSkyframeExecutorConstants {
@@ -41,29 +39,4 @@ public class BazelSkyframeExecutorConstants {
           filesystemCode -> filesystemCode == FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED;
 
   public static final boolean USE_REPO_DOT_BAZEL = true;
-
-  public static final DiffCheckNotificationOptions DIFF_CHECK_NOTIFICATION_OPTIONS =
-      new DiffCheckNotificationOptions() {
-        @Override
-        public String getStatusMessage() {
-          return "Checking for file changes...";
-        }
-
-        @Override
-        public Duration getStatusUpdateDelay() {
-          return Duration.ofSeconds(1);
-        }
-      };
-
-  public static SequencedSkyframeExecutor.Builder newBazelSkyframeExecutorBuilder() {
-    return SequencedSkyframeExecutor.builder()
-        .setIgnoredSubdirectories(IgnoredSubdirectoriesFunction.INSTANCE)
-        .setActionOnIOExceptionReadingBuildFile(ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE)
-        .setActionOnFilesystemErrorCodeLoadingBzlFile(
-            ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE)
-        .setShouldUseRepoDotBazel(USE_REPO_DOT_BAZEL)
-        .setCrossRepositoryLabelViolationStrategy(CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY)
-        .setBuildFilesByPriority(BUILD_FILES_BY_PRIORITY)
-        .setDiffCheckNotificationOptions(DIFF_CHECK_NOTIFICATION_OPTIONS);
-  }
 }

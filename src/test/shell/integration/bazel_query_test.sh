@@ -86,6 +86,40 @@ EOF
   assert_equals "" "$(<$TEST_TMPDIR/query_stdout)"
 }
 
+function test_parallel_streamed_proto_matches_serial() {
+  rm -rf peach
+  mkdir -p peach
+  cat > peach/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name='target_0')
+EOF
+  local i previous
+  for i in {1..100}; do
+    previous=$((i - 1))
+    echo "sh_library(name='target_${i}', deps=[':target_${previous}'])" >> peach/BUILD
+  done
+
+  local serial_output="$TEST_TMPDIR/streamed_proto_serial"
+  local parallel_output="$TEST_TMPDIR/streamed_proto_parallel"
+  local direct_output="$TEST_TMPDIR/streamed_proto_direct"
+  local query_stdout="$TEST_TMPDIR/streamed_proto_stdout"
+
+  # 101 results exercise two full 50-target chunks and a trailing partial chunk.
+  bazel query 'deps(//peach:target_100)' \
+      --output=streamed_proto --order_output=full > "$serial_output"
+  bazel query 'deps(//peach:target_100)' \
+      --output=streamed_proto --order_output=full \
+      --experimental_parallel_streamed_proto_output > "$parallel_output"
+  cmp "$serial_output" "$parallel_output" || fail "Parallel streamed proto output differed"
+
+  bazel query 'deps(//peach:target_100)' \
+      --output=streamed_proto --order_output=full \
+      --experimental_parallel_streamed_proto_output \
+      --output_file="$direct_output" > "$query_stdout"
+  assert_equals "" "$(<"$query_stdout")"
+  cmp "$serial_output" "$direct_output" || fail "Direct streamed proto output differed"
+}
+
 function test_invalid_query_fails_parsing() {
   bazel query 'deps("--bad_target_name_from_bad_script")' >& "$TEST_log" \
     && fail "Expected failure"
@@ -524,7 +558,7 @@ EOF
   done
 }
 
-function test_location_output_relative_locations() {
+function test_location_output() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
@@ -534,15 +568,42 @@ EOF
 
   bazel query --output=location '//foo' >& $TEST_log || fail "Expected success"
   expect_log "${TEST_TMPDIR}/.*/foo/BUILD"
+  expect_log " sh_library rule"
   expect_log "//foo:foo"
+}
+
+function test_location_output_relative_locations() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name='foo')
+EOF
 
   bazel query --output=location --relative_locations '//foo' >& $TEST_log || fail "Expected success"
   # Query with --relative_locations should not show full path
   expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD"
   expect_log "^foo/BUILD"
+  expect_log " sh_library rule"
   expect_log "//foo:foo"
 }
 
+function test_location_output_display_full_kind() {
+  is_bazel || return 0
+
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+load("@rules_shell///shell:sh_library.bzl", "sh_library")
+sh_library(name='foo')
+EOF
+
+  bazel query --output=location \
+      --output:display_full_kind \
+      '//foo' >& $TEST_log || fail "Expected success"
+  expect_log "@@rules_shell+//shell/private:sh_library.bzl%sh_library rule"
+  expect_log "//foo:foo"
+}
 function test_location_output_source_files() {
   add_rules_python "MODULE.bazel"
   rm -rf foo
@@ -590,11 +651,49 @@ py_binary(
 EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
-  bazel query --output=proto \
+  # Force a C locale to ensure that grep matches the characters byte-by-byte
+  # even though the proto file is not valid UTF-8.
+  LC_CTYPE=C bazel query --output=proto \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
 
-  expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
-  expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+  LC_CTYPE=C expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
+  LC_CTYPE=C expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+}
+
+function test_xml_output() {
+  is_bazel || return 0
+  add_rules_python "MODULE.bazel"
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+load("@rules_shell///shell:sh_library.bzl", "sh_library")
+
+sh_library(name = "main")
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  bazel query --output=xml \
+    '//foo:main' >& $TEST_log || fail "Expected success"
+  expect_log "<rule class=\"sh_library\""
+  expect_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+}
+
+function test_xml_output_display_full_kind() {
+  is_bazel || return 0
+  add_rules_python "MODULE.bazel"
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+
+sh_library(name = "main")
+EOF
+
+  bazel query --output=xml \
+    --output:display_full_kind \
+    '//foo:main' >& $TEST_log || fail "Expected success"
+  expect_log "<rule class=\"@@rules_shell+//shell/private:sh_library.bzl%sh_library\""
+  expect_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 }
 
 function test_xml_output_source_files() {
@@ -755,10 +854,7 @@ EOF
   # Genquery uses a graphless blaze environment by default.
   bazel build //foo:q || fail "Expected success"
 
-  # The --incompatible_lexicographical_output flag is used to
-  # switch order_output=auto to use graphless query and output in
-  # lexicographical order.
-  bazel query --incompatible_lexicographical_output \
+  bazel query \
       "deps(//foo:b)" | grep foo >& foo/query_output || fail "Expected success"
 
   # The outputs of graphless query and graphless genquery should be the same and
@@ -792,59 +888,6 @@ EOF
     bazel query --experimental_graphless_query=true \
         "$command" || fail "Expected success"
   done
-}
-
-function test_lexicographical_output_does_not_affect_order_output_no() {
-  rm -rf foo
-  mkdir -p foo
-  cat > foo/BUILD <<EOF
-load("@rules_shell//shell:sh_library.bzl", "sh_library")
-sh_library(name = "b", deps = [":c"])
-sh_library(name = "c", deps = [":a"])
-sh_library(name = "a")
-genquery(
-    name = "q",
-    expression = "deps(//foo:b)",
-    scope = ["//foo:b"],
-)
-EOF
-
-  bazel query --order_output=no \
-      "deps(//foo:b)" | grep foo >& foo/query_output \
-      || fail "Expected success"
-  bazel query --order_output=no \
-      --incompatible_lexicographical_output \
-      "deps(//foo:b)" | grep foo >& foo/lex_query_output \
-      || fail "Expected success"
-
-  # The --incompatible_lexicographical_output flag should not affect query
-  # order_output=no. Note that there is a chance it may output in
-  # lexicographical order since it is unordered.
-  assert_equals \
-      "$(cat foo/query_output)" "$(cat foo/lex_query_output)"
-}
-
-function test_lexicographical_output_does_not_affect_somepath() {
-  rm -rf foo
-  mkdir -p foo
-  cat > foo/BUILD <<EOF
-load("@rules_shell//shell:sh_library.bzl", "sh_library")
-sh_library(name = "b", deps = [":c"])
-sh_library(name = "c", deps = [":a"])
-sh_library(name = "a")
-EOF
-
-  cat > foo/expected_deps_output <<EOF
-//foo:b
-//foo:c
-//foo:a
-EOF
-
-  bazel query --incompatible_lexicographical_output \
-      "somepath(//foo:b, //foo:a)" | grep foo >& foo/query_output
-
-  assert_equals \
-      "$(cat foo/expected_deps_output)" "$(cat foo/query_output)"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/8582.
@@ -1470,15 +1513,17 @@ EOF
   bazel query --output=proto //foo:without_select >& $TEST_log \
       || fail "Expected success"
 
+  # Force a C locale to ensure that grep matches the Unicode characters
+  # byte-by-byte even though the proto file is not valid UTF-8.
   for x in "${items[@]}"; do
-    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:without_select"
+    LC_CTYPE=C grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:without_select"
   done
 
   bazel query --output=proto //foo:with_select >& $TEST_log \
       || fail "Expected success"
 
   for x in "${items[@]}"; do
-    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
+    LC_CTYPE=C grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
   done
 }
 
@@ -1495,7 +1540,44 @@ EOF
   echo "//foo:äöüÄÖÜß🌱" > my_query || fail "Could not write my_query"
   # Check that the unicode characters are preserved in the output.
   bazel query --output=proto --query_file=my_query >& $TEST_log || fail "Expected success"
-  expect_log "//foo:äöüÄÖÜß🌱"
+  # Force a C locale to ensure that grep matches the characters byte-by-byte
+  # even though the proto file is not valid UTF-8.
+  LC_CTYPE=C grep -q "//foo:äöüÄÖÜß🌱" $TEST_log || fail "Expected Unicode target in query output"
+}
+
+function test_label_kind() {
+  is_bazel || return 0
+  mkdir -p foo bar || fail "Couldn't make directories"
+  cat <<'EOF' > foo/BUILD || fail "Couldn't write BUILD file"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+platform(name = 'p')
+sh_library(name = 'b')
+EOF
+  touch bar/BUILD || fail "Couldn't write BUILD file"
+  bazel query --output=label_kind \
+      '//foo:all' \
+      >& "$TEST_log" || fail "Expected success"
+  expect_log "sh_library rule //foo:b"
+  expect_log "platform rule //foo:p"
+}
+
+function test_label_kind_display_full_kind() {
+  is_bazel || return 0
+  mkdir -p foo bar || fail "Couldn't make directories"
+  cat <<'EOF' > foo/BUILD || fail "Couldn't write BUILD file"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+platform(name = 'p')
+sh_library(name = 'b')
+EOF
+  touch bar/BUILD || fail "Couldn't write BUILD file"
+  bazel query --keep_going --output=label_kind \
+      --output:display_full_kind \
+      '//foo:all' \
+      >& "$TEST_log" || fail "Expected success"
+  # Starlark rules show the full label to the defining bzl file.
+  expect_log "@@rules_shell+//shell/private:sh_library.bzl%sh_library rule //foo:b"
+  # Native rules only show the name.
+  expect_log "platform rule //foo:p"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

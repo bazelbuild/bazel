@@ -49,8 +49,6 @@ class MappedInputFile {
   // The length of the file.
   size_t Length() const { return length_; }
 
-  // Unmap a given number of bytes from the beginning of the file.
-  void Discard(size_t bytes);
   int Close();
 };
 

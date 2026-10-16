@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -38,7 +39,8 @@ public class InconsistentFilesystemTest extends BuildIntegrationTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "") {
+    return new UnixFileSystem(
+        DigestHashFunction.SHA256, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl()) {
       boolean threwException = false;
 
       @Override

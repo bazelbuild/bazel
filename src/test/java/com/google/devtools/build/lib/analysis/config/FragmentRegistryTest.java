@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.common.options.OptionsClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,13 +27,17 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class FragmentRegistryTest {
 
-  private static final class OptionsA extends FragmentOptions {}
+  @OptionsClass
+  private abstract static class OptionsA extends FragmentOptions {}
 
-  private static final class OptionsB extends FragmentOptions {}
+  @OptionsClass
+  private abstract static class OptionsB extends FragmentOptions {}
 
-  private static final class MoreOptions extends FragmentOptions {}
+  @OptionsClass
+  private abstract static class MoreOptions extends FragmentOptions {}
 
-  private static final class EvenMoreOptions extends FragmentOptions {}
+  @OptionsClass
+  private abstract static class EvenMoreOptions extends FragmentOptions {}
 
   @RequiresOptions(options = OptionsA.class)
   private static final class FragmentA extends Fragment {}

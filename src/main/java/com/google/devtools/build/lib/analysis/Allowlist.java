@@ -93,8 +93,7 @@ public final class Allowlist {
 
   public static boolean isAvailableFor(
       NestedSet<PackageGroupContents> packageGroupContents, Label relevantLabel) {
-    return packageGroupContents.toList().stream()
-        .anyMatch(p -> p.containsPackage(relevantLabel.getPackageIdentifier()));
+    return PackageSpecificationProvider.isAvailableFor(packageGroupContents, relevantLabel);
   }
 
   public static PackageSpecificationProvider fetchPackageSpecificationProvider(

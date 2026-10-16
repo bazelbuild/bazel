@@ -24,7 +24,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -59,6 +58,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Test;
@@ -135,7 +135,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testBadPackageName() throws Exception {
+  public void testBadPackageName() {
     // This is a "shallow" syntactic error: failure to form the
     // PackageIdentifier that is the real argument to loadPackage.
     LabelSyntaxException e =
@@ -347,7 +347,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     for (InputFile inputFile : pkg.getTargets(InputFile.class)) {
       inputFiles.add(inputFile.getName());
     }
-    assertThat(Lists.newArrayList(inputFiles)).containsExactly("A", "BUILD", "Z").inOrder();
+    assertThat(new ArrayList<>(inputFiles)).containsExactly("A", "BUILD", "Z").inOrder();
   }
 
   @Test
@@ -401,7 +401,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             + "conflicts with existing generated file from rule 'rule1'");
     assertThat(pkg.containsErrors()).isTrue();
 
-    assertThat(pkg.getRule("rule2")).isNull();
+    assertThat(pkg.getTargetOrNull("rule2")).isNull();
 
     // Ensure that rule2's "out2" didn't overwrite rule1's:
     assertThat(((OutputFile) pkg.getTarget("out2")).getGeneratingRule())
@@ -451,8 +451,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(pkg.getRule("rule1").containsErrors()).isTrue();
 
     // rule2's genrule is never executed.
-    Rule rule2 = pkg.getRule("rule2");
-    assertThat(rule2).isNull();
+    assertThat(pkg.getTargetOrNull("rule2")).isNull();
   }
 
   @Test
@@ -643,22 +642,19 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     assertGlob(
         pkg,
-        Collections.<String>emptyList(),
+        Collections.emptyList(),
         ImmutableList.of("*.cc", "*/*.cc", "*/*/*.cc"),
         ImmutableList.of("**/*.cc"));
     assertGlob(
-        pkg,
-        Collections.<String>emptyList(),
-        ImmutableList.of("**/*.cc"),
-        ImmutableList.of("**/*.cc"));
+        pkg, Collections.emptyList(), ImmutableList.of("**/*.cc"), ImmutableList.of("**/*.cc"));
     assertGlob(
         pkg,
-        Collections.<String>emptyList(),
+        Collections.emptyList(),
         ImmutableList.of("**/*.cc"),
         ImmutableList.of("*.cc", "*/*.cc", "*/*/*.cc", "*/*/*/*.cc"));
     assertGlob(
         pkg,
-        Collections.<String>emptyList(),
+        Collections.emptyList(),
         ImmutableList.of("**"),
         ImmutableList.of("*", "*/*", "*/*/*", "*/*/*/*"));
     assertGlob(
@@ -704,7 +700,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testGlobNegativeTest() throws Exception {
+  public void testGlobNegativeTest() {
     // Negative test that assertGlob does throw an error when asserting against the wrong values.
     // The AssertionError comes from FoundationTestCase.failFastHandler.
     AssertionError e =
@@ -712,9 +708,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             AssertionError.class,
             () ->
                 assertGlobMatches(
-                    /*result=*/ ImmutableList.of("Wombat1.java", "This_file_doesn_t_exist.java"),
-                    /*includes=*/ ImmutableList.of("W*", "subdir"),
-                    /*excludes=*/ ImmutableList.<String>of(),
+                    /* result= */ ImmutableList.of("Wombat1.java", "This_file_doesn_t_exist.java"),
+                    /* includes= */ ImmutableList.of("W*", "subdir"),
+                    /* excludes= */ ImmutableList.of(),
                     /* excludeDirs= */ true));
     assertThat(e).hasMessageThat().contains("incorrect glob result");
   }
@@ -722,27 +718,27 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testGlobExcludeDirectories() throws Exception {
     assertGlobMatches(
-        /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java"),
-        /*includes=*/ ImmutableList.of("W*", "subdir"),
-        /*excludes=*/ ImmutableList.<String>of(),
+        /* result= */ ImmutableList.of("Wombat1.java", "Wombat2.java"),
+        /* includes= */ ImmutableList.of("W*", "subdir"),
+        /* excludes= */ ImmutableList.of(),
         /* excludeDirs= */ true);
   }
 
   @Test
   public void testGlobDoesNotExcludeDirectories() throws Exception {
     assertGlobMatches(
-        /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java", "subdir"),
-        /*includes=*/ ImmutableList.of("W*", "subdir"),
-        /*excludes=*/ ImmutableList.<String>of(),
+        /* result= */ ImmutableList.of("Wombat1.java", "Wombat2.java", "subdir"),
+        /* includes= */ ImmutableList.of("W*", "subdir"),
+        /* excludes= */ ImmutableList.of(),
         /* excludeDirs= */ false);
   }
 
   @Test
   public void testGlobWithEmptyExcludedList() throws Exception {
     assertGlobMatches(
-        /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java"),
-        /*includes=*/ ImmutableList.of("W*"),
-        /*excludes=*/ Collections.<String>emptyList(),
+        /* result= */ ImmutableList.of("Wombat1.java", "Wombat2.java"),
+        /* includes= */ ImmutableList.of("W*"),
+        /* excludes= */ Collections.emptyList(),
         /* excludeDirs= */ false);
   }
 
@@ -917,6 +913,20 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testDefaultTestonlyForJavatestsPackages() throws Exception {
+    scratch.file("javatests/foo/BUILD", "filegroup(name = 'bar')");
+    Package pkg = getPackage("javatests/foo");
+    assertThat(pkg.getPackageArgs().defaultTestOnly()).isTrue();
+  }
+
+  @Test
+  public void testDefaultTestonlyForJavaPackagesIsFalse() throws Exception {
+    scratch.file("java/foo/BUILD", "filegroup(name = 'bar')");
+    Package pkg = getPackage("java/foo");
+    assertThat(pkg.getPackageArgs().defaultTestOnly()).isFalse();
+  }
+
+  @Test
   public void testDefaultDeprecation() throws Exception {
     String testMessage = "OMG PONIES!";
     Package pkg = expectEvalSuccess("package(default_deprecation = \"" + testMessage + "\")");
@@ -1034,6 +1044,15 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "    visibility = [ \"//visibility:private\" ])",
         "exports_files([\"a.cc\"],",
         "    visibility = [ \"//visibility:private\" ])");
+  }
+
+  @Test
+  public void testExportTwiceCustomVisibilityOK() throws Exception {
+    expectEvalSuccess(
+        "exports_files([\"a.cc\"],",
+        "    visibility = [ \"//friend:__pkg__\" ])",
+        "exports_files([\"a.cc\"],",
+        "    visibility = [ \"//friend:__pkg__\" ])");
   }
 
   @Test
@@ -1465,7 +1484,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """);
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertThat(pkg.getTargets()).doesNotContainKey("foo");
+    assertThat(pkg.getTargetOrNull("foo")).isNull();
   }
 
   @Test
@@ -1528,7 +1547,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """);
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertThat(pkg.getTargets()).doesNotContainKey("input");
+    assertThat(pkg.getTargetOrNull("input")).isNull();
   }
 
   @Test
@@ -1556,7 +1575,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """);
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getTargetOrNull("abc")).isNotNull();
     assertThat(pkg.getMacrosById().keySet()).containsExactly("abc:1", "abc:2", "abc:3");
   }
 
@@ -1679,7 +1698,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
    * Asserts that the target's {@link Target#getActualVisibility actual visibility} contains exactly
    * the given labels.
    */
-  private void assertVisibilityIs(Target target, String... visibilityLabels) {
+  private static void assertVisibilityIs(Target target, String... visibilityLabels) {
     ImmutableList.Builder<Label> labels = ImmutableList.builder();
     for (String item : visibilityLabels) {
       labels.add(Label.parseCanonicalUnchecked(item));
@@ -2166,7 +2185,8 @@ my_macro = macro(implementation = _impl)
             String.format(
                 "(result == sorted(%s)) or fail('incorrect glob result: got %%s, want %%s' %%"
                     + " (result, sorted(%s)))",
-                Starlark.repr(result), Starlark.repr(result)));
+                Starlark.repr(result, StarlarkSemantics.DEFAULT),
+                Starlark.repr(result, StarlarkSemantics.DEFAULT)));
     // Execution succeeded. Assert that there were no other errors in the package.
     assertThat(pkg.containsErrors()).isFalse();
   }
@@ -2197,7 +2217,9 @@ my_macro = macro(implementation = _impl)
         "globs/BUILD",
         String.format(
             "result = glob(%s, exclude=%s, exclude_directories=%d, allow_empty = True)",
-            Starlark.repr(includes), Starlark.repr(excludes), excludeDirs ? 1 : 0),
+            Starlark.repr(includes, StarlarkSemantics.DEFAULT),
+            Starlark.repr(excludes, StarlarkSemantics.DEFAULT),
+            excludeDirs ? 1 : 0),
         resultAssertion);
     return getPackage("globs");
   }

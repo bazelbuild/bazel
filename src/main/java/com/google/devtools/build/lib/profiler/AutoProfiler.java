@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A convenient way to actively get access to timing information (e.g. for logging and/or profiling
@@ -50,7 +49,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * }</pre>
  */
 public class AutoProfiler implements SilentCloseable {
-  private static final AtomicReference<Clock> CLOCK_REF = new AtomicReference<>(null);
+  private static final Profiler profiler = Profiler.instance();
+  private static volatile Clock clockForTesting = null;
 
   private final ElapsedTimeReceiver elapsedTimeReceiver;
   private final long startTimeNanos;
@@ -72,20 +72,14 @@ public class AutoProfiler implements SilentCloseable {
     void accept(long elapsedTimeNanos);
   }
 
-  /**
-   * Sets the clock to use. May be called before trying to call any of the other static methods;
-   * otherwise {@link BlazeClock#instance} will be used.
-   *
-   * <p>Calling this more than once (e.g. after calling any of the other static methods) results in
-   * unspecified behavior.
-   */
-  public static void setClock(Clock clock) {
-    CLOCK_REF.set(clock);
+  /** Sets the clock to use for testing. By default, {@link Profiler#nanoTimeMaybe} is used. */
+  @VisibleForTesting
+  static void setClock(Clock clock) {
+    clockForTesting = clock;
   }
 
   private static long nanoTime() {
-    Clock clock = CLOCK_REF.get();
-    return clock != null ? clock.nanoTime() : BlazeClock.instance().nanoTime();
+    return clockForTesting != null ? clockForTesting.nanoTime() : profiler.nanoTimeMaybe();
   }
 
   /**
@@ -151,7 +145,7 @@ public class AutoProfiler implements SilentCloseable {
     private final ProfilerTask profilerTaskType;
 
     ProfilingElapsedTimeReceiver(String description, ProfilerTask profilerTaskType) {
-      this.startTimeNanos = Profiler.instance().nanoTimeMaybe();
+      this.startTimeNanos = nanoTime();
       this.description = description;
       this.profilerTaskType = profilerTaskType;
     }
@@ -159,9 +153,8 @@ public class AutoProfiler implements SilentCloseable {
     @Override
     public void accept(long elapsedTimeNanos) {
       if (elapsedTimeNanos > 0) {
-        Profiler.instance()
-            .logSimpleTaskDuration(
-                startTimeNanos, Duration.ofNanos(elapsedTimeNanos), profilerTaskType, description);
+        profiler.logSimpleTaskDuration(
+            startTimeNanos, Duration.ofNanos(elapsedTimeNanos), profilerTaskType, description);
       }
     }
   }

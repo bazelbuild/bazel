@@ -13,10 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
-import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
+import com.google.devtools.common.options.OptionsProvider;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 
 /**
@@ -29,31 +38,44 @@ import javax.annotation.Nullable;
  *
  * <p>Updating parameters is not thread safe. This class assumes that such updates are performed
  * synchronously. Subsequent service get calls are thread safe.
+ *
+ * <p>Skybridge: this is the main boundary between the SC and the LC for Skycache.
  */
-public interface RemoteAnalysisCachingServicesSupplier {
+@SkybridgeInterface
+public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
 
   /**
-   * Service definitions and parameters depend on {@code options}, which are allowed to vary
+   * Service definitions and parameters depend on the command options, which are allowed to vary
    * per-command.
    *
    * <p>This method updates the services and parameters when the relevant flags change.
    */
   default void configure(
-      RemoteAnalysisCachingOptions cachingOptions,
+      OptionsProvider optionsProvider,
+      RemoteAnalysisCacheMode mode,
       @Nullable ClientId clientId,
-      String buildId,
-      @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter)
-      throws AbruptExitException {
+      String buildId)
+      throws SerializedAbruptExitException {
+    // Does nothing by default.
+  }
+
+  /** A specialized version of {@link #configure} for the dump command. */
+  default void configureForDebugging(
+      String remoteAnalysisDebugEntries,
+      RemoteAnalysisCacheMode mode,
+      ClientId clientId,
+      String buildId)
+      throws SerializedAbruptExitException {
     // Does nothing by default.
   }
 
   /**
-   * Gets or creates the {@link FingerprintValueService},
+   * Gets or creates the {@link FingerprintValueStore},
    *
    * <p>This may entail I/O so it is wrapped in a future.
    */
   @Nullable // null if remote analysis caching is not enabled
-  ListenableFuture<FingerprintValueService> getFingerprintValueService();
+  ListenableFuture<? extends FingerprintValueStore> getFingerprintValueStore();
 
   /**
    * Gets or creates the analysis cache service interface.
@@ -71,10 +93,74 @@ public interface RemoteAnalysisCachingServicesSupplier {
   }
 
   @Nullable
+  SafeExecutor getCommandExecutor();
+
+  default SkycacheChannelStateAdvisor getChannelStateAdvisor() {
+    return SkycacheChannelStateAdvisor.DISABLED;
+  }
+
+  /**
+   * Gets the parameters for querying and updating Skycache metadata.
+   *
+   * <p>Returns null if metadata queries are not enabled.
+   */
+  @Nullable
   default SkycacheMetadataParams getSkycacheMetadataParams() {
     return null;
   }
 
-  /** Relinquishes any underlying resources. */
-  void shutdown();
+  /** Represents a remote service peer. */
+  public static final class Peer {
+    private final String serviceName;
+    private final String id;
+
+    public Peer(String serviceName, String id) {
+      this.serviceName = requireNonNull(serviceName);
+      this.id = requireNonNull(id);
+    }
+
+    public String serviceName() {
+      return serviceName;
+    }
+
+    public String id() {
+      return id;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Peer peer)) {
+        return false;
+      }
+      return serviceName.equals(peer.serviceName) && id.equals(peer.id);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(serviceName, id);
+    }
+
+    @Override
+    public String toString() {
+      return "Peer[serviceName=" + serviceName + ", id=" + id + "]";
+    }
+  }
+
+  /**
+   * Returns the map of backend peers and request counts connected during the current command, if
+   * any.
+   */
+  @Nullable
+  default Map<Peer, AtomicLong> getPeers() {
+    return null;
+  }
+
+  /** Relinquishes any underlying resource that is scoped to the current command. */
+  void resetCommandState();
+
+  /** Relinquishes any global, server-lifetime resources (like cached channels). */
+  default void blazeShutdown() {}
 }

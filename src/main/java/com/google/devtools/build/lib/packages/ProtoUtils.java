@@ -57,7 +57,7 @@ public class ProtoUtils {
           .put(GENQUERY_SCOPE_TYPE, Discriminator.LABEL)
           .put(GENQUERY_SCOPE_TYPE_LIST, Discriminator.LABEL_LIST)
           .put(NODEP_LABEL_LIST, Discriminator.STRING_LIST)
-          .put(DORMANT_LABEL, Discriminator.LABEL_LIST)
+          .put(DORMANT_LABEL, Discriminator.LABEL)
           .put(DORMANT_LABEL_LIST, Discriminator.STRING_LIST)
           .put(STRING, Discriminator.STRING)
           .put(STRING_NO_INTERN, Discriminator.STRING)

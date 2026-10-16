@@ -49,5 +49,5 @@ EOF
 zip -rjv "${tmp_zip}" "${readme_file}"
 
 DEST="bazel_coverage_output_generator/coverage_output_generator-${commit_hash}-${timestamp}.zip"
-gsutil cp ${tmp_zip} "gs://bazel-mirror/${DEST}"
+gcloud storage cp ${tmp_zip} "gs://bazel-mirror/${DEST}"
 echo "Uploaded to ${DEST}"

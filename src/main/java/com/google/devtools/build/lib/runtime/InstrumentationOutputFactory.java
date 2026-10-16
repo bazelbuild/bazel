@@ -137,7 +137,7 @@ public final class InstrumentationOutputFactory {
     boolean isRedirect =
         env.getOptions()
             .getOptions(CommonCommandOptions.class)
-            .redirectLocalInstrumentationOutputWrites;
+            .getRedirectLocalInstrumentationOutputWrites();
     if (isRedirect) {
       if (redirectInstrumentationOutputBuilderSupplier != null) {
         return redirectInstrumentationOutputBuilderSupplier

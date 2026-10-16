@@ -30,11 +30,12 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jspecify_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )
 
@@ -64,7 +65,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )
 
 # BazelTestRunner integration tests
@@ -98,7 +98,6 @@ sh_test(
         "//src/test/shell:bashunit",
         "//src/test/shell:unittest.bash",
     ],
-    flaky = True,
 )
 
 sh_test(
@@ -109,6 +108,23 @@ sh_test(
         "$(location //src/test/shell:unittest.bash)",
         "$(location :TestbedBinary)",
         "bazel.test_suite",
+    ],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
+)
+
+sh_test(
+    name = "stack_trace_integration_test",
+    size = "medium",
+    srcs = ["stack_trace_integration_tests.sh"],
+    args = [
+        "$(location //src/test/shell:unittest.bash)",
+        "$(location :TestbedBinary)",
+        "bazel.test_suite",
+        "4",
     ],
     data = [
         ":TestbedBinary",

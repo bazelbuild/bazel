@@ -214,12 +214,8 @@ abstract class FileTransport implements BuildEventTransport {
       if (closeFuture.isDone()) {
         return;
       }
-      try {
-        pendingWrites.clear();
-        pendingWrites.put(CLOSE_EVENT_FUTURE);
-      } catch (InterruptedException e) {
-        logger.atSevere().withCause(e).log("Failed to immediately close the sequential writer.");
-      }
+      pendingWrites.clear();
+      pendingWrites.add(CLOSE_EVENT_FUTURE);
     }
 
     ListenableFuture<Void> close() {
@@ -238,13 +234,7 @@ abstract class FileTransport implements BuildEventTransport {
           },
           MoreExecutors.directExecutor());
 
-      try {
-        pendingWrites.put(CLOSE_EVENT_FUTURE);
-      } catch (InterruptedException e) {
-        closeNow();
-        logger.atSevere().withCause(e).log("Failed to close the sequential writer.");
-        closeFuture.set(null);
-      }
+      pendingWrites.add(CLOSE_EVENT_FUTURE);
       return closeFuture;
     }
 

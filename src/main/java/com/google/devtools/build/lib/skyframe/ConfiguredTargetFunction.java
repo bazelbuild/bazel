@@ -69,8 +69,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -79,6 +79,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.Driver;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
@@ -138,7 +139,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
-  private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
+  private final Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier;
 
   /**
    * Packages of prerequisites.
@@ -161,7 +162,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable AnalysisProgressReceiver analysisProgress,
       PrerequisitePackageFunction prerequisitePackages,
-      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier) {
+      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -269,9 +270,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               /* postFetch= */ () -> maybeAcquireSemaphoreWithLogging(key));
     }
 
-    RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
+    RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRetrievalEnabled()) {
+    if (remoteCachingDependencies.mode().isRetrievalEnabled()) {
       switch (retrieveRemoteSkyValue(
           configuredTargetKey, env, remoteCachingDependencies, stateSupplier)) {
         case SkyValueRetriever.Restart unused:
@@ -379,10 +380,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               toolchainContexts,
               computeDependenciesState.execGroupCollectionBuilder,
               state.computeDependenciesState.transitivePackages(),
-              /* crashIfExecutionPhase= */ !remoteCachingDependencies.isRetrievalEnabled(),
+              /* crashIfExecutionPhase= */ !remoteCachingDependencies.mode().isRetrievalEnabled(),
               remoteCachingDependencies.mode());
-      if (ans != null && analysisProgress != null) {
-        analysisProgress.doneConfigureTarget();
+      if (ans != null) {
+        if (analysisProgress != null) {
+          analysisProgress.doneConfigureTarget();
+        }
+        SkyValueRetrieverUtils.tryUploadAsync(
+            remoteCachingDependencies, configuredTargetKey, ans, env);
       }
       return ans;
     } catch (IncompatibleTargetChecker.IncompatibleTargetException e) {
@@ -404,6 +409,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ReportedException(cvce);
     } catch (ActionConflictException e) {
       // The reporting will be done when going through errors in the build.
+      throw new UnreportedException(e);
+    } catch (IOException e) {
       throw new UnreportedException(e);
     } finally {
       maybeReleaseSemaphore();
@@ -430,7 +437,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       boolean crashIfExecutionPhase,
       RemoteAnalysisCacheMode remoteAnalysisCacheMode)
-      throws ConfiguredValueCreationException, InterruptedException, ActionConflictException {
+      throws ConfiguredValueCreationException,
+          IOException,
+          InterruptedException,
+          ActionConflictException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();
 
@@ -461,7 +471,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               toolchainContexts,
               transitivePackages,
               execGroupCollectionBuilder,
-              crashIfExecutionPhase);
+              crashIfExecutionPhase,
+              remoteAnalysisCacheMode.isUploadEnabled());
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;
@@ -522,7 +533,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           configuredTarget);
       // If this is a Skycache download build, we check if it's an alias. For remote values, the
       // package isn't present but the target data is present
-      if (remoteAnalysisCacheMode == RemoteAnalysisCacheMode.DOWNLOAD
+      if (remoteAnalysisCacheMode.isRetrievalEnabled()
           && configuredTarget instanceof AliasConfiguredTarget alias) {
         ConfiguredTargetValue configuredTargetValue =
             (ConfiguredTargetValue) env.getValue(alias.getActual().getLookupKey());
@@ -531,10 +542,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         if (configuredTargetValue == null) {
           return null;
         }
-        if (configuredTargetValue
-            instanceof RemoteConfiguredTargetValue remoteConfiguredTargetValue) {
+        if (configuredTargetValue.getTargetData() != null) {
           return new NonRuleConfiguredTargetValue(
-              configuredTarget, transitivePackages, remoteConfiguredTargetValue.getTargetData());
+              configuredTarget, transitivePackages, configuredTargetValue.getTargetData());
         }
       }
       return new NonRuleConfiguredTargetValue(configuredTarget, transitivePackages);

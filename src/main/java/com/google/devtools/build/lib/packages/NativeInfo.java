@@ -13,21 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.List;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.syntax.Location;
+import net.starlark.java.eval.Structure;
+import net.starlark.java.lib.MapWrapperStructure;
+import net.starlark.java.lib.StarlarkEncodable;
 
 /**
  * Abstract base class for implementations of {@link Info} that expose StarlarkCallable-annotated
@@ -36,23 +36,7 @@ import net.starlark.java.syntax.Location;
 // TODO(adonovan): ensure that all subclasses are named *Info and not *Provider.
 // (Info is to object as Provider is to class.)
 @Immutable
-public abstract class NativeInfo implements Info {
-  private final Location location;
-
-  protected NativeInfo() {
-    this(Location.BUILTIN);
-  }
-
-  // TODO(adonovan): most subclasses pass Location.BUILTIN most of the time.
-  // Make only those classes that pass a real location pay for it.
-  protected NativeInfo(@Nullable Location location) {
-    this.location = firstNonNull(location, Location.BUILTIN);
-  }
-
-  @Override
-  public final Location getCreationLocation() {
-    return location;
-  }
+public abstract class NativeInfo implements Info, StarlarkEncodable {
 
   @Override
   public boolean isImmutable() {
@@ -106,10 +90,11 @@ public abstract class NativeInfo implements Info {
       return false;
     }
     // Compare objects' fields and their values
-    if (!Objects.equal(getLegacyStarlarkMethodNames(), other.getLegacyStarlarkMethodNames())) {
+    if (!java.util.Objects.equals(
+        getLegacyStarlarkMethodNames(), other.getLegacyStarlarkMethodNames())) {
       return false;
     }
-    return Objects.equal(getLegacyFields(), other.getLegacyFields());
+    return java.util.Objects.equals(getLegacyFields(), other.getLegacyFields());
   }
 
   @Override
@@ -122,23 +107,17 @@ public abstract class NativeInfo implements Info {
    * there is no guarantee, it depends on the actual values).
    */
   @Override
-  public void repr(Printer printer) {
-    boolean first = true;
-    printer.append("struct(");
-    for (var field : getLegacyFields().entrySet()) {
-      if (!first) {
-        printer.append(", ");
-      }
-      first = false;
-      printer.append(field.getKey());
-      printer.append(" = ");
-      printer.repr(field.getValue());
-    }
-    printer.append(")");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    new MapWrapperStructure(getLegacyFields()).repr(printer, semantics);
+  }
+
+  @Override
+  public Structure objectForEncoding(StarlarkSemantics semantics) {
+    return new MapWrapperStructure(getLegacyFields());
   }
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 }

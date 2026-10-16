@@ -74,20 +74,20 @@ while [[ -n "$@" ]]; do
   esac
 done
 
-java_tools_zip=$(rlocation io_bazel/${java_tools_zip_name})
+java_tools_zip="$(rlocation "io_bazel/${java_tools_zip_name}")"
 
 # Create a temp directory and a writable temp zip file to add a README.md file to
 # the initial zip.
-tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXXX')
-trap "rm -fr $tmp_dir" EXIT
+tmp_dir="$(mktemp -d -t 'tmp_bazel_zip_files_XXXXXX')"
+trap 'rm -fr "$tmp_dir"' EXIT
 tmp_zip="$tmp_dir/archive.zip"
 
 # Copy the initial zip to the temp zip and make it writable to be able to add
 # the README.md file.
-cp $java_tools_zip $tmp_zip
-chmod +w $tmp_zip
+cp "$java_tools_zip" "$tmp_zip"
+chmod +w "$tmp_zip"
 
-target_basename=$(basename $java_tools_zip)
+target_basename="$(basename "$java_tools_zip")"
 
 # Create the README.md file and add the re-build java tools instructions.
 readme_file="README.md"
@@ -104,19 +104,19 @@ EOF
 # Add the README.md file to the temp zip.
 zip -rv "${tmp_zip}" "${readme_file}"
 
-gsutil_cmd="gsutil"
+gcloud_cmd="gcloud"
 if "$is_windows"; then
-  gsutil_cmd="gsutil.cmd"
+  gcloud_cmd="gcloud.cmd"
 fi
 
 
 if "$is_windows"; then
-    zip_url=$(cygpath -m ${tmp_zip})
+    zip_url="$(cygpath -m "${tmp_zip}")"
 else
     # Non-Windows needs "file:///foo/bar".
-    zip_url=${tmp_zip}
+    zip_url="${tmp_zip}"
 fi
 
 # Upload the zip that contains the README.md to GCS.
-"$gsutil_cmd" cp "$zip_url" \
+"$gcloud_cmd" storage cp "$zip_url" \
  "gs://bazel-mirror/bazel_java_tools/${gcs_java_tools_dir}/${commit_hash}/java/java_tools${platform:+"_${platform}"}-${timestamp}.zip"

@@ -1,0 +1,433 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.server;
+
+import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
+import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
+import com.google.devtools.build.lib.server.CommandServerGrpc.CommandServerStub;
+import com.google.devtools.build.lib.server.GrpcCommandServerImpl.BlockingStreamObserver;
+import com.google.protobuf.ByteString;
+import io.grpc.ManagedChannel;
+import io.grpc.Server;
+import io.grpc.inprocess.InProcessChannelBuilder;
+import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.stub.ServerCallStreamObserver;
+import io.grpc.stub.StreamObserver;
+import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
+
+/** Unit tests for {@link GrpcCommandServerImpl}. */
+@RunWith(JUnit4.class)
+public final class GrpcCommandServerImplTest {
+  @Test
+  public void testBlockingStreamObserver() throws Exception {
+    // This test attempts to verify that BlockingStreamObserver successfully blocks after some
+    // number of onNext calls (however long it takes to fill up gRPCs internal buffers). In order to
+    // trigger this behavior, we intentionally block the client after a few successful calls, then
+    // wait a bit, and then check that the server has stopped prematurely. Unfortunately, we cannot
+    // deterministically verify that the onNext call is blocking. A faulty implementation of
+    // BlockingStreamObserver could pass this test if the sleep is too short. However, a correct
+    // implementation should never fail this test. This test could start failing if gRPCs internal
+    // buffer size is increased. If it fails after an upgrade of gRPC, you might want to check that.
+    CountDownLatch serverDone = new CountDownLatch(1);
+    CountDownLatch clientBlocks = new CountDownLatch(1);
+    CountDownLatch clientUnblocks = new CountDownLatch(1);
+    CountDownLatch clientDone = new CountDownLatch(1);
+    AtomicInteger sentCount = new AtomicInteger();
+    AtomicInteger receiveCount = new AtomicInteger();
+    CommandServerGrpc.CommandServerImplBase serverImpl =
+        new CommandServerGrpc.CommandServerImplBase() {
+          @Override
+          public void run(RunRequest request, StreamObserver<RunResponse> observer) {
+            ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
+                (ServerCallStreamObserver<RunResponse>) observer;
+            GrpcCommandServerImpl.BlockingStreamObserver<RunResponse> blockingStreamObserver =
+                new GrpcCommandServerImpl.BlockingStreamObserver<>(
+                    serverCallStreamObserver, RunResponse.getDefaultInstance());
+            Thread t =
+                new Thread(
+                    () -> {
+                      try {
+                        RunResponse response =
+                            RunResponse.newBuilder()
+                                .setStandardOutput(ByteString.copyFrom(new byte[1024]))
+                                .build();
+                        for (int i = 0; i < 100; i++) {
+                          blockingStreamObserver.onNext(response.toByteArray());
+                          sentCount.incrementAndGet();
+                        }
+                        blockingStreamObserver.onCompleted();
+                        serverDone.countDown();
+                      } catch (IOException e) {
+                        throw new IllegalStateException(e);
+                      }
+                    });
+            t.start();
+          }
+        };
+
+    String uniqueName = InProcessServerBuilder.generateName();
+    // Do not use .directExecutor here, as it makes both client and server run in the same thread.
+    Server server =
+        InProcessServerBuilder.forName(uniqueName)
+            .addService(serverImpl)
+            .executor(Executors.newFixedThreadPool(4))
+            .build()
+            .start();
+    ManagedChannel channel =
+        InProcessChannelBuilder.forName(uniqueName)
+            .executor(Executors.newFixedThreadPool(4))
+            .build();
+
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    stub.run(
+        RunRequest.getDefaultInstance(),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            if (sentCount.get() >= 3) {
+              clientBlocks.countDown();
+              try {
+                clientUnblocks.await();
+              } catch (InterruptedException e) {
+                throw new IllegalStateException(e);
+              }
+            }
+            receiveCount.incrementAndGet();
+          }
+
+          @Override
+          public void onError(Throwable t) {
+            throw new IllegalStateException(t);
+          }
+
+          @Override
+          public void onCompleted() {
+            clientDone.countDown();
+          }
+        });
+    clientBlocks.await();
+    // Wait a bit for the server to (hopefully) block. If the server does not block, then this may
+    // be flaky.
+    Thread.sleep(10);
+    assertThat(sentCount.get()).isLessThan(5);
+    clientUnblocks.countDown();
+    serverDone.await();
+    clientDone.await();
+    server.shutdown();
+    server.awaitTermination();
+  }
+
+  @Test
+  public void testBlockingStreamObserverClientCancel() throws Exception {
+    // This test attempts to verify that FlowControl unblocks if the client prematurely closes the
+    // connection. In that case, FlowControl should observe the onCancel event and interrupt the
+    // calling thread. I have observed this test failing with an intentionally introduced bug in
+    // FlowControl.
+    CountDownLatch serverDone = new CountDownLatch(1);
+    CountDownLatch clientDone = new CountDownLatch(1);
+    AtomicInteger sentCount = new AtomicInteger();
+    AtomicInteger receiveCount = new AtomicInteger();
+    CommandServerGrpc.CommandServerImplBase serverImpl =
+        new CommandServerGrpc.CommandServerImplBase() {
+          @Override
+          public void run(RunRequest request, StreamObserver<RunResponse> observer) {
+            ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
+                (ServerCallStreamObserver<RunResponse>) observer;
+            GrpcCommandServerImpl.BlockingStreamObserver<RunResponse> blockingStreamObserver =
+                new GrpcCommandServerImpl.BlockingStreamObserver<>(
+                    serverCallStreamObserver, RunResponse.getDefaultInstance());
+            Thread t =
+                new Thread(
+                    () -> {
+                      try {
+                        RunResponse response =
+                            RunResponse.newBuilder()
+                                .setStandardOutput(ByteString.copyFrom(new byte[1024]))
+                                .build();
+                        for (int i = 0; i < 100; i++) {
+                          blockingStreamObserver.onNext(response.toByteArray());
+                          sentCount.incrementAndGet();
+                        }
+                        // FlowControl should have interrupted the current thread after learning of
+                        // the server
+                        // cancel.
+                        assertThat(Thread.currentThread().isInterrupted()).isTrue();
+                        blockingStreamObserver.onCompleted();
+                        serverDone.countDown();
+                      } catch (IOException e) {
+                        throw new IllegalStateException(e);
+                      }
+                    });
+            t.start();
+          }
+        };
+
+    String uniqueName = InProcessServerBuilder.generateName();
+    // Do not use .directExecutor here, as it makes both client and server run in the same thread.
+    Server server =
+        InProcessServerBuilder.forName(uniqueName)
+            .addService(serverImpl)
+            .executor(Executors.newFixedThreadPool(4))
+            .build()
+            .start();
+    ManagedChannel channel =
+        InProcessChannelBuilder.forName(uniqueName)
+            .executor(Executors.newFixedThreadPool(4))
+            .build();
+
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    stub.run(
+        RunRequest.getDefaultInstance(),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            if (receiveCount.get() > 3) {
+              channel.shutdownNow();
+            }
+            receiveCount.incrementAndGet();
+          }
+
+          @Override
+          public void onError(Throwable t) {
+            clientDone.countDown();
+          }
+
+          @Override
+          public void onCompleted() {
+            clientDone.countDown();
+          }
+        });
+    serverDone.await();
+    clientDone.await();
+    server.shutdown();
+    server.awaitTermination();
+  }
+
+  @Test
+  public void testBlockingStreamObserverInterrupt() throws Exception {
+    // This test attempts to verify that BlockingStreamObserver does not hang if the current thread
+    // is interrupted. The initial implementation of BlockingStreamObserver (which was never
+    // submitted) would go into an infinite loop holding the lock on BlockingStreamObserver. This
+    // would prevent any other thread from obtaining the lock on BlockingStreamObserver, and hang
+    // the entire process. I have confirmed that this test fails with the original faulty
+    // implementation of BlockingStreamObserver.
+    CountDownLatch serverDone = new CountDownLatch(1);
+    CountDownLatch clientDone = new CountDownLatch(1);
+    AtomicInteger sentCount = new AtomicInteger();
+    AtomicInteger receiveCount = new AtomicInteger();
+    CommandServerGrpc.CommandServerImplBase serverImpl =
+        new CommandServerGrpc.CommandServerImplBase() {
+          @Override
+          public void run(RunRequest request, StreamObserver<RunResponse> observer) {
+            ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
+                (ServerCallStreamObserver<RunResponse>) observer;
+            BlockingStreamObserver<RunResponse> blockingStreamObserver =
+                new BlockingStreamObserver<>(
+                    serverCallStreamObserver, RunResponse.getDefaultInstance());
+            Thread t =
+                new Thread(
+                    () -> {
+                      try {
+                        RunResponse response =
+                            RunResponse.newBuilder()
+                                .setStandardOutput(ByteString.copyFrom(new byte[1024]))
+                                .build();
+                        // We want to trigger isReady() -> false, and we use sentCount to control
+                        // whether to sleep on the client side. Therefore, we only set sentCount
+                        // after
+                        // isReady() changes.
+                        int sent = 0;
+                        while (serverCallStreamObserver.isReady()) {
+                          blockingStreamObserver.onNext(response.toByteArray());
+                          sent++;
+                        }
+                        sentCount.set(sent);
+                        // If the current thread is interrupted, the subsequent onNext calls should
+                        // not hang, but complete eventually (they may block on flow control).
+                        Thread.currentThread().interrupt();
+                        for (int i = 0; i < 10; i++) {
+                          blockingStreamObserver.onNext(response.toByteArray());
+                          sentCount.incrementAndGet();
+                        }
+                        blockingStreamObserver.onCompleted();
+                        serverDone.countDown();
+                      } catch (IOException e) {
+                        throw new IllegalStateException(e);
+                      }
+                    });
+            t.start();
+          }
+        };
+
+    String uniqueName = InProcessServerBuilder.generateName();
+    // Do not use .directExecutor here, as it makes both client and server run in the same thread.
+    Server server =
+        InProcessServerBuilder.forName(uniqueName)
+            .addService(serverImpl)
+            .executor(Executors.newFixedThreadPool(4))
+            .build()
+            .start();
+    ManagedChannel channel =
+        InProcessChannelBuilder.forName(uniqueName)
+            .executor(Executors.newFixedThreadPool(4))
+            .build();
+
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    stub.run(
+        RunRequest.getDefaultInstance(),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            if (sentCount.get() == 0) {
+              try {
+                Thread.sleep(1);
+              } catch (InterruptedException e) {
+                throw new IllegalStateException(e);
+              }
+            }
+            receiveCount.incrementAndGet();
+          }
+
+          @Override
+          public void onError(Throwable t) {
+            throw new IllegalStateException(t);
+          }
+
+          @Override
+          public void onCompleted() {
+            clientDone.countDown();
+          }
+        });
+    serverDone.await();
+    clientDone.await();
+    assertThat(sentCount.get()).isEqualTo(receiveCount.get());
+    server.shutdown();
+    server.awaitTermination();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testBlockingStreamObserverInterruptsOnceOnClientCancel() throws Exception {
+    // This test attempts to verify that BlockingStreamObserver interrupts only once after the
+    // client prematurely closes the connection. Re-interrupting on every call keeps any command
+    // retrying an interruptible step from ever converging, because the retry is interrupted again
+    // as soon as it reports progress: see https://github.com/bazelbuild/bazel/issues/30435.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(true);
+    ArgumentCaptor<Runnable> onCancelHandler = ArgumentCaptor.forClass(Runnable.class);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+    verify(observer).setOnCancelHandler(onCancelHandler.capture());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    blockingStreamObserver.onNext(response); // the call this thread gets remembered by
+    when(observer.isCancelled()).thenReturn(true);
+    onCancelHandler.getValue().run();
+    assertThat(Thread.interrupted()).isTrue(); // clears the interrupt bit for the call below
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isFalse();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testBlockingStreamObserverInterruptsOnFirstWriteAfterCancel() throws Exception {
+    // This test attempts to verify that BlockingStreamObserver interrupts the command when the
+    // client is already gone by the time of the first write: the cancellation has no thread to
+    // interrupt yet, leaving that write the only occasion to do so.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(true);
+    when(observer.isCancelled()).thenReturn(true);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isTrue(); // clears the interrupt bit for the call below
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isFalse();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testBlockingStreamObserverInterruptsOnceEvenIfOwnWaitWasInterrupted()
+      throws Exception {
+    // This test attempts to verify that a call whose own wait is interrupted for an unrelated
+    // reason still records this site's interrupt when the client is also gone, so that a later
+    // write does not repeat it.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(false);
+    when(observer.isCancelled()).thenReturn(false, true);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    Thread.currentThread().interrupt(); // an interrupt unrelated to the client leaving
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isTrue(); // clears the interrupt bit for the call below
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isFalse();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testBlockingStreamObserverIgnoresCancelAfterCompletion() throws Exception {
+    // This test attempts to verify that a cancellation notification arriving after onCompleted
+    // does not interrupt commandThread, which by then may already run an unrelated command
+    // recycled from the same thread pool.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(true);
+    ArgumentCaptor<Runnable> onCancelHandler = ArgumentCaptor.forClass(Runnable.class);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+    verify(observer).setOnCancelHandler(onCancelHandler.capture());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    blockingStreamObserver.onNext(response); // the call commandThread gets remembered by
+    blockingStreamObserver.onCompleted();
+    when(observer.isCancelled()).thenReturn(true);
+    onCancelHandler.getValue().run(); // arrives late, as gRPC delivers it on its own schedule
+    assertThat(Thread.interrupted()).isFalse();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testBlockingStreamObserverIgnoresOnNextAfterCompletion() throws Exception {
+    // This test attempts to verify that an onNext call arriving after onCompleted does not
+    // interrupt the thread making it, since a thread pool may already run an unrelated command on
+    // it by then.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(true);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    blockingStreamObserver.onNext(response); // the call commandThread gets remembered by
+    blockingStreamObserver.onCompleted();
+    when(observer.isCancelled()).thenReturn(true);
+    blockingStreamObserver.onNext(response); // arrives late, from some other thread in practice
+    assertThat(Thread.interrupted()).isFalse();
+  }
+}

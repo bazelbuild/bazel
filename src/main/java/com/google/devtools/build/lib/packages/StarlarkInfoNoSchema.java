@@ -17,46 +17,39 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Compactable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.Types;
 
 /**
  * A struct-like Info (provider instance) for providers defined in Starlark that don't have a
  * schema.
  */
 public class StarlarkInfoNoSchema extends StarlarkInfo {
+  // TODO(bazel-team): require this to be either a StarlarkProvider or StructProvider.
   private final Provider provider;
 
   // For a n-element info, the table contains n key strings, sorted,
   // followed by the n corresponding legal Starlark values.
   private final Object[] table;
 
-  // TODO(adonovan): restrict type of provider to StarlarkProvider?
-  // Do we ever need StarlarkInfos of BuiltinProviders? Such BuiltinProviders could
-  // be  moved to Starlark using bzl builtins injection.
-  // Alternatively: what about this implementation is specific to StarlarkProvider?
-  // It's really just a "generic" or "dynamic" representation of a struct,
-  // analogous to reflection versus generated message classes in the protobuf world.
-  // The efficient table algorithms would be a nice addition to the Starlark
-  // interpreter, to allow other clients to define their own fast structs
-  // (or to define a standard one). See also comments at Info about upcoming clean-ups.
-  private StarlarkInfoNoSchema(Provider provider, Object[] table, @Nullable Location loc) {
-    super(loc);
+  private StarlarkInfoNoSchema(Provider provider, Object[] table) {
     this.provider = provider;
     this.table = table;
   }
 
-  StarlarkInfoNoSchema(Provider provider, Map<String, Object> values, @Nullable Location loc) {
-    super(loc);
+  StarlarkInfoNoSchema(Provider provider, Map<String, Object> values) {
     this.provider = provider;
     this.table = toTable(values);
   }
@@ -66,21 +59,45 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
     return provider;
   }
 
+  private StarlarkType getStructType(StarlarkSemantics semantics) {
+    int n = table.length / 2;
+    ImmutableMap.Builder<String, StarlarkType> fieldTypes = ImmutableMap.builderWithExpectedSize(n);
+    for (int i = 0; i < n; i++) {
+      String name = (String) table[i];
+      StarlarkType type = Starlark.getStarlarkType(table[n + i], semantics);
+      fieldTypes.put(name, type);
+    }
+    return Types.struct(fieldTypes.buildOrThrow());
+  }
+
+  @Override
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    if (provider instanceof StarlarkType type) {
+      // This is the case for StarlarkProvider. Do nominal typing.
+      // TODO: #27370 - Should we emit the fields and types for schemaless starlark providers?
+      return type;
+    } else {
+      // Untyped struct; provider is either StructProvider (`struct` in BUILD API) or one of a few
+      // non-StructProvider builtin providers that deliberately construct untyped struct values
+      // (e.g. Actions or ApplePlatform). Do structural typing.
+      // TODO: #27370 - Should we synthesize a nominal StarlarkType for the value type of such
+      // non-StructProvider builtin providers?
+      return getStructType(semantics);
+    }
+  }
+
   /**
    * Creates a schemaless provider instance with the given provider type and field values.
    *
    * @param provider A {@code Provider} without a schema. {@code StarlarkProvider} with a schema is
    *     not supported by this call.
    * @param values the field values
-   * @param loc the creation location for this instance. Built-in provider instances may use {@link
-   *     Location#BUILTIN}, which is the default if null.
    */
-  static StarlarkInfo createSchemaless(
-      Provider provider, Map<String, Object> values, @Nullable Location loc) {
+  static StarlarkInfo createSchemaless(Provider provider, Map<String, Object> values) {
     Preconditions.checkArgument(
         !(provider instanceof StarlarkProvider)
             || ((StarlarkProvider) provider).getFields() == null);
-    return new StarlarkInfoNoSchema(provider, values, loc);
+    return new StarlarkInfoNoSchema(provider, values);
   }
 
   // Converts a map to a table of sorted keys followed by corresponding values.
@@ -136,14 +153,13 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
     }
 
     @Override
-    public StarlarkInfo createFromArgs(StarlarkThread thread) throws EvalException {
-      return new StarlarkInfoNoSchema(provider, namedArgMap, thread.getCallerLocation());
+    public StarlarkInfo createFromArgs() {
+      return new StarlarkInfoNoSchema(provider, namedArgMap);
     }
 
     @Override
-    public StarlarkInfo createFromMap(Map<String, Object> map, StarlarkThread thread)
-        throws EvalException {
-      return new StarlarkInfoNoSchema(provider, map, thread.getCallerLocation());
+    public StarlarkInfo createFromMap(Map<String, Object> map) {
+      return new StarlarkInfoNoSchema(provider, map);
     }
   }
 
@@ -207,11 +223,41 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
     return true;
   }
 
+  @Override
+  public void checkHashable() throws EvalException {
+    super.checkHashable(); // Verifies that the values are immutable.
+    // Bazel has historically allowed structs of immutable values to be considered hashable even if
+    // those values are not Starlark-hashable by themselves (e.g. frozen lists). This is
+    // inconsistent and arguably wrong, but fixing it would be a breaking change.
+    // Thus, instead of checking whether the values are Starlark-hashable, below we only check
+    // whether they have a usable hashCode() implementation.
+    for (int i = table.length / 2; i < table.length; i++) {
+      Object val = table[i];
+      if (!Starlark.isAcyclic(val)) {
+        // A self-referential value's hashCode() can cause a stack overflow. Trigger it early; the
+        // StackOverflowError will be caught by Starlark.checkHashable() and rethrown as an
+        // EvalException.
+        var unused = val.hashCode();
+      }
+    }
+  }
+
   @Nullable
   @Override
   public Object getValue(String name) {
     int n = table.length / 2;
-    int i = Arrays.binarySearch(table, 0, n, name);
+    int i;
+    if (n <= BINARY_SEARCH_THRESHOLD) {
+      i = -1;
+      for (int j = 0; j < n; j++) {
+        if (table[j].equals(name)) {
+          i = j;
+          break;
+        }
+      }
+    } else {
+      i = Arrays.binarySearch(table, 0, n, name);
+    }
     if (i < 0) {
       return null;
     }
@@ -276,18 +322,30 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
       zi++;
     }
 
-    return new StarlarkInfoNoSchema(x.provider, ztable, Location.BUILTIN);
+    return new StarlarkInfoNoSchema(x.provider, ztable);
+  }
+
+  @Override
+  public final boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof StarlarkInfoNoSchema other)) {
+      return false;
+    }
+    return provider.equals(other.provider) && Arrays.equals(table, other.table);
+  }
+
+  @Override
+  public final int hashCode() {
+    return 31 * provider.hashCode() + Arrays.hashCode(table);
   }
 
   @Override
   public StarlarkInfoNoSchema unsafeOptimizeMemoryLayout() {
     for (int i = table.length / 2; i < table.length; i++) {
-      if (table[i] instanceof StarlarkList<?>) {
-        // On duplicated lists, ImmutableStarlarkLists objects are duplicated, but not underlying
-        // Object arrays
-        table[i] = ((StarlarkList<?>) table[i]).unsafeOptimizeMemoryLayout();
-      } else if (table[i] instanceof StarlarkInfo) {
-        table[i] = ((StarlarkInfo) table[i]).unsafeOptimizeMemoryLayout();
+      if (table[i] instanceof Compactable compactable) {
+        table[i] = compactable.unsafeOptimizeMemoryLayout();
       }
     }
     return this;

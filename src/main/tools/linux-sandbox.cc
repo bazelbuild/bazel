@@ -53,12 +53,16 @@
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <atomic>
+#include <cinttypes>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -84,9 +88,14 @@ static_assert(global_child_pid.is_always_lock_free);
 static_assert(global_need_polite_sigterm.is_always_lock_free);
 #endif
 
-// Make sure the child process does not inherit any accidentally left open file
-// handles from our parent.
-static void CloseFds() {
+#ifndef __NR_close_range
+#if defined(__x86_64__) || defined(__aarch64__)
+#define __NR_close_range 436
+#endif
+#endif
+
+// Fallback for closing file descriptors using /proc/self/fd on older kernels.
+static void CloseFdsFallback() {
   DIR *fds = opendir("/proc/self/fd");
   if (fds == nullptr) {
     DIE("opendir");
@@ -123,6 +132,52 @@ static void CloseFds() {
   if (closedir(fds) < 0) {
     DIE("closedir");
   }
+}
+
+// Make sure the child process does not inherit any accidentally left open file
+// handles from our parent.
+static void CloseFds() {
+#if defined(__NR_close_range)
+  int debug_fd = global_debug != nullptr ? fileno(global_debug) : -1;
+  if (debug_fd <= STDERR_FILENO) {
+    if (syscall(__NR_close_range, STDERR_FILENO + 1, ~0U, 0) == 0) {
+      return;
+    }
+    // Handle environments where seccomp returns ENOSYS, EPERM, or EACCES for
+    // unsupported or unallowlisted syscalls.
+    if (errno != ENOSYS && errno != EPERM && errno != EACCES) {
+      DIE("close_range");
+    }
+  } else {
+    // If global_debug is open at fd > STDERR_FILENO, close
+    // [STDERR_FILENO + 1, udebug_fd - 1] and [udebug_fd + 1, ~0U]. Cast to
+    // unsigned int to avoid signed overflow UB.
+    const unsigned int udebug_fd = static_cast<unsigned int>(debug_fd);
+    bool success = true;
+    if (udebug_fd > STDERR_FILENO + 1) {
+      if (syscall(__NR_close_range, STDERR_FILENO + 1, udebug_fd - 1, 0) != 0) {
+        if (errno == ENOSYS || errno == EPERM || errno == EACCES) {
+          success = false;
+        } else {
+          DIE("close_range");
+        }
+      }
+    }
+    if (success && udebug_fd < ~0U) {
+      if (syscall(__NR_close_range, udebug_fd + 1, ~0U, 0) != 0) {
+        if (errno == ENOSYS || errno == EPERM || errno == EACCES) {
+          success = false;
+        } else {
+          DIE("close_range");
+        }
+      }
+    }
+    if (success) {
+      return;
+    }
+  }
+#endif
+  CloseFdsFallback();
 }
 
 static void MaybeAddChildProcessToCgroup(const pid_t pid) {
@@ -214,6 +269,25 @@ static pid_t SpawnPid1() {
   return child_pid;
 }
 
+static int64_t ReadCgroupsMemoryPeak(
+    const std::vector<std::string>& cgroups_dirs) {
+  int64_t max_value = -1;
+  for (const std::string& dir : cgroups_dirs) {
+    for (const char* fname : {"/memory.peak", "/memory.max_usage_in_bytes"}) {
+      int64_t value = -1;
+      std::string path = dir + fname;
+      FILE* f = fopen(path.c_str(), "r");
+      if (f != nullptr) {
+        if (fscanf(f, "%" SCNd64, &value) == 1) {
+          max_value = std::max(value, max_value);
+        }
+        fclose(f);
+      }
+    }
+  }
+  return max_value;
+}
+
 static int WaitForPid1(const pid_t child_pid) {
   // Wait for the child to exit, obtaining usage information. Restart in the
   // case of a signal interrupting us.
@@ -239,6 +313,10 @@ static int WaitForPid1(const pid_t child_pid) {
 
   // If we're supposed to write stats to a file, do so now.
   if (!opt.stats_path.empty()) {
+    int64_t cgroups_memory_peak = ReadCgroupsMemoryPeak(opt.cgroups_dirs);
+    if (cgroups_memory_peak > 0) {
+      child_rusage.ru_maxrss = cgroups_memory_peak / 1024;
+    }
     WriteStatsToFile(&child_rusage, opt.stats_path);
   }
 

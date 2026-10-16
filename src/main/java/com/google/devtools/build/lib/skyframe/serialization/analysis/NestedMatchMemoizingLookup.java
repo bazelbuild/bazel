@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatchResultTypes.createNestedMatchResult;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
@@ -21,6 +22,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMa
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResultOrFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FutureFileOpMatchResult;
@@ -34,7 +36,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatch
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
 
 /**
  * Computes matching versions for {@link NestedDependencies} with memoization.
@@ -49,11 +50,11 @@ import java.util.concurrent.Executor;
 final class NestedMatchMemoizingLookup
     extends AbstractValueOrFutureMap<
         NestedDependencies, NestedMatchResultOrFuture, NestedMatchResult, FutureNestedMatchResult> {
-  private final Executor executor;
+  private final SafeExecutor executor;
   private final FileOpMatchMemoizingLookup fileOpMatches;
 
   NestedMatchMemoizingLookup(
-      Executor executor,
+      SafeExecutor executor,
       FileOpMatchMemoizingLookup fileOpMatches,
       ConcurrentMap<NestedDependencies, NestedMatchResultOrFuture> map) {
     super(map, FutureNestedMatchResult::new, FutureNestedMatchResult.class);
@@ -80,29 +81,19 @@ final class NestedMatchMemoizingLookup
         var aggregator = new NestedFutureResultAggregator();
         for (int i = 0; i < nested.analysisDependenciesCount(); i++) {
           switch (nested.getAnalysisDependency(i)) {
-            case FileOpDependency dependency:
-              aggregator.addAnalysisResultOrFuture(
-                  fileOpMatches.getValueOrFuture(dependency, validityHorizon));
-              break;
-            case NestedDependencies child:
-              // In a common case, the cache reader sends a single top-level request that traverses
-              // the full set of dependencies and waits for that request to complete. Parallelizes
-              // recursive traversal of child nodes to avoid being singly-threaded in this scenario.
-              aggregator.signalNestedTaskAdded();
-              executor.execute(
-                  () -> {
-                    switch (getValueOrFuture(child, validityHorizon)) {
-                      case NestedMatchResult result:
-                        aggregator.addNestedResult(result);
-                        aggregator.signalNestedTaskComplete();
-                        break;
-                      case FutureNestedMatchResult future:
-                        // The aggregator decrements when the future completes.
-                        aggregator.addFutureNestedMatchResult(future);
-                        break;
-                    }
-                  });
-              break;
+            case FileOpDependency dependency ->
+                aggregator.addAnalysisResultOrFuture(
+                    fileOpMatches.getValueOrFuture(dependency, validityHorizon));
+            case NestedDependencies child ->
+                // In a common case, the cache reader sends a single top-level request that
+                // traverses the full set of dependencies and waits for that request to complete.
+                // Parallelizes recursive traversal of child nodes to avoid being singly-threaded in
+                // this scenario.
+                aggregator.executeSubtask(
+                    () ->
+                        aggregator.addNestedResultOrFuture(
+                            getValueOrFuture(child, validityHorizon)),
+                    executor);
           }
         }
         for (int i = 0; i < nested.sourcesCount(); i++) {
@@ -123,15 +114,13 @@ final class NestedMatchMemoizingLookup
     private volatile int earliestSourceMatch = VersionedChanges.NO_MATCH;
 
     private NestedFutureResultAggregator() {
-      super(directExecutor());
+      super(safeDirectExecutor());
     }
 
     private void addAnalysisResultOrFuture(FileOpMatchResultOrFuture resultOrFuture) {
       switch (resultOrFuture) {
-        case FileOpMatchResult result:
-          updateAnalysisVersionIfEarlier(result.version());
-          break;
-        case FutureFileOpMatchResult future:
+        case FileOpMatchResult result -> updateAnalysisVersionIfEarlier(result.version());
+        case FutureFileOpMatchResult future -> {
           increment();
           Futures.addCallback(
               future,
@@ -142,16 +131,14 @@ final class NestedMatchMemoizingLookup
                 }
               },
               directExecutor());
-          break;
+        }
       }
     }
 
     private void addSourceResultOrFuture(FileOpMatchResultOrFuture resultOrFuture) {
       switch (resultOrFuture) {
-        case FileOpMatchResult result:
-          updateSourceVersionIfEarlier(result.version());
-          break;
-        case FutureFileOpMatchResult future:
+        case FileOpMatchResult result -> updateSourceVersionIfEarlier(result.version());
+        case FutureFileOpMatchResult future -> {
           increment();
           Futures.addCallback(
               future,
@@ -162,52 +149,43 @@ final class NestedMatchMemoizingLookup
                 }
               },
               directExecutor());
-          break;
+        }
       }
     }
 
     private void addNestedResult(NestedMatchResult result) {
       switch (result) {
-        case NO_MATCH_RESULT:
-          break;
-        case ALWAYS_MATCH_RESULT:
-          earliestAnalysisMatch = VersionedChanges.ALWAYS_MATCH;
-          break;
-        case AnalysisMatch(int version):
-          updateAnalysisVersionIfEarlier(version);
-          break;
-        case SourceMatch(int version):
-          updateSourceVersionIfEarlier(version);
-          break;
-        case AnalysisAndSourceMatch(int analysisVersion, int sourceVersion):
+        case NO_MATCH_RESULT -> {}
+        case ALWAYS_MATCH_RESULT -> earliestAnalysisMatch = VersionedChanges.ALWAYS_MATCH;
+        case AnalysisMatch(int version) -> updateAnalysisVersionIfEarlier(version);
+        case SourceMatch(int version) -> updateSourceVersionIfEarlier(version);
+        case AnalysisAndSourceMatch(int analysisVersion, int sourceVersion) -> {
           updateAnalysisVersionIfEarlier(analysisVersion);
           updateSourceVersionIfEarlier(sourceVersion);
-          break;
+        }
       }
     }
 
-    private void addFutureNestedMatchResult(FutureNestedMatchResult future) {
-      Futures.addCallback(
-          future,
-          new ResultCallback<NestedMatchResult>() {
-            @Override
-            void processResult(NestedMatchResult result) {
-              addNestedResult(result);
-            }
-          },
-          directExecutor());
-    }
-
-    private void signalNestedTaskAdded() {
-      increment();
-    }
-
-    private void signalNestedTaskComplete() {
-      decrement();
+    private void addNestedResultOrFuture(NestedMatchResultOrFuture resultOrFuture) {
+      switch (resultOrFuture) {
+        case NestedMatchResult result -> addNestedResult(result);
+        case FutureNestedMatchResult future -> {
+          increment();
+          Futures.addCallback(
+              future,
+              new ResultCallback<NestedMatchResult>() {
+                @Override
+                void processResult(NestedMatchResult result) {
+                  addNestedResult(result);
+                }
+              },
+              directExecutor());
+        }
+      }
     }
 
     private void notifyAllDependenciesAdded() {
-      decrement();
+      finishRegistration();
     }
 
     @Override
@@ -235,7 +213,12 @@ final class NestedMatchMemoizingLookup
 
       @Override
       public final void onSuccess(T result) {
-        processResult(result);
+        try {
+          processResult(result);
+        } catch (Throwable t) {
+          notifyException(t);
+          return;
+        }
         decrement();
       }
 

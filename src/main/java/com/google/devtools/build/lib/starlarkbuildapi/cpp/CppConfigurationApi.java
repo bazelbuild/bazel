@@ -97,14 +97,6 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   @Nullable
   Label customMalloc();
 
-  @StarlarkMethod(
-      name = "do_not_use_macos_set_install_name",
-      structField = true,
-      // Only for migration purposes. Intentionally not documented.
-      documented = false,
-      doc = "Deprecated, always true")
-  boolean macosSetInstallName();
-
   @StarlarkMethod(name = "force_pic", documented = false, useStarlarkThread = true)
   boolean forcePicStarlark(StarlarkThread thread) throws EvalException;
 

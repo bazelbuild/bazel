@@ -18,12 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForSerializationFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.errorprone.annotations.Keep;
 import com.google.perftools.profiles.ProfileProto;
 import com.google.perftools.profiles.ProfileProto.Line;
@@ -46,6 +49,8 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class ProfileCollectorTest {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   @Test
   public void toProto_hasExpectedMetadata() {
@@ -112,6 +117,32 @@ public final class ProfileCollectorTest {
             new Sample(getStackText(codecA()), 3, 11));
   }
 
+  @Test
+  public void recordSamples_mergesBatchesAndSubtractsAncestors() {
+    var collector = new ProfileCollector();
+
+    var batch = new HashMap<ImmutableList<ProfilerLocationProvider>, ProfileCollector.Counts>();
+    @SuppressWarnings("IdentifierName") // false positive
+    ImmutableList<ProfilerLocationProvider> stackAB = ImmutableList.of(codecA(), codecB());
+    batch.put(
+        stackAB,
+        new ProfileCollector.Counts(stackAB, new AtomicInteger(1), new AtomicInteger(100)));
+    @SuppressWarnings("IdentifierName") // false positive
+    ImmutableList<ProfilerLocationProvider> stackABC =
+        ImmutableList.of(codecA(), codecB(), codecC());
+    batch.put(
+        stackABC,
+        new ProfileCollector.Counts(stackABC, new AtomicInteger(1), new AtomicInteger(40)));
+
+    collector.recordSamples(batch);
+
+    assertThat(getSamples(collector.toProto()))
+        .containsExactly(
+            new Sample(getStackText(codecC(), codecB(), codecA()), 1, 40),
+            new Sample(getStackText(codecB(), codecA()), 1, 60),
+            new Sample(getStackText(codecA()), 0, -100));
+  }
+
   private static CodecA codecA() {
     return CodecA.INSTANCE;
   }
@@ -147,7 +178,7 @@ public final class ProfileCollectorTest {
     assertThat(anon.getClass().getCanonicalName()).isNull();
 
     var codec = new DynamicCodec(anon.getClass());
-    String text = ProfileCollector.getDisplayText(codec);
+    String text = codec.getLocationText();
     assertThat(text)
         .isEqualTo(anon.getClass().getName() + "(" + DynamicCodec.class.getCanonicalName() + ")");
   }
@@ -252,7 +283,7 @@ public final class ProfileCollectorTest {
     final int runCount = 20;
 
     AtomicInteger totalBytes = new AtomicInteger();
-    var writeStatuses = Collections.synchronizedList(new ArrayList<ListenableFuture<Void>>());
+    var writeStatuses = Collections.synchronizedList(new ArrayList<ListenableFuture<?>>());
 
     var allRunsDone = new CountDownLatch(runCount);
     for (int i = 0; i < runCount; i++) {
@@ -262,16 +293,22 @@ public final class ProfileCollectorTest {
                 try {
                   SerializationResult<ByteString> result;
                   try {
-                    result =
-                        codecs.serializeMemoizedAndBlocking(
-                            fingerprintValueService, subject, profileCollector);
+                    AsyncSerializationTask asyncTask =
+                        codecs.serializeMemoizedAsync(
+                            COMPRESSION_SERVICE,
+                            fingerprintValueService,
+                            subject,
+                            profileCollector);
+                    asyncTask.run();
+                    asyncTask.registerWriteStatus(WriteStatuses.immediateWriteStatus());
+                    result = waitForSerializationFuture(asyncTask);
                   } catch (SerializationException e) {
                     writeStatuses.add(immediateFailedFuture(e));
                     return;
                   }
                   totalBytes.getAndAdd(result.getObject().size());
 
-                  ListenableFuture<Void> writeStatus = result.getFutureToBlockWritesOn();
+                  ListenableFuture<?> writeStatus = result.getFutureToBlockWritesOn();
                   if (writeStatus != null) {
                     writeStatuses.add(writeStatus);
                   }
@@ -389,7 +426,7 @@ public final class ProfileCollectorTest {
   private static ImmutableList<String> getStackText(ObjectCodec<?>... codecs) {
     var text = ImmutableList.<String>builder();
     for (var codec : codecs) {
-      text.add(ProfileCollector.getDisplayText(codec));
+      text.add(codec.getLocationText());
     }
     return text.build();
   }

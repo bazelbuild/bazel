@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.autocodec.Typ
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getGeneratedName;
 
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedOutputStream;
@@ -45,19 +46,23 @@ class Initializers {
    */
   static TypeSpec.Builder initializeCodecClassBuilder(
       TypeElement encodedType, AutoCodecAnnotation annotation, ProcessingEnvironment env) {
-    return TypeSpec.classBuilder(getGeneratedName(encodedType, GENERATED_CLASS_NAME_SUFFIX))
-        .addAnnotation(
-            AnnotationSpec.builder(Generated.class)
-                .addMember("value", "$S", AutoCodecProcessor.class.getCanonicalName())
-                .build())
-        .addAnnotation(
-            AnnotationSpec.builder(SuppressWarnings.class)
-                .addMember("value", "$S", "unchecked")
-                .addMember("value", "$S", "rawtypes")
-                .addMember("value", "$S", "removal")
-                .build())
-        .addMethod(defineGetEncodedClassMethod(encodedType, env))
-        .addMethod(defineAutoRegisterMethod(annotation));
+    TypeSpec.Builder builder =
+        TypeSpec.classBuilder(getGeneratedName(encodedType, GENERATED_CLASS_NAME_SUFFIX))
+            .addAnnotation(
+                AnnotationSpec.builder(Generated.class)
+                    .addMember("value", "$S", AutoCodecProcessor.class.getCanonicalName())
+                    .build())
+            .addAnnotation(
+                AnnotationSpec.builder(SuppressWarnings.class)
+                    .addMember("value", "$S", "unchecked")
+                    .addMember("value", "$S", "rawtypes")
+                    .addMember("value", "$S", "removal")
+                    .build())
+            .addMethod(defineGetEncodedClassMethod(encodedType, env))
+            .addMethod(defineAutoRegisterMethod(annotation));
+    builder.addMethod(
+        defineGetMemoizationEqualityMethod(encodedType, annotation.memoizationEquality(), env));
+    return builder;
   }
 
   /** Initializes the {@link ObjectCodec#serialize} method. */
@@ -104,6 +109,22 @@ class Initializers {
         .addAnnotation(Override.class)
         .returns(TypeName.BOOLEAN)
         .addStatement("return $L", annotation.autoRegister())
+        .build();
+  }
+
+  private static MethodSpec defineGetMemoizationEqualityMethod(
+      TypeElement encodedType, MemoizationEquality value, ProcessingEnvironment env) {
+    ClassName memoizationEquality =
+        ClassName.get(
+            "com.google.devtools.build.lib.skyframe.serialization",
+            "ObjectCodec",
+            "MemoizationEquality");
+    return MethodSpec.methodBuilder("getMemoizationEquality")
+        .addModifiers(Modifier.PUBLIC)
+        .addAnnotation(Override.class)
+        .returns(memoizationEquality)
+        .addParameter(getErasure(encodedType, env), "obj")
+        .addStatement("return $T.$L", memoizationEquality, value.name())
         .build();
   }
 

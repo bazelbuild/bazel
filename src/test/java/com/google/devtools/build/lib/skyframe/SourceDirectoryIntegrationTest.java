@@ -23,6 +23,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.vfs.Path;
@@ -251,6 +252,120 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
     assertContainsEvent("infinite symlink expansion detected");
     assertContainsEvent("foo/dir/subdir/nested2");
+  }
+
+  /** Regression test for https://github.com/bazelbuild/bazel/issues/29688. */
+  @Test
+  public void crossingRepoPackageCollision_doesNotFail() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    write("tools/docker/BUILD");
+
+    write(
+        "MODULE.bazel",
+        """
+        bazel_dep(name = "ext")
+        local_path_override(
+            module_name = "ext",
+            path = "ext",
+        )
+        """);
+    write("ext/MODULE.bazel", "module(name = 'ext')");
+    write(
+        "ext/BUILD",
+        """
+        filegroup(
+            name = "dir",
+            srcs = ["tools"],
+            visibility = ["//visibility:public"],
+        )
+        """);
+    Path extSourceDir = getWorkspace().getRelative("ext/tools");
+    extSourceDir.getRelative("docker").createDirectoryAndParents();
+    writeIsoLatin1(extSourceDir.getRelative("docker/data"), "content");
+
+    write(
+        "BUILD",
+        """
+        genrule(
+            name = "consume",
+            srcs = ["@ext//:dir"],
+            outs = ["consume.out"],
+            cmd = "touch $@",
+        )
+        """);
+
+    buildTarget("//:consume");
+  }
+
+  /**
+   * With --incompatible_check_external_repo_source_dir_package_boundary, a source directory in an
+   * external repository that crosses a package boundary into a sub-package of that same repository
+   * fails the build, just like in the main repository.
+   */
+  @Test
+  public void crossingExternalRepoPackageBoundary_withFlag_fails() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    setUpCrossingExternalRepoPackageBoundary();
+    addOptions("--incompatible_check_external_repo_source_dir_package_boundary");
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//:consume"));
+    assertContainsEvent("crosses package boundary into package rooted at data/sub");
+  }
+
+  /**
+   * Without --incompatible_check_external_repo_source_dir_package_boundary (the default), the same
+   * package boundary crossing inside an external repository is not detected and the build succeeds.
+   */
+  @Test
+  public void crossingExternalRepoPackageBoundary_withoutFlag_doesNotFail() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    setUpCrossingExternalRepoPackageBoundary();
+
+    buildTarget("//:consume");
+  }
+
+  private void setUpCrossingExternalRepoPackageBoundary() throws Exception {
+    write(
+        "MODULE.bazel",
+        """
+        bazel_dep(name = "ext")
+        local_path_override(
+            module_name = "ext",
+            path = "ext",
+        )
+        """);
+    write("ext/MODULE.bazel", "module(name = 'ext')");
+    write(
+        "ext/BUILD",
+        """
+        filegroup(
+            name = "dir",
+            srcs = ["data"],
+            visibility = ["//visibility:public"],
+        )
+        """);
+    // The presence of this BUILD file makes ext's `data/sub` a package, so the `data` source
+    // directory
+    // crosses a package boundary.
+    write("ext/data/sub/BUILD");
+    writeIsoLatin1(getWorkspace().getRelative("ext/data/top"), "content");
+
+    write(
+        "BUILD",
+        """
+        genrule(
+            name = "consume",
+            srcs = ["@ext//:dir"],
+            outs = ["consume.out"],
+            cmd = "touch $@",
+        )
+        """);
   }
 
   private static final String GENRULE_EVENT = "Executing genrule //foo:foo";

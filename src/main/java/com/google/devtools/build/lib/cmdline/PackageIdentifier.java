@@ -96,20 +96,14 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    * malformed repo name).
    */
   public static Optional<PackageIdentifier> discoverFromExecPath(
-      PathFragment execPath, boolean forFiles, boolean siblingRepositoryLayout) {
+      PathFragment execPath, boolean forFiles) {
     Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
     PathFragment tofind =
         forFiles
             ? Preconditions.checkNotNull(
                 execPath.getParentDirectory(), "Must pass in files, not root directory")
             : execPath;
-    PathFragment prefix =
-        siblingRepositoryLayout
-            ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
-            : LabelConstants.EXTERNAL_PATH_PREFIX;
-    if (tofind.startsWith(prefix)) {
-      // Using the path prefix can be either "external" or "..", depending on whether the sibling
-      // repository layout is used.
+    if (tofind.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       try {
         RepositoryName repository = RepositoryName.create(tofind.getSegment(1));
         return Optional.of(PackageIdentifier.create(repository, tofind.subFragment(2)));
@@ -181,20 +175,19 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
 
   /**
    * Returns the package path fragment to derived artifacts for this package. Returns pkgName if
-   * this is in the main repository or siblingRepositoryLayout is true. Otherwise, returns
-   * external/[repository name]/[pkgName].
+   * this is in the main repository. Otherwise, returns external/[repository name]/[pkgName].
    */
   // TODO(bazel-team): Rename getDerivedArtifactPath or similar.
-  public PathFragment getPackagePath(boolean siblingRepositoryLayout) {
-    return repository.isMain() || siblingRepositoryLayout
+  public PathFragment getPackagePath() {
+    return repository.isMain()
         ? pkgName
         : LabelConstants.EXTERNAL_PATH_PREFIX
             .getRelative(repository.getName())
             .getRelative(pkgName);
   }
 
-  public PathFragment getExecPath(boolean siblingRepositoryLayout) {
-    return repository.getExecPath(siblingRepositoryLayout).getRelative(pkgName);
+  public PathFragment getExecPath() {
+    return repository.getExecPath().getRelative(pkgName);
   }
 
   /**

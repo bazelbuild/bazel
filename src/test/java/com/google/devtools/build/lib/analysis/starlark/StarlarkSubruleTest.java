@@ -58,8 +58,6 @@ import org.junit.runners.JUnit4;
 public class StarlarkSubruleTest extends BuildViewTestCase {
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase("//subrule_testing:label");
-  private final BazelEvaluationTestCase evOutsideAllowlist =
-      new BazelEvaluationTestCase("//foo:bar");
 
   @Test
   public void testSubruleFunctionSymbol_notVisibleInBUILD() throws Exception {
@@ -1929,9 +1927,30 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
   @Test
   public void testSubrulesParamForAspect_isPrivateAPI() throws Exception {
-    evOutsideAllowlist.setSemantics("--noexperimental_rule_extension_api");
-    evOutsideAllowlist.checkEvalErrorContains(
-        "'//foo:bar' cannot use private API", "aspect(implementation = lambda: 0, subrules = [1])");
+    setBuildLanguageOptions("--noexperimental_rule_extension_api");
+    scratch.file(
+        "foo/myrule.bzl",
+        """
+        def _impl(ctx):
+            pass
+        my_subrule = subrule(implementation = _impl)
+        my_aspect = aspect(_impl, subrules = [my_subrule])
+        my_rule = rule(_impl, attrs = {'dep': attr.label(aspects = [my_aspect])})
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("myrule.bzl", "my_rule")
+
+        my_rule(name = "bar")
+        my_rule(name = "foo", dep = ":bar")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//foo");
+
+    ev.assertContainsError("Non-allowlisted attempt to use subrules.");
   }
 
   private StructImpl getProvider(String targetLabel, String providerLabel, String providerName)

@@ -1,14 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(
-    default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
-)
+package(default_applicable_licenses = ["//:license"])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + ["//src/main/java/net/starlark/java/annot/processor:srcs"],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/net/starlark/java:__pkg__"],
 )
 
 # Annotations to make Java classes and methods accessible from Starlark.
@@ -24,9 +21,12 @@ java_library(
 java_library(
     name = "annot_sans_processor",
     srcs = glob(["*.java"]),
-    visibility = ["//src/main/java/net/starlark/java/annot/processor:__pkg__"],
+    visibility = [
+        "//src/main/java/net/starlark/java/annot/processor:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:__subpackages__",
+    ],
     deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )

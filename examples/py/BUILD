@@ -12,6 +12,13 @@ py_binary(
     deps = [":lib"],
 )
 
+py_binary(
+    name = "runfile",
+    srcs = ["runfile.py"],
+    data = ["//examples:runfile.txt"],
+    deps = ["@rules_python//python/runfiles"],
+)
+
 filegroup(
     name = "srcs",
     srcs = ["BUILD"] + glob(["**/*.py"]),

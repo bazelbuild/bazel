@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveVisibilityProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A ConfiguredTarget for an InputFile.
@@ -44,7 +44,7 @@ import net.starlark.java.eval.Printer;
 public final class InputFileConfiguredTarget extends FileConfiguredTarget {
 
   private final boolean isCreatedInSymbolicMacro;
-  private final PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
+  private final TransitiveVisibilityProvider.Requirement transitiveVisibilityImposedByThisPackage;
 
   public InputFileConfiguredTarget(TargetContext targetContext, SourceArtifact artifact) {
     this(
@@ -62,7 +62,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   InputFileConfiguredTarget(
       ActionLookupKey lookupKey,
       NestedSet<PackageGroupContents> visibility,
-      @Nullable PackageSpecificationProvider transitiveVisibilityImposedByThisPackage,
+      @Nullable TransitiveVisibilityProvider.Requirement transitiveVisibilityImposedByThisPackage,
       SourceArtifact artifact,
       boolean isCreatedInSymbolicMacro) {
     super(lookupKey, visibility, artifact);
@@ -97,7 +97,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<input file target " + getLabel() + ">");
   }
 

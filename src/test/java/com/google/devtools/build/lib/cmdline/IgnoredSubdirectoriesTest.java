@@ -83,6 +83,17 @@ public class IgnoredSubdirectoriesTest {
   }
 
   @Test
+  public void filterPatternsForRootDirectory() throws Exception {
+    // Regression test for https://github.com/bazelbuild/bazel/issues/30526: filtering for the root
+    // directory (which is what happens for the "//..." target pattern) must not drop any pattern.
+    IgnoredSubdirectories original =
+        IgnoredSubdirectories.of(
+            prefixes("prefix"), patterns(".claude", "foo/bar", "**/sub", "*/qux"));
+    IgnoredSubdirectories filtered = original.filterForDirectory(PathFragment.EMPTY_FRAGMENT);
+    assertThat(filtered).isEqualTo(original);
+  }
+
+  @Test
   public void filterPatternsForHiddenFiles() throws Exception {
     IgnoredSubdirectories original =
         IgnoredSubdirectories.of(
@@ -95,5 +106,23 @@ public class IgnoredSubdirectoriesTest {
         .isEqualTo(
             IgnoredSubdirectories.of(
                 prefixes(), patterns(".hidden/**/sub", ".hi*/*/sub", "*/sub", "**/sub")));
+  }
+
+  @Test
+  public void matchingEntryReason() throws Exception {
+    IgnoredSubdirectories ignored =
+        IgnoredSubdirectories.of(
+            prefixes("ignored_prefix", "foo/bar"), patterns("ignored_pattern/**", "baz/*"));
+    assertThat(ignored.matchingEntryReason(PathFragment.create("ignored_prefix")))
+        .isEqualTo(IgnoredSubdirectories.IgnoredReason.BAZELIGNORE);
+    assertThat(ignored.matchingEntryReason(PathFragment.create("ignored_prefix/sub")))
+        .isEqualTo(IgnoredSubdirectories.IgnoredReason.BAZELIGNORE);
+    assertThat(ignored.matchingEntryReason(PathFragment.create("foo/bar/qux")))
+        .isEqualTo(IgnoredSubdirectories.IgnoredReason.BAZELIGNORE);
+    assertThat(ignored.matchingEntryReason(PathFragment.create("ignored_pattern/sub")))
+        .isEqualTo(IgnoredSubdirectories.IgnoredReason.REPO_BAZEL);
+    assertThat(ignored.matchingEntryReason(PathFragment.create("baz/target")))
+        .isEqualTo(IgnoredSubdirectories.IgnoredReason.REPO_BAZEL);
+    assertThat(ignored.matchingEntryReason(PathFragment.create("not_ignored"))).isNull();
   }
 }

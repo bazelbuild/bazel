@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.apple;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -33,44 +32,12 @@ import net.starlark.java.eval.StarlarkValue;
 public interface ObjcConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(
-      name = "ios_simulator_device",
-      structField = true,
-      allowReturnNones = true,
-      doc = "The type of device (e.g. 'iPhone 6') to use when running on the simulator.")
-  @Nullable
-  String getIosSimulatorDevice();
-
-  @StarlarkMethod(
-      name = "ios_simulator_version",
-      structField = true,
-      allowReturnNones = true,
-      doc = "The SDK version of the iOS simulator to use when running on the simulator.")
-  @Nullable
-  DottedVersionApi<?> getIosSimulatorVersion();
-
-  @StarlarkMethod(
-      name = "run_memleaks",
-      structField = true,
-      doc = "Returns a boolean indicating whether memleaks should be run during tests or not.")
-  boolean runMemleaks();
-
-  @StarlarkMethod(
       name = "copts_for_current_compilation_mode",
       structField = true,
       doc =
           "Returns a list of default options to use for compiling Objective-C in the current "
               + "mode.")
   ImmutableList<String> getCoptsForCompilationMode();
-
-  @StarlarkMethod(
-      name = "signing_certificate_name",
-      structField = true,
-      allowReturnNones = true,
-      doc =
-          "Returns the flag-supplied certificate name to be used in signing, or None if no such "
-              + "certificate was specified.")
-  @Nullable
-  String getSigningCertName();
 
   @StarlarkMethod(
       name = "uses_device_debug_entitlements",

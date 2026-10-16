@@ -14,12 +14,16 @@
 
 package net.starlark.java.syntax;
 
+import javax.annotation.Nullable;
+
 /** Syntax node for cast() expressions. */
 public final class CastExpression extends Expression {
   private final int startOffset;
   private final Expression type;
   private final Expression value;
   private final int rparenOffset;
+  // Set by type tagging.
+  @Nullable private StarlarkType starlarkType;
 
   CastExpression(
       FileLocations locs, int startOffset, Expression type, Expression value, int rparenOffset) {
@@ -42,6 +46,20 @@ public final class CastExpression extends Expression {
 
   public Expression getType() {
     return type;
+  }
+
+  /**
+   * Returns the Starlark type extracted from the {@link #getType()} expression. Non-null after type
+   * tagging.
+   */
+  @Nullable
+  public StarlarkType getStarlarkType() {
+    return starlarkType;
+  }
+
+  /** Intended for use by {@link TypeTagger}. */
+  void setStarlarkType(StarlarkType starlarkType) {
+    this.starlarkType = starlarkType;
   }
 
   public Expression getValue() {

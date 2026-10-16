@@ -27,7 +27,6 @@ import java.util.regex.PatternSyntaxException;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.lib.json.Json;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 
@@ -63,7 +62,7 @@ import net.starlark.java.syntax.SyntaxError;
 public final class Benchmarks {
 
   private static final String HELP =
-      """
+"""
 Usage: Benchmarks [--help] [--filter regex] [--seconds float] [--iterations count]
 
 Runs Starlark benchmarks matching the filter for the specified approximate time or
@@ -169,7 +168,7 @@ for example 'bench_int.star:bench_add32'.
       Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
       try (Mutability mu = Mutability.create("test")) {
         StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
-        Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+        Starlark.execFile(input, module, thread);
       } catch (SyntaxError.Exception ex) {
         for (SyntaxError err : ex.errors()) {
           System.err.println(err); // includes location
@@ -377,7 +376,7 @@ for example 'bench_int.star:bench_add32'.
     }
 
     @Override
-    public void repr(Printer p) {
+    public void repr(Printer p, StarlarkSemantics semantics) {
       p.append("<Benchmark>");
     }
   }

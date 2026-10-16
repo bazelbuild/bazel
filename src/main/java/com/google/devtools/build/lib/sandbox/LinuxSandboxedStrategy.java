@@ -51,7 +51,7 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
       SandboxOptions options) {
     Path inaccessibleHelperFile = null;
     Path inaccessibleHelperDir = null;
-    if (!options.sandboxBlockPath.isEmpty()) {
+    if (!options.getSandboxBlockPath().isEmpty()) {
       try {
         inaccessibleHelperFile = LinuxSandboxUtil.getInaccessibleHelperFile(sandboxBase);
         inaccessibleHelperDir = LinuxSandboxUtil.getInaccessibleHelperDir(sandboxBase);
@@ -60,7 +60,8 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
             .getReporter()
             .handle(
                 Event.warn(
-                    "Could not block access to: " + Joiner.on(",").join(options.sandboxBlockPath)));
+                    "Could not block access to: "
+                        + Joiner.on(",").join(options.getSandboxBlockPath())));
       }
     }
     return new LinuxSandboxedSpawnRunner(

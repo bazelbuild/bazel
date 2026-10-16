@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.remote.worker;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 
 import build.bazel.remote.execution.v2.BatchUpdateBlobsRequest;
 import build.bazel.remote.execution.v2.BatchUpdateBlobsResponse;
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
@@ -27,24 +28,42 @@ import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetTreeRequest;
 import build.bazel.remote.execution.v2.GetTreeResponse;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.SpliceBlobRequest;
+import build.bazel.remote.execution.v2.SpliceBlobResponse;
+import build.bazel.remote.execution.v2.SplitBlobRequest;
+import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
+import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Code;
 import io.grpc.stub.StreamObserver;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** A basic implementation of a {@link ContentAddressableStorageImplBase} service. */
 final class CasServer extends ContentAddressableStorageImplBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   static final long MAX_BATCH_SIZE_BYTES = 1024 * 1024 * 4;
   private final OnDiskBlobStoreCache cache;
+  private final Map<Digest, SplicedBlob> splicedBlobs = new ConcurrentHashMap<>();
+
+  /** A blob stored via spliceBlob, along with the chunking function reported by the client. */
+  private record SplicedBlob(List<Digest> chunkDigests, ChunkingFunction.Value chunkingFunction) {}
 
   public CasServer(OnDiskBlobStoreCache cache) {
     this.cache = cache;
@@ -144,5 +163,114 @@ final class CasServer extends ContentAddressableStorageImplBase {
     }
     responseObserver.onNext(responseBuilder.build());
     responseObserver.onCompleted();
+  }
+
+  /**
+   * Returns the chunk digests for a blob that was previously stored via spliceBlob. Clients use
+   * this to download large blobs in smaller pieces.
+   */
+  @Override
+  public void splitBlob(
+      SplitBlobRequest request, StreamObserver<SplitBlobResponse> responseObserver) {
+    Digest blobDigest = request.getBlobDigest();
+
+    SplicedBlob splicedBlob = splicedBlobs.get(blobDigest);
+    if (splicedBlob == null) {
+      responseObserver.onError(StatusUtils.notFoundError(blobDigest));
+      return;
+    }
+    responseObserver.onNext(
+        SplitBlobResponse.newBuilder()
+            .addAllChunkDigests(splicedBlob.chunkDigests())
+            .setChunkingFunction(splicedBlob.chunkingFunction())
+            .build());
+    responseObserver.onCompleted();
+  }
+
+  /**
+   * Stores a mapping from a blob digest to the list of chunk digests that compose it.
+   *
+   * <p>All chunks must already exist in the CAS. The concatenated chunks are verified to match the
+   * expected blob digest before storing the mapping.
+   */
+  @Override
+  public void spliceBlob(
+      SpliceBlobRequest request, StreamObserver<SpliceBlobResponse> responseObserver) {
+    RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(meta);
+
+    Digest blobDigest = request.getBlobDigest();
+    List<Digest> chunkDigests = request.getChunkDigestsList();
+
+    try {
+      // Verify all chunks exist in the cache.
+      for (Digest chunkDigest : chunkDigests) {
+        if (!cache.refresh(chunkDigest)) {
+          responseObserver.onError(StatusUtils.notFoundError(chunkDigest));
+          return;
+        }
+      }
+
+      Digest computedDigest = spliceIntoCas(context, chunkDigests, blobDigest);
+      if (!computedDigest.equals(blobDigest)) {
+        String err =
+            "Splice digest " + blobDigest + " did not match computed digest: " + computedDigest;
+        responseObserver.onError(StatusUtils.invalidArgumentError("blob_digest", err));
+        return;
+      }
+
+      // Record the blob-to-chunks mapping for splitBlob lookups.
+      splicedBlobs.put(
+          blobDigest,
+          new SplicedBlob(new ArrayList<>(chunkDigests), request.getChunkingFunction()));
+
+      responseObserver.onNext(SpliceBlobResponse.newBuilder().setBlobDigest(blobDigest).build());
+      responseObserver.onCompleted();
+    } catch (CacheNotFoundException e) {
+      responseObserver.onError(StatusUtils.notFoundError(e.getMissingDigest()));
+    } catch (InterruptedException e) {
+      responseObserver.onError(StatusUtils.interruptedError(blobDigest));
+    } catch (Exception e) {
+      logger.atWarning().withCause(e).log("SpliceBlob request failed");
+      responseObserver.onError(StatusUtils.internalError(e));
+    }
+  }
+
+  /**
+   * Concatenates the chunks into the full blob and, if it matches {@code blobDigest}, stores it in
+   * the CAS. Chunks remain the primary read path; the full blob is stored so that action results
+   * referencing it pass existence checks and plain (non-SplitBlob) reads work.
+   *
+   * @return the digest of the concatenated chunks
+   */
+  private Digest spliceIntoCas(
+      RemoteActionExecutionContext context, List<Digest> chunkDigests, Digest blobDigest)
+      throws IOException, InterruptedException {
+    DiskCacheClient diskCacheClient = cache.getDiskCacheClient();
+    Path tempPath = diskCacheClient.getTempPath();
+    try {
+      Digest computedDigest;
+      OutputStream rawOut = tempPath.getOutputStream();
+      try (DigestOutputStream digestOut = cache.getDigestUtil().newDigestOutputStream(rawOut)) {
+        for (Digest chunkDigest : chunkDigests) {
+          digestOut.write(getFromFuture(cache.downloadBlob(context, chunkDigest)));
+        }
+        computedDigest = digestOut.digest();
+        // Fsync so a machine crash cannot publish a CAS entry whose data never reached disk.
+        if (rawOut instanceof FileOutputStream fos) {
+          fos.getFD().sync();
+        }
+      }
+      if (computedDigest.equals(blobDigest)) {
+        diskCacheClient.captureFile(tempPath, blobDigest, Store.CAS);
+      }
+      return computedDigest;
+    } finally {
+      try {
+        tempPath.delete();
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Failed to delete temporary file %s", tempPath);
+      }
+    }
   }
 }

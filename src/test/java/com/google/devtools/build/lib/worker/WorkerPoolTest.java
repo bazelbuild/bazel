@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
+import com.google.devtools.common.options.Options;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,7 +51,7 @@ public class WorkerPoolTest {
   private WorkerPool workerPool;
   private WorkerFactory factoryMock;
 
-  private static final WorkerOptions options = new WorkerOptions();
+  private static final WorkerOptions options = Options.getDefaults(WorkerOptions.class);
 
   private static class TestWorker extends SingleplexWorker {
     TestWorker(

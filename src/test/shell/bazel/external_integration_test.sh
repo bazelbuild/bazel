@@ -25,7 +25,6 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 set_up() {
-  bazel clean --expunge >& $TEST_log
   add_rules_java "MODULE.bazel"
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
@@ -54,6 +53,11 @@ tear_down() {
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then
     rm -fr "${TEST_TMPDIR}/server_dir"
   fi
+}
+
+function clean_external_repos() {
+  local output_base=$(bazel info output_base)
+  rm -rf "${output_base}/external"
 }
 
 function zip_up() {
@@ -333,8 +337,7 @@ function test_sha256_caching() {
 
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
-  local repo_path="$(bazel info output_base)/external/+http_archive+endangered"
-  local marker_file="$(realpath $repo_path).recorded_inputs"
+  local marker_file="$(bazel info output_base)/external/@+http_archive+endangered.marker"
   echo "<MARKER>"
   cat "${marker_file}"
   echo "</MARKER>"
@@ -831,6 +834,13 @@ http_archive(
     strip_prefix = "x/y/z",
     build_file = "@//:x.BUILD",
 )
+http_archive(
+    name = "x2",
+    url = "http://127.0.0.1:$nc_port/x.tar.gz",
+    sha256 = "$sha256",
+    strip_components = 3,
+    build_file = "@//:x.BUILD",
+)
 EOF
   cat > x.BUILD <<EOF
 genrule(
@@ -842,8 +852,10 @@ genrule(
 EOF
   touch BUILD
 
-  bazel build @x//:catter &> $TEST_log || fail "Build failed"
+  bazel build @x//:catter &> $TEST_log || fail "Build x failed"
   assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
+  bazel build @x2//:catter &> $TEST_log || fail "Build x2 failed"
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x2/catter.out
 }
 
 function test_prefix_stripping_zip() {
@@ -862,6 +874,13 @@ http_archive(
     strip_prefix = "x/y/z",
     build_file = "@//:x.BUILD",
 )
+http_archive(
+    name = "x2",
+    url = "http://127.0.0.1:$nc_port/x.zip",
+    sha256 = "$sha256",
+    strip_components = 3,
+    build_file = "@//:x.BUILD",
+)
 EOF
   cat > x.BUILD <<EOF
 genrule(
@@ -873,8 +892,10 @@ genrule(
 EOF
   touch BUILD
 
-  bazel build @x//:catter &> $TEST_log || fail "Build failed"
+  bazel build @x//:catter &> $TEST_log || fail "Build x failed"
   assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
+  bazel build @x2//:catter &> $TEST_log || fail "Build x2 failed"
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x2/catter.out
 }
 
 function test_prefix_stripping_existing_repo() {
@@ -901,10 +922,18 @@ http_archive(
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
 )
+http_archive(
+    name = "x2",
+    url = "http://127.0.0.1:$nc_port/x.zip",
+    sha256 = "$sha256",
+    strip_components = 3,
+)
 EOF
 
-  bazel build @x//:catter &> $TEST_log || fail "Build failed"
+  bazel build @x//:catter &> $TEST_log || fail "Build x failed"
   assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
+  bazel build @x2//:catter &> $TEST_log || fail "Build x2 failed"
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x2/catter.out
 }
 
 function test_adding_prefix_zip() {
@@ -955,6 +984,14 @@ http_archive(
     add_prefix = "x",
     build_file = "@//:ws.BUILD",
 )
+http_archive(
+    name = "ws2",
+    url = "http://127.0.0.1:$nc_port/z.zip",
+    sha256 = "$sha256",
+    strip_components = 1,
+    add_prefix = "x",
+    build_file = "@//:ws.BUILD",
+)
 EOF
   cat > ws.BUILD <<EOF
 genrule(
@@ -966,8 +1003,10 @@ genrule(
 EOF
   touch BUILD
 
-  bazel build @ws//:catter &> $TEST_log || fail "Build failed"
+  bazel build @ws//:catter &> $TEST_log || fail "Build ws failed"
   assert_contains "abc" bazel-genfiles/external/+http_archive+ws/catter.out
+  bazel build @ws2//:catter &> $TEST_log || fail "Build ws2 failed"
+  assert_contains "abc" bazel-genfiles/external/+http_archive+ws2/catter.out
 }
 
 function test_moving_build_file() {
@@ -1089,8 +1128,6 @@ EOF
     test -d "$external_dir/+http_archive+repo" || fail "creating remote repo failed"
     test -a "$external_dir/+http_archive+repo/foo" || fail "foo not found"
   done
-
-  shutdown_server
 }
 
 function test_sha256_weird() {
@@ -1112,7 +1149,6 @@ http_archive(
 EOF
   bazel build @repo//... &> $TEST_log && fail "Expected to fail"
   expect_log "[Ii]nvalid SHA-256 checksum"
-  shutdown_server
 }
 
 function test_sha256_incorrect() {
@@ -1135,7 +1171,6 @@ EOF
   bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error downloading \\[http://127.0.0.1:$fileserver_port/repo.zip\\] to"
   expect_log "but wanted 61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0"
-  shutdown_server
 }
 
 function test_integrity_correct() {
@@ -1158,7 +1193,6 @@ http_archive(
 )
 EOF
   bazel build @repo//... || fail "Expected integrity check to succeed"
-  shutdown_server
 }
 
 function test_integrity_weird() {
@@ -1450,7 +1484,7 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${WRKDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
   bazel query 'deps("@ext//:bar")' && fail "Couldn't clean local cache" || :
 
   # The value should still be available from the repository cache
@@ -1460,7 +1494,7 @@ EOF
   expect_log '@ext//:foo'
 
   # Clean again.
-  bazel clean --expunge
+  clean_external_repos
   # Even with a different source URL, the cache should be consulted.
 
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1523,14 +1557,14 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${WRKDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
 
   # The value should still be available from the repository cache
   bazel query 'deps("@ext//:bar")' > "${TEST_log}" || fail "Expected success"
   expect_log '@ext//:foo'
 
   # Clean again.
-  bazel clean --expunge
+  clean_external_repos
   # Even with a different source URL, the cache should be consulted.
 
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1581,7 +1615,7 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${TOPDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
 
   # Still, the file should be cached.
   bazel build '@ext//:foo' || fail "expected success"
@@ -1624,7 +1658,7 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${WRKDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
 
   # Still, the file should be cached.
   bazel build '@ext//:foo' || fail "expected success"
@@ -1695,7 +1729,7 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${TOPDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
 
   # Do a noop build with the cache enabled to ensure the cache can be disabled
   # after the server starts.
@@ -1755,7 +1789,7 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${TOPDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
   bazel query 'deps("@ext//:bar")' && fail "Couldn't clean local cache" || :
 
   # The value should still be available from the repository cache
@@ -1765,7 +1799,7 @@ EOF
   expect_log '@ext//:foo'
 
   # Clean again.
-  bazel clean --expunge
+  clean_external_repos
   # Even with a different source URL, the cache should be consulted.
 
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1919,7 +1953,7 @@ EOF
   bazel build //:it || fail "Expected success"
 
   # go offline and clean everything
-  bazel clean --expunge
+  clean_external_repos
   rm "${WRKDIR}/ext-1.1.zip"
 
   echo "Build #2"
@@ -1928,7 +1962,7 @@ EOF
   bazel build //:it > "${TEST_log}" 2>&1 || fail "Expected success"
   # As a cache hit is a perfectly normal thing, we don't expect it to be
   # reported.
-  expect_not_log 'cache hit'
+  expect_not_log 'used the following cache hits'
   expect_not_log "${sha256}"
   expect_not_log 'file:.*/ext-1.1.zip'
 
@@ -1947,7 +1981,7 @@ EOI
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Should not succeed" || :
   expect_log 'ext-1.2.*not found'
   expect_log 'prefixes.*ext-1.1'
-  expect_log 'cache hit'
+  expect_log 'used the following cache hits'
   expect_log "${sha256}"
   expect_log 'file:.*/ext-1.2.zip'
 
@@ -1971,7 +2005,7 @@ EOI
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Should not succeed" || :
   expect_not_log 'prefix'
   expect_log 'cp ext-1.2/foo.txt ext-1.2/BUILD'
-  expect_log 'cache hit'
+  expect_log 'used the following cache hits'
   expect_log "${sha256}"
   expect_log 'file:.*/ext-1.2.zip'
 }
@@ -2015,7 +2049,7 @@ genrule(
 )
 EOF
 
-  bazel clean --expunge
+  clean_external_repos
   bazel build --distdir="${WRKDIR}/distfiles" //:local \
     || fail "expected success"
 }
@@ -2068,7 +2102,7 @@ genrule(
 )
 EOF
 
-  bazel clean --expunge
+  clean_external_repos
   bazel build --distdir="${WRKDIR}/distfiles" //:local \
     || fail "expected success"
 }
@@ -2112,7 +2146,7 @@ genrule(
 )
 EOF
 
-  bazel clean --expunge
+  clean_external_repos
   bazel build --distdir="../distfiles" //:local \
     || fail "expected success"
 }
@@ -2156,7 +2190,7 @@ genrule(
 )
 EOF
 
-  bazel clean --expunge
+  clean_external_repos
   # The local distdirs all do no provide the file; still, it should work by fetching
   # the file from upstream.
   bazel build --distdir=does/not/exist --distdir=/global/does/not/exist --distdir=../thisisafile --distdir=../thisisempty //:local \
@@ -2211,6 +2245,11 @@ genrule(
   visibility = ["//visibility:public"],
 )
 EOF
+  # Other tests create the same archive. If they run within the same second
+  # in another shard, the archives are identical and end up in the shared
+  # repository cache, from which the build below would then succeed. Make the
+  # archive unique to this test.
+  echo "${WRKDIR}" > ext/unique.txt
   zip ext.zip ext/*
   rm -rf ext
   sha256=$(sha256sum ext.zip | head -c 64)
@@ -2244,7 +2283,7 @@ genrule(
 )
 EOF
 
-  bazel clean --expunge
+  clean_external_repos
   bazel build --distdir="../distfiles" //:unrelated \
     || fail "expected success"
   # As no --distdir option is given and upstream not available,
@@ -2650,13 +2689,6 @@ EOF
   expect_log "//not-external:b"
   expect_not_log "//external:a1"
   expect_not_log "//external/nested:a2"
-
-  bazel query --experimental_sibling_repository_layout //... >& $TEST_log \ ||
-    fail "Expected build/run to succeed"
-  expect_log "//not-external:b"
-  # Targets in //external aren't supported yet.
-  expect_not_log "//external:a1"
-  expect_log "//external/nested:a2"
 }
 
 function test_query_external_packages_in_other_repo() {
@@ -2697,12 +2729,6 @@ EOF
   expect_log "@other_repo//not-external:b"
   expect_log "@other_repo//external:a1"
   expect_log "@other_repo//external/nested:a2"
-
-  bazel query --experimental_sibling_repository_layout @other_repo//... >& $TEST_log \ ||
-    fail "Expected build/run to succeed"
-  expect_log "@other_repo//not-external:b"
-  expect_log "@other_repo//external:a1"
-  expect_log "@other_repo//external/nested:a2"
 }
 
 function test_query_external_all_targets() {
@@ -2734,13 +2760,6 @@ EOF
   expect_log "//not-external:B"
   expect_not_log "//external/nested:a"
   expect_not_log "//external/nested:A"
-
-  bazel query --experimental_sibling_repository_layout //...:all-targets \
-    >& $TEST_log || fail "Expected build/run to succeed"
-  expect_log "//not-external:b"
-  expect_log "//not-external:B"
-  expect_log "//external/nested:a"
-  expect_log "//external/nested:A"
 }
 
 function test_external_deps_skymeld() {
@@ -2889,6 +2908,135 @@ EOF
   # Ditto, but with --repo_env overriding environment.
   LAZYEVAL_KEY=xal2 bazel query --repo_env=LAZYEVAL_KEY=xal3 @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
   expect_log "LAZYEVAL_KEY=xal3"
+}
+
+function test_environ_incrementally_without_client_env_without_action_env() {
+  cat > repo.bzl <<EOF
+def _impl(rctx):
+  rctx.symlink(rctx.attr.build_file, 'BUILD')
+  print('PREDECLARED_KEY=%s' % rctx.os.environ.get('PREDECLARED_KEY'))
+  print('MY_VAR=%s' % rctx.getenv('MY_VAR'))
+
+dummy_repository = repository_rule(
+  implementation = _impl,
+  attrs = {'build_file': attr.label()},
+  environ = ['PREDECLARED_KEY'],
+)
+EOF
+  cat > BUILD.dummy <<EOF
+filegroup(name='dummy', srcs=['BUILD'])
+EOF
+  touch BUILD
+  cat > $(setup_module_dot_bazel) <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
+EOF
+
+  add_to_bazelrc "common --incompatible_repo_env_ignores_action_env"
+  add_to_bazelrc "common --experimental_strict_repo_env"
+
+  bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_log "PREDECLARED_KEY=None"
+  expect_log "MY_VAR=None"
+
+  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_not_log "PREDECLARED_KEY"
+  expect_not_log "MY_VAR"
+
+  bazel query --action_env=PREDECLARED_KEY=val3 --action_env=MY_VAR=val4 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_not_log "PREDECLARED_KEY"
+  expect_not_log "MY_VAR"
+}
+
+function test_environ_incrementally_with_client_env_without_action_env() {
+  cat > repo.bzl <<EOF
+def _impl(rctx):
+  rctx.symlink(rctx.attr.build_file, 'BUILD')
+  print('PREDECLARED_KEY=%s' % rctx.os.environ.get('PREDECLARED_KEY'))
+  print('MY_VAR=%s' % rctx.getenv('MY_VAR'))
+
+dummy_repository = repository_rule(
+  implementation = _impl,
+  attrs = {'build_file': attr.label()},
+  environ = ['PREDECLARED_KEY'],
+)
+EOF
+  cat > BUILD.dummy <<EOF
+filegroup(name='dummy', srcs=['BUILD'])
+EOF
+  touch BUILD
+  cat > $(setup_module_dot_bazel) <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
+EOF
+
+  add_to_bazelrc "common --incompatible_repo_env_ignores_action_env"
+  add_to_bazelrc "common --noexperimental_strict_repo_env"
+
+  bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_log "PREDECLARED_KEY=None"
+  expect_log "MY_VAR=None"
+
+  PREDECLARED_KEY=val1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_log "PREDECLARED_KEY=val1"
+  expect_log "MY_VAR=None"
+
+  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_log "PREDECLARED_KEY=val1"
+  expect_log "MY_VAR=val2"
+
+  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query --action_env=PREDECLARED_KEY=val3 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_not_log "PREDECLARED_KEY"
+  expect_not_log "MY_VAR"
+
+  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query --action_env=PREDECLARED_KEY=val3 --action_env=MY_VAR=val4 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_not_log "PREDECLARED_KEY"
+  expect_not_log "MY_VAR"
+
+  PREDECLARED_KEY=val5 MY_VAR=val6 bazel query --action_env=PREDECLARED_KEY=val3 --action_env=MY_VAR=val4 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_log "PREDECLARED_KEY=val5"
+  expect_log "MY_VAR=val6"
+}
+
+function test_environ_incrementally_without_client_env_with_action_env() {
+  cat > repo.bzl <<EOF
+def _impl(rctx):
+  rctx.symlink(rctx.attr.build_file, 'BUILD')
+  print('PREDECLARED_KEY=%s' % rctx.os.environ.get('PREDECLARED_KEY'))
+  print('MY_VAR=%s' % rctx.getenv('MY_VAR'))
+dummy_repository = repository_rule(
+  implementation = _impl,
+  attrs = {'build_file': attr.label()},
+  environ = ['PREDECLARED_KEY'],
+)
+EOF
+  cat > BUILD.dummy <<EOF
+filegroup(name='dummy', srcs=['BUILD'])
+EOF
+  touch BUILD
+  cat > $(setup_module_dot_bazel) <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
+EOF
+
+  add_to_bazelrc "common --noincompatible_repo_env_ignores_action_env"
+  add_to_bazelrc "common --experimental_strict_repo_env"
+
+  bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_log "PREDECLARED_KEY=None"
+  expect_log "MY_VAR=None"
+
+  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_not_log "PREDECLARED_KEY"
+  expect_not_log "MY_VAR"
+
+  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query --action_env=PREDECLARED_KEY=val3 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_log "PREDECLARED_KEY=val3"
+  expect_log "MY_VAR=None"
+
+  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query --action_env=PREDECLARED_KEY=val3 --action_env=MY_VAR=val4 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_log "PREDECLARED_KEY=val3"
+  expect_log "MY_VAR=val4"
 }
 
 function test_environ_build_query_build() {

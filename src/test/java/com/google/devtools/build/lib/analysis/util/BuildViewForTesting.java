@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
@@ -57,6 +56,7 @@ import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChec
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
@@ -78,7 +78,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -88,6 +89,8 @@ import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.Version;
+import com.google.devtools.common.options.Options;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -238,6 +241,7 @@ public class BuildViewForTesting {
         aspects,
         aspectsParameters,
         viewOptions,
+        Options.getDefaults(BuildRequestOptions.class),
         keepGoing,
         /* skipIncompatibleExplicitTargets= */ false,
         /* checkForActionConflicts= */ true,
@@ -248,14 +252,15 @@ public class BuildViewForTesting {
         eventBus,
         BugReporter.defaultInstance(),
         /* includeExecutionPhase= */ false,
-        /* skymeldAnalysisOverlapPercentage= */ 0,
         /* resourceManager= */ null,
         /* buildResultListener= */ null,
         /* executionSetupCallback= */ null,
         /* buildConfigurationsCreatedCallback= */ null,
         /* buildDriverKeyTestContext= */ null,
         /* additionalConfigurationChangeEvent= */ Optional.empty(),
-        /* remoteAnalysisCachingDependenciesProvider= */ DisabledDependenciesProvider.INSTANCE);
+        /* remoteAnalysisCachingDependenciesProvider= */ RemoteAnalysisCacheManager
+            .createDisabled(),
+        RemoteAnalysisCacheDeps.createDisabled());
   }
 
   /** Sets the configuration. Not thread-safe. */
@@ -318,6 +323,7 @@ public class BuildViewForTesting {
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target, StoredEventHandler eventHandler)
       throws DependencyResolutionHelpers.Failure,
+          IOException,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,
@@ -354,6 +360,7 @@ public class BuildViewForTesting {
   public RuleContext getRuleContextForTesting(
       ExtendedEventHandler eventHandler, ConfiguredTarget configuredTarget, AnalysisEnvironment env)
       throws DependencyResolutionHelpers.Failure,
+          IOException,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,
@@ -398,7 +405,7 @@ public class BuildViewForTesting {
         .setActionOwnerSymbol(ConfiguredTargetKey.fromConfiguredTarget(configuredTarget))
         .setMutability(Mutability.create("configured target"))
         .setVisibility(VisibilityProvider.PUBLIC_VISIBILITY)
-        .setPrerequisites(ConfiguredTargetFactory.removeToolchainDeps(prerequisiteMap))
+        .setPrerequisites(prerequisiteMap)
         .setConfigConditions(ConfigConditions.EMPTY)
         .setToolchainContexts(resolvedToolchainContext.build())
         .setExecGroupCollectionBuilder(state.execGroupCollectionBuilder)

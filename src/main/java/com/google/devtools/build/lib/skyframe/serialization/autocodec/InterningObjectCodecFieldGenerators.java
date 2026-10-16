@@ -47,44 +47,34 @@ abstract class InterningObjectCodecFieldGenerators {
       throws SerializationProcessingException {
     TypeMirror type = variable.asType();
     TypeName typeName = getErasure(type, env);
-    switch (type.getKind()) {
-      case ARRAY:
+    return switch (type.getKind()) {
+      case ARRAY -> {
         ArrayType arrayType = (ArrayType) type;
         TypeMirror componentType = arrayType.getComponentType();
         TypeKind componentKind = componentType.getKind();
         if (componentKind.isPrimitive()) {
-          return new PrimitiveArrayFieldGenerator(
-              variable, typeName, componentKind, hierarchyLevel);
+          yield new PrimitiveArrayFieldGenerator(variable, typeName, componentKind, hierarchyLevel);
         }
         if (componentKind.equals(TypeKind.ARRAY)) {
-          return new NestedArrayFieldGenerator(
+          yield new NestedArrayFieldGenerator(
               variable,
               typeName,
               hierarchyLevel,
               resolveBaseArrayComponentType(componentType).getKind());
         }
-        return new ObjectArrayFieldGenerator(
+        yield new ObjectArrayFieldGenerator(
             variable, typeName, hierarchyLevel, getErasure(componentType, env));
-      case BOOLEAN:
-        return new BooleanFieldGenerator(variable, typeName, hierarchyLevel);
-      case BYTE:
-        return new ByteFieldGenerator(variable, typeName, hierarchyLevel);
-      case CHAR:
-        return new CharFieldGenerator(variable, typeName, hierarchyLevel);
-      case DOUBLE:
-        return new DoubleFieldGenerator(variable, typeName, hierarchyLevel);
-      case FLOAT:
-        return new FloatFieldGenerator(variable, typeName, hierarchyLevel);
-      case INT:
-        return new IntFieldGenerator(variable, typeName, hierarchyLevel);
-      case LONG:
-        return new LongFieldGenerator(variable, typeName, hierarchyLevel);
-      case SHORT:
-        return new ShortFieldGenerator(variable, typeName, hierarchyLevel);
-      case TYPEVAR:
-      case DECLARED:
-        return new ObjectFieldGenerator(variable, typeName, hierarchyLevel);
-      default:
+      }
+      case BOOLEAN -> new BooleanFieldGenerator(variable, typeName, hierarchyLevel);
+      case BYTE -> new ByteFieldGenerator(variable, typeName, hierarchyLevel);
+      case CHAR -> new CharFieldGenerator(variable, typeName, hierarchyLevel);
+      case DOUBLE -> new DoubleFieldGenerator(variable, typeName, hierarchyLevel);
+      case FLOAT -> new FloatFieldGenerator(variable, typeName, hierarchyLevel);
+      case INT -> new IntFieldGenerator(variable, typeName, hierarchyLevel);
+      case LONG -> new LongFieldGenerator(variable, typeName, hierarchyLevel);
+      case SHORT -> new ShortFieldGenerator(variable, typeName, hierarchyLevel);
+      case TYPEVAR, DECLARED -> new ObjectFieldGenerator(variable, typeName, hierarchyLevel);
+      default -> {
         // There are other TypeKinds, for example, NONE, NULL, VOID and WILDCARD, (and more,
         // depending on the JDK version), but none are known to occur in code that defines the type
         // of a member variable.
@@ -95,7 +85,8 @@ abstract class InterningObjectCodecFieldGenerators {
             parent.getQualifiedName(),
             variable.getSimpleName(),
             type);
-    }
+      }
+    };
   }
 
   /** Implementation that uses field offsets as handles. */
@@ -130,30 +121,21 @@ abstract class InterningObjectCodecFieldGenerators {
         int hierarchyLevel,
         TypeKind baseComponentKind) {
       super(variable, typeName, hierarchyLevel);
-      switch (baseComponentKind) {
-        case BOOLEAN:
-        case BYTE:
-        case CHAR:
-        case DOUBLE:
-        case FLOAT:
-        case INT:
-        case LONG:
-        case SHORT:
-          this.processorName = baseComponentKind.name() + "_ARRAY_PROCESSOR";
-          break;
-        case DECLARED:
-        case TYPEVAR:
-          // See comments of `ArrayProcessor.OBJECT_ARRAY_PROCESSOR` to understand how it works for
-          // any type of object array.
-          this.processorName = "OBJECT_ARRAY_PROCESSOR";
-          break;
-        default:
-          throw new IllegalStateException(
-              "Unexpected base array component kind "
-                  + baseComponentKind
-                  + " for array field "
-                  + variable);
-      }
+      this.processorName =
+          switch (baseComponentKind) {
+            case BOOLEAN, BYTE, CHAR, DOUBLE, FLOAT, INT, LONG, SHORT ->
+                baseComponentKind.name() + "_ARRAY_PROCESSOR";
+            case DECLARED, TYPEVAR ->
+                // See comments of `ArrayProcessor.OBJECT_ARRAY_PROCESSOR` to understand how it
+                // works for any type of object array.
+                "OBJECT_ARRAY_PROCESSOR";
+            default ->
+                throw new IllegalStateException(
+                    "Unexpected base array component kind "
+                        + baseComponentKind
+                        + " for array field "
+                        + variable);
+          };
     }
 
     private String getTypeMemberName() {

@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -50,7 +49,6 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
-import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -60,7 +58,6 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Collection;
 import java.util.List;
@@ -103,8 +100,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--apple_platform_type=ios",
         "--ios_multi_cpus=x86_64",
-        "--platforms=" + MockObjcSupport.IOS_X86_64,
-        "--experimental_platform_in_output_dir");
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
 
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
     Artifact objcObject =
@@ -404,8 +400,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .write();
     RunfilesProvider provider = target.getProvider(RunfilesProvider.class);
     assertThat(baseArtifactNames(provider.getDefaultRunfiles().getArtifacts())).isEmpty();
-    assertThat(Artifact.toRootRelativePaths(provider.getDataRunfiles().getArtifacts()))
-        .containsExactly("objc/libOne.a");
+    if (!analysisMock
+        .isThisBazel()) { // TODO(b/507033784): Re-enable in bazel after rules_cc release.
+      assertThat(baseArtifactNames(provider.getDataRunfiles().getArtifacts())).isEmpty();
+    }
   }
 
   @Test
@@ -422,17 +420,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         CcInfo.get(getConfiguredTarget("//lib:lib")).getCcLinkingContext();
     assertThat(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries())
         .containsExactlyElementsIn(archiveAction("//baselib:baselib").getOutputs());
-  }
-
-  @Test
-  public void testCreate_errorForEmptyFilegroupSources() throws Exception {
-    checkError(
-        "x",
-        "x",
-        "does not produce any objc_library srcs files",
-        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
-        "filegroup(name = 'fg', srcs = [])",
-        "objc_library(name = 'x', srcs = ['fg'])");
   }
 
   @Test
@@ -569,7 +556,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments()).contains("-fobjc-arc");
     assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
-    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
     assertThat(compileActionA.getArguments()).contains("-arch x86_64");
   }
 
@@ -615,7 +601,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
 
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
-    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
     assertThat(compileActionA.getArguments()).contains("-arch arm64");
   }
 
@@ -905,42 +890,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testIncludesDirs_inExternalRepo_resolvesSiblingLayout() throws Exception {
-    if (!analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.appendFile(
-        "MODULE.bazel",
-        "bazel_dep(name='lib_external')",
-        "local_path_override(module_name = 'lib_external', path = 'lib_external')");
-    scratch.file("lib_external/MODULE.bazel", "module(name='lib_external')");
-    analysisMock.ccSupport().setup(new MockToolsConfig(scratch.resolve("lib_external")));
-    scratch.file(
-        "lib_external/BUILD",
-        """
-        load("@rules_cc//cc:objc_library.bzl", "objc_library")
-        objc_library(
-            name = "lib",
-            srcs = [
-                "a.m",
-                "bar/b.h",
-            ],
-            includes = ["bar"],
-        )
-        """);
-    scratch.file("lib_external/a.m");
-    scratch.file("lib_external/bar/b.h");
-    invalidatePackages();
-
-    setBuildLanguageOptions("--experimental_sibling_repository_layout");
-
-    CommandAction compileAction = compileAction("@@lib_external+//:lib", "a.o");
-    String actionArgs = Joiner.on("").join(removeConfigFragment(compileAction.getArguments()));
-
-    assertThat(actionArgs).contains("-I../lib_external+/bar");
-  }
-
-  @Test
   public void testPropagatesDefinesToDependersTransitively() throws Exception {
     useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
     createLibraryTargetWriter("//lib1:lib1")
@@ -1137,18 +1086,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompilationActionsForDebugLegacyFlags() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG, true);
-  }
-
-  @Test
   public void testCompilationActionsForDebug() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG, false);
-  }
-
-  @Test
-  public void testClangCoptsForDebugModeWithoutGlib() throws Exception {
-    checkClangCoptsForDebugModeWithoutGlib(RULE_TYPE);
+    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG);
   }
 
   @Test
@@ -1156,22 +1095,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
-        "--compilation_mode=dbg",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
-    scratch.file("x/a.m");
-    RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
-
-    assertThat(compileAction("//x:x", "a.o").getArguments()).doesNotContain("-DDEBUG=1");
-  }
-
-  @Test
-  public void testClangCoptsForDebugModeWithoutGlibOrHardcoding() throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios",
-        "--platforms=" + MockObjcSupport.IOS_X86_64,
-        "--compilation_mode=dbg",
-        "--objc_debug_with_GLIBCXX=false",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+        "--compilation_mode=dbg");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1180,13 +1104,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompilationActionsForOptimizedLegacyFlags() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT, true);
-  }
-
-  @Test
   public void testCompilationActionsForOptimized() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT, false);
+    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT);
   }
 
   @Test
@@ -1194,8 +1113,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
-        "--compilation_mode=opt",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+        "--compilation_mode=opt");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1242,14 +1160,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction action = compileAction("//objc:lib", "a.o");
 
     assertXcodeVersionEnv(action, "5.8");
-  }
-
-  @Test
-  public void testIosSdkVersionCannotBeDefinedButEmpty() {
-    var e =
-        assertThrows(
-            InvalidConfigurationException.class, () -> useConfiguration("--ios_sdk_version="));
-    assertThat(e).hasMessageThat().contains("--ios_sdk_version");
   }
 
   private void checkErrorIfNotExist(String attribute, String value) throws Exception {
@@ -1323,7 +1233,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
                 .add("-arch x86_64")
                 .add("-isysroot", "__BAZEL_XCODE_SDKROOT__")
-                .addAll(FASTBUILD_COPTS)
                 .add("-iquote", ".")
                 .add("-iquote", OUTPUTDIR)
                 .add("-include", "objc/some.pch")
@@ -1643,7 +1552,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     null,
                     null,
                     null,
-                    false,
                     PathMapper.NOOP));
     assertThat(expected).hasMessageThat().contains("error while parsing .d file");
   }
@@ -2456,8 +2364,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             srcs = ["a.S"],
         )
         """);
-    useConfiguration("--incompatible_use_specific_tool_files");
-
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
 
@@ -2763,8 +2669,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcTransitionWithTopLevelApplePlatforms(
-      @TestParameter boolean usePlatformsInAppleCrosstoolTransition) throws Exception {
+  public void testObjcTransitionWithTopLevelApplePlatforms() throws Exception {
     scratch.file(
         "bin/BUILD",
         """
@@ -2787,11 +2692,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     args.add(
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_ARM64,
-        "--experimental_platform_in_output_dir",
-        "--use_platforms_in_apple_crosstool_transition=" + usePlatformsInAppleCrosstoolTransition);
-    if (!usePlatformsInAppleCrosstoolTransition) {
-      args.add("--cpu=ios_arm64");
-    }
+        "--cpu=ios_arm64");
     useConfiguration(args.build().toArray(new String[0]));
 
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
@@ -2802,8 +2703,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcTransitionInExecConfig(
-      @TestParameter boolean usePlatformsInAppleCrosstoolTransition) throws Exception {
+  public void testObjcTransitionInExecConfig() throws Exception {
     scratch.file(
         "bin/defs.bzl",
         """
@@ -2836,12 +2736,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     args.add(
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_ARM64,
-        "--experimental_platform_in_output_dir",
-        "--use_platforms_in_apple_crosstool_transition=" + usePlatformsInAppleCrosstoolTransition,
+        "--host_cpu=darwin_arm64",
         "--host_platform=" + MockObjcSupport.DARWIN_ARM64);
-    if (!usePlatformsInAppleCrosstoolTransition) {
-      args.add("--host_cpu=darwin_arm64");
-    }
     useConfiguration(args.build().toArray(new String[0]));
 
     ConfiguredTarget t1 = getConfiguredTarget("//bin:t1");

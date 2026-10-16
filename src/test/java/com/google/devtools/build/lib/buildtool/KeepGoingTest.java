@@ -387,7 +387,7 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
         "command succeeded, but not all targets were analyzed",
         "//analysiserror:foo",
         "//analysiserror:bar");
-    events.assertContainsError("Error in fail: BOOM!");
+    events.assertContainsError("Error: BOOM!");
 
     assertSameConfiguredTarget("//analysiserror:bar");
   }

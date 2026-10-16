@@ -15,34 +15,37 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.collect.nestedset.DigestDeduper.DigestReference;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /** Computes fingerprints for nested sets, reusing sub-computations from children. */
 public class NestedSetFingerprintCache {
   private static final int EMPTY_SET_DIGEST = 104_395_303;
 
-  /** Memoize the subresults. We have to have one cache per type of command item map function. */
-  private Map<CommandLineItem.MapFn<?>, DigestMap> mapFnToDigestMap = createMap();
+  /**
+   * Memoize the subresults. We have to have one cache per type of command item map function.
+   *
+   * <p>Volatile because {@link #clear} replaces the map wholesale.
+   */
+  private volatile Map<CommandLineItem.MapFn<?>, DigestMap> mapFnToDigestMap = createMap();
 
-  private final Set<Class<?>> seenMapFns = new HashSet<>();
-  private final Multiset<Class<?>> seenParametrizedMapFns = HashMultiset.create();
+  // These are mutated from newDigestMap, which runs inside ConcurrentHashMap#computeIfAbsent.
+  // That only locks the bin belonging to the key being computed, so two threads inserting
+  // different mapFns run newDigestMap concurrently and must not race on this shared bookkeeping.
+  private final Set<Class<?>> seenMapFns = ConcurrentHashMap.newKeySet();
+  private final Multiset<Class<?>> seenParametrizedMapFns = ConcurrentHashMultiset.create();
 
-  public <T> void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet)
-      throws CommandLineExpansionException, InterruptedException {
-    addNestedSetToFingerprint(CommandLineItem.MapFn.DEFAULT, fingerprint, nestedSet);
-  }
-
-  public <T> void addNestedSetToFingerprint(
+  public <T> void addNestedSetToFingerprintExceptionless(
       CommandLineItem.ExceptionlessMapFn<? super T> mapFn,
       Fingerprint fingerprint,
       NestedSet<T> nestedSet) {
@@ -54,6 +57,11 @@ public class NestedSetFingerprintCache {
     }
   }
 
+  public <T> void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet) {
+    addNestedSetToFingerprintExceptionless(CommandLineItem.MapFn.DEFAULT, fingerprint, nestedSet);
+  }
+
+  @SuppressWarnings("EnumOrdinal") // ordinal not used across different binary versions
   public <T> void addNestedSetToFingerprint(
       CommandLineItem.MapFn<? super T> mapFn, Fingerprint fingerprint, NestedSet<T> nestedSet)
       throws CommandLineExpansionException, InterruptedException {
@@ -65,7 +73,13 @@ public class NestedSetFingerprintCache {
     DigestMap digestMap = mapFnToDigestMap.computeIfAbsent(mapFn, this::newDigestMap);
     fingerprint.addInt(nestedSet.getOrder().ordinal());
     Object children = nestedSet.getChildren();
-    addToFingerprint(mapFn, fingerprint, digestMap, children);
+    addToFingerprint(
+        mapFn,
+        children,
+        digestMap,
+        /* transitiveDigestDeduper= */ null,
+        fingerprint,
+        new DigestReference());
   }
 
   public static <T> String describedNestedSetFingerprint(
@@ -95,26 +109,60 @@ public class NestedSetFingerprintCache {
     seenParametrizedMapFns.clear();
   }
 
+  // safe cast of direct child to T after checking it's not a child array.
   @SuppressWarnings("unchecked")
   private <T> void addToFingerprint(
       CommandLineItem.MapFn<? super T> mapFn,
-      Fingerprint fingerprint,
+      Object rawChildren,
       DigestMap digestMap,
-      Object children)
+      // Deduplicator for any Object[] children in `rawChildren`. The top level `rawChildren`
+      // instance has no siblings so this is null in that case. It's non-null on recursive calls.
+      @Nullable DigestDeduper transitiveDigestDeduper,
+      Fingerprint fingerprint,
+      // A reusable buffer for digest references.
+      DigestReference digestBuffer)
       throws CommandLineExpansionException, InterruptedException {
-    if (children instanceof Object[]) {
-      if (!digestMap.readDigest(children, fingerprint)) {
-        Fingerprint childrenFingerprint = new Fingerprint();
-        for (Object child : (Object[]) children) {
-          addToFingerprint(mapFn, childrenFingerprint, digestMap, child);
-        }
-        digestMap.insertAndReadDigest(children, childrenFingerprint, fingerprint);
-      }
-    } else {
-      addToFingerprint(mapFn, fingerprint, (T) children);
+    if (!(rawChildren instanceof Object[] childArray)) {
+      // It was an immediate child. These should already be deduplicated by the NestedSetBuilder.
+      addToFingerprint(mapFn, fingerprint, (T) rawChildren);
+      return;
     }
+
+    if (digestMap.readDigest(childArray, digestBuffer)) {
+      // Adds novel sets to the fingerprint and skips duplicates.
+      if (transitiveDigestDeduper == null || transitiveDigestDeduper.add(digestBuffer)) {
+        digestBuffer.addTo(fingerprint);
+      }
+      digestBuffer.clear();
+      return;
+    }
+
+    Fingerprint childArrayFingerprinter = new Fingerprint();
+
+    // `childArrayDeduper` is used to deduplicate transitive sets within the *same* direct child
+    // array of a NestedSet. Note that Object[] children across different nodes of a NestedSet graph
+    // cannot be deduplicated in this way because we are memoizing their fingerprints. For example,
+    // let P be a parent Object[], U be an uncle Object[] and C be the child Object[]. Furthermore,
+    // suppose that C is a duplicate of U. If we were to deduplicate C against U, the fingerprint of
+    // P would change if P were reused in a different NestedSet without the presence of U, defeating
+    // fingerprint memoization.
+    var childArrayDeduper =
+        new DigestDeduper(
+            /* maxSize= */ childArray.length, /* digestLength= */ digestMap.getMaxDigestLength());
+
+    for (Object child : childArray) {
+      addToFingerprint(
+          mapFn, child, digestMap, childArrayDeduper, childArrayFingerprinter, digestBuffer);
+    }
+
+    digestMap.insertAndReadDigest(childArray, childArrayFingerprinter, digestBuffer);
+    if (transitiveDigestDeduper == null || transitiveDigestDeduper.add(digestBuffer)) {
+      digestBuffer.addTo(fingerprint);
+    }
+    digestBuffer.clear();
   }
 
+  // Non-static for testability.
   @VisibleForTesting
   <T> void addToFingerprint(
       CommandLineItem.MapFn<? super T> mapFn, Fingerprint fingerprint, T object)

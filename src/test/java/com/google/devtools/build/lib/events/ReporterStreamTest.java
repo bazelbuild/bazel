@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.io.PrintWriter;
 import org.junit.Before;
@@ -31,27 +30,26 @@ public class ReporterStreamTest {
   private EventHandler outAppender;
 
   @Before
-  public final void createOutputAppender() throws Exception  {
-    reporter = new Reporter(new EventBus());
+  public final void createOutputAppender() throws Exception {
+    reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
     out = new StringBuilder();
-    outAppender = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        out.append("[" + event.getKind() + ": " + event.getMessage() + "]\n");
-      }
-    };
+    outAppender =
+        new EventHandler() {
+          @Override
+          public void handle(Event event) {
+            out.append("[" + event.getKind() + ": " + event.getMessage() + "]\n");
+          }
+        };
   }
 
   @Test
   public void reporterStream() throws Exception {
     assertThat(out.toString()).isEmpty();
     reporter.addHandler(outAppender);
-    try (
-      PrintWriter warnWriter =
-        new PrintWriter(new ReporterStream(reporter, EventKind.WARNING), true);
-      PrintWriter infoWriter =
-          new PrintWriter(new ReporterStream(reporter, EventKind.INFO), true)
-    ) {
+    try (PrintWriter warnWriter =
+            new PrintWriter(new ReporterStream(reporter, EventKind.WARNING), true);
+        PrintWriter infoWriter =
+            new PrintWriter(new ReporterStream(reporter, EventKind.INFO), true)) {
       infoWriter.println("some info");
       warnWriter.println("a warning");
     }
@@ -59,9 +57,9 @@ public class ReporterStreamTest {
     reporter.getOutErr().printErrLn("an error");
     MoreAsserts.assertEqualsUnifyingLineEnds(
         "[INFO: some info\n]\n"
-            + "[WARNING: a warning\n]\n"   
+            + "[WARNING: a warning\n]\n"
             + "[STDOUT: some output\n]\n"
             + "[STDERR: an error\n]\n",
-            out.toString());
+        out.toString());
   }
 }

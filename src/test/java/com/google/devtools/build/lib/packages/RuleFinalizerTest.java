@@ -83,7 +83,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets().keySet())
+    assertThat(pkg.getTargets().stream().map(Target::getName))
         .containsAtLeast("abc_foo_finalize", "abc_foo_finalize.txt");
   }
 
@@ -120,7 +120,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc_inner_foo_finalize");
+    assertThat(pkg.getTargetOrNull("abc_inner_foo_finalize")).isNotNull();
   }
 
   @Test
@@ -155,7 +155,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets().keySet())
+    assertThat(pkg.getTargets().stream().map(Target::getName))
         .containsAtLeast("abc_foo_finalize", "abc_foo_finalize.txt");
   }
 
@@ -288,7 +288,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("division by zero");
     assertDoesNotContainEvent("in my_finalizer");
-    assertThat(pkg.getTargets().keySet()).doesNotContain("finalize_lib");
+    assertThat(pkg.getTargetOrNull("finalize_lib")).isNull();
   }
 
   // Regression test for b/419523258.
@@ -321,7 +321,9 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     assertThat(pkg).isNotNull();
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("fail fail fail");
-    assertThat(pkg.getTargets().keySet()).containsAtLeast("unrelated_target", "good_finalizer_lib");
-    assertThat(pkg.getTargets().keySet()).doesNotContain("should_not_be_expanded_lib");
+    assertThat(pkg.getTargets().stream().map(Target::getName))
+        .containsAtLeast("unrelated_target", "good_finalizer_lib");
+    assertThat(pkg.getTargets().stream().map(Target::getName))
+        .doesNotContain("should_not_be_expanded_lib");
   }
 }

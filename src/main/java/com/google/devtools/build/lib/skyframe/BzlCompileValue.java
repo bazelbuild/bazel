@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -55,6 +56,8 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
 
   public abstract byte[] getDigest(); // on success
 
+  public abstract TypeOptions getTypeOptions(); // on success
+
   public abstract String getError(); // on failure
 
   /** If the file is compiled successfully, this class encapsulates the compiled program. */
@@ -62,10 +65,12 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   public static class Success extends BzlCompileValue {
     private final Program prog;
     private final byte[] digest;
+    private final TypeOptions typeOptions;
 
-    private Success(Program prog, byte[] digest) {
+    private Success(Program prog, byte[] digest, TypeOptions typeOptions) {
       this.prog = Preconditions.checkNotNull(prog);
       this.digest = Preconditions.checkNotNull(digest);
+      this.typeOptions = typeOptions;
     }
 
     @Override
@@ -81,6 +86,11 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     @Override
     public byte[] getDigest() {
       return this.digest;
+    }
+
+    @Override
+    public TypeOptions getTypeOptions() {
+      return this.typeOptions;
     }
 
     @Override
@@ -119,6 +129,11 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     public String getError() {
       return this.errorMsg;
     }
+
+    @Override
+    public TypeOptions getTypeOptions() {
+      throw new IllegalStateException("attempted to retrieve type options for unsuccessful lookup");
+    }
   }
 
   /** Constructs a value from a failure before parsing a file. */
@@ -128,8 +143,8 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   }
 
   /** Constructs a value from a compiled .bzl program. */
-  public static BzlCompileValue withProgram(Program prog, byte[] digest) {
-    return new Success(prog, digest);
+  public static BzlCompileValue withProgram(Program prog, byte[] digest, TypeOptions typeOptions) {
+    return new Success(prog, digest, typeOptions);
   }
 
   /** Types of bzl files we may encounter. */
@@ -153,6 +168,18 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
      */
     EMPTY_PRELUDE,
   }
+
+  /**
+   * Type-checking options.
+   *
+   * @param useTypeSyntax If true, permit type annotation syntax in the file.
+   * @param wantStaticTypeChecking If true, BzlLoadFunction should perform static type checking.
+   * @param wantDynamicTypeChecking If true, BzlLoadFunction should enable dynamic type checking
+   *     during evaluation.
+   */
+  @AutoCodec
+  public static record TypeOptions(
+      boolean useTypeSyntax, boolean wantStaticTypeChecking, boolean wantDynamicTypeChecking) {}
 
   /** SkyKey for retrieving a compiled .bzl program. */
   @AutoCodec
@@ -205,6 +232,16 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
 
     public Label getLabel() {
       return label;
+    }
+
+    /** Returns the dep to register for the underlying .bzl file (if any). */
+    @Nullable
+    public FileKey getBzlFileKey() {
+      if (label == null) {
+        // Implies kind == Kind.EMPTY_PRELUDE.
+        return null;
+      }
+      return FileKey.create(RootedPath.toRootedPath(root, label.toPathFragment()));
     }
 
     @Override

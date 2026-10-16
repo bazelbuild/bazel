@@ -41,7 +41,7 @@ toolchain_type(name = "test_runner_toolchain_type")
         "clang-cl": "@rules_cc//cc/private/toolchain:clang-cl",
         "mingw": "@rules_cc//cc/private/toolchain:mingw",
         "msys": "@rules_cc//cc/private/toolchain:msys",
-        "grep-includes": "@rules_cc//cc/private/toolchain:grep-includes",
+        "grep-includes": ":empty",
         "interface_library_builder": "@rules_cc//cc/private/toolchain:interface_library_builder",
         "link_dynamic_library": "@rules_cc//cc/private/toolchain:link_dynamic_library",
         "lib_cc_configure": "@rules_cc//cc/private/toolchain:lib_cc_configure",

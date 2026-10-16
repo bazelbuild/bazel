@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.auto.value.AutoValue;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -30,108 +33,170 @@ import net.starlark.java.eval.StarlarkThread;
 // rule attributes rather than what .bzl you're in.
 public final class BuiltinRestriction {
 
-  /** The "default" allowlist for restricted APIs added to aid the Java to Starlark migration. */
-  public static final ImmutableList<BuiltinRestriction.AllowlistEntry>
-      INTERNAL_STARLARK_API_ALLOWLIST =
-          ImmutableList.of(
-              // Testing
-              BuiltinRestriction.allowlistEntry("", "test"),
-              BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules"),
+  private static final String MAIN_REPO_NAME = RepositoryName.MAIN.getName();
 
-              // BuildInfo
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/build_info"),
-              BuiltinRestriction.allowlistEntry("bazel_tools", "tools/build_defs/build_info"),
+  /** An allowlist of packages that can access restricted APIs. */
+  public static final class Allowlist {
+    private static final Allowlist EMPTY = new Allowlist(ImmutableList.of());
 
-              // Android rules
-              BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules/cc"),
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"),
-              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
-              BuiltinRestriction.allowlistEntry("rules_android", ""),
-              BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
+    private final ImmutableList<AllowlistEntry> entries;
 
-              // Apple rules
-              BuiltinRestriction.allowlistEntry("", "third_party/apple_crosstool"),
-              BuiltinRestriction.allowlistEntry(
-                  "", "third_party/cpptoolchains/portable_llvm/build_defs"),
-              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_apple"),
-              BuiltinRestriction.allowlistEntry("rules_apple", ""),
-              BuiltinRestriction.allowlistEntry("build_bazel_rules_apple", ""),
+    private Allowlist(ImmutableList<AllowlistEntry> entries) {
+      this.entries = entries;
+    }
 
-              // Cc rules
-              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_cc"),
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/cc"),
-              BuiltinRestriction.allowlistEntry("rules_cc", ""),
+    public static Allowlist create(Collection<AllowlistEntry> entries) {
+      return new Allowlist(ImmutableList.copyOf(entries));
+    }
 
-              // Java rules
-              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_java/java"),
-              BuiltinRestriction.allowlistEntry("rules_java", "java"),
+    public static Allowlist of(AllowlistEntry... entries) {
+      return new Allowlist(ImmutableList.copyOf(entries));
+    }
 
-              // Rust rules
-              BuiltinRestriction.allowlistEntry(
-                  "", "third_party/bazel_rules/rules_rust/rust/private"),
-              BuiltinRestriction.allowlistEntry("", "third_party/crubit"),
-              BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"),
+    /**
+     * Returns an allowlist containing all entries in {@link #INTERNAL_STARLARK_API_ALLOWLIST} plus
+     * the given entries.
+     */
+    public static Allowlist defaultPlus(AllowlistEntry... entries) {
+      return new Allowlist(
+          ImmutableList.<AllowlistEntry>builder()
+              .addAll(INTERNAL_STARLARK_API_ALLOWLIST.entries)
+              .add(entries)
+              .build());
+    }
 
-              // CUDA rules
-              BuiltinRestriction.allowlistEntry("", "third_party/gpus/cuda"),
+    private boolean allows(Label label, @Nullable String moduleRepoName) {
+      // Hot code path, avoid iterator garbage.
+      for (int i = 0; i < entries.size(); i++) {
+        if (entries.get(i).allows(label, moduleRepoName)) {
+          return true;
+        }
+      }
+      return false;
+    }
+  }
 
-              // Packaging rules
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/packaging"),
+  /**
+   * The "default" allowlist for restricted APIs added to aid the Java to Starlark migration.
+   *
+   * <p>Entries are roughly ordered by expected call frequency (most frequent first), since {@link
+   * Allowlist} checks them in order and stops at the first match.
+   */
+  public static final Allowlist INTERNAL_STARLARK_API_ALLOWLIST =
+      Allowlist.of(
+          // Cc rules
+          mainRepoAllowlistEntry("third_party/bazel_rules/rules_cc"),
+          mainRepoAllowlistEntry("tools/build_defs/cc"),
+          externalRepoAllowlistEntry("rules_cc", ""),
 
-              // Go rules
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/go"),
+          // Java rules
+          mainRepoAllowlistEntry("third_party/bazel_rules/rules_java/java"),
+          externalRepoAllowlistEntry("rules_java", "java"),
 
-              // Proto rules
-              BuiltinRestriction.allowlistEntry("", "third_party/protobuf"),
-              BuiltinRestriction.allowlistEntry("protobuf", ""),
-              BuiltinRestriction.allowlistEntry("com_google_protobuf", ""),
+          // Proto rules
+          mainRepoAllowlistEntry("third_party/protobuf"),
+          externalRepoAllowlistEntry("protobuf", ""),
+          externalRepoAllowlistEntry("com_google_protobuf", ""),
 
-              // Shell rules
-              BuiltinRestriction.allowlistEntry("rules_shell", ""));
+          // Rust rules
+          mainRepoAllowlistEntry("devtools/rust/toolchain/testing"),
+          mainRepoAllowlistEntry("third_party/bazel_rules/rules_rust/rust"),
+          mainRepoAllowlistEntry("third_party/crubit"),
+          externalRepoAllowlistEntry("rules_rust", "rust/private"),
+
+          // Go rules
+          mainRepoAllowlistEntry("tools/build_defs/go"),
+
+          // BuildInfo
+          mainRepoAllowlistEntry("tools/build_defs/build_info"),
+          externalRepoAllowlistEntry("bazel_tools", "tools/build_defs/build_info"),
+
+          // Android rules
+          mainRepoAllowlistEntry("bazel_internal/test_rules/cc"),
+          mainRepoAllowlistEntry("tools/build_defs/android"),
+          mainRepoAllowlistEntry("third_party/bazel_rules/rules_android"),
+          externalRepoAllowlistEntry("rules_android", ""),
+          externalRepoAllowlistEntry("build_bazel_rules_android", ""),
+
+          // Apple rules
+          mainRepoAllowlistEntry("third_party/apple_crosstool"),
+          mainRepoAllowlistEntry("third_party/cpptoolchains/portable_llvm/build_defs"),
+          mainRepoAllowlistEntry("third_party/bazel_rules/rules_apple"),
+          externalRepoAllowlistEntry("rules_apple", ""),
+          externalRepoAllowlistEntry("build_bazel_rules_apple", ""),
+
+          // CUDA rules
+          mainRepoAllowlistEntry("third_party/gpus/cuda"),
+
+          // Packaging rules
+          mainRepoAllowlistEntry("tools/build_defs/packaging"),
+
+          // Shell rules
+          externalRepoAllowlistEntry("rules_shell", ""),
+
+          // Testing
+          mainRepoAllowlistEntry("test"),
+          mainRepoAllowlistEntry("bazel_internal/test_rules"));
 
   private BuiltinRestriction() {}
 
   /**
+   * An entry in an {@link Allowlist}.
+   *
+   * @param repoName empty for main-repository-only entries; otherwise matches a module name for
+   *     external repositories or the root module's {@code repo_name} for the main repository
+   */
+  public record AllowlistEntry(String repoName, PathFragment packagePrefix) {
+
+    public AllowlistEntry {
+      checkNotNull(repoName);
+      checkNotNull(packagePrefix);
+    }
+
+    private boolean allows(Label label, @Nullable String moduleRepoName) {
+      return matchesRepository(label.getRepository(), moduleRepoName)
+          && label.getPackageFragment().startsWith(packagePrefix);
+    }
+
+    private boolean matchesRepository(RepositoryName repository, @Nullable String moduleRepoName) {
+      if (repoName.isEmpty()) {
+        return repository.isMain();
+      }
+      if (repository.isMain()) {
+        // The root module may itself be an allowlisted ruleset. Its repo_name (which defaults to
+        // its module name) is the only non-empty apparent name that can refer to the main repo
+        // from the main repo's own mapping.
+        return repoName.equals(moduleRepoName);
+      }
+      if (repository.equals(RepositoryName.BAZEL_TOOLS)) {
+        return repoName.equals(RepositoryName.BAZEL_TOOLS.getName());
+      }
+      // Match any version of the module and repositories generated by its extensions.
+      return repository.getName().startsWith(repoName + "+");
+    }
+  }
+
+  /** Creates an {@link AllowlistEntry} in the main repository. */
+  public static AllowlistEntry mainRepoAllowlistEntry(String packagePrefix) {
+    return new AllowlistEntry(MAIN_REPO_NAME, PathFragment.create(packagePrefix));
+  }
+
+  /**
+   * Creates an {@link AllowlistEntry} matching a module name and a package prefix. When checking
+   * the main repository, the name instead matches the root module's {@code repo_name}, which
+   * defaults to its module name. The special name {@code bazel_tools} matches that repository.
+   */
+  public static AllowlistEntry externalRepoAllowlistEntry(String repoName, String packagePrefix) {
+    checkArgument(!repoName.equals(MAIN_REPO_NAME));
+    return new AllowlistEntry(repoName, PathFragment.create(packagePrefix));
+  }
+
+  /**
    * Throws {@code EvalException} if the innermost Starlark function in the given thread's call
    * stack is not defined within the builtins repository.
-   *
-   * @throws NullPointerException if there is no currently executing Starlark function, or the
-   *     innermost Starlark function's module is not a .bzl file
    */
   public static void failIfCalledOutsideBuiltins(StarlarkThread thread) throws EvalException {
-    Label currentFile = BazelModuleContext.ofInnermostBzlOrThrow(thread).label();
-    if (!currentFile.getRepository().getName().equals("_builtins")) {
-      throw Starlark.errorf(
-          "file '%s' cannot use private @_builtins API", currentFile.getCanonicalForm());
-    }
-  }
-
-  /**
-   * An entry in an allowlist that can be checked using {@link #failIfCalledOutsideAllowlist} or
-   * {@link #failIfModuleOutsideAllowlist}.
-   */
-  @AutoValue
-  public abstract static class AllowlistEntry {
-    abstract String apparentRepoName();
-
-    abstract PathFragment packagePrefix();
-
-    static AllowlistEntry create(String apparentRepoName, PathFragment packagePrefix) {
-      return new AutoValue_BuiltinRestriction_AllowlistEntry(apparentRepoName, packagePrefix);
-    }
-
-    final boolean allows(Label label, RepositoryMapping repoMapping) {
-      return label.getRepository().equals(repoMapping.get(apparentRepoName()))
-          && label.getPackageFragment().startsWith(packagePrefix());
-    }
-  }
-
-  /**
-   * Creates an {@link AllowlistEntry}. This is essentially an unresolved package identifier; that
-   * is, a package identifier that has an apparent repo name in place of a canonical repo name.
-   */
-  public static AllowlistEntry allowlistEntry(String apparentRepoName, String packagePrefix) {
-    return AllowlistEntry.create(apparentRepoName, PathFragment.create(packagePrefix));
+    failIfCalledOutsideAllowlist(thread, Allowlist.EMPTY);
   }
 
   /**
@@ -142,8 +207,8 @@ public final class BuiltinRestriction {
    * @throws NullPointerException if there is no currently executing Starlark function, or the
    *     innermost Starlark function's module is not a .bzl file
    */
-  public static void failIfCalledOutsideAllowlist(
-      StarlarkThread thread, Collection<AllowlistEntry> allowlist) throws EvalException {
+  public static void failIfCalledOutsideAllowlist(StarlarkThread thread, Allowlist allowlist)
+      throws EvalException {
     failIfModuleOutsideAllowlist(BazelModuleContext.ofInnermostBzlOrThrow(thread), allowlist);
   }
 
@@ -164,8 +229,8 @@ public final class BuiltinRestriction {
    * the builtins repository, or 2) a package or subpackage of an entry in the given allowlist.
    */
   public static void failIfModuleOutsideAllowlist(
-      BazelModuleContext moduleContext, Collection<AllowlistEntry> allowlist) throws EvalException {
-    failIfLabelOutsideAllowlist(moduleContext.label(), moduleContext.repoMapping(), allowlist);
+      BazelModuleContext moduleContext, Allowlist allowlist) throws EvalException {
+    failIfLabelOutsideAllowlist(moduleContext.label(), moduleContext.moduleRepoName(), allowlist);
   }
 
   /**
@@ -173,22 +238,21 @@ public final class BuiltinRestriction {
    * repository, or 2) a package or subpackage of an entry in the given allowlist.
    */
   public static void failIfLabelOutsideAllowlist(
-      Label label, RepositoryMapping repoMapping, Collection<AllowlistEntry> allowlist)
-      throws EvalException {
-    if (isNotAllowed(label, repoMapping, allowlist)) {
+      Label label, @Nullable String moduleRepoName, Allowlist allowlist) throws EvalException {
+    if (isNotAllowed(label, moduleRepoName, allowlist)) {
       throw Starlark.errorf("file '%s' cannot use private API", label.getCanonicalForm());
     }
   }
 
   /**
-   * Returns true if the given {@link Label} is not within both 1) the builtins repository, or 2) a
-   * package or subpackage of an entry in the given allowlist.
+   * Returns true if the given {@link Label} is not within either 1) the builtins repository, or 2)
+   * a package or subpackage of an entry in the given allowlist.
    */
   public static boolean isNotAllowed(
-      Label label, RepositoryMapping repoMapping, Collection<AllowlistEntry> allowlist) {
-    if (label.getRepository().getName().equals("_builtins")) {
+      Label label, @Nullable String moduleRepoName, Allowlist allowlist) {
+    if (label.getRepository().equals(RepositoryName.BUILTINS)) {
       return false;
     }
-    return allowlist.stream().noneMatch(e -> e.allows(label, repoMapping));
+    return !allowlist.allows(label, moduleRepoName);
   }
 }

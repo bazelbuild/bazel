@@ -87,7 +87,6 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   public void buildGensrcJar(JavaLibraryBuildRequest build) throws IOException {
     JarCreator jar = new JarCreator(build.getGeneratedSourcesOutputJar());
     try {
-      jar.setNormalize(true);
       jar.setCompression(build.compressJar());
       jar.addDirectory(build.getSourceGenDir());
     } finally {
@@ -142,7 +141,6 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     JarCreator jar = new JarCreator(build.getOutputJar());
     JacocoInstrumentationProcessor processor = null;
     try {
-      jar.setNormalize(true);
       jar.setCompression(build.compressJar());
       jar.addDirectory(build.getClassDir());
       jar.setJarOwner(build.getTargetLabel(), build.getInjectingRuleKind());
@@ -164,7 +162,6 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     }
     JarCreator jar = new JarCreator(build.getNativeHeaderOutput());
     try {
-      jar.setNormalize(true);
       jar.setCompression(build.compressJar());
       jar.addDirectory(build.getNativeHeaderDir());
     } finally {

@@ -19,6 +19,7 @@ import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -89,7 +90,7 @@ public final class SerializationContextTest {
     codedOut.flush();
 
     CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
-    assertThat(codedIn.readSInt32()).isEqualTo(0);
+    assertThat(codedIn.readRawVarint32()).isEqualTo(0);
     assertThat(codedIn.isAtEnd()).isTrue();
   }
 
@@ -103,7 +104,7 @@ public final class SerializationContextTest {
     codedOut.flush();
 
     CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
-    assertThat(codedIn.readSInt32()).isEqualTo(registry.maybeGetTagForConstant(CONSTANT));
+    assertThat(codedIn.readRawVarint32()).isEqualTo(registry.maybeGetTagForConstant(CONSTANT));
     assertThat(codedIn.isAtEnd()).isTrue();
   }
 
@@ -118,7 +119,10 @@ public final class SerializationContextTest {
     codedOut.flush();
 
     CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
-    assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).tag());
+    assertThat(codedIn.readRawVarint32())
+        .isEqualTo(
+            WireType.CodecWireType.UNSTABLE.getTypedTagNumber(
+                registry.getCodecDescriptorForObject(obj).tag()));
     assertThat(codedIn.readString()).isEqualTo(obj.dataToSerialize());
     assertThat(codedIn.isAtEnd()).isTrue();
   }
@@ -135,7 +139,10 @@ public final class SerializationContextTest {
     codedOut.flush();
 
     CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
-    assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).tag());
+    assertThat(codedIn.readRawVarint32())
+        .isEqualTo(
+            WireType.CodecWireType.UNSTABLE.getTypedTagNumber(
+                registry.getCodecDescriptorForObject(obj).tag()));
     assertThat(codedIn.readString()).isEqualTo(obj.dataToSerialize());
     assertThat(codedIn.isAtEnd()).isFalse();
     assertThat(exampleCodecSerializeCalls).isEqualTo(1);
@@ -265,5 +272,99 @@ public final class SerializationContextTest {
     return (memoizing
         ? codecs.getMemoizingSerializationContextForTesting()
         : codecs.getSerializationContextForTesting());
+  }
+
+  @Test
+  public void constantSerialize_stablePublic(@TestParameter boolean memoize) throws Exception {
+    Object constant = new Object();
+    ObjectCodecRegistry stableRegistry =
+        ObjectCodecRegistry.newBuilder()
+            .setStablePublicReferenceConstants(ImmutableList.of(constant))
+            .build();
+    SerializationContext context =
+        (memoize
+            ? new ObjectCodecs(stableRegistry).getMemoizingSerializationContextForTesting()
+            : new ObjectCodecs(stableRegistry).getSerializationContextForTesting());
+
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
+
+    context.serialize(constant, codedOut);
+    codedOut.flush();
+
+    CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
+    assertThat(codedIn.readRawVarint32())
+        .isEqualTo(WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(0));
+    assertThat(codedIn.isAtEnd()).isTrue();
+  }
+
+  @Test
+  public void constantSerialize_stablePrivate(@TestParameter boolean memoize) throws Exception {
+    Object constant = new Object();
+    ObjectCodecRegistry stableRegistry =
+        ObjectCodecRegistry.newBuilder()
+            .setStablePrivateReferenceConstants(ImmutableList.of(constant))
+            .build();
+    SerializationContext context =
+        (memoize
+            ? new ObjectCodecs(stableRegistry).getMemoizingSerializationContextForTesting()
+            : new ObjectCodecs(stableRegistry).getSerializationContextForTesting());
+
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
+
+    context.serialize(constant, codedOut);
+    codedOut.flush();
+
+    CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
+    assertThat(codedIn.readRawVarint32())
+        .isEqualTo(WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(0));
+    assertThat(codedIn.isAtEnd()).isTrue();
+  }
+
+  @Test
+  public void descriptorSerialize_stablePublic() throws SerializationException, IOException {
+    Example obj = Example.withData("data");
+    ObjectCodecRegistry stableRegistry =
+        ObjectCodecRegistry.newBuilder()
+            .setStablePublicCodecs(ImmutableList.of(new ExampleCodec()))
+            .build();
+    SerializationContext context =
+        new ObjectCodecs(stableRegistry).getSerializationContextForTesting();
+
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
+
+    context.serialize(obj, codedOut);
+    codedOut.flush();
+
+    CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
+    assertThat(codedIn.readRawVarint32())
+        .isEqualTo(WireType.CodecWireType.STABLE_PUBLIC.getTypedTagNumber(0));
+    assertThat(codedIn.readString()).isEqualTo(obj.dataToSerialize());
+    assertThat(codedIn.isAtEnd()).isTrue();
+  }
+
+  @Test
+  public void descriptorSerialize_stablePrivate() throws SerializationException, IOException {
+    Example obj = Example.withData("data");
+    ObjectCodecRegistry stableRegistry =
+        ObjectCodecRegistry.newBuilder()
+            .setStablePrivateCodecs(ImmutableList.of(new ExampleCodec()))
+            .build();
+    SerializationContext context =
+        new ObjectCodecs(stableRegistry).getSerializationContextForTesting();
+
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
+
+    context.serialize(obj, codedOut);
+    codedOut.flush();
+
+    CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
+    assertThat(codedIn.readRawVarint32())
+        .isEqualTo(WireType.CodecWireType.STABLE_PRIVATE.getTypedTagNumber(0));
+    assertThat(codedIn.readString()).isEqualTo(obj.dataToSerialize());
+    assertThat(codedIn.isAtEnd()).isTrue();
   }
 }

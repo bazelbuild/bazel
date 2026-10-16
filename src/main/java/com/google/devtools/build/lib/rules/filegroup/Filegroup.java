@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -87,16 +88,18 @@ public class Filegroup implements RuleConfiguredTargetFactory {
         .getConfiguration()
         .getOptions()
         .get(CoreOptions.class)
-        .filegroupRunfilesForData) {
+        .getFilegroupRunfilesForData()) {
       // If you're visiting a filegroup as data, then we also visit its data as data.
-      dataRunfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DATA_RUNFILES);
+      RunfilesSupport.addRunfiles(dataRunfilesBuilder, ruleContext, RunfilesProvider.DATA_RUNFILES);
     } else {
-      dataRunfilesBuilder.addDataDeps(ruleContext);
+      RunfilesSupport.addDataDeps(dataRunfilesBuilder, ruleContext);
     }
     RunfilesProvider runfilesProvider =
         RunfilesProvider.withData(
-            new Runfiles.Builder(ruleContext.getWorkspaceName())
-                .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
+            RunfilesSupport.addRunfiles(
+                    new Runfiles.Builder(ruleContext.getWorkspaceName()),
+                    ruleContext,
+                    RunfilesProvider.DEFAULT_RUNFILES)
                 .build(),
             dataRunfilesBuilder.build());
 

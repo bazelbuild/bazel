@@ -1,6 +1,7 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_library", "java_plugin")
+load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
 load("@rules_license//rules:license.bzl", "license")
 load("//src/tools/bzlmod:utils.bzl", "get_repo_root")
+load("//tools/build_defs/proguard:proguard.bzl", "proguard_jar")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
 
 package(default_visibility = ["//visibility:public"])
@@ -11,24 +12,71 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
+        "//third_party/brotli/java/org/brotli/dec:srcs",
         "//third_party/chicory:srcs",
         "//third_party/def_parser:srcs",
+        "//third_party/google/bytestream:srcs",
+        "//third_party/google/devtools/build/v1:srcs",
+        "//third_party/google/longrunning:srcs",
+        "//third_party/google/protobuf:srcs",
+        "//third_party/google/rpc:srcs",
         "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
         "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
+        "//third_party/java/allocation_instrumenter:srcs",
+        "//third_party/java/apache_commons_compress:srcs",
+        "//third_party/java/apache_commons_lang3:srcs",
+        "//third_party/java/asm:srcs",
+        "//third_party/java/async_profiler:srcs",
+        "//third_party/java/auth_kit:srcs",
+        "//third_party/java/auto:srcs",
+        "//third_party/java/auto_value_gson:srcs",
+        "//third_party/java/caffeine:srcs",
+        "//third_party/java/checker_framework_annotations:srcs",
+        "//third_party/java/commonmark:srcs",
+        "//third_party/java/compile_testing:srcs",
+        "//third_party/java/error_prone:srcs",
+        "//third_party/java/fastutil:srcs",
+        "//third_party/java/flogger:srcs",
+        "//third_party/java/grpc:srcs",
+        "//third_party/java/gson:srcs",
+        "//third_party/java/guava:srcs",
         "//third_party/java/jacoco:srcs",
+        "//third_party/java/jakarta_commons_lang/v2_6:srcs",
+        "//third_party/java/jakarta_velocity:srcs",
+        "//third_party/java/jarjar:srcs",
+        "//third_party/java/java_diff_utils:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
+        "//third_party/java/jimfs:srcs",
+        "//third_party/java/jmh:srcs",
+        "//third_party/java/jol:srcs",
+        "//third_party/java/jspecify_annotations:srcs",
+        "//third_party/java/jsr250_annotations:srcs",
+        "//third_party/java/jsr305_annotations:srcs",
+        "//third_party/java/jsr330_inject:srcs",
+        "//third_party/java/junit:srcs",
+        "//third_party/java/mockito:srcs",
+        "//third_party/java/netty4:srcs",
+        "//third_party/java/netty_tcnative:srcs",
         "//third_party/java/proguard:srcs",
+        "//third_party/java/protobuf:srcs",
+        "//third_party/java/protobuf/util:srcs",
+        "//third_party/java/roaringbitmap:srcs",
+        "//third_party/java/rxjava3:srcs",
+        "//third_party/java/snakeyaml:srcs",
+        "//third_party/java/testparameterinjector:srcs",
+        "//third_party/java/truth:srcs",
+        "//third_party/java/truth/extensions:srcs",
+        "//third_party/java/turbine:srcs",
+        "//third_party/java/xz:srcs",
+        "//third_party/java/zstd_jni:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
-        "//third_party/py/concurrent:srcs",
-        "//third_party/py/dataclasses:srcs",
         "//third_party/py/frozendict:srcs",
-        "//third_party/py/mock:srcs",
     ],
 )
 
@@ -78,38 +126,48 @@ java_library(
     ],
 )
 
+exports_files(
+    [
+        # keep sorted
+        "asm/asm-9.10-sources.jar",
+        "asm/asm-analysis-9.10-sources.jar",
+        "asm/asm-commons-9.10-sources.jar",
+        "asm/asm-tree-9.10-sources.jar",
+    ],
+)
+
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.9.jar"],
-    srcjar = "asm/asm-9.9-sources.jar",
+    jars = ["asm/asm-9.10.jar"],
+    srcjar = "asm/asm-9.10-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.9.jar"],
-    srcjar = "asm/asm-analysis-9.9-sources.jar",
+    jars = ["asm/asm-analysis-9.10.jar"],
+    srcjar = "asm/asm-analysis-9.10-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.9.jar"],
-    srcjar = "asm/asm-commons-9.9-sources.jar",
+    jars = ["asm/asm-commons-9.10.jar"],
+    srcjar = "asm/asm-commons-9.10-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.9.jar"],
-    srcjar = "asm/asm-tree-9.9-sources.jar",
+    jars = ["asm/asm-tree-9.10.jar"],
+    srcjar = "asm/asm-tree-9.10-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.9.jar"],
-    srcjar = "asm/asm-util-9.9-sources.jar",
+    jars = ["asm/asm-util-9.10.jar"],
+    srcjar = "asm/asm-util-9.10-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -136,7 +194,6 @@ java_plugin(
         ":auto_value_lib",
         ":guava",
         ":jsr305",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -190,7 +247,6 @@ java_plugin(
         ":auto_service_lib",
         ":auto_value_lib",
         ":guava",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -204,7 +260,6 @@ java_plugin(
         ":auto_service_lib",
         ":auto_value_lib",
         ":guava",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -218,7 +273,6 @@ java_plugin(
         ":auto_service_lib",
         ":auto_value_lib",
         ":guava",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -242,7 +296,6 @@ java_library(
     ],
     exports = [
         ":auto_value_api",
-        ":tomcat_annotations_api",
         "@maven//:com_ryanharter_auto_value_auto_value_gson_runtime",
     ],
 )
@@ -312,50 +365,19 @@ alias(
 # When using new classes from this dependency, make sure to update fastutil.proguard.
 java_import(
     name = "fastutil",
-    jars = [":fastutil_stripped_jar"],
+    jars = [":fastutil-stripped.jar"],
 )
 
-genrule(
-    name = "fastutil_stripped_jar",
+proguard_jar(
+    name = "fastutil_proguard",
     srcs = [
         "@maven//:it_unimi_dsi_fastutil_file",
+    ],
+    out = "fastutil-stripped.jar",
+    proguard_spec = "fastutil.proguard",
+    deps = [
         "@rules_java//toolchains:platformclasspath_nostrip",
     ],
-    outs = ["fastutil-stripped.jar"],
-    # ProGuard output is silenced below because it prints
-    # ...
-    # Caused by: java.net.UnknownHostException: bk-docker-3gmr: Temporary failure in name resolution
-    # ...
-    # when running in the Bazel sandbox, which throws off bazel_determinism_test.
-    cmd = """
-    $(location :proguard_bin) \
-        -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
-        -outjars $@ \
-        -libraryjars $(execpath @rules_java//toolchains:platformclasspath_nostrip) \
-        @$(location //tools:fastutil.proguard) > /dev/null
-    # Null out the file times stored in the jar to make the output reproducible.
-    TMPDIR=$$(mktemp -d)
-    trap 'rm -rf $$TMPDIR' EXIT
-    unzip -q $@ -d $$TMPDIR
-    rm $@
-    find $$TMPDIR -type f -print0 | xargs -0 touch -t 198001010000.00
-    OUTPUT="$$(pwd)/$@"
-    (cd $$TMPDIR && find . -type f | LC_ALL=C sort | zip -qDX0r@ "$$OUTPUT")
-    """,
-    tools = [
-        ":proguard_bin",
-        "//tools:fastutil.proguard",
-    ],
-)
-
-java_binary(
-    name = "proguard_bin",
-    jvm_flags = [
-        # Prevent ProGuard from calling out to the internet through log4j.
-        "-Dlog4j.rootLogger=OFF",
-    ],
-    main_class = "proguard.ProGuard",
-    runtime_deps = ["@maven//:com_guardsquare_proguard_base"],
 )
 
 java_library(
@@ -420,6 +442,7 @@ java_library(
         ":error_prone_annotations",
         ":jcip_annotations",
         ":jsr305",
+        "@maven//:com_google_guava_failureaccess",
         "@maven//:com_google_guava_guava",
     ],
 )
@@ -486,6 +509,12 @@ java_library(
     name = "javax_annotations",
     neverlink = 1,  # @Generated is source-retention
     exports = ["@maven//:javax_annotation_javax_annotation_api"],
+)
+
+distrib_jar_filegroup(
+    name = "javax_annotations-jars",
+    srcs = ["@maven//:javax_annotation_javax_annotation_api_file"],
+    enable_distributions = ["debian"],
 )
 
 alias(
@@ -593,18 +622,6 @@ distrib_java_import(
         "//src/conditions:windows": [":netty_tcnative/netty-tcnative-filtered.jar"],
         "//conditions:default": [],
     }),
-)
-
-alias(
-    name = "tomcat_annotations_api",
-    actual = "@maven//:org_apache_tomcat_tomcat_annotations_api",
-)
-
-# For bootstrapping JavaBuilder
-distrib_jar_filegroup(
-    name = "tomcat_annotations_api-jars",
-    srcs = ["@maven//:org_apache_tomcat_tomcat_annotations_api_file"],
-    enable_distributions = ["debian"],
 )
 
 alias(

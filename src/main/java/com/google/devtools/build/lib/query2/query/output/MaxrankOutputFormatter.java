@@ -95,7 +95,7 @@ class MaxrankOutputFormatter extends OutputFormatter {
         output.add(new RankAndLabel(rank, y.getLabel().getLabel()));
       }
     }
-    if (options.orderOutput == OrderOutput.FULL) {
+    if (options.getOrderOutput() == OrderOutput.FULL) {
       // Use the natural order for RankAndLabels, which breaks ties alphabetically.
       Collections.sort(output);
     } else {

@@ -8,13 +8,16 @@ load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 package(
     default_applicable_licenses = ["//:license"],
     default_visibility =
-        ["//src:__subpackages__"],
+        [
+            "//src/main/java/com/google/devtools/build/lib:build_lib",
+            "//src/tools/workspacelog:__subpackages__",
+        ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
 
 proto_library(
@@ -40,30 +43,38 @@ filegroup(
 java_library(
     name = "workspace-rule-event",
     srcs = ["WorkspaceRuleEvent.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/net/starlark/java/syntax",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/protobuf",
     ],
 )
 
 java_library(
     name = "workspace-rule-module",
     srcs = ["WorkspaceRuleModule.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         ":debugging-options",
         ":workspace-rule-event",
         ":workspace_log_java_proto",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
     ],
 )
 

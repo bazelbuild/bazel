@@ -1,16 +1,27 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/net/starlark/java:__pkg__"],
+)
+
+java_library(
+    name = "TestUtils",
+    srcs = ["TestUtils.java"],
+    visibility = ["//src/test/java/net/starlark/java:__subpackages__"],
+    deps = [
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
 )
 
 # SyntaxTests tests the Starlark parser/resolver.
@@ -29,16 +40,18 @@ java_test(
         "ResolverTest.java",
         "StarlarkFileTest.java",
         "SyntaxTests.java",  # (suite)
-        "TypeResolverTest.java",
+        "TypeCheckerTest.java",
+        "TypeTaggerTest.java",
         "TypesTest.java",
     ],
     deps = [
+        ":TestUtils",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/java/net/starlark/java/types",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )

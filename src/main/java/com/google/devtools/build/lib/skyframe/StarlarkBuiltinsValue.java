@@ -22,8 +22,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
- * A Skyframe value representing the result of evaluating the {@code @_builtins} pseudo-repository,
- * and in Bazel where applicable, applying autoloads.
+ * A Skyframe value representing the result of evaluating the {@code @_builtins} pseudo-repository.
  *
  * <p>To avoid unnecessary Skyframe edges, the {@code StarlarkSemantics} are included in this value,
  * so that a caller who obtains a StarlarkBuiltinsValue can also access the StarlarkSemantics
@@ -49,6 +48,12 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   public final ImmutableMap<String, Object> predeclaredForBuildBzl;
 
   /**
+   * Like {@link #predeclaredForBuildBzl}, but with extra type constructor values that are only to
+   * be used in type-checked code, e.g. {@code File}.
+   */
+  public final ImmutableMap<String, Object> predeclaredForBuildBzlWithExtraTypeConstructors;
+
+  /**
    * Top-level predeclared symbols for a .bzl file loaded on behalf of a MODULE file after builtins
    * injection has been applied.
    */
@@ -71,12 +76,15 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
   private StarlarkBuiltinsValue(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
+      ImmutableMap<String, Object> predeclaredForBuildBzlWithExtraTypeConstructors,
       ImmutableMap<String, Object> predeclaredForModuleBzl,
       ImmutableMap<String, Object> predeclaredForBuild,
       ImmutableMap<String, Object> exportedToJava,
       byte[] transitiveDigest,
       StarlarkSemantics starlarkSemantics) {
     this.predeclaredForBuildBzl = predeclaredForBuildBzl;
+    this.predeclaredForBuildBzlWithExtraTypeConstructors =
+        predeclaredForBuildBzlWithExtraTypeConstructors;
     this.predeclaredForModuleBzl = predeclaredForModuleBzl;
     this.predeclaredForBuild = predeclaredForBuild;
     this.exportedToJava = exportedToJava;
@@ -86,6 +94,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
   public static StarlarkBuiltinsValue create(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
+      ImmutableMap<String, Object> predeclaredForBuildBzlWithExtraTypeConstructors,
       ImmutableMap<String, Object> predeclaredForModuleBzl,
       ImmutableMap<String, Object> predeclaredForBuild,
       ImmutableMap<String, Object> exportedToJava,
@@ -93,6 +102,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
       StarlarkSemantics starlarkSemantics) {
     return new StarlarkBuiltinsValue(
         predeclaredForBuildBzl,
+        predeclaredForBuildBzlWithExtraTypeConstructors,
         predeclaredForModuleBzl,
         predeclaredForBuild,
         exportedToJava,
@@ -111,6 +121,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   public static StarlarkBuiltinsValue createEmpty(StarlarkSemantics starlarkSemantics) {
     return new StarlarkBuiltinsValue(
         /* predeclaredForBuildBzl= */ ImmutableMap.of(),
+        /* predeclaredForBuildBzlWithExtraTypeConstructors= */ ImmutableMap.of(),
         /* predeclaredForModuleBzl= */ ImmutableMap.of(),
         /* predeclaredForBuild= */ ImmutableMap.of(),
         /* exportedToJava= */ ImmutableMap.of(),
@@ -124,32 +135,15 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   }
 
   /**
-   * Returns the SkyKey for BuiltinsValue optionally amended with externally loaded symbols and
-   * rules.
-   */
-  public static Key key(boolean withAutoloads) {
-    return withAutoloads ? Key.INSTANCE_WITH_AUTOLOADS : Key.INSTANCE;
-  }
-
-  /**
    * Skyframe key for retrieving the {@code @_builtins} definitions.
    *
    * <p>This has no fields since there is only one {@code StarlarkBuiltinsValue} at a time.
    */
   static final class Key implements SkyKey {
 
-    private final boolean withAutoloads;
+    private static final Key INSTANCE = new Key();
 
-    private static final Key INSTANCE = new Key(false);
-    private static final Key INSTANCE_WITH_AUTOLOADS = new Key(true);
-
-    private Key(boolean withAutoloads) {
-      this.withAutoloads = withAutoloads;
-    }
-
-    public boolean isWithAutoloads() {
-      return withAutoloads;
-    }
+    private Key() {}
 
     @Override
     public SkyFunctionName functionName() {
@@ -163,12 +157,12 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
     @Override
     public boolean equals(Object other) {
-      return other instanceof Key key && this.withAutoloads == key.withAutoloads;
+      return other instanceof Key;
     }
 
     @Override
     public int hashCode() {
-      return withAutoloads ? 7727 : 7277; // more or less xkcd/221
+      return 7277; // more or less xkcd/221
     }
   }
 }

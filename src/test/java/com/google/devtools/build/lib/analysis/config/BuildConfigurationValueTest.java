@@ -17,13 +17,15 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -47,11 +49,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     String outputDirPrefix =
         outputBase + "/execroot/" + config.getWorkspaceName() + "/blaze-out/.*piii-fastbuild";
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
-        .matches(outputDirPrefix);
-    assertThat(config.getBinDirectory(RepositoryName.MAIN).getRoot().toString())
-        .matches(outputDirPrefix + "/bin");
-    assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString()).matches(outputDirPrefix);
+    assertThat(config.getBinDirectory().getRoot().toString()).matches(outputDirPrefix + "/bin");
+    assertThat(config.getTestLogsDirectory().getRoot().toString())
         .matches(outputDirPrefix + "/testlogs");
   }
 
@@ -62,7 +62,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     }
 
     BuildConfigurationValue config = create("--platform_suffix=test");
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(
             outputBase
                 + "/execroot/"
@@ -89,7 +89,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // The String representations of the CoreOptions must be equal even if these are
     // different objects, if they were created with the same options (no options in this case).
     assertThat(b.toString()).isEqualTo(a.toString());
-    assertThat(b.cacheKey()).isEqualTo(a.cacheKey());
+    assertThat(b.checksum()).isEqualTo(a.checksum());
   }
 
   @Test
@@ -140,9 +140,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=piii",
             "--platforms=" + TestConstants.PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu");
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
@@ -153,13 +151,36 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=piii",
             "--platforms=" + TestConstants.PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu_1",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu_2");
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_1",
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_2");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu_2");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatform_platformFlagsAppendedAndDeduplicated() throws Exception {
+    scratch.overwriteFile(
+        "test_platforms/BUILD",
+        "platform(",
+        "    name = 'custom',",
+        "    flags = [",
+        "       " + " '--override_platform_cpu_name=//test_platforms:custom=platform_override',",
+        "    ],",
+        ")");
+    BuildConfigurationValue config =
+        create(
+            "--platforms=//test_platforms:custom",
+            "--override_platform_cpu_name=//test_platforms:other=foo",
+            "--override_platform_cpu_name=//test_platforms:custom=cli_override");
+
+    // The platform flags should be appended to CLI flags rather than replacing them,
+    // and duplicate entries for the same platform label should be replaced by the latest override.
+    assertThat(config.getOptions().get(CoreOptions.class).getOverridePlatformCpuName())
+        .containsExactly(
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test_platforms:other"), "foo"),
+            Maps.immutableEntry(
+                Label.parseCanonicalUnchecked("//test_platforms:custom"), "platform_override"))
+        .inOrder();
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "platform_override");
   }
 
   @Test
@@ -179,9 +200,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=x86_64",
             "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PIII_PLATFORM_LABEL
-                + "=new_cpu");
+            "--override_platform_cpu_name=" + TestConstants.PIII_PLATFORM_LABEL + "=new_cpu");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
@@ -209,13 +228,13 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // Skyframe-invalidated between create() calls.
     BuildConfigurationValue config1 = create("--javacopt=foo");
     BuildConfigurationValue config2 = create("--javacopt=bar");
-    BuildConfigurationValue config3 = create("--j2objc_translation_flags=baz");
-    // Shared because all j2objc options are the same:
-    assertThat(config1.getFragment(J2ObjcConfiguration.class))
-        .isSameInstanceAs(config2.getFragment(J2ObjcConfiguration.class));
-    // Distinct because the j2objc options differ:
-    assertThat(config1.getFragment(J2ObjcConfiguration.class))
-        .isNotSameInstanceAs(config3.getFragment(J2ObjcConfiguration.class));
+    BuildConfigurationValue config3 = create("--toolchain_resolution_debug=.*");
+    // Shared because all platform options are the same:
+    assertThat(config1.getFragment(PlatformConfiguration.class))
+        .isSameInstanceAs(config2.getFragment(PlatformConfiguration.class));
+    // Distinct because the platform options differ:
+    assertThat(config1.getFragment(PlatformConfiguration.class))
+        .isNotSameInstanceAs(config3.getFragment(PlatformConfiguration.class));
   }
 
   @Test
@@ -239,7 +258,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testNormalization_definesWithDifferentNames() throws Exception {
     BuildConfigurationValue config = create("--define", "a=1", "--define", "b=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables))
+    assertThat(options.getNormalizedCommandLineBuildVariables())
         .containsExactly("a", "1", "b", "2");
   }
 
@@ -247,7 +266,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testNormalization_definesWithSameName() throws Exception {
     BuildConfigurationValue config = create("--define", "a=1", "--define", "a=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables)).containsExactly("a", "2");
+    assertThat(options.getNormalizedCommandLineBuildVariables()).containsExactly("a", "2");
     assertThat(config).isEqualTo(create("--define", "a=2"));
   }
 
@@ -471,7 +490,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         string_flag = rule(
             implementation = lambda ctx: [],
             build_setting = config.string(flag = True),
-            attrs = {"scope": attr.string(values = ["target", "universal"])},
+            attrs = {"scope": attr.string(), "on_leave_scope": attr.string()},
         )
         """);
     scratch.file(
@@ -492,30 +511,82 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             build_setting_default = "default",
             scope = "universal",
         )
+        string_flag(
+            name = "flag_in_exec_config_set_to_another_value",
+            build_setting_default = "default",
+            scope = "target",
+            on_leave_scope = "another_value"
+        )
+        string_flag(
+            name = "project_scope",
+            build_setting_default = "default",
+            scope = "project",
+        )
+        string_flag(
+            name = "another_flag",
+            build_setting_default = "default",
+        )
+        string_flag(
+            name = "flag_in_exec_config_reference_another_flag_value",
+            build_setting_default = "default",
+            scope = "exec:--//test:another_flag",
+        )
         """);
 
-    BuildConfigurationValue execConfig =
-        createExec(
+    BuildOptions targetOptions =
+        parseBuildOptions(
             ImmutableMap.of(
                 "//test:default_scope",
                 "custom",
                 "//test:target_scope",
                 "custom",
                 "//test:universal_scope",
-                "custom"),
+                "custom",
+                "//test:project_scope",
+                "custom",
+                "//test:flag_in_exec_config_set_to_another_value",
+                "target_value",
+                "//test:flag_in_exec_config_reference_another_flag_value",
+                "target_value",
+                "//test:another_flag",
+                "default"),
             "--experimental_exclude_starlark_flags_from_exec_config="
                 + (propagateByDefault ? "false" : "true"));
 
+    BuildOptions execOptions =
+        AnalysisTestUtil.execOptions(targetOptions, skyframeExecutor, reporter);
+
     if (propagateByDefault) {
-      assertThat(execConfig.getOptions().getStarlarkOptions())
+      assertThat(execOptions.getStarlarkOptions())
           .containsExactly(
-              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              Label.parseCanonicalUnchecked(
+                  "//test:universal_scope"), // Universal survives all transitions, of course.
+              "custom",
+              Label.parseCanonicalUnchecked(
+                  "//test:project_scope"), // This is just asserting that project scope survives the
+              // exec transition.  If we had changed project scope,
+              // this flag wouldn't be present.
               "custom",
               Label.parseCanonicalUnchecked("//test:default_scope"),
-              "custom");
+              "custom",
+              Label.parseCanonicalUnchecked("//test:another_flag"),
+              "default");
     } else {
-      assertThat(execConfig.getOptions().getStarlarkOptions())
-          .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "custom");
+      assertThat(execOptions.getStarlarkOptions())
+          .containsExactly(
+              Label.parseCanonicalUnchecked(
+                  "//test:universal_scope"), // Universal survives all transitions, of course.
+              "custom",
+              Label.parseCanonicalUnchecked(
+                  "//test:project_scope"), // This is just asserting that project scope survives the
+              // exec transition.  If we had changed project scope,
+              // this flag wouldn't be present.
+              "custom",
+              Label.parseCanonicalUnchecked("//test:flag_in_exec_config_set_to_another_value"),
+              "another_value",
+              Label.parseCanonicalUnchecked(
+                  "//test:flag_in_exec_config_reference_another_flag_value"),
+              "default");
     }
   }
 
@@ -604,6 +675,79 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
+  public void ruleDefinedDefaultScope(@TestParameter boolean propagateByDefault) throws Exception {
+    scratch.file("my_starlark_flag/BUILD");
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        """
+        target_scoped_by_rule_definition = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "target")},
+        )
+        universal_scoped_by_rule_definition = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "universal")},
+        )
+        default_scoped_by_rule_definition = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(
+            "//my_starlark_flag:rule_defs.bzl",
+            "target_scoped_by_rule_definition",
+            "universal_scoped_by_rule_definition",
+            "default_scoped_by_rule_definition",
+        )
+        target_scoped_by_rule_definition(
+            name = "target_scope",
+            build_setting_default = "default",
+        )
+        universal_scoped_by_rule_definition(
+            name = "universal_scope",
+            build_setting_default = "default",
+        )
+        default_scoped_by_rule_definition(
+            name = "default_scope",
+            build_setting_default = "default",
+        )
+        """);
+
+    BuildOptions targetOptions =
+        parseBuildOptions(
+            ImmutableMap.of(
+                "//test:target_scope",
+                "custom",
+                "//test:universal_scope",
+                "custom",
+                "//test:default_scope",
+                "custom"),
+            "--experimental_exclude_starlark_flags_from_exec_config="
+                + (propagateByDefault ? "false" : "true"));
+
+    BuildOptions execOptions =
+        AnalysisTestUtil.execOptions(targetOptions, skyframeExecutor, reporter);
+
+    if (propagateByDefault) {
+      assertThat(execOptions.getStarlarkOptions())
+          .containsExactly(
+              Label.parseCanonicalUnchecked("//test:default_scope"),
+              "custom",
+              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "custom");
+    } else {
+      assertThat(execOptions.getStarlarkOptions())
+          .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "custom");
+    }
+  }
+
+  @Test
   public void testHostCompilationModeDefault() throws Exception {
     BuildConfigurationValue cfg = createExec();
     assertThat(cfg.getCompilationMode()).isEqualTo(CompilationMode.OPT);
@@ -619,10 +763,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testIncompatibleMergeGenfilesDirectory() throws Exception {
     BuildConfigurationValue target = create("--incompatible_merge_genfiles_directory");
     BuildConfigurationValue exec = createExec("--incompatible_merge_genfiles_directory");
-    assertThat(target.getGenfilesDirectory(RepositoryName.MAIN))
-        .isEqualTo(target.getBinDirectory(RepositoryName.MAIN));
-    assertThat(exec.getGenfilesDirectory(RepositoryName.MAIN))
-        .isEqualTo(exec.getBinDirectory(RepositoryName.MAIN));
+    assertThat(target.getGenfilesDirectory()).isEqualTo(target.getBinDirectory());
+    assertThat(exec.getGenfilesDirectory()).isEqualTo(exec.getBinDirectory());
   }
 
   private ImmutableList<BuildConfigurationValue> getTestConfigurations() throws Exception {
@@ -672,11 +814,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testPlatformInOutputDir_legacy_defaultPlatform() throws Exception {
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--experimental_use_platforms_in_output_dir_legacy_heuristic",
             "--cpu=k8");
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/k8-fastbuild");
   }
 
@@ -685,23 +826,33 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--experimental_use_platforms_in_output_dir_legacy_heuristic",
             "--platforms=//platform:alpha");
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/alpha-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir_legacy_withSlashInPlatformName() throws Exception {
+    scratch.file("platform/BUILD", "platform(name = 'alpha/beta')");
+    BuildConfigurationValue config =
+        create(
+            "--experimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--platforms=//platform:alpha/beta");
+
+    assertThat(config.getOutputDirectory().getRoot().toString())
+        .matches(".*/[^/]+-out/alpha_beta-fastbuild");
   }
 
   @Test
   public void testPlatformInOutputDir_defaultPlatform() throws Exception {
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
             "--cpu=k8");
     // See tests of these flags with platform_mappings for more realistic results.
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
   }
 
@@ -710,11 +861,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
             "--platforms=//platform:alpha");
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
   }
 
@@ -723,12 +873,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-            "--experimental_override_name_platform_in_output_dir=//platform:alpha=alpha",
+            "--override_platform_cpu_name=//platform:alpha=alpha",
             "--platforms=//platform:alpha");
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/alpha-fastbuild");
   }
 
@@ -737,12 +886,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-            "--experimental_override_name_platform_in_output_dir=//platform:beta=beta",
+            "--override_platform_cpu_name=//platform:beta=beta",
             "--platforms=//platform:alpha");
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
   }
 
@@ -752,18 +900,58 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // these configurations are never trimmed nor even used to build targets so not an issue.
     new EqualsTester()
         .addEqualityGroup(
-            createRaw(parseBuildOptions("--test_arg=1a"), "k8", false),
-            createRaw(parseBuildOptions("--test_arg=1a"), "k8", false))
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8"),
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8"))
         // Different BuildOptions means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8", false))
-        // Different --experimental_sibling_repository_layout means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", true))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8"))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8"))
         // Different transitionDirectoryNameFragment means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8"))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm"))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc"))
         .testEquals();
+  }
+
+  @Test
+  public void mnemonicDependsOnBaseline_stHash() throws Exception {
+    BuildOptions baseline = parseBuildOptions();
+    BuildOptions withDefine = parseBuildOptions("--define=a=b");
+    BuildOptions withOpt = parseBuildOptions("-c", "opt");
+
+    // Options equal to the baseline: no ST-hash.
+    assertThat(createConfigurationWithBaseline(withDefine, withDefine).mnemonicDependsOnBaseline())
+        .isFalse();
+    // A hashed option differs from the baseline: ST-hash.
+    assertThat(createConfigurationWithBaseline(baseline, withDefine).mnemonicDependsOnBaseline())
+        .isTrue();
+    // Only an explicit-in-output-path option differs: still no ST-hash.
+    assertThat(createConfigurationWithBaseline(baseline, withOpt).mnemonicDependsOnBaseline())
+        .isFalse();
+  }
+
+  @Test
+  public void mnemonicDependsOnBaseline_fragmentConsultsBaseline() throws Exception {
+    BuildOptions options = parseBuildOptions();
+    Fragment fragment =
+        new Fragment() {
+          @Override
+          public void processForOutputPathMnemonic(OutputDirectoriesContext ctx) {
+            var _ = ctx.getBaseline(CoreOptions.class);
+          }
+        };
+
+    OutputPathMnemonicComputer.Result result =
+        OutputPathMnemonicComputer.computeMnemonic(
+            options,
+            options,
+            ImmutableSortedMap.<Class<? extends Fragment>, Fragment>orderedBy(
+                    FragmentClassSet.LEXICAL_FRAGMENT_SORTER)
+                .put(fragment.getClass(), fragment)
+                .buildOrThrow());
+
+    // No ST-hash (options equal the baseline), yet the fragment looked at the baseline.
+    assertThat(result.mnemonic()).doesNotContain("ST-");
+    assertThat(result.dependsOnBaseline()).isTrue();
   }
 
   /**

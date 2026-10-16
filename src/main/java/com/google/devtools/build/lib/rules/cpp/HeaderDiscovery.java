@@ -14,15 +14,19 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -30,6 +34,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +73,6 @@ final class HeaderDiscovery {
       NestedSet<Artifact> allowedDerivedInputs,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
     Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
@@ -86,6 +90,8 @@ final class HeaderDiscovery {
       // an action cache hit in that case, since even if it previously depended on the artifact
       // whose path changed, that is not taken into account by the action cache, and it will get an
       // action cache hit using the remaining un-renamed artifact.
+      // TODO: Consider using a multimap here so that header resolution depends on _all_ identical
+      // files, not just a single representative.
       if (a.isTreeArtifact()) {
         treeArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), (SpecialArtifact) a);
       } else {
@@ -103,7 +109,6 @@ final class HeaderDiscovery {
         treeArtifacts,
         execRoot,
         artifactResolver,
-        siblingRepositoryLayout,
         pathMapper);
   }
 
@@ -117,48 +122,23 @@ final class HeaderDiscovery {
       Map<PathFragment, SpecialArtifact> treeArtifacts,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
 
-    // This is a very special case: in certain corner cases (notably, protobuf), the WORKSPACE file
-    // contains a local_repository that has the same name and path as the main repository. In this
-    // case, if sibling repository layout is active, files in that local repository have the same
-    // absolute execpath as files in the main repository but not the same *relative* execpath (e.g.
-    // a:b would be ../repo/a/b in the local_repository and a/b in the main repository)
-    //
-    // This would mean that artifacts coming from the local repository would be discovered as ones
-    // in the main repository, thus resulting in "undeclared dependency" errors. The way this flag
-    // hacks around this is by pretending that such artifacts are always in the local_repository if
-    // the action is in it. This of course breaks horribly if there are artifacts from *both*
-    // repositories on the inputs.
-    //
-    // Protobuf uses this to work around the fact that @bazel_tools depends on it (see
-    // https://github.com/bazelbuild/bazel/issues/19973). The fix is either to cut that dependency
-    // or to migrate to bzlmod.
-    boolean ignoreMainRepository =
-        siblingRepositoryLayout
-            && action
-                .getOwner()
-                .getLabel()
-                .getRepository()
-                .getName()
-                .equals(execRoot.getBaseName());
-
     // Check inclusions.
     IncludeProblems absolutePathProblems = new IncludeProblems();
     IncludeProblems unresolvablePathProblems = new IncludeProblems();
-    // Absolute includes from system paths are ignored. On Windows, which has a case-insensitive
-    // file system by default, the paths as reported by the compiler may differ in casing from
-    // those listed by the toolchain.
-    boolean caseInsensitiveSystemIncludes =
-        ConstraintConstants.getOsFromConstraints(action.getExecutionPlatform().constraints())
-            == OS.WINDOWS;
+    boolean possiblyCaseInsensitiveFileSystem =
+        getOsFromConstraintsOrHost(action.getExecutionPlatform()) == OS.WINDOWS;
+    CompactHashSet<Artifact> sourceArtifactInputs = null;
     for (Path execPath : dependencies) {
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
-        if (caseInsensitiveSystemIncludes) {
+        if (possiblyCaseInsensitiveFileSystem) {
+          // Absolute includes from system paths are ignored. With a case-insensitive file system,
+          // the paths as reported by the compiler may differ in casing from those listed by the
+          // toolchain.
           if (FileSystemUtils.startsWithAnyIgnoringCase(execPath, permittedSystemIncludePrefixes)) {
             continue;
           }
@@ -167,15 +147,8 @@ final class HeaderDiscovery {
             continue;
           }
         }
-        if (execPath.startsWith(execRoot)
-            && (!ignoreMainRepository
-                || artifactResolver.isDerivedArtifact(execPath.relativeTo(execRoot)))) {
+        if (execPath.startsWith(execRoot)) {
           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
-        } else if (siblingRepositoryLayout && execPath.startsWith(execRoot.getParentDirectory())) {
-          // for --experimental_sibling_repository_layout
-          execPathFragment =
-              LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-                  execPath.relativeTo(execRoot.getParentDirectory()));
         } else {
           // Since gcc is given only relative paths on the command line, non-builtin include paths
           // here should never be absolute. If they are, it's probably due to a non-hermetic
@@ -185,20 +158,53 @@ final class HeaderDiscovery {
           continue;
         }
       }
-      Artifact artifact = regularDerivedArtifacts.get(execPathFragment);
-      if (artifact == null) {
+      Collection<? extends Artifact> resolvedArtifacts = ImmutableList.of();
+      Artifact derivedArtifact = regularDerivedArtifacts.get(execPathFragment);
+      if (derivedArtifact == null) {
         Optional<PackageIdentifier> pkgId =
-            PackageIdentifier.discoverFromExecPath(
-                execPathFragment, false, siblingRepositoryLayout);
+            PackageIdentifier.discoverFromExecPath(execPathFragment, /* forFiles= */ false);
         if (pkgId.isPresent()) {
-          artifact =
-              artifactResolver.resolveSourceArtifact(execPathFragment, pkgId.get().getRepository());
+          if (possiblyCaseInsensitiveFileSystem) {
+            resolvedArtifacts =
+                artifactResolver.resolveSourceArtifactsAsciiCaseInsensitively(
+                    execPathFragment, pkgId.get().getRepository());
+          } else {
+            var sourceArtifact =
+                artifactResolver.resolveSourceArtifact(
+                    execPathFragment, pkgId.get().getRepository());
+            if (sourceArtifact != null) {
+              resolvedArtifacts = ImmutableList.of(sourceArtifact);
+            }
+          }
         }
+      } else {
+        resolvedArtifacts = ImmutableList.of(derivedArtifact);
       }
-      if (artifact != null) {
+      if (!resolvedArtifacts.isEmpty()) {
         // We don't need to add the sourceFile itself as it is a mandatory input.
-        if (!artifact.equals(sourceFile)) {
-          inputs.add(artifact);
+        resolvedArtifacts = Collections2.filter(resolvedArtifacts, a -> !a.equals(sourceFile));
+        switch (resolvedArtifacts.size()) {
+          case 0 -> {}
+          case 1 -> inputs.add(Iterables.getOnlyElement(resolvedArtifacts));
+          default -> {
+            if (sourceArtifactInputs == null) {
+              sourceArtifactInputs = CompactHashSet.create();
+              for (Artifact input : action.getInputs().toList()) {
+                if (input.isSourceArtifact()) {
+                  sourceArtifactInputs.add(input);
+                }
+              }
+            }
+            if (Collections.disjoint(resolvedArtifacts, sourceArtifactInputs)) {
+              inputs.addAll(resolvedArtifacts);
+            } else {
+              for (Artifact resolvedArtifact : resolvedArtifacts) {
+                if (sourceArtifactInputs.contains(resolvedArtifact)) {
+                  inputs.add(resolvedArtifact);
+                }
+              }
+            }
+          }
         }
         continue;
       } else if (execPathFragment.getFileExtension().equals("cppmap")) {

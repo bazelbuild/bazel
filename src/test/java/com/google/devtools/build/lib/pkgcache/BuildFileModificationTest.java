@@ -23,12 +23,14 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -45,7 +47,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -55,9 +56,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for package loading.
- */
+/** Tests for package loading. */
 @RunWith(JUnit4.class)
 public class BuildFileModificationTest extends FoundationTestCase {
 
@@ -71,27 +70,27 @@ public class BuildFileModificationTest extends FoundationTestCase {
   }
 
   @Before
-  public final void initializeSkyframeExecutor() throws OptionsParsingException {
+  public final void initializeSkyframeExecutor() throws Exception {
     AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     PackageFactory pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, fileSystem);
     skyframeExecutor =
-        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(pkgFactory)
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
+            .setCompressionService(new CompressionServiceImpl())
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
     SkyframeExecutorTestHelper.process(skyframeExecutor);
@@ -105,27 +104,29 @@ public class BuildFileModificationTest extends FoundationTestCase {
   }
 
   private void setUpSkyframe(
-      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) throws Exception {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
-            packageOptions.packagePath,
+            packageOptions.getPackagePath(),
             reporter,
             rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(clock));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(
+        ImmutableSet.copyOf(packageOptions.getDeletedPackagesOrEmptySet()));
   }
 
   @Override
@@ -140,8 +141,9 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
   private Package getPackage(String packageName)
       throws NoSuchPackageException, InterruptedException {
-    return skyframeExecutor.getPackageManager().getPackage(reporter,
-        PackageIdentifier.createInMainRepo(packageName));
+    return skyframeExecutor
+        .getPackageManager()
+        .getPackage(reporter, PackageIdentifier.createInMainRepo(packageName));
   }
 
   @Test

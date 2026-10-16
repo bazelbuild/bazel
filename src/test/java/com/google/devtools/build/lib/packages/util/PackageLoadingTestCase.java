@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -108,7 +110,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             loadingMock.getProductName());
     packageFactory =
         loadingMock
@@ -208,12 +209,13 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   private SkyframeExecutor createSkyframeExecutor() {
     SkyframeExecutor skyframeExecutor =
-        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(packageFactory)
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setSyscallCache(delegatingSyscallCache)
+            .setCompressionService(new CompressionServiceImpl())
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
@@ -233,9 +235,9 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   protected void setUpSkyframe(RuleVisibility defaultVisibility) {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = defaultVisibility;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = GLOBBING_THREADS;
+    packageOptions.setDefaultVisibility(defaultVisibility);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(GLOBBING_THREADS);
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
@@ -245,32 +247,35 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
   }
 
-  private void setUpSkyframe() {
+  private void setUpSkyframe() throws AbruptExitException, IOException {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,
-            packageOptions.packagePath,
+            packageOptions.getPackagePath(),
             reporter,
             rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = GLOBBING_THREADS;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(GLOBBING_THREADS);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(
+        ImmutableSet.copyOf(packageOptions.getDeletedPackagesOrEmptySet()));
   }
 
   private static PackageOptions parsePackageOptions(String... options) throws Exception {

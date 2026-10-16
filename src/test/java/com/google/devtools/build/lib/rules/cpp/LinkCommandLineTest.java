@@ -230,6 +230,16 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
     assertThat(linkConfig.getCommandLines().unpack().get(1).paramFileInfo.always()).isTrue();
   }
 
+  @Test
+  public void testCustomParamFileName() throws Exception {
+    LinkCommandLine linkConfig =
+        minimalConfiguration(getMockBuildVariables())
+            .setParamFileName("custom.params")
+            .setSplitCommandLine(true)
+            .build();
+    assertThat(linkConfig.getParamFileInfo().getParamFileName()).isEqualTo("custom.params");
+  }
+
   private List<String> basicArgv(LinkTargetType targetType) throws Exception {
     return basicArgv(targetType, getMockBuildVariables());
   }

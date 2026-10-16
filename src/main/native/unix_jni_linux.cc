@@ -54,19 +54,22 @@ uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
     case STAT_MTIME:
       return statbuf.st_mtim.tv_sec * 1000L + statbuf.st_mtim.tv_nsec / 1000000;
   }
+  return 0;
 }
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
                           size_t size, bool *attr_not_found) {
   ssize_t result = ::getxattr(path, name, value, size);
-  *attr_not_found = (errno == ENODATA);
+  *attr_not_found =
+      (errno == ENODATA || errno == ENOTSUP || errno == EOPNOTSUPP);
   return result;
 }
 
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size, bool *attr_not_found) {
   ssize_t result = ::lgetxattr(path, name, value, size);
-  *attr_not_found = (errno == ENODATA);
+  *attr_not_found =
+      (errno == ENODATA || errno == ENOTSUP || errno == EOPNOTSUPP);
   return result;
 }
 

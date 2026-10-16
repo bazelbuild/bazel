@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
@@ -342,6 +343,11 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     assertThat(toolchainCollection)
         .defaultToolchainContext()
         .hasResolvedToolchain("//toolchains:toolchain_1_impl");
+    Label toolchainType = Label.parseCanonicalUnchecked("//toolchain:test_toolchain");
+    assertThat(toolchainCollection)
+        .defaultToolchainContext()
+        .toolchainTypes()
+        .containsExactly(toolchainType, ToolchainTypeRequirement.create(toolchainType));
   }
 
   @Test

@@ -18,6 +18,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MoreCollectors;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -33,12 +36,12 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -147,7 +150,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           fileOutErr,
           toContextRegistry(spawnStrategy, fileSystem, directories),
           inputMetadataProvider,
-          null);
+          org.mockito.Mockito.mock(OutputMetadataStore.class));
     }
 
     FakeActionExecutionContext(
@@ -284,7 +287,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   @Test
   public void testRunTestOnce() throws Exception {
-    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = TestSummaryOptions.DEFAULTS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
@@ -430,7 +433,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   @Test
   public void testRunTestRemotely() throws Exception {
-    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = TestSummaryOptions.DEFAULTS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
@@ -492,7 +495,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   @Test
   public void testRunRemotelyCachedTest() throws Exception {
-    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = TestSummaryOptions.DEFAULTS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
@@ -555,7 +558,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   public void testThatTestLogAndOutputAreReturned() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
-    executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ERRORS;
+    executionOptions.setTestOutput(ExecutionOptions.TestOutputFormat.ERRORS);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
@@ -630,7 +633,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   public void testThatTestLogAndOutputAreReturnedWithSplitXmlGeneration() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
-    executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ERRORS;
+    executionOptions.setTestOutput(ExecutionOptions.TestOutputFormat.ERRORS);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
@@ -711,10 +714,65 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   }
 
   @Test
+  public void xmlGeneratingSpawnDoesNotInheritTestResourceDeclarations() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
+
+    // The test declares a large resource footprint both via tags and via exec_properties; the
+    // test.xml generator must not be charged for either.
+    scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "simple_test",
+            size = "small",
+            srcs = ["simple_test.sh"],
+            tags = ["resources:cpu:4"],
+            exec_properties = {"resources:memory": "8000"},
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
+
+    List<Spawn> spawns = new ArrayList<>();
+    when(spawnStrategy.exec(any(), any()))
+        .thenAnswer(
+            (invocation) -> {
+              spawns.add(invocation.getArgument(0));
+              return ImmutableList.of(PASSED_TEST_SPAWN);
+            });
+
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
+
+    execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
+
+    assertThat(spawns).hasSize(2);
+    Spawn testSpawn = spawns.get(0);
+    Spawn xmlGeneratingSpawn = spawns.get(1);
+    assertThat(xmlGeneratingSpawn.getOutputFiles()).containsExactly(testRunnerAction.getTestXml());
+
+    // The test spawn honours the declared resources...
+    assertThat(testSpawn.getLocalResources().getCpuUsage()).isEqualTo(4.0);
+    assertThat(testSpawn.getLocalResources().getMemoryMb()).isEqualTo(8000.0);
+
+    // ...but the injected test.xml generator keeps its own modest, fixed footprint. Both
+    // declarations still reach it as execution info, so strategy selection is unaffected.
+    assertThat(xmlGeneratingSpawn.getLocalResources())
+        .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
+    assertThat(xmlGeneratingSpawn.getExecutionInfo()).containsKey("resources:cpu:4");
+  }
+
+  @Test
   public void testEmptyOutputCreatesEmptyLogFile() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
-    executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ALL;
+    executionOptions.setTestOutput(ExecutionOptions.TestOutputFormat.ALL);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
@@ -763,7 +821,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   public void testAppendStdErrDoesNotBusyLoop() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
-    executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ALL;
+    executionOptions.setTestOutput(ExecutionOptions.TestOutputFormat.ALL);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
@@ -1108,7 +1166,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   @Test
   public void missingTestLogSpawnTestResultIsIncomplete() throws Exception {
-    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = TestSummaryOptions.DEFAULTS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
@@ -1147,5 +1205,79 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResultData data = ((StandaloneProcessedAttemptResult) failedResult).testResultData();
     assertThat(data.getStatus()).isEqualTo(BlazeTestStatus.INCOMPLETE);
     assertThat(data.getExitCode()).isEqualTo(0);
+  }
+
+  @Test
+  public void testMetadataResetOnRetry() throws Exception {
+    scratch.file("standalone/flaky_test.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "flaky_test",
+            srcs = ["flaky_test.sh"],
+            flaky = True,
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:flaky_test");
+
+    OutputMetadataStore outputMetadataStore = org.mockito.Mockito.mock(OutputMetadataStore.class);
+    ActionExecutionContext context =
+        new FakeActionExecutionContext(
+            createTempOutErr(outputBase),
+            toContextRegistry(spawnStrategy, fileSystem, directories),
+            inputMetadataFor(testRunnerAction),
+            outputMetadataStore);
+
+    when(spawnStrategy.exec(any(), any()))
+        .thenThrow(new SpawnExecException("failed", FAILED_TEST_SPAWN, false))
+        .thenReturn(ImmutableList.of(PASSED_TEST_SPAWN)) // attempt 2 pass
+        .thenReturn(ImmutableList.of(PASSED_TEST_SPAWN)); // XML generation
+
+    execute(
+        testRunnerAction,
+        context,
+        new TestedStandaloneTestStrategy(
+            Options.getDefaults(ExecutionOptions.class),
+            Options.getDefaults(TestSummaryOptions.class),
+            outputBase));
+
+    verify(outputMetadataStore, atLeastOnce()).resetOutputs(any());
+  }
+
+  @Test
+  public void testSkipCoverageOnFailure() throws Exception {
+    useConfiguration("--collect_code_coverage", "--experimental_split_coverage_postprocessing");
+    scratch.file("standalone/fail_coverage.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "fail_coverage",
+            srcs = ["fail_coverage.sh"],
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:fail_coverage");
+
+    when(spawnStrategy.exec(any(), any()))
+        .thenThrow(new SpawnExecException("failed", FAILED_TEST_SPAWN, false))
+        .thenReturn(ImmutableList.of(PASSED_TEST_SPAWN)); // XML generation
+
+    ActionExecutionContext context =
+        new FakeActionExecutionContext(
+            createTempOutErr(outputBase), inputMetadataFor(testRunnerAction), spawnStrategy);
+
+    execute(
+        testRunnerAction,
+        context,
+        new TestedStandaloneTestStrategy(
+            Options.getDefaults(ExecutionOptions.class),
+            Options.getDefaults(TestSummaryOptions.class),
+            outputBase));
+
+    verify(spawnStrategy, times(2)).exec(any(), any()); // Only test + XML, no coverage merger.
+    assertThat(testRunnerAction.getCoverageData().getPath().exists()).isTrue();
   }
 }

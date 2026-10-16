@@ -40,7 +40,6 @@ public class SwigIncludeScanner extends LegacyIncludeScanner {
    */
   public SwigIncludeScanner(
       ExecutorService includePool,
-      boolean shouldShuffle,
       SpawnIncludeScanner spawnIncludeScanner,
       ConcurrentMap<Artifact, ListenableFuture<Collection<Inclusion>>> cache,
       List<PathFragment> includePaths,
@@ -50,7 +49,6 @@ public class SwigIncludeScanner extends LegacyIncludeScanner {
     super(
         new SwigIncludeParser(),
         includePool,
-        shouldShuffle,
         cache,
         new PathExistenceCache(execRoot, artifactFactory),
         /* quoteIncludePaths= */ ImmutableList.of(),

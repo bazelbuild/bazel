@@ -146,6 +146,11 @@ public interface QueryEnvironment<T> {
     default FilteringQueryFunction asFilteringFunction() {
       return null;
     }
+
+    /** Returns true if this function requires traversing edges in the graph. */
+    default boolean requiresEdges() {
+      return false;
+    }
   }
 
   /** A {@link QueryFunction} whose output is a subset of some input argument expression. */
@@ -269,6 +274,21 @@ public interface QueryEnvironment<T> {
   ThreadSafeMutableSet<T> getTransitiveClosure(
       ThreadSafeMutableSet<T> targets, QueryExpressionContext<T> context)
       throws InterruptedException;
+
+  /**
+   * Returns the forward transitive closure of all of the targets in "targets", avoiding traversing
+   * nodes that are already in "visited". "visited" is updated in place with the newly visited
+   * nodes.
+   */
+  default ThreadSafeMutableSet<T> getTransitiveClosure(
+      ThreadSafeMutableSet<T> targets,
+      QueryExpressionContext<T> context,
+      ThreadSafeMutableSet<T> visited)
+      throws InterruptedException {
+    ThreadSafeMutableSet<T> tc = getTransitiveClosure(targets, context);
+    visited.addAll(tc);
+    return visited;
+  }
 
   /**
    * Construct the dependency graph for a depth-bounded forward transitive closure of all nodes in

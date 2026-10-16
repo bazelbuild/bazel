@@ -16,20 +16,20 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue.CustomExecScopeValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.StarlarkTransitionVisitor;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -75,7 +75,7 @@ public final class StarlarkTransitionCache {
    * flag mapped to this alias.
    */
   public ImmutableSet<Label> getAllStarlarkBuildSettings(
-      ConfigurationTransition root, List<Entry<String, String>> flagsAliases) {
+      ConfigurationTransition root, ImmutableMap<String, Label> flagsAliases) {
     var cachedValue = starlarkBuildSettingsCache.getIfPresent(root);
     if (cachedValue != null) {
       return cachedValue;
@@ -101,10 +101,10 @@ public final class StarlarkTransitionCache {
   /** Adds the default values for a transition's input build settings to its input build options. */
   private BuildOptions addDefaultStarlarkOptions(
       BuildOptions fromOptions,
-      List<Entry<String, String>> flagsAliases,
+      ImmutableMap<String, Label> flagsAliases,
       ConfigurationTransition transition,
       StarlarkBuildSettingsDetailsValue details) {
-    if (details.buildSettingToDefault().isEmpty()) {
+    if (details.buildSettingToDefault().isEmpty() && details.customExecScopeValues().isEmpty()) {
       // No need to traverse the transition to find its Starlark flag inputs. There are none.
       return fromOptions;
     }
@@ -121,6 +121,37 @@ public final class StarlarkTransitionCache {
             maybeAliasSetting, details.buildSettingToDefault().get(setting));
       }
     }
+
+    return getDefaultStarlarkOptionsForCustomExec(optionsWithDefaults, details, fromOptions);
+  }
+
+  public static BuildOptions getDefaultStarlarkOptionsForCustomExec(
+      BuildOptions.Builder optionsWithDefaults,
+      StarlarkBuildSettingsDetailsValue details,
+      BuildOptions fromOptions) {
+    for (Label customExecSetting : details.customExecScopeValues().keySet()) {
+      if (optionsWithDefaults == null) {
+        optionsWithDefaults = fromOptions.toBuilder();
+      }
+
+      CustomExecScopeValue customExecScopeValue =
+          details.customExecScopeValues().get(customExecSetting);
+
+      if (!fromOptions.getStarlarkOptions().containsKey(customExecScopeValue.hostFlag())) {
+        optionsWithDefaults.addStarlarkOption(
+            customExecScopeValue.hostFlag(), customExecScopeValue.hostFlagDefault());
+        optionsWithDefaults.addScopeType(
+            customExecScopeValue.hostFlag(),
+            new Scope.ScopeType(customExecScopeValue.hostFlagScopeType()));
+      }
+      if (!fromOptions.getStarlarkOptions().containsKey(customExecScopeValue.flag())) {
+        optionsWithDefaults.addStarlarkOption(
+            customExecScopeValue.flag(), customExecScopeValue.flagDefault());
+        optionsWithDefaults.addScopeType(
+            customExecScopeValue.flag(), new Scope.ScopeType(customExecScopeValue.flagScopeType()));
+      }
+    }
+
     return optionsWithDefaults == null
         ? fromOptions
         : optionsWithDefaults.addScopeTypeMap(fromOptions.getScopeTypeMap()).build();
@@ -150,8 +181,8 @@ public final class StarlarkTransitionCache {
       return cachedResult.result;
     }
 
-    List<Entry<String, String>> flagsAliases =
-        fromOptions.get(CoreOptions.class).commandLineFlagAliases;
+    ImmutableMap<String, Label> flagsAliases =
+        fromOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap();
 
     // All code below here only executes on a cache miss and thus should rely only on values that
     // are part of the above cache key or constants that exist throughout the lifetime of the
@@ -231,6 +262,7 @@ public final class StarlarkTransitionCache {
 
   private static final class Value {
     private final Map<String, BuildOptions> result;
+
     /**
      * Stores events for successful transitions. Transitions that fail aren't added to the cache.
      * This is meant for non-error events like Starlark {@code print()} output. See {@link

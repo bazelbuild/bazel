@@ -19,8 +19,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -36,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
 import com.google.devtools.build.lib.exec.StreamedTestOutput;
 import com.google.devtools.build.lib.exec.TestLogHelper;
 import com.google.devtools.build.lib.exec.TestXmlOutputParser;
@@ -56,6 +59,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -118,7 +122,11 @@ public abstract class TestStrategy implements TestActionContext {
    * Ensures that all directories used to run test are in the correct state and their content will
    * not result in stale files.
    */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot, Path tmpDir)
+  protected void prepareFileSystem(
+      TestRunnerAction testAction,
+      Path execRoot,
+      @Nullable Path tmpDir,
+      @Nullable ActionExecutionContext actionExecutionContext)
       throws IOException {
     if (tmpDir != null) {
       recreateDirectory(tmpDir);
@@ -133,14 +141,11 @@ public abstract class TestStrategy implements TestActionContext {
     resolvedPaths.getUndeclaredOutputsDir().createDirectoryAndParents();
     resolvedPaths.getUndeclaredOutputsAnnotationsDir().createDirectoryAndParents();
     resolvedPaths.getSplitLogsDir().createDirectoryAndParents();
-  }
 
-  /**
-   * Ensures that all directories used to run test are in the correct state and their content will
-   * not result in stale files. Only use this if no local tmp and working directory are required.
-   */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot) throws IOException {
-    prepareFileSystem(testAction, execRoot, null);
+    if (actionExecutionContext != null && actionExecutionContext.getOutputMetadataStore() != null) {
+      // Reset output metadata to avoid stale information from previous attempts.
+      actionExecutionContext.getOutputMetadataStore().resetOutputs(testAction.getOutputs());
+    }
   }
 
   /** Removes directory if it exists and recreates it. */
@@ -163,8 +168,8 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   @Override
-  public final boolean isTestKeepGoing() {
-    return executionOptions.testKeepGoing;
+  public boolean isTestKeepGoing() {
+    return executionOptions.getTestKeepGoing();
   }
 
   @Override
@@ -208,7 +213,7 @@ public abstract class TestStrategy implements TestActionContext {
    */
   public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
       throws CommandLineExpansionException, InterruptedException {
-    List<String> args = Lists.newArrayList();
+    List<String> args = new ArrayList<>();
     OS executionOs = testAction.getExecutionSettings().getExecutionOs();
 
     Artifact testSetup = testAction.getTestSetupScript();
@@ -292,7 +297,7 @@ public abstract class TestStrategy implements TestActionContext {
   private static int getTestAttemptsPerLabel(
       ExecutionOptions options, Label label, int defaultTestAttempts) {
     // Check from the last provided, so that the last option provided takes precedence.
-    for (PerLabelOptions perLabelAttempts : Lists.reverse(options.testAttempts)) {
+    for (PerLabelOptions perLabelAttempts : Lists.reverse(options.getTestAttempts())) {
       if (perLabelAttempts.isIncluded(label)) {
         String attempts = Iterables.getOnlyElement(perLabelAttempts.getOptions());
         if ("default".equals(attempts)) {
@@ -340,13 +345,18 @@ public abstract class TestStrategy implements TestActionContext {
     return digest.hexDigestAndReset().substring(0, 32);
   }
 
+  private static final ImmutableSet<TestSummaryFormat> PARSE_TEST_RESULT_FORMATS =
+      Sets.immutableEnumSet(
+          TestSummaryFormat.DETAILED,
+          TestSummaryFormat.DETAILED_UNCACHED,
+          TestSummaryFormat.TESTCASE);
+
   /** Parse a test result XML file into a {@link TestCase}. */
   @Nullable
   protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
     a large amount of memory. */
-    if ((executionOptions.testSummary != ExecutionOptions.TestSummaryFormat.DETAILED)
-        && (executionOptions.testSummary != ExecutionOptions.TestSummaryFormat.TESTCASE)) {
+    if (!PARSE_TEST_RESULT_FORMATS.contains(executionOptions.getTestSummary())) {
       return null;
     }
 
@@ -371,12 +381,12 @@ public abstract class TestStrategy implements TestActionContext {
     boolean isPassed = testResultData.getTestPassed();
     try {
       if (testResultData.getStatus() != BlazeTestStatus.INCOMPLETE
-          && TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
+          && TestLogHelper.shouldOutputTestLog(executionOptions.getTestOutput(), isPassed)) {
         TestLogHelper.writeTestLog(
             testLog,
             testName,
             actionExecutionContext.getFileOutErr().getOutputStream(),
-            executionOptions.maxTestOutputBytes);
+            executionOptions.getMaxTestOutputBytes());
       }
     } finally {
       if (isPassed) {
@@ -385,7 +395,7 @@ public abstract class TestStrategy implements TestActionContext {
         PathFragment testLogPathToOutput = null;
         if (testLog != null) {
           testLogPathToOutput =
-              testSummaryOptions.printRelativeTestLogPaths
+              testSummaryOptions.getPrintRelativeTestLogPaths()
                   ? testLog
                       .asFragment()
                       .relativeTo(actionExecutionContext.getExecRoot().asFragment())
@@ -435,8 +445,8 @@ public abstract class TestStrategy implements TestActionContext {
    * --test_tmpdir. This does not create the directory.
    */
   public static Path getTmpRoot(Path workspace, Path execRoot, ExecutionOptions executionOptions) {
-    return executionOptions.testTmpDir != null
-        ? workspace.getRelative(executionOptions.testTmpDir).getRelative(TEST_TMP_ROOT)
+    return executionOptions.getTestTmpDir() != null
+        ? workspace.getRelative(executionOptions.getTestTmpDir()).getRelative(TEST_TMP_ROOT)
         : execRoot.getRelative(TEST_TMP_ROOT);
   }
 

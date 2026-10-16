@@ -19,9 +19,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleThreadContext.ModuleExtensionUsageBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -40,6 +40,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -56,7 +57,8 @@ import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
 
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
-@GlobalMethods(environment = Environment.MODULE)
+@GlobalMethodDocs(environment = Environment.MODULE)
+@StarlarkLibrary
 public class ModuleFileGlobals {
 
   /* Valid bazel compatibility argument must 1) start with (<,<=,>,>=,-);
@@ -110,20 +112,10 @@ public class ModuleFileGlobals {
             defaultValue = "''"),
         @Param(
             name = "compatibility_level",
-            doc =
-                "The compatibility level of the module; this should be changed every time a major"
-                    + " incompatible change is introduced. This is essentially the \"major"
-                    + " version\" of the module in terms of SemVer, except that it's not embedded"
-                    + " in the version string itself, but exists as a separate field. Modules with"
-                    + " different compatibility levels participate in version resolution as if"
-                    + " they're modules with different names, but the final dependency graph cannot"
-                    + " contain multiple modules with the same name but different compatibility"
-                    + " levels (unless <code>multiple_version_override</code> is in effect). See <a"
-                    + " href=\"/external/module#compatibility_level\">the documentation</a> for"
-                    + " more details.",
+            doc = "Deprecated. This is now a no-op and has no effect.",
             named = true,
             positional = false,
-            defaultValue = "0"),
+            defaultValue = "-1"),
         @Param(
             name = "repo_name",
             doc =
@@ -166,6 +158,14 @@ public class ModuleFileGlobals {
     if (context.isModuleCalled()) {
       throw Starlark.errorf("the module() directive can only be called once");
     }
+    if (compatibilityLevel.toInt("compatibility_level") != -1
+        && context.getModuleBuilder().getKey().equals(ModuleKey.ROOT)) {
+      context.addWarning(
+          Event.warn(
+              thread.getCallerLocation(),
+              "The attribute 'compatibility_level' in module() is a no-op and will be removed in a"
+                  + " future Bazel release. Please remove it from your MODULE.bazel file."));
+    }
     if (context.hadNonModuleCall()) {
       throw Starlark.errorf("if module() is called, it must be called before any other functions");
     }
@@ -190,7 +190,6 @@ public class ModuleFileGlobals {
         .getModuleBuilder()
         .setName(name)
         .setVersion(parsedVersion)
-        .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
         .addBazelCompatibilityValues(
             checkAllCompatibilityVersions(bazelCompatibility, "bazel_compatibility"))
         .setRepoName(repoName);
@@ -241,11 +240,7 @@ public class ModuleFileGlobals {
             defaultValue = "''"),
         @Param(
             name = "max_compatibility_level",
-            doc =
-                "The maximum <code>compatibility_level</code> supported for the module to be added"
-                    + " as a direct dependency. The version of the module implies the minimum"
-                    + " compatibility_level supported, as well as the maximum if this attribute is"
-                    + " not specified.",
+            doc = "Deprecated. This is now a no-op and has no effect.",
             named = true,
             positional = false,
             defaultValue = "-1"),
@@ -287,11 +282,23 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "bazel_dep()");
     context.setNonModuleCalled();
     validateModuleName(name);
+    if (name.equals(context.getModuleBuilder().getName())) {
+      throw Starlark.errorf("module '%s' cannot depend on itself", name);
+    }
     Version parsedVersion;
     try {
       parsedVersion = Version.parse(version);
     } catch (ParseException e) {
       throw new EvalException("Invalid version in bazel_dep()", e);
+    }
+    if (maxCompatibilityLevel.toInt("max_compatibility_level") != -1
+        && context.getModuleBuilder().getKey().equals(ModuleKey.ROOT)) {
+      context.addWarning(
+          Event.warn(
+              thread.getCallerLocation(),
+              "The attribute 'max_compatibility_level' in bazel_dep() is a no-op and will be"
+                  + " removed in a future Bazel release. Please remove it from your MODULE.bazel"
+                  + " file."));
     }
 
     Optional<String> repoName =
@@ -306,9 +313,7 @@ public class ModuleFileGlobals {
         };
 
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
-      context.addDep(
-          repoName,
-          new DepSpec(name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
+      context.addDep(repoName, new ModuleKey(name, parsedVersion));
     }
 
     if (repoName.isPresent()) {
@@ -490,7 +495,7 @@ public class ModuleFileGlobals {
     // their Label representation. If multiple strings map to the same Label, this would result in a
     // crash.
     // ownName can't change anymore as calling module() after this results in an error.
-    String ownName = module.getRepoName().orElse(module.getName());
+    String ownName = module.getRepoNameOrName();
     RepositoryName ownRepoName = RepositoryName.createUnvalidated(ownName);
     ImmutableMap<String, RepositoryName> repoMapping = ImmutableMap.of();
     if (module.getKey().equals(ModuleKey.ROOT)) {
@@ -523,7 +528,7 @@ public class ModuleFileGlobals {
         RepositoryMapping.create(
             ImmutableMap.<String, RepositoryName>builder()
                 .put("", RepositoryName.MAIN)
-                .put(module.getRepoName().orElse(module.getName()), RepositoryName.MAIN)
+                .put(module.getRepoNameOrName(), RepositoryName.MAIN)
                 .buildKeepingLast(),
             RepositoryName.MAIN);
     Label label;
@@ -574,6 +579,7 @@ public class ModuleFileGlobals {
       usageBuilder.addRepoOverride(overriddenRepoName, overridingRepoName, mustExist, stack);
     }
 
+    @StarlarkBuiltin(name = "tag_callable", documented = false)
     class TagCallable implements StarlarkValue {
       final String tagName;
 
@@ -682,6 +688,10 @@ public class ModuleFileGlobals {
           Overrides one or more repos defined by the given module extension with the given repos
           visible to the current module. This is ignored if the current module is not the root
           module or `--ignore_dev_dependency` is enabled.
+
+          <p>A repository may be overridden with the root module itself. In that case, the root
+          module must refer to itself by its own repository name instead of importing the
+          overridden repository with <code>use_repo</code>. Other modules may still import it.
 
           <p>Use <a href="#inject_repo"><code>inject_repo</code></a> instead to add a new repo.
           """,
@@ -887,14 +897,23 @@ public class ModuleFileGlobals {
                     + " main repo; in other words, it <strong>must<strong> start with double"
                     + " slashes (<code>//</code>). The name of the file must end with"
                     + " <code>.MODULE.bazel</code> and must not start with <code>.</code>."),
+        @Param(
+            name = "dev_dependency",
+            doc =
+                "If true, this include will be ignored if the current module is not the root"
+                    + " module or <code>--ignore_dev_dependency</code> is enabled. The value must"
+                    + " be a literal <code>True</code> or <code>False</code>.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
-  public void include(String label, StarlarkThread thread)
+  public void include(String label, boolean devDependency, StarlarkThread thread)
       throws InterruptedException, EvalException {
     ModuleThreadContext context =
         ModuleThreadContext.fromOrFail(thread, CompiledModuleFile.INCLUDE_IDENTIFIER + "()");
     context.setNonModuleCalled();
-    context.include(label, thread);
+    context.include(label, devDependency, thread);
   }
 
   @StarlarkMethod(
@@ -1177,8 +1196,9 @@ public class ModuleFileGlobals {
       name = "flag_alias",
       doc =
           """
-            Maps a command-line flag --foo to a Starlark flag --@repo//defs:foo. Bazel translates all
-            instances of $ bazel build //target --foo to $ bazel build //target --@repo//defs:foo.
+            Maps a command-line flag <code>--foo</code> to a Starlark flag <code>--@repo//defs:foo</code>.
+            Bazel translates all instances of <code>bazel build //target --foo</code>
+            to <code>bazel build //target --@repo//defs:foo</code>.
           """,
       parameters = {
         @Param(name = "name", doc = "The name of the flag.", named = true, positional = false),

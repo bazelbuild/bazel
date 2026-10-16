@@ -16,7 +16,6 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.PrintStream;
@@ -69,8 +68,8 @@ public interface MemoizingEvaluator {
   void delete(BiPredicate<SkyKey, SkyValue> pred);
 
   /**
-   * Marks dirty values for deletion if they have been dirty for at least as many graph versions
-   * as the specified limit.
+   * Marks dirty values for deletion if they have been dirty for at least as many graph versions as
+   * the specified limit.
    *
    * <p>This ensures that after the next completed {@link #evaluate} call, all such values, along
    * with all values that transitively depend on them, will be removed from the value cache. Values
@@ -80,8 +79,12 @@ public interface MemoizingEvaluator {
    * be recomputed and the new values stored in the cache again.
    *
    * <p>To delete all dirty values, you can specify 0 for the limit.
+   *
+   * <p>If {@code keepChangePrunableNodes} is true, dirty values that change pruning would mark
+   * clean when they are next requested are exempt from deletion, regardless of how long they have
+   * been dirty.
    */
-  void deleteDirty(long versionAgeLimit);
+  void deleteDirty(long versionAgeLimit, boolean keepChangePrunableNodes);
 
   /**
    * Returns the values in the graph.
@@ -120,12 +123,13 @@ public interface MemoizingEvaluator {
   default void postLoggingStats(ExtendedEventHandler eventHandler) {}
 
   /**
-   * Returns node types that can be safely removed from the graph to save memory prior to
-   * {@linkplain com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer
-   * frontier serialization} when the graph will not be used incrementally.
+   * Returns the version of the first evaluation in the latest sequence of evaluations (see {@link
+   * #noteEvaluationsAtSameVersionMayBeFinished}), or {@code null} if nothing has been evaluated yet
+   * or versions aren't tracked.
    */
-  default ImmutableSet<SkyFunctionName> getNodesToRemoveBeforeFrontierSerialization() {
-    return ImmutableSet.of();
+  @Nullable
+  default Version getFirstVersionOfLatestEvaluationSequence() {
+    return null;
   }
 
   /**
@@ -146,6 +150,9 @@ public interface MemoizingEvaluator {
 
   @Nullable
   NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) throws InterruptedException;
+
+  /** Returns whether the key was rewound and has not yet completed successfully. */
+  boolean isRewinding(SkyKey key);
 
   /**
    * Returns an error if and only if an earlier call to {@link #evaluate} created it; null
@@ -234,6 +241,15 @@ public interface MemoizingEvaluator {
   void dumpCount(PrintStream out);
 
   /**
+   * Writes the keys in the graph to the given output stream. For each keys matching the given
+   * filter, prints the key name.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpKeys(PrintStream out, Predicate<String> filter) throws InterruptedException;
+
+  /**
    * Writes a detailed summary of the graph to the given output stream. For each key matching the
    * given filter, prints the key name and value.
    *
@@ -287,15 +303,4 @@ public interface MemoizingEvaluator {
    * is about to be thrown away.
    */
   void cleanupInterningPools();
-
-  boolean skyfocusSupported();
-
-  /**
-   * Enables Skyfocus, a graph optimizer for Skyframe with active directoriess, by remembering the
-   * root nodes.
-   */
-  void rememberTopLevelEvaluations(boolean remember);
-
-  /** Cleans up the set of evaluated root SkyKeys. Used for Skyfocus. */
-  void cleanupLatestTopLevelEvaluations();
 }

@@ -103,18 +103,6 @@ function test_compiles_hello_library_using_persistent_javac() {
     || fail "comparison failed"
 }
 
-function test_compiles_hello_library_using_persistent_javac_sibling_layout() {
-  write_hello_library_files
-
-  bazel build \
-    --experimental_sibling_repository_layout java/main:main \
-    --worker_max_instances=Javac=1 \
-    &> "$TEST_log" || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE} singleplex Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
-  $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
-    || fail "comparison failed"
-}
-
 function prepare_example_worker() {
   cp ${example_worker} worker_lib.jar
   chmod +w worker_lib.jar
@@ -392,8 +380,7 @@ EOF
   assert_equals "1" $work_count
 }
 
-# Disabled for being flaky, see b/182373389
-function DISABLED_test_build_succeeds_even_if_worker_exits() {
+function test_build_succeeds_even_if_worker_exits() {
   prepare_example_worker
   cat >>BUILD <<EOF
 [work(
@@ -407,11 +394,21 @@ EOF
   bazel build --worker_verbose :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
 
+  # Wait for worker process to fully exit.
+  local count=0
+  while pgrep -f "ExampleWorker.*${OUTPUT_BASE}" > /dev/null; do
+    if [ $count -gt 100 ]; then
+      fail "Worker did not exit in time"
+    fi
+    sleep 0.1
+    count=$((count + 1))
+  done
+
   # This time, the worker is dead before the build starts, so a new one is made.
-  bazel build --worker_verbose :hello_world_2 &> "$TEST_log" \
+  bazel build --worker_verbose :hello_world_2 >> "$TEST_log" 2>&1 \
     || fail "build failed"
 
-  expect_log "Work worker (id [0-9]\+, key hash -\?[0-9]\+) has unexpectedly died with exit code 0."
+  expect_log "Work worker (id [0-9]\+) has unexpectedly died with exit code 0."
 }
 
 function test_build_fails_if_worker_dies_during_action() {

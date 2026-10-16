@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import java.util.Map;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -27,7 +28,8 @@ import net.starlark.java.eval.StarlarkThread;
  * Utility class encapsulating the standard definition of the {@code package()} function of BUILD
  * files.
  */
-@GlobalMethods(environment = Environment.BUILD)
+@GlobalMethodDocs(environment = Environment.BUILD)
+@StarlarkLibrary
 public class PackageCallable {
 
   protected PackageCallable() {}

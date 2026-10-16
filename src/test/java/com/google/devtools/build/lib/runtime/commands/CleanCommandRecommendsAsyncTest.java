@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.OS;
@@ -66,7 +66,7 @@ public class CleanCommandRecommendsAsyncTest {
 
   @Test
   public void testCleanProvidesExpectedSuggestion() throws Exception {
-    Reporter reporter = new Reporter(new EventBus());
+    Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
 

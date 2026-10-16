@@ -88,7 +88,7 @@ public class NestedSetCodecTestUtils {
         .runTests();
   }
 
-  public static ListenableFuture<Void> writeToStoreFuture(
+  public static ListenableFuture<?> writeToStoreFuture(
       NestedSetStore store, NestedSet<?> nestedSet, SerializationContext serializationContext)
       throws IOException, SerializationException {
     return store

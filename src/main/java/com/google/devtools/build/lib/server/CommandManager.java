@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeRequest;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import java.util.Collections;
 import java.util.HashMap;
@@ -60,6 +61,15 @@ class CommandManager {
 
   private final AtomicLong interruptCounter = new AtomicLong(0);
   @Nullable private final String slowInterruptMessageSuffix;
+
+  @GuardedBy("runningCommandsMap")
+  private long commandCounter = 0;
+
+  @GuardedBy("runningCommandsMap")
+  private long changeCounter = 0;
+
+  @GuardedBy("runningCommandsMap")
+  private long lastObservedChangeCounter = 0;
 
   CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
@@ -112,21 +122,47 @@ class CommandManager {
     }
   }
 
+  void doUpdateTerminalSize(TerminalSizeRequest request) {
+    synchronized (runningCommandsMap) {
+      RunningCommand pendingCommand = runningCommandsMap.get(request.getCommandId());
+      if (pendingCommand != null) {
+        pendingCommand.terminalSizeMonitor.updateTerminalSize(
+            request.getColumns(), request.getRows());
+      } else {
+        logger.atInfo().log(
+            "Cannot find command %s to update terminal size", request.getCommandId());
+      }
+    }
+  }
+
   boolean isEmpty() {
     synchronized (runningCommandsMap) {
+      lastObservedChangeCounter = changeCounter;
       return runningCommandsMap.isEmpty();
+    }
+  }
+
+  long getCommandCounter() {
+    synchronized (runningCommandsMap) {
+      return commandCounter;
     }
   }
 
   void waitForChange() throws InterruptedException {
     synchronized (runningCommandsMap) {
-      runningCommandsMap.wait();
+      while (changeCounter == lastObservedChangeCounter) {
+        runningCommandsMap.wait();
+      }
+      lastObservedChangeCounter = changeCounter;
     }
   }
 
   void waitForChange(long timeout) throws InterruptedException {
     synchronized (runningCommandsMap) {
-      runningCommandsMap.wait(timeout);
+      if (changeCounter == lastObservedChangeCounter) {
+        runningCommandsMap.wait(timeout);
+      }
+      lastObservedChangeCounter = changeCounter;
     }
   }
 
@@ -148,6 +184,8 @@ class CommandManager {
         busy();
       }
       runningCommandsMap.put(command.id, command);
+      commandCounter++;
+      changeCounter++;
       runningCommandsMap.notify();
     }
     logger.atInfo().log("Starting command %s on thread %s", command.id, command.thread.getName());
@@ -229,6 +267,7 @@ class CommandManager {
     private final Thread thread;
     private final String id;
     private final boolean preemptible;
+    private final TerminalSizeMonitor terminalSizeMonitor = new TerminalSizeMonitor();
     private Optional<ImmutableList<IdleTask>> idleTasks = Optional.empty();
 
     private RunningCommand(boolean preemptible) {
@@ -244,6 +283,7 @@ class CommandManager {
         if (runningCommandsMap.isEmpty()) {
           idle(idleTasks);
         }
+        changeCounter++;
         runningCommandsMap.notify();
       }
 
@@ -256,6 +296,10 @@ class CommandManager {
 
     boolean isPreemptible() {
       return preemptible;
+    }
+
+    TerminalSizeMonitor getTerminalSizeMonitor() {
+      return terminalSizeMonitor;
     }
 
     /**

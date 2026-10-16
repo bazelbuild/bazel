@@ -180,7 +180,10 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
 
     String expected = "echo \"Hello, world.\" >" + messageArtifact.getExecPathString();
     assertThat(shellAction.getArguments().get(0))
-        .isEqualTo(ShToolchain.getPathForHost(targetConfig).getPathString());
+        .isEqualTo(
+            ShToolchain.getPathForPlatform(
+                    targetConfig, shellAction.getOwner().getExecutionPlatform())
+                .getPathString());
     assertThat(shellAction.getArguments().get(1)).isEqualTo("-c");
     assertCommandEquals(expected, shellAction.getArguments().get(2));
   }
@@ -478,6 +481,36 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         .isEqualTo(getGenfilesArtifact("genfiles_a.out", genCt));
     assertThat(getFileConfiguredTarget("//x:genfiles_b.out").getArtifact())
         .isEqualTo(getGenfilesArtifact("genfiles_b.out", genCt));
+  }
+
+  @Test
+  public void testStarlarkRuleNamedGenrule() throws Exception {
+    useConfiguration("--noincompatible_merge_genfiles_directory");
+    scratch.file(
+        "x/defs.bzl",
+        """
+        def _impl(ctx):
+            for out in ctx.outputs.outs:
+                ctx.actions.write(out, "")
+
+        genrule = rule(
+            implementation = _impl,
+            attrs = {"outs": attr.output_list()},
+        )
+        """);
+    scratch.file(
+        "x/BUILD",
+        """
+        load(":defs.bzl", "genrule")
+
+        genrule(
+            name = "starlark",
+            outs = ["starlark.out"],
+        )
+        """);
+
+    assertThat(getFileConfiguredTarget("//x:starlark.out").getArtifact())
+        .isEqualTo(getBinArtifact("starlark.out", getConfiguredTarget("//x:starlark")));
   }
 
   @Test

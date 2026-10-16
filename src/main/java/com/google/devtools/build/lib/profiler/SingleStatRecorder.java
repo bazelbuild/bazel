@@ -18,14 +18,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.MetricData.HistogramElement;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAccumulator;
 
 /**
- * A stat recorder that can record time histograms, count of calls, average time, Std. Deviation
- * and max time.
+ * A stat recorder that can record time histograms, count of calls, average time, Std. Deviation and
+ * max time.
  */
+@ScOnly
 @ThreadSafe
 public class SingleStatRecorder implements StatRecorder {
 

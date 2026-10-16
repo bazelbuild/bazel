@@ -470,7 +470,7 @@ public final class TargetRecorder {
         packagePiece instanceof PackagePiece.ForBuildFile forBuildFile
             ? forBuildFile.getBuildFile()
             : null;
-    for (Target target : packagePiece.getTargets().values()) {
+    for (Target target : packagePiece.getTargets()) {
       if (skipBuildFile && target == buildFile) {
         continue;
       }

@@ -21,10 +21,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Package.Declarations;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.util.HashCodes;
 import java.util.List;
 import java.util.Objects;
@@ -355,9 +354,16 @@ public final class MacroInstance extends RuleOrMacroInstance {
     return macroClass.getAttributeProvider();
   }
 
+  // TODO(bazel-team): Merge with Rule#reportError after graveyarding
+  // --incompatible_symbolic_macro_strict_attrs
   @Override
-  void reportError(String message, EventHandler eventHandler) {
-    eventHandler.handle(Event.error(message));
+  void reportError(String message, TargetDefinitionContext targetDefinitionContext) {
+    targetDefinitionContext
+        .getLocalEventHandler()
+        .handle(Package.error(buildFileLocation, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
+    if (targetDefinitionContext.symbolicMacroStrictAttrs()) {
+      targetDefinitionContext.setContainsErrors();
+    }
   }
 
   @Override

@@ -12,13 +12,6 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-filegroup(
-    name = "embedded_tools",
-    srcs = [
-        "BUILD.tools",
-    ],
-)
-
 java_library(
     name = "import_deps_checker",
     srcs = glob(
@@ -46,6 +39,8 @@ java_binary(
         "-XX:+IgnoreUnrecognizedVMOptions",
         "--add-opens=java.base/java.nio=ALL-UNNAMED",
         "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        # TODO: remove after https://github.com/protocolbuffers/protobuf/issues/20760 is fixed
+        "--sun-misc-unsafe-memory-access=allow",
     ],
     main_class = "com.google.devtools.build.importdeps.Main",
     deps = [

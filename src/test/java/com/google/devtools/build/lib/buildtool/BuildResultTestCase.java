@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import org.junit.Before;
@@ -80,6 +83,138 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     String stderr = recOutErr.errAsLatin1();
     assertThat(stderr).contains("Target //test:A failed to build\n");
     assertThat(stderr).containsMatch("Target //test:B up-to-date:\n" + "  .*/test/B\\.out\n");
+  }
+
+  @Test
+  public void testWithOnlyInternalOutputGroups() throws Exception {
+    write(
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_binary.bzl", "foo_binary")
+
+        genrule(
+            name = "gen",
+            outs = ["gen.out"],
+            cmd = "touch $@",
+        )
+
+        foo_binary(
+            name = "foo",
+            srcs = ["foo.sh"],
+            data = [":gen"],
+        )
+        """);
+    write("foo/foo.sh", "echo foo").setExecutable(true);
+
+    // Subtracting the default output group leaves the internal output group carrying the runfiles,
+    // which are built but never shown.
+    addOptions("--output_groups=-default");
+    build(false, "no-error", "//foo");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr)
+        .contains("Target //foo:foo up-to-date (nothing to build except internal output groups)\n");
+  }
+
+  /**
+   * Writes {@code //groups:t}, whose default output is {@code t_default.txt} and whose {@code
+   * custom} output group contains {@code t_custom.txt} and {@code t_shared.txt}. {@code
+   * t_shared.txt} is also in the {@code shared} output group.
+   */
+  private void writeOutputGroupsTarget() throws Exception {
+    write(
+        "groups/defs.bzl",
+        """
+        def _impl(ctx):
+            default = ctx.actions.declare_file(ctx.label.name + "_default.txt")
+            custom = ctx.actions.declare_file(ctx.label.name + "_custom.txt")
+            shared = ctx.actions.declare_file(ctx.label.name + "_shared.txt")
+            for f in [default, custom, shared]:
+                ctx.actions.write(f, f.basename)
+            return [
+                DefaultInfo(files = depset([default])),
+                OutputGroupInfo(
+                    custom = depset([custom, shared]),
+                    shared = depset([shared]),
+                ),
+            ]
+
+        groups_rule = rule(implementation = _impl)
+        """);
+    write(
+        "groups/BUILD",
+        """
+        load(":defs.bzl", "groups_rule")
+
+        groups_rule(name = "t")
+        """);
+  }
+
+  @Test
+  public void testHideOutputGroupResults() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=+custom", "--hide_output_group_results=custom");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr)
+        .containsMatch("Target //groups:t up-to-date:\n  .*/groups/t_default\\.txt\n");
+    assertThat(stderr).doesNotContain("t_custom.txt");
+    assertThat(stderr).doesNotContain("t_shared.txt");
+  }
+
+  @Test
+  public void testHideOutputGroupResults_defaultOutputGroup() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=+custom", "--hide_output_group_results=default");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).doesNotContain("t_default.txt");
+    assertThat(stderr).contains("/groups/t_custom.txt\n");
+    assertThat(stderr).contains("/groups/t_shared.txt\n");
+  }
+
+  @Test
+  public void testHideOutputGroupResults_artifactInVisibleGroupStillShown() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=+custom,+shared", "--hide_output_group_results=custom");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("/groups/t_default.txt\n");
+    assertThat(stderr).contains("/groups/t_shared.txt\n");
+    assertThat(stderr).doesNotContain("t_custom.txt");
+  }
+
+  @Test
+  public void testHideOutputGroupResults_suppressesUnknownOutputGroupWarning() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions(
+        "--output_groups=+hidden_missing,+shown_missing",
+        "--hide_output_group_results=hidden_missing");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).doesNotContain("Output group 'hidden_missing' was requested");
+    assertThat(stderr).contains("Output group 'shown_missing' was requested");
+  }
+
+  @Test
+  public void testHideOutputGroupResults_doesNotSuppressUnknownOutputGroupError() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions(
+        "--output_groups=+hidden_missing",
+        "--hide_output_group_results=hidden_missing",
+        "--incompatible_fail_on_unknown_output_groups");
+    ViewCreationFailedException e =
+        assertThrows(ViewCreationFailedException.class, () -> buildTarget("//groups:t"));
+    assertThat(e).hasMessageThat().contains("Output group 'hidden_missing' was requested");
   }
 
   @Test
@@ -148,6 +283,8 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     String stderr = recOutErr.errAsLatin1();
     assertThat(stderr).doesNotContain("Target //needsdata:needsdata up-to-date:\n");
     assertThat(stderr).contains("Target //needsdata:needsdata failed to build\n");
+    assertThat(stderr)
+        .doesNotContain("Use --verbose_failures to see the command lines of failed build steps.\n");
   }
 
   /**
@@ -217,6 +354,183 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     String stderr = recOutErr.errAsLatin1();
     assertThat(stderr).contains("Target //bad_clib:bad_clib failed to build");
     assertThat(stderr).contains("See temp at blaze-bin/bad_clib/_objs/bad_clib/badlib.pic.ii\n");
+  }
+
+  @Test
+  public void testFailedDependencyActionAttributionAndShowResult() throws Exception {
+    write(
+        "test/BUILD",
+        "genrule(name='top1', srcs=['dep'], outs=['top1.out'],"
+            + " cmd='/bin/cp test/in $(location top1.out)')\n"
+            + "genrule(name='top2', srcs=['dep'], outs=['top2.out'],"
+            + " cmd='/bin/cp test/in $(location top2.out)')\n"
+            + "genrule(name='dep', srcs=[], outs=['dep.out'],"
+            + " cmd='exit 42')\n");
+    write("test/in", "(input)");
+
+    addOptions("--keep_going", "--show_result=2");
+    build(true, GENRULE_ERROR, "//test:top1", "//test:top2");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //test:top1 failed to build\n");
+    assertThat(stderr).contains("Target //test:top2 failed to build\n");
+    assertThat(stderr).contains("  due to action in //test:dep\n");
+  }
+
+  @Test
+  public void testFailedTargetsSuppressedWhenExceedingShowResult() throws Exception {
+    write(
+        "test/BUILD",
+        "genrule(name='top1', srcs=['dep'], outs=['top1.out'],"
+            + " cmd='/bin/cp test/in $(location top1.out)')\n"
+            + "genrule(name='top2', srcs=['dep'], outs=['top2.out'],"
+            + " cmd='/bin/cp test/in $(location top2.out)')\n"
+            + "genrule(name='dep', srcs=[], outs=['dep.out'],"
+            + " cmd='exit 42')\n");
+    write("test/in", "(input)");
+
+    addOptions("--keep_going", "--show_result=1");
+    build(true, GENRULE_ERROR, "//test:top1", "//test:top2");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).doesNotContain("Target //test:top1 failed to build\n");
+    assertThat(stderr).doesNotContain("Target //test:top2 failed to build\n");
+    assertThat(stderr)
+        .contains("Use --verbose_failures to see the command lines of failed build steps.\n");
+  }
+
+  @Test
+  public void testNoKeepGoingUnbuiltTargetsExcludedFromFailedBudget() throws Exception {
+    write(
+        "test/defs.bzl",
+        "def _fail_rule_impl(ctx):\n"
+            + "  out = ctx.actions.declare_file(ctx.label.name + '.out')\n"
+            + "  ctx.actions.run_shell(outputs = [out], inputs = [], tools = [], command = 'exit"
+            + " 42')\n"
+            + "  return [DefaultInfo(files = depset([out]))]\n"
+            + "fail_rule = rule(implementation = _fail_rule_impl)\n"
+            + "def _pass_rule_impl(ctx):\n"
+            + "  out = ctx.actions.declare_file(ctx.label.name + '.out')\n"
+            + "  ctx.actions.run_shell(outputs = [out], inputs = ctx.files.srcs, tools = [],"
+            + " command = 'touch ' + out.path)\n"
+            + "  return [DefaultInfo(files = depset([out]))]\n"
+            + "pass_rule = rule(implementation = _pass_rule_impl, attrs = {'srcs':"
+            + " attr.label_list(allow_files = True)})\n");
+    write(
+        "test/BUILD",
+        "load(':defs.bzl', 'fail_rule', 'pass_rule')\n"
+            + "pass_rule(name='top1', srcs=[':dep'])\n"
+            + "fail_rule(name='dep')\n"
+            + "genrule(name='unbuilt', srcs=['u1'], outs=['unbuilt.out'],"
+            + " cmd='/bin/cp $(location u1) $(location unbuilt.out)')\n"
+            + "genrule(name='u1', srcs=['u2'], outs=['u1.out'],"
+            + " cmd='/bin/cp $(location u2) $(location u1.out)')\n"
+            + "genrule(name='u2', srcs=['u3'], outs=['u2.out'],"
+            + " cmd='/bin/cp $(location u3) $(location u2.out)')\n"
+            + "genrule(name='u3', srcs=['in'], outs=['u3.out'],"
+            + " cmd='/bin/cp $(location in) $(location u3.out)')\n");
+    write("test/in", "(input)");
+
+    addOptions("--nokeep_going", "--show_result=1");
+    build(true, GENRULE_ERROR, "//test:top1", "//test:unbuilt");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //test:top1 failed to build\n");
+    assertThat(stderr).contains("  due to action in //test:dep\n");
+    assertThat(stderr).doesNotContain("Target //test:unbuilt failed to build\n");
+    assertThat(stderr).doesNotContain("Target //test:unbuilt up-to-date");
+  }
+
+  @Test
+  public void testShowResultZeroSuppressesFailedTargets() throws Exception {
+    write("test/BUILD", "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+
+    addOptions("--show_result=0");
+    build(true, GENRULE_ERROR, "//test:fail");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).doesNotContain("Target //test:fail failed to build\n");
+    assertThat(stderr)
+        .contains("Use --verbose_failures to see the command lines of failed build steps.\n");
+  }
+
+  @Test
+  public void testFailedTargetNotSuppressedBySuccessfulTargetBudget() throws Exception {
+    write(
+        "mix/BUILD",
+        "genrule(name='succ1', srcs=['in'], outs=['succ1.out'], cmd='/bin/cp $(location in)"
+            + " $(location succ1.out)')\n"
+            + "genrule(name='succ2', srcs=['in'], outs=['succ2.out'], cmd='/bin/cp $(location in)"
+            + " $(location succ2.out)')\n"
+            + "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+    write("mix/in", "(input)");
+
+    addOptions("--keep_going", "--show_result=1");
+    build(true, GENRULE_ERROR, "//mix:succ1", "//mix:succ2", "//mix:fail");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //mix:fail failed to build\n");
+    assertThat(stderr).doesNotContain("Target //mix:succ1 up-to-date:\n");
+    assertThat(stderr).doesNotContain("Target //mix:succ2 up-to-date:\n");
+  }
+
+  @Test
+  public void testActionFailureShowsVerboseFailuresSuggestion() throws Exception {
+    write("test/BUILD", "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+
+    build(true, GENRULE_ERROR, "//test:fail");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //test:fail failed to build\n");
+    assertThat(stderr)
+        .contains("Use --verbose_failures to see the command lines of failed build steps.\n");
+    assertThat(stderr).doesNotContain("Use --sandbox_debug");
+  }
+
+  @Test
+  public void testSandboxDebugSuppressesVerboseFailuresSuggestion() throws Exception {
+    write("test/BUILD", "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+
+    addOptions("--sandbox_debug");
+    build(true, GENRULE_ERROR, "//test:fail");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //test:fail failed to build\n");
+    assertThat(stderr)
+        .doesNotContain("Use --verbose_failures to see the command lines of failed build steps.\n");
+  }
+
+  @Test
+  public void testSandboxedActionFailureShowsSandboxDebugSuggestion() throws Exception {
+    write("test/BUILD", "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+
+    build(true, GENRULE_ERROR, "//test:fail");
+
+    BuildResultListener listener = getCommandEnvironment().getBuildResultListener();
+    BuildResultPrinter printer = new BuildResultPrinter(getCommandEnvironment());
+    printer.showBuildResult(
+        getRequest(),
+        getResult(),
+        listener.getAnalyzedTargets(),
+        listener.getSkippedTargets(),
+        listener.getAnalyzedAspects(),
+        listener.getTargetRootCauses(),
+        listener.getAspectRootCauses(),
+        /* hasSandboxedActionFailures= */ true);
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr)
+        .contains(
+            "Use --sandbox_debug to see verbose messages from the sandbox and retain the"
+                + " sandbox build root for debugging\n");
+  }
+
+  @Test
+  public void testIsSandboxedRunner() {
+    assertThat(BuildResultListener.isSandboxedRunner("linux-sandbox")).isTrue();
+    assertThat(BuildResultListener.isSandboxedRunner("docker")).isTrue();
+    assertThat(BuildResultListener.isSandboxedRunner("standalone")).isFalse();
+    assertThat(BuildResultListener.isSandboxedRunner(null)).isFalse();
   }
 
   // Concrete implementations of this abstract test:

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
-import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -102,6 +101,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -478,22 +478,14 @@ public abstract class PackageFunction implements SkyFunction {
 
     StarlarkBuiltinsValue starlarkBuiltinsValue;
     try {
-      AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
-      if (autoloadSymbols == null) {
-        return null;
-      }
-      boolean requiresAutoloads =
-          !autoloadSymbols.autoloadsDisabledInBuildForRepo(packageId.getRepository());
       if (bzlLoadFunctionForInlining == null) {
         starlarkBuiltinsValue =
             (StarlarkBuiltinsValue)
-                env.getValueOrThrow(
-                    StarlarkBuiltinsValue.key(/* withAutoloads= */ requiresAutoloads),
-                    BuiltinsFailedException.class);
+                env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
       } else {
         starlarkBuiltinsValue =
             StarlarkBuiltinsFunction.computeInline(
-                StarlarkBuiltinsValue.key(/* withAutoloads= */ requiresAutoloads),
+                StarlarkBuiltinsValue.key(),
                 BzlLoadFunction.InliningState.create(env),
                 packageFactory.getRuleClassProvider().getBazelStarlarkEnvironment(),
                 bzlLoadFunctionForInlining);
@@ -710,7 +702,8 @@ public abstract class PackageFunction implements SkyFunction {
       List<BzlLoadValue.Key> keys,
       StarlarkSemantics semantics,
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
-      boolean checkVisibility,
+      Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototype,
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile)
       throws NoSuchPackageException, InterruptedException {
     List<BzlLoadValue> bzlLoads;
@@ -723,17 +716,17 @@ public abstract class PackageFunction implements SkyFunction {
         return null; // Skyframe deps unavailable
       }
       // Validate that the current BUILD file satisfies each loaded dependency's load visibility.
-      if (checkVisibility) {
-        BzlLoadFunction.checkLoadVisibilities(
-            packageId,
-            requestingFileDescription,
-            bzlLoads,
-            keys,
-            programLoads,
-            /* demoteErrorsToWarnings= */ !semantics.getBool(
-                BuildLanguageOptions.CHECK_BZL_VISIBILITY),
-            env.getListener());
-      }
+      BzlLoadFunction.checkLoadVisibilities(
+          packageId,
+          requestingFileDescription,
+          bzlLoads,
+          keys,
+          programLoads,
+          /* demoteErrorsToWarnings= */ !semantics.getBool(
+              BuildLanguageOptions.CHECK_BZL_VISIBILITY),
+          isUnderExperimental,
+          isUnderPrototype,
+          env.getListener());
     } catch (BzlLoadFailedException e) {
       Throwable rootCause = Throwables.getRootCause(e);
       PackageFunctionException.Builder exceptionBuilder =
@@ -1112,6 +1105,8 @@ public abstract class PackageFunction implements SkyFunction {
                 programLoads,
                 packageId,
                 packageFactory.getRuleClassProvider()::isPackageUnderExperimental,
+                packageFactory.getRuleClassProvider()::isPackageUnderPrototypes,
+                packageFactory.getRuleClassProvider()::hasHardCodedException,
                 repositoryMapping,
                 starlarkBuiltinsValue.starlarkSemantics);
         if (loadLabels == null) {
@@ -1151,7 +1146,8 @@ public abstract class PackageFunction implements SkyFunction {
                   keys.build(),
                   starlarkBuiltinsValue.starlarkSemantics,
                   bzlLoadFunctionForInlining,
-                  /* checkVisibility= */ true,
+                  packageFactory.getRuleClassProvider()::isPackageUnderExperimental,
+                  packageFactory.getRuleClassProvider()::isPackageUnderPrototypes,
                   actionOnFilesystemErrorCodeLoadingBzlFile);
         } catch (NoSuchPackageException e) {
           throw new PackageFunctionException(e, Transience.PERSISTENT);
@@ -1611,51 +1607,47 @@ public abstract class PackageFunction implements SkyFunction {
     }
 
     public PackageFunction build() {
-      switch (globbingStrategy) {
-        case MULTIPLE_GLOB_HYBRID -> {
-          return new PackageFunctionWithMultipleGlobDeps(
-              packageFactory,
-              pkgLocator,
-              showLoadingProgress,
-              numPackagesSuccessfullyLoaded,
-              bzlLoadFunctionForInlining,
-              packageProgress,
-              actionOnIOExceptionReadingBuildFile,
-              actionOnFilesystemErrorCodeLoadingBzlFile,
-              shouldUseRepoDotBazel,
-              threadStateReceiverFactoryForMetrics,
-              cpuBoundSemaphore);
-        }
-        case SINGLE_GLOBS_HYBRID -> {
-          return new PackageFunctionWithSingleGlobsDep(
-              packageFactory,
-              pkgLocator,
-              showLoadingProgress,
-              numPackagesSuccessfullyLoaded,
-              bzlLoadFunctionForInlining,
-              packageProgress,
-              actionOnIOExceptionReadingBuildFile,
-              actionOnFilesystemErrorCodeLoadingBzlFile,
-              shouldUseRepoDotBazel,
-              threadStateReceiverFactoryForMetrics,
-              cpuBoundSemaphore);
-        }
-        case NON_SKYFRAME -> {
-          return new PackageFunctionWithoutGlobDeps(
-              packageFactory,
-              pkgLocator,
-              showLoadingProgress,
-              numPackagesSuccessfullyLoaded,
-              bzlLoadFunctionForInlining,
-              packageProgress,
-              actionOnIOExceptionReadingBuildFile,
-              actionOnFilesystemErrorCodeLoadingBzlFile,
-              shouldUseRepoDotBazel,
-              threadStateReceiverFactoryForMetrics,
-              cpuBoundSemaphore);
-        }
-      }
-      throw new IllegalStateException();
+      return switch (globbingStrategy) {
+        case MULTIPLE_GLOB_HYBRID ->
+            new PackageFunctionWithMultipleGlobDeps(
+                packageFactory,
+                pkgLocator,
+                showLoadingProgress,
+                numPackagesSuccessfullyLoaded,
+                bzlLoadFunctionForInlining,
+                packageProgress,
+                actionOnIOExceptionReadingBuildFile,
+                actionOnFilesystemErrorCodeLoadingBzlFile,
+                shouldUseRepoDotBazel,
+                threadStateReceiverFactoryForMetrics,
+                cpuBoundSemaphore);
+        case SINGLE_GLOBS_HYBRID ->
+            new PackageFunctionWithSingleGlobsDep(
+                packageFactory,
+                pkgLocator,
+                showLoadingProgress,
+                numPackagesSuccessfullyLoaded,
+                bzlLoadFunctionForInlining,
+                packageProgress,
+                actionOnIOExceptionReadingBuildFile,
+                actionOnFilesystemErrorCodeLoadingBzlFile,
+                shouldUseRepoDotBazel,
+                threadStateReceiverFactoryForMetrics,
+                cpuBoundSemaphore);
+        case NON_SKYFRAME ->
+            new PackageFunctionWithoutGlobDeps(
+                packageFactory,
+                pkgLocator,
+                showLoadingProgress,
+                numPackagesSuccessfullyLoaded,
+                bzlLoadFunctionForInlining,
+                packageProgress,
+                actionOnIOExceptionReadingBuildFile,
+                actionOnFilesystemErrorCodeLoadingBzlFile,
+                shouldUseRepoDotBazel,
+                threadStateReceiverFactoryForMetrics,
+                cpuBoundSemaphore);
+      };
     }
   }
 

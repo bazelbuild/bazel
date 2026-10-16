@@ -50,6 +50,7 @@ function set_up() {
   start_worker
 
   add_rules_java "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
   mkdir -p src/main/java/com/example
   cat > src/main/java/com/example/BUILD <<'EOF'
 load("@rules_java//java:java_binary.bzl", "java_binary")
@@ -115,9 +116,9 @@ function test_path_stripping_sandboxed() {
     --strategy=Javac=local,sandboxed \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath,
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath,
   # 1x header compilation and 2x actual compilation.
-  expect_log '6 \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_log '5 \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log 'disk cache hit'
 
   bazel run -c opt \
@@ -126,7 +127,7 @@ function test_path_stripping_sandboxed() {
     --strategy=Javac=sandboxed \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '6 disk cache hit'
+  expect_log '5 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
 }
 
@@ -141,9 +142,9 @@ function test_path_stripping_singleplex_worker() {
     --strategy=Javac=worker \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath
   # and header compilation.
-  expect_log '4 \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
   # Actual compilation actions.
   expect_log '2 worker'
   expect_not_log 'disk cache hit'
@@ -154,7 +155,7 @@ function test_path_stripping_singleplex_worker() {
     --strategy=Javac=worker \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '6 disk cache hit'
+  expect_log '5 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] worker'
 }
@@ -182,8 +183,8 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath and header compilation.
-  expect_log '4 \(linux\|darwin\|processwrapper\)-sandbox'
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath and header compilation.
+  expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
   # Actual compilation actions.
   expect_log '2 worker'
   expect_not_log 'disk cache hit'
@@ -197,7 +198,7 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '6 disk cache hit'
+  expect_log '5 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] worker'
 }
@@ -243,8 +244,8 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # Genrule, JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath and header compilation
-  expect_log '5 \(linux\|darwin\|processwrapper\)-sandbox'
+  # Genrule, JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath and header compilation
+  expect_log '4 \(linux\|darwin\|processwrapper\)-sandbox'
   # Actual compilation actions.
   expect_log '2 worker'
   expect_not_log 'disk cache hit'
@@ -258,7 +259,7 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '6 disk cache hit'
+  expect_log '5 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] worker'
 }
@@ -269,9 +270,9 @@ function test_path_stripping_remote() {
     --remote_executor=grpc://localhost:${worker_port} \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath,
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath,
   # 1x header compilation and 2x actual compilation.
-  expect_log '6 remote'
+  expect_log '5 remote'
   expect_not_log 'remote cache hit'
 
   bazel run -c opt \
@@ -279,7 +280,7 @@ function test_path_stripping_remote() {
     --remote_executor=grpc://localhost:${worker_port} \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '6 remote cache hit'
+  expect_log '5 remote cache hit'
   # Do not match "5 remote cache hit", which is expected.
   expect_not_log '[0-9] remote[^ ]'
 }
@@ -385,9 +386,9 @@ EOF
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, BazelCon New York!'
   expect_log 'Hello, BazelCon Munich!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath
   # 1x header compilation and 2x actual compilation.
-  expect_log '6 remote'
+  expect_log '5 remote'
   expect_not_log 'remote cache hit'
 
   bazel run -c opt \
@@ -396,9 +397,9 @@ EOF
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, BazelCon New York!'
   expect_log 'Hello, BazelCon Munich!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath
   # and compilation of the binary.
-  expect_log '4 remote cache hit'
+  expect_log '3 remote cache hit'
   # Do not match "[0-9] remote cache hit", which is expected separately.
   # Header and actual compilation of the library, which doesn't use path stripping as it would
   # result in ambiguous paths due to the multiple configs.
@@ -450,7 +451,7 @@ function test_path_stripping_cc_remote() {
   local -r pkg="${FUNCNAME[0]}"
 
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "1.21.0")
+bazel_dep(name = "apple_support", version = "2.8.4")
 EOF
   add_rules_cc "MODULE.bazel"
 
@@ -1102,8 +1103,8 @@ EOF
   expect_log '2 \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] deduplicated'
 
-  expect_log 'Action pkg/my_rule_file failed:'
-  expect_log 'Action pkg/my_rule_file \[for tool\] failed:'
+  expect_log 'Action pkg/my_rule_file (from target //pkg:my_rule) failed:'
+  expect_log 'Action pkg/my_rule_file \[for tool\] (from target //pkg:my_rule) failed:'
   # Remote cache warning.
   expect_log 'Expected output pkg/my_rule_file was not created locally.'
 
@@ -1183,8 +1184,8 @@ EOF
   # Failing actions are not deduplicated.
   expect_not_log '[0-9] deduplicated'
 
-  expect_log 'Action pkg/my_rule_file failed:'
-  expect_log 'Action pkg/my_rule_file \[for tool\] failed:'
+  expect_log 'Action pkg/my_rule_file (from target //pkg:my_rule) failed:'
+  expect_log 'Action pkg/my_rule_file \[for tool\] (from target //pkg:my_rule) failed:'
 
   # The first execution emits stdout/stderr, the second doesn't.
   # stdout/stderr are emitted as part of the failing action error, not as an
@@ -1193,5 +1194,537 @@ EOF
   expect_log_n 'Hello, stderr!' 2
   expect_log_n 'Hello, stdout!' 2
 }
+
+function test_path_stripping_archived_tree_artifacts() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_archived_tree_artifacts on Windows as it requires sandboxing"
+    return
+  fi
+
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+  cat > "$pkg/defs.bzl" <<EOF
+def _tree_gen_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "mkdir -p " + out.path,
+        mnemonic = "GenerateArchiveTree",
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+tree_gen = rule(
+    implementation = _tree_gen_impl,
+)
+
+def _consume_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".out")
+    args = ctx.actions.args()
+    args.add(out)
+    args.add_all(ctx.files.srcs, expand_directories = False)
+    ctx.actions.run(
+        inputs = ctx.files.srcs,
+        outputs = [out],
+        executable = ctx.executable.tool,
+        arguments = [args],
+        mnemonic = "ConsumeArchiveTree",
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+consume = rule(
+    implementation = _consume_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+        "tool": attr.label(
+            default = "//$pkg:tool",
+            cfg = "exec",
+            executable = True,
+        ),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":defs.bzl", "tree_gen", "consume")
+
+tree_gen(name = "my_tree")
+
+sh_binary(
+    name = "tool",
+    srcs = ["tool.sh"],
+)
+
+consume(
+    name = "my_consume",
+    srcs = [":my_tree"],
+)
+EOF
+
+  cat > "$pkg/tool.sh" <<'EOF'
+#!/bin/bash
+touch "$1"
+EOF
+  chmod +x "$pkg/tool.sh"
+
+
+  bazel build -c fastbuild \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --archived_tree_artifact_mnemonics_filter=GenerateArchiveTree \
+    --experimental_output_paths=strip \
+    "//$pkg:my_consume" &> $TEST_log || fail "build failed unexpectedly"
+
+  expect_log '\(linux\|darwin\|processwrapper\)-sandbox'
+  expect_not_log 'remote cache hit'
+
+  bazel build -c opt \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --archived_tree_artifact_mnemonics_filter=GenerateArchiveTree \
+    --experimental_output_paths=strip \
+    "//$pkg:my_consume" &> $TEST_log || fail "build failed unexpectedly"
+
+  expect_log '1 remote cache hit'
+
+  rm -rf "$pkg"
+}
+
+function test_path_stripping_archived_tree_runfiles() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_archived_tree_runfiles on Windows as it requires sandboxing"
+    return
+  fi
+
+  stop_worker
+  start_worker
+
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+
+  cat > "$pkg/defs.bzl" <<EOF
+def _tree_gen_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "mkdir -p " + out.path,
+        mnemonic = "GenerateArchiveTree",
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+tree_gen = rule(
+    implementation = _tree_gen_impl,
+)
+
+def _consume_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".out")
+    args = ctx.actions.args()
+    args.add(out)
+    ctx.actions.run(
+        inputs = ctx.files.srcs,
+        outputs = [out],
+        executable = ctx.executable.tool,
+        arguments = [args],
+        mnemonic = "ConsumeArchiveTree",
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+consume = rule(
+    implementation = _consume_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+        "tool": attr.label(
+            default = "//$pkg:my_binary",
+            cfg = "exec",
+            executable = True,
+        ),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":defs.bzl", "tree_gen", "consume")
+
+tree_gen(name = "my_tree")
+
+sh_binary(
+    name = "my_binary",
+    srcs = ["my_binary.sh"],
+    data = [":my_tree"],
+)
+
+consume(
+    name = "my_consume",
+    srcs = [":my_tree"],
+)
+EOF
+
+  cat > "$pkg/my_binary.sh" <<'EOF'
+#!/bin/bash
+touch "$1"
+EOF
+  chmod +x "$pkg/my_binary.sh"
+
+  bazel build -c fastbuild \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --archived_tree_artifact_mnemonics_filter=GenerateArchiveTree \
+    --experimental_output_paths=strip \
+    "//$pkg:my_consume" &> $TEST_log || fail "build failed unexpectedly"
+
+  expect_log '\(linux\|darwin\|processwrapper\)-sandbox'
+  expect_not_log 'remote cache hit'
+
+  bazel build -c opt \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --archived_tree_artifact_mnemonics_filter=GenerateArchiveTree \
+    --experimental_output_paths=strip \
+    "//$pkg:my_consume" &> $TEST_log || fail "build failed unexpectedly"
+
+  expect_log '1 remote cache hit'
+
+  rm -rf "$pkg"
+}
+
+# Verifies that path mapping works for configurations that contain dots in their
+# names (e.g. "my.platform.one"). This emulates configuration transitions that
+# introduce dots, such as Apple minimum OS version constraints (e.g., "min11.0").
+function test_path_stripping_with_dots() {
+  local -r pkg="src/main/java/com/example"
+
+  cat >> "${pkg}/BUILD" <<EOF
+platform(
+    name = "my.platform.one",
+)
+platform(
+    name = "my.platform.two",
+)
+EOF
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --override_platform_cpu_name=//${pkg}:my.platform.one=my.platform.one \
+    --platforms=//${pkg}:my.platform.one \
+    "//${pkg}:lib" &> $TEST_log || fail "First build failed"
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --override_platform_cpu_name=//${pkg}:my.platform.two=my.platform.two \
+    --platforms=//${pkg}:my.platform.two \
+    "//${pkg}:lib" &> $TEST_log || fail "Second build failed"
+
+  expect_log 'remote cache hit'
+}
+
+# Verifies that path stripping correctly accounts for discovered headers (via
+# getAllowedDerivedInputs) when a derived header (symlink) is depended upon
+# through multiple configurations. A reset transition causes the same
+# symlink_rule to be evaluated in two configs, producing two symlinks whose
+# paths collide after stripping. Without the fix (getAllowedDerivedInputs in
+# StrippingPathMapper), path stripping would not detect the collision among
+# these discovered headers and would incorrectly enable stripping, leading to
+# an IllegalStateException: "Duplicate paths are only allowed for distinct
+# shared artifacts".
+function test_path_stripping_cc_discovered_headers_duplicate_paths() {
+  if is_windows; then
+    echo "Skipping on Windows as it requires sandboxing"
+    return
+  fi
+
+  local -r pkg="${FUNCNAME[0]}"
+
+  cat > MODULE.bazel <<'EOF'
+EOF
+  add_rules_cc "MODULE.bazel"
+
+  mkdir -p "$pkg"
+  cat > "$pkg/defs.bzl" <<EOF
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
+SETTING_NAME = "//$pkg:setting"
+SETTING_DEFAULT = "a"
+
+string_flag = rule(
+    implementation = lambda ctx: [],
+    build_setting = config.string(flag = True),
+)
+
+def _reset_transition_impl(_settings, _attr):
+    return {SETTING_NAME: SETTING_DEFAULT}
+
+reset_transition = transition(
+    implementation = _reset_transition_impl,
+    inputs = [],
+    outputs = [SETTING_NAME],
+)
+
+def _reset_rule_impl(ctx):
+    cc_infos = [dep[CcInfo] for dep in ctx.attr.deps if CcInfo in dep]
+    if cc_infos:
+        return cc_common.merge_cc_infos(direct_cc_infos = cc_infos)
+    return CcInfo()
+
+reset_rule = rule(
+    implementation = _reset_rule_impl,
+    cfg = reset_transition,
+    attrs = {"deps": attr.label_list()},
+    provides = [CcInfo],
+)
+
+def _symlink_impl(ctx):
+    src_file = ctx.files.src[0]
+    out = ctx.actions.declare_file("include/" + src_file.basename)
+    ctx.actions.symlink(output = out, target_file = src_file)
+    return DefaultInfo(files = depset([out]))
+
+symlink_rule = rule(
+    implementation = _symlink_impl,
+    attrs = {"src": attr.label(allow_files = True)},
+)
+EOF
+
+  cat > "$pkg/collider.h" <<'EOF'
+EOF
+
+  cat > "$pkg/stub_main.cpp" <<'EOF'
+int main() { return 0; }
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//$pkg:defs.bzl", "reset_rule", "string_flag", "symlink_rule")
+
+string_flag(name = "setting", build_setting_default = "a")
+
+symlink_rule(name = "symlink", src = "collider.h")
+cc_library(name = "lib", hdrs = [":symlink"])
+
+reset_rule(name = "reset_deps", deps = [":lib"])
+cc_library(name = "main", srcs = ["stub_main.cpp"], deps = [":lib", ":reset_deps"])
+EOF
+
+  local cache_dir="${TEST_TMPDIR}/disk_cache"
+
+  # The reset transition causes //$pkg:lib (and its symlink) to be analyzed
+  # under two configurations: the command-line config (setting=b) and the
+  # reset config (setting=a). Both produce a symlink at
+  # bazel-out/<config>/bin/$pkg/include/collider.h which collide after
+  # stripping. Without the fix, StrippingPathMapper only looked at declared
+  # inputs, missing these potential discovered headers.
+  bazel build \
+    --experimental_output_paths=strip \
+    --disk_cache="$cache_dir" \
+    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
+    --//$pkg:setting=b \
+    "//$pkg:main" &>"$TEST_log"
+  local exit_code=$?
+  cat "$TEST_log" >&2
+  [[ $exit_code -eq 0 ]] || fail "Expected success"
+}
+
+function test_path_stripping_stdout_capture() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_stdout_capture on Windows as it requires sandboxing"
+    return
+  fi
+
+  mkdir -p pkg
+  cat > pkg/defs.bzl <<'EOF'
+def _gen_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".txt")
+    ctx.actions.write(out, "hello-from-stdout")
+    return [DefaultInfo(files = depset([out]))]
+
+gen = rule(implementation = _gen_impl)
+
+def _capture_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".out")
+    args = ctx.actions.args()
+    args.add(ctx.files.src[0])
+    ctx.actions.run(
+        outputs = [],
+        inputs = ctx.files.src,
+        executable = ctx.executable.tool,
+        arguments = [args],
+        stdout = out,
+        mnemonic = "Capture",
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+capture = rule(
+    implementation = _capture_impl,
+    attrs = {
+        "src": attr.label(allow_files = True, mandatory = True),
+        "tool": attr.label(
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
+        ),
+    },
+)
+EOF
+
+  cat > pkg/cat_tool.sh <<'EOF'
+#!/bin/bash
+cat "$1"
+EOF
+  chmod +x pkg/cat_tool.sh
+
+  cat > pkg/BUILD <<'EOF'
+load(":defs.bzl", "capture", "gen")
+
+gen(name = "gen")
+
+capture(
+    name = "captured",
+    src = ":gen",
+    tool = "cat_tool.sh",
+)
+
+COMMAND = """
+[[ "$$(cat $(execpaths :captured))" == "hello-from-stdout" ]] || exit 1
+touch $@
+"""
+
+genrule(
+    name = "validate_target",
+    outs = ["out_target"],
+    cmd = COMMAND,
+    srcs = [":captured"],
+)
+
+genrule(
+    name = "validate_exec",
+    outs = ["out_exec"],
+    cmd = COMMAND,
+    tools = [":captured"],
+)
+EOF
+
+  # The Capture action takes the generated gen.txt as an input whose
+  # config-dependent path appears in its arguments, so its cache key only
+  # matches across configurations with path stripping.
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:validate_target &> $TEST_log || fail "build failed unexpectedly"
+  expect_not_log 'remote cache hit'
+  # The tool's stdout is captured into the output, not reported as regular
+  # action output.
+  expect_not_log 'hello-from-stdout'
+
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:validate_exec &> $TEST_log || fail "build failed unexpectedly"
+  # The Capture action in the exec configuration gets a cache hit thanks to
+  # path stripping, with its stdout reconstructed at the exec config's output
+  # path (validated by the genrule).
+  expect_log '1 remote cache hit'
+  expect_not_log 'hello-from-stdout'
+}
+
+function test_path_stripping_deduplicated_action_with_stdout_capture() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_deduplicated_action_with_stdout_capture on Windows as it requires sandboxing"
+    return
+  fi
+
+  mkdir -p pkg
+  cat > pkg/defs.bzl <<'EOF'
+def _gen_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".txt")
+    ctx.actions.write(out, "hello-from-stdout")
+    return [DefaultInfo(files = depset([out]))]
+
+gen = rule(implementation = _gen_impl)
+
+def _capture_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".out")
+    args = ctx.actions.args()
+    args.add(ctx.files.src[0])
+    ctx.actions.run(
+        outputs = [],
+        inputs = ctx.files.src,
+        executable = ctx.executable.tool,
+        arguments = [args],
+        stdout = out,
+        mnemonic = "Capture",
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+capture = rule(
+    implementation = _capture_impl,
+    attrs = {
+        "src": attr.label(allow_files = True, mandatory = True),
+        "tool": attr.label(
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
+        ),
+    },
+)
+EOF
+
+  cat > pkg/slow_cat_tool.sh <<'EOF'
+#!/bin/bash
+# Sleep to ensure that the two Capture actions are scheduled in parallel.
+sleep 3
+cat "$1"
+EOF
+  chmod +x pkg/slow_cat_tool.sh
+
+  cat > pkg/BUILD <<'EOF'
+load(":defs.bzl", "capture", "gen")
+
+gen(name = "gen")
+
+capture(
+    name = "captured",
+    src = ":gen",
+    tool = "slow_cat_tool.sh",
+)
+
+COMMAND = """
+[[ "$$(cat $(execpaths :captured))" == "hello-from-stdout" ]] || exit 1
+touch $@
+"""
+
+genrule(
+    name = "validate_target",
+    outs = ["out_target"],
+    cmd = COMMAND,
+    srcs = [":captured"],
+)
+
+genrule(
+    name = "validate_exec",
+    outs = ["out_exec"],
+    cmd = COMMAND,
+    tools = [":captured"],
+)
+EOF
+
+  # Both Capture actions (target and exec configuration) run in parallel and
+  # have identical cache keys under path stripping.
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:validate_target //pkg:validate_exec &> $TEST_log \
+    || fail "build failed unexpectedly"
+  # One of the two Capture actions is deduplicated against the other, with its
+  # stdout output populated from the winner's captured stdout (validated by
+  # the genrules).
+  expect_log '1 deduplicated'
+  # The captured stdout is not reported as regular action output, not even for
+  # the deduplicated action.
+  expect_not_log 'hello-from-stdout'
+}
+
 
 run_suite "path mapping tests"

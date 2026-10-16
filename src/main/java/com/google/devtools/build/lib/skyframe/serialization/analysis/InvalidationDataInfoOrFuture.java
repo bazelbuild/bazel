@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.function.BiConsumer;
 

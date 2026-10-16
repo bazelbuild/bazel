@@ -4,7 +4,7 @@ load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:public"],
 )
 
 proto_library(
@@ -12,18 +12,41 @@ proto_library(
     srcs = ["analysis_cache_service_metadata_status.proto"],
 )
 
+proto_library(
+    name = "analysis_cache_service_miss_reason_proto",
+    srcs = ["analysis_cache_service_miss_reason.proto"],
+)
+
 java_proto_library(
     name = "analysis_cache_service_metadata_status_java_proto",
     deps = [":analysis_cache_service_metadata_status_proto"],
 )
 
+java_proto_library(
+    name = "analysis_cache_service_miss_reason_java_proto",
+    deps = [":analysis_cache_service_miss_reason_proto"],
+)
+
 java_library_srcs(
-    name = "dist_jars",
+    name = "metadata_status_dist_jars",
     deps = [":analysis_cache_service_metadata_status_java_proto"],
+)
+
+java_library_srcs(
+    name = "miss_reason_dist_jars",
+    deps = [":analysis_cache_service_miss_reason_java_proto"],
+)
+
+filegroup(
+    name = "dist_jars",
+    srcs = [
+        ":metadata_status_dist_jars",
+        ":miss_reason_dist_jars",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
 )

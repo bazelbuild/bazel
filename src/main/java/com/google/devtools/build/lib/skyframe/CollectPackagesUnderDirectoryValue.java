@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -53,11 +53,10 @@ import javax.annotation.Nullable;
  */
 public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   @VisibleForSerialization
-  protected final ImmutableMap<RootedPath, Boolean>
-      subdirectoryTransitivelyContainsPackagesOrErrors;
+  protected final ImmutableList<RootedPath> subdirectoryTransitivelyContainsPackagesOrErrors;
 
   CollectPackagesUnderDirectoryValue(
-      ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors) {
+      ImmutableList<RootedPath> subdirectoryTransitivelyContainsPackagesOrErrors) {
     this.subdirectoryTransitivelyContainsPackagesOrErrors =
         Preconditions.checkNotNull(subdirectoryTransitivelyContainsPackagesOrErrors);
   }
@@ -67,14 +66,13 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
       extends CollectPackagesUnderDirectoryValue {
     @SerializationConstant
     public static final NoErrorCollectPackagesUnderDirectoryValue EMPTY =
-        new NoErrorCollectPackagesUnderDirectoryValue(
-            false, ImmutableMap.<RootedPath, Boolean>of());
+        new NoErrorCollectPackagesUnderDirectoryValue(false, ImmutableList.<RootedPath>of());
 
     private final boolean isDirectoryPackage;
 
     private NoErrorCollectPackagesUnderDirectoryValue(
         boolean isDirectoryPackage,
-        ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors) {
+        ImmutableList<RootedPath> subdirectoryTransitivelyContainsPackagesOrErrors) {
       super(subdirectoryTransitivelyContainsPackagesOrErrors);
       this.isDirectoryPackage = isDirectoryPackage;
     }
@@ -129,7 +127,7 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
 
     ErrorCollectPackagesUnderDirectoryValue(
         String errorMessage,
-        ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors) {
+        ImmutableList<RootedPath> subdirectoryTransitivelyContainsPackagesOrErrors) {
       super(subdirectoryTransitivelyContainsPackagesOrErrors);
       this.errorMessage = Preconditions.checkNotNull(errorMessage);
     }
@@ -180,7 +178,7 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
    */
   public static CollectPackagesUnderDirectoryValue ofError(
       String errorMessage,
-      ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors) {
+      ImmutableList<RootedPath> subdirectoryTransitivelyContainsPackagesOrErrors) {
     Preconditions.checkNotNull(errorMessage, "errorMessage");
     return new ErrorCollectPackagesUnderDirectoryValue(
         errorMessage, subdirectoryTransitivelyContainsPackagesOrErrors);
@@ -192,7 +190,7 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
    */
   public static CollectPackagesUnderDirectoryValue ofNoError(
       boolean isDirectoryPackage,
-      ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors) {
+      ImmutableList<RootedPath> subdirectoryTransitivelyContainsPackagesOrErrors) {
     if (!isDirectoryPackage && subdirectoryTransitivelyContainsPackagesOrErrors.isEmpty()) {
       return NoErrorCollectPackagesUnderDirectoryValue.EMPTY;
     }
@@ -215,14 +213,14 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   public abstract String getErrorMessage();
 
   /**
-   * Returns an {@link ImmutableMap} describing each immediate subdirectory of this directory and
-   * whether there are any packages, or BUILD files that couldn't be loaded, in or beneath that
-   * subdirectory.
+   * Returns an {@link ImmutableList} describing the RootedPath of each immediate subdirectory of
+   * this directory that contains any packages, or BUILD files that couldn't be loaded, in or
+   * beneath that subdirectory.
    */
-  public final ImmutableMap<RootedPath, Boolean>
-      getSubdirectoryTransitivelyContainsPackagesOrErrors() {
+  public final ImmutableList<RootedPath> getSubdirectoryTransitivelyContainsPackagesOrErrors() {
     return subdirectoryTransitivelyContainsPackagesOrErrors;
   }
+
 
   /** Create a collect packages under directory request. */
   @ThreadSafe

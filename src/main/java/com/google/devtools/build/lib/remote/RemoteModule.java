@@ -62,16 +62,13 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.CombinedCacheClientFactory.CombinedCacheClient;
 import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
-import com.google.devtools.build.lib.remote.Retrier.ResultClassifier;
-import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
-import com.google.devtools.build.lib.remote.http.DownloadTimeoutException;
-import com.google.devtools.build.lib.remote.http.HttpException;
+import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -82,6 +79,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -96,7 +94,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -116,23 +113,19 @@ import com.google.devtools.common.options.RegexPatternOption;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
-import io.netty.handler.codec.DecoderException;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.channels.ClosedChannelException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -140,12 +133,15 @@ public final class RemoteModule extends BlazeModule {
   private final ListeningScheduledExecutorService retryScheduler =
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
+  private final ThreadPoolExecutor executorService;
+  // TODO: Remove this set when whole-invocation retries no longer handle lost action inputs.
+  // RemoteExecutionService skips cache lookup for rewound actions instead.
   private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
+  private final ChunkLocationMap chunkLocationMap = new ChunkLocationMap();
   private boolean useRemoteRepoContentsCache;
 
   @Nullable private PathFragment outputBase;
   @Nullable private AsynchronousMessageOutputStream<LogEntry> rpcLogFile;
-  @Nullable private ExecutorService executorService;
   @Nullable private RemoteActionContextProvider actionContextProvider;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private RemoteOptions remoteOptions;
@@ -164,14 +160,16 @@ public final class RemoteModule extends BlazeModule {
             String target,
             String proxy,
             AuthAndTLSOptions options,
-            List<ClientInterceptor> interceptors)
+            List<ClientInterceptor> interceptors,
+            Map<String, ?> serviceConfig)
             throws IOException {
           return GoogleAuthUtils.newChannel(
               executorService,
               target,
               proxy,
               options,
-              interceptors.isEmpty() ? null : interceptors);
+              interceptors.isEmpty() ? null : interceptors,
+              serviceConfig);
         }
       };
 
@@ -181,9 +179,22 @@ public final class RemoteModule extends BlazeModule {
   private final RepositoryRemoteHelpersFactoryDelegate repositoryRemoteHelpersFactoryDelegate =
       new RepositoryRemoteHelpersFactoryDelegate();
 
-  private Downloader remoteDownloader;
+  @Nullable private GrpcRemoteDownloader remoteDownloader;
 
   private CredentialModule credentialModule;
+
+  public RemoteModule() {
+    int defaultJobs = Options.getDefaults(BuildRequestOptions.class).getJobs();
+    executorService =
+        new ThreadPoolExecutor(
+            defaultJobs,
+            defaultJobs,
+            60L,
+            SECONDS,
+            new LinkedBlockingQueue<>(),
+            new ThreadFactoryBuilder().setNameFormat("remote-executor-%d").build());
+    executorService.allowCoreThreadTimeOut(true);
+  }
 
   @Override
   public ImmutableList<Class<? extends OptionsBase>> getStartupOptions() {
@@ -191,10 +202,11 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
-  public void globalInit(OptionsParsingResult startupOptions) {
-    outputBase = startupOptions.getOptions(BlazeServerStartupOptions.class).outputBase;
+  public void globalInit(
+      OptionsParsingResult startupOptions, Iterable<BlazeService> blazeServices) {
+    outputBase = startupOptions.getOptions(BlazeServerStartupOptions.class).getOutputBase();
     useRemoteRepoContentsCache =
-        startupOptions.getOptions(RemoteStartupOptions.class).useRemoteRepoContentsCache;
+        startupOptions.getOptions(RemoteStartupOptions.class).getUseRemoteRepoContentsCache();
   }
 
   @Nullable
@@ -216,61 +228,27 @@ public final class RemoteModule extends BlazeModule {
 
   /** Returns whether remote execution should be enabled. */
   public static boolean shouldEnableRemoteExecution(RemoteOptions options) {
-    return !Strings.isNullOrEmpty(options.remoteExecutor);
+    return !Strings.isNullOrEmpty(options.getRemoteExecutor());
   }
 
   /** Returns whether the remote downloader should be enabled. */
   private static boolean shouldEnableRemoteDownloader(RemoteOptions options) {
-    return !Strings.isNullOrEmpty(options.remoteDownloader);
+    return !Strings.isNullOrEmpty(options.getRemoteDownloader());
   }
 
   /** Returns whether the remote output service should be enabled. */
   private static boolean shouldEnableRemoteOutputService(RemoteOptions options) {
-    return !Strings.isNullOrEmpty(options.remoteOutputService);
+    return !Strings.isNullOrEmpty(options.getRemoteOutputService());
   }
-
-  public static final ResultClassifier HTTP_RESULT_CLASSIFIER =
-      e -> {
-        boolean retry = false;
-        if (e instanceof ClosedChannelException) {
-          retry = true;
-        } else if (e instanceof DownloadTimeoutException) {
-          retry = true;
-        } else if (e instanceof HttpException httpException) {
-          int status = httpException.response().status().code();
-          if (status == HttpResponseStatus.NOT_FOUND.code()) {
-            return Result.SUCCESS;
-          }
-          retry =
-              status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
-                  || status == HttpResponseStatus.BAD_GATEWAY.code()
-                  || status == HttpResponseStatus.SERVICE_UNAVAILABLE.code()
-                  || status == HttpResponseStatus.GATEWAY_TIMEOUT.code();
-        } else if (e instanceof IOException) {
-          String msg = Ascii.toLowerCase(e.getMessage());
-          if (msg.contains("connection reset")) {
-            retry = true;
-          } else if (msg.contains("operation timed out")) {
-            retry = true;
-          }
-        } else {
-          // Workaround for a netty bug: https://github.com/netty/netty/issues/11815. Remove this
-          // once it is fixed in the upstream.
-          if (e instanceof DecoderException
-              && e.getMessage().endsWith("functions:OPENSSL_internal:BAD_DECRYPT")) {
-            retry = true;
-          }
-        }
-        return retry ? Result.TRANSIENT_FAILURE : Result.PERMANENT_FAILURE;
-      };
 
   private void initHttpAndDiskCache(
       CommandEnvironment env,
       Credentials credentials,
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions,
+      @Nullable PathFragment diskCachePath,
       DigestUtil digestUtil,
-      ExecutorService executorService) {
+      boolean checkDiskCacheActionResultIntegrity) {
     CombinedCacheClient combinedCacheClient;
     Retrier.CircuitBreaker circuitBreaker =
         CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
@@ -278,13 +256,17 @@ public final class RemoteModule extends BlazeModule {
       combinedCacheClient =
           CombinedCacheClientFactory.create(
               remoteOptions,
+              diskCachePath,
               credentials,
               authAndTlsOptions,
               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
               digestUtil,
-              executorService,
               new RemoteRetrier(
-                  remoteOptions, HTTP_RESULT_CLASSIFIER, retryScheduler, circuitBreaker));
+                  remoteOptions,
+                  HttpCacheClient.HTTP_RESULT_CLASSIFIER,
+                  retryScheduler,
+                  circuitBreaker),
+              checkDiskCacheActionResultIntegrity);
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
       return;
@@ -293,8 +275,10 @@ public final class RemoteModule extends BlazeModule {
         new CombinedCache(
             combinedCacheClient.remoteCacheClient(),
             combinedCacheClient.diskCacheClient(),
-            Strings.emptyToNull(remoteOptions.remoteDownloadSymlinkTemplate),
-            digestUtil);
+            Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
+            digestUtil,
+            remoteOptions.getEffectiveChunkingFunction(),
+            chunkLocationMap);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
             env,
@@ -314,7 +298,7 @@ public final class RemoteModule extends BlazeModule {
     }
     var coreOptions = env.getOptions().getOptions(CoreOptions.class);
     var outputPermissions =
-        coreOptions != null && coreOptions.experimentalWritableOutputs
+        coreOptions != null && coreOptions.getExperimentalWritableOutputs()
             ? OutputPermissions.WRITABLE
             : OutputPermissions.READONLY;
     return new RemoteActionInputFetcher(
@@ -331,6 +315,44 @@ public final class RemoteModule extends BlazeModule {
         outputPermissions);
   }
 
+  /**
+   * Initializes the repository remote helpers factory and primes the {@link
+   * RemoteExternalOverlayFileSystem} (when one is in use) with the per-build state it needs.
+   */
+  private void initRepoHelpersAndOverlayFs(
+      CommandEnvironment env, String buildRequestId, String invocationId, boolean verboseFailures) {
+    if (actionContextProvider == null) {
+      return;
+    }
+    CombinedCache combinedCache = actionContextProvider.getCombinedCache();
+    if (combinedCache == null) {
+      return;
+    }
+    repositoryRemoteHelpersFactoryDelegate.init(
+        new RepositoryRemoteHelpersFactoryImpl(
+            env.getDirectories(),
+            combinedCache,
+            actionContextProvider.getRemoteExecutionClient(),
+            buildRequestId,
+            invocationId,
+            env.getWorkspaceName(),
+            remoteOptions.getRemoteInstanceName(),
+            remoteOptions.getRemoteAcceptCached(),
+            remoteOptions.getRemoteUploadLocalResults(),
+            verboseFailures));
+    if (env.getDirectories().getOutputBase().getFileSystem()
+        instanceof RemoteExternalOverlayFileSystem remoteFs) {
+      remoteFs.beforeCommand(
+          combinedCache,
+          actionInputFetcher,
+          env.getReporter(),
+          buildRequestId,
+          invocationId,
+          env.getSkyframeExecutor().getEvaluator(),
+          remoteOptions.getRemoteCacheTtl());
+    }
+  }
+
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
@@ -339,6 +361,26 @@ public final class RemoteModule extends BlazeModule {
     blockWaitingModule =
         Preconditions.checkNotNull(runtime.getBlazeModule(BlockWaitingModule.class));
     credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
+  }
+
+  /**
+   * Opens the gRPC log at {@code path} for writing.
+   *
+   * <p>When the command is retried in-process after a transient remote cache error (see {@code
+   * --experimental_remote_cache_eviction_retries}), {@code attemptNumber} is greater than 1 and the
+   * log written by the previous attempt is still at {@code path}. Truncating it would discard the
+   * log of the very attempt that hit the cache eviction, which is exactly the one worth debugging.
+   * Instead, rename the existing file to {@code <path>.<previous attempt number>} so every
+   * attempt's log is preserved. See https://github.com/bazelbuild/bazel/issues/18695.
+   */
+  @VisibleForTesting
+  static AsynchronousMessageOutputStream<LogEntry> openRpcLogFile(Path path, int attemptNumber)
+      throws IOException {
+    if (attemptNumber > 1 && path.exists()) {
+      path.renameTo(
+          path.getParentDirectory().getChild(path.getBaseName() + "." + (attemptNumber - 1)));
+    }
+    return new AsynchronousMessageOutputStream<>(path);
   }
 
   @Override
@@ -352,17 +394,37 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(outputService == null, "remoteOutputService must be null");
 
     if ("clean".equals(env.getCommandName())) {
+      chunkLocationMap.clear();
       knownMissingCasDigests.clear();
     }
 
+    var cacheAvailable = setup(env);
+    if (!cacheAvailable) {
+      if (env.getDirectories().getOutputBase().getFileSystem()
+          instanceof RemoteExternalOverlayFileSystem remoteFs) {
+        remoteFs.notifyNoCacheAvailable(env.getSkyframeExecutor().getEvaluator());
+      }
+    }
+  }
+
+  /**
+   * Sets up all requested remote functionality (caching, execution, downloader, ...) and returns
+   * whether any cache (disk or remote) is enabled.
+   */
+  private boolean setup(CommandEnvironment env) throws AbruptExitException {
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
       // Quit if no supported command is being used. See getCommandOptions for details.
-      return;
+      return false;
     }
 
     this.remoteOptions = remoteOptions;
     this.env = env;
+
+    // Resolve default disk cache location from --disk_cache / --disk_cache=true, etc.
+    PathFragment diskCachePath =
+        remoteOptions.getDiskCachePath(
+            env.getDirectories().getServerDirectories().getOutputUserRoot());
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
@@ -371,25 +433,25 @@ public final class RemoteModule extends BlazeModule {
     boolean verboseFailures = false;
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     if (executionOptions != null) {
-      verboseFailures = executionOptions.verboseFailures;
+      verboseFailures = executionOptions.getVerboseFailures();
     }
 
     // If --remote_cache is empty but --remote_executor is not, reuse the latter for the former.
-    if (!Strings.isNullOrEmpty(remoteOptions.remoteExecutor)
-        && Strings.isNullOrEmpty(remoteOptions.remoteCache)) {
-      remoteOptions.remoteCache = remoteOptions.remoteExecutor;
+    if (!Strings.isNullOrEmpty(remoteOptions.getRemoteExecutor())
+        && Strings.isNullOrEmpty(remoteOptions.getRemoteCache())) {
+      remoteOptions.setRemoteCache(remoteOptions.getRemoteExecutor());
     }
 
     if (shouldEnableRemoteOutputService(remoteOptions)) {
-      if (CombinedCacheClientFactory.isDiskCache(remoteOptions)) {
-        remoteOptions.diskCache = null;
+      if (diskCachePath != null) {
+        diskCachePath = null;
         env.getReporter()
             .handle(
                 Event.warn(
                     "--disk_cache is ignored when --experimental_remote_output_service is set."));
       }
 
-      if (Strings.isNullOrEmpty(remoteOptions.remoteCache)) {
+      if (Strings.isNullOrEmpty(remoteOptions.getRemoteCache())) {
         throw createOptionsExitException(
             "--experimental_remote_output_service must be used in combination with one of"
                 + " --remote_cache or --remote_executor.",
@@ -397,7 +459,7 @@ public final class RemoteModule extends BlazeModule {
       }
     }
 
-    boolean enableDiskCache = CombinedCacheClientFactory.isDiskCache(remoteOptions);
+    boolean enableDiskCache = diskCachePath != null;
     boolean enableHttpCache = CombinedCacheClientFactory.isHttpCache(remoteOptions);
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
     boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
@@ -419,7 +481,7 @@ public final class RemoteModule extends BlazeModule {
             "Failed to resolve output base: %s".formatted(e.getMessage()),
             FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
       }
-      Path resolvedDiskCache = env.getWorkingDirectory().getRelative(remoteOptions.diskCache);
+      Path resolvedDiskCache = env.getWorkingDirectory().getRelative(diskCachePath);
       try {
         resolvedDiskCache = resolvedDiskCache.resolveSymbolicLinks();
       } catch (FileNotFoundException ignored) {
@@ -437,7 +499,8 @@ public final class RemoteModule extends BlazeModule {
             FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
       }
       var gcIdleTask =
-          DiskCacheGarbageCollectorIdleTask.create(remoteOptions, env.getWorkingDirectory());
+          DiskCacheGarbageCollectorIdleTask.create(
+              remoteOptions, diskCachePath, env.getWorkingDirectory());
       if (gcIdleTask != null) {
         env.addIdleTask(gcIdleTask);
       }
@@ -456,7 +519,7 @@ public final class RemoteModule extends BlazeModule {
       actionContextProvider =
           RemoteActionContextProvider.createForPlaceholder(
               env, retryScheduler, digestUtil, knownMissingCasDigests);
-      return;
+      return false;
     }
 
     if (enableHttpCache && enableRemoteExecution) {
@@ -465,7 +528,7 @@ public final class RemoteModule extends BlazeModule {
           FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
     }
 
-    boolean enableScrubbing = remoteOptions.scrubber != null;
+    boolean enableScrubbing = remoteOptions.getScrubber() != null;
     if (enableScrubbing && enableRemoteExecution) {
       env.getReporter()
           .handle(
@@ -486,18 +549,16 @@ public final class RemoteModule extends BlazeModule {
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
-    ImmutableList.Builder<Predicate<String>> patternsToDownloadBuilder = ImmutableList.builder();
-    if (remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL) {
-      for (RegexPatternOption patternOption : remoteOptions.remoteDownloadRegex) {
-        patternsToDownloadBuilder.add(patternOption.matcher());
-      }
-    }
+    ImmutableList<RegexPatternOption> downloadRegexes =
+        remoteOptions.getRemoteOutputsMode() != RemoteOutputsMode.ALL
+            ? ImmutableList.copyOf(remoteOptions.getRemoteDownloadRegex())
+            : ImmutableList.of();
 
     remoteOutputChecker =
         new RemoteOutputChecker(
             env.getCommandName(),
-            remoteOptions.remoteOutputsMode,
-            patternsToDownloadBuilder.build(),
+            remoteOptions.getRemoteOutputsMode(),
+            downloadRegexes,
             lastRemoteOutputChecker);
     remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
 
@@ -516,21 +577,16 @@ public final class RemoteModule extends BlazeModule {
     BuildRequestOptions buildRequestOptions =
         env.getOptions().getOptions(BuildRequestOptions.class);
 
-    int jobs = 0;
+    // Commands that do not support --jobs retain the previously configured pool size.
     if (buildRequestOptions != null) {
-      jobs = buildRequestOptions.jobs;
-    }
-
-    ThreadFactory threadFactory =
-        new ThreadFactoryBuilder().setNameFormat("remote-executor-%d").build();
-    if (jobs != 0) {
-      ThreadPoolExecutor tpe =
-          new ThreadPoolExecutor(
-              jobs, jobs, 60L, SECONDS, new LinkedBlockingQueue<>(), threadFactory);
-      tpe.allowCoreThreadTimeOut(true);
-      executorService = tpe;
-    } else {
-      executorService = Executors.newCachedThreadPool(threadFactory);
+      int jobs = buildRequestOptions.getJobs();
+      // Raise the maximum first when growing, and lower the core size first when shrinking, to pass
+      // checks in ThreadPoolExecutor.
+      if (jobs > executorService.getMaximumPoolSize()) {
+        executorService.setMaximumPoolSize(jobs);
+      }
+      executorService.setCorePoolSize(jobs);
+      executorService.setMaximumPoolSize(jobs);
     }
 
     Credentials credentials;
@@ -540,8 +596,8 @@ public final class RemoteModule extends BlazeModule {
               CredentialHelperEnvironment.newBuilder()
                   .setEventReporter(env.getReporter())
                   .setWorkspacePath(env.getWorkspace())
-                  .setClientEnvironment(env.getClientEnv())
-                  .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+                  .setClientEnvironment(env::getClientEnv)
+                  .setHelperExecutionTimeout(authAndTlsOptions.getCredentialHelperTimeout())
                   .build(),
               credentialModule.getCredentialCache(),
               env.getCommandLinePathFactory(),
@@ -550,16 +606,16 @@ public final class RemoteModule extends BlazeModule {
               remoteOptions);
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
-      return;
+      return false;
     }
 
     int maxConcurrencyPerConnection = 0;
-    if (remoteOptions.remoteMaxConcurrencyPerConnection > 0) {
-      maxConcurrencyPerConnection = remoteOptions.remoteMaxConcurrencyPerConnection;
+    if (remoteOptions.getRemoteMaxConcurrencyPerConnection() > 0) {
+      maxConcurrencyPerConnection = remoteOptions.getRemoteMaxConcurrencyPerConnection();
     }
     int maxConnections = 0;
-    if (remoteOptions.remoteMaxConnections > 0) {
-      maxConnections = remoteOptions.remoteMaxConnections;
+    if (remoteOptions.getRemoteMaxConnections() > 0) {
+      maxConnections = remoteOptions.getRemoteMaxConnections();
     }
 
     Retrier.CircuitBreaker circuitBreaker =
@@ -569,9 +625,27 @@ public final class RemoteModule extends BlazeModule {
             remoteOptions,
             RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
             retryScheduler,
-            circuitBreaker);
+            circuitBreaker,
+            // Resolved lazily: rpcLogFile is created further below, after this retrier.
+            () -> rpcLogFile);
 
-    if (!Strings.isNullOrEmpty(remoteOptions.remoteOutputService)) {
+    ImmutableMap<String, ?> remoteGrpcServiceConfig;
+    try {
+      remoteGrpcServiceConfig =
+          RemoteGrpcServiceConfig.create(remoteOptions, env.getWorkingDirectory());
+    } catch (IOException e) {
+      throw createOptionsExitException(
+          "Invalid --remote_grpc_service_config: " + e.getMessage(),
+          FailureDetails.RemoteOptions.Code.REMOTE_GRPC_SERVICE_CONFIG_INVALID);
+    }
+    ClientInterceptor downloadIdleTimeoutInterceptor = null;
+    if (!remoteOptions.getRemoteGrpcDownloadIdleTimeout().isZero()) {
+      downloadIdleTimeoutInterceptor =
+          new RemoteDownloadIdleTimeoutInterceptor(
+              remoteOptions.getRemoteGrpcDownloadIdleTimeout(), retryScheduler);
+    }
+
+    if (!Strings.isNullOrEmpty(remoteOptions.getRemoteOutputService())) {
       var bazelOutputServiceChannel =
           createChannel(
               executorService,
@@ -580,12 +654,13 @@ public final class RemoteModule extends BlazeModule {
               Options.getDefaults(AuthAndTLSOptions.class),
               null,
               null,
+              downloadIdleTimeoutInterceptor,
+              remoteGrpcServiceConfig,
               channelFactory,
-              remoteOptions.remoteOutputService,
+              remoteOptions.getRemoteOutputService(),
               null,
               maxConcurrencyPerConnection,
               maxConnections,
-              verboseFailures,
               env.getReporter(),
               null,
               digestUtil.getDigestFunction(),
@@ -596,37 +671,56 @@ public final class RemoteModule extends BlazeModule {
               env.getOutputBase(),
               env::getExecRoot,
               () -> env.getDirectories().getOutputPath(env.getWorkspaceName()),
-              digestUtil.getDigestFunction(),
-              remoteOptions.remoteCache,
-              remoteOptions.remoteInstanceName,
-              remoteOptions.remoteOutputServiceOutputPathPrefix,
+              digestUtil,
+              remoteOptions.getRemoteCache(),
+              remoteOptions.getRemoteInstanceName(),
+              remoteOptions.getRemoteOutputServiceOutputPathPrefix(),
+              remoteOptions.getMaxOutboundMessageSize(),
               verboseFailures,
               retrier,
               bazelOutputServiceChannel,
               lastBuildId);
     } else {
-      outputService = new RemoteOutputService(env.getDirectories());
+      outputService =
+          new RemoteOutputService(
+              env.getDirectories(),
+              buildRequestOptions != null && buildRequestOptions.getRewindLostInputs());
     }
+
+    // Verifying that the blobs referenced by a disk cache action result are present locally turns
+    // most disk cache hits into misses when Build without the Bytes is enabled, as outputs aren't
+    // downloaded and thus never added to the disk cache's CAS. With action rewinding, a blob that
+    // is missing after all is cheap to recover from, so the check can be skipped. This allows disk
+    // cache AC checks to be entirely local, reducing server load and avoiding a network round trip.
+    boolean checkDiskCacheActionResultIntegrity =
+        buildRequestOptions == null || !buildRequestOptions.getRewindLostInputs();
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
       initHttpAndDiskCache(
-          env, credentials, authAndTlsOptions, remoteOptions, digestUtil, executorService);
-      return;
+          env,
+          credentials,
+          authAndTlsOptions,
+          remoteOptions,
+          diskCachePath,
+          digestUtil,
+          checkDiskCacheActionResultIntegrity);
+      initRepoHelpersAndOverlayFs(env, buildRequestId, invocationId, verboseFailures);
+      return true;
     }
 
     ClientInterceptor loggingInterceptor = null;
-    if (remoteOptions.remoteGrpcLog != null) {
+    if (remoteOptions.getRemoteGrpcLog() != null) {
       try {
         rpcLogFile =
-            new AsynchronousMessageOutputStream<>(
-                env.getWorkingDirectory().getRelative(remoteOptions.remoteGrpcLog));
+            openRpcLogFile(
+                env.getWorkingDirectory().getRelative(remoteOptions.getRemoteGrpcLog()),
+                env.getAttemptNumber());
       } catch (IOException e) {
         handleInitFailure(env, e, Code.RPC_LOG_FAILURE);
-        return;
+        return false;
       }
       loggingInterceptor = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
     }
-
     CallCredentialsProvider callCredentialsProvider =
         GoogleAuthUtils.newCallCredentialsProvider(credentials);
     CallCredentials callCredentials = callCredentialsProvider.getCallCredentials();
@@ -635,9 +729,8 @@ public final class RemoteModule extends BlazeModule {
         new RemoteServerCapabilities(
             buildRequestId,
             invocationId,
-            remoteOptions.remoteInstanceName,
+            remoteOptions.getRemoteInstanceName(),
             callCredentials,
-            remoteOptions.remoteTimeout.toSeconds(),
             retrier);
 
     ReferenceCountedChannel execChannel = null;
@@ -653,20 +746,22 @@ public final class RemoteModule extends BlazeModule {
       if (enableRemoteExecution) {
         // Create a separate channel if --remote_executor and --remote_cache point to different
         // endpoints.
-        if (remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
+        if (remoteOptions.getRemoteCache().equals(remoteOptions.getRemoteExecutor())) {
           execChannel =
               createChannel(
                   executorService,
                   remoteOptions,
                   authAndTlsOptions,
-                  TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions),
+                  TracingMetadataUtils.newExecHeadersInterceptor(
+                      remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteExecHeaders()),
                   loggingInterceptor,
+                  downloadIdleTimeoutInterceptor,
+                  remoteGrpcServiceConfig,
                   channelFactory,
-                  remoteOptions.remoteExecutor,
-                  remoteOptions.remoteProxy,
+                  remoteOptions.getRemoteExecutor(),
+                  remoteOptions.getRemoteProxy(),
                   maxConcurrencyPerConnection,
                   maxConnections,
-                  verboseFailures,
                   env.getReporter(),
                   rsc,
                   digestUtil.getDigestFunction(),
@@ -678,14 +773,16 @@ public final class RemoteModule extends BlazeModule {
                   executorService,
                   remoteOptions,
                   authAndTlsOptions,
-                  TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions),
+                  TracingMetadataUtils.newExecHeadersInterceptor(
+                      remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteExecHeaders()),
                   loggingInterceptor,
+                  downloadIdleTimeoutInterceptor,
+                  remoteGrpcServiceConfig,
                   channelFactory,
-                  remoteOptions.remoteExecutor,
-                  remoteOptions.remoteProxy,
+                  remoteOptions.getRemoteExecutor(),
+                  remoteOptions.getRemoteProxy(),
                   maxConcurrencyPerConnection,
                   maxConnections,
-                  verboseFailures,
                   env.getReporter(),
                   rsc,
                   digestUtil.getDigestFunction(),
@@ -699,14 +796,16 @@ public final class RemoteModule extends BlazeModule {
                 executorService,
                 remoteOptions,
                 authAndTlsOptions,
-                TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions),
+                TracingMetadataUtils.newCacheHeadersInterceptor(
+                    remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteCacheHeaders()),
                 loggingInterceptor,
+                downloadIdleTimeoutInterceptor,
+                remoteGrpcServiceConfig,
                 channelFactory,
-                remoteOptions.remoteCache,
-                remoteOptions.remoteProxy,
+                remoteOptions.getRemoteCache(),
+                remoteOptions.getRemoteProxy(),
                 maxConcurrencyPerConnection,
                 maxConnections,
-                verboseFailures,
                 env.getReporter(),
                 rsc,
                 digestUtil.getDigestFunction(),
@@ -726,19 +825,22 @@ public final class RemoteModule extends BlazeModule {
           diskCacheClient =
               CombinedCacheClientFactory.createDiskCache(
                   env.getWorkingDirectory(),
-                  remoteOptions,
+                  diskCachePath,
                   digestUtil,
-                  executorService,
-                  remoteOptions.remoteVerifyDownloads);
+                  checkDiskCacheActionResultIntegrity);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
-          return;
+          return false;
         }
       }
 
       RemoteRetrier execRetrier =
           new RemoteRetrier(
-              remoteOptions, RemoteRetrier.GRPC_RESULT_CLASSIFIER, retryScheduler, circuitBreaker);
+              remoteOptions,
+              RemoteRetrier.GRPC_RESULT_CLASSIFIER,
+              retryScheduler,
+              circuitBreaker,
+              () -> rpcLogFile);
       RemoteExecutionClient remoteExecutor =
           new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
       execChannel.release();
@@ -746,8 +848,10 @@ public final class RemoteModule extends BlazeModule {
           new RemoteExecutionCache(
               remoteCacheClient,
               diskCacheClient,
-              Strings.emptyToNull(remoteOptions.remoteDownloadSymlinkTemplate),
-              digestUtil);
+              Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
+              digestUtil,
+              remoteOptions.getEffectiveChunkingFunction(),
+              chunkLocationMap);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
               env,
@@ -765,13 +869,12 @@ public final class RemoteModule extends BlazeModule {
           diskCacheClient =
               CombinedCacheClientFactory.createDiskCache(
                   env.getWorkingDirectory(),
-                  remoteOptions,
+                  diskCachePath,
                   digestUtil,
-                  executorService,
-                  remoteOptions.remoteVerifyDownloads);
+                  checkDiskCacheActionResultIntegrity);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
-          return;
+          return false;
         }
       }
 
@@ -779,8 +882,10 @@ public final class RemoteModule extends BlazeModule {
           new CombinedCache(
               remoteCacheClient,
               diskCacheClient,
-              Strings.emptyToNull(remoteOptions.remoteDownloadSymlinkTemplate),
-              digestUtil);
+              Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
+              digestUtil,
+              remoteOptions.getEffectiveChunkingFunction(),
+              chunkLocationMap);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
               env,
@@ -794,26 +899,7 @@ public final class RemoteModule extends BlazeModule {
 
     actionInputFetcher = createActionInputFetcher(actionContextProvider.getCombinedCache());
 
-    repositoryRemoteHelpersFactoryDelegate.init(
-        new RepositoryRemoteHelpersFactoryImpl(
-            actionContextProvider.getCombinedCache(),
-            actionContextProvider.getRemoteExecutionClient(),
-            buildRequestId,
-            invocationId,
-            env.getWorkspaceName(),
-            remoteOptions.remoteInstanceName,
-            remoteOptions.remoteAcceptCached,
-            remoteOptions.remoteUploadLocalResults));
-    if (env.getDirectories().getOutputBase().getFileSystem()
-        instanceof RemoteExternalOverlayFileSystem remoteFs) {
-      remoteFs.beforeCommand(
-          actionContextProvider.getCombinedCache(),
-          actionInputFetcher,
-          env.getReporter(),
-          buildRequestId,
-          invocationId,
-          env.getSkyframeExecutor().getEvaluator());
-    }
+    initRepoHelpersAndOverlayFs(env, buildRequestId, invocationId, verboseFailures);
 
     buildEventArtifactUploaderFactoryDelegate.init(
         new ByteStreamBuildEventArtifactUploaderFactory(
@@ -821,17 +907,18 @@ public final class RemoteModule extends BlazeModule {
             env.getReporter(),
             verboseFailures,
             actionContextProvider.getCombinedCache(),
-            remoteOptions.remoteInstanceName,
-            remoteOptions.remoteBytestreamUriPrefix,
+            remoteOptions.getRemoteInstanceName(),
+            remoteOptions.getRemoteBytestreamUriPrefix(),
             buildRequestId,
             invocationId,
-            remoteOptions.remoteBuildEventUploadMode));
+            remoteOptions.getRemoteBuildEventUploadMode(),
+            remoteOptions.getMaximumOpenFiles()));
 
     if (enableRemoteDownloader) {
       ReferenceCountedChannel downloaderChannel;
       // Create a separate channel if --remote_downloader and --remote_cache point to different
       // endpoints.
-      if (remoteOptions.remoteDownloader.equals(remoteOptions.remoteCache)) {
+      if (remoteOptions.getRemoteDownloader().equals(remoteOptions.getRemoteCache())) {
         downloaderChannel = cacheChannel.retain();
       } else {
         downloaderChannel =
@@ -841,12 +928,13 @@ public final class RemoteModule extends BlazeModule {
                 authAndTlsOptions,
                 /* headersInterceptor= */ null,
                 loggingInterceptor,
+                downloadIdleTimeoutInterceptor,
+                remoteGrpcServiceConfig,
                 channelFactory,
-                remoteOptions.remoteDownloader,
-                remoteOptions.remoteProxy,
+                remoteOptions.getRemoteDownloader(),
+                remoteOptions.getRemoteProxy(),
                 maxConcurrencyPerConnection,
                 maxConnections,
-                verboseFailures,
                 env.getReporter(),
                 rsc,
                 digestUtil.getDigestFunction(),
@@ -865,10 +953,12 @@ public final class RemoteModule extends BlazeModule {
               remoteOptions,
               verboseFailures,
               env.getHttpDownloader(),
-              remoteOptions.remoteDownloaderLocalFallback);
+              remoteOptions.getRemoteDownloaderLocalFallback());
       downloaderChannel.release();
       env.getDownloaderDelegate().setDelegate(remoteDownloader);
     }
+
+    return true;
   }
 
   private static ReferenceCountedChannel createChannel(
@@ -877,12 +967,13 @@ public final class RemoteModule extends BlazeModule {
       AuthAndTLSOptions authAndTlsOptions,
       @Nullable ClientInterceptor headersInterceptor,
       @Nullable ClientInterceptor loggingInterceptor,
+      @Nullable ClientInterceptor downloadIdleTimeoutInterceptor,
+      Map<String, ?> serviceConfig,
       ChannelFactory channelFactory,
       String target,
       String proxy,
       int maxConcurrencyPerConnection,
       int maxConnections,
-      boolean verboseFailures,
       Reporter reporter,
       @Nullable RemoteServerCapabilities remoteServerCapabilities,
       DigestFunction.Value digestFunction,
@@ -894,6 +985,9 @@ public final class RemoteModule extends BlazeModule {
     if (loggingInterceptor != null) {
       interceptors.add(loggingInterceptor);
     }
+    if (downloadIdleTimeoutInterceptor != null) {
+      interceptors.add(downloadIdleTimeoutInterceptor);
+    }
     var channel =
         new ReferenceCountedChannel(
             new GoogleChannelConnectionFactory(
@@ -901,10 +995,10 @@ public final class RemoteModule extends BlazeModule {
                 target,
                 proxy,
                 remoteOptions,
+                serviceConfig,
                 authAndTlsOptions,
                 interceptors.build(),
                 maxConcurrencyPerConnection,
-                verboseFailures,
                 reporter,
                 remoteServerCapabilities,
                 digestFunction,
@@ -973,7 +1067,9 @@ public final class RemoteModule extends BlazeModule {
       BuildRequest request,
       BuildOptions buildOptions,
       AnalysisResult analysisResult) {
-    if (remoteOutputChecker != null) {
+    BuildRequestOptions buildRequestOptions =
+        env.getOptions().getOptions(BuildRequestOptions.class);
+    if (remoteOutputChecker != null && buildRequestOptions.getPerformExecutionPhase()) {
       remoteOutputChecker.afterAnalysis(analysisResult);
     }
   }
@@ -999,13 +1095,25 @@ public final class RemoteModule extends BlazeModule {
     // Some cleanup tasks must wait until every other BlazeModule's afterCommand() has run, as
     // otherwise we might interfere with asynchronous remote downloads that are in progress.
     RemoteActionContextProvider actionContextProviderRef = actionContextProvider;
+    GrpcRemoteDownloader remoteDownloaderRef = remoteDownloader;
     TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
     AsynchronousMessageOutputStream<LogEntry> rpcLogFileRef = rpcLogFile;
-    if (actionContextProviderRef != null || tempPathGeneratorRef != null || rpcLogFileRef != null) {
+    if (actionContextProviderRef != null
+        || remoteDownloaderRef != null
+        || tempPathGeneratorRef != null
+        || rpcLogFileRef != null) {
       blockWaitingModule.submit(
-          () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
+          () ->
+              afterCommandTask(
+                  actionContextProviderRef,
+                  remoteDownloaderRef,
+                  tempPathGeneratorRef,
+                  rpcLogFileRef));
     }
 
+    if (remoteOutputChecker != null) {
+      remoteOutputChecker.clearPreviousCommand();
+    }
     lastRemoteOutputChecker = remoteOutputChecker;
     lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
 
@@ -1028,11 +1136,16 @@ public final class RemoteModule extends BlazeModule {
 
   private static void afterCommandTask(
       @Nullable RemoteActionContextProvider actionContextProvider,
+      @Nullable GrpcRemoteDownloader remoteDownloader,
       @Nullable TempPathGenerator tempPathGenerator,
       @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile)
       throws AbruptExitException {
     if (actionContextProvider != null) {
       actionContextProvider.afterCommand();
+    }
+
+    if (remoteDownloader != null) {
+      remoteDownloader.close();
     }
 
     if (tempPathGenerator != null) {
@@ -1066,7 +1179,7 @@ public final class RemoteModule extends BlazeModule {
         Preconditions.checkNotNull(
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
     registryBuilder.setRemoteLocalFallbackStrategyIdentifier(
-        remoteOptions.remoteLocalFallbackStrategy);
+        remoteOptions.getRemoteLocalFallbackStrategy());
     actionContextProvider.registerRemoteSpawnStrategy(registryBuilder);
   }
 
@@ -1083,38 +1196,37 @@ public final class RemoteModule extends BlazeModule {
     // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
     // is the last chance to download the missing toplevel outputs in this case before sending out
     // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
-    if (env.withMergedAnalysisAndExecutionSourceOfTruth()
-        && actionInputFetcher != null
-        && remoteOutputChecker != null) {
+    // Source files of repos served from the remote repo contents cache have no generating action
+    // that could download them when it is finalized, so this is the only chance for them.
+    if (actionInputFetcher != null && remoteOutputChecker != null) {
       registryBuilder.register(
           ImportantOutputHandler.class,
           new RemoteImportantOutputHandler(
-              SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()),
+              env.getSkyframeExecutor().getWalkableGraph(),
               remoteOutputChecker,
-              actionInputFetcher));
+              actionInputFetcher,
+              Preconditions.checkNotNull(outputService).getRewoundActionSynchronizer()));
     }
   }
 
   private TempPathGenerator getTempPathGenerator(CommandEnvironment env)
       throws AbruptExitException {
     Path tempDir = env.getActionTempsDirectory().getChild("remote");
-    if (tempDir.exists()) {
-      env.getReporter()
-          .handle(Event.warn("Found stale downloads from previous build, deleting..."));
-      try {
+    try {
+      if (tempDir.exists()) {
+        env.getReporter()
+            .handle(Event.warn("Found stale downloads from previous build, deleting..."));
         tempDir.deleteTree();
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        String.format("Failed to delete stale downloads: %s", e.getMessage()))
-                    .setRemoteExecution(
-                        RemoteExecution.newBuilder()
-                            .setCode(Code.DOWNLOADED_INPUTS_DELETION_FAILURE))
-                    .build()));
       }
+    } catch (IOException e) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+              FailureDetail.newBuilder()
+                  .setMessage(String.format("Failed to delete stale downloads: %s", e.getMessage()))
+                  .setRemoteExecution(
+                      RemoteExecution.newBuilder().setCode(Code.DOWNLOADED_INPUTS_DELETION_FAILURE))
+                  .build()));
     }
 
     return new TempPathGenerator(tempDir);
@@ -1139,28 +1251,50 @@ public final class RemoteModule extends BlazeModule {
       builder.setActionInputPrefetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
-      LeaseExtension leaseExtension = null;
-      if (remoteOptions.remoteCacheLeaseExtension) {
-        leaseExtension =
-            new RemoteLeaseExtension(
+      BuildRequestOptions buildRequestOptions =
+          env.getOptions().getOptions(BuildRequestOptions.class);
+      boolean rewindLostInputs =
+          buildRequestOptions != null && buildRequestOptions.getRewindLostInputs();
+      LeaseService leaseService = null;
+      if (rewindLostInputs) {
+        // Action rewinding regenerates lost inputs within the build, so there is no need for the
+        // lease service to extend leases or to discard all remote metadata after a build that
+        // encountered lost inputs.
+        if (remoteOptions.getRemoteCacheLeaseExtension()) {
+          env.getReporter()
+              .handle(
+                  Event.warn(
+                      "--experimental_remote_cache_lease_extension has no effect since"
+                          + " --rewind_lost_inputs is enabled, which recovers from lost remote"
+                          + " cache entries as they are encountered."));
+        }
+      } else {
+        LeaseExtension leaseExtension = null;
+        if (remoteOptions.getRemoteCacheLeaseExtension()) {
+          leaseExtension =
+              new RemoteLeaseExtension(
+                  env.getSkyframeExecutor().getEvaluator(),
+                  env.getBlazeWorkspace().getPersistentActionCache(),
+                  env.getBuildRequestId(),
+                  env.getCommandId().toString(),
+                  actionContextProvider.getCombinedCache(),
+                  remoteOptions.getRemoteCacheTtl());
+        }
+        leaseService =
+            new LeaseService(
                 env.getSkyframeExecutor().getEvaluator(),
-                env.getBlazeWorkspace().getPersistentActionCache(),
-                env.getBuildRequestId(),
-                env.getCommandId().toString(),
-                actionContextProvider.getCombinedCache(),
-                remoteOptions.remoteCacheTtl);
+                () -> env.getBlazeWorkspace().getPersistentActionCache(),
+                leaseExtension);
+        env.getEventBus().register(leaseService);
       }
-      var leaseService =
-          new LeaseService(
-              env.getSkyframeExecutor().getEvaluator(),
-              () -> env.getBlazeWorkspace().getPersistentActionCache(),
-              leaseExtension);
-      env.getEventBus().register(leaseService);
 
       if (outputService instanceof RemoteOutputService remoteOutputService) {
         remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
-        remoteOutputService.setActionInputFetcher(actionInputFetcher);
-        remoteOutputService.setLeaseService(leaseService);
+        remoteOutputService.setActionInputFetcher(
+            actionInputFetcher, env.getSkyframeExecutor().getWalkableGraph());
+        if (leaseService != null) {
+          remoteOutputService.setLeaseService(leaseService);
+        }
         env.getEventBus().register(outputService);
       }
     }
@@ -1168,7 +1302,8 @@ public final class RemoteModule extends BlazeModule {
     builder.setActionExecutionSalt(computeActionExecutionSalt(remoteOptions));
   }
 
-  private static String computeActionExecutionSalt(RemoteOptions remoteOptions) {
+  @VisibleForTesting
+  static String computeActionExecutionSalt(RemoteOptions remoteOptions) {
     Fingerprint fp = new Fingerprint();
 
     // When building without a remote cache following a build with one, cached actions may reference
@@ -1186,6 +1321,18 @@ public final class RemoteModule extends BlazeModule {
     // shouldn't be too bad, as we don't expect the defaults to change very often.
     fp.addStringMap(
         remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableMap.of());
+
+    // When switching cache endpoints/instances across invocations, cached remote actions reference
+    // blobs stored in the previous cache instance which cannot be downloaded from the new cache
+    // instance. See https://github.com/bazelbuild/bazel/issues/23780.
+    if (remoteOptions != null) {
+      fp.addNullableString(remoteOptions.getRemoteCache());
+      fp.addNullableString(remoteOptions.getRemoteExecutor());
+      fp.addNullableString(remoteOptions.getRemoteDownloader());
+      fp.addNullableString(remoteOptions.getRemoteInstanceName());
+      fp.addNullableString(remoteOptions.getRemoteBytestreamUriPrefix());
+      fp.addNullableString(remoteOptions.getRemoteProxy());
+    }
 
     return fp.hexDigestAndReset();
   }
@@ -1294,6 +1441,21 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @VisibleForTesting
+  RemoteOutputChecker getRemoteOutputChecker() {
+    return remoteOutputChecker;
+  }
+
+  @VisibleForTesting
+  ThreadPoolExecutor getExecutorService() {
+    return executorService;
+  }
+
+  @VisibleForTesting
+  RepositoryRemoteHelpersFactory getRepositoryRemoteHelpersFactoryDelegate() {
+    return repositoryRemoteHelpersFactoryDelegate;
+  }
+
+  @VisibleForTesting
   static Credentials createCredentials(
       CredentialHelperEnvironment credentialHelperEnvironment,
       Cache<URI, GetCredentialsResponse> credentialCache,
@@ -1311,16 +1473,16 @@ public final class RemoteModule extends BlazeModule {
             authAndTlsOptions);
 
     try {
-      if (remoteOptions.remoteCache != null
-          && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
-          && !credentials.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
+      if (remoteOptions.getRemoteCache() != null
+          && Ascii.toLowerCase(remoteOptions.getRemoteCache()).startsWith("http://")
+          && !credentials.getRequestMetadata(new URI(remoteOptions.getRemoteCache())).isEmpty()) {
         // TODO(yannic): Make this a error aborting the build.
         credentialHelperEnvironment
             .eventReporter()
             .handle(
                 Event.warn(
                     "Credentials are transmitted in plaintext to "
-                        + remoteOptions.remoteCache
+                        + remoteOptions.getRemoteCache()
                         + ". Please consider using an HTTPS endpoint."));
       }
     } catch (URISyntaxException e) {

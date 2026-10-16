@@ -27,13 +27,16 @@ import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Tuple;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -472,6 +475,31 @@ public final class BuildTypeTest {
     assertThat(result.getType()).isAssignableTo(List.class);
   }
 
+  @SuppressWarnings("unchecked") // to simplify the test
+  @Test
+  public void testSelectorList_concatenate_differentMappingTypes() throws Exception {
+    ImmutableMap<String, String> immutableMap = ImmutableMap.of("a", "//a:a", "b", "//b:b");
+    HashMap<String, String> hashMap = new HashMap<>();
+    hashMap.put("c", "//c:c");
+
+    // Creating a SelectorList from two mappings of different types should work properly.
+    SelectorList result = SelectorList.concat(immutableMap, hashMap);
+    assertThat(result).isNotNull();
+    assertThat(result.getType()).isAssignableTo(Map.class);
+    assertThat(new Printer().repr(result, StarlarkSemantics.DEFAULT).toString())
+        .isEqualTo("{\"a\": \"//a:a\", \"b\": \"//b:b\"} | {\"c\": \"//c:c\"}");
+    Object converted =
+        BuildType.selectableConvert(
+            Types.STRING_DICT,
+            result,
+            null,
+            labelConverter,
+            /* simplifyUnconditionalSelects= */ true);
+    assertThat(converted).isInstanceOf(Map.class);
+    assertThat((Map<String, String>) converted)
+        .containsExactly("a", "//a:a", "b", "//b:b", "c", "//c:c");
+  }
+
   @Test
   public void testSelectorList_concatenate_invalidType() throws Exception {
     List<String> list = ImmutableList.of("//a:a", "//b:b");
@@ -641,6 +669,49 @@ public final class BuildTypeTest {
         assertThat(exception).hasMessageThat().contains("doesn't support select concatenation");
       }
     }
+  }
+
+  @Test
+  public void starlarkMapCopyAndGetStarlarkDefault_preserveNoneValue() throws Exception {
+    SelectorValue selectorWithNone =
+        new SelectorValue(
+            ImmutableMap.of(
+                "//conditions:default",
+                Starlark.NONE,
+                "//foo:bar",
+                StarlarkList.of(null, "//tools/cpp:link_extra_lib")),
+            "");
+    Object converted =
+        BuildType.selectableConvert(
+            BuildType.LABEL_LIST,
+            SelectorList.of(selectorWithNone),
+            null,
+            labelConverter,
+            /* simplifyUnconditionalSelects= */ false);
+    BuildType.SelectorList<?> selectorList = (BuildType.SelectorList<?>) converted;
+    BuildType.Selector<?> selector = selectorList.getSelectors().get(0);
+
+    assertThat(selector.starlarkMapCopy())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//conditions:default"),
+            Starlark.NONE,
+            Label.parseCanonicalUnchecked("//foo:bar"),
+            ImmutableList.of(Label.parseCanonicalUnchecked("//tools/cpp:link_extra_lib")))
+        .inOrder();
+
+    SelectorValue unconditionalSelectorNone =
+        new SelectorValue(
+            ImmutableMap.of(BuildType.Selector.DEFAULT_CONDITION_KEY, Starlark.NONE), "");
+    Object unconditionalConverted =
+        BuildType.selectableConvert(
+            BuildType.LABEL_LIST,
+            SelectorList.of(unconditionalSelectorNone),
+            null,
+            labelConverter,
+            /* simplifyUnconditionalSelects= */ false);
+    BuildType.Selector<?> unconditionalSelector =
+        ((BuildType.SelectorList<?>) unconditionalConverted).getSelectors().get(0);
+    assertThat(unconditionalSelector.getStarlarkDefault()).isEqualTo(Starlark.NONE);
   }
 
   @Test

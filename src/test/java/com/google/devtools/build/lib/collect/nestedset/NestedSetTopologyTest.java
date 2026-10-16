@@ -168,6 +168,17 @@ public class NestedSetTopologyTest {
     assertThat(s.getApproxDepth()).isEqualTo(4);
   }
 
+  @Test
+  public void split_singletonPieceInlined() {
+    NestedSet<String> set =
+        NestedSetBuilder.<String>stableOrder().addAll(Arrays.asList("a", "b", "c")).build();
+    NestedSet<String> split = set.splitIfExceedsMaximumSize(2);
+    Object[] children = (Object[]) split.getChildren();
+    assertThat(children).hasLength(2);
+    assertThat(children[0]).isEqualTo(new Object[] {"a", "b"});
+    assertThat(children[1]).isEqualTo("c"); // Singleton becomes a leaf.
+  }
+
   private static <T> List<T> collectCheckSize(NestedSet<T> set, int maxSize) {
     return collectCheckSize(new ArrayList<>(), set, maxSize);
   }

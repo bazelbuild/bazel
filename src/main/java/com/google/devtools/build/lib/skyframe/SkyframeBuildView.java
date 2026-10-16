@@ -117,8 +117,10 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionDefinition;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -490,7 +492,7 @@ public final class SkyframeBuildView {
     // Sometimes there are action conflicts, but the actions aren't actually required to run by the
     // build. In such cases, the conflict should still be reported to the user.
     // See OutputArtifactConflictTest#unusedActionsStillConflict.
-    Set<String> reportedActionConflictExceptions = Sets.newHashSet();
+    Set<String> reportedActionConflictExceptions = new HashSet<>();
     for (Entry<ActionAnalysisMetadata, ActionConflictException> bad : actionConflicts.entrySet()) {
       ActionConflictException ace = bad.getValue();
       var detailedExitCode = ace.getDetailedExitCode();
@@ -499,9 +501,9 @@ public final class SkyframeBuildView {
         if (keepGoing) {
           eventHandler.handle(
               Event.warn(
-                  "errors encountered while analyzing target '"
-                      + bad.getKey().getOwner().getLabel()
-                      + "': it will not be built"));
+                  String.format(
+                      "errors encountered while analyzing target '%s', it will not be built.",
+                      bad.getKey().getOwner().getLabel())));
         }
       }
       if (!keepGoing) {
@@ -641,7 +643,7 @@ public final class SkyframeBuildView {
           ViewCreationFailedException,
           BuildFailedException,
           TestExecException {
-    Stopwatch analysisWorkTimer = Stopwatch.createStarted();
+    buildResultListener.setAnalysisTimer(Stopwatch.createStarted());
     EvaluationResult<SkyValue> mainEvaluationResult;
 
     var newKeys =
@@ -709,17 +711,22 @@ public final class SkyframeBuildView {
             eventBus,
             /* lowerThresholdToSignalForExecution= */ (float)
                 (topLevelKeys.size() * skymeldAnalysisOverlapPercentage / 100.0),
-            /* finisher= */ () ->
-                analysisFinishedCallback(
-                    eventBus,
-                    buildResultListener,
-                    skyframeExecutor,
-                    ctKeys,
-                    /* shouldDiscardAnalysisCache= */ shouldDiscardAnalysisCache,
-                    /* shouldClearSyscallCache= */ shouldClearSyscallCache,
-                    /* measuredAnalysisTime= */ analysisWorkTimer.stop().elapsed().toMillis(),
-                    /* conflictCheckingMode= */ conflictCheckingMode),
-            /* executionGoAheadCallback= */ executor::launchQueuedUpExecutionPhaseTasks)) {
+            /* finisher= */ () -> {
+              buildResultListener.stopAnalysisTimer();
+              analysisFinishedCallback(
+                  eventBus,
+                  buildResultListener,
+                  skyframeExecutor,
+                  ctKeys,
+                  /* shouldDiscardAnalysisCache= */ shouldDiscardAnalysisCache,
+                  /* shouldClearSyscallCache= */ shouldClearSyscallCache,
+                  /* measuredAnalysisTime= */ buildResultListener.getAnalysisPhaseTimeInMillis(),
+                  /* conflictCheckingMode= */ conflictCheckingMode);
+            },
+            /* executionGoAheadCallback= */ () -> {
+              buildResultListener.setExecutionTimer(Stopwatch.createStarted());
+              executor.launchQueuedUpExecutionPhaseTasks();
+            })) {
 
       try {
         skyframeExecutor.getIsBuildingExclusiveArtifacts().set(false);
@@ -739,6 +746,7 @@ public final class SkyframeBuildView {
                   executors.executionParallelism(),
                   executor);
         } finally {
+          buildResultListener.stopAnalysisTimer();
           if (shouldClearSyscallCache) {
             skyframeExecutor.clearSyscallCache();
           }
@@ -796,13 +804,19 @@ public final class SkyframeBuildView {
         // Coverage report generation should only be requested after all tests have executed.
         // When --nokeep_going and there's an earlier error, we should skip this and fail fast.
         if ((!mainEvaluationResult.hasError() && !hasExclusiveTestsError) || keepGoing) {
+          if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+          }
           ImmutableSet<Artifact> coverageReportArtifacts =
               coverageReportActionsWrapperSupplier.getCoverageReportArtifacts(
                   buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
           eventBus.post(CoverageArtifactsKnownEvent.create(coverageReportArtifacts));
           additionalArtifactsResult =
-              skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, Artifact.keys(coverageReportArtifacts), keepGoing);
+              skyframeExecutor.evaluate(
+                  Artifact.keys(coverageReportArtifacts),
+                  keepGoing,
+                  executors.executionParallelism(),
+                  eventHandler);
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
                 SkyframeErrorProcessor.processErrors(
@@ -819,6 +833,8 @@ public final class SkyframeBuildView {
         }
       } finally {
         // No more action execution beyond this point.
+        buildResultListener.stopExecutionTimer();
+        buildResultListener.stopAnalysisTimer();
         skyframeExecutor.clearExecutionStatesSkymeld(eventHandler);
         // Also releases thread locks.
         resourceManager.resetResourceUsage();
@@ -894,9 +910,7 @@ public final class SkyframeBuildView {
 
       return SkyframeAnalysisAndExecutionResult.withErrors(
           /* hasLoadingError= */ errorProcessingResult.hasLoadingError(),
-          // legacy behavior: action conflicts are considered analysis errors.
-          /* hasAnalysisError= */ errorProcessingResult.hasAnalysisError()
-              || foundActionConflictInLatestCheck,
+          /* hasAnalysisError= */ errorProcessingResult.hasAnalysisError(),
           /* hasActionConflicts= */ foundActionConflictInLatestCheck,
           successfulConfiguredTargets,
           mainEvaluationResult.getWalkableGraph(),
@@ -938,6 +952,9 @@ public final class SkyframeBuildView {
       clearAnalysisCache(
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getAnalyzedAspects().keySet());
+    }
+    if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode().isSyncUpload()) {
+      skyframeExecutor.clearPackageValues();
     }
 
     // At this point, it's safe to clear objects related to action conflict checking.
@@ -1036,7 +1053,7 @@ public final class SkyframeBuildView {
       boolean keepGoing)
       throws ViewCreationFailedException, InterruptedException {
     // ArtifactPrefixConflictExceptions come in pairs, and only one should be reported.
-    Set<String> reportedActionConflictExceptions = Sets.newHashSet();
+    Set<String> reportedActionConflictExceptions = new HashSet<>();
 
     // Sometimes a conflicting action can't be traced to a top level target via
     // TopLevelActionConflictReport. We therefore need to print the errors from the conflicts
@@ -1048,7 +1065,7 @@ public final class SkyframeBuildView {
           eventHandler.handle(
               Event.warn(
                   String.format(
-                      "errors encountered while analyzing target '%s': it will not be built",
+                      "errors encountered while analyzing target '%s', it will not be built.",
                       e.getArtifact().getOwnerLabel())));
         }
       }
@@ -1213,7 +1230,7 @@ public final class SkyframeBuildView {
     return cts.build();
   }
 
-  private static ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
+  private ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
       int expectedSize,
       EvaluationResult<SkyValue> evaluationResult,
       Set<BuildDriverKey> buildDriverAspectKeys,
@@ -1227,12 +1244,23 @@ public final class SkyframeBuildView {
         continue;
       }
       BuildDriverValue value = (BuildDriverValue) evaluationResult.get(bdAspectKey);
-      if (value == null) {
-        // Skip aspects that couldn't be applied to targets.
-        continue;
+      TopLevelAspectsValue topLevelAspectsValue = null;
+      if (value != null) {
+        topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
+      } else {
+        try {
+          topLevelAspectsValue =
+              (TopLevelAspectsValue)
+                  skyframeExecutor.getDoneSkyValueForIntrospection(
+                      bdAspectKey.getActionLookupKey());
+        } catch (FailureToRetrieveIntrospectedValueException e) {
+          // Skip aspects that couldn't be analyzed.
+          continue;
+        }
       }
-      TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
-      aspects.putAll(topLevelAspectsValue.getTopLevelAspectsMap());
+      if (topLevelAspectsValue != null) {
+        aspects.putAll(topLevelAspectsValue.getTopLevelAspectsMap());
+      }
     }
     return aspects.buildOrThrow();
   }
@@ -1367,8 +1395,10 @@ public final class SkyframeBuildView {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      boolean crashIfExecutionPhase)
-      throws InterruptedException,
+      boolean crashIfExecutionPhase,
+      boolean dependsOnFileKey)
+      throws IOException,
+          InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException,
@@ -1406,7 +1436,8 @@ public final class SkyframeBuildView {
         toolchainContexts,
         transitivePackages,
         execGroupCollectionBuilder,
-        starlarkExecTransition.orElse(null));
+        starlarkExecTransition.orElse(null),
+        dependsOnFileKey);
   }
 
   /**

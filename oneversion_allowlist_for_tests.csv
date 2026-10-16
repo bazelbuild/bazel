@@ -1,0 +1,1 @@
+com/google/testing/junit/junit4/runner @@rules_java++toolchains+remote_java_tools//:java_tools/Runner_deploy.jar

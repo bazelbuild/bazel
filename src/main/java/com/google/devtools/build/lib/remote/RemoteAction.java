@@ -19,9 +19,9 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -127,7 +127,7 @@ public class RemoteAction {
    * ActionInput}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMap(boolean willAccessRepeatedly) {
-    return remotePathResolver.getInputMapping(spawnExecutionContext, willAccessRepeatedly);
+    return spawnExecutionContext.getInputMapping(willAccessRepeatedly);
   }
 
   /**

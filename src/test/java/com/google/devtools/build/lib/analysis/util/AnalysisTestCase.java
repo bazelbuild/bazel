@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -63,13 +65,16 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.runtime.BlazeOptionHandler;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -176,7 +181,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
 
@@ -196,7 +200,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   private SkyframeExecutor createSkyframeExecutor(PackageFactory pkgFactory) {
-    return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+    return SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
         .setDirectories(directories)
@@ -204,6 +208,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
         .setSyscallCache(delegatingSyscallCache)
+        .setCompressionService(new CompressionServiceImpl())
         .allowExternalRepositories(allowExternalRepositories())
         .build();
   }
@@ -239,8 +244,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   private void reinitializeSkyframeExecutor() {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 3;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(3);
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
@@ -248,6 +253,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -291,6 +297,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         LoadingPhaseThreadsOption.class,
                         LoadingOptions.class),
                     ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
+            .skipStarlarkOptionPrefixes()
             .build();
     if (defaultFlags().contains(Flag.PUBLIC_VISIBILITY)) {
       optionsParser.parse("--default_visibility=public");
@@ -303,6 +310,18 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
+
+    if (!optionsParser.getSkippedArgs().isEmpty()) {
+      var done =
+          StarlarkOptionsParser.builder()
+              .buildSettingLoader(
+                  new BlazeOptionHandler.SkyframeExecutorTargetLoader(
+                      skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter))
+              .nativeOptionsParser(optionsParser)
+              .build()
+              .parse();
+      Preconditions.checkState(done);
+    }
 
     buildOptions =
         BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);
@@ -353,6 +372,25 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       ImmutableMap<String, String> aspectsParameters,
       String... labels)
       throws Exception {
+    return update(
+        eventBus,
+        config,
+        AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
+        explicitTargetPatterns,
+        aspects,
+        aspectsParameters,
+        labels);
+  }
+
+  protected AnalysisResult update(
+      EventBus eventBus,
+      FlagBuilder config,
+      TopLevelArtifactContext topLevelArtifactContext,
+      ImmutableSet<Label> explicitTargetPatterns,
+      ImmutableList<String> aspects,
+      ImmutableMap<String, String> aspectsParameters,
+      String... labels)
+      throws Exception {
     Set<Flag> flags = config.flags;
 
     LoadingOptions loadingOptions = optionsParser.getOptions(LoadingOptions.class);
@@ -360,19 +398,19 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     AnalysisOptions viewOptions = optionsParser.getOptions(AnalysisOptions.class);
     // update --keep_going option if test requested it.
     boolean keepGoing = flags.contains(Flag.KEEP_GOING);
-    boolean discardAnalysisCache = viewOptions.discardAnalysisCache;
+    boolean discardAnalysisCache = viewOptions.getDiscardAnalysisCache();
 
     PackageOptions packageOptions = optionsParser.getOptions(PackageOptions.class);
     PathPackageLocator pathPackageLocator =
         PathPackageLocator.create(
             outputBase,
-            packageOptions.packagePath,
+            packageOptions.getPackagePath(),
             reporter,
             rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
 
     BuildLanguageOptions buildLanguageOptions =
         optionsParser.getOptions(BuildLanguageOptions.class);
@@ -383,6 +421,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -409,7 +448,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             viewOptions,
             keepGoing,
             LOADING_PHASE_THREADS,
-            AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
+            topLevelArtifactContext,
             reporter,
             eventBus);
     if (discardAnalysisCache) {
@@ -471,6 +510,28 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         aspects,
         aspectsParameters,
         labels);
+  }
+
+  @CanIgnoreReturnValue
+  protected AnalysisResult update(
+      TopLevelArtifactContext topLevelArtifactContext,
+      ImmutableList<String> aspects,
+      String... labels)
+      throws Exception {
+    return update(
+        new EventBus(),
+        defaultFlags(),
+        topLevelArtifactContext,
+        /* explicitTargetPatterns= */ ImmutableSet.of(),
+        aspects,
+        /* aspectsParameters= */ ImmutableMap.of(),
+        labels);
+  }
+
+  @CanIgnoreReturnValue
+  protected AnalysisResult update(TopLevelArtifactContext topLevelArtifactContext, String... labels)
+      throws Exception {
+    return update(topLevelArtifactContext, /* aspects= */ ImmutableList.of(), labels);
   }
 
   protected ConfiguredTargetAndData getConfiguredTargetAndTarget(String label)
@@ -589,7 +650,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .getArtifactFactory()
         .getDerivedArtifact(
             label.getPackageFragment().getRelative(packageRelativePath),
-            getTargetConfiguration().getBinDirectory(label.getRepository()),
+            getTargetConfiguration().getBinDirectory(),
             ConfiguredTargetKey.fromConfiguredTarget(owner));
   }
 

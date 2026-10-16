@@ -25,12 +25,12 @@ import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier;
 import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FixedListSupplier;
 import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FunctionSupplier;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -128,7 +128,9 @@ public final class AspectResolutionHelpers {
 
   private static <T> boolean propagatesTo(
       T edge, Aspect aspect, ImmutableMultimap<Aspect, T> computedEdges) {
-    return computedEdges.containsEntry(aspect, edge) || computedEdges.containsEntry(aspect, "*");
+    return computedEdges.containsEntry(aspect, edge)
+        || computedEdges.containsEntry(aspect, "*")
+        || computedEdges.containsEntry(aspect, AspectPropagationEdgesSupplier.ALL_TOOLCHAINS);
   }
 
   /**
@@ -143,7 +145,8 @@ public final class AspectResolutionHelpers {
       ImmutableList<Aspect> aspects,
       AdvertisedProviderSet advertisedProviders,
       Label targetLabel,
-      RuleClass ruleClass,
+      @Nullable Label ruleDefinitionEnvironmentLabel,
+      String ruleClassName,
       ImmutableList<String> tags,
       Location targetLocation,
       ExtendedEventHandler eventHandler)
@@ -158,7 +161,13 @@ public final class AspectResolutionHelpers {
           || isAspectRequired(aspect, filteredAspectPath)) {
         // Considers the aspect if the target satisfies its required providers or it is
         // required by an aspect already in the {@code filteredAspectPath}.
-        if (evaluatePropagationPredicate(aspect, targetLabel, ruleClass, tags, eventHandler)) {
+        if (evaluatePropagationPredicate(
+            aspect,
+            targetLabel,
+            ruleDefinitionEnvironmentLabel,
+            ruleClassName,
+            tags,
+            eventHandler)) {
           // Only add the aspect if its propagation predicate is satisfied by the target.
           filteredAspectPath.add(aspect);
         }
@@ -183,7 +192,8 @@ public final class AspectResolutionHelpers {
   private static boolean evaluatePropagationPredicate(
       Aspect aspect,
       Label label,
-      RuleClass ruleClass,
+      @Nullable Label ruleDefinitionEnvironmentLabel,
+      String ruleClassName,
       ImmutableList<String> tags,
       ExtendedEventHandler eventHandler)
       throws InterruptedException, EvalException {
@@ -195,7 +205,7 @@ public final class AspectResolutionHelpers {
         .getPropagationPredicate()
         .evaluate(
             StarlarkAspectPropagationContext.createForPropagationPredicate(
-                aspect, label, ruleClass, tags),
+                aspect, label, ruleDefinitionEnvironmentLabel, ruleClassName, tags),
             eventHandler);
   }
 

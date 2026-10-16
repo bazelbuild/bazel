@@ -55,10 +55,7 @@ public class CcToolchainFeaturesLib {
   @FormatMethod
   private static EvalException infoError(Info info, String format, Object... args) {
     return Starlark.errorf(
-        "in %s instantiated at %s: %s",
-        info.getProvider().getPrintableName(),
-        info.getCreationLocation(),
-        String.format(format, args));
+        "in %s: %s", info.getProvider().getPrintableName(), String.format(format, args));
   }
 
   /** Checks whether the {@link StarlarkInfo} is of the required type. */
@@ -107,7 +104,7 @@ public class CcToolchainFeaturesLib {
         getStarlarkProviderListFromStarlarkField(featureStruct, "flag_sets");
     for (StarlarkInfo flagSetObject : flagSets) {
       FlagSet flagSet = flagSetFromStarlark(flagSetObject, /* actionName= */ null);
-      if (flagSet.getActions().isEmpty()) {
+      if (flagSet.actions().isEmpty()) {
         throw infoError(
             flagSetObject,
             "A flag_set that belongs to a feature must have nonempty 'actions' parameter.");

@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.HasDigest;
-import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
+import com.google.devtools.build.lib.actions.MetadataDigestUtils;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -641,7 +641,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     @CanIgnoreReturnValue
     public Builder putChild(TreeFileArtifact child, FileArtifactValue metadata) {
       checkArgument(
-          child.getParent().equals(parent),
+          child.isChildOf(parent),
           "While building TreeArtifactValue for %s, got %s with parent %s",
           parent,
           child,

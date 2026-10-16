@@ -21,12 +21,14 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Pluggable C++ compilation semantics. */
+@StarlarkBuiltin(name = "cpp_semantics", documented = false)
 public interface CppSemantics extends StarlarkValue {
 
   // Transformed by Copybara on export

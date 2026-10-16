@@ -1,0 +1,140 @@
+---
+Title: Skyframe Inspection with `bazel dump`
+---
+
+Debugging Bazel's [Skyframe](/reference/skyframe) system can be complex:
+the dependencies between different values can be difficult to trace and it can
+be confusing to understand what edges exist in the system. However, if you are
+working on Bazel itself it is absolutely necessary to understand the
+interactions between the different components at this level.
+
+The [`bazel dump` command](/reference/command-line-reference#dump-options) with
+the [`--skyframe`
+argument](/reference/command-line-reference#dump-flag--skyframe) makes it
+possible to inspect the current contents of Skyframe and see what the actual
+underlying state is, separate from the higher-level information provided by
+[`bazel query`](/query/guide), [`bazel cquery`](/query/cquery), and [`bazel
+aquery`](/query/aquery) (which are implemented on top of Skyframe and can mutate
+the Skyframe state).
+
+**Note that the output of `bazel dump` is an implementation detail and may
+change at any time. If you write scripts around this format know that they may
+break on future Bazel versions.**
+
+The `--skyframe` flag takes an argument detailing what information to report:
+
+- `--skyframe=off`: The default, reports nothing.
+- [`--skyframe=summary`](#summary-mode): A count of the nodes and edges in
+  Skyframe.
+- [`--skyframe=count`](#count-mode): A report on the number of values for each
+  SkyFunction type.
+- [`--skyframe=keys`](#keys-mode): The keys in Skyframe.
+- [`--skyframe=value`](#value-mode): The full value in Skyframe.
+- [`--skyframe=deps`](#deps-mode): The dependencies of the value in Skyframe.
+- [`--skyframe=rdeps`](#reverse-deps-mode): Other values in Skyframe with a
+  dependency on the value.
+
+### Filtering by SkyKey
+
+Many of these modes (specifically `value`, `deps`, and `rdeps`) also consider the
+`--skykey_filter` flag, which will do a regex compare of the Java `toString()`
+value of a key to decide whether to include it in the report. The flag can be
+specified several times to give several regular expressions, including ones that
+start with a `-` character to act as exclusions instead of inclusions.
+
+The key is converted with the following format:
+`SKYFUNCTION_NAME:SkyKey.toString()`. Because many SkyKey implementations use
+`@AutoValue`, the format will then be `SkyKeyClass{field=value, field=value}`.
+Therefore, the SkyKey for the configured target for the Bazel binary would be
+something like `CONFIGURED_TARGET:ConfiguredTargetKey{label=//src:bazel-bin,
+config=BuildConfigurationKey[a3ed33ca825cecaab69d541c45e04267665be178055813d03b8dcded031fdf82]}`.
+
+Be sure to use regex escapes, and replace any comma characters with a `.` (which
+matches any character):
+- The `SkyKey.toString()` representation does not perform regex escaping. In the
+  above example, the characters "{[]}" are all used in regular expressions and
+  will need to be escaped when used with `--skykey_filter` (and possibly escaped
+  from the shell, as well).
+- The format of the `--skykey_filter` flag will attempt to split values on a
+  comma, so the flag `--skykey_filter=CONFIGURED_TARGET:.*//src:bazel-bin,
+  config=.*a3ed33` would end up comparing every SkyKey against **two** regular
+  expressions, `CONFIGURED_TARGET:.*//src:bazel-bin` and `config=.*a3ed33`. This
+  will almost certainly match many more SkyKeys than intended (everything with
+  configuration "a3ed33").
+
+Because of this, be sure to use regex escapes and to replace any comma
+characters with a `.` (which matches any character).
+
+## Summary Mode
+
+The output of `bazel dump --skyframe=summary` reports the number of nodes
+and edges currently present in Skyframe. Since each node and edge consumes
+memory in the Bazel process, it is safe to say that more nodes and edges means
+that more memory is in use, although since keys and values can have different
+sizes this is not exact.
+
+## Count Mode
+
+The output of `bazel dump --skyframe=count` is the number of values for each
+SkyFunction type. There are several dozen of these available, but many have only
+a few values.
+
+Commonly used types are:
+- `CONFIGURED_TARGET`: The number of configured targets in Skyframe.
+- `ARTIFACT`: The number of output files known in Skyframe.
+- `PACKAGE`: The numbe of packages loading into Skyframe.
+- `BUILD_CONFIGURATION`: The number of distinct configurations.
+
+## Keys Mode
+
+The `bazel dump --skyframe=keys --skykey_filter=FOO` command will show keys
+available that match the filter. This can be quite extensive unless the key is
+very specific.
+
+The format is one line per key, the result of calling `.toString()` on the key.
+
+This can be helpful to identify specific keys to investigate with
+[`--skyframe=value`](#value-mode), [`--skyframe=deps`](#deps-mode), or
+[`--skyframe=rdeps`](#reverse-deps-mode).
+
+## Value Mode
+
+The `bazel dump --skyframe=value --skykey_filter=FOO` command will show all
+Skyframe keys and values where the key matches the filter. This can be quite
+extensive unless the key is very specific.
+
+In fact, there might be multiple keys, because the target `//src:bazel-bin` is
+configured twice, once in the top-level configuration and again in a
+test-trimmed version of the top-level configuration.
+
+The format for `bazel dump --skyframe=value` is one line for the key, one line
+for the value, and then a blank line before the next key/value pair.
+
+The value output is the result of calling `.toString()` on the `SkyValue`, and
+may be very long depending on the specific class and data. As an example, a
+typical `RuleConfiguredValueTarget` will frequently list all source and
+dependency files, as well as other data specific to the target.
+
+## Deps Mode
+
+The output of `bazel dump --skyframe=deps` gives the set of SkyKeys that depend
+on each SkyKey reported. Again, it is very critical to specify `--skykey_filter`
+to reduce the number of keys reported.
+
+The dependencies are reported in dependency groups, which correspond to sets of
+keys that are requested in the same call during SkyFunction evaluation.
+
+## Reverse Deps Mode
+
+The output of `bazel dump --skyframe=rdeps` gives all SkyKeys that are depended
+on by the reported SkyKey. Again, it is very critical to specify `--skykey_filter`
+to reduce the number of keys reported.
+
+The format of the output is the SkyKey, followed by indented lines with each
+depending SkyKey. Distinct keys have newlines between them to make clear where
+boundaries are and clarify the output.
+
+This is very useful to answer questions such as "Why is this key present in the
+Skyframe graph?", by using `--skykey_filter` and walking back up the graph with
+repeated `--skyframe=rdeps` calls until an unexpected SkyKey is present.
+

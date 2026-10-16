@@ -43,6 +43,12 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+if is_linux; then
+  export LC_ALL=C.UTF-8
+else
+  export LC_ALL=en_US.UTF-8
+fi
+
 output_base=$TEST_TMPDIR/out
 TEST_stderr=$(dirname $TEST_log)/stderr
 
@@ -135,7 +141,9 @@ function test_options_errors() {
       grep -v '^  '${PRODUCT_NAME}' ' |
       awk '{print $1}' |
   while read command; do
-    bazel $command >$TEST_log 2>&1 || true
+    # bazel help <command> instantiates the options processor in the same way that
+    # bazel <command> does, but is lighter weight.
+    bazel help $command >$TEST_log 2>&1 || true
     # Mustn't crash in the options package:
     expect_not_log "Duplicate option name"
     expect_not_log "at com.google.devtools.build.lib"
@@ -250,6 +258,33 @@ function test_glob_with_subpackage() {
     expect_log "//$pkg/p:BUILD"
     expect_not_log 't3\.txt'
     assert_equals "3" $(wc -l "$TEST_log")
+}
+
+function test_unrelated_glob_change_pruned() {
+    # Adding a file that the glob does not match changes the directory listing and thus dirties the
+    # shared glob, but the glob re-evaluates to the same matches and change-prunes.
+    local -r pkg="${FUNCNAME}"
+    mkdir -p "$pkg/data" || fail "could not create \"$pkg/data\""
+    echo a > "$pkg/data/f0.txt"
+    echo b > "$pkg/data/f1.txt"
+    echo '[filegroup(name = "t%d" % i, srcs = glob(["data/*.txt"])) for i in range(21)]' \
+        > "$pkg/BUILD"
+
+    local -r gc_flag="--experimental_keep_change_prunable_nodes_during_gc"
+    bazel build "$gc_flag" "//$pkg:all" >& "$TEST_log" || fail "Expected initial build to succeed"
+    local before="$(bazel dump --skyframe=count 2>/dev/null \
+        | awk '/^CONFIGURED_TARGET/{print $2}')"
+
+    # Add a file not matched by the glob (dirties the directory listing; the glob change-prunes),
+    # build only one target (orphaning the other 20), then a no-op build to flush the dirty-node
+    # GC's deferred deletions.
+    echo unrelated > "$pkg/data/notes.md"
+    bazel build "$gc_flag" "//$pkg:t0" >& "$TEST_log" || fail "Expected build of t0 to succeed"
+    bazel build "$gc_flag" "//$pkg:t0" >& "$TEST_log" || fail "Expected flush build to succeed"
+    local after="$(bazel dump --skyframe=count 2>/dev/null \
+        | awk '/^CONFIGURED_TARGET/{print $2}')"
+
+    assert_equals "$before" "$after"
 }
 
 function test_glob_with_subpackage2() {
@@ -457,6 +492,64 @@ EOF
   done
 }
 
+function test_starlark_cpu_profile_after_early_failure() {
+  if is_windows; then
+    echo "Starlark profiler is not supported on Microsoft Windows."
+    return
+  fi
+
+  mkdir -p test
+  echo 'filegroup(name = "target")' > test/BUILD
+  local server_pid
+  server_pid=$(bazel info server_pid) || fail "could not get server PID"
+  bazel build --starlark_cpu_profile="${TEST_TMPDIR}/failed.pprof.gz" \
+    --//missing:flag=value //test:target >"$TEST_log" 2>&1 && fail "expected a missing flag error"
+  expect_log "no such package 'missing'"
+
+  bazel build --starlark_cpu_profile="${TEST_TMPDIR}/next.pprof.gz" \
+    //test:target >"$TEST_log" 2>&1 || fail "profiler did not recover after an early exit"
+  [[ $(bazel info server_pid) == "$server_pid" ]] || fail "server restarted"
+  gzip -t "${TEST_TMPDIR}/failed.pprof.gz" || fail "failed-command profile was not finalized"
+  gzip -t "${TEST_TMPDIR}/next.pprof.gz" || fail "next-command profile was not finalized"
+}
+
+function test_starlark_cpu_profile_after_output_error() {
+  mkdir -p test "${TEST_TMPDIR}/profile-directory"
+  echo 'filegroup(name = "target")' > test/BUILD
+  local server_pid
+  server_pid=$(bazel info server_pid) || fail "could not get server PID"
+  bazel build --starlark_cpu_profile="${TEST_TMPDIR}/profile-directory" \
+    //test:target >"$TEST_log" 2>&1 && fail "expected a profile output error"
+  expect_log "Starlark CPU profiler:"
+
+  bazel build //test:target >"$TEST_log" 2>&1 || fail "JSON profiler did not recover"
+  [[ $(bazel info server_pid) == "$server_pid" ]] || fail "server restarted"
+}
+
+function test_starlark_cpu_profile_after_write_error() {
+  if is_windows; then
+    echo "Starlark profiler is not supported on Microsoft Windows."
+    return
+  fi
+
+  if [[ ! -c /dev/full ]]; then
+    echo "This test needs /dev/full to fail writes after opening the profile."
+    return
+  fi
+
+  mkdir -p test
+  echo 'filegroup(name = "target")' > test/BUILD
+  local server_pid
+  server_pid=$(bazel info server_pid) || fail "could not get server PID"
+  bazel build --starlark_cpu_profile=/dev/full --//missing:flag=value \
+    //test:target >"$TEST_log" 2>&1 && fail "expected a missing flag error"
+  expect_log "no such package 'missing'"
+  expect_log "No space left on device"
+
+  bazel build //test:target >"$TEST_log" 2>&1 || fail "profilers did not recover after a write error"
+  [[ $(bazel info server_pid) == "$server_pid" ]] || fail "server restarted"
+}
+
 # Test that actions.write correctly emits a UTF-8 encoded attribute value as
 # UTF-8.
 function test_actions_write_utf8_attribute() {
@@ -540,7 +633,7 @@ EOF
     cat output
     fail "Expected build to succeed"
   )
-  assert_contains "^${filename}$" $(bazel info "${PRODUCT_NAME}-bin")/$pkg/paths.txt
+  assert_equals "${filename}" "$(cat $(bazel info "${PRODUCT_NAME}-bin")/$pkg/paths.txt)"
 }
 
 function test_target_with_BUILD() {

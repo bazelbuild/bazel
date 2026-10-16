@@ -59,47 +59,6 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
   }
 
   @Test
-  public void srcsCanContainRuleGeneratingPyAndNonpyFiles() throws Exception {
-    scratchConfiguredTarget(
-        "pkg",
-        "foo",
-        // build file:
-        getPyLoad("py_binary"),
-        "py_binary(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py', ':bar'])",
-        "genrule(",
-        "    name = 'bar',",
-        "    outs = ['bar.cc', 'bar.py'],",
-        "    cmd = 'touch $(OUTS)')");
-    assertNoEvents();
-  }
-
-  @Test
-  public void whatIfSrcsContainsRuleGeneratingNoPyFiles() throws Exception {
-    // In Bazel it's an error, in Blaze it's a warning.
-    String[] lines = {
-      getPyLoad("py_binary"),
-      "py_binary(",
-      "    name = 'foo',",
-      "    srcs = ['foo.py', ':bar'])",
-      "genrule(",
-      "    name = 'bar',",
-      "    outs = ['bar.cc'],",
-      "    cmd = 'touch $(OUTS)')"
-    };
-    if (analysisMock.isThisBazel()) {
-      checkError(
-          "pkg",
-          "foo",
-          // error:
-          "'//pkg:bar' does not produce any py_binary srcs files",
-          // build file:
-          lines);
-    }
-  }
-
-  @Test
   public void filesToCompile() throws Exception {
     ConfiguredTarget lib =
         scratchConfiguredTarget(

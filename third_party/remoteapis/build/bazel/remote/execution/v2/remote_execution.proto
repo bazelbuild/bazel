@@ -126,7 +126,7 @@ service Execution {
   // server MAY choose to stream additional updates as execution progresses,
   // such as to provide an update as to the state of the execution.
   //
-  // In addition to the cases describe for Execute, the WaitExecution method
+  // In addition to the cases described for Execute, the WaitExecution method
   // may fail as follows:
   //
   // * `NOT_FOUND`: The operation no longer exists due to any of a transient
@@ -175,7 +175,7 @@ service ActionCache {
   //
   // In order to allow the server to perform access control based on the type of
   // action, and to assist with client debugging, the client MUST first upload
-  // the [Action][build.bazel.remote.execution.v2.Execution] that produced the
+  // the [Action][build.bazel.remote.execution.v2.Action] that produced the
   // result, along with its
   // [Command][build.bazel.remote.execution.v2.Command], into the
   // `ContentAddressableStorage`.
@@ -216,7 +216,7 @@ service ActionCache {
 // For large uploads, the client must use the
 // [Write method][google.bytestream.ByteStream.Write] of the ByteStream API.
 //
-// For uncompressed data, The `WriteRequest.resource_name` is of the following form:
+// For uncompressed data, the `WriteRequest.resource_name` is of the following form:
 // `{instance_name}/uploads/{uuid}/blobs/{digest_function/}{hash}/{size}{/optional_metadata}`
 //
 // Where:
@@ -224,7 +224,7 @@ service ActionCache {
 //   instances on the server. Syntax and semantics of this field are defined
 //   by the server; Clients must not make any assumptions about it (e.g.,
 //   whether it spans multiple path segments or not). If it is the empty path,
-//   the leading slash is omitted, so that  the `resource_name` becomes
+//   the leading slash is omitted, so that the `resource_name` becomes
 //   `uploads/{uuid}/blobs/{digest_function/}{hash}/{size}{/optional_metadata}`.
 //   To simplify parsing, a path segment cannot equal any of the following
 //   keywords: `blobs`, `uploads`, `actions`, `actionResults`, `operations`,
@@ -252,7 +252,7 @@ service ActionCache {
 //   defined as above.
 // * `compressor` is a lowercase string form of a `Compressor.Value` enum
 //   other than `identity`, which is supported by the server and advertised in
-//   [CacheCapabilities.supported_compressor][build.bazel.remote.execution.v2.CacheCapabilities.supported_compressor].
+//   [CacheCapabilities.supported_compressors][build.bazel.remote.execution.v2.CacheCapabilities.supported_compressors].
 // * `uncompressed_hash` and `uncompressed_size` refer to the
 //   [Digest][build.bazel.remote.execution.v2.Digest] of the data being
 //   uploaded, once uncompressed. Servers MUST verify that these match
@@ -291,7 +291,7 @@ service ActionCache {
 // For large downloads, the client must use the
 // [Read method][google.bytestream.ByteStream.Read] of the ByteStream API.
 //
-// For uncompressed data, The `ReadRequest.resource_name` is of the following form:
+// For uncompressed data, the `ReadRequest.resource_name` is of the following form:
 // `{instance_name}/blobs/{digest_function/}{hash}/{size}`
 // Where `instance_name`, `digest_function`, `hash` and `size` are defined as
 // for uploads.
@@ -324,6 +324,15 @@ service ActionCache {
 // Servers MUST be able to provide data for all recently advertised blobs in
 // each of the compression formats that the server supports, as well as in
 // uncompressed form.
+//
+// Additionally, ByteStream requests MAY come with an additional plain text header
+// that indicates the `resource_name` of the blob being sent.  The header, if
+// present, MUST follow the following convention:
+// * name: `build.bazel.remote.execution.v2.resource-name`.
+// * contents: the plain text resource_name of the request message.
+// If set, the contents of the header MUST match the `resource_name` of the request
+// message.  Servers MAY use this header to assist in routing requests to the
+// appropriate backend.
 //
 // The lifetime of entries in the CAS is implementation specific, but it SHOULD
 // be long enough to allow for newly-added and recently looked-up entries to be
@@ -429,6 +438,125 @@ service ContentAddressableStorage {
   // * `NOT_FOUND`: The requested tree root is not present in the CAS.
   rpc GetTree(GetTreeRequest) returns (stream GetTreeResponse) {
     option (google.api.http) = { get: "/v2/{instance_name=**}/blobs/{root_digest.hash}/{root_digest.size_bytes}:getTree" };
+  }
+
+  // SplitBlob retrieves information about how a blob is split into chunks.
+  //
+  // This call returns information about how a blob is split into chunks, and
+  // returns a list of the chunk digests. Using the returned list of chunk digests,
+  // a client can check which chunks are locally available and only fetch the
+  // missing ones. The desired blob can be assembled by concatenating the fetched
+  // chunks in the order of the digests in the list. The chunks SHOULD all be
+  // available in the CAS.
+  //
+  // This API can be used to reduce the required data to download a large blob
+  // from CAS if some chunks from similar blobs are locally available. For this
+  // procedure to work properly, blobs SHOULD be split in a content-defined way,
+  // rather than with fixed-sized chunking.
+  //
+  // If a split request is answered successfully, a client can expect the
+  // following guarantees from the server:
+  //  1. The blob chunks are stored in CAS.
+  //  2. Concatenating the blob chunks in the order of the digest list returned
+  //     by the server results in the original blob.
+  //
+  // Servers which implement this functionality MUST declare that they support
+  // it by setting the
+  // [CacheCapabilities.split_blob_support][build.bazel.remote.execution.v2.CacheCapabilities.split_blob_support]
+  // field accordingly.
+  //
+  // Clients MUST check that the server supports this capability, before using
+  // it.
+  //
+  // Clients SHOULD verify that the digest of the blob assembled by the fetched
+  // chunks is equal to the requested blob digest.
+  //
+  // The lifetimes of the generated chunk blobs MAY be independent of the
+  // lifetime of the original blob. In particular:
+  //  * A blob and any chunk derived from it MAY be evicted from the CAS at
+  //    different times.
+  //  * A call to [SplitBlob][build.bazel.remote.execution.v2.ContentAddressableStorage.SplitBlob]
+  //    extends the lifetime of the original blob, and sets the lifetimes of
+  //    the resulting chunks (or extends the lifetimes of already-existing
+  //    chunks).
+  //  * Touching a chunk extends its lifetime, but the server MAY choose not
+  //    to extend the lifetime of the original blob.
+  //  * Touching the original blob extends its lifetime, but the server MAY
+  //    choose not to extend the lifetimes of chunks derived from it.
+  //
+  // When blob splitting and splicing is used at the same time, the clients and
+  // the server SHOULD agree out-of-band upon a chunking algorithm used by both
+  // parties to benefit from each other's chunk data and avoid unnecessary data
+  // duplication.
+  //
+  // Errors:
+  //
+  // * `NOT_FOUND`: The requested blob is not present in the CAS, OR there is no
+  //   split information available for the blob, OR at least one chunk needed to
+  //   reconstruct the blob is missing from the CAS.
+  // * `RESOURCE_EXHAUSTED`: There is insufficient disk quota to store the blob
+  //   chunks.
+  rpc SplitBlob(SplitBlobRequest) returns (SplitBlobResponse) {
+    option (google.api.http) = { get: "/v2/{instance_name=**}/blobs/{blob_digest.hash}/{blob_digest.size_bytes}:splitBlob" };
+  }
+
+  // SpliceBlob tells the CAS how chunks can compose a blob.
+  //
+  // This is the complementary operation to the
+  // [ContentAddressableStorage.SplitBlob][build.bazel.remote.execution.v2.ContentAddressableStorage.SplitBlob]
+  // function to handle the chunked upload of large blobs to save upload
+  // traffic.
+  //
+  // When uploading a large blob using chunked upload, clients MUST first upload
+  // all chunks to the CAS, then call this RPC to tell the server how those chunks
+  // compose the original blob. The chunks referenced in the SpliceBlob call SHOULD be
+  // available in the CAS before calling this RPC.
+  //
+  // If a client needs to upload a large blob and is able to split a blob into
+  // chunks in such a way that reusable chunks are obtained, e.g., by means of
+  // content-defined chunking, it can first determine which parts of the blob
+  // are already available in the remote CAS and upload the missing chunks, and
+  // then use this API to store information on how the chunks compose the
+  // original blob.
+  //
+  // Servers which implement this functionality MUST declare that they support
+  // it by setting the
+  // [CacheCapabilities.splice_blob_support][build.bazel.remote.execution.v2.CacheCapabilities.splice_blob_support]
+  // field accordingly.
+  //
+  // Clients MUST check that the server supports this capability, before using
+  // it.
+  //
+  // In order to ensure data consistency of the CAS, the server MUST only add
+  // blobs to the CAS after verifying their digests. In particular, servers MUST NOT
+  // trust digests provided by the client. The server MAY accept a request as no-op
+  // if the client-specified blob is already in CAS or if information on how to
+  // construct the blob from chunks is available. If the client-specified blob is
+  // not already in the CAS, the server MUST verify that the digest of the newly
+  // created blob assembled from chunks matches the digest specified by the
+  // client, and reject the request if they differ. Servers MAY choose to allow
+  // overwriting existing chunk mappings or to store multiple chunk mappings for
+  // the same blob.
+  //
+  // When blob splitting and splicing is used at the same time, the clients and
+  // the server SHOULD agree out-of-band upon a chunking algorithm used by both
+  // parties to benefit from each other's chunk data and avoid unnecessary data
+  // duplication.
+  //
+  // Errors:
+  //
+  // * `NOT_FOUND`: At least one of the blob chunks is not present in the CAS.
+  // * `RESOURCE_EXHAUSTED`: There is insufficient disk quota to store the
+  //   spliced blob.
+  // * `INVALID_ARGUMENT`: The digest of the spliced blob is different from the
+  //   provided expected digest.
+  // * `ALREADY_EXISTS`: The blob already exists in CAS and the server did not
+  //   extend the lifetime of the chunks specified in the request, e.g. because
+  //   it prefers a different chunking and extended those instead. Clients can
+  //   call [SplitBlob][build.bazel.remote.execution.v2.ContentAddressableStorage.SplitBlob]
+  //   to check what chunk mapping the server is using.
+  rpc SpliceBlob(SpliceBlobRequest) returns (SpliceBlobResponse) {
+    option (google.api.http) = { post: "/v2/{instance_name=**}/blobs:spliceBlob" body: "*" };
   }
 }
 
@@ -784,7 +912,7 @@ message Platform {
 // well as possibly some metadata about the file or directory.
 //
 // In order to ensure that two equivalent directory trees hash to the same
-// value, the following restrictions MUST be obeyed when constructing a
+// value, the following restrictions MUST be obeyed when constructing
 // a `Directory`:
 //
 // * Every child in the directory must have a path of exactly one segment.
@@ -1029,7 +1157,7 @@ message ExecutedActionMetadata {
   //
   // The method of timekeeping used to compute the virtual execution duration
   // MUST be consistent with what is used to enforce the
-  // [Action][[build.bazel.remote.execution.v2.Action]'s `timeout`. There is no
+  // [Action][build.bazel.remote.execution.v2.Action]'s `timeout`. There is no
   // relationship between the virtual execution duration and the values of
   // `execution_start_timestamp` and `execution_completed_timestamp`.
   google.protobuf.Duration virtual_execution_duration = 12;
@@ -1287,7 +1415,7 @@ message OutputDirectory {
   Digest tree_digest = 3;
 
   // If set, consumers MAY make the following assumptions about the
-  // directories contained in the the Tree, so that it may be
+  // directories contained in the Tree, so that it may be
   // instantiated on a local file system by scanning through it
   // sequentially:
   //
@@ -1325,7 +1453,7 @@ message OutputDirectory {
 
   // The digest of the encoded
   // [Directory][build.bazel.remote.execution.v2.Directory] proto
-  // containing the contents the directory's root.
+  // containing the contents of the directory's root.
   //
   // If both `tree_digest` and `root_directory_digest` are set, this
   // field MUST match the digest of the root directory contained in the
@@ -1534,7 +1662,7 @@ message ExecutionStage {
 // Metadata about an ongoing
 // [execution][build.bazel.remote.execution.v2.Execution.Execute], which
 // will be contained in the [metadata
-// field][google.longrunning.Operation.response] of the
+// field][google.longrunning.Operation.metadata] of the
 // [Operation][google.longrunning.Operation].
 message ExecuteOperationMetadata {
   // The current stage of execution.
@@ -1557,6 +1685,15 @@ message ExecuteOperationMetadata {
   // The client can read this field to view details about the ongoing
   // execution.
   ExecutedActionMetadata partial_execution_metadata = 5;
+
+  // The digest function that was used to compute the action digest.
+  //
+  // If the digest function used is one of BLAKE3, MD5, MURMUR3, SHA1,
+  // SHA256, SHA256TREE, SHA384, SHA512, or VSO, the server MAY leave
+  // this field unset. In that case the client SHOULD infer the digest
+  // function using the length of the action digest hash and the digest
+  // functions announced in the server's capabilities.
+  DigestFunction.Value digest_function = 6;
 }
 
 // A request message for
@@ -1682,8 +1819,8 @@ message BatchUpdateBlobsRequest {
     bytes data = 2;
 
     // The format of `data`. Must be `IDENTITY`/unspecified, or one of the
-    // compressors advertised by the 
-    // [CacheCapabilities.supported_batch_compressors][build.bazel.remote.execution.v2.CacheCapabilities.supported_batch_compressors]
+    // compressors advertised by the
+    // [CacheCapabilities.supported_batch_update_compressors][build.bazel.remote.execution.v2.CacheCapabilities.supported_batch_update_compressors]
     // field.
     Compressor.Value compressor = 3;
   }
@@ -1829,6 +1966,100 @@ message GetTreeResponse {
 }
 
 // A request message for
+// [ContentAddressableStorage.SplitBlob][build.bazel.remote.execution.v2.ContentAddressableStorage.SplitBlob].
+message SplitBlobRequest {
+  // The instance of the execution system to operate against. A server may
+  // support multiple instances of the execution system (with their own workers,
+  // storage, caches, etc.). The server MAY require use of this field to select
+  // between them in an implementation-defined fashion, otherwise it can be
+  // omitted.
+  string instance_name = 1;
+
+  // The digest of the blob to be split.
+  Digest blob_digest = 2;
+
+  // The digest function of the blob to be split.
+  //
+  // If the digest function used is one of MD5, MURMUR3, SHA1, SHA256,
+  // SHA384, SHA512, or VSO, the client MAY leave this field unset. In
+  // that case the server SHOULD infer the digest function using the
+  // length of the blob digest hashes and the digest functions announced
+  // in the server's capabilities.
+  DigestFunction.Value digest_function = 3;
+
+  // The chunking function that the client prefers to use.
+  //
+  // The server MAY use a different chunking function.
+  ChunkingFunction.Value chunking_function = 4;
+}
+
+// A response message for
+// [ContentAddressableStorage.SplitBlob][build.bazel.remote.execution.v2.ContentAddressableStorage.SplitBlob].
+message SplitBlobResponse {
+  // The ordered list of digests of the chunks into which the blob was split.
+  // The original blob is assembled by concatenating the chunk data according to
+  // the order of the digests given by this list.
+  //
+  // The server MUST use the same digest function as the one explicitly or
+  // implicitly (through hash length) specified in the split request.
+  repeated Digest chunk_digests = 1;
+
+  // The chunking function used to split the blob.
+  ChunkingFunction.Value chunking_function = 2;
+}
+
+// A request message for
+// [ContentAddressableStorage.SpliceBlob][build.bazel.remote.execution.v2.ContentAddressableStorage.SpliceBlob].
+message SpliceBlobRequest {
+  // The instance of the execution system to operate against. A server may
+  // support multiple instances of the execution system (with their own workers,
+  // storage, caches, etc.). The server MAY require use of this field to select
+  // between them in an implementation-defined fashion, otherwise it can be
+  // omitted.
+  string instance_name = 1;
+
+  // Expected digest of the spliced blob. The client MUST set this field due
+  // to the following reasons:
+  //  1. It allows the server to perform an early existence check of the blob
+  //     or existing chunks that assemble the blob before spending the splicing
+  //     effort, as described in the [ContentAddressableStorage.SpliceBlob][build.bazel.remote.execution.v2.ContentAddressableStorage.SpliceBlob]
+  //     documentation.
+  //  2. It allows servers with different storage backends to dispatch the
+  //     request to the correct storage backend based on the size and/or the
+  //     hash of the blob.
+  //  3. If chunking information already exists for the blob, it allows
+  //     the server to keep the existing chunking information or replace it with
+  //     new chunking information.
+  Digest blob_digest = 2;
+
+  // The ordered list of digests of the chunks which need to be concatenated to
+  // assemble the original blob.
+  repeated Digest chunk_digests = 3;
+
+  // The digest function of all chunks to be concatenated and of the blob to be
+  // spliced. The server MUST use the same digest function for both cases.
+  //
+  // If the digest function used is one of MD5, MURMUR3, SHA1, SHA256, SHA384,
+  // SHA512, or VSO, the client MAY leave this field unset. In that case the
+  // server SHOULD infer the digest function using the length of the blob digest
+  // hashes and the digest functions announced in the server's capabilities.
+  DigestFunction.Value digest_function = 4;
+
+  // The chunking function that the client used to split the blob.
+  ChunkingFunction.Value chunking_function = 5;
+}
+
+// A response message for
+// [ContentAddressableStorage.SpliceBlob][build.bazel.remote.execution.v2.ContentAddressableStorage.SpliceBlob].
+message SpliceBlobResponse {
+  // Computed digest of the spliced blob.
+  //
+  // The server MUST use the same digest function as the one explicitly or
+  // implicitly (through hash length) specified in the splice request.
+  Digest blob_digest = 1;
+}
+
+// A request message for
 // [Capabilities.GetCapabilities][build.bazel.remote.execution.v2.Capabilities.GetCapabilities].
 message GetCapabilitiesRequest {
   // The instance of the execution system to operate against. A server may
@@ -1948,6 +2179,41 @@ message DigestFunction {
     // The BLAKE3 hash function.
     // See https://github.com/BLAKE3-team/BLAKE3.
     BLAKE3 = 9;
+
+    // Identical to SHA1, except that "blob ${sizeBytes}\0" is prepended to
+    // the blob's contents before hashing, where ${sizeBytes} corresponds to
+    // the decimal size of the original blob. This allows hashes of files to
+    // be converted from and to the ones used by the Git version control
+    // system.
+    GITSHA1 = 10;
+  }
+}
+
+// The chunking function is used to split a blob into chunks.
+//
+// The server advertises support for a chunking function by setting the
+// corresponding params field in
+// [CacheCapabilities][build.bazel.remote.execution.v2.CacheCapabilities].
+// For example, if fast_cdc_2020_params is set, the server supports FAST_CDC_2020.
+//
+// For optimal deduplication, clients SHOULD use an advertised chunking function.
+// When clients use UNKNOWN, the server chooses an algorithm for SplitBlob and
+// simply verifies chunk concatenation for SpliceBlob.
+message ChunkingFunction {
+  enum Value {
+    // No specific algorithm. Servers MUST always accept this value.
+    // For SplitBlob, the server chooses the algorithm. For SpliceBlob, the
+    // server only verifies that chunks concatenate to form the expected blob.
+    UNKNOWN = 0;
+
+    // The FastCDC chunking algorithm as described in the 2020 paper by
+    // Wen Xia, et al. See https://ieeexplore.ieee.org/document/9055082
+    // for details.
+    FAST_CDC_2020 = 1;
+
+    // The RepMaxCDC chunking algorithm as implemented by buildbarn/go-cdc.
+    // See https://github.com/buildbarn/go-cdc for details.
+    REP_MAX_CDC = 2;
   }
 }
 
@@ -1957,8 +2223,8 @@ message ActionCacheUpdateCapabilities {
 }
 
 // Allowed values for priority in
-// [ResultsCachePolicy][build.bazel.remoteexecution.v2.ResultsCachePolicy] and
-// [ExecutionPolicy][build.bazel.remoteexecution.v2.ResultsCachePolicy]
+// [ResultsCachePolicy][build.bazel.remote.execution.v2.ResultsCachePolicy] and
+// [ExecutionPolicy][build.bazel.remote.execution.v2.ExecutionPolicy]
 // Used for querying both cache and execution valid priority ranges.
 message PriorityCapabilities {
   // Supported range of priorities, including boundaries.
@@ -2047,6 +2313,116 @@ message CacheCapabilities {
   // [BatchUpdateBlobs][build.bazel.remote.execution.v2.ContentAddressableStorage.BatchUpdateBlobs]
   // requests.
   repeated Compressor.Value supported_batch_update_compressors = 7;
+
+  // The maximum blob size that the server will accept for CAS blob uploads.
+  // - If it is 0, it means there is no limit set. A client may assume
+  //   arbitrarily large blobs may be uploaded to and downloaded from the cache.
+  // - If it is larger than 0, implementations SHOULD NOT attempt to upload
+  //   blobs with size larger than the limit. Servers SHOULD reject blob
+  //   uploads over the `max_cas_blob_size_bytes` limit with response code
+  //   `INVALID_ARGUMENT`
+  // - If the cache implementation returns a given limit, it MAY still serve
+  //   blobs larger than this limit.
+  int64 max_cas_blob_size_bytes = 8;
+
+  // Whether blob splitting is supported for the particular server/instance. If
+  // yes, the server/instance implements the specified behavior for blob
+  // splitting and a meaningful result can be expected from the
+  // [ContentAddressableStorage.SplitBlob][build.bazel.remote.execution.v2.ContentAddressableStorage.SplitBlob]
+  // operation.
+  bool split_blob_support = 9;
+
+  // Whether blob splicing is supported for the particular server/instance. If
+  // yes, the server/instance implements the specified behavior for blob
+  // splicing and a meaningful result can be expected from the
+  // [ContentAddressableStorage.SpliceBlob][build.bazel.remote.execution.v2.ContentAddressableStorage.SpliceBlob]
+  // operation.
+  bool splice_blob_support = 10;
+
+  // The parameters for the FastCDC 2020 chunking algorithm.
+  // If set, the server supports the FastCDC chunking algorithm.
+  FastCdc2020Params fast_cdc_2020_params = 11;
+
+  // The parameters for the RepMaxCDC chunking algorithm.
+  // If set, the server supports the RepMaxCDC chunking algorithm.
+  RepMaxCdcParams rep_max_cdc_params = 12;
+}
+
+// Parameters for the FastCDC content-defined chunking algorithm.
+//
+// Implementations MUST follow the FastCDC 2020 paper by Wen Xia, et al.:
+// https://ieeexplore.ieee.org/document/9055082
+//
+// Supported implementations:
+//   - Rust: https://docs.rs/fastcdc/3.2.1/fastcdc/v2020/index.html
+//   - Go: https://github.com/buildbuddy-io/fastcdc2020
+//
+// Test vectors can be found in the accompanying fastcdc2020_test_vectors.txt file.
+//
+// Implementations MUST use normalization level 2, which has been found
+// successful for build artifacts with an average chunk size of 512 KiB.
+//
+// Key algorithm components from the paper:
+//
+// GEAR table: 256 64-bit integers for the rolling hash, computed as:
+//   GEAR[i] = high_64_bits(MD5(byte(i))) for i in 0..255
+//
+// MASKS table: Bit patterns for chunk boundary detection, derived from
+// the C reference implementation. The mask selection based on average
+// chunk size SHOULD match the paper.
+//
+// The minimum and maximum chunk sizes MUST be derived from the average:
+//   - min_chunk_size = avg_chunk_size_bytes / 4
+//   - max_chunk_size = avg_chunk_size_bytes * 4
+//
+// Blobs smaller than max_chunk_size (avg_chunk_size_bytes * 4) SHOULD be
+// uploaded without chunking.
+//
+// If any of the advertised parameters are not within the expected range,
+// the client SHOULD ignore FastCDC chunking function support.
+message FastCdc2020Params {
+  // The average (expected) chunk size for the FastCDC chunking algorithm.
+  // The value MUST be between 1 KiB and 1 MiB. The recommended value is
+  // 524288 (512 KiB).
+  uint64 avg_chunk_size_bytes = 1;
+
+  // The seed for the FastCDC mask generation.
+  // The recommended value is 0.
+  //
+  // All clients sharing a cache SHOULD use the same seed to maximize
+  // chunk reuse.
+  uint32 seed = 2;
+}
+
+// Parameters for the RepMaxCDC content-defined chunking algorithm.
+//
+// Supported implementations:
+//   - Go: https://github.com/buildbarn/go-cdc
+//
+// Key algorithm components:
+//
+// GEAR table: 256 64-bit integers for the rolling hash, computed as:
+//   GEAR[i] = high_64_bits(MD5(byte(i))) for i in 0..255
+//
+// The algorithm repeatedly applies chunking until all chunks are in the
+// range [min_chunk_size_bytes, 2*min_chunk_size_bytes). Cutting points are
+// selected where the Gear rolling hash is maximized within a lookahead
+// window of horizon_size_bytes.
+//
+// If any of the advertised parameters are not within the expected range,
+// the client SHOULD ignore RepMaxCDC chunking function support.
+message RepMaxCdcParams {
+  // The minimum chunk size for the RepMaxCDC chunking algorithm.
+  // The value MUST be at least 64 bytes (the Gear hash window size).
+  // All chunks will be in the range [min_chunk_size_bytes, 2*min_chunk_size_bytes).
+  // The recommended value is 262144 (256 KiB).
+  uint64 min_chunk_size_bytes = 1;
+
+  // The lookahead window for finding optimal cutting points.
+  // Larger values improve deduplication quality with diminishing returns.
+  // Setting to 0 produces uniform chunks of min_chunk_size_bytes.
+  // The recommended value is 8 * min_chunk_size_bytes.
+  uint64 horizon_size_bytes = 2;
 }
 
 // Capabilities of the remote execution system.

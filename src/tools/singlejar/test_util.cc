@@ -18,6 +18,9 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include <cerrno>
+#include <cstdio>
+
 #ifndef _WIN32
 #include <unistd.h>
 #endif
@@ -120,8 +123,9 @@ string GetEntryContents(const string& zip_path, const string& entry_name) {
   }
 
   char buf[1024];
-  while (fgets(buf, sizeof(buf), fp)) {
-    contents.append(buf);
+  size_t nread;
+  while ((nread = fread(buf, 1, sizeof(buf), fp)) > 0) {
+    contents.append(buf, nread);
   }
   if (feof(fp) && !ferror(fp) && !pclose(fp)) {
     return contents;

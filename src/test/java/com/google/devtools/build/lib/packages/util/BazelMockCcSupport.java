@@ -70,7 +70,6 @@ public final class BazelMockCcSupport extends MockCcSupport {
     setupRulesCc(config);
     setupCcToolchainConfig(config, getToolchainConfigs());
     createParseHeadersAndLayeringCheckWhitelist(config);
-    createStarlarkLooseHeadersWhitelist(config, "//...");
     config.append(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
@@ -80,6 +79,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
           TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
           """
           toolchain_type(name = 'toolchain_type')
+          toolchain_type(name = 'cc_runtimes_toolchain_type')
           cc_library(
               name = 'link_extra_lib',
               srcs = ['linkextra.cc'],
@@ -162,7 +162,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
           "third_party/bazel_rules/rules_cc/cc/toolchains/" + ruleName + ".bzl",
           MessageFormat.format(
               """
-              load("//cc/private/rules_impl:fdo/{0}.bzl", _{0} = "{0}")
+              load("//cc/private/rules_impl/fdo:{0}.bzl", _{0} = "{0}")
               {0} = _{0}
               """,
               ruleName));
@@ -172,6 +172,12 @@ public final class BazelMockCcSupport extends MockCcSupport {
         """
         load("//cc/private:cc_info.bzl", _CcInfo = "CcInfo")
         CcInfo = _CcInfo
+        """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/common/cc_shared_library_info.bzl",
+        """
+        load("//cc/private:cc_shared_library_info.bzl", _CcSharedLibraryInfo = "CcSharedLibraryInfo")
+        CcSharedLibraryInfo = _CcSharedLibraryInfo
         """);
     config.overwrite(
         "third_party/bazel_rules/rules_cc/cc/common/debug_package_info.bzl",
@@ -197,9 +203,33 @@ public final class BazelMockCcSupport extends MockCcSupport {
         load("//cc/private/toolchain_config:cc_toolchain_config_info.bzl", _CcToolchainConfigInfo = "CcToolchainConfigInfo")
         CcToolchainConfigInfo = _CcToolchainConfigInfo
         """);
-    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/coverage/BUILD.bazel",
+        """
+        filegroup(
+          name = "collect_cc_coverage",
+          srcs = ["collect_cc_coverage.sh"],
+        )
+        """);
+    config.overwrite("third_party/bazel_rules/bazel_features_mock/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/private/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/args/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/artifacts/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/impl/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/variables/BUILD");
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/toolchains/args/archiver_flags/BUILD",
+        """
+        load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+        bool_flag(
+            name = "use_libtool_on_macos",
+            build_setting_default = True,
+            visibility = ["//cc/private/toolchain:__pkg__"],
+        )
+        """);
   }
 
   @Override

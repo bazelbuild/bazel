@@ -71,14 +71,14 @@ public class CollectionObjectTraverser
   @Override
   @SuppressWarnings({"rawtypes", "unchecked"})
   public boolean maybeTraverse(Object o, Traversal traversal) {
-    switch (o) {
+    return switch (o) {
       case List<?> l -> {
         traversal.objectFound(l, "List");
         for (Object m : l) {
           traversal.edgeFound(m, null);
         }
 
-        return true;
+        yield true;
       }
 
       case Set<?> s -> {
@@ -87,7 +87,7 @@ public class CollectionObjectTraverser
           traversal.edgeFound(m, null);
         }
 
-        return true;
+        yield true;
       }
 
       case Map<?, ?> m -> {
@@ -97,7 +97,7 @@ public class CollectionObjectTraverser
           traversal.edgeFound(e.getValue(), null);
         }
 
-        return true;
+        yield true;
       }
 
       case Multimap<?, ?> mm -> {
@@ -107,7 +107,7 @@ public class CollectionObjectTraverser
           traversal.edgeFound(e.getValue(), null);
         }
 
-        return true;
+        yield true;
       }
 
       case CompactImmutableMap cim -> {
@@ -116,7 +116,7 @@ public class CollectionObjectTraverser
           traversal.edgeFound(k, null);
           traversal.edgeFound(cim.get(k), null);
         }
-        return true;
+        yield true;
       }
 
       case NestedSet<?> ns -> {
@@ -134,13 +134,11 @@ public class CollectionObjectTraverser
           traversal.edgeFound(children, null);
         }
 
-        return true;
+        yield true;
       }
 
-      default -> {
-        return false;
-      }
-    }
+      default -> false;
+    };
   }
 
   @Override

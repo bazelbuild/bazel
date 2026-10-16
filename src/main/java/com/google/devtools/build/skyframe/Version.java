@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
 /**
  * A Version defines a value in a version tree used in persistent data structures. See
  * http://en.wikipedia.org/wiki/Persistent_data_structure.
@@ -20,6 +22,7 @@ package com.google.devtools.build.skyframe;
  * <p>Extends {@link NodeVersion} so that a single instance can be reused to save memory in the
  * common case that {@link #lastEvaluated} and {@link #lastChanged} are the same version.
  */
+@SkybridgeInterface
 public interface Version extends NodeVersion {
   /**
    * Defines a partial order relation on versions. Returns true if this object is at most {@code

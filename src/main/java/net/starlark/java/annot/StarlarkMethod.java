@@ -172,6 +172,17 @@ public @interface StarlarkMethod {
   boolean allowReturnNones() default false;
 
   /**
+   * If true, indicates that the method never returns; the canonical example is {@code fail()}.
+   *
+   * <p>The Starlark interpreter enforces at runtime that a method with doesNotReturn=true doesn't
+   * return. By convention, the declared Java return type of such a method should be {@link void}.
+   *
+   * <p>A method with doesNotReturn=true must not be a structField, since a struct with a
+   * never-returning field cannot be materialized.
+   */
+  boolean doesNotReturn() default false;
+
+  /**
    * If true, the StarlarkThread will be passed as an argument of the annotated function. (Thus, the
    * annotated method signature must contain StarlarkThread as a parameter. See the interface-level
    * javadoc for details.)
@@ -189,6 +200,27 @@ public @interface StarlarkMethod {
    * StarlarkThread} parameter provides access to the semantics, and more.
    */
   boolean useStarlarkSemantics() default false;
+
+  /**
+   * Whether this method can act as a type in a type expression.
+   *
+   * <p>An example would be the {@code list} builtin symbol.
+   *
+   * <p>If true, the class identified by the Java method's return type is taken to be the Java class
+   * whose instances are Starlark values of this Starlark type. For example, {@code list()} is
+   * implemented by {@link MethodLibrary#list}, whose return type is {@link StarlarkList}, and
+   * instances of {@code StarlarkList} are Starlark values of the {@code list} type.
+   *
+   * <p>The return type's class must define a static method with the signature:
+   *
+   * <pre>
+   *     public static TypeConstructor getAssociatedTypeConstructor() {...}
+   * </pre>
+   *
+   * which is reflectively invoked to identify the appropriate type constructor (e.g. {@link
+   * Types#LIST_CONSTRUCTOR}) that will be called when this method appears in a type application.
+   */
+  boolean isTypeConstructor() default false;
 
   /**
    * If non-empty, the annotated method will only be callable if the given semantic flag is true.

@@ -16,9 +16,8 @@
 #define BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_H_ 1
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
-
-#include "src/tools/singlejar/port.h"
 
 /*
  * A mapped read-only file with auto closing.
@@ -35,7 +34,12 @@ class MappedFile {
 
   ~MappedFile() { Close(); }
 
-  bool Open(const std::string& path);
+  // Maps the file at path. If populate is true, the whole file is read in
+  // upfront (MAP_POPULATE), which is faster when most of it will be accessed.
+  // Callers that only read a small part of the file (e.g. a jar's central
+  // directory) should pass false. Ignored where MAP_POPULATE is unavailable
+  // (e.g. macOS) and on Windows, where mappings are always populated lazily.
+  bool Open(const std::string& path, bool populate = true);
 
   bool MapExisting(unsigned char* mapped_start, unsigned char* mapped_end) {
     mapped_start_ = mapped_start;
@@ -51,10 +55,10 @@ class MappedFile {
 
   const unsigned char* start() const { return mapped_start_; }
   const unsigned char* end() const { return mapped_end_; }
-  const unsigned char* address(off64_t offset) const {
+  const unsigned char* address(int64_t offset) const {
     return mapped_start_ + offset;
   }
-  off64_t offset(const void* address) const {
+  int64_t offset(const void* address) const {
     return reinterpret_cast<const unsigned char*>(address) - mapped_start_;
   }
 

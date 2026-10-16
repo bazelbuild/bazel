@@ -33,7 +33,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -78,7 +77,8 @@ public class ZipDecompressor implements Decompressor {
   public Path decompress(DecompressorDescriptor descriptor)
       throws IOException, InterruptedException {
     Path destinationDirectory = descriptor.destinationPath();
-    Optional<String> prefix = descriptor.prefix();
+    String prefix = descriptor.prefix();
+    int stripComponents = descriptor.stripComponents();
     Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
     // Store link, target info of symlinks, we create them after regular files are extracted.
@@ -90,24 +90,30 @@ public class ZipDecompressor implements Decompressor {
         String entryName = entry.getName();
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix);
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;
         }
         extractZipEntry(
-            reader, entry, destinationDirectory, entryPath.getPathFragment(), prefix, symlinks);
+            reader,
+            entry,
+            destinationDirectory,
+            entryPath.getPathFragment(),
+            prefix,
+            stripComponents,
+            symlinks);
       }
 
-      if (prefix.isPresent() && !foundPrefix) {
+      if (!prefix.isEmpty() && !foundPrefix) {
         Set<String> prefixes = new HashSet<>();
         for (ZipFileEntry entry : entries) {
           StripPrefixedPath entryPath =
-              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), Optional.empty());
+              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), "", 0);
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(prefixes::add);
         }
-        throw new CouldNotFindPrefixException(prefix.get(), prefixes);
+        throw new CouldNotFindPrefixException(prefix, prefixes);
       }
     }
 
@@ -123,7 +129,8 @@ public class ZipDecompressor implements Decompressor {
       ZipFileEntry entry,
       Path destinationDirectory,
       PathFragment strippedRelativePath,
-      Optional<String> prefix,
+      String prefix,
+      int stripComponents,
       Map<Path, PathFragment> symlinks)
       throws IOException, InterruptedException {
     if (strippedRelativePath.isAbsolute()) {
@@ -132,6 +139,12 @@ public class ZipDecompressor implements Decompressor {
               "Failed to extract %s, zipped paths cannot be absolute", strippedRelativePath));
     }
     Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
+    if (!outputPath.startsWith(destinationDirectory)) {
+      throw new IOException(
+          String.format(
+              "Failed to extract %s, path is escaping the destination directory",
+              strippedRelativePath));
+    }
     int permissions = getPermissions(entry.getExternalAttributes(), entry.getName());
     outputPath.getParentDirectory().createDirectoryAndParents();
     boolean isDirectory = (permissions & S_IFDIR) == S_IFDIR;
@@ -146,20 +159,25 @@ public class ZipDecompressor implements Decompressor {
       Preconditions.checkState(read == buffer.length);
 
       PathFragment target = StripPrefixedPath.createPathFragment(buffer);
-      if (target.containsUplevelReferences()) {
-        PathFragment pointsTo = strippedRelativePath.getParentDirectory().getRelative(target);
-        if (pointsTo.containsUplevelReferences()) {
-          throw new IOException(
-              "Zip entries cannot refer to files outside of their directory: "
-                  + reader.getFilename()
-                  + " has a symlink "
-                  + strippedRelativePath
-                  + " pointing to "
-                  + new String(buffer, UTF_8));
-        }
+      Path targetPath = outputPath.getParentDirectory().getRelative(target);
+      if (!target.isAbsolute() && !targetPath.startsWith(destinationDirectory)) {
+        throw new IOException(
+            "Zip entries cannot refer to files outside of their directory: "
+                + reader.getFilename()
+                + " has a symlink "
+                + strippedRelativePath
+                + " pointing to "
+                + new String(buffer, UTF_8));
       }
 
-      symlinks.put(outputPath, maybeDeprefixSymlink(buffer, prefix, destinationDirectory));
+      symlinks.put(
+          outputPath,
+          maybeDeprefixSymlink(
+              buffer,
+              prefix,
+              stripComponents,
+              destinationDirectory,
+              /* forceExtractRootRelative= */ false));
     } else {
       try (InputStream input = reader.getInputStream(entry);
           OutputStream output = outputPath.getOutputStream()) {
@@ -168,7 +186,9 @@ public class ZipDecompressor implements Decompressor {
           throw new InterruptedException();
         }
       }
-      outputPath.chmod(permissions);
+      // Ensure that all files are at least user-readable. Some archives contain files that
+      // are not, but many other tools are working around this and thus mask these issues.
+      outputPath.chmod(permissions | 0400);
       outputPath.setLastModifiedTime(entry.getTime());
     }
   }

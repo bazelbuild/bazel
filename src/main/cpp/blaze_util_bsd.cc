@@ -14,9 +14,9 @@
 
 #if defined(__FreeBSD__)
 # define HAVE_PROCSTAT
-# define STANDARD_JAVABASE "/usr/local/openjdk8"
+#define STANDARD_JAVABASE "/usr/local/openjdk21"
 #elif defined(__OpenBSD__)
-# define STANDARD_JAVABASE "/usr/local/jdk-17"
+#define STANDARD_JAVABASE "/usr/local/jdk-21"
 #else
 # error This BSD is not supported
 #endif
@@ -43,6 +43,9 @@
 #if defined(HAVE_PROCSTAT)
 # include <libprocstat.h>  // must be included after <sys/...> headers
 #endif
+
+#include <cstdint>
+#include <string>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -119,11 +122,20 @@ string GetSelfPath(const char* argv0) {
   }
   procstat_close(procstat);
   return string(buffer);
+#elif defined(__OpenBSD__) && OpenBSD >= 202610
+  // OpenBSD 8.0+
+  char buffer[PATH_MAX] = {};
+  if (getexecpath(buffer, sizeof(buffer)) != 0) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "getexecpath failed: " << GetLastErrorString();
+  }
+  return string(buffer);
 #elif defined(__OpenBSD__)
-  // OpenBSD does not provide a way for a running process to find a path to its
-  // own executable, so we try to figure out a path by inspecting argv[0]. In
-  // theory this is inadequate, since the parent process can set argv[0] to
-  // anything, but in practice this is good enough.
+  // Before getexecpath(3) was added in OpenBSD 8.0, there was no way for a
+  // running process to find a path to its own executable, so we try to figure
+  // out a path by inspecting argv[0]. In theory this is inadequate, since the
+  // parent process can set argv[0] to anything, but in practice this is good
+  // enough.
 
   const std::string argv0str(argv0);
 
@@ -211,12 +223,13 @@ string GetSystemJavabase() {
   string javahome = GetPathEnv("JAVA_HOME");
 
   if (!javahome.empty()) {
-    string javac = blaze_util::JoinPath(javahome, "bin/javac");
-    if (access(javac.c_str(), X_OK) == 0) {
+    string java = blaze_util::JoinPath(javahome, "bin/java");
+    if (access(java.c_str(), X_OK) == 0) {
       return javahome;
     }
     BAZEL_LOG(WARNING)
-        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
+        << "Ignoring JAVA_HOME, because it does not contain a bin/java "
+           "executable.";
   }
 
   return DEFAULT_SYSTEM_JAVABASE;
@@ -237,6 +250,13 @@ bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
   // unrelated process if the server died and the PID got reused.
   return killpg(pid, 0) == 0;
 }
+
+std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
+                                   int /*pid*/) {
+  return "";
+}
+
+std::string GetProcessTerminationDiagnosis(int /*pid*/) { return ""; }
 
 // Not supported.
 void ExcludePathFromBackup(const blaze_util::Path &path) {}

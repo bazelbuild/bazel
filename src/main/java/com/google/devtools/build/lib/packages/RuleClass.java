@@ -124,12 +124,12 @@ public class RuleClass implements RuleClassData {
           .build();
 
   /**
-   * Maximum attributes per RuleClass. Current value was chosen to be high enough to be considered a
-   * non-breaking change for reasonable use. It was also chosen to be low enough to give significant
-   * headroom before hitting limits imposed by the compact attribute value storage strategy in
-   * {@link Rule}.
+   * Maximum attributes per RuleClass or {@link MacroClass}. Current value was chosen to be high
+   * enough to be considered a non-breaking change for reasonable use. It was also chosen to be low
+   * enough to give significant headroom before hitting limits imposed by the compact attribute
+   * value storage strategy in {@link Rule}.
    */
-  private static final int MAX_ATTRIBUTES = 200;
+  public static final int MAX_ATTRIBUTES = 200;
 
   /**
    * Maximum attribute name length. Chosen to accommodate existing and prevent extreme outliers from
@@ -150,11 +150,23 @@ public class RuleClass implements RuleClassData {
 
   public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
 
+  /** The attribute that declares the list of aspect hints that apply to this target. */
+  public static final String ASPECT_HINTS_ATTR = "aspect_hints";
+
   public static final String DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME = "test";
+
+  // The toolchain type is optional so that test targets can still be built (but not run) when no
+  // execution platform matches the constraints of the target platform, e.g. when cross-compiling a
+  // test for a platform that isn't available as an execution platform. Since toolchain resolution
+  // prefers execution platforms that provide the most toolchains, an execution platform matching
+  // the target platform is still selected whenever one exists. If none does, the test action is
+  // created, but fails when executed.
   public static final DeclaredExecGroup DEFAULT_TEST_RUNNER_EXEC_GROUP =
       DeclaredExecGroup.builder()
           .addToolchainType(
-              ToolchainTypeRequirement.create(PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE))
+              ToolchainTypeRequirement.builder(PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE)
+                  .mandatory(false)
+                  .build())
           .build();
 
   /** Interface for determining whether a rule needs toolchain resolution or not. */
@@ -2064,10 +2076,12 @@ public class RuleClass implements RuleClassData {
     EventHandler eventHandler = targetDefinitionContext.getLocalEventHandler();
 
     Rule rule = targetDefinitionContext.createRule(ruleLabel, this, callstack);
-    attributeProvider.populateRuleAttributeValues(
-        rule, targetDefinitionContext, attributeValues, failOnUnknownAttributes, isStarlark);
+    boolean computeImplicitOutputs =
+        attributeProvider.populateRuleAttributeValues(
+            rule, targetDefinitionContext, attributeValues, failOnUnknownAttributes, isStarlark);
     checkAspectAllowedValues(rule, eventHandler);
-    rule.populateOutputFiles(eventHandler, targetDefinitionContext.getPackageIdentifier());
+    rule.populateOutputFiles(
+        eventHandler, targetDefinitionContext.getPackageIdentifier(), computeImplicitOutputs);
     checkForDuplicateLabels(rule, eventHandler);
 
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
@@ -2089,9 +2103,11 @@ public class RuleClass implements RuleClassData {
     Rule rule =
         targetDefinitionContext.createRule(
             ruleLabel, this, callstack.toLocation(), callstack.next());
-    attributeProvider.populateRuleAttributeValues(
-        rule, targetDefinitionContext, attributeValues, true, isStarlark);
-    rule.populateOutputFilesUnchecked(targetDefinitionContext, implicitOutputsFunction);
+    boolean computeImplicitOutputs =
+        attributeProvider.populateRuleAttributeValues(
+            rule, targetDefinitionContext, attributeValues, true, isStarlark);
+    rule.populateOutputFilesUnchecked(
+        targetDefinitionContext, implicitOutputsFunction, computeImplicitOutputs);
     return rule;
   }
 
@@ -2227,6 +2243,7 @@ public class RuleClass implements RuleClassData {
    */
   // TODO(b/366027483): unify starlarkExtensionLabel and ruleDefinitionEnvironmentLabel.
   @Nullable
+  @Override
   public Label getRuleDefinitionEnvironmentLabel() {
     return ruleDefinitionEnvironmentLabel;
   }

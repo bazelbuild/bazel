@@ -17,10 +17,21 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.INNER_FOLDER_NAME;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.ROOT_FOLDER_NAME;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -30,6 +41,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ZipDecompressorTest {
 
+  @Rule public TemporaryFolder folder = new TemporaryFolder();
   private static final int FILE = 0100644;
   private static final int EXECUTABLE = 0100755;
   private static final int DIRECTORY = 040755;
@@ -41,6 +53,18 @@ public class ZipDecompressorTest {
   private static final int DIRECTORY_ATTRIBUTE = DIRECTORY << 16;
 
   private static final String ARCHIVE_NAME = "test_decompress_archive.zip";
+
+  private Path createZipFile(String entryName, String content) throws IOException {
+    FileSystem fs = FileSystems.getNativeFileSystem();
+    File zipFile = folder.newFile("malicious.zip");
+    try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile))) {
+      ZipEntry entry = new ZipEntry(entryName);
+      zos.putNextEntry(entry);
+      zos.write(content.getBytes(UTF_8));
+      zos.closeEntry();
+    }
+    return fs.getPath(zipFile.getAbsolutePath());
+  }
 
   /**
    * Test decompressing a tar.gz file with hard link file and symbolic link file inside without
@@ -56,14 +80,28 @@ public class ZipDecompressorTest {
   }
 
   /**
-   * Test decompressing a tar.gz file with hard link file and symbolic link file inside and
-   * stripping a prefix
+   * Test decompressing a zip file with hard link file and symbolic link file inside and stripping a
+   * prefix
    */
   @Test
   public void testDecompressWithPrefix() throws Exception {
     TestArchiveDescriptor archiveDescriptor = new TestArchiveDescriptor(ARCHIVE_NAME, "out", false);
     DecompressorDescriptor.Builder descriptorBuilder =
         archiveDescriptor.createDescriptorBuilder().setPrefix(ROOT_FOLDER_NAME);
+    Path outputDir = decompress(descriptorBuilder.build());
+
+    archiveDescriptor.assertOutputFiles(outputDir, INNER_FOLDER_NAME);
+  }
+
+  /**
+   * Test decompressing a zip file with hard link file and symbolic link file inside and stripping a
+   * component
+   */
+  @Test
+  public void testDecompressWithStripComponents() throws Exception {
+    TestArchiveDescriptor archiveDescriptor = new TestArchiveDescriptor(ARCHIVE_NAME, "out", false);
+    DecompressorDescriptor.Builder descriptorBuilder =
+        archiveDescriptor.createDescriptorBuilder().setStripComponents(1);
     Path outputDir = decompress(descriptorBuilder.build());
 
     archiveDescriptor.assertOutputFiles(outputDir, INNER_FOLDER_NAME);
@@ -106,6 +144,25 @@ public class ZipDecompressorTest {
     assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
   }
 
+  /** Test that entry renaming is applied prior to stripping components. */
+  @Test
+  public void testDecompressWithRenamedFilesAndStripComponents() throws Exception {
+    TestArchiveDescriptor archiveDescriptor = new TestArchiveDescriptor(ARCHIVE_NAME, "out", false);
+    String innerDirName = ROOT_FOLDER_NAME + "/" + INNER_FOLDER_NAME;
+
+    HashMap<String, String> renameFiles = new HashMap<>();
+    renameFiles.put(innerDirName + "/hardLinkFile", innerDirName + "/renamedFile");
+    DecompressorDescriptor.Builder descriptorBuilder =
+        archiveDescriptor
+            .createDescriptorBuilder()
+            .setStripComponents(1)
+            .setRenameFiles(renameFiles);
+    Path outputDir = decompress(descriptorBuilder.build());
+
+    Path innerDir = outputDir.getRelative(INNER_FOLDER_NAME);
+    assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
+  }
+
   private Path decompress(DecompressorDescriptor descriptor) throws Exception {
     return ZipDecompressor.INSTANCE.decompress(descriptor);
   }
@@ -137,5 +194,17 @@ public class ZipDecompressorTest {
   public void testDirectoryWithRegularFilePermissions() throws Exception {
     int permissions = ZipDecompressor.getPermissions(FILE, "foo/bar/");
     assertThat(permissions).isEqualTo(040755);
+  }
+
+  @Test
+  public void testDecompressZipWithUpLevelReference() throws IOException {
+    Path zipFile = createZipFile("../foo", "bar");
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(zipFile)
+            .setDestinationPath(zipFile.getParentDirectory().getRelative("out"))
+            .build();
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor));
+    assertThat(thrown).hasMessageThat().contains("path is escaping the destination directory");
   }
 }

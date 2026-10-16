@@ -17,6 +17,7 @@ package net.starlark.java.eval;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.auto.value.AutoValue;
 import java.lang.reflect.Method;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -80,11 +81,7 @@ public class StarlarkAnnotationsTest {
   }
 
   /** MockClassD */
-  public static class MockClassD extends MockClassC {
-    @Override
-    @StarlarkMethod(name = "foo", doc = "MockClassD#foo")
-    public void foo() {}
-  }
+  public static class MockClassD extends MockClassC {}
 
   /**
    * A mock class that implements two unrelated module interfaces. This is invalid as the Starlark
@@ -144,6 +141,21 @@ public class StarlarkAnnotationsTest {
   /** MockClassZ */
   public static class MockClassZ {
   }
+
+  @StarlarkBuiltin(name = "MockStruct", doc = "MockStruct", isStructType = true)
+  public static interface MockStructInterface extends StarlarkValue {}
+
+  // Extends MockStructInterface but not itself marked as assignableToStructType
+  @StarlarkBuiltin(name = "MockStructChild", doc = "MockStructChild")
+  public static interface MockStructChildInterface extends MockStructInterface {}
+
+  public static class MockStructImpl implements MockStructInterface {}
+
+  public static class MockStructChildImpl implements MockStructChildInterface {}
+
+  // First ancestor (MockStructChildInterface) is not itself marked as assignableToStructType
+  public static class MockStructChildAndMockStructImpl
+      implements MockStructChildInterface, MockStructInterface {}
 
   // The tests for getStarlarkBuiltin() double as tests for getParentWithStarlarkBuiltin(),
   // since they share an implementation.
@@ -211,6 +223,20 @@ public class StarlarkAnnotationsTest {
 
     assertThat(StarlarkAnnotations.getStarlarkBuiltin(UnambiguousClass.class))
         .isEqualTo(SubclassOfBoth.class.getAnnotation(StarlarkBuiltin.class));
+  }
+
+  @Test
+  public void testIsAssignableToStructType() throws Exception {
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockStructInterface.class)).isTrue();
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockStructChildInterface.class))
+        .isTrue();
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockStructImpl.class)).isTrue();
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockStructChildImpl.class)).isTrue();
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockStructChildAndMockStructImpl.class))
+        .isTrue();
+
+    // Doesn't implement MockStructInterface.
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockClassA.class)).isFalse();
   }
 
   @Test
@@ -283,5 +309,36 @@ public class StarlarkAnnotationsTest {
     ann = StarlarkAnnotations.getStarlarkMethod(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockInterfaceB2#qux");
+  }
+
+  @StarlarkBuiltin(name = "MockAbstractClass", doc = "MockAbstractClass")
+  public abstract static class MockAbstractClass implements StarlarkValue {
+    @StarlarkMethod(name = "abstract_method", doc = "abstract_method")
+    public abstract String abstractMethod();
+  }
+
+  @AutoValue
+  public abstract static class MockAutoValueClass extends MockAbstractClass {
+    public static MockAutoValueClass create() {
+      return new AutoValue_StarlarkAnnotationsTest_MockAutoValueClass("abstractMethodVal");
+    }
+  }
+
+  @Test
+  public void testAutoValueAnnotations() throws Exception {
+    MockAutoValueClass val = MockAutoValueClass.create();
+    Class<?> clazz = val.getClass();
+
+    // The generated class itself should be recognized as a Starlark type,
+    // getting the annotation from its superclass.
+    StarlarkBuiltin builtin = StarlarkAnnotations.getStarlarkBuiltin(clazz);
+    assertThat(builtin).isNotNull();
+    assertThat(builtin.name()).isEqualTo("MockAbstractClass");
+
+    // We should be able to retrieve the StarlarkMethod from the generated class's method.
+    Method method = clazz.getMethod("abstractMethod");
+    StarlarkMethod methodAnnot = StarlarkAnnotations.getStarlarkMethod(method);
+    assertThat(methodAnnot).isNotNull();
+    assertThat(methodAnnot.name()).isEqualTo("abstract_method");
   }
 }

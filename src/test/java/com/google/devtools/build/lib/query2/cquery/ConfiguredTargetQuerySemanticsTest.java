@@ -299,7 +299,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         getConfiguration(Iterables.getOnlyElement(ruleClass))
             .getOptions()
             .get(DummyTestOptions.class);
-    assertThat(testOptions.foo).isEqualTo("SET BY PATCH");
+    assertThat(testOptions.getFoo()).isEqualTo("SET BY PATCH");
   }
 
   private void createConfigRulesAndBuild() throws Exception {
@@ -506,6 +506,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertThat(e)
         .hasMessageThat()
         .contains("config()'s second argument must identify a unique configuration");
+  }
+
+  @Test
+  public void testConfig_anyExec() throws Exception {
+    createConfigRulesAndBuild();
+
+    // Needed to prime exec_dep with //test:my_rule which configures it in exec.
+    Set<CqueryNode> unused = eval("//test:my_rule");
+    Set<CqueryNode> resultFromAnyExec = eval("config(//test:exec_dep, anyexec)");
+    assertThat(resultFromAnyExec).hasSize(1);
+    CqueryNode node = Iterables.getOnlyElement(resultFromAnyExec);
+    assertThat(node.getDescription(LabelPrinter.legacy())).isEqualTo("//test:exec_dep");
+
+    BuildConfigurationValue execDepConfig = getConfiguration(node);
+    assertThat(execDepConfig.isExecConfiguration()).isTrue();
   }
 
   @Test

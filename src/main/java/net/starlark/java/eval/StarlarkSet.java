@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
@@ -32,8 +33,9 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /** A finite, mutable set of Starlark values. */
 @StarlarkBuiltin(
@@ -150,12 +152,16 @@ s ^= set([3, 4])        # s now equals set([2, 4])
 operations that attempt to update it will fail.
 """)
 public final class StarlarkSet<E> extends AbstractSet<E>
-    implements Mutability.Freezable, StarlarkMembershipTestable, StarlarkIterable<E> {
+    implements Mutability.Freezable, StarlarkMembershipTestable, StarlarkIterable<E>, Compactable {
+
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return Types.SET_CONSTRUCTOR;
+  }
 
   private static final StarlarkSet<?> EMPTY = new StarlarkSet<>(ImmutableSet.of());
 
   // Either LinkedHashSet<E> or ImmutableSet<E>.
-  private final Set<E> contents;
+  private Set<E> contents;
   // Number of active iterators (unused once frozen).
   private transient int iteratorCount; // transient for serialization by Bazel
 
@@ -189,6 +195,12 @@ public final class StarlarkSet<E> extends AbstractSet<E>
   }
 
   @Override
+  public boolean isAcyclic() {
+    // Because we invoke hashCode() on each element, which would throw on a self-referential value.
+    return true;
+  }
+
+  @Override
   public boolean updateIteratorCount(int delta) {
     if (mutability().isFrozen()) {
       return false;
@@ -213,17 +225,17 @@ public final class StarlarkSet<E> extends AbstractSet<E>
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     if (isEmpty()) {
       printer.append("set()");
     } else {
-      printer.printList(this, "set([", ", ", "])");
+      printer.printList(this, "set([", ", ", "])", semantics);
     }
   }
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
@@ -519,7 +531,8 @@ assignment operation.
     Starlark.checkMutable(this);
     Starlark.checkHashable(element);
     if (!contents.remove(element)) {
-      throw Starlark.errorf("element %s not found in set", Starlark.repr(element));
+      throw Starlark.errorf(
+          "element %s not found in set", Starlark.repr(element, StarlarkSemantics.DEFAULT));
     }
   }
 
@@ -797,11 +810,14 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     // TODO(ilist@): store the type for non-homogeneous sets
-    return isEmpty()
-        ? Types.set(Types.ANY)
-        : Types.set(Types.union(stream().map(TypeChecker::type).collect(toImmutableSet())));
+    if (isEmpty()) {
+      return mutability().isFrozen() ? Types.set(Types.NEVER) : Types.set(Types.ANY);
+    }
+    return Types.set(
+        Types.union(
+            stream().map(e -> Starlark.getStarlarkType(e, semantics)).collect(toImmutableSet())));
   }
 
   /**
@@ -893,5 +909,12 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
   @Override
   public boolean retainAll(Collection<?> c) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public StarlarkValue unsafeOptimizeMemoryLayout() {
+    checkState(mutability.isFrozen());
+    this.contents = ImmutableSet.copyOf(contents);
+    return this;
   }
 }

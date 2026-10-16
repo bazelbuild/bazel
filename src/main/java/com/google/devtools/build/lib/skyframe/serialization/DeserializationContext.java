@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
 import com.google.devtools.build.skyframe.SkyKey;
 
 import com.google.errorprone.annotations.ForOverride;
@@ -150,24 +151,28 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
   @Nullable
   final Object processTagAndDeserialize(CodedInputStream codedIn)
       throws SerializationException, IOException {
-    int tag = codedIn.readSInt32();
-    if (tag == 0) {
+    int typedTag = codedIn.readRawVarint32();
+    if (typedTag == 0) {
       return null;
     }
-    if (tag < 0) {
-      // Subtracts 1 to undo transformation from SerializationContext to avoid null.
-      return getMemoizedBackReference(-tag - 1);
-    }
-    Object constant = registry.maybeGetConstantByTag(tag);
+    int tag = WireType.getTagNumber(typedTag);
+    int wireType = WireType.getWireTypeIndex(typedTag);
+    Object constant = registry.maybeGetConstantByTag(typedTag);
     if (constant != null) {
       return constant;
     }
+    // Micro-optimization: avoid looking up an actual WireType enum value. We don't actually need a
+    // WireType value, we just need to know how to interpret the tag.
+    if (wireType == WireType.BACKREFERENCE_VALUE) {
+      return getMemoizedBackReference(tag);
+    }
     // Performs deserialization using the specified codec.
-    return deserializeAndMaybeMemoize(registry.getCodecDescriptorByTag(tag).codec(), codedIn);
+    CodecDescriptor codec = registry.getCodecDescriptorByTag(typedTag);
+    return deserializeAndMaybeMemoize(codec.codec(), codedIn);
   }
 
   @Nullable
-  final Object maybeGetConstantByTag(int tag) {
+  final Object maybeGetConstantByTag(int tag) throws SerializationException {
     return registry.maybeGetConstantByTag(tag);
   }
 

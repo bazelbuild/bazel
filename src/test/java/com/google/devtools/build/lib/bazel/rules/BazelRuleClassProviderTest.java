@@ -155,14 +155,20 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
             "--action_env=FOO=bar");
 
     ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options);
-    assertThat(env.getFixedEnv()).containsEntry("PATH", "/bin:/usr/bin:/usr/local/bin");
+    assertThat(env.getFixedEnv()).containsEntry("PATH", "/bin:/usr/bin:/sbin:/usr/sbin");
     assertThat(env.getFixedEnv()).containsEntry("FOO", "bar");
   }
 
   @Test
-  public void pathOrDefaultOnLinux() {
-    assertThat(pathOrDefault(OS.LINUX, null, null)).isEqualTo("/bin:/usr/bin:/usr/local/bin");
-    assertThat(pathOrDefault(OS.LINUX, "/not/bin", null)).isEqualTo("/bin:/usr/bin:/usr/local/bin");
+  public void pathOrDefaultOnUnix() {
+    assertThat(pathOrDefault(OS.LINUX, null, null)).isEqualTo("/bin:/usr/bin:/sbin:/usr/sbin");
+    assertThat(pathOrDefault(OS.LINUX, "/not/bin", null))
+        .isEqualTo("/bin:/usr/bin:/sbin:/usr/sbin");
+    assertThat(pathOrDefault(OS.OPENBSD, null, null))
+        .isEqualTo("/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin");
+    assertThat(pathOrDefault(OS.FREEBSD, null, null))
+        .isEqualTo("/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin");
+    assertThat(pathOrDefault(OS.DARWIN, null, null)).isEqualTo("/bin:/usr/bin:/sbin:/usr/sbin");
   }
 
   @Test
@@ -190,13 +196,13 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
       // This Bazel build doesn't include StrictActionEnvOptions. Nothing to test.
       return;
     }
-    strictActionEnvOptions.useStrictActionEnv = true;
+    strictActionEnvOptions.setUseStrictActionEnv(true);
 
     StrictActionEnvOptions h =
         AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter)
             .get(StrictActionEnvOptions.class);
 
-    assertThat(h.useStrictActionEnv).isTrue();
+    assertThat(h.getUseStrictActionEnv()).isTrue();
   }
 
   @Test
@@ -226,7 +232,7 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
 
   private static PathFragment determineShellExecutable(OS os, PathFragment executableOption) {
     ShellConfiguration.Options options = Options.getDefaults(ShellConfiguration.Options.class);
-    options.shellExecutable = executableOption;
+    options.setShellExecutable(executableOption);
     return BazelRuleClassProvider.getShellExecutableForOs(os, options);
   }
 }

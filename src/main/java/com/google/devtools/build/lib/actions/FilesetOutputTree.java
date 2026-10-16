@@ -17,30 +17,55 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 /** A collection of {@link FilesetOutputSymlink}s comprising the output tree of a fileset. */
 public final class FilesetOutputTree implements RichArtifactData {
 
-  public static final FilesetOutputTree EMPTY = new FilesetOutputTree(ImmutableList.of(), false);
+  public static final FilesetOutputTree EMPTY =
+      new FilesetOutputTree(
+          ImmutableList.of(), ImmutableMap.of(), createProxyMetadata(ImmutableList.of()), false);
 
   public static FilesetOutputTree forward(FilesetOutputTree other) {
-    return other.isEmpty() ? EMPTY : new FilesetOutputTree(other.symlinks, true);
+    return other.isEmpty()
+        ? EMPTY
+        : new FilesetOutputTree(other.symlinks, other.treeArtifacts, other.metadata, true);
   }
 
-  public static FilesetOutputTree create(List<FilesetOutputSymlink> symlinks) {
+  public static FilesetOutputTree create(
+      List<FilesetOutputSymlink> symlinks, Map<Artifact, TreeArtifactValue> treeArtifacts) {
     ImmutableList<FilesetOutputSymlink> sortedSymlinks =
         ImmutableList.sortedCopyOf(Comparator.comparing(FilesetOutputSymlink::name), symlinks);
-    return symlinks.isEmpty() ? EMPTY : new FilesetOutputTree(sortedSymlinks, false);
+    return symlinks.isEmpty()
+        ? EMPTY
+        : new FilesetOutputTree(
+            sortedSymlinks,
+            ImmutableMap.copyOf(treeArtifacts),
+            createProxyMetadata(sortedSymlinks),
+            false);
   }
 
   private final ImmutableList<FilesetOutputSymlink> symlinks;
+  private final ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts;
+
+  /** Proxy metadata for the fileset tree, see {@link FileArtifactValue#createSymlinkTreeProxy}. */
+  private final FileArtifactValue metadata;
+
   private final boolean forwarded;
 
-  private FilesetOutputTree(ImmutableList<FilesetOutputSymlink> symlinks, boolean forwarded) {
+  private FilesetOutputTree(
+      ImmutableList<FilesetOutputSymlink> symlinks,
+      ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts,
+      FileArtifactValue metadata,
+      boolean forwarded) {
     this.symlinks = checkNotNull(symlinks);
+    this.treeArtifacts = checkNotNull(treeArtifacts);
+    this.metadata = checkNotNull(metadata);
     this.forwarded = forwarded;
   }
 
@@ -66,9 +91,28 @@ public final class FilesetOutputTree implements RichArtifactData {
     return symlinks.isEmpty();
   }
 
+  /**
+   * Returns the metadata of all tree artifacts included in this fileset.
+   *
+   * <p>Individual children of these tree artifacts each have their own entry in {@link
+   * #symlinks()}, unless they were excluded by the {@code excludes} parameter on {@code
+   * FilesetEntry}.
+   */
+  public ImmutableMap<Artifact, TreeArtifactValue> getTreeArtifacts() {
+    return treeArtifacts;
+  }
+
+  /**
+   * Returns a {@link FileArtifactValue} whose digest is a fingerprint of this fileset tree. It is
+   * suitable for use in action cache checking.
+   */
+  public FileArtifactValue getMetadata() {
+    return metadata;
+  }
+
   @Override
   public int hashCode() {
-    return symlinks.hashCode();
+    return metadata.hashCode();
   }
 
   @Override
@@ -79,15 +123,30 @@ public final class FilesetOutputTree implements RichArtifactData {
     if (!(o instanceof FilesetOutputTree that)) {
       return false;
     }
-    return symlinks.equals(that.symlinks);
+    return metadata.equals(that.metadata) && symlinks.equals(that.symlinks);
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this).add("symlinks", symlinks).toString();
+    return MoreObjects.toStringHelper(this)
+        .add("metadata", metadata)
+        .add("symlinks", symlinks)
+        .toString();
   }
 
   public void addTo(Fingerprint fp) {
+    fingerprintSymlinks(symlinks, fp);
+  }
+
+  private static FileArtifactValue createProxyMetadata(
+      ImmutableList<FilesetOutputSymlink> symlinks) {
+    Fingerprint fp = new Fingerprint();
+    fingerprintSymlinks(symlinks, fp);
+    return FileArtifactValue.createSymlinkTreeProxy(fp.digestAndReset());
+  }
+
+  private static void fingerprintSymlinks(
+      ImmutableList<FilesetOutputSymlink> symlinks, Fingerprint fp) {
     for (var symlink : symlinks) {
       fp.addPath(symlink.name());
       fp.addPath(symlink.target().getExecPath());

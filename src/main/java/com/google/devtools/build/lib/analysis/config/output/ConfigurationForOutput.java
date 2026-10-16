@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -80,6 +82,19 @@ public class ConfigurationForOutput {
 
   public String getMnemonic() {
     return mnemonic;
+  }
+
+  public String getTransitionSuffix() {
+    if (isExec()) {
+      return " (exec)";
+    } else if (!hasTestConfig()) {
+      return " (test-trimmed)";
+    }
+    return "";
+  }
+
+  public String getDisplayMnemonic() {
+    return mnemonic + getTransitionSuffix();
   }
 
   public boolean isExec() {
@@ -191,7 +206,7 @@ public class ConfigurationForOutput {
             fragmentOptionsInstance ->
                 fragmentOptions.add(
                     new FragmentOptionsForOutput(
-                        fragmentOptionsInstance.getClass().getName(),
+                        fragmentOptionsInstance.getOptionsClass().getName(),
                         getOrderedNativeOptions(fragmentOptionsInstance))));
     fragmentOptions.add(
         new FragmentOptionsForOutput(
@@ -214,15 +229,18 @@ public class ConfigurationForOutput {
    */
   private static ImmutableSortedMap<String, String> getOrderedNativeOptions(
       FragmentOptions options) {
-    return options.asMap().entrySet().stream()
+    return OptionDefinition.getOptionDefinitions(options.getOptionsClass()).stream()
         // While technically part of CoreOptions, --define is practically a user-definable flag so
         // we include it in the user-defined fragment for clarity. See getOrderedUserDefinedOptions.
         .filter(
-            entry ->
-                !(options.getClass().equals(CoreOptions.class) && entry.getKey().equals("define")))
+            definition ->
+                !(options.getOptionsClass().equals(CoreOptions.class)
+                    && definition.getOptionName().equals("define")))
         .collect(
             toImmutableSortedMap(
-                Ordering.natural(), Map.Entry::getKey, e -> String.valueOf(e.getValue())));
+                Ordering.natural(),
+                OptionDefinition::getOptionName,
+                definition -> String.valueOf(definition.getValue(options))));
   }
 
   /**
@@ -256,6 +274,7 @@ public class ConfigurationForOutput {
    * Starlark options don't have configuration fragments. This is just to keep their output
    * consistent with native options, i.e. to include "user-defined" section in the output list.
    */
+  @OptionsClass
   static class UserDefinedFragment extends FragmentOptions {
     static final String DESCRIPTIVE_NAME = "user-defined";
     // Intentionally empty: we read the actual options directly from BuildOptions.

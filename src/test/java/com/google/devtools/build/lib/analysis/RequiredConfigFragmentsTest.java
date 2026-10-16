@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import javax.annotation.Nullable;
@@ -51,13 +52,14 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
 
-  public static final class AOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class AOptions extends FragmentOptions {
     @Option(
         name = "a_option",
         defaultValue = "",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN})
-    public String aOption;
+    public abstract String getAOption();
   }
 
   /**

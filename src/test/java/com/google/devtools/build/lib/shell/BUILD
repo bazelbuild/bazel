@@ -33,17 +33,18 @@ java_library(
     ],
     javacopts = ["-Xlint:-deprecation"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/bazel:main",
+        "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:execution_statistics_java_proto",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
@@ -75,7 +76,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":ShellTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )
 
@@ -201,6 +202,8 @@ java_test(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",
         "//third_party:junit4",
@@ -253,21 +256,25 @@ java_test(
         "//src/main/tools:linux-sandbox",
         "//src/test/shell/integration:spend_cpu_time",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
     tags = [
         "no_windows",
         "shell",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/bazel:main",
+        "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:execution_statistics_java_proto",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
@@ -276,6 +283,23 @@ java_test(
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "JavaSubprocessFactoryTest",
+    srcs = ["JavaSubprocessFactoryTest.java"],
+    tags = [
+        "no_windows",
+        "shell",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",

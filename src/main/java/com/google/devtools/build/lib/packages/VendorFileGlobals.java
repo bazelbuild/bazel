@@ -14,11 +14,12 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -27,7 +28,8 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
 /** Definition of the functions used in VENDOR.bazel file. */
-@GlobalMethods(environment = Environment.VENDOR)
+@GlobalMethodDocs(environment = Environment.VENDOR)
+@StarlarkLibrary
 public final class VendorFileGlobals {
   private VendorFileGlobals() {}
 

@@ -88,6 +88,7 @@ public class PatchUtil {
     NEW_MODE,
     NEW_FILE_MODE,
     OTHER_GIT_LINE,
+    CHUNK_NO_NEWLINE,
     UNKNOWN
   }
 
@@ -106,6 +107,10 @@ public class PatchUtil {
   };
 
   private static LineType getLineType(String line, boolean isReadingChunk, boolean isGitDiff) {
+    // A line starting with '\' is a diff comment line, such as "\ No newline at end of file".
+    if (line.startsWith("\\")) {
+      return LineType.CHUNK_NO_NEWLINE;
+    }
     if (isReadingChunk) {
       if (line.startsWith("+")) {
         return LineType.CHUNK_ADD;
@@ -221,7 +226,7 @@ public class PatchUtil {
       Patch<String> tmpPatch = new Patch<>();
       tmpPatch.addDelta(delta);
       try {
-        newContent = tmpPatch.applyFuzzy(newContent, 0);
+        newContent = tmpPatch.applyFuzzy(newContent, 2);
       } catch (PatchFailedException | IndexOutOfBoundsException e) {
         throw new PatchFailedException(
             String.format(
@@ -347,7 +352,7 @@ public class PatchUtil {
 
   private static void checkFilesStatusForRenaming(
       Path oldFile, Path newFile, String oldFileStr, String newFileStr, int loc)
-      throws PatchFailedException {
+      throws IOException, PatchFailedException {
     // If we're doing a renaming,
     // old file should be specified and exists,
     // new file should be specified but doesn't exist yet.
@@ -376,7 +381,7 @@ public class PatchUtil {
       String oldFileStr,
       String newFileStr,
       int loc)
-      throws PatchFailedException {
+      throws IOException, PatchFailedException {
     // At least one of oldFile or newFile should be specified.
     if (oldFile == null && newFile == null) {
       throw new PatchFailedException(
@@ -447,6 +452,8 @@ public class PatchUtil {
       throw new PatchFailedException("Cannot find patch file: " + patchFile.getPathString());
     }
 
+    String singleFileStr =
+        singleFile != null ? singleFile.relativeTo(outputDirectory).getPathString() : null;
     boolean isGitDiff = false;
     boolean hasRenameFrom = false;
     boolean hasRenameTo = false;
@@ -466,8 +473,86 @@ public class PatchUtil {
     for (int i = 0; i <= patchFileLines.size(); i++) {
       // Adding an extra line to make sure last chunk also gets applied.
       String line = i < patchFileLines.size() ? patchFileLines.get(i) : "$";
-      LineType type;
-      switch (type = getLineType(line, isReadingChunk, isGitDiff)) {
+      LineType type = getLineType(line, isReadingChunk, isGitDiff);
+      // A git header line, an unknown line, or a "--- " line following a complete chunk (i.e., the
+      // start of the next file in a patch without git headers) should trigger an action to apply
+      // collected patch content to a file.
+      if (type == LineType.GIT_HEADER
+          || type == LineType.UNKNOWN
+          || (type == LineType.OLD_FILE && header != null)) {
+        // Renaming is a git only format
+        boolean isRenaming = isGitDiff && hasRenameFrom && hasRenameTo;
+
+        if (!patchContent.isEmpty() || isRenaming || filePermission != -1) {
+          // We collected something useful, let's do some checks before applying the patch.
+          int patchStartLocation = i + 1 - patchContent.size();
+
+          checkPatchContentIsComplete(
+              patchContent, header, oldLineCount, newLineCount, patchStartLocation);
+
+          if (isRenaming) {
+            if (singleFile != null) {
+              if (singleFile.equals(newFile) || singleFile.equals(oldFile)) {
+                throw new PatchFailedException(
+                    "Renaming %s while applying patches to it as a single file is not supported."
+                        .formatted(singleFile));
+              }
+            } else {
+              checkFilesStatusForRenaming(
+                  oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+            }
+          }
+          if (singleFileStr != null
+              && strip == 0
+              && ("a/" + singleFileStr).equals(oldFileStr)
+              && ("b/" + singleFileStr).equals(newFileStr)) {
+            throw new PatchFailedException(
+                String.format(
+                    "error at line %d: the patch file contains a/b prefixes, did you forget to"
+                        + " set patch_strip = 1?",
+                    patchStartLocation));
+          }
+
+          if (singleFile == null || (singleFile.equals(newFile) && singleFile.equals(oldFile))) {
+            Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContent);
+            checkFilesStatusForPatching(
+                patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+
+            applyPatchToFile(patch, oldFile, newFile, isRenaming, filePermission);
+          }
+        }
+
+        patchContent.clear();
+        header = null;
+        oldFileStr = null;
+        newFileStr = null;
+        oldFile = null;
+        newFile = null;
+        filePermission = -1;
+        oldLineCount = 0;
+        newLineCount = 0;
+        isReadingChunk = false;
+        // If the new patch starts with "diff --git " then it's a git diff.
+        isGitDiff = type == LineType.GIT_HEADER;
+        if (isGitDiff) {
+          // In case there is no line starting with +++ and --- (file permission change),
+          // try to parse the file names from the line starting with "diff --git"
+          List<String> args = Splitter.on(' ').splitToList(line);
+          if (args.size() >= 4) {
+            oldFileStr = stripPath(args.get(2), strip);
+            if (!oldFileStr.isEmpty()) {
+              oldFile = getFilePath(oldFileStr, outputDirectory, i + 1);
+            }
+            newFileStr = stripPath(args.get(3), strip);
+            if (!newFileStr.isEmpty()) {
+              newFile = getFilePath(newFileStr, outputDirectory, i + 1);
+            }
+          }
+        }
+        hasRenameFrom = false;
+        hasRenameTo = false;
+      }
+      switch (type) {
         case OLD_FILE -> {
           patchContent.add(line);
           oldFileStr = extractPath(line, strip, i + 1);
@@ -482,6 +567,9 @@ public class PatchUtil {
           // The line should look like: "new mode 100755" or "new file mode 100755"
           // 7 is the file permission for owner, which is at index 12 or 17
           int index = type == LineType.NEW_MODE ? 12 : 17;
+          if (line.length() <= index) {
+            throw new PatchFailedException("Truncated file mode at line " + (i + 1) + ": " + line);
+          }
           char c = line.charAt(index);
           if (c < '0' || c > '7') {
             throw new PatchFailedException(
@@ -544,6 +632,11 @@ public class PatchUtil {
                     + ", does not expect a context line here.");
           }
         }
+        case CHUNK_NO_NEWLINE -> {
+          if (!patchContent.isEmpty() && header != null) {
+            patchContent.add(line);
+          }
+        }
         case RENAME_FROM -> {
           hasRenameFrom = true;
           if (oldFileStr == null) {
@@ -568,72 +661,7 @@ public class PatchUtil {
             newFile = getFilePath(newFileStr, outputDirectory, i + 1);
           }
         }
-        case OTHER_GIT_LINE -> {}
-        case GIT_HEADER, UNKNOWN -> {
-          // A git header line or an unknown line should trigger an action to apply collected
-          // patch content to a file.
-          // Renaming is a git only format
-          boolean isRenaming = isGitDiff && hasRenameFrom && hasRenameTo;
-
-          if (!patchContent.isEmpty() || isRenaming || filePermission != -1) {
-            // We collected something useful, let's do some checks before applying the patch.
-            int patchStartLocation = i + 1 - patchContent.size();
-
-            checkPatchContentIsComplete(
-                patchContent, header, oldLineCount, newLineCount, patchStartLocation);
-
-            if (isRenaming) {
-              if (singleFile != null) {
-                if (singleFile.equals(newFile) || singleFile.equals(oldFile)) {
-                  throw new PatchFailedException(
-                      "Renaming %s while applying patches to it as a single file is not supported."
-                          .formatted(singleFile));
-                }
-              } else {
-                checkFilesStatusForRenaming(
-                    oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
-              }
-            }
-
-            if (singleFile == null || (singleFile.equals(newFile) && singleFile.equals(oldFile))) {
-              Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContent);
-              checkFilesStatusForPatching(
-                  patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
-
-              applyPatchToFile(patch, oldFile, newFile, isRenaming, filePermission);
-            }
-          }
-
-          patchContent.clear();
-          header = null;
-          oldFileStr = null;
-          newFileStr = null;
-          oldFile = null;
-          newFile = null;
-          filePermission = -1;
-          oldLineCount = 0;
-          newLineCount = 0;
-          isReadingChunk = false;
-          // If the new patch starts with "diff --git " then it's a git diff.
-          isGitDiff = type == LineType.GIT_HEADER;
-          if (isGitDiff) {
-            // In case there is no line starting with +++ and --- (file permission change),
-            // try to parse the file names from the line starting with "diff --git"
-            List<String> args = Splitter.on(' ').splitToList(line);
-            if (args.size() >= 4) {
-              oldFileStr = stripPath(args.get(2), strip);
-              if (!oldFileStr.isEmpty()) {
-                oldFile = getFilePath(oldFileStr, outputDirectory, i + 1);
-              }
-              newFileStr = stripPath(args.get(3), strip);
-              if (!newFileStr.isEmpty()) {
-                newFile = getFilePath(newFileStr, outputDirectory, i + 1);
-              }
-            }
-          }
-          hasRenameFrom = false;
-          hasRenameTo = false;
-        }
+        case OTHER_GIT_LINE, GIT_HEADER, UNKNOWN -> {}
       }
     }
   }

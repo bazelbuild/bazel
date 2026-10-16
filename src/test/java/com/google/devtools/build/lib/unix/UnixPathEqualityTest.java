@@ -37,8 +37,16 @@ public class UnixPathEqualityTest {
 
   @Before
   public final void initializeFileSystem() {
-    unixFs = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
-    otherUnixFs = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
+    unixFs =
+        new UnixFileSystem(
+            DigestHashFunction.SHA256,
+            /* hashAttributeName= */ "",
+            new NativePosixFilesServiceImpl());
+    otherUnixFs =
+        new UnixFileSystem(
+            DigestHashFunction.SHA256,
+            /* hashAttributeName= */ "",
+            new NativePosixFilesServiceImpl());
     assertThat(unixFs != otherUnixFs).isTrue();
   }
 

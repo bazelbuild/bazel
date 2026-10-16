@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallba
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback.IoExceptionInterruptedException;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -88,7 +88,8 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     //  reproducible at the level of a single command. Either tolerate, or wipe the analysis graph
     //  beforehand if this option is specified, or add another option to wipe if desired
     //  (SkyframeExecutor#handleAnalysisInvalidatingChange should be sufficient).
-    env.getSkyframeExecutor().deleteOldNodes(/* versionWindowForDirtyGc= */ 0);
+    env.getSkyframeExecutor()
+        .deleteOldNodes(/* versionWindowForDirtyGc= */ 0, /* keepChangePrunableNodes= */ false);
     env.getSkyframeExecutor().applyInvalidation(env.getReporter());
     if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
       throw new ExitException(
@@ -96,7 +97,8 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
               FailureDetail.newBuilder()
                   .setMessage(
                       "Queries based on analysis results are not allowed if incrementality state"
-                          + " is not being kept")
+                          + " is not being kept. Pass --track_incremental_state to enable this"
+                          + " feature.")
                   .setQuery(Query.newBuilder().setCode(Query.Code.ANALYSIS_QUERY_PREREQ_UNMET))
                   .build()));
     }
@@ -179,8 +181,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
           IOException,
           QueryRuntimeHelperException,
           OptionsParsingException {
-    WalkableGraph walkableGraph =
-        SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
+    WalkableGraph walkableGraph = env.getSkyframeExecutor().getWalkableGraph();
     ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations =
         getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraph);
 
@@ -236,9 +237,16 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty query results"));
     }
-    callback.start();
-    callback.process(aggregateResultsCallback.getResult());
-    callback.close(/* failFast= */ !result.getSuccess());
+    try {
+      callback.start();
+      callback.process(aggregateResultsCallback.getResult());
+      // Under --keep_going, query evaluation completed and partial results were replayed above.
+      // Therefore, close() should not fail fast, allowing output formatters to flush
+      // streams and write closing proto/JSON structures.
+      callback.close(/* failFast= */ !result.getSuccess() && !request.getKeepGoing());
+    } catch (IoExceptionInterruptedException e) {
+      throw (IOException) e.getCause();
+    }
 
     queryRuntimeHelper.afterQueryOutputIsWritten();
   }

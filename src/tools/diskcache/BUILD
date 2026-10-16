@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src:__pkg__"],
 )
 
 java_binary(
@@ -18,12 +18,12 @@ java_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
-        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:concurrent",
     ],
 )

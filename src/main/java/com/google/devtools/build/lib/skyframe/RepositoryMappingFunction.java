@@ -124,9 +124,14 @@ public class RepositoryMappingFunction implements SkyFunction {
         return null;
       }
       return RepositoryMappingValue.create(
-          RepositoryMapping.create(repoMappingEntriesValue.entries(), repositoryName),
+          // Avoids repeated computation of the hash code for the same entries object.
+          RepositoryMapping.createWithKnownEntriesHashCode(
+              repoMappingEntriesValue.entries(),
+              repoMappingEntriesValue.entriesHashCode(),
+              repositoryName),
           repoMappingEntriesValue.moduleKey().name(),
-          repoMappingEntriesValue.moduleKey().version());
+          repoMappingEntriesValue.moduleKey().version(),
+          bazelDepGraphValue.getDepGraph().get(repoMappingEntriesValue.moduleKey()).getRepoName());
     }
 
     return RepositoryMappingValue.NOT_FOUND_VALUE;
@@ -151,7 +156,8 @@ public class RepositoryMappingFunction implements SkyFunction {
         RepositoryMappingValue.create(
             bazelDepGraphValue.getFullRepoMapping(moduleKey),
             module.getName(),
-            module.getVersion()));
+            module.getVersion(),
+            module.getRepoName()));
   }
 
   private static Optional<ModuleExtensionId> maybeGetModuleExtensionForRepo(

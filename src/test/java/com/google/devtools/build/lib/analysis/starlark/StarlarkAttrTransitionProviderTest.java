@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.common.options.Converters;
+import com.google.devtools.build.lib.util.EnvVar;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -207,10 +207,13 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(splitAttr.get("amsterdam"))
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .foo)
+                .getFoo())
         .isEqualTo("stroopwafel");
     assertThat(
-            getConfiguration(splitAttr.get("paris")).getOptions().get(DummyTestOptions.class).foo)
+            getConfiguration(splitAttr.get("paris"))
+                .getOptions()
+                .get(DummyTestOptions.class)
+                .getFoo())
         .isEqualTo("crepe");
   }
 
@@ -268,9 +271,11 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
             getMyInfoFromTarget(getConfiguredTarget("//test/starlark:test"))
                 .getValue("split_attr_dep");
     assertThat(splitAttr.keySet()).containsExactly("0", "1");
-    assertThat(getConfiguration(splitAttr.get("0")).getOptions().get(DummyTestOptions.class).foo)
+    assertThat(
+            getConfiguration(splitAttr.get("0")).getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("stroopwafel");
-    assertThat(getConfiguration(splitAttr.get("1")).getOptions().get(DummyTestOptions.class).foo)
+    assertThat(
+            getConfiguration(splitAttr.get("1")).getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("crepe");
   }
 
@@ -329,7 +334,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(splitAttr.get(Starlark.NONE))
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .foo)
+                .getFoo())
         .isEqualTo("stroopwafel");
   }
 
@@ -466,7 +471,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(splitAttr.get("amsterdam"))
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .foo)
+                .getFoo())
         .isEqualTo("stroopwafel");
   }
 
@@ -893,7 +898,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         (List<ConfiguredTarget>) getMyInfoFromTarget(testTarget).getValue("attr_dep");
     assertThat(testDep).hasSize(1);
     ConfiguredTarget mainTarget = Iterables.getOnlyElement(testDep);
-    assertThat(getConfiguration(mainTarget).getOptions().get(DummyTestOptions.class).bazes)
+    assertThat(getConfiguration(mainTarget).getOptions().get(DummyTestOptions.class).getBazes())
         .containsExactly("ok");
   }
 
@@ -1189,8 +1194,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testBannedNativeOptionOutput() throws Exception {
-    // Just picked an arbitrary incompatible_ flag; however, could be any flag
-    // besides incompatible_enable_cc_toolchain_resolution (and might not even need to be real).
+    // Just picked an arbitrary incompatible_ flag; however, this could be any incompatible flag
+    // besides incompatible_enable_apple_toolchain_resolution and might not even need to be real.
     scratch.file(
         "test/starlark/my_rule.bzl",
         """
@@ -1758,7 +1763,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .isEqualTo(StarlarkInt.of(100));
 
     // Assert native option set via command line.
-    assertThat(getCoreOptions(dep).compilationMode.toString()).isEqualTo("opt");
+    assertThat(getCoreOptions(dep).getCompilationMode().toString()).isEqualTo("opt");
 
     // Assert that transitionDirectoryNameFragment is only affected by options
     // set via transitions. Not by native or starlark options set via command line,
@@ -2030,10 +2035,10 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                 ImmutableList.of("//command_line_option:copt=[set_by_test_target]")));
     // Sanity check: the exec-configured value is indeed unique vs. both the target-transitioned
     // value and the top-level config.
-    assertThat(test.getConfigurationKey().getOptions().get(CppOptions.class).coptList)
-        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
-    assertThat(getTargetConfiguration().getOptions().get(CppOptions.class).coptList)
-        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
+    assertThat(test.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList())
+        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList());
+    assertThat(getTargetConfiguration().getOptions().get(CppOptions.class).getCoptList())
+        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList());
     assertThat(getMnemonic(dep)).endsWith("-exec");
   }
 
@@ -3137,7 +3142,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
     // When --platforms is empty and no platform mapping triggers, PlatformMappingValue sets
     // --platforms to PlatformOptions.computeTargetPlatform(), which defaults to the host.
-    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
+    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL));
   }
 
@@ -3205,7 +3210,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--platforms=//platforms:my_platform");
     ConfiguredTarget dep =
         getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
-    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
+    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_other_platform"));
   }
 
@@ -3264,7 +3269,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--platforms=//platforms:my_platform");
     ConfiguredTarget dep =
         getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
-    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
+    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_platform"));
   }
 
@@ -3584,12 +3589,12 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "test/rules.bzl",
         "def _t_impl(settings, attr):",
         "    return {",
-        "        '//command_line_option:allow_multiple_with_env_vars_converter':",
+        "        '//command_line_option:allow_multiple_with_env_var_converter':",
         "        ['a=1', 'b=2', 'c'] }",
         "t = transition(",
         "    implementation = _t_impl,",
         "    inputs = [],",
-        "    outputs =" + " ['//command_line_option:allow_multiple_with_env_vars_converter'],",
+        "    outputs =" + " ['//command_line_option:allow_multiple_with_env_var_converter'],",
         ")",
         "r = rule(",
         "    implementation = lambda ctx: [],",
@@ -3616,11 +3621,9 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                 .getConfigurationKey()
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .allowMultipleWithEnvVarsConverter)
+                .getAllowMultipleWithEnvVarConverter())
         .containsExactly(
-            new Converters.EnvVar.Set("a", "1"),
-            new Converters.EnvVar.Set("b", "2"),
-            new Converters.EnvVar.Inherit("c"));
+            new EnvVar.Set("a", "1"), new EnvVar.Set("b", "2"), new EnvVar.Inherit("c"));
     assertNoEvents();
   }
 
@@ -3634,13 +3637,13 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "test/rules.bzl",
         "def _t_impl(settings, attr):",
         "    return {",
-        "        '//command_line_option:allow_multiple_with_env_vars_converter':",
-        "       " + " settings['//command_line_option:allow_multiple_with_env_vars_converter']",
+        "        '//command_line_option:allow_multiple_with_env_var_converter':",
+        "       " + " settings['//command_line_option:allow_multiple_with_env_var_converter']",
         "    }",
         "t = transition(",
         "    implementation = _t_impl,",
-        "    inputs = ['//command_line_option:allow_multiple_with_env_vars_converter'],",
-        "    outputs =" + " ['//command_line_option:allow_multiple_with_env_vars_converter'],",
+        "    inputs = ['//command_line_option:allow_multiple_with_env_var_converter'],",
+        "    outputs =" + " ['//command_line_option:allow_multiple_with_env_var_converter'],",
         ")",
         "r = rule(",
         "    implementation = lambda ctx: [],",
@@ -3662,10 +3665,10 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         """);
 
     useConfiguration(
-        "--allow_multiple_with_env_vars_converter=a=1",
-        "--allow_multiple_with_env_vars_converter=b=2",
-        "--allow_multiple_with_env_vars_converter=a=2",
-        "--allow_multiple_with_env_vars_converter=c");
+        "--allow_multiple_with_env_var_converter=a=1",
+        "--allow_multiple_with_env_var_converter=b=2",
+        "--allow_multiple_with_env_var_converter=a=2",
+        "--allow_multiple_with_env_var_converter=c");
     ConfiguredTarget parentCt = getConfiguredTarget("//test:c");
     ConfiguredTarget depCt = getDirectPrerequisite(parentCt, "//test:dep");
 
@@ -3674,13 +3677,13 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                 .getConfigurationKey()
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .allowMultipleWithEnvVarsConverter)
+                .getAllowMultipleWithEnvVarConverter())
         .isEqualTo(
             depCt
                 .getConfigurationKey()
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .allowMultipleWithEnvVarsConverter);
+                .getAllowMultipleWithEnvVarConverter());
     assertNoEvents();
   }
 
@@ -3721,7 +3724,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                 .getConfigurationKey()
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .allowMultipleWithListConverter)
+                .getAllowMultipleWithListConverter())
         .containsExactly("foo", "bar", "baz");
     assertNoEvents();
   }

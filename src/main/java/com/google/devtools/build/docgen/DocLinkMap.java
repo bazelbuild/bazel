@@ -13,44 +13,47 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import com.google.common.annotations.VisibleForTesting;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Map;
+import java.nio.file.Path;
 
 /**
  * Represents a link mapping that acts as input to {@link RuleLinkExpander} and {@link
  * SourceUrlMapper}.
  */
-public class DocLinkMap {
-  // For RuleLinkExpander
-  final String beRoot;
-  final Map<String, String> beReferences; // Gson#fromJson ensures the map is of an ordered type
-
-  // For SourceUrlMapper
-  final String sourceUrlRoot;
-  final Map<String, String> repoPathRewrites; // Gson#fromJson ensures the map is of an ordered type
-
-  @VisibleForTesting
-  DocLinkMap(
-      String beRoot,
-      Map<String, String> beReferences,
-      String sourceUrlRoot,
-      Map<String, String> repoPathRewrites) {
-    this.beRoot = beRoot;
-    this.beReferences = beReferences;
-    this.sourceUrlRoot = sourceUrlRoot;
-    this.repoPathRewrites = repoPathRewrites;
-  }
+public record DocLinkMap(
+    // For RuleLinkExpander
+    String beRoot,
+    ImmutableMap<String, String> beReferences,
+    String sourceUrlRoot, // For SourceUrlMapper
+    ImmutableMap<String, String> repoPathRewrites) {
 
   public static DocLinkMap createFromFile(String filePath) {
     try {
-      return new Gson().fromJson(Files.readString(Paths.get(filePath)), DocLinkMap.class);
+      return GSON.fromJson(Files.readString(Path.of(filePath)), DocLinkMap.class);
     } catch (IOException | JsonSyntaxException ex) {
       throw new IllegalArgumentException("Failed to read link map from " + filePath, ex);
     }
   }
+
+  private static final JsonDeserializer<ImmutableMap<String, String>> IMMUTABLE_MAP_DESERIALIZER =
+      (jsonElement, unusedType, unusedContext) ->
+          jsonElement.getAsJsonObject().entrySet().stream()
+              .collect(
+                  toImmutableMap(entry -> entry.getKey(), entry -> entry.getValue().getAsString()));
+
+  private static final Gson GSON =
+      new GsonBuilder()
+          .registerTypeAdapter(
+              new TypeToken<ImmutableMap<String, String>>() {}.getType(),
+              IMMUTABLE_MAP_DESERIALIZER)
+          .create();
 }

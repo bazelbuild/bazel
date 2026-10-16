@@ -34,6 +34,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * An implementation of {@link LateBoundDefault} which obtains a late-bound attribute value (of type
@@ -121,7 +122,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<late-bound default>");
   }
 

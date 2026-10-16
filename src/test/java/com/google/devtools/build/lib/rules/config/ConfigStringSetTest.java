@@ -663,9 +663,9 @@ public final class ConfigStringSetTest extends BuildViewTestCase {
         .isEqualTo(ImmutableSet.of("v1", "v2", "v3"));
 
     assertThat(targetConfig.getOutputDirectoryName()).doesNotContain("ST");
-    assertThat(getArtifactPath(t1)).contains("-ST-");
-    assertThat(getArtifactPath(t2)).contains("-ST-");
-    assertThat(getArtifactPath(t3)).contains("-ST-");
+    assertThat(getArtifactPath(t1)).doesNotContain("ST");
+    assertThat(getArtifactPath(t2)).doesNotContain("ST");
+    assertThat(getArtifactPath(t3)).doesNotContain("ST");
   }
 
   @Test
@@ -756,8 +756,8 @@ public final class ConfigStringSetTest extends BuildViewTestCase {
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//flag:foo"))
                 .toString())
-        // The order of elements is the insertion order.
-        .isEqualTo("set([\"v1\", \"v3\", \"v2\"])");
+        // The order of elements is sorted.
+        .isEqualTo("set([\"v1\", \"v2\", \"v3\"])");
 
     // For t3, the value of //flag:foo is coming from the platform flag, so it should be of type
     // {@code ImmutableSet}.
@@ -773,8 +773,8 @@ public final class ConfigStringSetTest extends BuildViewTestCase {
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//flag:foo"))
                 .toString())
-        // The order of elements is the insertion order.
-        .isEqualTo("[v3, v2, v1]");
+        // The order of elements is sorted.
+        .isEqualTo("[v1, v2, v3]");
 
     // Even though the value of //flag:foo is comping from different sources for t2 and t3, the set
     // values are equal.
@@ -800,7 +800,7 @@ public final class ConfigStringSetTest extends BuildViewTestCase {
     assertThat(targetConfig.getOutputDirectoryName()).doesNotContain("ST");
     assertThat(getArtifactPath(t1)).doesNotContain("-ST-");
     assertThat(getArtifactPath(t2)).contains("-ST-");
-    assertThat(getArtifactPath(t3)).contains("-ST-");
+    assertThat(getArtifactPath(t3)).doesNotContain("-ST-");
   }
 
   @Test

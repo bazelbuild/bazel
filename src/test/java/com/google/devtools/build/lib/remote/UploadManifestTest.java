@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -209,7 +210,7 @@ public class UploadManifestTest {
         new UploadManifest(
             digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
     um.addFiles(ImmutableList.of(link));
-    Digest digest = digestUtil.compute(target);
+    Digest digest = digestUtil.compute(target, target.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -231,7 +232,7 @@ public class UploadManifestTest {
         new UploadManifest(
             digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
     um.addFiles(ImmutableList.of(link));
-    Digest digest = digestUtil.compute(foo);
+    Digest digest = digestUtil.compute(foo, foo.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
 
     Tree tree =
@@ -377,7 +378,7 @@ public class UploadManifestTest {
         new UploadManifest(
             digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
     um.addFiles(ImmutableList.of(dir));
-    Digest digest = digestUtil.compute(target);
+    Digest digest = digestUtil.compute(target, target.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
 
     Tree tree =
@@ -417,7 +418,7 @@ public class UploadManifestTest {
         new UploadManifest(
             digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
     um.addFiles(ImmutableList.of(dir));
-    Digest digest = digestUtil.compute(foo);
+    Digest digest = digestUtil.compute(foo, foo.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("dir/link/foo"));
 
     Directory barDir =
@@ -800,7 +801,7 @@ public class UploadManifestTest {
             /* allowAbsoluteSymlinks= */ false,
             /* preserveExecutableBit= */ true);
     um.addFiles(ImmutableList.of(file));
-    Digest digest = digestUtil.compute(file);
+    Digest digest = digestUtil.compute(file, file.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, file);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -823,7 +824,7 @@ public class UploadManifestTest {
             /* allowAbsoluteSymlinks= */ false,
             /* preserveExecutableBit= */ true);
     um.addFiles(ImmutableList.of(file));
-    Digest digest = digestUtil.compute(file);
+    Digest digest = digestUtil.compute(file, file.stat());
     assertThat(um.getDigestToFile()).containsExactly(digest, file);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -852,8 +853,8 @@ public class UploadManifestTest {
             /* preserveExecutableBit= */ true);
     um.addFiles(ImmutableList.of(dir));
 
-    Digest executableDigest = digestUtil.compute(executableFile);
-    Digest nonExecutableDigest = digestUtil.compute(nonExecutableFile);
+    Digest executableDigest = digestUtil.compute(executableFile, executableFile.stat());
+    Digest nonExecutableDigest = digestUtil.compute(nonExecutableFile, nonExecutableFile.stat());
     assertThat(um.getDigestToFile())
         .containsExactly(executableDigest, executableFile, nonExecutableDigest, nonExecutableFile);
 
@@ -878,6 +879,98 @@ public class UploadManifestTest {
     expectedResult
         .addOutputDirectoriesBuilder()
         .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void actionResult_directoryEntriesSortedByCodePoint() throws Exception {
+    // U+E000 sorts after U+10000 in UTF-16 (whose surrogates start at U+D800), but before it by
+    // code point, which is the order REAPI requires.
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path bmpFile = dir.getRelative(unicodeToInternal("\uE000.txt"));
+    FileSystemUtils.writeContent(bmpFile, new byte[] {1});
+    Path supplementaryFile = dir.getRelative(unicodeToInternal("\uD800\uDC00.txt"));
+    FileSystemUtils.writeContent(supplementaryFile, new byte[] {2});
+    dir.getRelative(unicodeToInternal("\uE000"))
+        .createSymbolicLink(PathFragment.create(unicodeToInternal("\uE000.txt")));
+    dir.getRelative(unicodeToInternal("\uD800\uDC00"))
+        .createSymbolicLink(PathFragment.create(unicodeToInternal("\uD800\uDC00.txt")));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
+    um.addFiles(ImmutableList.of(dir));
+
+    Directory rootDir =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("\uE000.txt")
+                    .setDigest(digestUtil.compute(bmpFile, bmpFile.stat()))
+                    .setIsExecutable(true))
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("\uD800\uDC00.txt")
+                    .setDigest(digestUtil.compute(supplementaryFile, supplementaryFile.stat()))
+                    .setIsExecutable(true))
+            .addSymlinks(SymlinkNode.newBuilder().setName("\uE000").setTarget("\uE000.txt"))
+            .addSymlinks(
+                SymlinkNode.newBuilder().setName("\uD800\uDC00").setTarget("\uD800\uDC00.txt"))
+            .build();
+    Tree tree = Tree.newBuilder().setRoot(rootDir).build();
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(digestUtil.compute(tree))
+        .setIsTopologicallySorted(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void actionResult_unicodeDirectoryTree() throws Exception {
+    // Verify that non-ASCII names in directory trees are converted from Bazel's internal
+    // encoding to Unicode in the protobuf messages (FileNode, DirectoryNode, SymlinkNode).
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative(unicodeToInternal("dïr"));
+    dir.createDirectory();
+    Path subdir = execRoot.getRelative(unicodeToInternal("dïr/sübdïr"));
+    subdir.createDirectory();
+    Path file = execRoot.getRelative(unicodeToInternal("dïr/sübdïr/fïlé"));
+    FileSystemUtils.writeContent(file, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative(unicodeToInternal("dïr/lïnk"));
+    link.createSymbolicLink(PathFragment.create(unicodeToInternal("../tàrgét")));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
+    um.addFiles(ImmutableList.of(dir));
+    Digest fileDigest = digestUtil.compute(file, file.stat());
+
+    // Build the expected tree with Unicode names.
+    Directory subdirDir =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder().setName("fïlé").setDigest(fileDigest).setIsExecutable(true))
+            .build();
+    Digest subdirDigest = digestUtil.compute(subdirDir);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("sübdïr").setDigest(subdirDigest))
+            .addSymlinks(SymlinkNode.newBuilder().setName("lïnk").setTarget("../tàrgét"))
+            .build();
+    Tree tree = Tree.newBuilder().setRoot(rootDir).addChildren(subdirDir).build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dïr")
         .setTreeDigest(treeDigest)
         .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());

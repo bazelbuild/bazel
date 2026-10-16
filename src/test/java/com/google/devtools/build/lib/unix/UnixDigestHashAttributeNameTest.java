@@ -42,13 +42,15 @@ public class UnixDigestHashAttributeNameTest extends FileSystemTest {
     // Instead of actually trying to access this file, a call to getxattr() should be made. We
     // intercept this call and return a fake extended attribute value, thereby causing the checksum
     // computation to be skipped entirely.
-    assertThat(DigestUtils.getDigestWithManualFallback(absolutize("myfile"), SyscallCache.NO_CACHE))
+    assertThat(
+            DigestUtils.getDigestWithManualFallback(
+                absolutize("myfile"), SyscallCache.NO_CACHE, /* status= */ null))
         .isEqualTo(FAKE_DIGEST);
   }
 
   private class FakeAttributeFileSystem extends UnixFileSystem {
-    public FakeAttributeFileSystem(DigestHashFunction hashFunction) {
-      super(hashFunction, "user.checksum.sha256");
+    FakeAttributeFileSystem(DigestHashFunction hashFunction) {
+      super(hashFunction, "user.checksum.sha256", new NativePosixFilesServiceImpl());
     }
 
     @Override

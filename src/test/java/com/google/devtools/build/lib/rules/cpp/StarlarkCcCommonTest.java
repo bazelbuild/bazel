@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -1656,18 +1655,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     var picStaticLibraries =
-        ImmutableList.of(
-            "a.pic.a",
-            "b.rlib",
-            "e.pic.a",
-            "libdep1.a",
-            "c.pic.a",
-            "libdep2.a",
-            "libstl_cc_library.a");
-    if (AnalysisMock.get().isThisBazel()) {
-      picStaticLibraries =
-          ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
-    }
+        ImmutableList.of("a.pic.a", "b.rlib", "e.pic.a", "libdep1.a", "c.pic.a", "libdep2.a");
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.rlib", "c.a", "d.a"),
         picStaticLibraries,
@@ -1686,18 +1674,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     var picStaticLibraries =
-        ImmutableList.of(
-            "a.pic.a",
-            "libdep2.a",
-            "b.rlib",
-            "c.pic.a",
-            "e.pic.a",
-            "libdep1.a",
-            "libstl_cc_library.a");
-    if (AnalysisMock.get().isThisBazel()) {
-      picStaticLibraries =
-          ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
-    }
+        ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.rlib", "c.a", "d.a"),
         picStaticLibraries,
@@ -2145,8 +2122,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(variable).isNotNull();
     VariableWithValue v = variableWithValueFromStarlark(variable);
     assertThat(v).isNotNull();
-    assertThat(v.variable).isEqualTo("abc");
-    assertThat(v.value).isEqualTo("def");
+    assertThat(v.variable()).isEqualTo("abc");
+    assertThat(v.value()).isEqualTo("def");
 
     createEnvEntryRule("six", /* key= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
@@ -2692,8 +2669,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(withFeatureSetProvider).isNotNull();
     WithFeatureSet withFeatureSet = withFeatureSetFromStarlark(withFeatureSetProvider);
     assertThat(withFeatureSet).isNotNull();
-    assertThat(withFeatureSet.getFeatures()).containsExactly("f1", "f2");
-    assertThat(withFeatureSet.getNotFeatures()).containsExactly("nf1", "nf2");
+    assertThat(withFeatureSet.features()).containsExactly("f1", "f2");
+    assertThat(withFeatureSet.notFeatures()).containsExactly("nf1", "nf2");
 
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
@@ -3257,8 +3234,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     FlagGroup flagGroup = flagGroupFromStarlark(flagGroupProvider);
-    assertThat(flagGroup.getExpandables()).isNotEmpty();
-    assertThat(flagGroup.getExpandables().get(0)).isInstanceOf(SingleChunkFlag.class);
+    assertThat(flagGroup.expandables()).isNotEmpty();
+    assertThat(flagGroup.expandables().get(0)).isInstanceOf(SingleChunkFlag.class);
   }
 
   @Test
@@ -3640,7 +3617,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "seven",
         /* path= */ Starlark.repr(
             "C:\\Program Files\\Microsoft Visual"
-                + " Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin/HostX64/x64/cl.exe"),
+                + " Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin/HostX64/x64/cl.exe",
+            StarlarkSemantics.DEFAULT),
         /* withFeatures= */ "[]",
         /* requirements= */ "[]");
 
@@ -3659,7 +3637,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     createCustomToolRule(
         "seven",
-        /* path= */ Starlark.repr("bin\\HostX64\\x64/cl.exe"),
+        /* path= */ Starlark.repr("bin\\HostX64\\x64/cl.exe", StarlarkSemantics.DEFAULT),
         /* withFeatures= */ "[]",
         /* requirements= */ "[]");
 
@@ -3679,7 +3657,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomToolRule(
         "seven",
         /* path= */ Starlark.repr(
-            "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\TOOLS\\MSVC\\14.39.33519\\BIN\\HOSTX64\\X64\\CL.EXE"),
+            "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\TOOLS\\MSVC\\14.39.33519\\BIN\\HOSTX64\\X64\\CL.EXE",
+            StarlarkSemantics.DEFAULT),
         /* withFeatures= */ "[]",
         /* requirements= */ "[]");
 
@@ -3697,7 +3676,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     createCustomToolRule(
         "seven",
-        /* path= */ Starlark.repr("/usr/bin/gcc"),
+        /* path= */ Starlark.repr("/usr/bin/gcc", StarlarkSemantics.DEFAULT),
         /* withFeatures= */ "[]",
         /* requirements= */ "[]");
 
@@ -3714,7 +3693,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     createCustomToolRule(
         "seven",
-        /* path= */ Starlark.repr("bin/gcc"),
+        /* path= */ Starlark.repr("bin/gcc", StarlarkSemantics.DEFAULT),
         /* withFeatures= */ "[]",
         /* requirements= */ "[]");
 
@@ -3875,7 +3854,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(flagSetStruct).isNotNull();
     FlagSet f = flagSetFromStarlark(flagSetStruct, /* actionName= */ "action");
     assertThat(f).isNotNull();
-    assertThat(f.getActions()).containsExactly("action");
+    assertThat(f.actions()).containsExactly("action");
   }
 
   private void createFlagSetRule(String pkg, String actions, String flagGroups, String withFeatures)
@@ -4129,7 +4108,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(a).isNotNull();
     assertThat(a.getActionName()).isEqualTo("actionname32._++-");
     assertThat(a.getImplies()).containsExactly("a", "b").inOrder();
-    assertThat(Iterables.getOnlyElement(a.getFlagSets()).getActions())
+    assertThat(Iterables.getOnlyElement(a.getFlagSets()).actions())
         .containsExactly("actionname32._++-");
   }
 
@@ -4349,9 +4328,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e = assertThrows(EvalException.class, () -> featureFromStarlark(featureStruct));
     String msg = e.getMessage();
     assertThat(msg).contains("A feature must either have a nonempty 'name' field or be enabled.");
-    assertThat(msg)
-        .contains(
-            "in FeatureInfo instantiated at /workspace/tools/cpp/cc_toolchain_config_lib.bzl:");
   }
 
   @Test
@@ -5624,7 +5600,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
   }
 
@@ -5675,7 +5651,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
   }
 
@@ -5966,6 +5942,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "load('//" + bzlFilePath + ":extension.bzl', 'cc_starlark_library')",
         "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "exports_files(['script.lds', 'extra_compiler_input'])",
         "cc_library(",
         "    name = 'dep1',",
         "    srcs = ['dep1.cc'],",
@@ -6047,14 +6024,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomNameOutputArtifactRaisesError() throws Exception {
-    setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'", " main_output=None");
-
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
   public void testInterfaceLibraryProducedForTransitiveLinkOnWindows() throws Exception {
     getAnalysisMock()
         .ccSupport()
@@ -6123,14 +6092,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkStampExpliciltyEnabledOverridesNoStampFlag() throws Exception {
+  public void testLinkStampExplicitlyEnabledOverridesNoStampFlag() throws Exception {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=1", "linking_contexts=dep_linking_contexts");
     assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6140,10 +6106,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=0", "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6153,10 +6116,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--stamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
     assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6166,10 +6126,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6179,10 +6136,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--stamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -7309,7 +7263,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             + "feature_configuration=feature_configuration, cc_toolchain=toolchain, %s)";
     ImmutableList<String> calls =
         ImmutableList.of(
-            String.format(callFormatString, "link_artifact_name_suffix='test'"),
             String.format(callFormatString, "never_link=False"),
             String.format(callFormatString, "test_only_target=False"),
             String.format(callFormatString, "always_link=False"),
@@ -7499,7 +7452,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
               + " feature_configuration=feature_configuration, "
               + " source_file=file, output_file=file,"
               + " compilation_inputs=depset([]), inputs_for_validation=depset([]),"
-              + " label_replacement='', output_replacement='')");
+              + " target_name='', build_target='')");
     }
     for (String call : calls) {
       scratch.overwriteFile(
@@ -7750,7 +7703,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "cc_rule = rule(",
         "  implementation = _impl,",
         "  attrs = { ",
-        "    '_artifact': attr.label(allow_single_file=True, default=Label('//b:foo.soifso')),",
+        "    '_artifact': attr.label(allow_single_file=True, default=Label('//b:foo.soif.so')),",
         "    '_cc_toolchain': attr.label(default=Label('//b:alias'))",
         "  },",
         "  fragments = ['cpp'],",

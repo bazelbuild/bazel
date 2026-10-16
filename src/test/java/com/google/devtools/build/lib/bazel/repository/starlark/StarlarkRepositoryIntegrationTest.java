@@ -66,35 +66,6 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testfailWithIncompatibleUseCcConfigureFromRulesCcDoesNothing() throws Exception {
-    // A simple test that recreates local_repository with Starlark.
-    scratch.file("/repo2/MODULE.bazel", "module(name='repo2')");
-    scratch.file("/repo2/bar.txt");
-    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'])");
-    scratch.file(
-        "def.bzl",
-        """
-        __do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
-
-        def _impl(repository_ctx):
-            repository_ctx.symlink(repository_ctx.attr.path, "")
-
-        repo = repository_rule(
-            implementation = _impl,
-            local = True,
-            attrs = {"path": attr.string(mandatory = True)},
-        )
-        """);
-    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(
-        rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "repo = use_repo_rule('//:def.bzl', 'repo')",
-        "repo(name='foo', path='/repo2')");
-    invalidatePackages();
-    getConfiguredTargetAndData("@@+repo+foo//:bar");
-  }
-
-  @Test
   public void testStarlarkSymlinkFileFromRepository() throws Exception {
     // This test creates a symbolic link BUILD -> bar.txt.
     scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'])");
@@ -209,6 +180,54 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("There is already a built-in attribute 'name' " + "which cannot be overridden");
+  }
+
+  @Test
+  public void testRepositoryRuleCanDefineVisibilityAttr() throws Exception {
+    scratch.file(
+        "def.bzl",
+        """
+        def _impl(ctx):
+            ctx.file("BUILD.bazel", "filegroup(name='x')")
+            _ = ctx.attr.visibility
+
+        repo = repository_rule(
+            implementation = _impl,
+            attrs = {"visibility": attr.string_list(default = [])},
+        )
+        """);
+    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "repo = use_repo_rule('//:def.bzl', 'repo')",
+        "repo(name='foo')");
+
+    invalidatePackages();
+    getConfiguredTargetAndData("@@+repo+foo//:x");
+  }
+
+  @Test
+  public void testRepositoryRuleAccessingUndefinedVisibilityAttrFails() throws Exception {
+    scratch.file(
+        "def.bzl",
+        """
+        def _impl(ctx):
+            _ = ctx.attr.visibility
+
+        repo = repository_rule(
+            implementation = _impl,
+        )
+        """);
+    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "repo = use_repo_rule('//:def.bzl', 'repo')",
+        "repo(name='foo')");
+
+    invalidatePackages();
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("@@+repo+foo//:x"));
+    assertThat(e).hasMessageThat().contains("unknown attribute visibility");
   }
 
   @Test

@@ -31,29 +31,12 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.CONFIGURATION_FRAGMENT)
 public interface AndroidConfigurationApi extends StarlarkValue {
 
-  @StarlarkMethod(name = "use_incremental_dexing", structField = true, doc = "", documented = false)
-  boolean useIncrementalDexing();
-
   @StarlarkMethod(
       name = "incremental_dexing_shards_after_proguard",
       structField = true,
       doc = "",
       documented = false)
   int incrementalDexingShardsAfterProguard();
-
-  @StarlarkMethod(
-      name = "incremental_dexing_use_dex_sharder",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean incrementalDexingUseDexSharder();
-
-  @StarlarkMethod(
-      name = "incremental_dexing_after_proguard_by_default",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean incrementalDexingAfterProguardByDefault();
 
   @StarlarkMethod(name = "apk_signing_method_v1", structField = true, doc = "", documented = false)
   boolean apkSigningMethodV1();
@@ -70,23 +53,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   @Nullable
   Boolean apkSigningMethodV4();
 
-  @StarlarkMethod(name = "assume_min_sdk_version", structField = true, doc = "", documented = false)
-  boolean assumeMinSdkVersion();
-
-  @StarlarkMethod(
-      name = "get_dexopts_supported_in_incremental_dexing",
-      structField = true,
-      doc = "",
-      documented = false)
-  ImmutableList<String> getDexoptsSupportedInIncrementalDexing();
-
-  @StarlarkMethod(
-      name = "get_dexopts_supported_in_dex_merger",
-      structField = true,
-      doc = "",
-      documented = false)
-  ImmutableList<String> getDexoptsSupportedInDexMerger();
-
   @StarlarkMethod(
       name = "get_dexopts_supported_in_dex_sharder",
       structField = true,
@@ -94,28 +60,11 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   ImmutableList<String> getDexoptsSupportedInDexSharder();
 
-  @StarlarkMethod(
-      name = "get_target_dexopts_that_prevent_incremental_dexing",
-      structField = true,
-      doc = "",
-      documented = false)
-  ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing();
-
   @StarlarkMethod(name = "desugar_java8", structField = true, doc = "", documented = false)
   boolean desugarJava8();
 
   @StarlarkMethod(name = "desugar_java8_libs", structField = true, doc = "", documented = false)
   boolean desugarJava8Libs();
-
-  @StarlarkMethod(name = "check_desugar_deps", structField = true, doc = "", documented = false)
-  boolean checkDesugarDeps();
-
-  @StarlarkMethod(
-      name = "use_rex_to_compress_dex_files",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useRexToCompressDexFiles();
 
   @StarlarkMethod(
       name = "use_android_resource_shrinking",
@@ -145,16 +94,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   boolean useAndroidResourceNameObfuscation();
 
-  @StarlarkMethod(name = "use_parallel_dex2oat", structField = true, doc = "", documented = false)
-  boolean useParallelDex2Oat();
-
-  @StarlarkMethod(
-      name = "break_build_on_parallel_dex2oat_failure",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean breakBuildOnParallelDex2OatFailure();
-
   @StarlarkMethod(
       name = "compress_java_resources",
       structField = true,
@@ -169,43 +108,12 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   boolean getExportsManifestDefault();
 
-  @StarlarkMethod(name = "manifest_merger", structField = true, doc = "", documented = false)
-  String getManifestMergerValue();
-
-  @StarlarkMethod(
-      name = "omit_resources_info_provider_from_android_binary",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean omitResourcesInfoProviderFromAndroidBinary();
-
   @StarlarkMethod(
       name = "fixed_resource_neverlinking",
       structField = true,
       doc = "",
       documented = false)
   boolean fixedResourceNeverlinking();
-
-  @StarlarkMethod(
-      name = "check_for_migration_tag",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean checkForMigrationTag();
-
-  @StarlarkMethod(
-      name = "get_one_version_enforcement_use_transitive_jars_for_binary_under_test",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest();
-
-  @StarlarkMethod(
-      name = "persistent_aar_extractor",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean persistentAarExtractor();
 
   @StarlarkMethod(
       name = "persistent_busybox_tools",
@@ -242,13 +150,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       doc = "",
       documented = false)
   String getOutputDirectoryName();
-
-  @StarlarkMethod(
-      name = "filter_library_jar_with_program_jar",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean filterLibraryJarWithProgramJar();
 
   @StarlarkMethod(
       name = "get_java_resources_from_optimized_jar",

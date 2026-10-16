@@ -25,6 +25,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.time.Duration;
 import java.util.Locale;
 import javax.annotation.Nullable;
@@ -59,7 +60,8 @@ public class CommandProfilerModule extends BlazeModule {
   }
 
   /** CommandProfilerModule options. */
-  public static final class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
 
     @Option(
         name = "experimental_command_profile",
@@ -74,7 +76,7 @@ public class CommandProfilerModule extends BlazeModule {
                 + " output base directory."
                 + " The syntax and semantics of this flag might change in the future to support"
                 + " additional profile types or output formats; use at your own risk.")
-    public ProfileType profileType;
+    public abstract ProfileType getProfileType();
   }
 
   @Override
@@ -90,7 +92,7 @@ public class CommandProfilerModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     Options options = env.getOptions().getOptions(Options.class);
-    profileType = options.profileType;
+    profileType = options.getProfileType();
     outputBase = env.getBlazeWorkspace().getOutputBase();
     reporter = env.getReporter();
 

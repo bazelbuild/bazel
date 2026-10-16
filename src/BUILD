@@ -6,8 +6,12 @@ load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
+load("//tools/res:winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
+load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
+load(":package_zip.bzl", "package_zip")
 load(":rule_size_test.bzl", "rule_size_test")
+load(":windows_llvm_alias.bzl", "windows_llvm_alias")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
@@ -32,7 +36,7 @@ sh_binary(
         # Ensure we haven't forgotten any package-zip items,
         # otherwise bazel won't correctly reextract modified files.
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
-        "//src/main/java/net/starlark/java/eval:cpu_profiler",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
         "//src/main/cpp:client",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
@@ -78,26 +82,11 @@ py_binary(
     deps = [":create_embedded_tools_lib"],
 )
 
-# Script for turning builtins_bzl sources into a zip file for unioning into the
-# package zip / install base.
-sh_binary(
-    name = "zip_builtins",
-    srcs = ["zip_builtins.sh"],
-    visibility = ["//src/main/starlark/builtins_bzl:__pkg__"],
-)
-
-# The tools Bazel uses to compile Java.
-# TODO(#6316): Gradually remove the targets here.
-JAVA_TOOLS = [
-    "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-    "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-]
-
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
 # in Starlark rules on Windows has been released.
 [filegroup(
     name = "embedded_tools" + suffix + "_srcs",
-    srcs = JAVA_TOOLS + [
+    srcs = [
                "BUILD.tools",
                "MODULE.tools",
                "//src/conditions:embedded_tools",
@@ -109,7 +98,6 @@ JAVA_TOOLS = [
                "//third_party/def_parser:srcs",
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
-               "//third_party/py/abseil:srcs",
                "//tools:embedded_tools_srcs",
            ] + select({
                "//src/conditions:darwin": [
@@ -130,11 +118,7 @@ JAVA_TOOLS = [
     ],
 ) for suffix, jdk in {
     "_jdk_allmodules": [":embedded_jdk_allmodules"],
-    "_jdk_minimal": select({
-        # We cannot minimize the JDK during cross compiling for Windows arm64
-        "//src/conditions:windows_arm64": [":embedded_jdk_vanilla"],
-        "//conditions:default": [":embedded_jdk_minimal"],
-    }),
+    "_jdk_minimal": [":embedded_jdk_minimal"],
     "_nojdk": [],
 }.items()]
 
@@ -144,7 +128,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 327,
+    expect = 255,
     margin = 5,  # percentage
 )
 
@@ -195,17 +179,26 @@ copy_file(
 cc_binary(
     name = "read_manifest",
     srcs = ["read_manifest.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "//src/conditions:windows_gcc_like": ["-municode"],
+        "//conditions:default": [],
+    }),
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//src/java_tools:__subpackages__"],
 )
 
-# Updates the app manifest of a Windows executable.
+# Updates the app manifest of a Windows executable, no-op on other hosts.
 cc_binary(
     name = "write_manifest",
     srcs = ["write_manifest.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "//src/conditions:windows_gcc_like": ["-municode"],
+        "//conditions:default": [],
+    }),
     tags = ["manual"],
-    target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//src/java_tools:__subpackages__"],
 )
 
@@ -224,18 +217,50 @@ sh_binary(
     ],
 )
 
+# The jlink tool must have the same build as the target JDK. When cross-jlinking
+# the Windows arm64 runtime on a Windows x64 host, jdk_for_jlink (the host's
+# embedded JDK) is Azul Zulu and would not match the BellSoft target, so a
+# matching BellSoft Windows x64 build is used as the jlink tool instead. These
+# selects are resolved in the target configuration, so they key on the target
+# platform even though the selected tool is built for (and runs on) the exec
+# platform.
+_JLINK_TOOL = select({
+    "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jlink_tool//file"],
+    "//conditions:default": [":jdk_for_jlink"],
+})
+
+_JLINK_TOOL_LOCATION = select({
+    "//src/conditions:windows_arm64": "$(location @openjdk_win_arm64_jlink_tool//file)",
+    "//conditions:default": "$(location :jdk_for_jlink)",
+})
+
+# Temurin distributions omit JMODs from the JDK archive. Supply the matching
+# module archive when creating either flavor of the embedded runtime.
+_JMODS_REPOS = {
+    "//src/conditions:linux_ppc64le": "@openjdk_linux_ppc64le_jmods//file",
+    "//src/conditions:linux_riscv64": "@openjdk_linux_riscv64_jmods//file",
+    "//src/conditions:linux_s390x": "@openjdk_linux_s390x_jmods//file",
+}
+
+_JMODS_SRCS = select({
+    condition: [repo]
+    for condition, repo in _JMODS_REPOS.items()
+} | {"//conditions:default": []})
+
+_JMODS_ARG = select({
+    condition: " $(location %s)" % repo
+    for condition, repo in _JMODS_REPOS.items()
+} | {"//conditions:default": ""})
+
 genrule(
     name = "embedded_jdk_minimal",
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + _JMODS_SRCS,
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
-    tools = [
-        ":jdk_for_jlink",
-        ":minimize_jdk",
-    ],
+    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + _JMODS_ARG,
+    tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -244,13 +269,10 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + _JMODS_SRCS,
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
-    tools = [
-        ":jdk_for_jlink",
-        ":minimize_jdk",
-    ],
+    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + _JMODS_ARG,
+    tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -279,23 +301,12 @@ genrule(
     "_nojdk",
 ]]
 
-[genrule(
+[package_zip(
     name = "package-zip" + suffix,
-    # This script assumes the following arg order:
-    #   1) embedded tools zip (if it exists)
-    #   2) the deploy jar
-    #   3) the install base key
-    #   4) the platforms archive
-    #   5) everything else to be bundled
-    # Ensure we haven't forgotten to add all package-zip items as dependencies
-    # of :install_base_key-file, otherwise bazel won't correctly reextract
-    # modified files.
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
-        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
-        "install_base_key" + suffix,
         "//:platforms-srcs",
         # Non-ordered items follow:
-        "//src/main/java/net/starlark/java/eval:cpu_profiler",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
@@ -305,14 +316,15 @@ genrule(
             "//src/main/tools:daemonize",
         ],
     }),
-    outs = ["package" + suffix + ".zip"],
-    cmd = "$(location :package_bazel_on_host_platform) $@ " + ("" if embed else "''") + " $(SRCS)",
-    tools = [":package_bazel_on_host_platform"],
-) for suffix, embed in [
-    ("_jdk_allmodules", True),
-    ("_jdk_minimal", True),
-    ("_notools", False),
-    ("_nojdk", True),
+    out = "package" + suffix + ".zip",
+    dev_build = dev_build,
+    install_base_key = "install_base_key" + suffix,
+    server_jar = "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+) for suffix, embed, dev_build in [
+    ("_jdk_allmodules", True, True),
+    ("_jdk_minimal", True, False),
+    ("_notools", False, False),
+    ("_nojdk", True, False),
 ]]
 
 genrule(
@@ -326,26 +338,17 @@ genrule(
     }),
 )
 
-[genrule(
+[bazel_binary(
     name = "bazel-bin" + suffix,
-    srcs = [
-        "//src/main/cpp:client",
-        "package-zip" + jdk,
-    ],
-    outs = ["bazel" + suffix],
-    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
-    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
-    # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@ && zip -qA $@ && chmod a+x $@",
-    executable = 1,
-    output_to_bindir = 1,
+    out = "bazel" + suffix,
+    client = "//src/main/cpp:client",
+    package_zip = "package-zip" + jdk,
     visibility = [
         "//:__pkg__",  # For distribution archive lockfile generation
         "//scripts:__pkg__",  # For bash completion generation
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/java:__subpackages__",  # For command line reference generation
         "//src/test:__subpackages__",  # For integration tests
-        "//tools/compliance:__pkg__",  # For license gathering
     ],
 ) for suffix, jdk in [
     ("-dev", "_jdk_allmodules"),
@@ -356,16 +359,14 @@ genrule(
     ("_nojdk", "_nojdk"),
 ]]
 
-# Build an executable named `bazel.exe`.
+# Build an executable named `bazel.exe` (and suffixes).
 # Works on all platforms but only makes sense on Windows.
-# Workaround for non-configurability of genrule's `outs` attribute.
-[genrule(
+[copy_file(
     name = "bazel-bin" + suffix + ".exe",
-    srcs = [":bazel-bin" + suffix],
-    outs = ["bazel" + suffix + ".exe"],
-    cmd = "cp $(location :bazel-bin" + suffix + ") $@",
-    executable = 1,
-    output_to_bindir = 1,
+    src = ":bazel-bin" + suffix,
+    out = "bazel" + suffix + ".exe",
+    allow_symlink = True,
+    is_executable = True,
     visibility = [
         "//scripts:__pkg__",  # For bash completion generation
         "//scripts/packages:__pkg__",  # For installer generation
@@ -377,6 +378,32 @@ genrule(
     "_notools",
     "_nojdk",
 ]]
+
+# Bazel for Windows, cross-compiled with the hermetic LLVM toolchains. Can be
+# built on any host platform.
+windows_llvm_alias(
+    name = "bazel_windows_llvm",
+    actual = ":bazel.exe",
+    # Keep wildcard builds from fetching the LLVM toolchains.
+    tags = ["manual"],
+)
+
+# Compiles Windows resources with llvm-rc from the hermetic LLVM toolchains.
+# Not registered by default; it is only used with the `llvm` config in .bazelrc
+# and by :bazel_windows_llvm.
+windows_resource_compiler_toolchain(
+    name = "llvm_rc",
+    rc_exe = "@llvm//tools:llvm-rc",
+    # Keep wildcard builds from fetching the LLVM toolchains.
+    tags = ["manual"],
+)
+
+toolchain(
+    name = "llvm_rc_toolchain",
+    target_compatible_with = ["@platforms//os:windows"],
+    toolchain = ":llvm_rc",
+    toolchain_type = WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE,
+)
 
 filegroup(
     name = "srcs",
@@ -398,7 +425,6 @@ filegroup(
         "//src/main/java/net/starlark/java:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
-        "//src/main/res:srcs",
         "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",
@@ -412,7 +438,6 @@ filegroup(
         "//src/test/java/net/starlark/java:srcs",
         "//src/test/native/windows:srcs",
         "//src/test/py/bazel:srcs",
-        "//src/test/res:srcs",
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
@@ -424,6 +449,7 @@ filegroup(
         "//src/tools/launcher:srcs",
         "//src/tools/one_version:srcs",
         "//src/tools/remote:srcs",
+        "//src/tools/simple_catter:srcs",
         "//src/tools/singlejar:srcs",
         "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
         "//src/tools/workspacelog:srcs",
@@ -446,7 +472,6 @@ filegroup(
         "//src/test/java/net/starlark/java:srcs",
         "//src/test/native/windows:srcs",
         "//src/test/py/bazel:srcs",
-        "//src/test/res:srcs",
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
@@ -581,15 +606,17 @@ release_archive(
 release_archive(
     name = "java_tools_prebuilt_zip",
     src_map = {
-        "//tools/jdk:BUILD.java_tools_prebuilt": "BUILD",
+        "//tools/jdk:java_tools_prebuilt_build_file": "BUILD",
     },
     visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
-        ":turbine_direct_graal_zip",
         "//src/tools/one_version:one_version_deploy_zip",
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
-    ],
+    ] + select({
+        "//src/conditions:darwin_x86_64": [],
+        "//conditions:default": [":turbine_direct_graal_zip"],
+    }),
 )
 
 # Following targets used by the java_tools_binaries Buildkite pipeline to upload

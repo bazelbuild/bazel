@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -23,7 +22,10 @@ import javax.annotation.Nullable;
  * Scope of a {@link BuildOptions} is defined by the {@link Scope.ScopeType} and {@link
  * Scope.ScopeDefinition}.
  */
-public class Scope {
+@AutoCodec
+public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {
+  public static final String CUSTOM_EXEC_SCOPE_PREFIX = "exec:--";
+
   /** Type of supported scopes. */
   @AutoCodec
   public record ScopeType(String scopeType) {
@@ -33,10 +35,25 @@ public class Scope {
     /** The flag's value resets on exec transitions. */
     public static final String TARGET = "target";
 
-    /** The flag resets on targets outside the flag's project. See PROJECT.scl. */
+    /**
+     * The flag resets on targets outside the flag's project. See PROJECT.scl.
+     *
+     * <p>Unlike {@code target} scope, this flag's value is preserved across exec transitions: the
+     * value propagates from the target configuration into exec configurations. The project-boundary
+     * enforcement (resetting out-of-scope targets to the baseline) is still applied independently
+     * for each target configuration via {@code BuildConfigurationKeyProducer}.
+     */
     public static final String PROJECT = "project";
 
-    /** Placeholder for flags that don't explicitly specify scope. Shouldn't be set directly. */
+    /**
+     * Placeholder for flags that don't explicitly specify scope. Cannot be set by users in BUILD
+     * files.
+     *
+     * <p>If --incompatible_exclude_starlark_flags_from_exec_config=true, this aliases to "target".
+     * Else it aliases to "universal".
+     */
+    // TODO: bazel-team: remove this when --incompatible_exclude_starlark_flags_from_exec_config is
+    //       removed in Bazel 10. At that point, default directly to TARGET.
     public static final String DEFAULT = "default";
 
     public ScopeType {
@@ -61,45 +78,6 @@ public class Scope {
    * directory as the BUILD file where the scoped flags are defined or in a parent directory. This
    * is only relevant if the scope type is PROJECT.
    */
-  public static class ScopeDefinition {
-    private final ImmutableSet<String> ownedCodePaths;
-
-    public ScopeDefinition(ImmutableSet<String> ownedCodePaths) {
-      this.ownedCodePaths = ownedCodePaths;
-    }
-
-    public ImmutableSet<String> getOwnedCodePaths() {
-      return ownedCodePaths;
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this).add("ownedCodePaths", ownedCodePaths).toString();
-    }
-  }
-
-  ScopeType scopeType;
-  @Nullable ScopeDefinition scopeDefinition;
-
-  public Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {
-    this.scopeType = scopeType;
-    this.scopeDefinition = scopeDefinition;
-  }
-
-  public ScopeType getScopeType() {
-    return scopeType;
-  }
-
-  @Nullable
-  public ScopeDefinition getScopeDefinition() {
-    return scopeDefinition;
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .add("scopeType", scopeType)
-        .add("scopeDefinition", scopeDefinition)
-        .toString();
-  }
+  @AutoCodec
+  public record ScopeDefinition(ImmutableSet<String> ownedCodePaths) {}
 }

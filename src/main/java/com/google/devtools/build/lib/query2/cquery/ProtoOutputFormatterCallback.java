@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -210,16 +211,16 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     switch (outputType) {
       case BINARY, TEXT, JSON -> {
         // Only at the end, we write the entire CqueryResult / QueryResult is written all together.
-        if (options.protoIncludeConfigurations) {
+        if (options.getProtoIncludeConfigurations()) {
           cqueryResultBuilder.addAllConfigurations(configurationCache.getConfigurations());
         }
         writeData(
-            options.protoIncludeConfigurations
+            options.getProtoIncludeConfigurations()
                 ? cqueryResultBuilder.build()
                 : queryResultFromCqueryResult(cqueryResultBuilder));
       }
       case DELIMITED_BINARY -> {
-        if (options.protoIncludeConfigurations) {
+        if (options.getProtoIncludeConfigurations()) {
           // The wrapped CqueryResult + ConfiguredTarget are already written in
           // {@link #processOutput}, so we just need to write the Configuration(s) each wrapped in
           // a CqueryResult.
@@ -278,7 +279,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       Target target = accessor.getTarget(keyedConfiguredTarget);
       Build.Target.Builder targetBuilder =
           formatter.toTargetProtoBuffer(target, labelPrinter).toBuilder();
-      if (target instanceof Rule && !Transitions.NONE.equals(options.transitions)) {
+      if (target instanceof Rule && !Transitions.NONE.equals(options.getTransitions())) {
         // To set configured_rule_input dependencies, use ConfiguredTargetAccessor.getPrerequisites.
         // Note that both that and CqueryTransitionResolver can get a target's direct deps. We use
         // the former because it implements cquery's "canonical" view of the dependency graph, which
@@ -292,7 +293,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         for (CqueryNode dep : accessor.getPrerequisites(keyedConfiguredTarget)) {
           ConfiguredRuleInput.Builder configuredRuleInput =
               Build.ConfiguredRuleInput.newBuilder()
-                  .setLabel(labelPrinter.toString(dep.getOriginalLabel()));
+                  .setLabel(internalToUnicode(labelPrinter.toString(dep.getOriginalLabel())));
           if (dep.getConfigurationChecksum() != null) {
             configuredRuleInput
                 .setConfigurationChecksum(dep.getConfigurationChecksum())
@@ -305,7 +306,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
       builder.setTarget(targetBuilder);
 
-      if (options.protoIncludeConfigurations) {
+      if (options.getProtoIncludeConfigurations()) {
         String checksum = keyedConfiguredTarget.getConfigurationChecksum();
         builder.setConfiguration(
             AnalysisProtosV2.Configuration.newBuilder().setChecksum(String.valueOf(checksum)));
@@ -327,7 +328,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         // If --noproto:include_configurations, we wrap the single Target in a QueryResult.
         // Then we write either result delimited to the stream.
         writeData(
-            options.protoIncludeConfigurations
+            options.getProtoIncludeConfigurations()
                 ? CqueryResult.newBuilder().addResults(builder).build()
                 : QueryResult.newBuilder().addTarget(builder.getTarget()).build());
       } else {

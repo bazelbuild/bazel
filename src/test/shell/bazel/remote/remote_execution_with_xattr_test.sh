@@ -86,10 +86,10 @@ EOF
   bazel \
       --unix_digest_hash_attribute_name=user.checksum.sha256 \
       build \
-      --incompatible_autoload_externally= \
       --remote_cache=grpc://localhost:${worker_port} \
       --profile=profile_log \
       --record_full_profiler_data \
+      --noslim_profile \
       //:nothing || fail "Build failed"
   grep -q "VFS md5.*file1" profile_log && \
       fail "Bazel should not have computed a digest for file1"

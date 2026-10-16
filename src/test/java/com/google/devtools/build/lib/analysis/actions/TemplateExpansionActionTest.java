@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import org.junit.Before;
@@ -73,7 +73,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   public final void createDirectoriesAndTools() throws Exception {
     createArtifacts(TEMPLATE);
 
-    substitutions = Lists.newArrayList();
+    substitutions = new ArrayList<>();
     substitutions.add(Substitution.of("%key%", "foo"));
     substitutions.add(Substitution.of("%value%", "bar"));
     directories =
@@ -83,7 +83,6 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
                 scratch.resolve("/base"),
                 scratch.resolve("/userRoot")),
             scratch.resolve("/workspace"),
-            /* defaultSystemJavabase= */ null,
             "mock-product-name");
   }
 
@@ -253,7 +252,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
             Substitution.of("%key%", StringEncoding.unicodeToInternal(SPECIAL_CHARS))));
   }
 
-  private String computeKey(TemplateExpansionAction action) throws EvalException {
+  private String computeKey(TemplateExpansionAction action)
+      throws EvalException, InterruptedException {
     Fingerprint fp = new Fingerprint();
     action.computeKey(actionKeyContext, /* inputMetadataProvider= */ null, fp);
     return fp.hexDigestAndReset();

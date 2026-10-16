@@ -61,6 +61,11 @@ java_import(
     jars = ["LibraryModuleInfo.jar"],
 )
 
+java_import(
+    name = "testdata_condy",
+    jars = ["Condy.jar"],
+)
+
 java_library(
     name = "OneAnnotationValue",
     srcs = ["OneAnnotationValue.java"],

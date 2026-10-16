@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.util;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -60,7 +61,7 @@ import javax.annotation.Nullable;
  *
  * @see java.security.MessageDigest
  */
-public final class Fingerprint {
+public final class Fingerprint implements BytesSink {
 
   // Make novel use of a CodedOutputStream, which is good at efficiently serializing data. By
   // flushing at the end of each digest we can continue to use the stream.
@@ -69,13 +70,11 @@ public final class Fingerprint {
 
   /** Creates and initializes a new instance. */
   public Fingerprint(DigestHashFunction digestFunction) {
-    messageDigest = digestFunction.cloneOrCreateMessageDigest();
-    // This is a lot of indirection, but CodedOutputStream does a reasonable job of converting
-    // strings to bytes without creating a whole bunch of garbage, which pays off.
+    messageDigest = digestFunction.newMessageDigest();
     codedOut =
         CodedOutputStream.newInstance(
             new DigestOutputStream(ByteStreams.nullOutputStream(), messageDigest),
-            /*bufferSize=*/ 1024);
+            /* bufferSize= */ 1024);
   }
 
   public Fingerprint() {
@@ -165,6 +164,11 @@ public final class Fingerprint {
     return this;
   }
 
+  @Override // implementation of BytesSink
+  public void acceptBytes(byte[] buf, int offset, int len) {
+    addBytes(buf, offset, len);
+  }
+
   /** Updates the digest with a boolean value. */
   @CanIgnoreReturnValue
   public Fingerprint addBoolean(boolean input) {
@@ -230,11 +234,11 @@ public final class Fingerprint {
     return this;
   }
 
-  /** Appends a String to the fingerprint message. */
+  /** Appends a string in Bazel's {@linkplain StringEncoding internal encoding}. */
   @CanIgnoreReturnValue
   public Fingerprint addString(String input) {
     try {
-      codedOut.writeStringNoTag(input);
+      codedOut.writeByteArrayNoTag(StringUnsafe.getInternalStringBytes(input));
     } catch (IOException e) {
       throw new IllegalStateException("failed to write string", e);
     }
@@ -343,7 +347,6 @@ public final class Fingerprint {
     // use the value from DigestHashFunction.getDefault(). However, this gets called during class
     // loading in a few places, before setDefault() has been called, so these call-sites should be
     // removed before this can be done safely.
-    return hexDigest(
-        DigestHashFunction.SHA256.cloneOrCreateMessageDigest().digest(input.getBytes(UTF_8)));
+    return hexDigest(DigestHashFunction.SHA256.newMessageDigest().digest(input.getBytes(UTF_8)));
   }
 }

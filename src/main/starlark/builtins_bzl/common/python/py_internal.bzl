@@ -18,8 +18,6 @@ Various builtin Starlark defined objects exposed for non-builtin Starlark.
 These may change at any time and are closely coupled to the rule implementation.
 """
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
-
 _py_builtins = _builtins.internal.py_builtins
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
@@ -45,7 +43,7 @@ def _create_sources_only_manifest(*args, **kwargs):
 def _declare_constant_metadata_file(*args, **kwargs):
     return _py_builtins.declare_constant_metadata_file(*args, **kwargs)
 
-def _declare_shareable_artifact(ctx, *args, **kwargs):
+def _declare_shareable_artifact(ctx: Ctx, *args, **kwargs) -> File:
     return ctx.actions.declare_shareable_artifact(*args, **kwargs)
 
 def _expand_location_and_make_variables(*args, **kwargs):
@@ -57,13 +55,13 @@ def _get_current_os_name(*args, **kwargs):
 def _get_label_repo_runfiles_path(*args, **kwargs):
     return _py_builtins.get_label_repo_runfiles_path(*args, **kwargs)
 
-def _get_legacy_external_runfiles(*args, **kwargs):
+def _get_legacy_external_runfiles(*_args, **_kwargs) -> bool:
     return False
 
 def _get_rule_name(*args, **kwargs):
     return _py_builtins.get_rule_name(*args, **kwargs)
 
-def _is_available_for(package_group_target, label):
+def _is_available_for(package_group_target, label: Label) -> bool:
     return package_group_target[PackageSpecificationInfo].contains(label)
 
 def _is_bzlmod_enabled(*args, **kwargs):
@@ -72,33 +70,65 @@ def _is_bzlmod_enabled(*args, **kwargs):
 def _is_singleton_depset(*args, **kwargs):
     return _py_builtins.is_singleton_depset(*args, **kwargs)
 
-def _is_tool_configuration(ctx):
+def _is_tool_configuration(ctx: Ctx) -> bool:
     return ctx.configuration.is_tool_configuration()
 
 def _regex_match(*args, **kwargs):
     return _py_builtins.regex_match(*args, **kwargs)
 
-def _runfiles_enabled(ctx):
+def _runfiles_enabled(ctx: Ctx) -> bool:
     return ctx.configuration.runfiles_enabled()
 
-def _linkstamp_file(linkstamp, *args, **kwargs):
+def _linkstamp_file(linkstamp, *args, **kwargs) -> File:
     return linkstamp.file(*args, **kwargs)
 
 # TODO(https://github.com/bazelbuild/bazel/issues/17415): Cleanup uses and remove
-def _make_runfiles_respect_legacy_external_runfiles(_ctx, runfiles):
+def _make_runfiles_respect_legacy_external_runfiles(_ctx: Ctx, runfiles: Runfiles) -> Runfiles:
     return runfiles
 
 def _merge_runfiles_with_generated_inits_empty_files_supplier(*args, **kwargs):
     return _py_builtins.merge_runfiles_with_generated_inits_empty_files_supplier(*args, **kwargs)
 
-def _share_native_deps(ctx):
+def _share_native_deps(ctx: Ctx) -> bool:
     return ctx.fragments.cpp.share_native_deps()
 
-def _stamp_binaries(ctx):
+def _stamp_binaries(ctx: Ctx) -> bool:
     return ctx.configuration.stamp_binaries()
 
-def _strip_opts(ctx):
+def _strip_opts(ctx: Ctx) -> Sequence[str]:
     return ctx.fragments.cpp.strip_opts()
+
+_SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib", "pyd", "wasm"]
+
+def _is_valid_shared_library_artifact(shared_library: File) -> bool:
+    if (shared_library.extension in _SHARED_LIBRARY_EXTENSIONS):
+        return True
+
+    return _is_versioned_shared_library_extension_valid(shared_library.basename)
+
+def _is_versioned_shared_library_extension_valid(shared_library_name: str) -> bool:
+    """Validates the name against the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
+
+    Args:
+        shared_library_name: (str) the name to validate
+
+    Returns:
+        (bool)
+    """
+
+    # must match VERSIONED_SHARED_LIBRARY.
+    for ext in (".so.", ".dylib."):
+        name, _, version = shared_library_name.rpartition(ext)
+        if name and version:
+            version_parts = version.split(".")
+            for part in version_parts:
+                if not part[0].isdigit():
+                    return False
+                for c in part[1:].elems():
+                    if not (c.isalnum() or c == "_"):
+                        return False
+            return True
+    return False
 
 # This replaces the Java-defined name using exports.bzl toplevels mapping.
 py_internal = struct(
@@ -106,7 +136,7 @@ py_internal = struct(
     add_py_extra_pseudo_action = _add_py_extra_pseudo_action,
     are_action_listeners_enabled = _are_action_listeners_enabled,
     cc_helper = struct(
-        is_valid_shared_library_artifact = cc_helper.is_valid_shared_library_artifact,
+        is_valid_shared_library_artifact = _is_valid_shared_library_artifact,
     ),
     copy_without_caching = _copy_without_caching,
     create_repo_mapping_manifest = _create_repo_mapping_manifest,

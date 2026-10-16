@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.shell;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.jni.JniLoader;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.IOException;
@@ -28,6 +26,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A builder class that starts a subprocess. */
+@SuppressWarnings("NonFinalStaticField")
 public class SubprocessBuilder {
   /** What to do with an output stream of the process. */
   public enum StreamAction {
@@ -53,24 +52,18 @@ public class SubprocessBuilder {
   private long timeoutMillis;
   private boolean redirectErrorStream;
 
-  static SubprocessFactory defaultFactory = subprocessFactoryImplementation();
+  // We make this field non-final to allow it to be set to the Windows-specific implementation,
+  // therefore avoiding the direct dependency on the WindowsSubprocessFactory.
+  private static SubprocessFactory defaultFactory = JavaSubprocessFactory.INSTANCE;
+  private static boolean defaultFactoryOverridden = false;
 
-  private static SubprocessFactory subprocessFactoryImplementation() {
-    if (JniLoader.isJniAvailable() && OS.getCurrent() == OS.WINDOWS) {
-      return WindowsSubprocessFactory.INSTANCE;
-    } else {
-      return JavaSubprocessFactory.INSTANCE;
-    }
-  }
-
-  /**
-   * Sets the default factory class for creating subprocesses. Passing {@code null} resets it to the
-   * initial state.
-   */
-  @VisibleForTesting
+  /** Sets the default factory class for creating subprocesses. */
   public static void setDefaultSubprocessFactory(SubprocessFactory factory) {
-    SubprocessBuilder.defaultFactory =
-        factory != null ? factory : subprocessFactoryImplementation();
+    if (defaultFactoryOverridden && !TestType.isInTest()) {
+      throw new IllegalStateException("SubprocessFactory has already been set.");
+    }
+    SubprocessBuilder.defaultFactory = factory;
+    defaultFactoryOverridden = true;
   }
 
   /**

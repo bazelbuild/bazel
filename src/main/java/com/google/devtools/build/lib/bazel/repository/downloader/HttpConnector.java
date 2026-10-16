@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Function;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +30,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.time.Duration;
@@ -41,6 +40,7 @@ import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.WillClose;
+import javax.net.ssl.SSLException;
 
 /**
  * Class for establishing connections to HTTP servers for downloading files.
@@ -51,6 +51,12 @@ import javax.annotation.WillClose;
  */
 @ThreadSafe
 class HttpConnector {
+
+  /** Supplies request headers, including credentials, before a connection is opened. */
+  @FunctionalInterface
+  interface RequestHeadersProvider {
+    ImmutableMap<String, List<String>> get(URI url) throws IOException;
+  }
 
   private static final int MAX_ATTEMPTS = 8;
   private static final int MAX_REDIRECTS = 40;
@@ -106,31 +112,39 @@ class HttpConnector {
     return Math.round(unscaled * timeoutScaling);
   }
 
-  URLConnection connect(
-      URL originalUrl, Function<URL, ImmutableMap<String, List<String>>> requestHeaders)
-      throws IOException {
+  URLConnection connect(URI originalUrl, RequestHeadersProvider requestHeaders) throws IOException {
 
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
     }
-    URL url = originalUrl;
+    URI url = originalUrl;
     if (HttpUtils.isProtocol(url, "file")) {
-      return url.openConnection();
+      return url.toURL().openConnection();
     }
     List<Throwable> suppressions = new ArrayList<>();
     int retries = 0;
     int redirects = 0;
     int connectTimeout = scale(MIN_CONNECT_TIMEOUT_MS);
     while (true) {
+      // Resolve credentials before opening a connection so failures are not retried as network
+      // errors or followed by an unauthenticated request.
+      ImmutableMap<String, List<String>> headers = requestHeaders.get(url);
       HttpURLConnection connection = null;
       try {
-        connection = (HttpURLConnection)
-            url.openConnection(proxyHelper.createProxyIfNeeded(url));
+        ProxyInfo proxyInfo = proxyHelper.createProxyIfNeeded(url);
+        connection = (HttpURLConnection) url.toURL().openConnection(proxyInfo.proxy());
+        // For HTTP connections through authenticated proxies, set the Proxy-Authorization header.
+        // For HTTPS, Java's HttpURLConnection handles CONNECT tunneling internally using the
+        // Authenticator we set in ProxyHelper.
+        if (proxyInfo.hasCredentials() && Ascii.equalsIgnoreCase(url.getScheme(), "http")) {
+          connection.setRequestProperty(
+              "Proxy-Authorization", proxyInfo.getProxyAuthorizationHeader());
+        }
         boolean isAlreadyCompressed =
             COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
                 || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
         connection.setInstanceFollowRedirects(false);
-        for (Map.Entry<String, List<String>> entry : requestHeaders.apply(url).entrySet()) {
+        for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
           if (isAlreadyCompressed && Ascii.equalsIgnoreCase(entry.getKey(), "Accept-Encoding")) {
             // We're not going to ask for compression if we're downloading a file that already
             // appears to be compressed.
@@ -155,10 +169,28 @@ class HttpConnector {
           code = connection.getResponseCode();
         } catch (FileNotFoundException ignored) {
           code = connection.getResponseCode();
+        } catch (SSLException e) {
+          // Check if the exception is due to a permanent error, such as a certificate validation
+          // issue.
+          // These errors are unlikely to be resolved by retrying.
+          if (e.getMessage() != null
+              && (e.getMessage().contains("certificate")
+                  || e.getMessage().contains("CertPathValidatorException"))) {
+            String message = "TLS error: " + e.getMessage();
+            eventHandler.handle(Event.progress(message));
+            IOException httpException = new UnrecoverableHttpException(message);
+            httpException.addSuppressed(e);
+            throw httpException;
+          }
+          // Otherwise, treat it as a potentially transient network error and let it fall through
+          // to the standard IOException handler for retries.
+          throw e;
         } catch (UnknownHostException e) {
           String message = "Unknown host: " + e.getMessage();
           eventHandler.handle(Event.progress(message));
-          throw new UnrecoverableHttpException(message);
+          IOException httpException = new UnrecoverableHttpException(message);
+          httpException.addSuppressed(e);
+          throw httpException;
         } catch (IllegalArgumentException e) {
           // This will happen if the user does something like specify a port greater than 2^16-1.
           throw new UnrecoverableHttpException(e.getMessage());

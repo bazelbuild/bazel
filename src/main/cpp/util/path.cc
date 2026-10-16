@@ -14,6 +14,8 @@
 
 #include "src/main/cpp/util/path.h"
 
+#include <string>
+
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
 

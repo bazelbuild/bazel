@@ -13,16 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.repository.RequestRepositoryInformationEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Module reporting back the place an external repository was defined, if requested by some error
@@ -30,14 +29,14 @@ import java.util.Set;
  * directly available, e.g., during detection of a dependency cycle.
  */
 public final class StarlarkRepositoryDebugModule extends BlazeModule {
-  Map<String, String> repositoryDefinitions;
+  ConcurrentHashMap<String, String> repositoryDefinitions;
   Reporter reporter;
   Set<String> reported;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    repositoryDefinitions = new HashMap<>();
-    reported = new HashSet<>();
+    repositoryDefinitions = new ConcurrentHashMap<>();
+    reported = ConcurrentHashMap.newKeySet();
     reporter = env.getReporter();
     env.getEventBus().register(this);
   }
@@ -50,19 +49,16 @@ public final class StarlarkRepositoryDebugModule extends BlazeModule {
   }
 
   @Subscribe
-  public synchronized void definitionLocation(StarlarkRepositoryDefinitionLocationEvent event) {
-    repositoryDefinitions.put(event.getName(), event.getDefinitionInformation());
+  @AllowConcurrentEvents
+  public void definitionLocation(StarlarkRepositoryDefinitionLocationEvent event) {
+    repositoryDefinitions.put(event.name(), event.definitionInformation());
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void requestDefinition(RequestRepositoryInformationEvent event) {
-    String toReport = null;
-    synchronized (this) {
-      if (!reported.contains(event.getName())
-          && repositoryDefinitions.containsKey(event.getName())) {
-        toReport = repositoryDefinitions.get(event.getName());
-      }
-    }
+    String toReport =
+        reported.add(event.getName()) ? repositoryDefinitions.get(event.getName()) : null;
     if (toReport != null) {
       reporter.handle(Event.info(toReport));
     }

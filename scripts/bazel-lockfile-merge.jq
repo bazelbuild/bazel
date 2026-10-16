@@ -34,6 +34,28 @@ def shallow_merge(f):
     # lockFileVersion.
     (map(.lockFileVersion) | max) as $maxVersion
     | map(select(.lockFileVersion == $maxVersion))
+    # Compute the maximum factsVersion observed across lockfiles per extension
+    # ID. Missing entries default to 0.
+    | (
+        map(.factsVersions // {} | to_entries) | flatten
+        | if length > 0 then
+            group_by(.key)
+            | map({key: .[0].key, value: (map(.value) | max)})
+            | from_entries
+          else {} end
+      ) as $maxFactsVersions
+    # Within each lockfile, drop facts entries whose own factsVersion does not
+    # match the global maximum: those are at an outdated schema and cannot be
+    # merged with newer-schema entries.
+    | map(
+        if has("facts") then
+          (.factsVersions // {}) as $fv
+          | .facts |= with_entries(
+              .key as $k
+              | select((($fv[$k]) // 0) == (($maxFactsVersions[$k]) // 0))
+            )
+        else . end
+      )
     | {
         lockFileVersion: $maxVersion,
         registryFileHashes: shallow_merge(.registryFileHashes),
@@ -43,15 +65,19 @@ def shallow_merge(f):
         moduleExtensions:  (map(.moduleExtensions | to_entries)
                            | flatten
                            | if length > 0 then group_by(.key) | shallow_merge({(.[0].key): shallow_merge(.value)}) else {} end),
-        # Group facts by extension ID across all lockfiles with shallowly
-        # merged top-level keys, then shallowly merge the results. Handle the
-        # case where some lockfiles do not have a facts key.
+        # Group facts by extension ID across all lockfiles (already filtered to
+        # the latest factsVersion above) and shallowly merge their dicts.
         facts: (if any(has("facts")) then
                   map(.facts // {} | to_entries) | flatten |
                   if length > 0 then group_by(.key) | shallow_merge({(.[0].key): shallow_merge(.value)}) else {} end
                 else null end),
+        # Keep only non-zero versions, mirroring how Bazel writes the lockfile.
+        factsVersions: (if any(has("factsVersions")) then
+                          $maxFactsVersions | with_entries(select(.value != 0))
+                        else null end),
     }
-    # Filter out null values for missing top-level keys such as facts.
+    # Filter out null values for missing top-level keys such as facts and
+    # factsVersions.
     | with_entries(select(.value != null))
 )? //
     # We get here if the lockfiles with the highest lockFileVersion could not be

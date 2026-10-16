@@ -25,7 +25,6 @@ import static java.lang.Math.min;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -55,6 +54,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionSuccessEvent;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -67,18 +67,20 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -124,6 +126,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -230,6 +233,7 @@ public final class SkyframeActionExecutor {
   private InputMetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
   private String actionExecutionSalt;
+  private int maxStdoutErrBytes;
 
   /** These variables are nulled out between executions. */
   @Nullable private ProgressSupplier progressSupplier;
@@ -240,6 +244,9 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
+  private boolean checkRewoundActionOutputs;
+  private int maxRepeatedLostInputs;
+  @Nullable private Label bustActionCachesTarget;
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -331,17 +338,20 @@ public final class SkyframeActionExecutor {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
 
     // Start with a new map each build so there's no issue with internal resizing.
-    this.buildActionMap = Maps.newConcurrentMap();
+    this.buildActionMap = new ConcurrentHashMap<>();
     this.rewoundActions = Sets.newConcurrentHashSet();
     this.hadExecutionError.set(false);
     this.actionCacheChecker = checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
-    this.finalizeActions = buildRequestOptions.finalizeActions;
-    this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
+    this.finalizeActions = buildRequestOptions.getFinalizeActions();
+    this.rewindingEnabled = buildRequestOptions.getRewindLostInputs();
+    this.checkRewoundActionOutputs = buildRequestOptions.getCheckRewoundActionOutputs();
+    this.maxRepeatedLostInputs = buildRequestOptions.getMaxRepeatedLostInputs();
+    this.bustActionCachesTarget = buildRequestOptions.getBustActionCachesTarget();
     this.invocationRetriesEnabled =
-        options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
+        options.getOptions(ExecutionOptions.class).getRemoteRetryOnTransientCacheError() > 0;
     this.outputService = checkNotNull(outputService);
     this.outputDirectoryHelper = outputDirectoryHelper;
 
@@ -351,19 +361,20 @@ public final class SkyframeActionExecutor {
     // getInputFilesForExtraAction() works the same whether input discovery was run or not), but
     // getExtraActionInfo().
     this.freeDiscoveredInputsAfterExecution =
-        !keepStateAfterBuild && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
+        !keepStateAfterBuild
+            && options.getOptions(CoreOptions.class).getActionListeners().isEmpty();
 
-    boolean useAsyncExecution = buildRequestOptions.useAsyncExecution;
+    boolean useAsyncExecution = buildRequestOptions.getUseAsyncExecution();
 
     this.cacheHitSemaphore =
-        (!useAsyncExecution && options.getOptions(CoreOptions.class).throttleActionCacheCheck)
+        (!useAsyncExecution && options.getOptions(CoreOptions.class).getThrottleActionCacheCheck())
             ? new Semaphore(Runtime.getRuntime().availableProcessors())
             : null;
 
-    var minActiveAction = buildRequestOptions.jobs;
+    var minActiveAction = buildRequestOptions.getJobs();
     var maxActiveAction =
         useAsyncExecution
-            ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
+            ? min(MAX_JOBS, buildRequestOptions.getAsyncExecutionMaxConcurrentActions())
             : minActiveAction;
     this.actionConcurrencyMeter =
         new ActionConcurrencyMeter(minActiveAction, max(minActiveAction, maxActiveAction));
@@ -410,7 +421,7 @@ public final class SkyframeActionExecutor {
   private boolean archivedTreeArtifactsEnabledForMnemonic(ActionAnalysisMetadata action) {
     return options
         .getOptions(CoreOptions.class)
-        .archivedArtifactsMnemonicsFilter
+        .getArchivedArtifactsMnemonicsFilter()
         .test(action.getMnemonic());
   }
 
@@ -424,11 +435,20 @@ public final class SkyframeActionExecutor {
   }
 
   boolean publishTargetSummaries() {
-    return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
+    return options.getOptions(BuildEventProtocolOptions.class).getPublishTargetSummary();
   }
 
   public boolean rewindingEnabled() {
     return rewindingEnabled;
+  }
+
+  /**
+   * Returns the maximum number of times the same input (or top-level output) may be lost by the
+   * same action before rewinding gives up and fails the build. Configured by {@code
+   * --experimental_max_repeated_lost_inputs}.
+   */
+  public int maxRepeatedLostInputs() {
+    return maxRepeatedLostInputs;
   }
 
   public boolean invocationRetriesEnabled() {
@@ -440,7 +460,7 @@ public final class SkyframeActionExecutor {
   }
 
   OutputPermissions getOutputPermissions() {
-    return options.getOptions(CoreOptions.class).experimentalWritableOutputs
+    return options.getOptions(CoreOptions.class).getExperimentalWritableOutputs()
         ? OutputPermissions.WRITABLE
         : OutputPermissions.READONLY;
   }
@@ -465,8 +485,12 @@ public final class SkyframeActionExecutor {
   }
 
   private void updateActionFileSystemContext(
-      Action action, FileSystem actionFileSystem, OutputMetadataStore outputMetadataStore) {
-    outputService.updateActionFileSystemContext(action, actionFileSystem, outputMetadataStore);
+      Action action,
+      FileSystem actionFileSystem,
+      InputMetadataProvider inputMetadataProvider,
+      OutputMetadataStore outputMetadataStore) {
+    outputService.updateActionFileSystemContext(
+        action, actionFileSystem, inputMetadataProvider, outputMetadataStore);
   }
 
   void executionOver() {
@@ -480,6 +504,7 @@ public final class SkyframeActionExecutor {
     this.buildActionMap = null;
     this.rewoundActions = null;
     this.actionCacheChecker = null;
+    this.bustActionCachesTarget = null;
     this.outputDirectoryHelper = null;
     this.actionConcurrencyMeter.stop();
     this.actionConcurrencyMeter = null;
@@ -497,17 +522,46 @@ public final class SkyframeActionExecutor {
 
   /** Determines whether the given action was rewound during the current build. */
   public boolean wasRewound(ActionAnalysisMetadata action) {
-    return rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+    Artifact primaryOutput = action.getPrimaryOutput();
+    // Only GrepIncludesAction (from include scanning) has a null primary output.
+    return primaryOutput != null
+        && rewoundActions.contains(new OwnerlessArtifactWrapper(primaryOutput));
+  }
+
+  boolean checkRewoundActionOutputs() {
+    return checkRewoundActionOutputs;
+  }
+
+  private void reportChangedRewoundOutput(
+      Action action, String changed, @Nullable FileOutErr fileOutErr)
+      throws ActionExecutionException {
+    throw toActionExecutionException(
+        "Output '"
+            + changed
+            + "' changed while regenerating a rewound action. Previously completed actions may"
+            + " depend on the original contents; refusing to continue with inconsistent outputs."
+            + " Check this action and its inputs for nondeterminism. Pass"
+            + " --noexperimental_check_rewound_action_outputs to disable this check.",
+        /* cause= */ null,
+        action,
+        fileOutErr,
+        Code.REWOUND_ACTION_OUTPUT_CHANGED);
   }
 
   /**
-   * True if remote retrieval should be skipped for this {@code lookupData} because it was rewound.
+   * True if remote retrieval should be skipped for this {@code lookupData} because it was rewound
+   * or {@code --bust_action_caches} was passed.
    *
    * <p>This happens when an action fails to execute because one of its inputs was lost. It usually
    * indicates that the remotely retrieved {@code ActionExecutionValue} references remote data that
    * is inaccessible.
    */
   public boolean shouldSkipRetrieval(ActionLookupData lookupData) throws InterruptedException {
+    if (bustActionCachesTarget != null) {
+      // Ideally we'd only return true if the target matches or is an rdep of the cache buster
+      // target, but it's not easy to determine that.
+      return true;
+    }
     ActionLookupValue lookupValue =
         actionLookupValuePeeker.getExistingActionLookupValue(lookupData.getActionLookupKey());
     if (lookupValue == null) {
@@ -550,7 +604,16 @@ public final class SkyframeActionExecutor {
     if (state != null) {
       // If an action failed from lost inputs during input discovery then it won't have a state to
       // obsolete.
-      state.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
+      ActionStepOrResult priorState =
+          state.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
+      if (priorState instanceof ActionRunner runner) {
+        try {
+          runner.actionExecutionContext.close();
+        } catch (IOException e) {
+          logger.atWarning().withCause(e).log(
+              "Failed to close ActionExecutionContext for %s", failedAction.prettyPrint());
+        }
+      }
     }
     if (!actionFileSystemType().inMemoryFileSystem()) {
       outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(failedAction.getOutputs());
@@ -598,10 +661,12 @@ public final class SkyframeActionExecutor {
       ActionLookupData actionLookupData,
       @Nullable FileSystem actionFileSystem,
       ActionPostprocessing postprocessing,
-      boolean hasDiscoveredInputs)
+      boolean hasDiscoveredInputs,
+      @Nullable ActionExecutionValue previousOutputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
-      updateActionFileSystemContext(action, actionFileSystem, outputMetadataStore);
+      updateActionFileSystemContext(
+          action, actionFileSystem, compositeInputMetadataProvider, outputMetadataStore);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -639,7 +704,8 @@ public final class SkyframeActionExecutor {
                         actionStartTime,
                         actionExecutionContext,
                         actionLookupData,
-                        postprocessing)));
+                        postprocessing,
+                        previousOutputs)));
 
     SharedActionCallback callback =
         getSharedActionCallback(env.getListener(), hasDiscoveredInputs, action, actionLookupData);
@@ -651,6 +717,13 @@ public final class SkyframeActionExecutor {
       result = activeAction.getResultOrDependOnFuture(env, actionLookupData, action, callback);
     } catch (ActionExecutionException e) {
       finalException = e;
+    }
+
+    // Do not close the context for lost input exceptions. It will be done by prepareForRewinding
+    // after a rewind plan is in place. This avoids closing the context prematurely in case a
+    // skyframe restart is necessary to prepare the rewind plan.
+    if (finalException instanceof LostInputsActionExecutionException) {
+      throw finalException;
     }
 
     if (result != null || finalException != null) {
@@ -687,6 +760,9 @@ public final class SkyframeActionExecutor {
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
+    boolean bustActionCache =
+        bustActionCachesTarget != null
+            && bustActionCachesTarget.equals(actionLookupData.getLabel());
     return new ActionExecutionContext(
         executorEngine,
         compositeInputMetadataProvider,
@@ -701,7 +777,8 @@ public final class SkyframeActionExecutor {
         actionFileSystem,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverFactory.apply(actionLookupData));
+        threadStateReceiverFactory.apply(actionLookupData),
+        bustActionCache);
   }
 
   private static void closeContext(
@@ -734,8 +811,10 @@ public final class SkyframeActionExecutor {
       ArtifactPathResolver artifactPathResolver,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
-      Map<String, String> clientEnv)
+      Map<String, String> clientEnv,
+      @Nullable ActionExecutionValue previousOutputs)
       throws ActionExecutionException, InterruptedException {
+    checkState(checkRewoundActionOutputs || previousOutputs == null);
     Token token;
     EventHandler handler;
     OutputChecker outputChecker = null;
@@ -753,7 +832,9 @@ public final class SkyframeActionExecutor {
         Profiler.instance().profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       outputChecker = outputService.getOutputChecker();
       handler =
-          options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
+          options.getOptions(BuildRequestOptions.class).getExplanationPath() != null
+              ? reporter
+              : null;
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
@@ -818,7 +899,11 @@ public final class SkyframeActionExecutor {
                 action,
                 outputMetadataStore,
                 /* actionExecutionContext= */ null,
-                /* isActionCacheHitForMetrics= */ true);
+                /* isActionCacheHitForMetrics= */ true,
+                // A shared action can repopulate the cache after rewind eviction. Only check
+                // accepted hits, not hits rejected by NotifyOnActionCacheHit above.
+                token == null ? previousOutputs : null,
+                /* fileOutErr= */ null);
         if (!eventPosted) {
           eventHandler.post(
               new CachedActionEvent(
@@ -918,11 +1003,13 @@ public final class SkyframeActionExecutor {
             actionFileSystem,
             discoveredModulesPruner,
             syscallCache,
-            threadStateReceiverFactory.apply(actionLookupData),
-            outputService.actionFileSystemType().supportsInputDiscovery());
+            threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action, actionFileSystem, THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS);
+          action,
+          actionFileSystem,
+          compositeInputMetadataProvider,
+          THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS);
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.
       setupActionFsFileOutErr(fileOutErr, action);
@@ -930,7 +1017,10 @@ public final class SkyframeActionExecutor {
     eventHandler.post(new ScanningActionEvent(action));
 
     ActionExecutionException finalException = null;
-    try {
+    try (SilentCloseable lock =
+        outputService
+            .getRewoundActionSynchronizer()
+            .enterInputDiscovery(action, compositeInputMetadataProvider)) {
       NestedSet<Artifact> artifacts = action.discoverInputs(actionExecutionContext);
 
       // Input discovery may have been affected by lost inputs. If an action filesystem is used, it
@@ -995,18 +1085,20 @@ public final class SkyframeActionExecutor {
    * </ul>
    */
   private boolean isBuilderAborting() {
-    return hadExecutionError.get() && !options.getOptions(KeepGoingOption.class).keepGoing;
+    return hadExecutionError.get() && !options.getOptions(KeepGoingOption.class).getKeepGoing();
   }
 
   public void configure(
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       DiscoveredModulesPruner discoveredModulesPruner,
-      String actionExecutionSalt) {
+      String actionExecutionSalt,
+      int maxStdoutErrBytes) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.discoveredModulesPruner = discoveredModulesPruner;
     this.actionExecutionSalt = actionExecutionSalt;
+    this.maxStdoutErrBytes = maxStdoutErrBytes;
   }
 
   /**
@@ -1033,6 +1125,11 @@ public final class SkyframeActionExecutor {
     private final ActionLookupData actionLookupData;
     @Nullable private final ActionExecutionStatusReporter statusReporter;
     private final ActionPostprocessing postprocessing;
+    @Nullable private final ActionExecutionValue previousOutputs;
+    // True if the action was successfully registered with the statusReporter.
+    // This ensures we only attempt to remove it during cleanup, avoiding
+    // "Action not present" exceptions if the action failed before registration.
+    private boolean statusReported = false;
 
     ActionRunner(
         Action action,
@@ -1041,7 +1138,8 @@ public final class SkyframeActionExecutor {
         long actionStartTimeNanos,
         ActionExecutionContext actionExecutionContext,
         ActionLookupData actionLookupData,
-        ActionPostprocessing postprocessing) {
+        ActionPostprocessing postprocessing,
+        @Nullable ActionExecutionValue previousOutputs) {
       this.action = action;
       this.inputMetadataProvider = inputMetadataProvider;
       this.outputMetadataStore = outputMetadataStore;
@@ -1050,6 +1148,7 @@ public final class SkyframeActionExecutor {
       this.actionLookupData = actionLookupData;
       this.statusReporter = statusReporterRef.get();
       this.postprocessing = postprocessing;
+      this.previousOutputs = previousOutputs;
     }
 
     @SuppressWarnings("LogAndThrow") // Thrown exception shown in user output, not info logs.
@@ -1090,41 +1189,51 @@ public final class SkyframeActionExecutor {
           ActionStartedEvent event = new ActionStartedEvent(action, actionStartTimeNanos);
           if (statusReporter != null) {
             statusReporter.updateStatus(event);
+            statusReported = true;
           }
           env.getListener().post(event);
-          if (actionFileSystemType().shouldDoEagerActionPrep()) {
-            try (SilentCloseable d =
-                Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
-              // This call generally deletes any files at locations that are declared outputs of the
-              // action, although some actions perform additional work, while others intentionally
-              // keep previous outputs in place.
-              action.prepare(
-                  actionExecutionContext.getExecRoot(),
-                  actionExecutionContext.getPathResolver(),
-                  outputService.bulkDeleter(),
-                  useArchivedTreeArtifacts(action));
-            } catch (IOException e) {
-              logger.atWarning().withCause(e).log(
-                  "failed to delete output files before executing action: '%s'", action);
-              throw toActionExecutionException(
-                  "failed to delete output files before executing action",
-                  e,
-                  action,
-                  null,
-                  Code.ACTION_OUTPUTS_DELETION_FAILURE);
+          var rewoundActionSynchronizer = outputService.getRewoundActionSynchronizer();
+          boolean wasRewound = wasRewound(action);
+          try (SilentCloseable outerLock =
+              rewoundActionSynchronizer.enterActionPreparation(action, wasRewound)) {
+            if (actionFileSystemType().shouldDoEagerActionPrep()) {
+              try (SilentCloseable d =
+                  Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
+                // This call generally deletes any files at locations that are declared outputs of
+                // the action, although some actions perform additional work, while others
+                // intentionally keep previous outputs in place.
+                action.prepare(
+                    actionExecutionContext.getExecRoot(),
+                    actionExecutionContext.getPathResolver(),
+                    outputService.bulkDeleter(),
+                    useArchivedTreeArtifacts(action));
+              } catch (IOException e) {
+                logger.atWarning().withCause(e).log(
+                    "failed to delete output files before executing action: '%s'", action);
+                throw toActionExecutionException(
+                    "failed to delete output files before executing action",
+                    e,
+                    action,
+                    null,
+                    Code.ACTION_OUTPUTS_DELETION_FAILURE);
+              }
+            }
+
+            if (actionFileSystemType().inMemoryFileSystem()) {
+              // There's nothing to delete when the action file system is used, but we must ensure
+              // that the output directories for stdout and stderr exist.
+              setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
+              createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
+            } else {
+              createOutputDirectories(action);
+            }
+
+            try (SilentCloseable innerLock =
+                rewoundActionSynchronizer.enterActionExecution(
+                    action, wasRewound, actionExecutionContext.getInputMetadataProvider())) {
+              return executeAction(env.getListener(), action);
             }
           }
-
-          if (actionFileSystemType().inMemoryFileSystem()) {
-            // There's nothing to delete when the action file system is used, but we must ensure
-            // that the output directories for stdout and stderr exist.
-            setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
-            createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
-          } else {
-            createOutputDirectories(action);
-          }
-
-          return executeAction(env.getListener(), action);
         } catch (LostInputsActionExecutionException e) {
           lostInputs = true;
           throw e;
@@ -1158,7 +1267,7 @@ public final class SkyframeActionExecutor {
 
     private void notifyActionCompletion(
         ExtendedEventHandler eventHandler, boolean postActionCompletionEvent) {
-      if (statusReporter != null) {
+      if (statusReporter != null && statusReported) {
         statusReporter.remove(action);
       }
       if (postActionCompletionEvent) {
@@ -1248,6 +1357,7 @@ public final class SkyframeActionExecutor {
             Profiler.instance().profile(ProfilerTask.ACTION_COMPLETE, "actuallyCompleteAction")) {
           actionExecutionValue = actuallyCompleteAction(eventHandler, result);
         }
+        eventHandler.post(new ActionSuccessEvent(actionExecutionValue));
         return new ActionPostprocessingStep(actionExecutionValue);
       } catch (ActionExecutionException e) {
         return ActionStepOrResult.of(e);
@@ -1289,7 +1399,9 @@ public final class SkyframeActionExecutor {
             action,
             outputMetadataStore,
             actionExecutionContext,
-            /* isActionCacheHitForMetrics= */ false)) {
+            /* isActionCacheHitForMetrics= */ false,
+            previousOutputs,
+            outputAlreadyDumped ? null : fileOutErr)) {
           throw toActionExecutionException(
               "not all outputs were created or valid",
               null,
@@ -1394,7 +1506,15 @@ public final class SkyframeActionExecutor {
         }
 
         // Once the action has been written to the action cache, we can free its discovered inputs.
-        if (freeDiscoveredInputsAfterExecution && action.discoversInputs()) {
+        // We do this unconditionally for input-pruning actions because it costs too much memory for
+        // them to save their set of used inputs - they are already stored in the action cache.
+        if (action.prunedInputs()) {
+          checkState(
+              action.discoversInputs(),
+              "Only input-discovering actions may prune inputs: %s",
+              action);
+          action.resetDiscoveredInputs();
+        } else if (action.discoversInputs() && freeDiscoveredInputsAfterExecution) {
           action.resetDiscoveredInputs();
         }
         return ActionStepOrResult.of(value);
@@ -1585,8 +1705,10 @@ public final class SkyframeActionExecutor {
       Action action,
       OutputMetadataStore outputMetadataStore,
       ActionExecutionContext actionExecutionContext,
-      boolean isActionCacheHitForMetrics)
-      throws InterruptedException {
+      boolean isActionCacheHitForMetrics,
+      @Nullable ActionExecutionValue previousOutputs,
+      @Nullable FileOutErr fileOutErr)
+      throws ActionExecutionException, InterruptedException {
     boolean success = true;
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "checkOutputs")) {
       for (Artifact output : action.getOutputs()) {
@@ -1599,6 +1721,20 @@ public final class SkyframeActionExecutor {
 
             if (!checkForUnsoundDirectoryOutput(action, output, metadata)) {
               return false;
+            }
+
+            if (previousOutputs != null) {
+              String changed =
+                  RewoundActionOutputChecker.getChangedOutput(
+                      output,
+                      previousOutputs,
+                      metadata,
+                      output.isTreeArtifact()
+                          ? outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output)
+                          : null);
+              if (changed != null) {
+                reportChangedRewoundOutput(action, changed, fileOutErr);
+              }
             }
 
             FilesetOutputTree filesetOutputTree = null;
@@ -1630,8 +1766,13 @@ public final class SkyframeActionExecutor {
                           "declared output '%s' is not a symlink", output.prettyPrint())));
             } else {
               // Are all other exceptions caught due to missing files?
-              reportMissingOutputFile(
-                  action, output, reporter, output.getPath().isSymbolicLink(), e);
+              boolean isSymlink = false;
+              try {
+                isSymlink = output.getPath().isSymbolicLink();
+              } catch (IOException ignored) {
+                // Ignore, since it's just for informational purposes.
+              }
+              reportMissingOutputFile(action, output, reporter, isSymlink, e);
             }
           }
         }
@@ -1806,7 +1947,13 @@ public final class SkyframeActionExecutor {
    */
   private boolean printError(
       String message, ActionAnalysisMetadata action, @Nullable FileOutErr actionOutput) {
-    message = action.describe() + " failed: " + message;
+    String describe = action.describe();
+    Label ownerLabel = action.getOwner().getLabel();
+    if (ownerLabel != null && !describe.contains(ownerLabel.toString())) {
+      message = describe + " (from target " + ownerLabel + ") failed: " + message;
+    } else {
+      message = describe + " failed: " + message;
+    }
     return dumpRecordedOutErr(
         reporter, Event.error(action.getOwner().getLocation(), message), actionOutput);
   }
@@ -1842,10 +1989,39 @@ public final class SkyframeActionExecutor {
     if (outErrBuffer != null && outErrBuffer.hasRecordedOutput()) {
       // Bind the output to the prefix event.
       eventHandler.handle(prefixEvent.withProcessOutput(new ActionOutputEventData(outErrBuffer)));
+      informImportantOutputHandlerIfNecessary(outErrBuffer);
     } else {
       eventHandler.handle(prefixEvent);
     }
     return true;
+  }
+
+  /**
+   * Promotes stdout/err into important outputs when they are too large to display on the console.
+   *
+   * <p>When they are too large, the UI event handler prints their path instead of their contents.
+   * Promoting them to important outputs ensures that the user can access the file at the printed
+   * path.
+   */
+  private void informImportantOutputHandlerIfNecessary(FileOutErr outErr) {
+    var importantOutputHandler = executorEngine.getContext(ImportantOutputHandler.class);
+    if (importantOutputHandler == null) {
+      return;
+    }
+    try {
+      if (outErr.outSize() > maxStdoutErrBytes) {
+        importantOutputHandler.processTooLargeStdoutErr(outErr.getOutputPath());
+      }
+      if (outErr.errSize() > maxStdoutErrBytes) {
+        importantOutputHandler.processTooLargeStdoutErr(outErr.getErrorPath());
+      }
+    } catch (IOException | ImportantOutputException e) {
+      logger.atWarning().withCause(e).log(
+          "Failure informing important output handler of stdout/stderr");
+    } catch (InterruptedException e) {
+      logger.atInfo().log("Interrupted while informing important output handler of stdout/stderr");
+      Thread.currentThread().interrupt();
+    }
   }
 
   private static void reportActionExecution(
@@ -1892,7 +2068,7 @@ public final class SkyframeActionExecutor {
             stderr,
             errorTiming,
             firstStartTime.equals(Instant.MAX) ? null : firstStartTime,
-            lastEndTime.equals(Instant.MIN) ? null : firstStartTime));
+            lastEndTime.equals(Instant.MIN) ? null : lastEndTime));
   }
 
   /**
@@ -1932,10 +2108,10 @@ public final class SkyframeActionExecutor {
   }
 
   /** Adapts a {@link FileOutErr} to an {@link Event.ProcessOutput}. */
-  private static class ActionOutputEventData implements Event.ProcessOutput {
+  private static final class ActionOutputEventData implements Event.ProcessOutput {
     private final FileOutErr fileOutErr;
 
-    private ActionOutputEventData(FileOutErr fileOutErr) {
+    ActionOutputEventData(FileOutErr fileOutErr) {
       this.fileOutErr = fileOutErr;
     }
 

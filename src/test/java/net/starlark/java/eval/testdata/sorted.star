@@ -120,3 +120,10 @@ assert_fails(lambda: sorted([1, 2, 3], key = 1), "parameter 'key' got value of t
 
 # failing key computation
 assert_fails(lambda: sorted([1, 2, 3], key = lambda i: "abc".elems()[i]), "index out of range \\(index is 3, but sequence has 3 elements\\)")
+
+# list of self-referential values
+self_ref1 = []
+self_ref1.append(self_ref1)
+self_ref2 = []
+self_ref2.append(self_ref2)
+assert_fails(lambda: sorted([self_ref1, self_ref2]), "cannot compare self-referential or overly nested data structures")

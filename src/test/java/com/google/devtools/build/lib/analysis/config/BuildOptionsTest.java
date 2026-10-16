@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -27,14 +30,21 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -49,7 +59,8 @@ import org.junit.runner.RunWith;
 public final class BuildOptionsTest {
 
   /** Extra options for this test. */
-  public static class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
 
     @Option(
@@ -57,21 +68,23 @@ public final class BuildOptionsTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String strOption;
+    public abstract String getStrOption();
+
+    public abstract void setStrOption(String value);
 
     @Option(
         name = "another_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String anotherStrOption;
+    public abstract String getAnotherStrOption();
 
     @Option(
         name = "bool_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
-    public boolean boolOption;
+    public abstract boolean getBoolOption();
 
     @Option(
         name = "list_option",
@@ -79,14 +92,14 @@ public final class BuildOptionsTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> listOption;
+    public abstract List<String> getListOption();
 
     @Option(
         name = "null_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public String nullOption;
+    public abstract String getNullOption();
 
     @Option(
         name = "accumulating_option",
@@ -94,7 +107,7 @@ public final class BuildOptionsTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> accumulatingOption;
+    public abstract List<String> getAccumulatingOption();
 
     @Option(
         name = "dummy_option",
@@ -102,24 +115,40 @@ public final class BuildOptionsTest {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "internal_default",
         implicitRequirements = {"--implicit_option=set_implicitly"})
-    public String dummyOption;
+    public abstract String getDummyOption();
 
     @Option(
         name = "implicit_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "implicit_default")
-    public String implicitOption;
+    public abstract String getImplicitOption();
   }
 
   /** Extra options for this test. */
-  public static class SecondDummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class SecondDummyTestOptions extends FragmentOptions {
     @Option(
         name = "second_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String strOption;
+    public abstract String getStrOption();
+  }
+
+  /** Extra non-fragment options for this test. */
+  @OptionsClass
+  public abstract static class DummyNonFragmentOptions extends OptionsBase {
+    public DummyNonFragmentOptions() {}
+
+    @Option(
+        name = "non_fragment_str_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defVal")
+    public abstract String getStrOption();
+
+    public abstract void setStrOption(String value);
   }
 
   private static final ImmutableList<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
@@ -162,6 +191,78 @@ public final class BuildOptionsTest {
                         ImmutableList.of(DummyTestOptions.class, SecondDummyTestOptions.class),
                         options1)))
         .isFalse();
+  }
+
+  @Test
+  public void checksumOfChangedClone(@TestParameter boolean viaOptionDefinition) throws Exception {
+    var options = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo");
+    var checksum = options.checksum();
+
+    var clone = options.clone();
+    assertThat(clone.checksum()).isEqualTo(checksum);
+    var fragment = clone.get(DummyTestOptions.class);
+    if (viaOptionDefinition) {
+      OptionDefinition.getOptionDefinitions(DummyTestOptions.class).stream()
+          .filter(def -> def.getOptionName().equals("str_option"))
+          .collect(onlyElement())
+          .setValue(fragment, "bar");
+    } else {
+      fragment.setStrOption("bar");
+    }
+    var changed = BuildOptions.builder().merge(clone).build();
+
+    assertThat(options.checksum()).isEqualTo(checksum);
+    assertThat(changed.checksum())
+        .isEqualTo(BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=bar").checksum());
+  }
+
+  @Test
+  public void checksumOfCloneReusesFragmentDigests() throws Exception {
+    var options = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo");
+    var checksum = options.checksum();
+    var digest = options.get(DummyTestOptions.class).checksum();
+
+    var clone = options.toBuilder().build();
+    var fragment = clone.get(DummyTestOptions.class);
+    fragment.setStrOption(fragment.getStrOption());
+
+    assertThat(fragment.checksum()).isSameInstanceAs(digest);
+    assertThat(clone.checksum()).isEqualTo(checksum);
+  }
+
+  @Test
+  public void hexChecksum_fragmentOptions() throws Exception {
+    var options1 = Options.parse(DummyTestOptions.class, "--str_option=foo").getOptions();
+    var options2 = Options.parse(DummyTestOptions.class, "--str_option=foo").getOptions();
+    var options3 = Options.parse(DummyTestOptions.class, "--str_option=bar").getOptions();
+
+    assertThat(FragmentOptions.hexChecksum(options1))
+        .isEqualTo(FragmentOptions.hexChecksum(options2));
+    assertThat(FragmentOptions.hexChecksum(options1))
+        .isNotEqualTo(FragmentOptions.hexChecksum(options3));
+
+    options1.setStrOption("bar");
+    assertThat(FragmentOptions.hexChecksum(options1))
+        .isEqualTo(FragmentOptions.hexChecksum(options3));
+  }
+
+  @Test
+  public void hexChecksum_nonFragmentOptions() throws Exception {
+    var options1 =
+        Options.parse(DummyNonFragmentOptions.class, "--non_fragment_str_option=foo").getOptions();
+    var options2 =
+        Options.parse(DummyNonFragmentOptions.class, "--non_fragment_str_option=foo").getOptions();
+    var options3 =
+        Options.parse(DummyNonFragmentOptions.class, "--non_fragment_str_option=bar").getOptions();
+
+    assertThat(FragmentOptions.hexChecksum(options1))
+        .isEqualTo(FragmentOptions.hexChecksum(options2));
+    assertThat(FragmentOptions.hexChecksum(options1))
+        .isNotEqualTo(FragmentOptions.hexChecksum(options3));
+
+    options1.setStrOption("bar");
+    assertThat(FragmentOptions.hexChecksum(options1))
+        .isEqualTo(FragmentOptions.hexChecksum(options3));
   }
 
   @Test
@@ -262,7 +363,8 @@ public final class BuildOptionsTest {
             OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build());
     DummyTestOptions dummyTestOptions = options.get(DummyTestOptions.class);
     assertThrows(
-        UnsupportedOperationException.class, () -> dummyTestOptions.accumulatingOption.add("foo"));
+        UnsupportedOperationException.class,
+        () -> dummyTestOptions.getAccumulatingOption().add("foo"));
   }
 
   @Test
@@ -291,11 +393,12 @@ public final class BuildOptionsTest {
 
     OptionsParser matchingParser =
         OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    matchingParser.setStarlarkOptions(ImmutableMap.of("//custom:flag", "hello"));
+    matchingParser.setStarlarkOptions(ImmutableMap.of("//custom:flag", "hello"), ImmutableSet.of());
 
     OptionsParser notMatchingParser =
         OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    notMatchingParser.setStarlarkOptions(ImmutableMap.of("//custom:flag", "foo"));
+    notMatchingParser.setStarlarkOptions(
+        ImmutableMap.of("//custom:flag", "foo"), ImmutableSet.of());
 
     assertThat(original.matches(matchingParser)).isTrue();
     assertThat(original.matches(notMatchingParser)).isFalse();
@@ -342,7 +445,7 @@ public final class BuildOptionsTest {
 
     OptionsParser parser = OptionsParser.builder().optionsClasses(fragmentClasses).build();
     parser.parse("--second_str_option=bar");
-    parser.setStarlarkOptions(ImmutableMap.of("//custom:flag", "hello"));
+    parser.setStarlarkOptions(ImmutableMap.of("//custom:flag", "hello"), ImmutableSet.of());
 
     assertThat(original.matches(parser)).isTrue();
   }
@@ -355,7 +458,7 @@ public final class BuildOptionsTest {
             .build();
 
     OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    parser.setStarlarkOptions(ImmutableMap.of("//custom:flag2", "foo"));
+    parser.setStarlarkOptions(ImmutableMap.of("//custom:flag2", "foo"), ImmutableSet.of());
 
     assertThat(original.matches(parser)).isFalse();
   }
@@ -407,5 +510,115 @@ public final class BuildOptionsTest {
     assertThat(backward.getStarlarkOptions())
         .containsExactly(label1, true, label2, false)
         .inOrder();
+    assertThat(backward).isEqualTo(forward);
+    assertThat(backward.checksum()).isEqualTo(forward.checksum());
+  }
+
+  @Test
+  public void listAndSetAreDifferent() {
+    Label label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    BuildOptions optionsWithList =
+        BuildOptions.builder().addStarlarkOption(label, Lists.newArrayList("a")).build();
+    BuildOptions optionsWithSet =
+        BuildOptions.builder()
+            .addStarlarkOption(label, new LinkedHashSet<>(ImmutableList.of("a")))
+            .build();
+
+    assertThat(optionsWithList).isNotEqualTo(optionsWithSet);
+    assertThat(optionsWithList.checksum()).isNotEqualTo(optionsWithSet.checksum());
+  }
+
+  @Test
+  public void emptyListDifferentFromListWithEmptyString() {
+    Label label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    BuildOptions emptyListOptions =
+        BuildOptions.builder().addStarlarkOption(label, new ArrayList<>()).build();
+    BuildOptions emptyStringListOptions =
+        BuildOptions.builder().addStarlarkOption(label, Lists.newArrayList("")).build();
+
+    assertThat(emptyListOptions).isNotEqualTo(emptyStringListOptions);
+    assertThat(emptyListOptions.checksum()).isNotEqualTo(emptyStringListOptions.checksum());
+  }
+
+  @Test
+  public void emptySetDifferentFromSetWithEmptyString() {
+    Label label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    BuildOptions emptySetOptions =
+        BuildOptions.builder().addStarlarkOption(label, new LinkedHashSet<>()).build();
+    BuildOptions emptyStringSetOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(label, new LinkedHashSet<>(ImmutableList.of("")))
+            .build();
+
+    assertThat(emptySetOptions).isNotEqualTo(emptyStringSetOptions);
+    assertThat(emptySetOptions.checksum()).isNotEqualTo(emptyStringSetOptions.checksum());
+  }
+
+  @Test
+  public void listElementTypesAreDifferent() {
+    var label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    var stringListOptions =
+        BuildOptions.builder().addStarlarkOption(label, StarlarkList.immutableOf("1")).build();
+    var intListOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(label, StarlarkList.immutableOf(StarlarkInt.of(1)))
+            .build();
+
+    assertThat(stringListOptions).isNotEqualTo(intListOptions);
+    assertThat(stringListOptions.checksum()).isNotEqualTo(intListOptions.checksum());
+  }
+
+  @Test
+  public void stringListDifferentFromLabelList() {
+    var label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    var stringListOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(label, StarlarkList.immutableOf("//pkg:value"))
+            .build();
+    var labelListOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(
+                label, StarlarkList.immutableOf(Label.parseCanonicalUnchecked("//pkg:value")))
+            .build();
+
+    assertThat(stringListOptions).isNotEqualTo(labelListOptions);
+    assertThat(stringListOptions.checksum()).isNotEqualTo(labelListOptions.checksum());
+  }
+
+  @Test
+  public void listElementBoundariesAreDifferent() {
+    var label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    var oneElementOptions =
+        BuildOptions.builder().addStarlarkOption(label, Lists.newArrayList("a, b")).build();
+    var twoElementOptions =
+        BuildOptions.builder().addStarlarkOption(label, Lists.newArrayList("a", "b")).build();
+
+    assertThat(oneElementOptions).isNotEqualTo(twoElementOptions);
+    assertThat(oneElementOptions.checksum()).isNotEqualTo(twoElementOptions.checksum());
+  }
+
+  @Test
+  public void scopeTypesAreDifferent() {
+    var label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    var universalOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(label, "a")
+            .addScopeType(label, new Scope.ScopeType(Scope.ScopeType.UNIVERSAL))
+            .build();
+    var targetOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(label, "a")
+            .addScopeType(label, new Scope.ScopeType(Scope.ScopeType.TARGET))
+            .build();
+
+    assertThat(universalOptions).isNotEqualTo(targetOptions);
+    assertThat(universalOptions.checksum()).isNotEqualTo(targetOptions.checksum());
   }
 }

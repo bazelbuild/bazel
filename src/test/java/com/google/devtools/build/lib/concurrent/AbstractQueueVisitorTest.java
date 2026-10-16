@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -26,8 +25,10 @@ import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExecutorOwn
 import com.google.devtools.build.lib.concurrent.ErrorClassifier.ErrorClassification;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -328,7 +329,7 @@ public class AbstractQueueVisitorTest {
             ? new ConcreteQueueVisitor(exceptionHandlingMode)
             : new ConcreteQueueVisitor(executor, exceptionHandlingMode);
 
-    List<String> visitedList = Collections.synchronizedList(Lists.<String>newArrayList());
+    List<String> visitedList = Collections.synchronizedList(new ArrayList<String>());
 
     // Runnable "ra" will await the uncaught exception from
     // "throwingRunnable", then add "a" to the list and
@@ -357,7 +358,7 @@ public class AbstractQueueVisitorTest {
       assertThat(e).isSameInstanceAs(THROWABLE);
     }
     assertWithMessage("got: %s\nwant: %s", visitedList, Arrays.toString(expectedVisited))
-        .that(Sets.newHashSet(visitedList))
+        .that(new HashSet<>(visitedList))
         .isEqualTo(Sets.newHashSet(expectedVisited));
 
     if (executor != null) {

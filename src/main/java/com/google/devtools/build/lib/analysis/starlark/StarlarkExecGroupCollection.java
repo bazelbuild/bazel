@@ -81,7 +81,7 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
 
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    String group = castGroupName(key);
+    String group = castGroupName(semantics, key);
     return !DEFAULT_EXEC_GROUP_NAME.equals(group)
         && toolchainCollection().getExecGroupNames().contains(group);
   }
@@ -94,7 +94,7 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
   @Override
   public StarlarkExecGroupContext getIndex(StarlarkSemantics semantics, Object key)
       throws EvalException {
-    String execGroup = castGroupName(key);
+    String execGroup = castGroupName(semantics, key);
     if (!containsKey(semantics, key)) {
       throw Starlark.errorf(
           "In %s, unrecognized exec group '%s' requested. Available exec groups: [%s]",
@@ -118,17 +118,18 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
     return new StarlarkExecGroupContext(starlarkToolchainContext);
   }
 
-  private static String castGroupName(Object key) throws EvalException {
+  private static String castGroupName(StarlarkSemantics semantics, Object key)
+      throws EvalException {
     if (!(key instanceof String)) {
       throw Starlark.errorf(
           "exec groups only support indexing by exec group name, got %s of type %s instead",
-          Starlark.repr(key), Starlark.type(key));
+          Starlark.repr(key, semantics), Starlark.type(key));
     }
     return (String) key;
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer
         .append("<ctx.exec_groups: ")
         .append(String.join(", ", getScrubbedExecGroups()))
@@ -146,14 +147,14 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
    * The starlark object that is returned by ctx.exec_groups[<name>]. Gives information about that
    * exec group.
    */
-  public record StarlarkExecGroupContext(@Override ToolchainContextApi toolchains)
+  public record StarlarkExecGroupContext(ToolchainContextApi toolchains)
       implements ExecGroupContextApi {
     public StarlarkExecGroupContext {
       requireNonNull(toolchains, "toolchains");
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<exec_group_context>");
     }
   }

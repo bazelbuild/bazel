@@ -93,7 +93,7 @@ function test_timeout_grace() {
   local code=0
   $process_wrapper --timeout=1 --kill_delay=100000 --stdout=$OUT --stderr=$ERR \
     /bin/sh -c \
-    'trap "echo ignoring signal" INT TERM ARLM; \
+    'trap "echo ignoring signal" INT TERM ALRM; \
      for i in $(seq 5); do sleep 1; done; echo after' \
     &> $TEST_log || code=$?
   assert_equals "${EXIT_STATUS_SIGALRM}" "$code"
@@ -114,7 +114,7 @@ function test_timeout_exits_as_soon_as_process_terminates() {
   local code=0
   $process_wrapper --timeout=1 --kill_delay=100000 --stdout=$OUT --stderr=$ERR \
     /bin/sh -c \
-    'trap "" INT TERM ARLM; \
+    'trap "" INT TERM ALRM; \
      for i in $(seq 5); do echo sleeping $i; sleep 1; done' \
     &> $TEST_log || code=$?
   assert_equals "${EXIT_STATUS_SIGALRM}" "$code"
@@ -135,7 +135,7 @@ function test_timeout_kill() {
   local code=0
   $process_wrapper --timeout=1 --kill_delay=5 --stdout=$OUT --stderr=$ERR \
     /bin/sh -c \
-    'trap "echo ignoring signal" INT TERM ARLM; \
+    'trap "echo ignoring signal" INT TERM ALRM; \
      while :; do sleep 1; done; echo after' \
     &> $TEST_log || code=$?
   assert_equals "${EXIT_STATUS_SIGALRM}" "$code"
@@ -151,7 +151,7 @@ function test_sigterm_grace() {
   $process_wrapper --graceful_sigterm --kill_delay=100000 \
     --stdout=$OUT --stderr=$ERR \
     /bin/sh -c \
-    'trap "echo ignoring signal" INT TERM ARLM; \
+    'trap "echo ignoring signal" INT TERM ALRM; \
      for i in $(seq 5); do sleep 1; done; echo after' \
     &> $TEST_log &
   local pid=$!
@@ -178,7 +178,7 @@ function test_sigterm_exits_as_soon_as_process_terminates() {
   $process_wrapper --graceful_sigterm --kill_delay=100000 \
     --stdout=$OUT --stderr=$ERR \
     /bin/sh -c \
-    'trap "" INT TERM ARLM; \
+    'trap "" INT TERM ALRM; \
      for i in $(seq 5); do echo sleeping $i; sleep 1; done' \
     &> $TEST_log &
   local pid=$!
@@ -204,7 +204,7 @@ function test_sigterm_kill() {
   $process_wrapper --graceful_sigterm --kill_delay=5 \
     --stdout=$OUT --stderr=$ERR \
     /bin/sh -c \
-    'trap "echo ignoring signal" INT TERM ARLM; \
+    'trap "echo ignoring signal" INT TERM ALRM; \
      while :; do sleep 1; done; echo after' \
     &> $TEST_log &
   local pid=$!

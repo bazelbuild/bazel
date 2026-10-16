@@ -18,12 +18,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auth.Credentials;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
@@ -39,10 +42,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.ConnectException;
 import java.net.SocketException;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -50,7 +53,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 
 /**
@@ -122,7 +124,7 @@ public class DownloadManager {
 
   public Future<Path> startDownload(
       ExecutorService executorService,
-      List<URL> originalUrls,
+      List<URI> originalUrls,
       Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
@@ -131,14 +133,9 @@ public class DownloadManager {
       Path output,
       Map<String, String> clientEnv,
       String context,
-      Phaser downloadPhaser,
       boolean mayHardlink) {
     return executorService.submit(
         () -> {
-          if (downloadPhaser.register() != 0) {
-            // Not in download phase, must already have been cancelled.
-            throw new InterruptedException();
-          }
           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
             return downloadInExecutor(
                 originalUrls,
@@ -151,8 +148,6 @@ public class DownloadManager {
                 clientEnv,
                 context,
                 mayHardlink);
-          } finally {
-            downloadPhaser.arrive();
           }
         });
   }
@@ -188,7 +183,7 @@ public class DownloadManager {
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   private Path downloadInExecutor(
-      List<URL> originalUrls,
+      List<URI> originalUrls,
       Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
@@ -208,29 +203,35 @@ public class DownloadManager {
     //  by Starlark code -, or if a UrlRewriter is present. However, if it comes directly from a
     //  ctx.download{,_and_extract}, this not the case. Should be refactored to handle all .netrc
     //  parsing in one place, in Java code (similarly to #downloadAndReadOneUrl).
-    ImmutableList<URL> rewrittenUrls = ImmutableList.copyOf(originalUrls);
+    ImmutableList<URI> rewrittenUrls = ImmutableList.copyOf(originalUrls);
     Map<URI, Map<String, List<String>>> rewrittenAuthHeaders = authHeaders;
 
     if (rewriter != null) {
       ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUrls);
       rewrittenUrls =
-          rewrittenUrlMappings.stream().map(url -> url.url()).collect(toImmutableList());
+          rewrittenUrlMappings.stream().map(RewrittenURL::url).collect(toImmutableList());
       rewrittenAuthHeaders =
           rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
     }
 
-    URL mainUrl; // The "main" URL for this request
-    // Used for reporting only and determining the file name only.
+    URI mainUrl; // The "main" URL for this request, used for reporting.
+    // The URL used to derive the download's file name. When the rewriter blocks all URLs, this
+    // falls back to the first original URL so that its extension (used, e.g., by
+    // download_and_extract to infer the archive type) is preserved instead of being lost to the
+    // "cacheprobe" placeholder.
+    URI fileNameUrl;
     if (rewrittenUrls.isEmpty()) {
       if (type.isPresent() && !Strings.isNullOrEmpty(type.get())) {
-        mainUrl = new URL("http://nonexistent.example.org/cacheprobe." + type.get());
+        mainUrl = URI.create("http://nonexistent.example.org/cacheprobe." + type.get());
       } else {
-        mainUrl = new URL("http://nonexistent.example.org/cacheprobe");
+        mainUrl = URI.create("http://nonexistent.example.org/cacheprobe");
       }
+      fileNameUrl = Iterables.getFirst(originalUrls, mainUrl);
     } else {
       mainUrl = rewrittenUrls.get(0);
+      fileNameUrl = mainUrl;
     }
-    Path destination = getDownloadDestination(mainUrl, type, output);
+    Path destination = getDownloadDestination(fileNameUrl, type, output);
     ImmutableSet<String> candidateFileNames = getCandidateFileNames(mainUrl, destination);
 
     // Is set to true if the value should be cached by the checksum value provided
@@ -380,7 +381,11 @@ public class DownloadManager {
   }
 
   private boolean isRetryableException(Throwable e) {
-    return e instanceof ContentLengthMismatchException || e instanceof SocketException;
+    // HttpConnector already retries connection attempts. Retrying a final ConnectException here
+    // repeats its entire backoff sequence.
+    return e instanceof ContentLengthMismatchException
+        || (e instanceof SocketException && !(e instanceof ConnectException))
+        || e instanceof UnknownHostException;
   }
 
   /**
@@ -402,7 +407,7 @@ public class DownloadManager {
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   public byte[] downloadAndReadOneUrlForBzlmod(
-      URL originalUrl, Map<String, String> clientEnv, Optional<Checksum> checksum)
+      URI originalUrl, Map<String, String> clientEnv, Optional<Checksum> checksum)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
@@ -424,19 +429,19 @@ public class DownloadManager {
     }
 
     Map<URI, Map<String, List<String>>> authHeaders = ImmutableMap.of();
-    ImmutableList<URL> rewrittenUrls = ImmutableList.of(originalUrl);
+    ImmutableList<URI> rewrittenUrls = ImmutableList.of(originalUrl);
 
     if (netrcCreds != null) {
       try {
-        Map<String, List<String>> metadata = netrcCreds.getRequestMetadata(originalUrl.toURI());
+        Map<String, List<String>> metadata = netrcCreds.getRequestMetadata(originalUrl);
         if (!metadata.isEmpty()) {
           Entry<String, List<String>> headers = metadata.entrySet().iterator().next();
           authHeaders =
               ImmutableMap.of(
-                  originalUrl.toURI(),
+                  originalUrl,
                   ImmutableMap.of(headers.getKey(), ImmutableList.of(headers.getValue().get(0))));
         }
-      } catch (URISyntaxException e) {
+      } catch (IOException e) {
         // If the credentials extraction failed, we're letting bazel try without credentials.
       }
     }
@@ -457,8 +462,8 @@ public class DownloadManager {
     for (int attempt = 0; ; ++attempt) {
       try {
         content =
-            bzlmodHttpDownloader.downloadAndReadOneUrl(
-                rewrittenUrls.get(0),
+            bzlmodHttpDownloader.downloadAndRead(
+                rewrittenUrls,
                 credentialFactory.create(authHeaders),
                 checksum,
                 eventHandler,
@@ -487,7 +492,7 @@ public class DownloadManager {
   }
 
   @Nullable
-  private String getRewriterBlockedAllUrlsMessage(List<URL> originalUrls) {
+  private String getRewriterBlockedAllUrlsMessage(List<URI> originalUrls) {
     if (rewriter == null) {
       return null;
     }
@@ -500,34 +505,61 @@ public class DownloadManager {
     return message.toString();
   }
 
-  private Path getDownloadDestination(URL url, Optional<String> type, Path output) {
+  // The complement of a conservative range of characters that are valid for all reasonable file
+  // systems.
+  private static final CharMatcher FS_UNSAFE_CHARS =
+      CharMatcher.inRange('a', 'z')
+          .or(CharMatcher.inRange('A', 'Z'))
+          .or(CharMatcher.inRange('0', '9'))
+          .or(CharMatcher.anyOf(".-_"))
+          .negate();
+
+  private Path getDownloadDestination(URI url, Optional<String> type, Path output) {
     if (!type.isPresent()) {
       return output;
     }
-    String basename =
-        MoreObjects.firstNonNull(
-            Strings.emptyToNull(PathFragment.create(url.getPath()).getBaseName()), "temp");
+    String basename = MoreObjects.firstNonNull(Strings.emptyToNull(getUrlBaseName(url)), "temp");
     if (!type.get().isEmpty()) {
       String suffix = "." + type.get();
       if (!basename.endsWith(suffix)) {
         basename += suffix;
       }
     }
-    return output.getRelative(basename);
+    // The basename may contain characters that aren't legal in a path with all file systems. Those
+    // characters won't matter for type determination.
+    return output.getRelative(FS_UNSAFE_CHARS.replaceFrom(basename, '_'));
   }
 
   /**
-   * Deterimine the list of filenames to look for in the distdirs. Note that an output name may be
-   * specified that is unrelated to the primary URL. This happens, e.g., when the paramter output is
-   * specified in ctx.download.
+   * Determine the list of filenames to look for in the distdirs. Note that an output name may be
+   * specified that is unrelated to the primary URL. This happens, e.g., when the parameter output
+   * is specified in ctx.download.
    */
-  private static ImmutableSet<String> getCandidateFileNames(URL url, Path destination) {
-    String urlBaseName = PathFragment.create(url.getPath()).getBaseName();
+  @VisibleForTesting
+  static ImmutableSet<String> getCandidateFileNames(URI url, Path destination) {
+    String urlBaseName = getUrlBaseName(url);
     if (!Strings.isNullOrEmpty(urlBaseName) && !urlBaseName.equals(destination.getBaseName())) {
       return ImmutableSet.of(urlBaseName, destination.getBaseName());
     } else {
       return ImmutableSet.of(destination.getBaseName());
     }
+  }
+
+  private static String getUrlBaseName(URI url) {
+    String path = url.getPath();
+    if (path == null && url.isOpaque()) {
+      // Match URL#getPath() behavior for opaque file URIs such as file:../archive.tgz.
+      String rawPath = url.getRawSchemeSpecificPart();
+      int queryStart = rawPath.indexOf('?');
+      if (queryStart != -1) {
+        rawPath = rawPath.substring(0, queryStart);
+      }
+      path =
+          rawPath.isEmpty()
+              ? ""
+              : URI.create(url.getScheme() + ":" + rawPath).getSchemeSpecificPart();
+    }
+    return path == null ? "" : PathFragment.create(path).getBaseName();
   }
 
   private static class CacheProgress implements ExtendedEventHandler.FetchProgress {

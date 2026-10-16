@@ -20,8 +20,8 @@ import java.io.IOException;
 public abstract class AsyncObjectCodec<T> implements ObjectCodec<T> {
 
   @Override
-  public final MemoizationStrategy getStrategy() {
-    return MemoizationStrategy.MEMOIZE_BEFORE;
+  public final MemoizationTiming getMemoizationTiming() {
+    return MemoizationTiming.BEFORE;
   }
 
   /** Adapter for synchronous contexts. */

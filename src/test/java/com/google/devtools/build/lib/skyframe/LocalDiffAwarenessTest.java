@@ -19,35 +19,38 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.SequentialView;
 import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestName;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Integration tests for LocalDiffAwareness. */
 @RunWith(JUnit4.class)
-public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
+public class LocalDiffAwarenessTest {
 
   /** Try this many times to pick up file changes. Inotify needs some nanoseconds of patience. */
   private static final int MAX_RETRY_COUNT = 20;
@@ -58,21 +61,21 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
   private Path testCaseRoot;
   private Path testCaseIgnoredDir;
 
-  @Rule public TestName name = new TestName();
+  @Rule public final TemporaryFolder tmp = new TemporaryFolder();
 
   @Before
   public final void initializeSettings() throws Exception {
     LocalDiffAwareness.Factory factory =
         new LocalDiffAwareness.Factory(
             ImmutableList.<String>of(), new FsEventsNativeDepsServiceImpl());
-    // Make sure all test functions have their own directory to test
-    testCaseRoot = testRoot.getChild(name.getMethodName());
-    testCaseRoot.createDirectoryAndParents();
+    FileSystem fileSystem = FileSystems.getNativeFileSystem(DigestHashFunction.SHA256);
+    testCaseRoot = fileSystem.getPath(tmp.getRoot().getAbsolutePath());
     testCaseIgnoredDir = testCaseRoot.getChild("ignored-dir");
     testCaseIgnoredDir.createDirectoryAndParents();
 
-    LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
-    localDiffOptions.watchFS = true;
+    LocalDiffAwareness.Options localDiffOptions =
+        Options.getDefaults(LocalDiffAwareness.Options.class);
+    localDiffOptions.setWatchFS(true);
     watchFsEnabledProvider = FakeOptions.of(localDiffOptions);
 
     localDiff =
@@ -224,6 +227,29 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
         .check();
   }
 
+  // Regression test for https://github.com/bazelbuild/bazel/issues/22417.
+  @Test
+  public void testDirectoryWithSubdirectoryMovedOutAndRecreated() throws Exception {
+    mkdir("dir/sub");
+    captureFirstView(watchFsEnabledProvider);
+
+    // Moving a directory out of the watched tree only produces a deletion event for "dir" itself,
+    // so the watch key of "dir/sub" stays valid and keeps watching the moved-away inode.
+    move("dir", "ignored-dir/moved");
+    new ModifiedFileSetChecker().modify("dir").check();
+
+    // Registering the new "dir/sub" yields a new watch key for a path that is still associated
+    // with the old one. This used to crash with "IllegalArgumentException: value already present".
+    mkdir("dir/sub");
+    new ModifiedFileSetChecker().modify("dir").modify("dir/sub").check();
+
+    // Only the new directory is watched under "dir/sub"; changes to the moved-away one are not
+    // reported under its old path.
+    touch("ignored-dir/moved/sub/stale.txt");
+    touch("dir/sub/new.txt");
+    new ModifiedFileSetChecker().modify("dir/sub/new.txt").check();
+  }
+
   @Test
   public void testLotsOfChanges() throws Exception {
     captureFirstView(watchFsEnabledProvider);
@@ -268,8 +294,9 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
   }
 
   private static OptionsProvider createWatchFsDisabledProvider() {
-    final LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
-    localDiffOptions.watchFS = false;
+    final LocalDiffAwareness.Options localDiffOptions =
+        Options.getDefaults(LocalDiffAwareness.Options.class);
+    localDiffOptions.setWatchFS(false);
     return FakeOptions.of(localDiffOptions);
   }
 
@@ -303,6 +330,148 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testOverflow() throws Exception {
+    captureFirstView(watchFsEnabledProvider);
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    // Give inotify and JVM poller a moment to queue events
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // After recovering from overflow, incremental diffing works immediately on the next view.
+    touch("single.txt");
+    new ModifiedFileSetChecker().modify("single.txt").check();
+  }
+
+  @Test
+  public void testDirectoryCreatedDuringOverflow() throws Exception {
+    captureFirstView(watchFsEnabledProvider);
+    mkdir("newdir");
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // Subdirectories created during overflow are discovered and registered,
+    // so subsequent modifications inside them are tracked incrementally.
+    touch("newdir/inner.txt");
+    new ModifiedFileSetChecker().modify("newdir/inner.txt").check();
+  }
+
+  @Test
+  public void testDirectoryDeletedDuringOverflow() throws Exception {
+    mkdir("deldir");
+    touch("deldir/f.txt");
+    captureFirstView(watchFsEnabledProvider);
+
+    rm("deldir");
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // Subsequent modifications to other files work incrementally without stale key issues.
+    touch("foo.txt");
+    new ModifiedFileSetChecker().modify("foo.txt").check();
+  }
+
+  @Test
+  public void testDirectoryReplacedDuringOverflow() throws Exception {
+    mkdir("dir");
+    touch("dir/old.txt");
+    captureFirstView(watchFsEnabledProvider);
+
+    // Overflow the watch key of the root directory first, so that the move and the re-creation
+    // below are among the events that are dropped.
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    // Move the watched directory out of sight and put a different directory in its place. The
+    // watch key of the old directory stays valid, but it no longer watches what is at "dir" now.
+    move("dir", "ignored-dir/moved");
+    mkdir("dir");
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // Overflow recovery must have registered the replacement directory.
+    touch("dir/new.txt");
+    new ModifiedFileSetChecker().modify("dir/new.txt").check();
+  }
+
+  @Test
+  public void testDirectoryMovedAndReplacedDuringOverflow() throws Exception {
+    mkdir("dir1");
+    touch("dir1/old.txt");
+    captureFirstView(watchFsEnabledProvider);
+
+    // Overflow the watch key of the root directory first, so that the move and the re-creation
+    // below are among the events that are dropped.
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    // Both the moved directory and its replacement remain under the watch root, so the watch key
+    // of the moved directory must be rebound to its new path instead of being cancelled.
+    move("dir1", "dir2");
+    mkdir("dir1");
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    touch("dir1/new.txt");
+    touch("dir2/moved.txt");
+    new ModifiedFileSetChecker().modify("dir1/new.txt").modify("dir2/moved.txt").check();
+  }
+
+  @Test
+  public void testUnreadableDirectory() throws Exception {
+    mkdir("unreadable");
+    Path unreadable = testCaseRoot.getRelative("unreadable");
+    unreadable.chmod(0);
+    try {
+      boolean readable = true;
+      try {
+        var unused = unreadable.getDirectoryEntries();
+      } catch (IOException e) {
+        readable = false;
+      }
+      // Running as root bypasses directory permissions, in which case there is nothing to test.
+      Assume.assumeFalse(readable);
+
+      // A directory that cannot be watched must be reported instead of being silently skipped,
+      // which would make all subsequent diffs miss changes under it.
+      assertThrows(
+          BrokenDiffAwarenessException.class,
+          () -> localDiff.getCurrentView(watchFsEnabledProvider));
+    } finally {
+      unreadable.chmod(0755);
+    }
+  }
+
+  @Test
+  public void testUnreadableIgnoredDirectory() throws Exception {
+    testCaseIgnoredDir.chmod(0);
+    try {
+      boolean readable = true;
+      try {
+        var unused = testCaseIgnoredDir.getDirectoryEntries();
+      } catch (IOException e) {
+        readable = false;
+      }
+      // Running as root bypasses directory permissions, in which case there is nothing to test.
+      Assume.assumeFalse(readable);
+
+      // Not being able to watch a directory that we were told to ignore is fine.
+      captureFirstView(watchFsEnabledProvider);
+      touch("foo.txt");
+      new ModifiedFileSetChecker().modify("foo.txt").check();
+    } finally {
+      testCaseIgnoredDir.chmod(0755);
+    }
+  }
+
+  @Test
   public void modifiedPathIsntUnderWatchRoot() {
     java.nio.file.Path otherRootDirectoryNioPath = Paths.get("/notundertestroot");
     assertThat(otherRootDirectoryNioPath.startsWith(Paths.get(testCaseRoot.getPathString())))
@@ -310,13 +479,17 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
 
     View oldView =
         new LocalDiffAwareness.SequentialView(
-            localDiff, /* position= */ 0, /* modifiedAbsolutePaths= */ ImmutableSet.of());
+            localDiff,
+            /* position= */ 0,
+            /* modifiedAbsolutePaths= */ ImmutableSet.of(),
+            /* isOverflow= */ false);
     View newView =
         new LocalDiffAwareness.SequentialView(
             localDiff,
             /* position= */ 1,
             /* modifiedAbsolutePaths= */ ImmutableSet.of(
-                otherRootDirectoryNioPath.resolve("foo.txt")));
+                otherRootDirectoryNioPath.resolve("foo.txt")),
+            /* isOverflow= */ false);
     Throwable throwable =
         assertThrows(BrokenDiffAwarenessException.class, () -> localDiff.getDiff(oldView, newView));
     assertThat(throwable)
@@ -343,6 +516,10 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
     path.deleteTree();
   }
 
+  private void move(String from, String to) throws IOException {
+    testCaseRoot.getRelative(from).renameTo(testCaseRoot.getRelative(to));
+  }
+
   private void symlink(String from, String to) throws IOException {
     Path fromPath = testCaseRoot.getRelative(from);
     Path toPath = testCaseRoot.getRelative(to);
@@ -350,9 +527,9 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
   }
 
   private class ModifiedFileSetChecker {
-    private final Set<PathFragment> modified = Sets.newHashSet();
+    private final Set<PathFragment> modified = new HashSet<>();
 
-    public void check() throws Exception {
+    void check() throws Exception {
       // Unfortunately, inotify needs a few milliseconds (more than a few in the worst case)
       // after a change to pick up a list of changed files. Trying a few times to make sure.
       for (int i = 0; i < MAX_RETRY_COUNT; i++) {
@@ -371,7 +548,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
       assertThat(modified).isEmpty();
     }
 
-    public void checkEverythingModified(OptionsProvider options) throws Exception {
+    void checkEverythingModified(OptionsProvider options) throws Exception {
       DiffAwareness.View newView = localDiff.getCurrentView(options);
       ModifiedFileSet modifiedFileSet = localDiff.getDiff(oldView, newView);
       oldView = newView;
@@ -379,7 +556,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
     }
 
     @CanIgnoreReturnValue
-    public ModifiedFileSetChecker modify(String filename) {
+    ModifiedFileSetChecker modify(String filename) {
       modified.add(PathFragment.create(filename));
       return this;
     }

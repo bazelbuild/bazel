@@ -28,6 +28,7 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <grpc/grpc.h>
+#include <grpc/support/time.h>
 #include <grpcpp/channel.h>
 #include <grpcpp/client_context.h>
 #include <grpcpp/create_channel.h>
@@ -40,6 +41,7 @@
 #include <string.h>
 
 #include <chrono>  // NOLINT (gRPC requires this)
+#include <climits>
 #include <map>
 #include <memory>
 #include <mutex>  // NOLINT
@@ -52,8 +54,8 @@
 #include <utility>
 #include <vector>
 
-#include "src/main/cpp/startup_interceptor.h"
 #include "src/main/cpp/command_extension_adder.h"
+#include "src/main/cpp/startup_interceptor.h"
 
 #if !defined(_WIN32)
 #include <sys/stat.h>
@@ -79,6 +81,7 @@
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "src/main/protobuf/command_server.grpc.pb.h"
+#include "absl/time/time.h"
 
 using blaze_util::GetLastErrorString;
 
@@ -196,6 +199,13 @@ static const char *ReasonString(RestartReason reason) {
   return "unknown";
 }
 
+// Determines the maximum import depth for rc files based on the environment.
+static int SelectMaxImportDepth() {
+  return ExistsEnv("BAZEL_UNLIMITED_IMPORT_DEPTH")
+             ? INT_MAX
+             : OptionProcessor::MaxImportDepth;
+}
+
 class BlazeServer final {
  public:
   explicit BlazeServer(const StartupOptions &startup_options,
@@ -233,6 +243,9 @@ class BlazeServer final {
   // connected state.
   void Cancel();
 
+  // Notifies the server that the client terminal size may have changed.
+  void TerminalSizeChanged();
+
   // Returns information about the actual server process and its configuration.
   const ServerProcessInfo &ProcessInfo() const { return process_info_; }
 
@@ -240,7 +253,13 @@ class BlazeServer final {
   std::optional<LockHandle> install_base_lock_;
   std::optional<LockHandle> output_base_lock_;
 
-  enum CancelThreadAction { NOTHING, JOIN, CANCEL, COMMAND_ID_RECEIVED };
+  enum CancelThreadAction {
+    NOTHING,
+    JOIN,
+    CANCEL,
+    COMMAND_ID_RECEIVED,
+    TERMINAL_SIZE_CHANGED
+  };
 
   std::unique_ptr<CommandServer::Stub> client_;
   std::string request_cookie_;
@@ -261,11 +280,12 @@ class BlazeServer final {
   void CancelThread();
   void SendAction(CancelThreadAction action);
   void SendCancelMessage();
+  void SendTerminalSizeMessage(int columns);
 
   ServerProcessInfo process_info_;
   const int connect_timeout_secs_;
   const bool batch_;
-  const bool block_for_lock_;
+  const absl::Duration block_for_lock_timeout_;
   const bool quiet_;
   const bool preemptible_;
   const bool lock_install_base_;
@@ -303,7 +323,7 @@ DurationMillis BlazeServer::AcquireLocks() {
     auto install_base_result = blaze::AcquireLock(
         "install base",
         install_base_parent.GetRelative(install_base_.GetBaseName() + ".lock"),
-        LockMode::kShared, batch_, /* block= */ true);
+        LockMode::kShared, batch_, /* timeout= */ absl::InfiniteDuration());
     install_base_lock_ = install_base_result.first;
     wait_time += install_base_result.second;
   }
@@ -316,7 +336,7 @@ DurationMillis BlazeServer::AcquireLocks() {
   }
   auto output_base_result =
       blaze::AcquireLock("output base", output_base_.GetRelative("lock"),
-                         LockMode::kExclusive, batch_, block_for_lock_);
+                         LockMode::kExclusive, batch_, block_for_lock_timeout_);
   output_base_lock_ = output_base_result.first;
   wait_time += output_base_result.second;
 
@@ -379,7 +399,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // 11, so this option is known to be supported.
   result.push_back("--add-opens=java.base/java.lang=ALL-UNNAMED");
 
-  result.push_back("-Xverify:none");
+  result.push_back("-XX:+UnlockDiagnosticVMOptions");
+  result.push_back("-XX:-BytecodeVerificationLocal");
+  result.push_back("-XX:-BytecodeVerificationRemote");
 
   vector<string> user_options = startup_options.host_jvm_args;
 
@@ -437,6 +459,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // protobuf.
   // TODO: Drop this when protobuf uses VarHandle.
   result.push_back("-Dsun.misc.unsafe.memory.access=allow");
+
+  // Let the system decide whether to prefer IPv6
+  result.push_back("-Djava.net.preferIPv6Addresses=system");
 
 #if defined(_WIN32)
   // See and use more than 64 CPUs on Windows.
@@ -547,6 +572,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("--windows_enable_symlinks");
   } else {
     result.push_back("--nowindows_enable_symlinks");
+  }
+  if (startup_options.delete_output_base_on_shutdown) {
+    result.push_back("--delete_output_base_on_shutdown");
+  } else {
+    result.push_back("--nodelete_output_base_on_shutdown");
   }
   if (startup_options.remote_repo_contents_cache) {
     result.push_back("--experimental_remote_repo_contents_cache");
@@ -689,6 +719,21 @@ static bool IsServerMode(const string &command) {
   return "exec-server" == command;
 }
 
+// Keep this in sync with built-in commands annotated with
+// @Command(mustRunInWorkspace = false).
+static bool CanRunOutsideWorkspace(const string& command) {
+  return command == "canonicalize-flags" || command == "dump" ||
+         command == "help" || command == "license" || command == "shutdown" ||
+         command == "version";
+}
+
+// Returns the path of the file that the server JVM reads its arguments from on
+// Windows.
+static blaze_util::Path GetServerJvmArgFilePath(
+    const blaze_util::Path& output_base) {
+  return output_base.GetRelative("server_jvm.args");
+}
+
 // Replace this process with the blaze server. Does not exit.
 static void RunServerMode(
     const blaze_util::Path &server_exe, const vector<string> &server_exe_args,
@@ -727,7 +772,9 @@ static void RunServerMode(
 #else
     bool run_in_user_cgroup = false;
 #endif
-    ExecuteServerJvm(server_exe, server_exe_args, run_in_user_cgroup);
+    ExecuteServerJvm(server_exe, server_exe_args,
+                     GetServerJvmArgFilePath(startup_options.output_base),
+                     run_in_user_cgroup);
   }
 }
 
@@ -790,7 +837,9 @@ static void RunBatchMode(
 #else
     bool run_in_user_cgroup = false;
 #endif
-    ExecuteServerJvm(server_exe, jvm_args_vector, run_in_user_cgroup);
+    ExecuteServerJvm(server_exe, jvm_args_vector,
+                     GetServerJvmArgFilePath(startup_options.output_base),
+                     run_in_user_cgroup);
   }
 }
 
@@ -1173,6 +1222,8 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
 
 static void CancelServer() { blaze_server->Cancel(); }
 
+static void TerminalSizeChanged() { blaze_server->TerminalSizeChanged(); }
+
 // Runs the launcher in client/server mode. Ensures that there's indeed a
 // running server, then forwards the user's command to the server and the
 // server's response back to the user. Does not return - exits via exit or
@@ -1231,9 +1282,9 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
   const DurationMillis client_startup_duration(logging_info->start_time_ms,
                                                GetMillisecondsMonotonic());
 
-  SignalHandler::Get().Install(startup_options.product_name,
-                               startup_options.output_base,
-                               &server->ProcessInfo(), CancelServer);
+  SignalHandler::Get().Install(
+      startup_options.product_name, startup_options.output_base,
+      &server->ProcessInfo(), CancelServer, TerminalSizeChanged);
   SignalHandler::Get().PropagateSignalOrExit(server->Communicate(
       option_processor.GetCommand(), option_processor.GetCommandArguments(),
       startup_options.invocation_policy,
@@ -1242,13 +1293,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
 }
 
 // Parse the options.
-static void ParseOptionsOrDie(const string &cwd, const string &workspace,
-                              OptionProcessor &option_processor, int argc,
-                              const char *const *argv) {
+static void ParseOptionsOrDie(const string& cwd, const string& workspace,
+                              OptionProcessor& option_processor, int argc,
+                              const char* const* argv, int max_import_depth) {
   std::string error;
   std::vector<std::string> args(argv, argv + argc);
   const blaze_exit_code::ExitCode parse_exit_code =
-      option_processor.ParseOptions(args, workspace, cwd, &error);
+      option_processor.ParseOptions(args, workspace, cwd, &error,
+                                    max_import_depth);
 
   if (parse_exit_code != blaze_exit_code::SUCCESS) {
     option_processor.PrintStartupOptionsProvenanceMessage();
@@ -1639,9 +1691,10 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   if (blaze::IsRunningWithinTest()) {
     BAZEL_LOG(USER) << "$TEST_TMPDIR defined, some defaults will be overridden";
   }
-
+  int max_import_depth = blaze::SelectMaxImportDepth();
   const string workspace = workspace_layout->GetWorkspace(cwd);
-  ParseOptionsOrDie(cwd, workspace, *option_processor, argc, argv);
+  ParseOptionsOrDie(cwd, workspace, *option_processor, argc, argv,
+                    max_import_depth);
   StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
   startup_options->MaybeLogStartupOptionWarnings();
 
@@ -1663,14 +1716,18 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     UnlimitCoredumps();
   }
 
-  // Only start a server when in a workspace because otherwise we won't do more
-  // than emit a help message.
   if (!workspace_layout->InWorkspace(workspace)) {
+    const string command = option_processor->GetCommand();
+    if (!CanRunOutsideWorkspace(command)) {
+      BAZEL_LOG(ERROR) << startup_options->product_name
+                       << (command.empty() ? "" : " '" + command + "'")
+                       << " must be invoked from within a workspace (below a"
+                       << " directory having a MODULE.bazel file).\n"
+                       << "See documentation at"
+                       << " https://bazel.build/concepts/build-ref#workspace";
+      return blaze_exit_code::BAD_ARGV;
+    }
     startup_options->batch = true;
-    BAZEL_LOG(WARNING) << "Invoking " << startup_options->product_name
-                       << " in batch mode since it is not invoked from within"
-                       << " a workspace (below a directory having a"
-                       << " MODULE.bazel file).";
   }
 
   vector<string> archive_contents;
@@ -1688,13 +1745,13 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   return 0;
 }
 
-BlazeServer::BlazeServer(const StartupOptions &startup_options,
-                         CommandExtensionAdder *command_extension_adder)
+BlazeServer::BlazeServer(const StartupOptions& startup_options,
+                         CommandExtensionAdder* command_extension_adder)
     : process_info_(startup_options.output_base,
                     startup_options.server_jvm_out),
       connect_timeout_secs_(startup_options.connect_timeout_secs),
       batch_(startup_options.batch),
-      block_for_lock_(startup_options.block_for_lock),
+      block_for_lock_timeout_(startup_options.block_for_lock_timeout),
       quiet_(startup_options.quiet),
       preemptible_(startup_options.preemptible),
       lock_install_base_(startup_options.lock_install_base),
@@ -1708,10 +1765,18 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options,
   }
 }
 
+// Returns a gRPC deadline the given number of seconds from now, taken on the
+// monotonic clock so that a wall-clock step cannot expire it early or defer it
+// indefinitely. std::chrono::steady_clock is not usable here: gRPC only knows
+// how to convert gpr_timespec and std::chrono::system_clock::time_point.
+static gpr_timespec DeadlineFromNow(int64_t seconds) {
+  return gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
+                      gpr_time_from_seconds(seconds, GPR_TIMESPAN));
+}
+
 bool BlazeServer::TryConnect(CommandServer::Stub *client) {
   grpc::ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(connect_timeout_secs_));
+  context.set_deadline(DeadlineFromNow(connect_timeout_secs_));
 
   command_server::PingRequest request;
   command_server::PingResponse response;
@@ -1801,6 +1866,8 @@ bool BlazeServer::Connect() {
 // - CANCEL. If the command ID is already available, a cancel request is sent.
 // - COMMAND_ID_RECEIVED. The client learned the command ID from the server.
 //   If there is a pending cancellation request, it is acted upon.
+// - TERMINAL_SIZE_CHANGED. The client terminal size may have changed. If the
+//   command ID is already available, a terminal size update is sent.
 //
 // The only data the cancellation thread shares with the main thread is the
 // file descriptor for receiving commands and command_id_, the latter of which
@@ -1819,6 +1886,15 @@ void BlazeServer::CancelThread() {
   bool running = true;
   bool cancel = false;
   bool command_id_received = false;
+  bool terminal_size_change_pending = false;
+  int last_sent_terminal_columns = GetTerminalColumns();
+  auto send_terminal_size_if_changed = [&]() {
+    int columns = GetTerminalColumns();
+    if (columns > 0 && columns != last_sent_terminal_columns) {
+      SendTerminalSizeMessage(columns);
+      last_sent_terminal_columns = columns;
+    }
+  };
   while (running) {
     char buf;
 
@@ -1845,6 +1921,10 @@ void BlazeServer::CancelThread() {
           SendCancelMessage();
           cancel = false;
         }
+        if (terminal_size_change_pending) {
+          send_terminal_size_if_changed();
+          terminal_size_change_pending = false;
+        }
         break;
 
       case CancelThreadAction::CANCEL:
@@ -1852,6 +1932,14 @@ void BlazeServer::CancelThread() {
           SendCancelMessage();
         } else {
           cancel = true;
+        }
+        break;
+
+      case CancelThreadAction::TERMINAL_SIZE_CHANGED:
+        if (command_id_received) {
+          send_terminal_size_if_changed();
+        } else {
+          terminal_size_change_pending = true;
         }
         break;
     }
@@ -1865,14 +1953,32 @@ void BlazeServer::SendCancelMessage() {
   request.set_cookie(request_cookie_);
   request.set_command_id(command_id_);
   grpc::ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(10));
+  context.set_deadline(DeadlineFromNow(10));
   command_server::CancelResponse response;
   // There isn't a lot we can do if this request fails
   grpc::Status status = client_->Cancel(&context, request, &response);
   if (!status.ok()) {
     BAZEL_LOG(USER) << "\nCould not interrupt server: (" << status.error_code()
                     << ") " << status.error_message().c_str() << "\n";
+  }
+}
+
+void BlazeServer::SendTerminalSizeMessage(int columns) {
+  std::unique_lock<std::mutex> lock(cancel_thread_mutex_);  // NOLINT
+
+  command_server::TerminalSizeRequest request;
+  request.set_cookie(request_cookie_);
+  request.set_command_id(command_id_);
+  request.set_columns(columns);
+  grpc::ClientContext context;
+  context.set_deadline(DeadlineFromNow(10));
+  command_server::TerminalSizeResponse response;
+  grpc::Status status =
+      client_->UpdateTerminalSize(&context, request, &response);
+  if (!status.ok()) {
+    BAZEL_LOG(INFO) << "Could not update terminal size: ("
+                    << status.error_code() << ") "
+                    << status.error_message().c_str();
   }
 }
 
@@ -1884,7 +1990,11 @@ void BlazeServer::KillRunningServer() {
   command_server::RunRequest request;
   command_server::RunResponse response;
   request.set_cookie(request_cookie_);
-  request.set_block_for_lock(block_for_lock_);
+  request.set_block_for_lock(block_for_lock_timeout_ > absl::ZeroDuration());
+  if (block_for_lock_timeout_ != absl::InfiniteDuration()) {
+    request.set_block_for_lock_timeout_ms(
+        absl::ToInt64Milliseconds(block_for_lock_timeout_));
+  }
   request.set_client_description("pid=" + blaze::GetProcessIdAsString() +
                                  " (for shutdown)");
   request.add_arg("shutdown");
@@ -1914,10 +2024,17 @@ void BlazeServer::KillRunningServer() {
     // another command holds the client lock.
     if (response.finished()) {
       if (response.exit_code() == blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK) {
-        assert(!block_for_lock_);
-        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
-            << "Exiting because the lock is held and --noblock_for_lock was "
-               "given.";
+        assert(block_for_lock_timeout_ != absl::InfiniteDuration());
+        if (block_for_lock_timeout_ <= absl::ZeroDuration()) {
+          BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+              << "Exiting because the lock is held and --noblock_for_lock was "
+                 "given.";
+        } else {
+          BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+              << "Exiting because the lock is held and --block_for_lock="
+              << absl::ToInt64Milliseconds(block_for_lock_timeout_)
+              << "ms timeout expired.";
+        }
       }
     }
 
@@ -1936,7 +2053,8 @@ void BlazeServer::KillRunningServer() {
   // If it does not terminate itself gracefully within 1m, terminate it.
   if (process_info_.server_pid_ > 0 &&
       !AwaitServerProcessTermination(process_info_.server_pid_, output_base_,
-                                     kPostShutdownGracePeriodSeconds)) {
+                                     kPostShutdownGracePeriodSeconds,
+                                     TerminationReason::kShutdownRequest)) {
     if (!status.ok()) {
       BAZEL_LOG(WARNING)
           << "Shutdown request failed, server still alive: (error code: "
@@ -1970,7 +2088,11 @@ unsigned int BlazeServer::Communicate(
 
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
-  request.set_block_for_lock(block_for_lock_);
+  request.set_block_for_lock(block_for_lock_timeout_ > absl::ZeroDuration());
+  if (block_for_lock_timeout_ != absl::InfiniteDuration()) {
+    request.set_block_for_lock_timeout_ms(
+        absl::ToInt64Milliseconds(block_for_lock_timeout_));
+  }
   request.set_quiet(quiet_);
   request.set_preemptible(preemptible_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());
@@ -2020,6 +2142,8 @@ unsigned int BlazeServer::Communicate(
 
     if (response.cookie() != response_cookie_) {
       BAZEL_LOG(USER) << "\nServer response cookie invalid, exiting";
+      SendAction(CancelThreadAction::JOIN);
+      cancel_thread.join();
       return blaze_exit_code::INTERNAL_ERROR;
     }
 
@@ -2075,7 +2199,8 @@ unsigned int BlazeServer::Communicate(
     // See http://b/143860035.
     client_.reset();
     if (!AwaitServerProcessTermination(process_info_.server_pid_, output_base_,
-                                       kPostShutdownGracePeriodSeconds)) {
+                                       kPostShutdownGracePeriodSeconds,
+                                       TerminationReason::kShutdownRequest)) {
       KillServerProcess(process_info_.server_pid_, output_base_);
     }
   }
@@ -2147,6 +2272,11 @@ void BlazeServer::SendAction(CancelThreadAction action) {
 void BlazeServer::Cancel() {
   assert(Connected());
   SendAction(CancelThreadAction::CANCEL);
+}
+
+void BlazeServer::TerminalSizeChanged() {
+  assert(Connected());
+  SendAction(CancelThreadAction::TERMINAL_SIZE_CHANGED);
 }
 
 }  // namespace blaze

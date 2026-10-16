@@ -72,9 +72,9 @@ import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InstrumentationOutput;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -96,6 +97,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.IncrementalPackageRoots;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
@@ -103,6 +105,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -146,6 +149,7 @@ public class ExecutionTool {
   private final String actionExecutionSalt;
 
   private boolean informedOutputServiceToStartTheBuild = false;
+  private IncrementalPackageRoots incrementalPackageRoots;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request)
       throws AbruptExitException, InterruptedException {
@@ -201,7 +205,7 @@ public class ExecutionTool {
     // context class, but also the mnemonic of the action.
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     // TODO(jmmv): This should live in some testing-related Blaze module, not here.
-    actionContextRegistryBuilder.restrictTo(TestActionContext.class, options.testStrategy);
+    actionContextRegistryBuilder.restrictTo(TestActionContext.class, options.getTestStrategy());
 
     SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
     actionContextRegistryBuilder.register(SpawnStrategyRegistry.class, spawnStrategyRegistry);
@@ -267,7 +271,7 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
-      IncrementalPackageRoots incrementalPackageRoots =
+      incrementalPackageRoots =
           IncrementalPackageRoots.createAndRegisterToEventBus(
               getExecRoot(),
               // Single package path is a Skymeld prerequisite.
@@ -275,8 +279,8 @@ public class ExecutionTool {
               env.getEventBus(),
               env.getDirectories().getProductName() + "-",
               skyframeExecutor.getIgnoredPaths(),
-              request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout,
-              runtime.getWorkspace().doesAllowExternalRepositories());
+              runtime.getWorkspace().doesAllowExternalRepositories(),
+              skyframeExecutor::getRootForDonePackage);
       incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
 
       env.getSkyframeBuildView()
@@ -295,7 +299,7 @@ public class ExecutionTool {
     }
 
     ActionCache actionCache = null;
-    if (buildRequestOptions.useActionCache) {
+    if (buildRequestOptions.getUseActionCache()) {
       try (SilentCloseable c = Profiler.instance().profile("load/reset action cache")) {
         actionCache = getOrLoadActionCache();
         actionCache.resetStatistics();
@@ -319,12 +323,13 @@ public class ExecutionTool {
         modifiedOutputFiles,
         env.getBlazeWorkspace().getLastExecutionTimeRange(),
         outputChecker,
-        buildRequestOptions.fsvcThreads);
+        buildRequestOptions.getFsvcThreads());
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
           skyframeBuilder.getFileCache(),
           skyframeBuilder.getActionInputPrefetcher(),
-          actionExecutionSalt);
+          actionExecutionSalt,
+          env.getOptions().getOptions(UiOptions.class).getMaxStdoutErrBytes());
     }
     skyframeExecutor.setSaltAndDeleteActionsIfChanged(actionExecutionSalt);
     try (SilentCloseable c =
@@ -340,7 +345,10 @@ public class ExecutionTool {
     env.getEventBus()
         .register(
             new ExecutionProgressReceiverSetup(
-                skyframeExecutor, env, executionTimer, buildRequestOptions.progressReportInterval));
+                skyframeExecutor,
+                env,
+                executionTimer,
+                buildRequestOptions.getProgressReportInterval()));
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
           Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
@@ -374,131 +382,143 @@ public class ExecutionTool {
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
-    prepare(packageRoots);
-
-    ActionGraph actionGraph = analysisResult.getActionGraph();
-
-    OutputService outputService = env.getOutputService();
-    ModifiedFileSet modifiedOutputFiles =
-        startBuildAndDetermineModifiedOutputFiles(buildId, outputService);
-
-    if (outputService.actionFileSystemType().supportsLocalActions()) {
-      // Must be created after the output path is created above.
-      createActionLogDirectory(outputService.bulkDeleter());
-    }
-
-    buildResult.setConvenienceSymlinks(
-        handleConvenienceSymlinks(
-            analysisResult.getTargetsToBuild(), analysisResult.getConfiguration()));
-
-    BuildRequestOptions options = request.getBuildOptions();
-    ActionCache actionCache = null;
-    if (options.useActionCache) {
-      actionCache = getOrLoadActionCache();
-      actionCache.resetStatistics();
-    }
-    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    Builder builder;
-    try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      builder = createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
-    }
-
-    //
-    // Execution proper.  All statements below are logically nested in
-    // begin/end pairs.  No early returns or exceptions please!
-    //
-
-    Collection<ConfiguredTarget> configuredTargets = buildResult.getActualTargets();
-    try (SilentCloseable c = Profiler.instance().profile("ExecutionStartingEvent")) {
-      env.getEventBus().post(new ExecutionStartingEvent(configuredTargets));
-    }
-
-    getReporter().handle(Event.progress("Building..."));
-
-    // Conditionally record dependency-checker log:
-    ExplanationHandler explanationHandler =
-        installExplanationHandler(
-            request.getBuildOptions().explanationPath, request.getOptionsDescription());
-
-    announceEnteringDirIfEmacs();
-
-    Throwable catastrophe = null;
-    boolean buildCompleted = false;
+    env.getBuildResultListener().setExecutionTimer(timer);
     try {
-      boolean shouldDiscardAnalysisCache =
-          request.getViewOptions().discardAnalysisCache
-              || !skyframeExecutor.tracksStateForIncrementality();
-      if (shouldDiscardAnalysisCache) {
-        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().isRetrievalEnabled()) {
-          // When remote analysis value retrieval is enabled, it is possible for analysis to occur
-          // during the logical execution phase. Discarding the analysis cache can lead to crashes.
-          //
-          // TODO: b/466388360 - consider alternatives
-          getReporter()
-              .handle(
-                  Event.warn(
-                      "Remote analysis caching is enabled. Not discarding the analysis cache."));
-          shouldDiscardAnalysisCache = false;
-        }
-      }
-      if (shouldDiscardAnalysisCache) {
-        // Free memory by removing cache entries that aren't going to be needed.
-        try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
-          env.getSkyframeBuildView()
-              .clearAnalysisCache(
-                  analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
-        }
+      prepare(packageRoots);
+
+      ActionGraph actionGraph = analysisResult.getActionGraph();
+
+      OutputService outputService = env.getOutputService();
+      ModifiedFileSet modifiedOutputFiles =
+          startBuildAndDetermineModifiedOutputFiles(buildId, outputService);
+
+      if (outputService.actionFileSystemType().supportsLocalActions()) {
+        // Must be created after the output path is created above.
+        createActionLogDirectory(outputService.bulkDeleter());
       }
 
-      for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
-        try (SilentCloseable c =
-            Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
-          executorLifecycleListener.executionPhaseStarting(
-              actionGraph,
-              // If this supplier is ever consumed by more than one ActionContextProvider, it can be
-              // pulled out of the loop and made a memoizing supplier.
-              () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult),
-              /* ephemeralCheckIfOutputConsumed= */ null);
+      buildResult.setConvenienceSymlinks(
+          handleConvenienceSymlinks(
+              analysisResult.getTargetsToBuild(), analysisResult.getConfiguration()));
+
+      BuildRequestOptions options = request.getBuildOptions();
+      ActionCache actionCache = null;
+      if (options.getUseActionCache()) {
+        actionCache = getOrLoadActionCache();
+        actionCache.resetStatistics();
+      }
+      SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
+      Builder builder;
+      try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
+        builder = createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
+      }
+
+      //
+      // Execution proper.  All statements below are logically nested in
+      // begin/end pairs.  No early returns or exceptions please!
+      //
+
+      Collection<ConfiguredTarget> configuredTargets = buildResult.getActualTargets();
+      try (SilentCloseable c = Profiler.instance().profile("ExecutionStartingEvent")) {
+        env.getEventBus().post(new ExecutionStartingEvent(configuredTargets));
+      }
+
+      getReporter().handle(Event.progress("Building..."));
+
+      // Conditionally record dependency-checker log:
+      ExplanationHandler explanationHandler =
+          installExplanationHandler(
+              request.getBuildOptions().getExplanationPath(), request.getOptionsDescription());
+
+      announceEnteringDirIfEmacs();
+
+      Throwable catastrophe = null;
+      boolean buildCompleted = false;
+      try {
+        boolean shouldDiscardAnalysisCache =
+            request.getViewOptions().getDiscardAnalysisCache()
+                || !skyframeExecutor.tracksStateForIncrementality();
+        if (shouldDiscardAnalysisCache) {
+          if (skyframeExecutor
+              .getRemoteAnalysisCacheReaderDepsProvider()
+              .mode()
+              .isRetrievalEnabled()) {
+            // When remote analysis value retrieval is enabled, it is possible for analysis to occur
+            // during the logical execution phase. Discarding the analysis cache fully can lead to
+            // crashes.
+            //
+            // TODO: b/466388360 - consider alternatives
+            getReporter()
+                .handle(
+                    Event.warn(
+                        "Remote analysis caching is enabled. Performing only a partial analysis"
+                            + " cache discard."));
+          }
         }
-      }
-      skyframeExecutor.drainChangedFiles();
+        if (shouldDiscardAnalysisCache) {
+          // Free memory by removing cache entries that aren't going to be needed.
+          try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
+            env.getSkyframeBuildView()
+                .clearAnalysisCache(
+                    analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
+          }
+        }
 
-      try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
-        configureResourceManager(env.getLocalResourceManager(), request);
-      }
+        for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
+          try (SilentCloseable c =
+              Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
+            executorLifecycleListener.executionPhaseStarting(
+                actionGraph,
+                // If this supplier is ever consumed by more than one ActionContextProvider, it can
+                // be
+                // pulled out of the loop and made a memoizing supplier.
+                () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult),
+                skyframeExecutor.getEphemeralCheckIfOutputConsumed());
+          }
+        }
+        skyframeExecutor.drainChangedFiles();
 
-      Profiler.instance().markPhase(ProfilePhase.EXECUTE);
-      var outputChecker =
-          env.getOutputService() != null
-              ? env.getOutputService().getOutputChecker()
-              : OutputChecker.TRUST_LOCAL_ONLY;
-      builder.buildArtifacts(
-          env.getReporter(),
-          analysisResult.getArtifactsToBuild(),
-          analysisResult.getParallelTests(),
-          Sets.union(analysisResult.getExclusiveTests(), analysisResult.getExclusiveIfLocalTests()),
-          analysisResult.getTargetsToBuild(),
-          analysisResult.getTargetsToSkip(),
-          analysisResult.getAspectsMap().keySet(),
-          executor,
-          request,
-          env.getBlazeWorkspace().getLastExecutionTimeRange(),
-          topLevelArtifactContext,
-          outputChecker);
-      buildCompleted = true;
-    } catch (BuildFailedException | TestExecException e) {
-      buildCompleted = true;
-      throw e;
-    } catch (Error | RuntimeException e) {
-      catastrophe = e;
+        try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
+          configureResourceManager(env.getLocalResourceManager(), request);
+        }
+
+        MemoryProfiler.instance().markPhase(ProfilePhase.EXECUTE);
+        Profiler.instance().markPhase(ProfilePhase.EXECUTE);
+        var outputChecker =
+            env.getOutputService() != null
+                ? env.getOutputService().getOutputChecker()
+                : OutputChecker.TRUST_LOCAL_ONLY;
+        builder.buildArtifacts(
+            env.getReporter(),
+            analysisResult.getArtifactsToBuild(),
+            analysisResult.getParallelTests(),
+            Sets.union(
+                analysisResult.getExclusiveTests(), analysisResult.getExclusiveIfLocalTests()),
+            analysisResult.getTargetsToBuild(),
+            analysisResult.getTargetsToSkip(),
+            analysisResult.getAspectsMap().keySet(),
+            executor,
+            request,
+            env.getBlazeWorkspace().getLastExecutionTimeRange(),
+            topLevelArtifactContext,
+            outputChecker);
+        buildCompleted = true;
+      } catch (BuildFailedException | TestExecException e) {
+        buildCompleted = true;
+        throw e;
+      } catch (Error | RuntimeException e) {
+        catastrophe = e;
+      } finally {
+        unconditionalExecutionPhaseFinalizations(timer, skyframeExecutor);
+
+        if (catastrophe != null) {
+          Throwables.throwIfUnchecked(catastrophe);
+        }
+        // NOTE: No finalization activities below will run in the event of a catastrophic error!
+        nonCatastrophicFinalizations(buildResult, actionCache, explanationHandler, buildCompleted);
+      }
     } finally {
-      unconditionalExecutionPhaseFinalizations(timer, skyframeExecutor);
-
-      if (catastrophe != null) {
-        Throwables.throwIfUnchecked(catastrophe);
-      }
-      // NOTE: No finalization activities below will run in the event of a catastrophic error!
-      nonCatastrophicFinalizations(buildResult, actionCache, explanationHandler, buildCompleted);
+      env.getBuildResultListener().stopExecutionTimer();
     }
   }
 
@@ -512,10 +532,10 @@ public class ExecutionTool {
               buildId,
               env.getWorkspaceName(),
               env.getReporter(),
-              request.getBuildOptions().finalizeActions);
+              request.getBuildOptions().getFinalizeActions());
       informedOutputServiceToStartTheBuild = true;
     }
-    if (!request.getPackageOptions().checkOutputFiles) {
+    if (!request.getPackageOptions().getCheckOutputFiles()) {
       // Do not skip output invalidation if the output tree is empty: this can happen after it's
       // cleaned or corrupted.
       if (!modifiedOutputFiles.treatEverythingAsDeleted()) {
@@ -576,7 +596,10 @@ public class ExecutionTool {
           buildResult,
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getSkippedTargets(),
-          buildResultListener.getAnalyzedAspects());
+          buildResultListener.getAnalyzedAspects(),
+          buildResultListener.getTargetRootCauses(),
+          buildResultListener.getAspectRootCauses(),
+          buildResultListener.hasSandboxedActionFailures());
     }
 
     if (explanationHandler != null) {
@@ -607,6 +630,9 @@ public class ExecutionTool {
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       executorLifecycleListener.executionPhaseEnding();
     }
+    if (incrementalPackageRoots != null) {
+      incrementalPackageRoots.shutdown();
+    }
 
     // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
     // a catastrophic failure. Posting these is consistent with other behavior.
@@ -618,24 +644,24 @@ public class ExecutionTool {
     // Sometimes there's no execution in the build: e.g. when there's only 1 target, and we fail at
     // the analysis phase. In such a case, we shouldn't send out this event. This is consistent with
     // the noskymeld behavior.
-    if (executionTimer.isRunning()) {
-      env.getEventBus()
-          .post(new ExecutionPhaseCompleteEvent(executionTimer.stop().elapsed().toMillis()));
+    BuildResultListener buildResultListener = env.getBuildResultListener();
+    buildResultListener.stopExecutionTimer();
+    long executionTime = buildResultListener.getExecutionPhaseTimeInMillis();
+    if (executionTime > 0) {
+      env.getEventBus().post(new ExecutionPhaseCompleteEvent(executionTime));
     }
   }
 
   private void prepare(PackageRoots packageRoots) throws AbruptExitException, InterruptedException {
     // Prepare for build.
+    MemoryProfiler.instance().markPhase(ProfilePhase.PREPARE);
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
     // Plant the symlink forest.
     try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
       SymlinkForest symlinkForest =
           new SymlinkForest(
-              packageRoots.getPackageRootsMap(),
-              getExecRoot(),
-              runtime.getProductName(),
-              request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
+              packageRoots.getPackageRootsMap(), getExecRoot(), runtime.getProductName());
       symlinkForest.plantSymlinkForest();
     } catch (IOException e) {
       String message = String.format("Source forest creation failed: %s", e.getMessage());
@@ -648,52 +674,50 @@ public class ExecutionTool {
                           .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
                   .build()),
           e);
-      }
+    }
   }
 
   private static void logDeleteTreeFailure(
       Path directory, String description, IOException deleteTreeFailure) {
     logger.atWarning().withCause(deleteTreeFailure).log(
         "Failed to delete %s '%s'", description, directory);
-    if (directory.exists()) {
-      try {
-        Collection<Path> entries = directory.getDirectoryEntries();
-        StringBuilder directoryDetails =
-            new StringBuilder("'")
-                .append(directory)
-                .append("' contains ")
-                .append(entries.size())
-                .append(" entries:");
-        for (Path entry : entries) {
-          directoryDetails.append(" '").append(entry.getBaseName()).append("'");
-        }
-        logger.atWarning().log("%s", directoryDetails);
-      } catch (IOException e) {
-        logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
+    try {
+      Collection<Path> entries = directory.getDirectoryEntries();
+      StringBuilder directoryDetails =
+          new StringBuilder("'")
+              .append(directory)
+              .append("' contains ")
+              .append(entries.size())
+              .append(" entries:");
+      for (Path entry : entries) {
+        directoryDetails.append(" '").append(entry.getBaseName()).append("'");
       }
-    } else {
-      logger.atWarning().log("'%s' does not exist", directory);
+      logger.atWarning().log("%s", directoryDetails);
+    } catch (FileNotFoundException e) {
+      logger.atWarning().withCause(e).log("'%s' does not exist", directory);
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
     }
   }
 
   private void createActionLogDirectory(@Nullable BulkDeleter bulkDeleter)
       throws AbruptExitException, InterruptedException {
     Path directory = env.getActionTempsDirectory();
-    if (directory.exists()) {
-      try (SilentCloseable c = Profiler.instance().profile("directory.deleteTree")) {
+    try (SilentCloseable c = Profiler.instance().profile("directory.deleteTree")) {
+      if (directory.exists()) {
         if (bulkDeleter != null) {
           bulkDeleter.bulkDelete(ImmutableList.of(directory.relativeTo(getExecRoot())));
         } else {
           directory.deleteTree();
         }
-      } catch (IOException e) {
-        // TODO(b/140567980): Remove when we determine the cause of occasional deleteTree() failure.
-        logDeleteTreeFailure(directory, "action output directory", e);
-        throw createExitException(
-            "Couldn't delete action output directory",
-            Code.TEMP_ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE,
-            e);
       }
+    } catch (IOException e) {
+      // TODO(b/140567980): Remove when we determine the cause of occasional deleteTree() failure.
+      logDeleteTreeFailure(directory, "action output directory", e);
+      throw createExitException(
+          "Couldn't delete action output directory",
+          Code.TEMP_ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE,
+          e);
     }
 
     try (SilentCloseable c = Profiler.instance().profile("directory.createDirectoryAndParents")) {
@@ -720,12 +744,12 @@ public class ExecutionTool {
         Profiler.instance().profile("ExecutionTool.handleConvenienceSymlinks")) {
       OutputDirectoryLinksUtils.SymlinkCreationResult convenienceSymlinks =
           OutputDirectoryLinksUtils.EMPTY_SYMLINK_CREATION_RESULT;
-      if (request.getBuildOptions().experimentalConvenienceSymlinks
+      if (request.getBuildOptions().getExperimentalConvenienceSymlinks()
           != ConvenienceSymlinksMode.IGNORE) {
         convenienceSymlinks =
             createConvenienceSymlinks(request.getBuildOptions(), targetsToBuild, configuration);
       }
-      if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
+      if (request.getBuildOptions().getExperimentalConvenienceSymlinksBepEvent()) {
         env.getEventBus()
             .post(
                 new ConvenienceSymlinksIdentifiedEvent(
@@ -765,14 +789,14 @@ public class ExecutionTool {
     } else {
       // Collect the configuration of each top-level requested target. These may be different than
       // the build's top-level configuration because of self-transitions.
-      ImmutableSet<BuildConfigurationValue> requestedTargetConfigs =
+      ImmutableSet<BuildConfigurationKey> configurationKeys =
           targetsToBuild.stream()
               .map(ConfiguredTarget::getActual)
               .map(ConfiguredTarget::getConfigurationKey)
               .filter(Objects::nonNull)
-              .distinct()
-              .map((key) -> executor.getConfiguration(reporter, key))
               .collect(toImmutableSet());
+      ImmutableSet<BuildConfigurationValue> requestedTargetConfigs =
+          ImmutableSet.copyOf(executor.getConfigurations(reporter, configurationKeys).values());
       if (requestedTargetConfigs.size() == 1) {
         // All top-level targets have the same configuration, so use that one.
         targetConfigs = requestedTargetConfigs;
@@ -859,7 +883,7 @@ public class ExecutionTool {
    * An ErrorEventListener implementation that records DEPCHECKER events into a log file, iff the
    * --explain flag is specified during a build.
    */
-  private static class ExplanationHandler implements EventHandler, AutoCloseable {
+  static class ExplanationHandler implements EventHandler, AutoCloseable {
     private final PrintWriter log;
 
     private ExplanationHandler(OutputStream log, String optionsDescription) {
@@ -949,9 +973,10 @@ public class ExecutionTool {
             executionFilter,
             outputService.getProxyMetadataFactory(),
             ActionCacheChecker.CacheConfig.builder()
-                .setEnabled(options.useActionCache)
+                .setEnabled(options.getUseActionCache())
                 .setStoreOutputMetadata(
                     outputService.shouldStoreRemoteOutputMetadataInActionCache())
+                .setBustActionCachesTarget(options.getBustActionCachesTarget())
                 .build()),
         actionExecutionSalt,
         modifiedOutputFiles,
@@ -967,15 +992,17 @@ public class ExecutionTool {
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             options.getLocalResources(),
-            options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
+            options.usingLocalTestJobs() ? options.getLocalTestJobs() : Integer.MAX_VALUE));
 
-    resourceMgr.initializeCpuLoadFunctionality(
+    resourceMgr.initializeLoadFunctionality(
         MachineLoadProvider.instance(),
-        options.experimentalCpuLoadScheduling,
-        options.experimentalCpuLoadSchedulingWindowSize);
-    resourceMgr.scheduleCpuLoadWindowUpdate();
+        options.getExperimentalCpuLoadScheduling(),
+        options.getExperimentalMemoryLoadScheduling(),
+        options.getExperimentalCpuLoadSchedulingWindowSize());
+    resourceMgr.scheduleLoadWindowUpdate();
 
-    resourceMgr.setAllowOneActionOnResourceUnavailable(options.allowOneActionOnResourceUnavailable);
+    resourceMgr.setAllowOneActionOnResourceUnavailable(
+        options.getAllowOneActionOnResourceUnavailable());
   }
 
   /**

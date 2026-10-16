@@ -71,4 +71,7 @@ public interface Executor extends ActionContext.ActionContextRegistry {
    * subcommand string.
    */
   ShowSubcommands reportsSubcommands();
+
+  /** Whether this Executor expands param files when reporting subcommands or command failures. */
+  boolean expandsParamFiles();
 }

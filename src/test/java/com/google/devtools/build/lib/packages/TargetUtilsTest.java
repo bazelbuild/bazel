@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import java.util.ArrayList;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
@@ -67,7 +68,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     Target tag2 = getTarget("//tests:tag2");
     Target  tag1b = getTarget("//tests:tag1b");
 
-    Predicate<Target> tagFilter = TargetUtils.tagFilter(Lists.<String>newArrayList());
+    Predicate<Target> tagFilter = TargetUtils.tagFilter(new ArrayList<String>());
     assertThat(tagFilter.apply(tag1)).isTrue();
     assertThat(tagFilter.apply(tag2)).isTrue();
     assertThat(tagFilter.apply(tag1b)).isTrue();

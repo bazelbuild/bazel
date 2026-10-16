@@ -28,6 +28,7 @@ import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.http.DefaultHttpContent;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.DefaultLastHttpContent;
@@ -213,5 +214,22 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
     assertThat(out.toByteArray()).isEqualTo(new byte[] {4, 5});
     verify(out, never()).close();
     assertThat(ch.isActive()).isTrue();
+  }
+
+  @Test
+  public void tooLongFrameExceptionHasCleanMessage() throws Exception {
+    URI uri = new URI("http://does.not.exist/foo");
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, ImmutableList.of()));
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    DownloadCommand cmd = new DownloadCommand(uri, true, DIGEST, out);
+    ChannelPromise writePromise = ch.newPromise();
+    ch.writeOneOutbound(cmd, writePromise);
+
+    ch.pipeline().fireExceptionCaught(new TooLongFrameException("too long"));
+
+    assertThat(writePromise.isDone()).isTrue();
+    assertThat(writePromise.cause()).isInstanceOf(IOException.class);
+    assertThat(writePromise.cause()).hasMessageThat().isEqualTo("HTTP response too large");
+    assertThat(writePromise.cause()).hasCauseThat().isInstanceOf(TooLongFrameException.class);
   }
 }

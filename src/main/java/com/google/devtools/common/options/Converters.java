@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
-
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
@@ -22,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringEncoding;
 import java.time.Duration;
 import java.util.Iterator;
@@ -37,12 +34,6 @@ import javax.annotation.Nullable;
 
 /** Some convenient converters used by blaze. Note: These are specific to blaze. */
 public final class Converters {
-  /**
-   * The name of the flag used for shorthand aliasing in blaze. {@see
-   * com.google.devtools.build.lib.analysis.config.CoreOptions#commandLineFlagAliases} for the
-   * option definition.
-   */
-  public static final String BLAZE_ALIASING_FLAG = "flag_alias";
 
   private static final ImmutableSet<String> ENABLED_REPS =
       ImmutableSet.of("true", "1", "yes", "t", "y");
@@ -83,6 +74,28 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "a string";
+    }
+  }
+
+  /**
+   * Converter that treats an empty string as {@code null}, and passes any other value through
+   * unchanged. Useful for optional flags that have {@code defaultValue = "null"} so that an empty
+   * value on the command line resets the flag to its unset state instead of being interpreted as a
+   * literal empty string.
+   */
+  public static class EmptyToNullStringConverter extends Converter.Contextless<String> {
+    @Override
+    @Nullable
+    public String convert(String input) {
+      if (input.isEmpty()) {
+        return null;
+      }
+      return input;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a string; empty to unset";
     }
   }
 
@@ -138,9 +151,13 @@ public final class Converters {
   }
 
   /** Standard converter for TriState values. */
-  public static class TriStateConverter extends Converter.Contextless<TriState> {
+  public static class TriStateConverter extends EnumConverter<TriState> {
+    public TriStateConverter() {
+      super(TriState.class, "tri-state (auto, yes, no) option value");
+    }
+
     @Override
-    public TriState convert(String input) throws OptionsParsingException {
+    public TriState convert(@Nullable String input) throws OptionsParsingException {
       if (input == null) {
         return TriState.AUTO;
       }
@@ -154,7 +171,8 @@ public final class Converters {
       if (DISABLED_REPS.contains(input)) {
         return TriState.NO;
       }
-      throw new OptionsParsingException("'" + input + "' is not a boolean");
+      throw new OptionsParsingException(
+          "Not a valid %s: '%s' (should be auto or a boolean)".formatted(typeName, input));
     }
 
     @Override
@@ -396,12 +414,10 @@ public final class Converters {
   /** Checks whether a string is part of a set of strings. */
   public static class StringSetConverter extends Converter.Contextless<String> {
 
-    // TODO(bazel-team): if this class never actually contains duplicates, we could s/List/Set/
-    // here.
-    private final ImmutableList<String> values;
+    private final ImmutableSet<String> values;
 
     public StringSetConverter(String... values) {
-      this.values = ImmutableList.copyOf(values);
+      this.values = ImmutableSet.copyOf(values);
     }
 
     @Override
@@ -527,46 +543,6 @@ public final class Converters {
   }
 
   /**
-   * A converter for command line flag aliases. It does additional validation on the name and value
-   * of the assignment to ensure they conform to the naming limitations.
-   */
-  public static class FlagAliasConverter extends AssignmentConverter {
-
-    @Override
-    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
-      Map.Entry<String, String> entry = super.convert(input);
-      String shortForm = entry.getKey();
-      String longForm = entry.getValue();
-
-      String cmdLineAlias = "--" + BLAZE_ALIASING_FLAG + "=" + input;
-
-      if (!Pattern.matches("([\\w])*", shortForm)) {
-        throw new OptionsParsingException(
-            shortForm + " should only consist of word characters to be a valid alias name.",
-            cmdLineAlias);
-      }
-      if (longForm.contains("=")) {
-        throw new OptionsParsingException(
-            "--" + BLAZE_ALIASING_FLAG + " does not support flag value assignment.", cmdLineAlias);
-      }
-
-      // Remove this check if native options are permitted to be aliased
-      longForm = "--" + longForm;
-      if (STARLARK_SKIPPED_PREFIXES.stream().noneMatch(longForm::startsWith)) {
-        throw new OptionsParsingException(
-            "--" + BLAZE_ALIASING_FLAG + " only supports Starlark build settings.", cmdLineAlias);
-      }
-
-      return entry;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a 'name=value' flag alias";
-    }
-  }
-
-  /**
    * Base converter for assignments from a value to a list of values. Both the key type as well as
    * the type for all instances in the list of values are processed via passed converters.
    */
@@ -644,82 +620,10 @@ public final class Converters {
     }
   }
 
-  /** A request to set or unset a particular environment variable. */
-  public sealed interface EnvVar {
-    /** The name of the environment variable. */
-    String name();
-
-    /** Set the environment variable to the given value. */
-    @AutoCodec
-    record Set(String name, String value) implements EnvVar {}
-
-    /** Inherit the value of the environment variable from the client environment. */
-    @AutoCodec
-    record Inherit(String name) implements EnvVar {}
-
-    /**
-     * Unset the environment variable, i.e., remove any previous assignment or even explicitly unset
-     * it if implicitly inheriting the client environment.
-     */
-    @AutoCodec
-    record Unset(String name) implements EnvVar {}
-  }
-
-  /**
-   * A converter for variable assignments from the parameter list of a blaze command invocation.
-   * Assignments are expected to have the form "name[=value]", where names and values are defined to
-   * be as permissive as possible and value part can be optional (in which case it is considered to
-   * be inherited). The special syntax "=name" is also supported and interpreted as a request to
-   * unset the variable with the given name.
-   */
-  public static class EnvVarsConverter extends Converter.Contextless<EnvVar> {
-
-    @Override
-    public EnvVar convert(String input) throws OptionsParsingException {
-      int pos = input.indexOf('=');
-      if (input.isEmpty() || input.equals("=")) {
-        throw new OptionsParsingException(
-            "Variable definitions must be in the form of a 'name=value', 'name', or '=name'"
-                + " assignment");
-      } else if (pos == 0) {
-        return new EnvVar.Unset(input.substring(1));
-      } else if (pos < 0) {
-        return new EnvVar.Inherit(input);
-      }
-      String name = input.substring(0, pos);
-      String value = input.substring(pos + 1);
-      return new EnvVar.Set(name, value);
-    }
-
-    @Override
-    public boolean starlarkConvertible() {
-      return true;
-    }
-
-    @Override
-    public String reverseForStarlark(Object converted) {
-      if (converted instanceof EnvVar.Set set) {
-        return set.name() + "=" + set.value();
-      } else if (converted instanceof EnvVar.Inherit inherit) {
-        return inherit.name();
-      } else if (converted instanceof EnvVar.Unset unset) {
-        return "=" + unset.name();
-      } else {
-        throw new IllegalArgumentException(
-            "EnvVarsConverter can only reverse EnvVar types, got: " + converted);
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a 'name[=value]' assignment with an optional value part or the special syntax '=name'"
-          + " to unset a variable";
-    }
-  }
-
-  public static class HelpVerbosityConverter extends EnumConverter<OptionsParser.HelpVerbosity> {
+  /** A {@link Converter} for {@link HelpVerbosity}. */
+  public static class HelpVerbosityConverter extends EnumConverter<HelpVerbosity> {
     public HelpVerbosityConverter() {
-      super(OptionsParser.HelpVerbosity.class, "--help_verbosity setting");
+      super(HelpVerbosity.class, "--help_verbosity setting");
     }
   }
 

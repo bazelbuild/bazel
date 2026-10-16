@@ -17,9 +17,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics.BzlFileMetrics;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.protobuf.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -29,11 +33,19 @@ final class CompletePackageMetricsRecorder implements PackageMetricsRecorder {
   @GuardedBy("this")
   private final HashMap<PackageIdentifier, PackageLoadMetrics> metrics = new HashMap<>();
 
+  @GuardedBy("this")
+  private final List<BzlFileMetrics> bzlMetrics = new ArrayList<>();
+
   CompletePackageMetricsRecorder() {}
 
   @Override
   public synchronized void recordMetrics(PackageIdentifier pkgId, PackageLoadMetrics metrics) {
     this.metrics.put(pkgId, metrics);
+  }
+
+  @Override
+  public synchronized void recordBzlMetrics(BzlFileMetrics metrics) {
+    bzlMetrics.add(metrics);
   }
 
   @Override
@@ -71,6 +83,7 @@ final class CompletePackageMetricsRecorder implements PackageMetricsRecorder {
   @Override
   public synchronized void clear() {
     metrics.clear();
+    bzlMetrics.clear();
   }
 
   @Override
@@ -89,5 +102,13 @@ final class CompletePackageMetricsRecorder implements PackageMetricsRecorder {
     return metrics.entrySet().stream()
         .map(e -> e.getValue().toBuilder().setName(e.getKey().toString()).build())
         .collect(toImmutableList());
+  }
+
+  @Override
+  public synchronized BzlMetrics getBzlMetrics() {
+    return BzlMetrics.newBuilder()
+        .setBzlFileCount(bzlMetrics.size())
+        .addAllBzlFileMetrics(bzlMetrics)
+        .build();
   }
 }

@@ -14,12 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitTerminationUninterruptibly;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.Node;
-import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -50,6 +48,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
@@ -85,10 +84,10 @@ public class IncrementalPackageRoots implements PackageRoots {
   private final String prefix;
 
   private final IgnoredSubdirectories ignoredPaths;
-  private final boolean useSiblingRepositoryLayout;
 
   private final boolean allowExternalRepositories;
   @Nullable private EventBus eventBus;
+  @Nullable private final PackageRootLookup fallbackPackageRootLookup;
 
   // "maybe" because some conflicts in a case-insensitive FS may not be in a case-sensitive one.
   private ImmutableSet<String> maybeConflictingBaseNamesLowercase = ImmutableSet.of();
@@ -99,16 +98,16 @@ public class IncrementalPackageRoots implements PackageRoots {
       EventBus eventBus,
       String prefix,
       IgnoredSubdirectories ignoredPaths,
-      boolean useSiblingRepositoryLayout,
-      boolean allowExternalRepositories) {
-    this.threadSafeExternalRepoPackageRootsMap = Maps.newConcurrentMap();
+      boolean allowExternalRepositories,
+      @Nullable PackageRootLookup fallbackPackageRootLookup) {
+    this.threadSafeExternalRepoPackageRootsMap = new ConcurrentHashMap<>();
     this.execroot = execroot;
     this.singleSourceRoot = singleSourceRoot;
     this.prefix = prefix;
     this.ignoredPaths = ignoredPaths;
     this.eventBus = eventBus;
-    this.useSiblingRepositoryLayout = useSiblingRepositoryLayout;
     this.allowExternalRepositories = allowExternalRepositories;
+    this.fallbackPackageRootLookup = fallbackPackageRootLookup;
     this.symlinkPlantingPool =
         MoreExecutors.listeningDecorator(
             Executors.newFixedThreadPool(
@@ -122,8 +121,25 @@ public class IncrementalPackageRoots implements PackageRoots {
       EventBus eventBus,
       String prefix,
       IgnoredSubdirectories ignoredSubdirectories,
-      boolean useSiblingRepositoryLayout,
       boolean allowExternalRepositories) {
+    return createAndRegisterToEventBus(
+        execroot,
+        singleSourceRoot,
+        eventBus,
+        prefix,
+        ignoredSubdirectories,
+        allowExternalRepositories,
+        /* fallbackPackageRootLookup= */ null);
+  }
+
+  public static IncrementalPackageRoots createAndRegisterToEventBus(
+      Path execroot,
+      Root singleSourceRoot,
+      EventBus eventBus,
+      String prefix,
+      IgnoredSubdirectories ignoredSubdirectories,
+      boolean allowExternalRepositories,
+      @Nullable PackageRootLookup fallbackPackageRootLookup) {
     IncrementalPackageRoots incrementalPackageRoots =
         new IncrementalPackageRoots(
             execroot,
@@ -131,8 +147,8 @@ public class IncrementalPackageRoots implements PackageRoots {
             eventBus,
             prefix,
             ignoredSubdirectories,
-            useSiblingRepositoryLayout,
-            allowExternalRepositories);
+            allowExternalRepositories,
+            fallbackPackageRootLookup);
     eventBus.register(incrementalPackageRoots);
     return incrementalPackageRoots;
   }
@@ -167,11 +183,7 @@ public class IncrementalPackageRoots implements PackageRoots {
     try {
       maybeConflictingBaseNamesLowercase =
           SymlinkForest.eagerlyPlantSymlinkForestSinglePackagePath(
-              execroot,
-              singleSourceRoot.asPath(),
-              prefix,
-              ignoredPaths,
-              useSiblingRepositoryLayout);
+              execroot, singleSourceRoot.asPath(), prefix, ignoredPaths);
     } catch (IOException e) {
       throwAbruptExitException(e);
     }
@@ -184,12 +196,53 @@ public class IncrementalPackageRoots implements PackageRoots {
         "IncrementalPackageRoots does not provide the package roots map directly.");
   }
 
+  /**
+   * Returns a lookup function for package roots.
+   *
+   * <p>For packages in the main repository, the lookup unconditionally returns {@link
+   * #singleSourceRoot}.
+   *
+   * <p>For external repositories, the lookup consults {@link
+   * #threadSafeExternalRepoPackageRootsMap} and falls back to {@code fallbackPackageRootLookup} if
+   * present. Both are required:
+   *
+   * <ol>
+   *   <li>Why {@code fallbackPackageRootLookup} is necessary: External packages evaluated in
+   *       earlier builds or retained across an analysis cache discard (such as toolchains whose
+   *       transitive package metadata was cleared to save heap memory) may not be included in the
+   *       current build's {@link TopLevelTargetReadyForSymlinkPlanting} events. The fallback
+   *       queries Skyframe's graph directly to recover roots for any completed {@code PackageValue}
+   *       nodes.
+   *   <li>Why {@link #threadSafeExternalRepoPackageRootsMap} cannot be replaced:
+   *       <ul>
+   *         <li>In memory-saving modes (e.g. {@code --notrack_incremental_state} or node dropping),
+   *             Skyframe may discard {@code PackageValue} nodes before or during execution. Storing
+   *             roots during analysis symlink planting preserves them throughout execution.
+   *         <li>It acts as a fast thread-safe cache for concurrent action execution (e.g. parallel
+   *             C++ header discovery), avoiding repeated lookups against Skyframe's node graph.
+   *             Successful fallback lookups are memoized into this map via {@code putIfAbsent}.
+   *       </ul>
+   * </ol>
+   */
   @Override
   public PackageRootLookup getPackageRootLookup() {
-    return packageId ->
-        packageId.getRepository().isMain()
-            ? singleSourceRoot
-            : threadSafeExternalRepoPackageRootsMap.get(packageId);
+    return packageId -> {
+      if (packageId.getRepository().isMain()) {
+        return singleSourceRoot;
+      }
+      Root root = threadSafeExternalRepoPackageRootsMap.get(packageId);
+      if (root != null) {
+        return root;
+      }
+      if (fallbackPackageRootLookup != null) {
+        root = fallbackPackageRootLookup.getRootForPackage(packageId);
+        if (root != null) {
+          threadSafeExternalRepoPackageRootsMap.putIfAbsent(packageId, root);
+          return root;
+        }
+      }
+      return null;
+    };
   }
 
   // Intentionally don't allow concurrent events here to prevent a race condition between planting
@@ -236,7 +289,7 @@ public class IncrementalPackageRoots implements PackageRoots {
 
   @Subscribe
   public void analysisFinished(AnalysisPhaseCompleteEvent unused) {
-    dropIntermediateStatesAndUnregisterFromEventBus();
+    shutdown(false);
   }
 
   /**
@@ -284,7 +337,6 @@ public class IncrementalPackageRoots implements PackageRoots {
             pkgId.getRepository(),
             pkg.sourceRoot().asPath(),
             execroot,
-            useSiblingRepositoryLayout,
             lazilyPlantedSymlinksRef);
       } else if (!maybeConflictingBaseNamesLowercase.isEmpty()) {
         String originalBaseName = pkgId.getTopLevelDir();
@@ -298,7 +350,7 @@ public class IncrementalPackageRoots implements PackageRoots {
         if (originalBaseName.isEmpty()
             || !maybeConflictingBaseNamesLowercase.contains(baseNameLowercase)
             || !SymlinkForest.symlinkShouldBePlanted(
-                prefix, ignoredPaths, useSiblingRepositoryLayout, originalBaseName, target)) {
+                prefix, ignoredPaths, originalBaseName, target)) {
           // We should have already eagerly planted a symlink for this, or there's nothing to do.
           return null;
         }
@@ -350,28 +402,36 @@ public class IncrementalPackageRoots implements PackageRoots {
     return !pkgId.getRepository().isMain();
   }
 
+  public void shutdown() {
+    shutdown(true);
+  }
+
   /**
    * Drops the intermediate states and stop receiving new events.
    *
    * <p>This essentially makes this instance read-only. Should be called when and only when all
    * analysis work is done in the build to free up some memory.
    */
-  private void dropIntermediateStatesAndUnregisterFromEventBus() {
+  private void shutdown(boolean now) {
     // This instance is retained after a build via ArtifactFactory, so it's important that we remove
     // the reference to the eventBus here for it to be GC'ed.
-    Preconditions.checkNotNull(eventBus).unregister(this);
-    eventBus = null;
-
+    if (eventBus != null) {
+      eventBus.unregister(this);
+      eventBus = null;
+    }
     synchronized (stateLock) {
       donePackages = null;
       lazilyPlantedSymlinks = null;
       maybeConflictingBaseNamesLowercase = ImmutableSet.of();
     }
     synchronized (symlinkPlantingPool) {
-      if (!symlinkPlantingPool.isShutdown()
-          && ExecutorUtil.interruptibleShutdown(symlinkPlantingPool)) {
-        // Preserve the interrupt status.
-        Thread.currentThread().interrupt();
+      if (!symlinkPlantingPool.isShutdown()) {
+        if (now) {
+          symlinkPlantingPool.shutdownNow();
+        } else {
+          symlinkPlantingPool.shutdown();
+        }
+        awaitTerminationUninterruptibly(symlinkPlantingPool);
       }
     }
   }

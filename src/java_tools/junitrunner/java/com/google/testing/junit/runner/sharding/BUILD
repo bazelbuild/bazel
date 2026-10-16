@@ -13,7 +13,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api",
-        "//third_party:junit4",
+        "//third_party/java/junit:not-testonly",
     ],
 )
 
@@ -24,5 +24,4 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )

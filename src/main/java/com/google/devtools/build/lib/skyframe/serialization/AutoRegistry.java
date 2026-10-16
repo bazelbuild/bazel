@@ -77,8 +77,7 @@ public class AutoRegistry {
           "java.util.Collections$SingletonList",
           "java.util.Collections$UnmodifiableList",
           "java.util.Collections$UnmodifiableRandomAccessList",
-          "java.util.KeyValueHolder",
-          "java.util.Optional");
+          "java.util.KeyValueHolder");
 
   private static final ImmutableList<Object> REFERENCE_CONSTANTS_TO_REGISTER =
       ImmutableList.of(

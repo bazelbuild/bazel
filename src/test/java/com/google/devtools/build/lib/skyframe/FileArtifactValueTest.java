@@ -23,6 +23,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
@@ -102,12 +103,14 @@ public final class FileArtifactValueTest {
                 toBytes("00112233445566778899AABBCCDDEEFF"),
                 /* size= */ 1,
                 /* locationIndex= */ 1,
-                /* expirationTime= */ Instant.ofEpochMilli(1)),
+                /* expirationTime= */ Instant.ofEpochMilli(1),
+                /* inMemoryOutput= */ false),
             FileArtifactValue.createForRemoteFileWithMaterializationData(
                 toBytes("00112233445566778899AABBCCDDEEFF"),
                 /* size= */ 1,
                 /* locationIndex= */ 1,
-                /* expirationTime= */ Instant.ofEpochMilli(2)))
+                /* expirationTime= */ Instant.ofEpochMilli(2),
+                /* inMemoryOutput= */ false))
         .addEqualityGroup(
             // A ResolvedSymlinkArtifactValue is not equal to the FileArtifactValue it wraps.
             FileArtifactValue.createFromExistingWithResolvedPath(
@@ -360,7 +363,11 @@ public final class FileArtifactValueTest {
 
     // Use the real file system as the semantics of moves are subtle and not necessarily fully
     // captured by the in-memory file system.
-    var realFs = new UnixFileSystem(DigestHashFunction.SHA256, "hash");
+    var realFs =
+        new UnixFileSystem(
+            DigestHashFunction.SHA256,
+            /* hashAttributeName= */ "",
+            new NativePosixFilesServiceImpl());
     var tempDirJvm = Files.createTempDirectory(null);
     tempDirJvm.toFile().deleteOnExit();
 
@@ -384,7 +391,11 @@ public final class FileArtifactValueTest {
 
     // Use the real file system as the semantics of hard links are subtle and not necessarily
     // fully captured by the in-memory file system.
-    var realFs = new UnixFileSystem(DigestHashFunction.SHA256, "hash");
+    var realFs =
+        new UnixFileSystem(
+            DigestHashFunction.SHA256,
+            /* hashAttributeName= */ "",
+            new NativePosixFilesServiceImpl());
     var tempDirJvm = Files.createTempDirectory(null);
     tempDirJvm.toFile().deleteOnExit();
 
@@ -535,5 +546,51 @@ public final class FileArtifactValueTest {
     assertThat(value1.getDigest()).isNull();
     assertThat(value2.getDigest()).isNotNull();
     assertThat(fingerprint1.digestAndReset()).isNotEqualTo(fingerprint2.digestAndReset());
+  }
+
+  @Test
+  public void remoteFileArtifactValueWithMaterializationData_expirationTimeEpochContract() {
+    byte[] digest = new byte[] {1, 2, 3};
+
+    // Expiration timestamp null maps to null.
+    FileArtifactValue nullExp =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest,
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false);
+    assertThat(nullExp.getExpirationTime()).isNull();
+
+    // Instant.EPOCH maps to 0 epoch milli, which is treated as the unset sentinel
+    // and returns null to align with zero-initialized primitive fields after deserialization.
+    FileArtifactValue epochExp =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest,
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ Instant.EPOCH,
+            /* inMemoryOutput= */ false);
+    assertThat(epochExp.getExpirationTime()).isNull();
+
+    // Initializing to positive instant returns a valid time.
+    Instant validTime = Instant.ofEpochMilli(123456789L);
+    FileArtifactValue validExp =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest,
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ validTime,
+            /* inMemoryOutput= */ false);
+    assertThat(validExp.getExpirationTime()).isEqualTo(validTime);
+
+    // Mutating to EPOCH makes it null.
+    validExp.setExpirationTime(Instant.EPOCH);
+    assertThat(validExp.getExpirationTime()).isNull();
+
+    // Mutating to a new positive instant returns a valid time.
+    Instant newTime = Instant.ofEpochMilli(987654321L);
+    validExp.setExpirationTime(newTime);
+    assertThat(validExp.getExpirationTime()).isEqualTo(newTime);
   }
 }

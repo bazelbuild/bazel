@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,6 +25,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor.ThreadPoolType;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
+import com.google.devtools.build.lib.concurrent.QuiescingTask;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.RunnableMaker;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.ClassToInstanceMapSkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
@@ -93,21 +95,28 @@ class NodeEntryVisitor {
       return () -> {
         PartialReevaluationState state = PartialReevaluationState.EVALUATING;
         while (state == PartialReevaluationState.EVALUATING) {
-          inner.run();
+          if (inner instanceof QuiescingTask quiescingTask) {
+            try {
+              quiescingTask.runCore();
+            } catch (Exception e) {
+              Throwables.throwIfUnchecked(e);
+              throw new IllegalStateException(e);
+            }
+          } else {
+            inner.run();
+          }
           state =
               partialReevaluationStates.compute(
                   key,
                   (k, s) -> {
                     checkNotNull(s, "Null state during evaluation: %s", k);
-                    switch (s) {
-                      case EVALUATING:
-                        // Note that returning null from this compute function causes the entry to
-                        // be removed from the map.
-                        return null;
-                      case EVALUATING_SIGNALED:
-                        return PartialReevaluationState.EVALUATING;
-                    }
-                    throw new AssertionError(s);
+                    return switch (s) {
+                      case EVALUATING ->
+                          // Note that returning null from this compute function causes the entry to
+                          // be removed from the map.
+                          null;
+                      case EVALUATING_SIGNALED -> PartialReevaluationState.EVALUATING;
+                    };
                   });
         }
       };
@@ -252,12 +261,23 @@ class NodeEntryVisitor {
       } else {
         threadPoolType = ThreadPoolType.REGULAR;
       }
-      multiThreadPoolsQuiescingExecutor.execute(
-          runnable,
-          threadPoolType,
-          /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
+      if (runnable instanceof QuiescingTask quiescingTask) {
+        multiThreadPoolsQuiescingExecutor.execute(
+            quiescingTask,
+            threadPoolType,
+            /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
+      } else {
+        multiThreadPoolsQuiescingExecutor.execute(
+            runnable,
+            threadPoolType,
+            /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
+      }
     } else {
-      quiescingExecutor.execute(runnable);
+      if (runnable instanceof QuiescingTask quiescingTask) {
+        quiescingExecutor.execute(quiescingTask);
+      } else {
+        quiescingExecutor.execute(runnable);
+      }
     }
   }
 }

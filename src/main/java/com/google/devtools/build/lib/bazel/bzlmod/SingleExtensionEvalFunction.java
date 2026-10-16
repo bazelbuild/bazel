@@ -16,13 +16,17 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.RunnableExtension.RunModuleExtensionResult;
+import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -42,7 +46,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -58,8 +61,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public class SingleExtensionEvalFunction implements SkyFunction {
   private final BlazeDirectories directories;
-  private final Supplier<Map<String, String>> repoEnvironmentSupplier;
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  private final Supplier<ImmutableMap<String, String>> repoEnvSupplier;
+  private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
 
   private double timeoutScaling = 1.0;
   @Nullable private ProcessWrapper processWrapper = null;
@@ -68,11 +71,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
   public SingleExtensionEvalFunction(
       BlazeDirectories directories,
-      Supplier<Map<String, String>> repoEnvironmentSupplier,
-      Supplier<Map<String, String>> clientEnvironmentSupplier) {
+      Supplier<ImmutableMap<String, String>> repoEnvSupplier,
+      Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier) {
     this.directories = directories;
-    this.repoEnvironmentSupplier = repoEnvironmentSupplier;
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+    this.repoEnvSupplier = repoEnvSupplier;
+    this.nonstrictRepoEnvSupplier = nonstrictRepoEnvSupplier;
   }
 
   public void setDownloadManager(DownloadManager downloadManager) {
@@ -99,6 +102,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (starlarkSemantics == null) {
       return null;
     }
+    RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode =
+        requireNonNull(RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA.get(env));
     RepositoryMappingValue mainRepoMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (mainRepoMappingValue == null) {
@@ -123,8 +128,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 starlarkSemantics,
                 env,
                 directories,
-                repoEnvironmentSupplier,
-                clientEnvironmentSupplier,
+                repoEnvSupplier.get(),
+                nonstrictRepoEnvSupplier.get(),
                 timeoutScaling,
                 processWrapper,
                 repositoryRemoteExecutor,
@@ -139,22 +144,45 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     // Check the lockfile first for that module extension
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
+    int currentFactsVersion = extension.getFactsVersion();
     Facts lockfileFacts = Facts.EMPTY;
+    // Store workspace lockfile facts separately for validation in ERROR mode
+    Facts workspaceLockfileFacts = Facts.EMPTY;
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       var lockfiles =
           env.getValuesAndExceptions(
               ImmutableList.of(BazelLockFileValue.KEY, BazelLockFileValue.HIDDEN_KEY));
-      BazelLockFileValue lockfile = (BazelLockFileValue) lockfiles.get(BazelLockFileValue.KEY);
+      BazelLockFileValue workspaceLockfile =
+          (BazelLockFileValue) lockfiles.get(BazelLockFileValue.KEY);
       BazelLockFileValue hiddenLockfile =
           (BazelLockFileValue) lockfiles.get(BazelLockFileValue.HIDDEN_KEY);
-      if (lockfile == null || hiddenLockfile == null) {
+      if (workspaceLockfile == null || hiddenLockfile == null) {
         return null;
       }
-      lockfileFacts = lockfile.getFacts().get(extensionId);
-      if (lockfileFacts == null) {
-        lockfileFacts = hiddenLockfile.getFacts().getOrDefault(extensionId, Facts.EMPTY);
+      // The facts recorded by the most recent actual evaluation of the extension, if there is
+      // such a record at the current facts_version. Unlike the workspace lockfile, the hidden
+      // lockfile is not subject to manual edits or merges, so this can be compared against the
+      // workspace lockfile's facts to detect that they have been modified.
+      @Nullable Facts hiddenLockfileFacts = null;
+      if (hiddenLockfile.getFacts().containsKey(extensionId)
+          && hiddenLockfile.getFactsVersions().getOrDefault(extensionId, 0)
+              == currentFactsVersion) {
+        hiddenLockfileFacts = hiddenLockfile.getFacts().get(extensionId);
       }
-      var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
+      // Prefer the workspace lockfile facts when present, falling back to the hidden lockfile.
+      // In both cases, facts whose stored factsVersion differs from the current extension's
+      // facts_version are discarded: the extension's schema may have changed.
+      if (workspaceLockfile.getFacts().containsKey(extensionId)) {
+        int workspaceFactsVersion =
+            workspaceLockfile.getFactsVersions().getOrDefault(extensionId, 0);
+        if (workspaceFactsVersion == currentFactsVersion) {
+          workspaceLockfileFacts = workspaceLockfile.getFacts().get(extensionId);
+          lockfileFacts = workspaceLockfileFacts;
+        }
+      } else if (hiddenLockfileFacts != null) {
+        lockfileFacts = hiddenLockfileFacts;
+      }
+      var lockedExtensionMap = workspaceLockfile.getModuleExtensions().get(extensionId);
       var lockedExtension =
           lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
       if (lockedExtension == null) {
@@ -174,7 +202,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   usagesValue,
                   extension.getEvalFactors(),
                   lockedExtension,
-                  lockfileFacts);
+                  lockfileFacts,
+                  hiddenLockfileFacts);
           if (singleExtensionValue != null) {
             return singleExtensionValue;
           }
@@ -194,7 +223,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               starlarkSemantics,
               extensionId,
               mainRepoMappingValue.repositoryMapping(),
-              lockfileFacts);
+              lockfileFacts,
+              requireRepoExtensionMetadataMode);
     } catch (ExternalDepsException e) {
       throw new SingleExtensionEvalFunctionException(e);
     }
@@ -239,13 +269,16 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   : " for platform " + extension.getEvalFactors()));
     }
     var newFacts = moduleExtensionMetadata.getFacts();
-    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(lockfileFacts)) {
+    // In ERROR mode, validate facts only against the workspace lockfile, not the hidden lockfile.
+    // The hidden lockfile may contain stale facts from a different version (e.g., after a
+    // rollback), which would cause false-positive validation errors.
+    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(workspaceLockfileFacts)) {
       String reason =
           "the extension '%s' has changed its facts: %s != %s"
               .formatted(
                   extensionId,
-                  Starlark.repr(newFacts.value()),
-                  Starlark.repr(lockfileFacts.value()));
+                  Starlark.repr(newFacts.value(), starlarkSemantics),
+                  Starlark.repr(workspaceLockfileFacts.value(), starlarkSemantics));
       throw createOutdatedLockfileException(reason);
     }
 
@@ -257,7 +290,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // influence the evaluation of the extension and the validation also runs when the extension
     // result is taken from the lockfile, we can already populate the lockfile info. This is
     // necessary to prevent the extension from rerunning when only the imports change.
-    if (lockfileMode == LockfileMode.UPDATE || lockfileMode == LockfileMode.REFRESH) {
+    if (lockfileMode != LockfileMode.OFF) {
       lockFileInfo =
           Optional.of(
               new LockFileModuleExtension.WithFactors(
@@ -281,6 +314,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         usagesValue,
         lockFileInfo,
         newFacts,
+        currentFactsVersion,
         env);
   }
 
@@ -288,6 +322,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
    * Tries to get the evaluation result from the lockfile, if it's still up-to-date. Otherwise,
    * returns {@code null}.
    *
+   * @param facts the facts to attach to the reused result (workspace lockfile facts if present,
+   *     otherwise the hidden lockfile's)
+   * @param hiddenLockfileFacts the facts recorded by the most recent actual evaluation of the
+   *     extension (kept in the hidden lockfile), or {@code null} if there is no such record
    * @throws NeedsSkyframeRestartException in case we need a skyframe restart. Note that we
    *     <em>don't</em> return {@code null} in this case!
    */
@@ -299,7 +337,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       SingleExtensionUsagesValue usagesValue,
       ModuleExtensionEvalFactors evalFactors,
       LockFileModuleExtension lockedExtension,
-      Facts facts)
+      Facts facts,
+      @Nullable Facts hiddenLockfileFacts)
       throws SingleExtensionEvalFunctionException,
           InterruptedException,
           NeedsSkyframeRestartException {
@@ -329,10 +368,26 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         diffRecorder.record(
             "an input to the extension '" + extensionId + "' changed: " + reason.get());
       }
+      // The results of a reproducible extension are persisted in the hidden lockfile, so whether
+      // such an extension reruns is determined by output base state. This could result in stale
+      // facts in the workspace lockfile (e.g., modified externally by an edit or VCS merge) not
+      // being recognized (in ERROR mode) or repaired (in UPDATE mode) depending on this essentially
+      // invisible state. Since the hidden lockfile is meant to be a fully transparent optimization,
+      // we avoid this by comparing the facts to the ones persisted in it, which have been obtained
+      // from a prior evaluation of the extension. Since it is reproducible and no other diffs have
+      // been detected up to this point, the facts must be what the workspace lockfile should
+      // contain.
+      if (lockedExtension.isReproducible()
+          && !facts.equals(Facts.EMPTY)
+          && !facts.equals(hiddenLockfileFacts)) {
+        diffRecorder.record(
+            "the facts recorded in the lockfile for the extension '"
+                + extensionId
+                + "' do not match the result of its most recent evaluation");
+      }
     } catch (DiffFoundEarlyExitException ignored) {
       // ignored
     }
-    // There is intentionally no diff check for facts - they are never invalidated by Bazel.
     if (!diffRecorder.anyDiffsDetected()) {
       return createSingleExtensionValue(
           lockedExtension.getGeneratedRepoSpecs(),
@@ -341,6 +396,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           usagesValue,
           Optional.of(new LockFileModuleExtension.WithFactors(evalFactors, lockedExtension)),
           facts,
+          extension.getFactsVersion(),
           env);
     }
     // Reproducible extensions are always locked in the hidden lockfile to provide best-effort
@@ -384,12 +440,18 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       BlazeDirectories directories,
       List<RepoRecordedInput.WithValue> recordedInputs)
       throws InterruptedException, NeedsSkyframeRestartException {
-    Optional<String> outdated =
-        RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputs);
-    if (env.valuesMissing()) {
-      throw new NeedsSkyframeRestartException();
+    // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
+    for (ImmutableList<RepoRecordedInput.WithValue> batch :
+        RepoRecordedInput.WithValue.splitIntoBatches(recordedInputs)) {
+      Optional<String> outdated = RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
+      if (env.valuesMissing()) {
+        throw new NeedsSkyframeRestartException();
+      }
+      if (outdated.isPresent()) {
+        return outdated;
+      }
     }
-    return outdated;
+    return Optional.empty();
   }
 
   private SingleExtensionValue createSingleExtensionValue(
@@ -399,6 +461,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       SingleExtensionUsagesValue usagesValue,
       Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
       Facts facts,
+      int factsVersion,
       Environment env)
       throws SingleExtensionEvalFunctionException {
     Optional<RootModuleFileFixup> fixup = Optional.empty();
@@ -412,7 +475,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 .get()
                 .generateFixup(
                     usagesValue.getExtensionUsages().get(ModuleKey.ROOT),
-                    generatedRepoSpecs.keySet());
+                    generatedRepoSpecs.keySet(),
+                    usagesValue.getRepoOverrides().entrySet().stream()
+                        .filter(e -> e.getValue().isMain())
+                        .map(e -> e.getKey())
+                        .collect(toImmutableSet()));
       } catch (EvalException e) {
         env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
@@ -435,7 +502,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                     Function.identity())),
         lockFileInfo,
         fixup,
-        facts);
+        facts,
+        factsVersion);
   }
 
   private static SingleExtensionEvalFunctionException createOutdatedLockfileException(

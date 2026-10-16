@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.exec.util;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -50,7 +50,7 @@ public class TestExecutorBuilder {
       ImmutableList.of(ExecutionOptions.class, CommonCommandOptions.class, CoreOptions.class);
   private final FileSystem fileSystem;
   private final Path execRoot;
-  private Reporter reporter = new Reporter(new EventBus());
+  private Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
   private OptionsParser optionsParser =
       OptionsParser.builder().optionsClasses(DEFAULT_OPTIONS).build();
   private final ModuleActionContextRegistry.Builder actionContextRegistryBuilder =

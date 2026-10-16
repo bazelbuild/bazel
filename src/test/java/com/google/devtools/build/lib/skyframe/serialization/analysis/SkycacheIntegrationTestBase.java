@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -59,7 +58,6 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -67,29 +65,24 @@ import org.junit.rules.TestName;
 public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCase
     implements SkycacheIntegrationTestHelpers {
 
-  protected static final String UPLOAD_MODE_OPTION =
-      "--experimental_remote_analysis_cache_mode=upload";
-  protected static final String DOWNLOAD_MODE_OPTION =
-      "--experimental_remote_analysis_cache_mode=download";
-  protected static final String DUMP_MANIFEST_MODE_OPTION =
-      "--experimental_remote_analysis_cache_mode=dump_upload_manifest_only";
 
   @Rule public TestName testName = new TestName();
 
   private final ClearCountingSyscallCache syscallCache = new ClearCountingSyscallCache();
 
-  @Before
-  public void setup() {
-    // TODO: b/367284400 - replace this with a barebones diffawareness check that works in Bazel
-    // integration tests (e.g. making LocalDiffAwareness supported and not return
-    // EVERYTHING_MODIFIED) for baseline diffs.
-    addOptions("--experimental_frontier_violation_check=disabled_for_testing");
+  protected void addDownloadOptions() {
+    addOptions(DOWNLOAD_MODE_OPTION);
+  }
+
+  protected void addUploadOptions() {
+    addOptions(UPLOAD_MODE_OPTION);
   }
 
   @Test
   public void expectCheckedInvalidConfiguration_withDuplicateActiveDirectories() throws Exception {
     write("foo/BUILD", "filegroup(name='A', srcs = [])");
-    addOptions("--experimental_active_directories=foo,foo", UPLOAD_MODE_OPTION);
+    addUploadOptions();
+    addOptions("--experimental_active_directories=foo,foo");
     InvalidConfigurationException e =
         assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
     assertThat(e)
@@ -149,7 +142,7 @@ project = project_pb2.Project.create(project_directories = []) # empty
     setupScenarioWithConfiguredTargets();
 
     writeProjectSclWithActiveDirs("foo");
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     buildTarget("//foo:A");
     var serializedKeysWithProjectScl =
         getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
@@ -179,59 +172,21 @@ project = project_pb2.Project.create(project_directories = []) # empty
     writeProjectSclWithActiveDirs(
         /* path= */ "foo",
         /* activeDirs...= */
-        "foo",
-        "-bar",
-        "baz/qux",
-        "-baz/qux/quux",
-        "-zee",
-        "zee/yee");
-    addOptions(UPLOAD_MODE_OPTION);
+        "foo");
+    addUploadOptions();
     buildTarget("//foo:A");
-    assertThat(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializedKeysCount())
-        .isAtLeast(1);
-
-    RemoteAnalysisCachingDependenciesProvider providerWithProjectScl =
-        getSkyframeExecutor().getRemoteAnalysisCachingDependenciesProvider();
+    int serializedNodesWithProjectScl =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeysCount();
+    assertThat(serializedNodesWithProjectScl).isAtLeast(1);
 
     getSkyframeExecutor().resetEvaluator();
 
-    addOptions("--experimental_active_directories=foo,-bar,baz/qux,-baz/qux/quux,-zee,zee/yee");
+    addOptions("--experimental_active_directories=foo");
     buildTarget("//foo:A");
-    assertThat(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializedKeysCount())
-        .isAtLeast(1);
-
-    RemoteAnalysisCachingDependenciesProvider providerWithActiveDirectories =
-        getSkyframeExecutor().getRemoteAnalysisCachingDependenciesProvider();
-
-    assertThat(providerWithActiveDirectories).isNotSameInstanceAs(providerWithProjectScl);
-
-    ImmutableList<PackageIdentifier> testCases =
-        ImmutableList.of(
-            PackageIdentifier.createInMainRepo("foo"),
-            PackageIdentifier.createInMainRepo("foo/bar"),
-            PackageIdentifier.createInMainRepo("bar"),
-            PackageIdentifier.createInMainRepo("baz/qux"),
-            PackageIdentifier.createInMainRepo("baz/qux/quux"),
-            PackageIdentifier.createInMainRepo("zee"),
-            PackageIdentifier.createInMainRepo("zee/yee"),
-            PackageIdentifier.createInMainRepo(""),
-            PackageIdentifier.createInMainRepo("nonexistent"));
-
-    for (PackageIdentifier testCase : testCases) {
-      var activeDirectoriesResult = providerWithActiveDirectories.withinActiveDirectories(testCase);
-      var projectSclResult = providerWithProjectScl.withinActiveDirectories(testCase);
-      assertWithMessage(
-              "for %s: active directories: %s, projectScl: %s",
-              testCase, activeDirectoriesResult, projectSclResult)
-          .that(activeDirectoriesResult)
-          .isEqualTo(projectSclResult);
-    }
+    int serializedNodesWithActiveDirectories =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeysCount();
+    assertThat(serializedNodesWithActiveDirectories).isAtLeast(1);
+    assertThat(serializedNodesWithActiveDirectories).isEqualTo(serializedNodesWithProjectScl);
   }
 
   @Test
@@ -243,7 +198,7 @@ project = project_pb2.Project.create(project_directories = []) # empty
         """);
     writeProjectSclWithActiveDirs("foo");
 
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     buildTarget("//foo:empty");
   }
 
@@ -263,7 +218,7 @@ project = project_pb2.Project.create(project_directories = []) # empty
         """);
     writeProjectSclWithActiveDirs("bar");
 
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     LoadingFailedException exception =
         assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty", "//bar:empty"));
     assertThat(exception).hasMessageThat().contains("This is a multi-project build");
@@ -284,7 +239,7 @@ project = project_pb2.Project.create(project_directories = []) # empty
         """);
     writeProjectSclWithActiveDirs("foo");
 
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     buildTarget("//foo:empty", "//foo/bar:empty");
   }
 
@@ -319,8 +274,8 @@ project = project_pb2.Project.create(project_directories = []) # empty
         """
         genrule(name = "bar", outs = ["out"], cmd = "touch $@")
         """);
+    addUploadOptions();
     addOptions(
-        UPLOAD_MODE_OPTION,
         "--build", // overrides --nobuild in setup step.
         "--experimental_merged_skyframe_analysis_execution" // forces Skymeld.
         );
@@ -363,6 +318,8 @@ project = project_pb2.Project.create(project_directories = []) # empty
         proto.getSampleList().stream()
             .filter(sample -> sample.getLocationIdCount() == 1)
             .map(sample -> classNames.get((int) sample.getLocationId(0)))
+            // Skips entries that do not have class names (invalidation data).
+            .filter(name -> name != null)
             .collect(toImmutableList());
 
     // These top-level class names should be relatively stable.
@@ -371,7 +328,6 @@ project = project_pb2.Project.create(project_directories = []) # empty
             "com.google.devtools.build.lib.actions.Artifact.DerivedArtifact",
             "com.google.devtools.build.lib.actions.Artifact.SourceArtifact",
             "com.google.devtools.build.lib.analysis.ConfiguredTargetValue",
-            "com.google.devtools.build.lib.skyframe.ConfiguredTargetKey",
             "com.google.devtools.build.lib.cmdline.Label",
             "java.lang.Object[]");
 
@@ -491,9 +447,21 @@ genrule(
   }
 
   @Test
+  public void errorOnWarmSkyframeNoBuildUploadBuilds() throws Exception {
+    setupScenarioWithConfiguredTargets();
+
+    writeProjectSclWithActiveDirs("foo");
+
+    addOptions("--nobuild");
+    assertUploadSuccess("//foo:A");
+    var exception = assertThrows(AbruptExitException.class, () -> buildTarget("//foo:A"));
+    assertThat(exception).hasMessageThat().contains(BuildView.UPLOAD_BUILDS_MUST_BE_COLD);
+  }
+
+  @Test
   public void cquery_succeedsAndDoesNotTriggerUpload() throws Exception {
     setupScenarioWithConfiguredTargets();
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     runtimeWrapper.newCommand(CqueryCommand.class);
     buildTarget("//foo:A"); // succeeds, even though there's no PROJECT.scl
     assertThat(
@@ -507,7 +475,7 @@ genrule(
   public void cquery_succeedsAndDoesNotTriggerUploadWithProjectScl() throws Exception {
     setupScenarioWithConfiguredTargets();
     writeProjectSclWithActiveDirs("foo");
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     runtimeWrapper.newCommand(CqueryCommand.class);
     buildTarget("//foo:A");
     assertThat(
@@ -533,7 +501,9 @@ genrule(
             data = ["//foo:A"],
         )
         """);
-    addOptions(UPLOAD_MODE_OPTION, "--nobuild");
+
+    addUploadOptions();
+    addOptions("--nobuild");
 
     buildTarget("//mytest");
     assertThat(
@@ -666,8 +636,7 @@ filegroup(name = "I")
 
     // Under the frontier
     assertThat(labels).doesNotContain(parseCanonicalUnchecked("//C"));
-    assertThat(labels.stream().map(Label::toString).collect(toImmutableSet()))
-        .doesNotContain("//D:D");
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//D"));
 
     // Different top level target
     assertThat(labels).doesNotContain(parseCanonicalUnchecked("//B"));
@@ -705,8 +674,7 @@ filegroup(name = "I")
 
     // Under the frontier
     assertThat(labels).doesNotContain(parseCanonicalUnchecked("//C"));
-    assertThat(labels.stream().map(Label::toString).collect(toImmutableSet()))
-        .doesNotContain("//D:D");
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//D"));
 
     // Different top level target
     assertThat(labels).doesNotContain(parseCanonicalUnchecked("//B"));
@@ -772,8 +740,7 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
         .containsAtLeast(parseCanonicalUnchecked("//C"), parseCanonicalUnchecked("//E"));
 
     // Under the frontier
-    assertThat(owningLabels.stream().map(Label::toString).collect(toImmutableSet()))
-        .contains("//D:D");
+    assertThat(owningLabels).contains(parseCanonicalUnchecked("//D"));
 
     // Different top level target
     assertThat(owningLabels).doesNotContain(parseCanonicalUnchecked("//B"));

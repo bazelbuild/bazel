@@ -16,27 +16,17 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
-import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -46,17 +36,16 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
+import com.google.devtools.build.lib.exec.SpawnRunner.AbstractSpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -187,9 +176,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getInputMetadataProvider(),
-            () ->
-                context.getInputMapping(
-                    PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false),
+            () -> context.getInputMapping(/* willAccessRepeatedly= */ false),
             actionExecutionContext.getActionFileSystem() != null
                 ? actionExecutionContext.getActionFileSystem()
                 : actionExecutionContext.getExecRoot().getFileSystem(),
@@ -211,19 +198,23 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     if (spawnResult.status() != Status.SUCCESS) {
       String cwd = actionExecutionContext.getExecRoot().getPathString();
       String resultMessage = spawnResult.getFailureMessage();
-      String message =
-          !Strings.isNullOrEmpty(resultMessage)
-              ? resultMessage
-              : CommandFailureUtils.describeCommandFailure(
-                  executionOptions.verboseFailures, cwd, spawn);
+      String message;
+      if (!Strings.isNullOrEmpty(resultMessage)) {
+        message = resultMessage;
+      } else {
+        message =
+            CommandFailureUtils.describeCommandFailure(
+                executionOptions.getVerboseFailures(),
+                executionOptions.getExpandParamFiles(),
+                cwd,
+                spawn);
+      }
       throw new SpawnExecException(message, spawnResult, /* forciblyRunRemotely= */ false);
     }
     return ImmutableList.of(spawnResult);
   }
 
-  private final class SpawnExecutionContextImpl implements SpawnExecutionContext {
-    private final Spawn spawn;
-    private final ActionExecutionContext actionExecutionContext;
+  private final class SpawnExecutionContextImpl extends AbstractSpawnExecutionContext {
     @Nullable private final SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns;
     private final Duration timeout;
 
@@ -231,7 +222,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     // Memoize the input mapping so that prefetchInputs can reuse it instead of recomputing it.
     // TODO(ulfjack): Guard against client modification of this map.
     private SortedMap<PathFragment, ActionInput> lazyInputMapping;
-    private PathFragment inputMappingBaseDirectory;
 
     @Nullable private Digest digest;
 
@@ -240,8 +230,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         ActionExecutionContext actionExecutionContext,
         @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns,
         Duration timeout) {
-      this.spawn = spawn;
-      this.actionExecutionContext = actionExecutionContext;
+      super(spawn, actionExecutionContext);
       this.stopConcurrentSpawns = stopConcurrentSpawns;
       this.timeout = timeout;
     }
@@ -270,49 +259,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public ListenableFuture<Void> prefetchInputs() {
-      if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
-        return Futures.catchingAsync(
-            actionExecutionContext
-                .getActionInputPrefetcher()
-                .prefetchFiles(
-                    spawn.getResourceOwner(),
-                    getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
-                        .values(),
-                    getInputMetadataProvider(),
-                    Priority.MEDIUM,
-                    Reason.INPUTS),
-            BulkTransferException.class,
-            (BulkTransferException e) -> {
-              e.getLostArtifacts(actionExecutionContext.getInputMetadataProvider()::getInput)
-                  .throwIfNotEmpty();
-              throw new EnvironmentalExecException(
-                  e,
-                  FailureDetail.newBuilder()
-                      .setMessage("Failed to fetch blobs because of a remote cache error.")
-                      .setSpawn(
-                          FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
-                      .build());
-            },
-            directExecutor());
-      }
-
-      return immediateVoidFuture();
-    }
-
-    @Override
     public InputMetadataProvider getInputMetadataProvider() {
       return actionExecutionContext.getInputMetadataProvider();
-    }
-
-    @Override
-    public <T extends ActionContext> T getContext(Class<T> identifyingType) {
-      return actionExecutionContext.getContext(identifyingType);
-    }
-
-    @Override
-    public ArtifactPathResolver getPathResolver() {
-      return actionExecutionContext.getPathResolver();
     }
 
     @Override
@@ -334,15 +282,9 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public FileOutErr getFileOutErr() {
-      return actionExecutionContext.getFileOutErr();
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly) {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(boolean willAccessRepeatedly) {
       // Return previously computed copy if present.
-      if (lazyInputMapping != null && inputMappingBaseDirectory.equals(baseDirectory)) {
+      if (lazyInputMapping != null) {
         return lazyInputMapping;
       }
 
@@ -351,14 +293,13 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
         inputMapping =
             spawnInputExpander.getInputMapping(
-                spawn, actionExecutionContext.getInputMetadataProvider(), baseDirectory);
+                spawn, actionExecutionContext.getInputMetadataProvider());
       }
 
       // Don't cache the input mapping if it is unlikely that it is used again.
       // This reduces memory usage in the case where remote caching/execution is
       // used, and the expected cache hit rate is high.
       if (willAccessRepeatedly) {
-        inputMappingBaseDirectory = baseDirectory;
         lazyInputMapping = inputMapping;
       }
       return inputMapping;
@@ -379,31 +320,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
       ExtendedEventHandler eventHandler = actionExecutionContext.getEventHandler();
       progress.postTo(eventHandler, action);
-    }
-
-    @Override
-    public boolean isRewindingEnabled() {
-      return actionExecutionContext.isRewindingEnabled();
-    }
-
-    @Override
-    public void checkForLostInputs() throws LostInputsExecException {
-      try {
-        actionExecutionContext.checkForLostInputs();
-      } catch (LostInputsActionExecutionException e) {
-        throw e.toExecException();
-      }
-    }
-
-    @Nullable
-    @Override
-    public FileSystem getActionFileSystem() {
-      return actionExecutionContext.getActionFileSystem();
-    }
-
-    @Override
-    public ImmutableMap<String, String> getClientEnv() {
-      return actionExecutionContext.getClientEnv();
     }
   }
 }

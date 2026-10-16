@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.Label;
+import javax.annotation.Nullable;
+
 /**
  * Subset of {@link RuleClass} fields needed by dependents of {@link Rule} instances.
  *
@@ -45,4 +48,7 @@ interface RuleClassData {
 
   /** Returns true if corresponding {@link RuleClass} is Starlark-defined. */
   boolean isStarlark();
+
+  @Nullable // null if the rule is native
+  Label getRuleDefinitionEnvironmentLabel();
 }

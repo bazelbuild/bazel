@@ -38,6 +38,6 @@ public final class PackagePathInfoItem extends InfoItem {
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     checkNotNull(commandOptions);
     PackageOptions packageOptions = commandOptions.getOptions(PackageOptions.class);
-    return print(Joiner.on(":").join(packageOptions.packagePath));
+    return print(Joiner.on(":").join(packageOptions.getPackagePath()));
   }
 }

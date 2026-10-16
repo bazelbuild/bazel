@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -73,6 +74,7 @@ public final class JavaCompilationHelper {
   private final ImmutableList<Artifact> additionalInputsForDatabinding;
   private boolean enableJspecify = true;
   private boolean enableDirectClasspath = true;
+  private ImmutableList<CommandLine> extraCommandLineArgs = ImmutableList.of();
   private final String execGroup;
 
   public JavaCompilationHelper(
@@ -102,6 +104,10 @@ public final class JavaCompilationHelper {
 
   public void enableJspecify(boolean enableJspecify) {
     this.enableJspecify = enableJspecify;
+  }
+
+  public void setExtraCommandLineArgs(ImmutableList<CommandLine> extraCommandLineArgs) {
+    this.extraCommandLineArgs = Preconditions.checkNotNull(extraCommandLineArgs);
   }
 
   JavaTargetAttributes getAttributes() {
@@ -199,10 +205,7 @@ public final class JavaCompilationHelper {
           outputs.withOutput(
               ruleContext.getDerivedArtifact(
                   FileSystemUtils.appendWithoutExtension(
-                      outputs
-                          .output()
-                          .getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
-                      "-class"),
+                      outputs.output().getOutputDirRelativePath(), "-class"),
                   outputs.output().getRoot()));
       resourceJars.add(outputs.output());
       createResourceJarAction(originalOutput, ImmutableList.copyOf(resourceJars));
@@ -215,10 +218,7 @@ public final class JavaCompilationHelper {
           outputs.withOutput(
               ruleContext.getDerivedArtifact(
                   FileSystemUtils.replaceExtension(
-                      outputs
-                          .output()
-                          .getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
-                      "-pre-optimization.jar"),
+                      outputs.output().getOutputDirRelativePath(), "-pre-optimization.jar"),
                   outputs.output().getRoot()));
     }
 
@@ -294,8 +294,11 @@ public final class JavaCompilationHelper {
     builder.setCompressJar(true);
     builder.setExtraData(computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
-    builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
+    semantics
+        .getFixDepsTool(ruleContext.getRule(), getJavaConfiguration())
+        .ifPresent(builder::setFixDepsTool);
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
+    builder.setExtraCommandLineArgs(extraCommandLineArgs);
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
@@ -420,9 +423,7 @@ public final class JavaCompilationHelper {
   private Artifact turbineOutput(Artifact classJar, String newExtension) {
     return getAnalysisEnvironment()
         .getDerivedArtifact(
-            FileSystemUtils.replaceExtension(
-                classJar.getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
-                newExtension),
+            FileSystemUtils.replaceExtension(classJar.getOutputDirRelativePath(), newExtension),
             classJar.getRoot());
   }
 
@@ -447,6 +448,9 @@ public final class JavaCompilationHelper {
     builder.setOutputDepsProto(headerDeps);
     builder.setPlugins(plugins);
     builder.enableDirectClasspath(enableDirectClasspath);
+    semantics
+        .getFixDepsTool(ruleContext.getRule(), getJavaConfiguration())
+        .ifPresent(builder::setFixDepsTool);
     builder.build(javaToolchain);
   }
 
@@ -472,6 +476,7 @@ public final class JavaCompilationHelper {
     builder.setToolsJars(javaToolchain.getTools());
     builder.setExecGroup(execGroup);
     builder.setUtf8Environment(semantics.utf8Environment(ruleContext.getExecutionPlatform()));
+    builder.enableParallelism(semantics.turbineParallelism());
     return builder;
   }
 

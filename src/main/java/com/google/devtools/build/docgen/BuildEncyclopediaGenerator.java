@@ -14,6 +14,7 @@
 package com.google.devtools.build.docgen;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.common.options.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParser;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -35,7 +36,7 @@ public class BuildEncyclopediaGenerator {
             + "Single page (-1) and table-of-contents creation (-t) are mutually exclusive.\n");
     System.err.println(
         parser.describeOptionsWithDeprecatedCategories(
-            Collections.<String, String>emptyMap(), OptionsParser.HelpVerbosity.LONG));
+            Collections.<String, String>emptyMap(), HelpVerbosity.LONG));
   }
 
   private static void fail(Throwable e, boolean printStackTrace) {
@@ -63,42 +64,43 @@ public class BuildEncyclopediaGenerator {
     parser.parseAndExitUponError(args);
     BuildEncyclopediaOptions options = parser.getOptions(BuildEncyclopediaOptions.class);
 
-    if (options.help) {
+    if (options.getHelp()) {
       printUsage(parser);
       Runtime.getRuntime().exit(0);
     }
 
-    if (options.linkMapPath.isEmpty()
-        || (options.inputJavaDirs.isEmpty() && options.buildEncyclopediaStardocProtos.isEmpty())
-        || options.provider.isEmpty()
-        || (options.singlePage && options.createToc)) {
+    if (options.getLinkMapPath().isEmpty()
+        || (options.getInputJavaDirs().isEmpty()
+            && options.getBuildEncyclopediaStardocProtos().isEmpty())
+        || options.getProvider().isEmpty()
+        || (options.getSinglePage() && options.getCreateToc())) {
       printUsage(parser);
       Runtime.getRuntime().exit(1);
     }
 
     try {
-      DocLinkMap linkMap = DocLinkMap.createFromFile(options.linkMapPath);
-      RuleLinkExpander linkExpander = new RuleLinkExpander(options.singlePage, linkMap);
-      SourceUrlMapper urlMapper = new SourceUrlMapper(linkMap, options.inputRoot);
+      DocLinkMap linkMap = DocLinkMap.createFromFile(options.getLinkMapPath());
+      RuleLinkExpander linkExpander = new RuleLinkExpander(options.getSinglePage(), linkMap);
+      SourceUrlMapper urlMapper = new SourceUrlMapper(linkMap, options.getInputRoot());
 
       BuildEncyclopediaProcessor processor = null;
-      if (options.singlePage) {
+      if (options.getSinglePage()) {
         processor =
             new SinglePageBuildEncyclopediaProcessor(
-                linkExpander, urlMapper, createRuleClassProvider(options.provider));
+                linkExpander, urlMapper, createRuleClassProvider(options.getProvider()));
       } else {
         processor =
             new MultiPageBuildEncyclopediaProcessor(
                 linkExpander,
                 urlMapper,
-                createRuleClassProvider(options.provider),
-                options.createToc);
+                createRuleClassProvider(options.getProvider()),
+                options.getCreateToc());
       }
       processor.generateDocumentation(
-          options.inputJavaDirs,
-          options.buildEncyclopediaStardocProtos,
-          options.outputDir,
-          options.denylist);
+          options.getInputJavaDirs(),
+          options.getBuildEncyclopediaStardocProtos(),
+          options.getOutputDir(),
+          options.getDenylist());
     } catch (BuildEncyclopediaDocException e) {
       fail(e, false);
     } catch (Throwable e) {

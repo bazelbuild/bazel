@@ -21,7 +21,7 @@ import java.util.Collection;
 import javax.annotation.Nullable;
 
 /** A mutable implementation of StarlarkList. */
-final class MutableStarlarkList<E> extends StarlarkList<E> {
+final class MutableStarlarkList<E> extends StarlarkList<E> implements Compactable {
 
   // The implementation strategy is similar to ArrayList,
   // but without the extra indirection of using ArrayList.

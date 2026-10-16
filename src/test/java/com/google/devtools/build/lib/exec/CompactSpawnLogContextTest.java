@@ -21,9 +21,11 @@ import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAM
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -33,10 +35,13 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
@@ -45,10 +50,14 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -146,7 +155,6 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                     Protos.ExecLogEntry.Invocation.newBuilder()
                         .setHashFunctionName("SHA-256")
                         .setWorkspaceRunfilesDirectory(TestConstants.WORKSPACE_NAME)
-                        .setSiblingRepositoryLayout(siblingRepositoryLayout)
                         .setId("00000000-0000-0000-0000-000000000000"))
                 .build(),
             Protos.ExecLogEntry.newBuilder()
@@ -235,6 +243,34 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
   }
 
   @Test
+  public void testUnmaterializedEmptyTreeInput() throws Exception {
+    SpecialArtifact treeInput =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "tree");
+
+    // Deliberately don't create the directory: an empty tree artifact may not be materialized on
+    // disk, so its (empty) contents are only known to in-memory metadata.
+    assertThat(treeInput.getPath().exists()).isFalse();
+
+    TreeArtifactValue treeMetadata = TreeArtifactValue.newBuilder(treeInput).build();
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.put(treeInput, treeMetadata.getMetadata());
+    inputMetadataProvider.putTreeArtifact(treeInput, treeMetadata);
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        defaultSpawnBuilder().withInputs(treeInput).build(),
+        inputMetadataProvider,
+        // SpawnInputExpander keeps empty tree artifacts in the input map.
+        ImmutableSortedMap.of(treeInput.getExecPath(), treeInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(context, defaultSpawnExecBuilder().build());
+  }
+
+  @Test
   public void testUnreadableOutputs(@TestParameter OutputsMode outputsMode) throws Exception {
     Artifact readableFile = ActionsTestUtil.createArtifact(outputDir, "readable");
     Artifact unreadableFile = ActionsTestUtil.createArtifact(outputDir, "unreadable");
@@ -282,22 +318,111 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     assertThat(storedEventHandler.getPosts()).isEmpty();
   }
 
+  @Test
+  public void testMnemonicFilter() throws Exception {
+    SpawnBuilder spawn1 = defaultSpawnBuilder().withMnemonic("Mnemonic1");
+    SpawnBuilder spawn2 = defaultSpawnBuilder().withMnemonic("Mnemonic2");
+
+    SpawnLogContext context =
+        createSpawnLogContext(spawn -> spawn.getMnemonic().equals("Mnemonic1"));
+
+    context.logSpawn(
+        spawn1.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+    context.logSpawn(
+        spawn2.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(context, defaultSpawnExecBuilder().setMnemonic("Mnemonic1").build());
+  }
+
+  @Test
+  public void testStreaming() throws Exception {
+    Artifact file = ActionsTestUtil.createArtifact(rootDir, "file");
+    writeFile(file, "abc");
+
+    SpawnBuilder spawn = defaultSpawnBuilder().withInput(file);
+
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    BufferedOutputStream out = new BufferedOutputStream(baos);
+
+    SpawnLogContext context =
+        new CompactSpawnLogContext(
+            out,
+            "stream",
+            execRoot.asFragment(),
+            TestConstants.WORKSPACE_NAME,
+            Options.getDefaults(RemoteOptions.class),
+            DigestHashFunction.SHA256,
+            SyscallCache.NO_CACHE,
+            new CompressionServiceImpl(),
+            UUID.fromString("00000000-0000-0000-0000-000000000000"),
+            storedEventHandler,
+            /* logSpawnPredicate= */ s -> true);
+
+    context.logSpawn(
+        spawn.build(),
+        createInputMetadataProvider(file),
+        createInputMap(file),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    context.close();
+
+    ArrayList<SpawnExec> actual = new ArrayList<>();
+    try (InputStream in = new ByteArrayInputStream(baos.toByteArray());
+        SpawnLogReconstructor reconstructor = new SpawnLogReconstructor(in)) {
+      SpawnExec ex;
+      while ((ex = reconstructor.read()) != null) {
+        actual.add(ex);
+      }
+    }
+
+    assertThat(actual)
+        .containsExactly(
+            defaultSpawnExecBuilder()
+                .addInputs(File.newBuilder().setPath("file").setDigest(getDigest("abc")))
+                .build());
+  }
+
   @Override
   protected SpawnLogContext createSpawnLogContext(ImmutableMap<String, String> platformProperties)
       throws IOException, InterruptedException {
+    return createSpawnLogContext(platformProperties, /* logSpawnPredicate= */ spawn -> true);
+  }
+
+  SpawnLogContext createSpawnLogContext(Predicate<Spawn> logSpawnPredicate)
+      throws IOException, InterruptedException {
+    return createSpawnLogContext(ImmutableMap.of(), logSpawnPredicate);
+  }
+
+  SpawnLogContext createSpawnLogContext(
+      ImmutableMap<String, String> platformProperties, Predicate<Spawn> logSpawnPredicate)
+      throws IOException, InterruptedException {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteDefaultExecProperties = platformProperties.entrySet().asList();
+    remoteOptions.setRemoteDefaultExecPropertiesField(platformProperties.entrySet().asList());
 
     return new CompactSpawnLogContext(
-        logPath,
+        new BufferedOutputStream(logPath.getOutputStream()),
+        logPath.toString(),
         execRoot.asFragment(),
         TestConstants.WORKSPACE_NAME,
-        siblingRepositoryLayout,
         remoteOptions,
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE,
+        new CompressionServiceImpl(),
         UUID.fromString("00000000-0000-0000-0000-000000000000"),
-        storedEventHandler);
+        storedEventHandler,
+        logSpawnPredicate);
   }
 
   @Override

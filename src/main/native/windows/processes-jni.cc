@@ -278,7 +278,7 @@ class NativeProcess {
                                                   stdout_redirect, err_code);
         return false;
       }
-      if (!SetFilePointerEx(stdout_process, {0}, nullptr, FILE_END)) {
+      if (!SetFilePointerEx(stdout_process, {}, nullptr, FILE_END)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                   L"nativeCreateProcess",
@@ -339,7 +339,7 @@ class NativeProcess {
                                                   stderr_redirect, err_code);
         return false;
       }
-      if (!SetFilePointerEx(stderr_process, {0}, nullptr, FILE_END)) {
+      if (!SetFilePointerEx(stderr_process, {}, nullptr, FILE_END)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                   L"nativeCreateProcess",

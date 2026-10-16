@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Structure;
 
 /**
@@ -40,6 +41,12 @@ import net.starlark.java.eval.Structure;
  * them both returns an error.
  */
 public abstract class StructImpl implements Info, Structure, StructApi {
+
+  @Override
+  public boolean isAcyclic() {
+    // All implementations except for StarlarkInfo are acyclic.
+    return true;
+  }
 
   /**
    * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
@@ -111,7 +118,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
       return false;
     }
     for (String field : getFieldNames()) {
-      if (!Objects.equal(this.getValueOrNull(field), other.getValueOrNull(field))) {
+      if (!java.util.Objects.equals(this.getValueOrNull(field), other.getValueOrNull(field))) {
         return false;
       }
     }
@@ -136,7 +143,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
    * there is no guarantee, it depends on the actual values).
    */
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     boolean first = true;
     printer.append("struct(");
     // Sort by key to ensure deterministic output.
@@ -147,7 +154,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
       first = false;
       printer.append(fieldName);
       printer.append(" = ");
-      printer.repr(getValueOrNull(fieldName));
+      printer.repr(getValueOrNull(fieldName), semantics);
     }
     printer.append(")");
   }
@@ -163,6 +170,6 @@ public abstract class StructImpl implements Info, Structure, StructApi {
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 }

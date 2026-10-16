@@ -110,6 +110,15 @@ def create_jar_with_data(dat_file_path, jar_file_path):
     jar.write(dat_file_path, arcname=jar_internal_path)
 
 
+def create_jar_with_empty_data(jar_file_path):
+  jar_internal_path = (
+      "META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat"
+  )
+  with zipfile.ZipFile(jar_file_path, "w", zipfile.ZIP_DEFLATED) as jar:
+    info = zipfile.ZipInfo(filename=jar_internal_path)
+    jar.writestr(info, b"")
+
+
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("--data_dir", default="src/tools/singlejar/data")
@@ -172,6 +181,11 @@ if __name__ == "__main__":
     write_cache_file(v[1], dat)
     create_jar_with_data(dat, os.path.join(args.data_dir, v[0]))
     os.remove(dat)
+
+  empty_dat_jar = os.path.join(
+      args.data_dir, "log4j2_malformed_empty_plugin.jar"
+  )
+  create_jar_with_empty_data(empty_dat_jar)
 
   write_cache_file(
       {

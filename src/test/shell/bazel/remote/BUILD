@@ -141,3 +141,25 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
+
+sh_test(
+    name = "remote_downloader_test",
+    size = "large",
+    srcs = ["remote_downloader_test.sh"],
+    data = [
+        ":remote_utils",
+        "//src/test/shell/bazel:test-deps",
+        "//src/tools/remote:worker",
+        "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",
+    },
+    tags = [
+        "requires-network",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+)

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
@@ -167,7 +168,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     if (hasImplicitCcOutputs) {
       targetsInFooBar.addAll(labels("//foo/bar:libbar1.lo", "//foo/bar:libbar2.a"));
     }
-    targetsBeneathFoo = Sets.newHashSet();
+    targetsBeneathFoo = new HashSet<>();
     targetsBeneathFoo.addAll(targetsInFoo);
     targetsBeneathFoo.addAll(targetsInFooBar);
 

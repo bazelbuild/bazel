@@ -10,6 +10,7 @@ JDK_VERSIONS = [
     "11",
     "17",
     "21",
+    "25",
 ]
 
 # To avoid accidentally force fetching those dependencies, we put this target in its own package.
@@ -21,16 +22,16 @@ filegroup(
         "@com_google_protobuf//:LICENSE",
         "@remote_coverage_tools//:all_lcov_merger_lib",
         "@remote_java_tools//:GenClass",
-        "@remote_java_tools_darwin_arm64//:java_tools/src/tools/singlejar/singlejar_local",
-        "@remote_java_tools_darwin_x86_64//:java_tools/src/tools/singlejar/singlejar_local",
-        "@remote_java_tools_linux//:java_tools/src/tools/singlejar/singlejar_local",
-        "@remote_java_tools_linux_aarch64//:java_tools/src/tools/singlejar/singlejar_local",
-        "@remote_java_tools_windows//:java_tools/src/tools/singlejar/singlejar_local.exe",
+        "@remote_java_tools_darwin_arm64//:prebuilt_singlejar",
+        "@remote_java_tools_darwin_x86_64//:prebuilt_singlejar",
+        "@remote_java_tools_linux//:prebuilt_singlejar",
+        "@remote_java_tools_linux_aarch64//:prebuilt_singlejar",
+        "@remote_java_tools_windows//:prebuilt_singlejar",
         "@rules_cc//:LICENSE",
         "@rules_java//:WORKSPACE",
         "@rules_license//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
-        "@rules_python//:WORKSPACE",
+        "@rules_python//:LICENSE",
         "@rules_shell//shell:rules_bzl",
         "@rules_testing//:LICENSE",
     ] + select({

@@ -2,22 +2,26 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+    ],
 )
 
 java_library(
     name = "includescanning",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-request-options",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
@@ -25,6 +29,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -38,6 +44,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ephemeral_check_if_output_consumed",
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_descriptor",
@@ -45,7 +52,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:invalid_glob_pattern_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -57,10 +63,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:caffeine",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/caffeine",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -75,6 +76,7 @@ public class ActionGraphDump {
   private final boolean includeFileWriteContents;
   private final AqueryOutputHandler aqueryOutputHandler;
   private final ExtendedEventHandler eventHandler;
+  @Nullable private Set<ActionAnalysisMetadata> reachableActions;
 
   private Map<String, Iterable<String>> paramFileNameToContentMap;
 
@@ -118,6 +120,7 @@ public class ActionGraphDump {
     this.includeFileWriteContents = includeFileWriteContents;
     this.aqueryOutputHandler = aqueryOutputHandler;
     this.eventHandler = eventHandler;
+    this.reachableActions = null;
 
     KnownRuleClassStrings knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
     knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
@@ -127,7 +130,12 @@ public class ActionGraphDump {
     knownTargets = new KnownTargets(aqueryOutputHandler, knownRuleClassStrings);
   }
 
+  public void setReachableActions(@Nullable Set<ActionAnalysisMetadata> reachableActions) {
+    this.reachableActions = reachableActions;
+  }
+
   public ActionKeyContext getActionKeyContext() {
+
     return actionKeyContext;
   }
 
@@ -140,7 +148,9 @@ public class ActionGraphDump {
   }
 
   private void dumpSingleAction(ConfiguredTarget configuredTarget, ActionAnalysisMetadata action)
-      throws CommandLineExpansionException, InterruptedException, IOException,
+      throws CommandLineExpansionException,
+          InterruptedException,
+          IOException,
           TemplateExpansionException {
 
     // Store the content of param files.
@@ -152,8 +162,8 @@ public class ActionGraphDump {
       getParamFileNameToContentMap().put(paramFileExecPath, fileContent);
     }
 
-    if (actionFilters != null
-        && !AqueryUtils.matchesAqueryFilters(action, actionFilters, includePrunedInputs)) {
+    if (!AqueryUtils.matchesAqueryFilters(
+        action, actionFilters, includePrunedInputs, reachableActions)) {
       return;
     }
 
@@ -176,6 +186,10 @@ public class ActionGraphDump {
               actionExecutionMetadata.getKey(
                   getActionKeyContext(), /* inputMetadataProvider= */ null))
           .setDiscoversInputs(actionExecutionMetadata.discoversInputs());
+      String progressMessage = actionExecutionMetadata.getProgressMessage();
+      if (progressMessage != null) {
+        actionBuilder.setProgressMessage(progressMessage);
+      }
     }
 
     // store environment
@@ -187,7 +201,7 @@ public class ActionGraphDump {
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
       ImmutableMap<String, String> fixedEnvironment =
-          spawnAction.getEffectiveEnvironment(ImmutableMap.of());
+          spawnAction.getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP);
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
         actionBuilder.addEnvironmentVariables(
             AnalysisProtosV2.KeyValuePair.newBuilder()
@@ -210,7 +224,6 @@ public class ActionGraphDump {
         actionBuilder.setFileContents(contents);
       }
     }
-
 
     if (action instanceof UnresolvedSymlinkAction) {
       actionBuilder.setUnresolvedSymlinkTarget(((UnresolvedSymlinkAction) action).getTarget());
@@ -315,7 +328,9 @@ public class ActionGraphDump {
   }
 
   public void dumpConfiguredTarget(RuleConfiguredTargetValue configuredTargetValue)
-      throws CommandLineExpansionException, InterruptedException, IOException,
+      throws CommandLineExpansionException,
+          InterruptedException,
+          IOException,
           TemplateExpansionException {
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {

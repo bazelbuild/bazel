@@ -81,20 +81,22 @@ public final class RunfilesArtifactValue implements RichArtifactData {
 
     // Compute the digest of this runfiles tree by combining its layout and the digests of every
     // artifact it references.
-    this.metadata = FileArtifactValue.createProxy(computeDigest());
+    this.metadata = FileArtifactValue.createSymlinkTreeProxy(computeDigest());
   }
 
   private byte[] computeDigest() {
     Fingerprint result = new Fingerprint();
 
-    result.addInt(runfilesTree.getMapping().size());
-    for (var entry : runfilesTree.getMapping().entrySet()) {
-      result.addPath(entry.getKey());
-      result.addBoolean(entry.getValue() != null);
-      if (entry.getValue() != null) {
-        result.addPath(entry.getValue().getExecPath());
-      }
-    }
+    var mapping = runfilesTree.getMapping();
+    result.addInt(mapping.size());
+    mapping.forEach(
+        (path, artifact) -> {
+          result.addPath(path);
+          result.addBoolean(artifact != null);
+          if (artifact != null) {
+            result.addPath(artifact.getExecPath());
+          }
+        });
 
     result.addInt(files.size());
     for (int i = 0; i < files.size(); i++) {

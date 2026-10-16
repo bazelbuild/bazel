@@ -27,7 +27,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.syntax.Location;
+import net.starlark.java.eval.StarlarkSemantics;
 
 // LINT.IfChange
 // TODO(b/331163027): Remove this duplicate of common/objc/apple_platform.PLATFORM_TYPE
@@ -192,11 +192,11 @@ public enum ApplePlatform implements ApplePlatformApi {
     for (ApplePlatform type : values()) {
       fields.put(type.starlarkKey, type);
     }
-    return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
+    return StarlarkInfo.create(constructor, fields);
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(Ascii.toLowerCase(toString()));
   }
 

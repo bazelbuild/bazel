@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.collect.nestedset;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.List;
@@ -26,6 +26,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -150,6 +151,21 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (x instanceof StarlarkList || x instanceof Dict) {
       throw Starlark.errorf("depsets cannot contain items of type '%s'", Starlark.type(x));
     }
+
+    // Ideally, we'd just call Starlark.checkHashable(x). However, as noted above, we currently
+    // allow structs with mutable fields or tuples with mutable elements to be added to a depset
+    // when !strict, and those would fail Starlark.checkHashable check. So we have to duplicate
+    // Starlark.checkHashable's StackOverflowError-catching logic.
+    if (!Starlark.isAcyclic(x)) {
+      try {
+        // Catch stack overflows from self-referential values' hashCode() implementations early;
+        // NestedSet constructor and expand() require a working hashCode() for all elements.
+        var unused = x.hashCode();
+      } catch (StackOverflowError unused) {
+        throw Starlark.errorf(
+            "self-referential or overly nested data structure %s", Starlark.reprForErrors(x));
+      }
+    }
   }
 
   /** Returns a Depset that wraps the specified NestedSet. */
@@ -164,6 +180,21 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       return set.getOrder().emptyDepset();
     }
     return new Depset(ElementType.getTypeClass(elemClass), set);
+  }
+
+  /**
+   * Returns a {@link Depset} that wraps the specified {@link NestedSet}, skipping type
+   * normalization.
+   *
+   * <p>Safe to use only for arguments that previously came from a {@link Depset} (they were
+   * unwrapped and are now being rewrapped).
+   */
+  public static Depset rewrap(Class<?> elemClass, NestedSet<?> set) {
+    Preconditions.checkNotNull(elemClass, "elemClass cannot be null");
+    if (set.isEmpty()) {
+      return set.getOrder().emptyDepset();
+    }
+    return new Depset(elemClass, set);
   }
 
   /**
@@ -205,12 +236,11 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
    * @throws TypeException if the type does not accurately describe all elements
    */
   public <T> NestedSet<T> getSet(Class<T> type) throws TypeException {
-    ElementType elemType = getElementType();
-    if (!set.isEmpty() && !elemType.canBeCastTo(type)) {
+    if (!set.isEmpty() && !ElementType.canBeCastTo(elemClass, type)) {
       throw new TypeException(
           String.format(
               "got a depset of '%s', expected a depset of '%s'",
-              elemType, Starlark.classType(type)));
+              getElementType(), Starlark.classType(type)));
     }
     @SuppressWarnings("unchecked")
     NestedSet<T> res = (NestedSet<T>) set;
@@ -303,7 +333,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   public Order getOrder() {
@@ -316,13 +346,19 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   }
 
   @Override
-  public void repr(Printer printer) {
+  public boolean isAcyclic() {
+    // Because we invoke hashCode() on each element, which would throw on a self-referential value.
+    return true;
+  }
+
+  @Override
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("depset(");
-    printer.printList(set.toList(), "[", ", ", "]");
+    printer.printList(set.toList(), "[", ", ", "]", semantics);
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
       printer.append(", order = ");
-      printer.repr(order.getStarlarkName());
+      printer.repr(order.getStarlarkName(), semantics);
     }
     printer.append(")");
   }
@@ -369,7 +405,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       // (e.g. ConfiguredTarget), but violations are numerous so we must
       // suppress the checkElement call below and reintroduce it as a breaking change.
       // See b/144992997 or github.com/bazelbuild/bazel/issues/10289.
-      checkElement(x, /*strict=*/ strict);
+      checkElement(x, /* strict= */ strict);
 
       Class<?> xt = ElementType.getTypeClass(x.getClass());
       type = checkType(type, xt);
@@ -392,7 +428,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (builder.isEmpty()) {
       return builder.getOrder().emptyDepset();
     }
-    NestedSet<Object> set = builder.build();
+    NestedSet<?> set = builder.build();
     // If the nested set was optimized to one of the transitive elements, reuse the corresponding
     // depset.
     for (Depset x : transitive) {
@@ -502,10 +538,11 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     // getTypeClass calls here and in ElementType.of, and remove the special
     // case for Object.class since isAssignableFrom will allow any supertype
     // of the element type, whether or not it is a Starlark value class.
-    private boolean canBeCastTo(Class<?> cls) {
-      return this.cls == null
+    private static boolean canBeCastTo(@Nullable Class<?> elemClass, Class<?> cls) {
+      return elemClass == null
+          || elemClass == cls
           || cls == Object.class // historical exception
-          || getTypeClass(cls).isAssignableFrom(this.cls);
+          || getTypeClass(cls).isAssignableFrom(elemClass);
     }
 
     @Override
@@ -547,8 +584,9 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     return result;
   }
 
-  // Delegate equality to the underlying NestedSet. Otherwise, it's possible to create multiple
-  // Depset instances wrapping the same NestedSet that aren't equal to each other.
+  // Delegate equality to the underlying NestedSet. There are several places in Java code where we
+  // store NestedSets without the Depset wrapper to save memory. This strategy ensures that when we
+  // re-wrap these NestedSets as Depsets on demand, their Starlark equality behavior is as expected.
 
   @Override
   public int hashCode() {
@@ -557,11 +595,12 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof Depset && set.equals(((Depset) other).set);
+    return this == other || (other instanceof Depset d && set.equals(d.set));
   }
 
   /** The user-facing API to the {@code depset} callable. */
-  @GlobalMethods(environment = {Environment.BUILD, Environment.BZL})
+  @GlobalMethodDocs(environment = {Environment.BUILD, Environment.BZL})
+  @StarlarkLibrary
   public static final class DepsetLibrary {
 
     private DepsetLibrary() {}
@@ -623,7 +662,8 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
               doc = "A list of depsets whose elements will become indirect elements of the depset.",
               defaultValue = "None"),
         },
-        useStarlarkThread = true)
+        useStarlarkThread = true,
+        isTypeConstructor = true)
     public Depset depset(
         Object direct, String orderString, Object transitive, StarlarkThread thread)
         throws EvalException {

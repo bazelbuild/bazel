@@ -40,10 +40,10 @@ public final class TargetPatternResolverUtil {
 
   public static Collection<Target> resolvePackageTargets(Package pkg, FilteringPolicy policy) {
     if (policy == FilteringPolicies.NO_FILTER) {
-      return pkg.getTargets().values();
+      return pkg.getTargets();
     }
     CompactHashSet<Target> builder = CompactHashSet.create();
-    for (Target target : pkg.getTargets().values()) {
+    for (Target target : pkg.getTargets()) {
       if (policy.shouldRetain(target, false)) {
         builder.add(target);
       }

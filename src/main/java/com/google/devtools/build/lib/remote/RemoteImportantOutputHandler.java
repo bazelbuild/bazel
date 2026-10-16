@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.mergeBulkTransfer;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
@@ -24,12 +27,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -51,28 +56,45 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
   private final WalkableGraph graph;
   private final RemoteOutputChecker remoteOutputChecker;
   private final ActionInputPrefetcher actionInputPrefetcher;
+  private final RewoundActionSynchronizer rewoundActionSynchronizer;
 
   public RemoteImportantOutputHandler(
       WalkableGraph graph,
       RemoteOutputChecker remoteOutputChecker,
-      ActionInputPrefetcher actionInputPrefetcher) {
+      ActionInputPrefetcher actionInputPrefetcher,
+      RewoundActionSynchronizer rewoundActionSynchronizer) {
     this.graph = graph;
     this.remoteOutputChecker = remoteOutputChecker;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.rewoundActionSynchronizer = rewoundActionSynchronizer;
+  }
+
+  @Override
+  public boolean requiresHiddenOutputMetadata() {
+    // We want to process top-level runfiles in processOutputsAndGetLostArtifacts.
+    return true;
   }
 
   @Override
   public LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> importantOutputs,
-      InputMetadataProvider importantMetadataProvider,
-      InputMetadataProvider fullMetadataProvider)
+      Iterable<Artifact> importantOutputs, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException {
-    // Use the full metadata provider since we want to include runfiles trees.
-    try {
-      ensureToplevelArtifacts(importantOutputs, fullMetadataProvider);
+    // ensureToplevelArtifacts also downloads the artifacts of every runfiles tree known to the
+    // metadata provider. Runfiles trees are hidden top-level outputs and thus not among the
+    // important outputs, but the producers of the artifacts they contain must be guarded from
+    // rewinding during the download just like those of the important outputs.
+    Iterable<Artifact> artifactsToGuard =
+        Iterables.concat(
+            importantOutputs,
+            Iterables.concat(
+                Iterables.transform(
+                    metadataProvider.getRunfilesTrees(), tree -> tree.getArtifacts().toList())));
+    try (SilentCloseable lock =
+        maybeEnterProcessOutputsAndGetLostArtifacts(artifactsToGuard, metadataProvider)) {
+      ensureToplevelArtifacts(importantOutputs, metadataProvider);
     } catch (IOException e) {
       if (e instanceof BulkTransferException bulkTransferException) {
-        var lostArtifacts = bulkTransferException.getLostArtifacts(fullMetadataProvider::getInput);
+        var lostArtifacts = bulkTransferException.getLostArtifacts(metadataProvider::getInput);
         if (!lostArtifacts.isEmpty()) {
           return lostArtifacts;
         }
@@ -108,39 +130,63 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
   @Override
   public void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput) {}
 
+  @Override
+  public void processTooLargeStdoutErr(Path stdoutErr) {}
+
+  private SilentCloseable maybeEnterProcessOutputsAndGetLostArtifacts(
+      Iterable<Artifact> importantOutputs, InputMetadataProvider metadataProvider)
+      throws InterruptedException {
+    if (rewoundActionSynchronizer
+        instanceof RemoteRewoundActionSynchronizer remoteRewoundActionSynchronizer) {
+      return remoteRewoundActionSynchronizer.enterProcessOutputsAndGetLostArtifacts(
+          importantOutputs, metadataProvider);
+    }
+    return () -> {};
+  }
+
   private void ensureToplevelArtifacts(
       Iterable<Artifact> importantArtifacts, InputMetadataProvider metadataProvider)
       throws IOException, InterruptedException {
     var futures = new ArrayList<ListenableFuture<Void>>();
+    var ensuredOutputMetadata = new ArrayList<FileArtifactValue>();
 
     for (var artifact : importantArtifacts) {
-      downloadArtifact(metadataProvider, artifact, futures);
+      downloadArtifact(metadataProvider, artifact, futures, ensuredOutputMetadata);
     }
 
     for (var runfileTree : metadataProvider.getRunfilesTrees()) {
       for (var artifact : runfileTree.getArtifacts().toList()) {
-        downloadArtifact(metadataProvider, artifact, futures);
+        downloadArtifact(metadataProvider, artifact, futures, ensuredOutputMetadata);
       }
     }
 
     // TODO: Only wait for failed futures to complete as long as they can all be explained by
     // lost outputs.
     try {
-      var unused = Utils.mergeBulkTransfer(futures).get();
+      var unused = mergeBulkTransfer(futures).get();
     } catch (ExecutionException e) {
       Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
       Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
       Throwables.throwIfUnchecked(e.getCause());
       throw new IllegalStateException(e.getCause());
     }
+
+    // These outputs are now present in the local filesystem, but their generating actions were not
+    // reexecuted, so the metadata tracked for them in Skyframe remains remote. Record the
+    // materialization on the metadata so that if such a file is deleted locally, a later
+    // invocation reruns the generating action to restore it.
+    for (var metadata : ensuredOutputMetadata) {
+      metadata.setMaterializedAsToplevelOutput(true);
+    }
   }
 
   private void downloadArtifact(
       InputMetadataProvider metadataProvider,
       Artifact artifact,
-      List<ListenableFuture<Void>> futures)
+      List<ListenableFuture<Void>> futures,
+      List<FileArtifactValue> ensuredOutputMetadata)
       throws IOException, InterruptedException {
-    if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
+    if (!RemoteOutputChecker.mayBeRemote(artifact)) {
       return;
     }
 
@@ -164,7 +210,8 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
                 // derivedArtifact's generating action may be an action template, which doesn't
                 // implement the required ActionExecutionMetadata.
                 getGeneratingAction(filesToDownload.getFirst()),
-                filesToDownload,
+                /* spawn= */ null,
+                () -> filesToDownload,
                 metadataProvider,
                 ActionInputPrefetcher.Priority.LOW,
                 ActionInputPrefetcher.Reason.OUTPUTS));
@@ -175,11 +222,25 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
         return;
       }
 
-      if (remoteOutputChecker.shouldDownloadOutput(artifact, metadata)) {
+      // The metadata of a source directory in an external repo doesn't tell whether the files
+      // below it are only available remotely, which is the case as long as the repo is served from
+      // the remote repo contents cache.
+      boolean isSourceDirectory =
+          artifact.isSourceArtifact() && metadata.getType() == FileStateType.DIRECTORY;
+      if (isSourceDirectory
+          ? remoteOutputChecker.shouldDownloadOutput(
+              artifact.getExecPath(), /* treeRootExecPath= */ null)
+          : remoteOutputChecker.shouldDownloadOutput(artifact, metadata)) {
+        if (!isSourceDirectory) {
+          ensuredOutputMetadata.add(metadata);
+        }
         futures.add(
             actionInputPrefetcher.prefetchFiles(
-                getGeneratingAction(derivedArtifact),
-                ImmutableList.of(artifact),
+                artifact instanceof DerivedArtifact derivedArtifact
+                    ? getGeneratingAction(derivedArtifact)
+                    : null,
+                /* spawn= */ null,
+                () -> ImmutableList.of(artifact),
                 metadataProvider,
                 ActionInputPrefetcher.Priority.LOW,
                 ActionInputPrefetcher.Reason.OUTPUTS));

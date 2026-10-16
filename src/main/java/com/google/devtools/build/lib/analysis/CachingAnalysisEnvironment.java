@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
@@ -96,7 +99,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       StarlarkBuiltinsValue starlarkBuiltinsValue) {
     this.artifactFactory = artifactFactory;
     this.actionKeyContext = actionKeyContext;
-    this.owner = Preconditions.checkNotNull(owner);
+    this.owner = checkNotNull(owner);
     this.extendedSanityChecks = extendedSanityChecks;
     this.allowAnalysisFailures = allowAnalysisFailures;
     this.errorEventListener = errorEventListener;
@@ -311,7 +314,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public void registerAction(ActionAnalysisMetadata action) {
     Preconditions.checkState(enabled);
-    this.actions.add(Preconditions.checkNotNull(action, owner));
+    this.actions.add(checkNotNull(action, owner));
   }
 
   @Nullable
@@ -353,6 +356,13 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException {
     return getWorkspaceStatusValue().getVolatileArtifact();
+  }
+
+  @Override
+  public void declareStampSettingDep() throws InterruptedException {
+    checkNotNull(
+        skyframeEnv.getValue(PrecomputedValue.STAMP_SETTING_MARKER.getKey()),
+        "Precomputed value not done");
   }
 
   private WorkspaceStatusValue getWorkspaceStatusValue() throws InterruptedException {

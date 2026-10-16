@@ -32,8 +32,8 @@ import javax.annotation.Nullable;
 
 /**
  * A helper class for building {@link ConfiguredTarget} instances, in particular for non-rule ones.
- * For {@link com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget}
- * instances, use {@link RuleContext} instead, which is a subclass of this class.
+ * For {@code com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget}
+ * instances, use {@code RuleContext} instead, which is a subclass of this class.
  *
  * <p>The class is intended to be sub-classed by RuleContext, in order to share the code. However,
  * it's not intended for sub-classing beyond that, and the constructor is intentionally package
@@ -48,13 +48,14 @@ public class TargetContext {
   /**
    * This only contains prerequisites that are not declared in rule attributes, with the exception
    * of visibility (i.e., visibility is represented here, even though it is a rule attribute in case
-   * of a rule). Rule attributes are handled by the {@link RuleContext} subclass.
+   * of a rule). Rule attributes are handled by the {@code RuleContext} subclass.
    */
   private final ListMultimap<Label, ConfiguredTargetAndData> directPrerequisites;
 
   private final NestedSet<PackageGroupContents> visibility;
 
-  @Nullable private final PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
+  @Nullable
+  private final TransitiveVisibilityProvider.Requirement transitiveVisibilityImposedByThisPackage;
 
   /**
    * The constructor is intentionally package private.
@@ -67,7 +68,7 @@ public class TargetContext {
       BuildConfigurationValue configuration,
       Set<ConfiguredTargetAndData> directPrerequisites,
       NestedSet<PackageGroupContents> visibility,
-      @Nullable PackageSpecificationProvider transitiveVisibility) {
+      @Nullable TransitiveVisibilityProvider.Requirement transitiveVisibility) {
     this.env = env;
     this.target = target;
     this.configuration = configuration;
@@ -113,7 +114,7 @@ public class TargetContext {
   }
 
   @Nullable
-  public PackageSpecificationProvider getTransitiveVisibilityImposedByThisPackage() {
+  public TransitiveVisibilityProvider.Requirement getTransitiveVisibilityImposedByThisPackage() {
     return transitiveVisibilityImposedByThisPackage;
   }
 

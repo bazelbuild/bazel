@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.testutil;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Streams.stream;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -31,7 +32,7 @@ import java.util.NoSuchElementException;
 public final class SpawnInputUtils {
 
   public static ActionInput getInputWithName(Spawn spawn, String name) {
-    return spawn.getInputFiles().toList().stream()
+    return stream(spawn.getInputFiles().flatten())
         .filter(input -> input.getExecPathString().contains(name))
         .findFirst()
         .orElseThrow(() -> noSuchInput("spawn input", name, spawn));
@@ -42,7 +43,7 @@ public final class SpawnInputUtils {
       InputMetadataProvider inputMetadataProvider,
       String artifactName,
       String inputName) {
-    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
+    for (ActionInput actionInput : spawn.getInputFiles().flatten()) {
       if (!(actionInput instanceof Artifact fileset)
           || !fileset.isFileset()
           || !fileset.getExecPathString().contains(artifactName)) {
@@ -99,7 +100,7 @@ public final class SpawnInputUtils {
 
   public static Artifact getRunfilesArtifactWithName(
       Spawn spawn, ActionExecutionContext context, String name) {
-    return spawn.getInputFiles().toList().stream()
+    return stream(spawn.getInputFiles().flatten())
         .filter(i -> i instanceof Artifact && ((Artifact) i).isRunfilesTree())
         .map(i -> context.getInputMetadataProvider().getRunfilesMetadata(i).getRunfilesTree())
         .flatMap(t -> t.getArtifacts().toList().stream())

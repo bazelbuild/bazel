@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo.ProtoInfoProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -68,7 +67,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
-  private void testExternalRepoWithGeneratedProto(boolean siblingRepoLayout) throws Exception {
+  @Test
+  public void testExternalRepoWithGeneratedProto() throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -77,9 +77,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "MODULE.bazel",
         "bazel_dep(name = 'foo')",
         "local_path_override(module_name = 'foo', path = '/foo')");
-    if (siblingRepoLayout) {
-      setBuildLanguageOptions("--experimental_sibling_repository_layout");
-    }
 
     scratch.file("/foo/MODULE.bazel", "module(name = 'foo')");
     scratch.file(
@@ -93,13 +90,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x:x'])");
     invalidatePackages();
 
-    String genfiles =
-        getTargetConfiguration()
-            .getGenfilesFragment(
-                siblingRepoLayout ? RepositoryName.create("foo+") : RepositoryName.MAIN)
-            .toString();
-    String fooProtoRoot;
-    fooProtoRoot = (siblingRepoLayout ? genfiles : genfiles + "/external/foo+");
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    String fooProtoRoot = genfiles + "/external/foo+";
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ProtoInfo aInfo = getProtoInfo(a);
     assertThat(aInfo.getTransitiveProtoSourceRoots().toList()).containsExactly(".", fooProtoRoot);
@@ -110,16 +102,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExternalRepoWithGeneratedProto_withSubdirRepoLayout() throws Exception {
-    testExternalRepoWithGeneratedProto(/* siblingRepoLayout= */ false);
-  }
-
-  @Test
-  public void test_siblingRepoLayout_externalRepoWithGeneratedProto() throws Exception {
-    testExternalRepoWithGeneratedProto(/* siblingRepoLayout= */ true);
-  }
-
-  private void testImportPrefixInExternalRepo(boolean siblingRepoLayout) throws Exception {
+  public void testImportPrefixInExternalRepo() throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -128,10 +111,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "MODULE.bazel",
         "bazel_dep(name = 'yolo_repo')",
         "local_path_override(module_name = 'yolo_repo', path = '/yolo_repo')");
-
-    if (siblingRepoLayout) {
-      setBuildLanguageOptions("--experimental_sibling_repository_layout");
-    }
 
     scratch.file("/yolo_repo/MODULE.bazel", "module(name = 'yolo_repo')");
     scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
@@ -155,16 +134,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testImportPrefixInExternalRepo_withSubdirRepoLayout() throws Exception {
-    testImportPrefixInExternalRepo(/*siblingRepoLayout=*/ false);
-  }
-
-  @Test
-  public void testImportPrefixInExternalRepo_withSiblingRepoLayout() throws Exception {
-    testImportPrefixInExternalRepo(/*siblingRepoLayout=*/ true);
-  }
-
-  private void testImportPrefixAndStripInExternalRepo(boolean siblingRepoLayout) throws Exception {
+  public void testImportPrefixAndStripInExternalRepo() throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -173,10 +143,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "MODULE.bazel",
         "bazel_dep(name = 'yolo_repo')",
         "local_path_override(module_name = 'yolo_repo', path = '/yolo_repo')");
-
-    if (siblingRepoLayout) {
-      setBuildLanguageOptions("--experimental_sibling_repository_layout");
-    }
 
     scratch.file("/yolo_repo/MODULE.bazel", "module(name = 'yolo_repo')");
     scratch.file("/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto");
@@ -202,16 +168,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testImportPrefixAndStripInExternalRepo_withSubdirRepoLayout() throws Exception {
-    testImportPrefixAndStripInExternalRepo(/*siblingRepoLayout=*/ false);
-  }
-
-  @Test
-  public void testImportPrefixAndStripInExternalRepo_withSiblingRepoLayout() throws Exception {
-    testImportPrefixAndStripInExternalRepo(/*siblingRepoLayout=*/ true);
-  }
-
-  private void testStripImportPrefixInExternalRepo(boolean siblingRepoLayout) throws Exception {
+  public void testStripImportPrefixInExternalRepo() throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -220,10 +177,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "MODULE.bazel",
         "bazel_dep(name = 'yolo_repo')",
         "local_path_override(module_name = 'yolo_repo', path = '/yolo_repo')");
-
-    if (siblingRepoLayout) {
-      setBuildLanguageOptions("--experimental_sibling_repository_layout");
-    }
 
     scratch.file("/yolo_repo/MODULE.bazel", "module(name = 'yolo_repo')");
     scratch.file("/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto");
@@ -248,17 +201,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStripImportPrefixInExternalRepo_withSubdirRepoLayout() throws Exception {
-    testStripImportPrefixInExternalRepo(/*siblingRepoLayout=*/ false);
-  }
-
-  @Test
-  public void testStripImportPrefixInExternalRepo_withSiblingRepoLayout() throws Exception {
-    testStripImportPrefixInExternalRepo(/*siblingRepoLayout=*/ true);
-  }
-
-  private void testRelativeStripImportPrefixInExternalRepo(boolean siblingRepoLayout)
-      throws Exception {
+  public void testRelativeStripImportPrefixInExternalRepo() throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -267,10 +210,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "MODULE.bazel",
         "bazel_dep(name = 'yolo_repo')",
         "local_path_override(module_name = 'yolo_repo', path = '/yolo_repo')");
-
-    if (siblingRepoLayout) {
-      setBuildLanguageOptions("--experimental_sibling_repository_layout");
-    }
 
     scratch.file("/yolo_repo/MODULE.bazel", "module(name = 'yolo_repo')");
     scratch.file("/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto");
@@ -291,16 +230,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
                     getProtoInfo(target).getStrictImportableProtoSourcesForDependents().toList())
                 .getExecPathString())
         .endsWith("/_virtual_imports/yolo_proto/yolo_pkg/yolo.proto");
-  }
-
-  @Test
-  public void testRelativeStripImportPrefixInExternalRepo_withSubdirRepoLayout() throws Exception {
-    testRelativeStripImportPrefixInExternalRepo(/*siblingRepoLayout=*/ false);
-  }
-
-  @Test
-  public void testRelativeStripImportPrefixInExternalRepo_withSiblingRepoLayout() throws Exception {
-    testRelativeStripImportPrefixInExternalRepo(/*siblingRepoLayout=*/ true);
   }
 
   @Test
@@ -339,7 +268,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//a/b:d"));
-    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
     assertThat(commandLine).contains("-I" + genfiles + "/a/b/_virtual_imports/d");
   }
 
@@ -359,7 +288,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//a/b:d"));
-    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
     assertThat(commandLine).contains("-I" + genfiles + "/a/b/_virtual_imports/d");
   }
 
@@ -450,7 +379,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//a:a"));
-    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
     assertThat(commandLine).contains("-I" + genfiles + "/external/foo+/x/y/_virtual_imports/q");
   }
 
@@ -511,12 +440,11 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
         "proto_library(name='foo', srcs=['a.proto'], import_prefix='foo')");
 
-    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
     ProtoInfo provider = getProtoInfo(getConfiguredTarget("//x:foo"));
     assertThat(Iterables.transform(provider.getDirectProtoSources(), s -> s.getExecPathString()))
         .containsExactly(genfiles + "/x/_virtual_imports/foo/foo/x/a.proto");
   }
-
 
   @Test
   public void protoLibrary_reexport_allowed() throws Exception {

@@ -53,6 +53,82 @@ function test_execvp_error_message_contains_path() {
   expect_log "\"execvp(/does/not/exist, 0x[[:alnum:]]*)\": No such file or directory"
 }
 
+function test_execvp_error_message_missing_interpreter() {
+  local bad_script="$SANDBOX_DIR/bad_script.sh"
+  cat > "$bad_script" <<'EOF'
+#!/nonexistent/interpreter/foo
+echo "should not run"
+EOF
+  chmod +x "$bad_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$bad_script" &> $TEST_log || code=$?
+  expect_log "file exists, but interpreter '/nonexistent/interpreter/foo' does not exist in sandbox"
+}
+
+function test_execvp_error_message_shebang_with_leading_whitespace() {
+  local bad_script="$SANDBOX_DIR/leading_whitespace.sh"
+  cat > "$bad_script" <<'EOF'
+#!   /nonexistent/interpreter/whitespace
+echo "should not run"
+EOF
+  chmod +x "$bad_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$bad_script" &> $TEST_log || code=$?
+  expect_log "file exists, but interpreter '/nonexistent/interpreter/whitespace' does not exist in sandbox"
+}
+
+function test_execvp_successful_script_execution() {
+  local good_script="$SANDBOX_DIR/good_script.sh"
+  cat > "$good_script" <<'EOF'
+#!/bin/sh
+echo "script executed successfully"
+EOF
+  chmod +x "$good_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$good_script" &> $TEST_log || fail "Expected script to execute successfully"
+  expect_log "script executed successfully"
+  expect_not_log "does not exist in sandbox"
+}
+
+function test_execvp_error_message_shebang_with_args() {
+  local bad_script="$SANDBOX_DIR/args_script.sh"
+  cat > "$bad_script" <<'EOF'
+#!/nonexistent/interpreter/bar -x --arg
+echo "should not run"
+EOF
+  chmod +x "$bad_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$bad_script" &> $TEST_log || code=$?
+  expect_log "file exists, but interpreter '/nonexistent/interpreter/bar' does not exist in sandbox"
+}
+
+function test_execvp_error_message_shebang_with_escaped_space() {
+  local bad_script="$SANDBOX_DIR/escaped_space.sh"
+  cat > "$bad_script" <<'EOF'
+#!/home/Foo\ Bar/goo/interpreter.exe
+echo "should not run"
+EOF
+  chmod +x "$bad_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$bad_script" &> $TEST_log || code=$?
+  expect_log "file exists, but interpreter '/home/Foo\\\' does not exist in sandbox"
+}
+
+function test_execvp_error_message_shebang_not_a_directory() {
+  local dummy_file="$SANDBOX_DIR/dummy_file"
+  touch "$dummy_file"
+  local bad_script="$SANDBOX_DIR/not_a_dir.sh"
+  cat > "$bad_script" <<EOF
+#!$dummy_file/foo
+echo "should not run"
+EOF
+  chmod +x "$bad_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$bad_script" &> $TEST_log || code=$?
+  expect_log "file exists, but interpreter '$dummy_file/foo' does not exist in sandbox"
+}
+
+
 function test_default_user_is_current_user() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /usr/bin/id &> $TEST_log || fail
   local current_uid_number="$(id -u)"
@@ -481,6 +557,96 @@ EOF
      && fail "Expected sandbox run to fail"
 
   expect_not_log "hi there"
+}
+
+function test_cgroups_v2_peak_memory_mock() {
+  local local_tmp="$(mktemp -d "${OUT_DIR}/test_cgroups_v2_peak_memory_mockXXXX")"
+  local stats_out_path="${local_tmp}/statsfile"
+  local stats_out_decoded_path="${local_tmp}/statsfile.decoded"
+
+  # Create a mock cgroup directory
+  local mock_cgroup_dir="${local_tmp}/mock_cgroup"
+  mkdir -p "${mock_cgroup_dir}"
+
+  # Write a mock peak memory value (40MB = 41943040 bytes)
+  echo "41943040" > "${mock_cgroup_dir}/memory.peak"
+
+  # Run sandbox pointing to the mock cgroup directory
+  local code=0
+  "${linux_sandbox}" \
+      -W "${SANDBOX_DIR}" \
+      -S "${stats_out_path}" \
+      -C "${mock_cgroup_dir}" \
+      -- /bin/true \
+      &> "${TEST_log}" || code="$?"
+
+  assert_equals 0 "${code}"
+
+  if ! [[ -e "${stats_out_path}" ]]; then
+    fail "Stats file not found: '${stats_out_path}'"
+  fi
+
+  # Decode stats
+  "${protoc_compiler}" --proto_path="${STATS_PROTO_DIR}" \
+      --decode tools.protos.ExecutionStatistics execution_statistics.proto \
+      < "${stats_out_path}" > "${stats_out_decoded_path}"
+
+  if ! [[ -e "${stats_out_decoded_path}" ]]; then
+    fail "Decoded stats file not found: '${stats_out_decoded_path}'"
+  fi
+
+  # Assert maxrss is reported and matches the mock value (40MB = 40960 KB)
+  local maxrss=0
+  if grep -q maxrss "${stats_out_decoded_path}"; then
+    maxrss="$(grep maxrss "${stats_out_decoded_path}" | cut -f2 -d':' | tr -dc '0-9')"
+  fi
+
+  assert_equals 40960 "${maxrss}"
+}
+
+function test_cgroups_v1_peak_memory_mock() {
+  local local_tmp="$(mktemp -d "${OUT_DIR}/test_cgroups_v1_peak_memory_mockXXXX")"
+  local stats_out_path="${local_tmp}/statsfile"
+  local stats_out_decoded_path="${local_tmp}/statsfile.decoded"
+
+  # Create a mock cgroup directory
+  local mock_cgroup_dir="${local_tmp}/mock_cgroup"
+  mkdir -p "${mock_cgroup_dir}"
+
+  # Write a mock peak memory value (40MB = 41943040 bytes)
+  echo "41943040" > "${mock_cgroup_dir}/memory.max_usage_in_bytes"
+
+  # Run sandbox pointing to the mock cgroup directory
+  local code=0
+  "${linux_sandbox}" \
+      -W "${SANDBOX_DIR}" \
+      -S "${stats_out_path}" \
+      -C "${mock_cgroup_dir}" \
+      -- /bin/true \
+      &> "${TEST_log}" || code="$?"
+
+  assert_equals 0 "${code}"
+
+  if ! [[ -e "${stats_out_path}" ]]; then
+    fail "Stats file not found: '${stats_out_path}'"
+  fi
+
+  # Decode stats
+  "${protoc_compiler}" --proto_path="${STATS_PROTO_DIR}" \
+      --decode tools.protos.ExecutionStatistics execution_statistics.proto \
+      < "${stats_out_path}" > "${stats_out_decoded_path}"
+
+  if ! [[ -e "${stats_out_decoded_path}" ]]; then
+    fail "Decoded stats file not found: '${stats_out_decoded_path}'"
+  fi
+
+  # Assert maxrss is reported and matches the mock value (40MB = 40960 KB)
+  local maxrss=0
+  if grep -q maxrss "${stats_out_decoded_path}"; then
+    maxrss="$(grep maxrss "${stats_out_decoded_path}" | cut -f2 -d':' | tr -dc '0-9')"
+  fi
+
+  assert_equals 40960 "${maxrss}"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

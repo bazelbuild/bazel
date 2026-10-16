@@ -21,7 +21,9 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
@@ -40,28 +42,26 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
-import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
@@ -101,6 +100,9 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>This class is non-final for mocking purposes. DO NOT extend it in production code.
  */
 public class CommandEnvironment {
+  private static final ImmutableSet<String> ALWAYS_INHERITED_REPO_ENV =
+      OS.getCurrent() == OS.WINDOWS ? ImmutableSet.of("PATH", "PATHEXT") : ImmutableSet.of("PATH");
+
   private final BlazeRuntime runtime;
   private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;
@@ -114,8 +116,8 @@ public class CommandEnvironment {
   private final ImmutableMap<String, String> clientEnv;
   private final Set<String> visibleActionEnv = new TreeSet<>();
   private final Set<String> visibleTestEnv = new TreeSet<>();
-  private final Map<String, String> repoEnv = new TreeMap<>();
-  private final Map<String, String> repoEnvFromOptions = new TreeMap<>();
+  private final ImmutableMap<String, String> repoEnv;
+  private final ImmutableMap<String, String> nonstrictRepoEnv;
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
   private final Command command;
@@ -166,6 +168,11 @@ public class CommandEnvironment {
 
   @GuardedBy("outputDirectoryHelperLock")
   private ActionOutputDirectoryHelper outputDirectoryHelper;
+
+  private final Object runfilesTreeUpdaterLock = new Object();
+
+  @GuardedBy("runfilesTreeUpdaterLock")
+  private RunfilesTreeUpdater runfilesTreeUpdater;
 
   // List of flags and their values that were added by invocation policy. May contain multiple
   // occurrences of the same flag.
@@ -245,7 +252,7 @@ public class CommandEnvironment {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
-    this.reporter = new Reporter(eventBus);
+    this.reporter = new Reporter(new EventBusEventHandler(eventBus));
     this.eventBus = eventBus;
     this.commandThread = commandThread;
     this.command = command;
@@ -289,18 +296,18 @@ public class CommandEnvironment {
       this.relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
     }
 
-    this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
-    this.commandStartTime = commandStartTime - commandOptions.startupTime;
+    this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.getWaitTime());
+    this.commandStartTime = commandStartTime - commandOptions.getStartupTime();
     this.commandExtensions = ImmutableList.copyOf(commandExtensions);
     workspace.getSkyframeExecutor().setEventBus(eventBus);
     eventBus.register(this);
-    float httpTimeoutScaling = (float) commandOptions.httpTimeoutScaling;
-    if (commandOptions.httpTimeoutScaling <= 0) {
+    float httpTimeoutScaling = (float) commandOptions.getHttpTimeoutScaling();
+    if (commandOptions.getHttpTimeoutScaling() <= 0) {
       reporter.handle(
           Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
       httpTimeoutScaling = 1.0f;
     }
-    if (commandOptions.httpMaxParallelDownloads <= 0) {
+    if (commandOptions.getHttpMaxParallelDownloads() <= 0) {
       this.blazeModuleEnvironment.exit(
           new AbruptExitException(
               DetailedExitCode.of(
@@ -314,9 +321,9 @@ public class CommandEnvironment {
 
     this.httpDownloader =
         new HttpDownloader(
-            commandOptions.httpConnectorAttempts,
-            commandOptions.httpConnectorRetryMaxTimeout,
-            commandOptions.httpMaxParallelDownloads,
+            commandOptions.getHttpConnectorAttempts(),
+            commandOptions.getHttpConnectorRetryMaxTimeout(),
+            commandOptions.getHttpMaxParallelDownloads(),
             httpTimeoutScaling);
     this.delegatingDownloader = new DelegatingDownloader(httpDownloader);
 
@@ -325,28 +332,21 @@ public class CommandEnvironment {
             options.getOptions(ClientOptions.class),
             "CommandEnvironment needs its options provider to have ClientOptions loaded.");
 
-    this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
-    this.commandId = computeCommandId(commandOptions.invocationId, warnings, attemptNumber);
+    this.clientEnv = makeMapFromMapEntries(clientOptions.getClientEnv());
+    this.commandId = computeCommandId(commandOptions.getInvocationId(), warnings, attemptNumber);
     this.buildRequestId =
-        commandOptions.buildRequestId != null
-            ? commandOptions.buildRequestId
+        commandOptions.getBuildRequestId() != null
+            ? commandOptions.getBuildRequestId()
             : buildRequestIdOverride != null
                 ? buildRequestIdOverride
                 : UUID.randomUUID().toString();
 
-    this.repoEnv.putAll(clientEnv);
-
-    Set<String> defaultRepoEnvInherited = new TreeSet<>();
-    defaultRepoEnvInherited.add("PATH");
-    if (OS.getCurrent() == OS.WINDOWS) {
-      defaultRepoEnvInherited.add("PATHEXT");
-    }
-    for (String name : defaultRepoEnvInherited) {
-      String value = clientEnv.get(name);
-      if (value != null) {
-        this.repoEnvFromOptions.put(name, value);
-      }
-    }
+    var repoEnvBuilder =
+        new TreeMap<>(
+            commandOptions.getUseStrictRepoEnv()
+                ? Maps.filterKeys(clientEnv, ALWAYS_INHERITED_REPO_ENV::contains)
+                : clientEnv);
+    var nonstrictRepoEnvBuilder = new TreeMap<>(clientEnv);
 
     // TODO: This only needs to check for loads() rather than analyzes() due to
     //  the effect of --action_env on the repository env. Revert back to
@@ -354,31 +354,31 @@ public class CommandEnvironment {
     if (command.buildPhase().loads() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
-      for (var envVar : options.getOptions(CoreOptions.class).actionEnvironment) {
+      for (var envVar : options.getOptions(CoreOptions.class).getActionEnvironment()) {
         switch (envVar) {
-          case Converters.EnvVar.Set(String name, String value) -> {
+          case EnvVar.Set(String name, String value) -> {
             visibleActionEnv.remove(name);
-            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
-              repoEnv.put(name, value);
-              repoEnvFromOptions.put(name, value);
+            if (!options.getOptions(CommonCommandOptions.class).getRepoEnvIgnoresActionEnv()) {
+              repoEnvBuilder.put(name, value);
+              nonstrictRepoEnvBuilder.put(name, value);
             }
           }
-          case Converters.EnvVar.Inherit(String name) -> {
+          case EnvVar.Inherit(String name) -> {
             visibleActionEnv.add(name);
           }
-          case Converters.EnvVar.Unset(String name) -> {
+          case EnvVar.Unset(String name) -> {
             visibleActionEnv.remove(name);
-            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
-              repoEnv.remove(name);
-              repoEnvFromOptions.remove(name);
+            if (!options.getOptions(CommonCommandOptions.class).getRepoEnvIgnoresActionEnv()) {
+              repoEnvBuilder.remove(name);
+              nonstrictRepoEnvBuilder.remove(name);
             }
           }
         }
       }
     }
     if (command.buildPhase().analyzes() || command.name().equals("info")) {
-      for (Converters.EnvVar envVar : options.getOptions(TestOptions.class).testEnvironment) {
-        if (envVar instanceof Converters.EnvVar.Inherit(String name)) {
+      for (EnvVar envVar : options.getOptions(TestOptions.class).getTestEnvironment()) {
+        if (envVar instanceof EnvVar.Inherit(String name)) {
           visibleTestEnv.add(name);
         }
       }
@@ -392,25 +392,30 @@ public class CommandEnvironment {
         bazelWorkspace = bazelWorkspace.replace('/', '\\');
       }
     }
-    for (var envVar : commandOptions.repositoryEnvironment) {
+    for (var envVar : commandOptions.getRepositoryEnvironment()) {
       switch (envVar) {
-        case Converters.EnvVar.Set(String name, String value) -> {
+        case EnvVar.Set(String name, String value) -> {
           if (bazelWorkspace != null) {
             value = value.replace("%bazel_workspace%", bazelWorkspace);
           }
-          repoEnv.put(name, value);
-          repoEnvFromOptions.put(name, value);
+          repoEnvBuilder.put(name, value);
+          nonstrictRepoEnvBuilder.put(name, value);
         }
-        case Converters.EnvVar.Inherit(String name) -> {
-          repoEnv.put(name, clientEnv.get(name));
-          repoEnvFromOptions.put(name, clientEnv.get(name));
+        case EnvVar.Inherit(String name) -> {
+          String value = clientEnv.get(name);
+          if (value != null) {
+            repoEnvBuilder.put(name, value);
+            nonstrictRepoEnvBuilder.put(name, value);
+          }
         }
-        case Converters.EnvVar.Unset(String name) -> {
-          repoEnv.remove(name);
-          repoEnvFromOptions.remove(name);
+        case EnvVar.Unset(String name) -> {
+          repoEnvBuilder.remove(name);
+          nonstrictRepoEnvBuilder.remove(name);
         }
       }
     }
+    this.repoEnv = ImmutableMap.copyOf(repoEnvBuilder);
+    this.nonstrictRepoEnv = ImmutableMap.copyOf(nonstrictRepoEnvBuilder);
     this.buildResultListener = new BuildResultListener();
     this.eventBus.register(this.buildResultListener);
 
@@ -426,7 +431,7 @@ public class CommandEnvironment {
     Path workspace = getWorkspace();
     Path workingDirectory;
     if (directories.inWorkspace()) {
-      PathFragment clientCwd = commandOptions.clientCwd;
+      PathFragment clientCwd = commandOptions.getClientCwd();
       if (clientCwd.containsUplevelReferences()) {
         throw new AbruptExitException(
             DetailedExitCode.of(
@@ -679,6 +684,15 @@ public class CommandEnvironment {
     return workspace.getSkyframeExecutor();
   }
 
+  /**
+   * Returns the path of the repo contents cache directory, or {@code null} if the repo contents
+   * cache is disabled.
+   */
+  @Nullable
+  public Path getRepoContentsCachePath() {
+    return getSkyframeExecutor().getRepoContentsCachePath();
+  }
+
   public SkyframeBuildView getSkyframeBuildView() {
     return getSkyframeExecutor().getSkyframeBuildView();
   }
@@ -721,6 +735,30 @@ public class CommandEnvironment {
    */
   public Path getActionTempsDirectory() {
     return directories.getActionTempsDirectory(getExecRoot());
+  }
+
+  /**
+   * Returns the {@link RunfilesTreeUpdater} for this command, lazily creating it on first use.
+   *
+   * <p>All spawn strategies (local, sandboxed, worker) share this one instance so that staging of a
+   * runfiles tree under {@code --nobuild_runfile_links} is serialized across strategies via the
+   * updater's dedup map. Per-strategy instances would let two strategies reconcile the same tree
+   * concurrently and race on {@code createSymbolicLink} ({@code EEXIST}). This is reachable under
+   * dynamic execution: the local branch stages a tree via the {@code worker} strategy while the
+   * remote branch fails over to the {@code local} strategy ({@code --remote_local_fallback}) and
+   * stages the same tree into the same execroot path at the same time.
+   *
+   * <p>Scoped to the command, not static: the dedup map caches completed futures and never evicts,
+   * which is correct within a build (a tree's contents are fixed) but would wrongly skip a tree
+   * that changed in a later build.
+   */
+  public RunfilesTreeUpdater getRunfilesTreeUpdater() {
+    synchronized (runfilesTreeUpdaterLock) {
+      if (runfilesTreeUpdater == null) {
+        runfilesTreeUpdater = new RunfilesTreeUpdater(getExecRoot(), getXattrProvider());
+      }
+      return runfilesTreeUpdater;
+    }
   }
 
   /**
@@ -767,7 +805,7 @@ public class CommandEnvironment {
    * <p>Always returns the same value on subsequent calls.
    */
   @Nullable
-  private DetailedExitCode finalizeDetailedExitCode() {
+  public DetailedExitCode finalizeDetailedExitCode() {
     // Set the pending exception so that further calls to exit(AbruptExitException) don't lead to
     // unwanted thread interrupts.
     if (pendingException.compareAndSet(null, Optional.empty())) {
@@ -781,17 +819,6 @@ public class CommandEnvironment {
     }
     // Extract the exit code (it can be null if someone has already called finalizeExitCode()).
     return getPendingDetailedExitCode();
-  }
-
-  /**
-   * Hook method called by the BlazeCommandDispatcher right before the dispatch of each command ends
-   * (while its outcome can still be modified).
-   */
-  DetailedExitCode precompleteCommand(DetailedExitCode originalExit) {
-    // TODO(b/138456686): this event is deprecated but is used in several places. Instead of lifting
-    //  the ExitCode to a DetailedExitCode, see if it can be deleted.
-    eventBus.post(new CommandPrecompleteEvent(originalExit.getExitCode()));
-    return finalizeDetailedExitCode();
   }
 
   /** Returns the current exit code requested by modules, or null if no exit has been requested. */
@@ -854,7 +881,7 @@ public class CommandEnvironment {
                 packageLocator,
                 commandId,
                 clientEnv,
-                repoEnvFromOptions,
+                repoEnv,
                 timestampGranularityMonitor,
                 quiescingExecutors,
                 options,
@@ -888,11 +915,11 @@ public class CommandEnvironment {
     var keepStateAfterBuildOption = options.getOptions(KeepStateAfterBuildOption.class);
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
-        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        keepStateAfterBuildOption.keepStateAfterBuild,
-        commonOptions.trackIncrementalState,
-        commonOptions.heuristicallyDropNodes,
-        analysisOptions != null && analysisOptions.discardAnalysisCache,
+        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).getBatch(),
+        keepStateAfterBuildOption.getKeepStateAfterBuild(),
+        commonOptions.getTrackIncrementalState(),
+        commonOptions.getHeuristicallyDropNodes(),
+        analysisOptions != null && analysisOptions.getDiscardAnalysisCache(),
         reporter);
   }
 
@@ -907,7 +934,7 @@ public class CommandEnvironment {
   @VisibleForTesting
   public void beforeCommand(InvocationPolicy invocationPolicy) throws AbruptExitException {
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
-    eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.buildMetadata)));
+    eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.getBuildMetadata())));
     eventBus.post(
         new GotOptionsEvent(runtime.getStartupOptionsProvider(), options, invocationPolicy));
     throwPendingException();
@@ -948,61 +975,43 @@ public class CommandEnvironment {
 
     // Modules that are subscribed to CommandStartEvent may create pending exceptions.
     throwPendingException();
-
-    // Determine if Skyfocus will run for this command: Skyfocus runs only for commands that
-    // execute actions. Throw an error if this is a command that is not guaranteed to work
-    // correctly on a focused Skyframe graph.
-    if (getCommand().buildPhase().executes()) {
-      skyframeExecutor.prepareForSkyfocus(
-          options.getOptions(SkyfocusOptions.class), reporter, runtime.getProductName());
-    } else if (getCommand().buildPhase().loads()
-        && !getSkyframeExecutor().getSkyfocusState().activeDirectories().isEmpty()) {
-      // A non-empty active directories implies a focused Skyframe state.
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(
-                      command.name()
-                          + " is not supported after using Skyfocus because it can"
-                          + " return partial/incorrect results. Run clean or shutdown and try"
-                          + " again.")
-                  .setSkyfocus(
-                      Skyfocus.newBuilder()
-                          .setCode(Skyfocus.Code.DISALLOWED_OPERATION_ON_FOCUSED_GRAPH)
-                          .build())
-                  .build()));
-    }
-  }
-
-  /** Returns the name of the file system we are writing output to. */
-  public String determineOutputFileSystem() {
-    // If we have a fancy OutputService, this may be different between consecutive Blaze commands
-    // and so we need to compute it freshly. Otherwise, we can used the immutable value that's
-    // precomputed by our BlazeWorkspace.
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
-      return outputService == null
-          ? ""
-          : outputService.getFileSystemName(workspace.getOutputBaseFilesystemTypeName());
-    }
   }
 
   /**
-   * Returns the repository environment created from the client environment, {@code --repo_env}, and
-   * {@code --action_env=NAME=VALUE} (when {@code
-   * --incompatible_repo_env_ignores_action_env=false}).
+   * Returns the environment for repository rules and module extensions, which is constructed as
+   * follows:
+   *
+   * <ul>
+   *   <li>the client environment as the base;
+   *   <li>if {@code --experimental_strict_repo_env} is set, only the variables {@code PATH} and, on
+   *       Windows only, {@code PATHEXT} are kept;
+   *   <li>if {@code --noincompatible_repo_env_ignores_action_env} is set, {@code --action_env} is
+   *       applied on top of that;
+   *   <li>finally, {@code --repo_env} is applied on top of that.
+   * </ul>
    */
-  public Map<String, String> getRepoEnv() {
-    return Collections.unmodifiableMap(repoEnv);
+  public ImmutableMap<String, String> getRepoEnv() {
+    return repoEnv;
   }
 
   /**
-   * Returns the repository environment created from specific client environment variables ({@code
-   * PATH} and on Windows {@code PATH_EXT}), {@code --repo_env}, and {@code --action_env=NAME=VALUE}
-   * (when {@code --incompatible_repo_env_ignores_action_env=false}).
+   * Returns the environment for inherently local, non-hermetic operations associated with
+   * repository rules and module extensions, such as credential helpers. It is constructed as
+   * follows:
+   *
+   * <ul>
+   *   <li>the client environment as the base;
+   *   <li>if {@code --noincompatible_repo_env_ignores_action_env} is set, {@code --action_env} is
+   *       applied on top of that;
+   *   <li>finally, {@code --repo_env} is applied on top of that.
+   * </ul>
+   *
+   * <p>This differs from {@link #getRepoEnv()} in that it does not apply {@code
+   * --experimental_strict_repo_env}, and thus always includes the full client environment as a
+   * base.
    */
-  public Map<String, String> getRepoEnvFromOptions() {
-    return Collections.unmodifiableMap(repoEnvFromOptions);
+  public ImmutableMap<String, String> getNonstrictRepoEnv() {
+    return nonstrictRepoEnv;
   }
 
   /** Returns the file cache to use during this build. */
@@ -1027,7 +1036,7 @@ public class CommandEnvironment {
       if (outputDirectoryHelper == null) {
         var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
         outputDirectoryHelper =
-            new ActionOutputDirectoryHelper(buildRequestOptions.directoryCreationCacheSpec);
+            new ActionOutputDirectoryHelper(buildRequestOptions.getDirectoryCreationCacheSpec());
       }
       return outputDirectoryHelper;
     }

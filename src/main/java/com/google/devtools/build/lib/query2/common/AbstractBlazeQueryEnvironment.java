@@ -70,7 +70,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -182,14 +182,14 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     IOException ioExn = null;
     boolean failFast = true;
     try {
-      emptySensingCallback.start();
+      callback.start();
       evalTopLevelInternal(expr, emptySensingCallback);
       failFast = false;
     } catch (QueryException e) {
       throw new QueryException(e, expr);
     } finally {
       try {
-        emptySensingCallback.close(failFast);
+        callback.close(failFast);
       } catch (IOException e) {
         // Only throw this IOException if we weren't about to throw a different exception.
         ioExn = e;
@@ -395,7 +395,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
   private static class EmptinessSensingCallback<T> extends OutputFormatterCallback<T> {
     private final OutputFormatterCallback<T> callback;
-    private final AtomicInteger numTargets = new AtomicInteger(0);
+    private final AtomicBoolean empty = new AtomicBoolean(true);
 
     private EmptinessSensingCallback(OutputFormatterCallback<T> callback) {
       this.callback = callback;
@@ -408,18 +408,17 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
     @Override
     public void processOutput(Iterable<T> partialResult) throws IOException, InterruptedException {
-      numTargets.addAndGet(Iterables.size(partialResult));
+      empty.compareAndSet(true, Iterables.isEmpty(partialResult));
       callback.processOutput(partialResult);
     }
 
     @Override
     public void close(boolean failFast) throws InterruptedException, IOException {
-      logger.atInfo().log("Saw %d targets in the output", numTargets.get());
       callback.close(failFast);
     }
 
     boolean isEmpty() {
-      return numTargets.get() == 0;
+      return empty.get();
     }
   }
 

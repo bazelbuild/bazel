@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.function.BiConsumer;
 
 /** Interface for collecting counter series */
+@SkybridgeInterface
 public interface CounterSeriesCollector {
   void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer);
 }

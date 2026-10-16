@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.DurationConverter;
@@ -27,6 +28,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.List;
@@ -34,7 +36,8 @@ import java.util.Map;
 import net.starlark.java.eval.EvalException;
 
 /** Command-line options for repositories. */
-public class RepositoryOptions extends OptionsBase {
+@OptionsClass
+public abstract class RepositoryOptions extends OptionsBase {
 
   @Option(
       name = "repository_cache",
@@ -50,7 +53,7 @@ public class RepositoryOptions extends OptionsBase {
           as argument requests the cache to be disabled,
           otherwise the default of `{--output_user_root}/cache/repos/v1` is used.
           """)
-  public PathFragment repositoryCache;
+  public abstract PathFragment getRepositoryCache();
 
   @Option(
       name = "repo_contents_cache",
@@ -68,7 +71,7 @@ public class RepositoryOptions extends OptionsBase {
           is used. Note that this means setting `--repository_cache=` would by default disable the
           repo contents cache as well, unless `--repo_contents_cache={some_path}` is also set.
           """)
-  public PathFragment repoContentsCache;
+  public abstract PathFragment getRepoContentsCache();
 
   @Option(
       name = "repo_contents_cache_gc_max_age",
@@ -81,7 +84,7 @@ public class RepositoryOptions extends OptionsBase {
           Specifies the amount of time an entry in the repo contents cache can stay unused before
           it's garbage collected. If set to zero, only duplicate entries will be garbage collected.
           """)
-  public Duration repoContentsCacheGcMaxAge;
+  public abstract Duration getRepoContentsCacheGcMaxAge();
 
   @Option(
       name = "repo_contents_cache_gc_idle_delay",
@@ -94,7 +97,7 @@ public class RepositoryOptions extends OptionsBase {
           Specifies the amount of time the server must remain idle before garbage collection happens
           to the repo contents cache.
           """)
-  public Duration repoContentsCacheGcIdleDelay;
+  public abstract Duration getRepoContentsCacheGcIdleDelay();
 
   @Option(
       name = "registry",
@@ -106,7 +109,7 @@ public class RepositoryOptions extends OptionsBase {
           "Specifies the registries to use to locate Bazel module dependencies. The order is"
               + " important: modules will be looked up in earlier registries first, and only fall"
               + " back to later registries when they're missing from the earlier ones.")
-  public List<String> registries;
+  public abstract List<String> getRegistries();
 
   @Option(
       name = "module_mirrors",
@@ -129,7 +132,7 @@ public class RepositoryOptions extends OptionsBase {
           The default set of mirrors may change over time, but all downloads from mirrors are
           verified by hashes stored in the registry (and thus pinned by the lockfile).
           """)
-  public List<Map.Entry<String, List<String>>> moduleMirrors;
+  public abstract List<Map.Entry<String, List<String>>> getModuleMirrors();
 
   @Option(
       name = "allow_yanked_versions",
@@ -149,7 +152,7 @@ public class RepositoryOptions extends OptionsBase {
 
           [`NonRegistryOverride`]: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/bzlmod/NonRegistryOverride.java
           """)
-  public List<String> allowedYankedVersions;
+  public abstract List<String> getAllowedYankedVersions();
 
   @Option(
       name = "experimental_repository_cache_hardlinks",
@@ -159,7 +162,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "If set, the repository cache will hardlink the file in case of a"
               + " cache hit, rather than copying. This is intended to save disk space.")
-  public boolean useHardlinks;
+  public abstract boolean getUseHardlinks();
 
   @Option(
       name = "repository_disable_download",
@@ -173,7 +176,7 @@ public class RepositoryOptions extends OptionsBase {
           fetching. Note that network access is not completely disabled; ctx.execute could
           still run an arbitrary executable that accesses the Internet.
           """)
-  public boolean disableDownload;
+  public abstract boolean getDisableDownload();
 
   @Option(
       name = "experimental_repository_downloader_retries",
@@ -184,7 +187,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "The maximum number of attempts to retry a download error. If set to 0, retries are"
               + " disabled.")
-  public int repositoryDownloaderRetries;
+  public abstract int getRepositoryDownloaderRetries();
 
   @Option(
       name = "distdir",
@@ -197,7 +200,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "Additional places to search for archives before accessing the network "
               + "to download them.")
-  public List<PathFragment> experimentalDistdir;
+  public abstract List<PathFragment> getExperimentalDistdir();
 
   @Option(
       name = "override_repository",
@@ -221,7 +224,7 @@ public class RepositoryOptions extends OptionsBase {
           with `%workspace%`, it is relative to the workspace root, which is the output of `bazel
           info workspace`. If the given path is empty, then remove any previous overrides.
           """)
-  public List<RepositoryOverride> repositoryOverrides;
+  public abstract List<RepositoryOverride> getRepositoryOverrides();
 
   @Option(
       name = "inject_repository",
@@ -241,7 +244,7 @@ public class RepositoryOptions extends OptionsBase {
           workspace root, which is the output of `bazel info workspace`. If the given path
           is empty, then remove any previous injections.
           """)
-  public List<RepositoryInjection> repositoryInjections;
+  public abstract List<RepositoryInjection> getRepositoryInjections();
 
   @Option(
       name = "override_module",
@@ -259,7 +262,7 @@ public class RepositoryOptions extends OptionsBase {
           output of `bazel info workspace`. If the given path is empty, then remove any
           previous overrides.
           """)
-  public List<ModuleOverride> moduleOverrides;
+  public abstract List<ModuleOverride> getModuleOverrides();
 
   @Option(
       name = "experimental_scale_timeouts",
@@ -272,7 +275,7 @@ public class RepositoryOptions extends OptionsBase {
               + " In this way, external repositories can be made working on machines"
               + " that are slower than the rule author expected, without changing the"
               + " source code")
-  public double experimentalScaleTimeouts;
+  public abstract double getExperimentalScaleTimeouts();
 
   @Option(
       name = "downloader_config",
@@ -283,13 +286,69 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
-          "Specify a file to configure the remote downloader with. This file consists of lines, "
-              + "each of which starts with a directive (`allow`, `block` or `rewrite`) followed "
-              + "by either a host name (for `allow` and `block`) or two patterns, one to match "
-              + "against, and one to use as a substitute URL, with back-references starting from "
-              + "`$1`. It is possible for multiple `rewrite` directives for the same URL to be "
-              + "given, and in this case multiple URLs will be returned.")
-  public List<PathFragment> downloaderConfigs;
+          """
+          Specify a file to configure the remote downloader with.
+
+          This file consists of directives, one per line, that adjust how the
+          Bazel downloader acts. The directives are: `allow`, `block`, `rewrite`,
+          and `all_blocked_message`. The directives are applied in the order
+          `rewrite, allow, block`.
+
+          Comments are allowed and must be on their own line (no trailing comments)
+          and preceded by a `#`. Example: `# evil.com is known to host malicious code`
+
+          The `allow` and `block` directives take a host name as an argument. For
+          example: `block mvnrepository.com.example` or `allow github.com.example`. The given host
+          and all subdomains will be allowed or blocked. Do not include the URL
+          scheme (`http://` or `https://`). You can block all hosts with the `*`
+          wildcard: `block *`.
+
+          The `rewrite` directive takes two regex patterns: the first to match a URL
+          and the second to substitute matched URLs with. For example, `rewrite
+          github.com.example/bazel-contrib/rules_python/releases/download/(.*)/(.*)
+          mycorp.example/rules_python_mirror/$1/$2` will cause the downloader
+          to access `mycorp.example/rules_python_mirror` whenever attempting
+          to download rules_python from example.com. The substitute URL supports
+          back-references starting from `$1`. It is possible for multiple
+          `rewrite` directives for the same matched URL to be provided, and in
+          this case multiple URLs will be returned and tried sequentially. Do not
+          include the URL scheme (`http://` or `https://`) in the patterns.
+
+          The `all_blocked_message` directive allows you to customize the message
+          that is shown when the rewriter is configured to block all URLs for
+          a particular resource. This directive can only be given once, and the
+          message must exist on a single line. Example: `all_blocked_message
+          Hey, I think the downloader config is wrong. Bummer!`.
+
+          Note that it is not possible to directly block a particular path for
+          a given host while still allowing other paths on the host. This can be
+          worked around by rewrite the path to a blocked host:
+
+          ```
+          block dummy_host.invalid
+          rewrite example.com/bar/.* dummy_host.invalid
+          ```
+
+          An example config may look like:
+
+          ```
+          all_blocked_message See example.com/blocked-bazel-fetches for more information.
+          block mvnrepository.com.example
+          block maven-central.storage.googleapis.com.example
+
+          # See internal doc id1234 for why gitblit is blocked
+          block gitblit.github.com.example
+          rewrite repo.maven.apache.org.example/maven2/(.*) artifacts.mycorp.example/libs-release/$1
+
+          # Use our GCS bucket for rules_python
+          rewrite github.com.example/bazel-contrib/rules_python/releases/download/(.*)/(.*) mycorp.example/rules_python_mirror/$1/$2
+          ```
+
+          See also: [Insulating Builds from the Internet]
+
+          [Insulating Builds from the Internet]: https://bazel.build/external/faq#how-do-i-insulate-my-builds-from-the-internet
+          """)
+  public abstract List<PathFragment> getDownloaderConfigs();
 
   @Option(
       name = "ignore_dev_dependency",
@@ -298,12 +357,12 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           """
-          If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in
-          the `MODULE.bazel` of the root module. Note that, those dev dependencies are always
-          ignored in the `MODULE.bazel` if it's not the root module regardless of the value
-          of this flag.
+          If true, Bazel ignores `bazel_dep`, `use_extension`, and `include` declared as
+          `dev_dependency` in the `MODULE.bazel` of the root module. Note that these dev
+          dependencies are always ignored in the `MODULE.bazel` if it is not the root module,
+          regardless of the value of this flag.
           """)
-  public boolean ignoreDevDependency;
+  public abstract boolean getIgnoreDevDependency();
 
   @Option(
       name = "check_direct_dependencies",
@@ -316,7 +375,7 @@ public class RepositoryOptions extends OptionsBase {
               + " versions you get in the resolved dependency graph. Valid values are `off` to"
               + " disable the check, `warning` to print a warning when mismatch detected or `error`"
               + " to escalate it to a resolution failure.")
-  public CheckDirectDepsMode checkDirectDependencies;
+  public abstract CheckDirectDepsMode getCheckDirectDependencies();
 
   @Option(
       name = "experimental_check_external_repository_files",
@@ -328,7 +387,7 @@ public class RepositoryOptions extends OptionsBase {
               + "this flag to false if you don't expect these files to change outside of bazel "
               + "since it will speed up subsequent runs as they won't have to check a "
               + "previous run's cache.")
-  public boolean checkExternalRepositoryFiles;
+  public abstract boolean getCheckExternalRepositoryFiles();
 
   @Option(
       name = "check_bazel_compatibility",
@@ -340,7 +399,21 @@ public class RepositoryOptions extends OptionsBase {
           "Check bazel version compatibility of Bazel modules. Valid values are `error` to escalate"
               + " it to a resolution failure, `off` to disable the check, or `warning` to print a"
               + " warning when mismatch detected.")
-  public BazelCompatibilityMode bazelCompatibilityMode;
+  public abstract BazelCompatibilityMode getBazelCompatibilityMode();
+
+  @Option(
+      name = "incompatible_require_repo_extension_metadata",
+      defaultValue = "false",
+      converter = RequireRepoExtensionMetadataMode.Converter.class,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Require repository rules and module extensions to return explicit metadata. Valid values"
+              + " are `false` to disable the check, `all` to require metadata everywhere, or `root`"
+              + " to require metadata only for repo rules and extensions defined in the root"
+              + " module.")
+  public abstract RequireRepoExtensionMetadataMode getRequireRepoExtensionMetadata();
 
   @Option(
       name = "lockfile_mode",
@@ -353,9 +426,10 @@ public class RepositoryOptions extends OptionsBase {
               + " use the lockfile and update it if there are changes, `refresh` to additionally"
               + " refresh mutable information (yanked versions and previously missing modules)"
               + " from remote registries from time to time, `error` to use the lockfile but throw"
-              + " an error if it's not up-to-date, or `off` to neither read from or write to the"
-              + " lockfile.")
-  public LockfileMode lockfileMode;
+              + " an error if needed information is not up-to-date (superfluous entries that the"
+              + " current resolution does not consult are ignored, not reported), or `off` to"
+              + " neither read from or write to the lockfile.")
+  public abstract LockfileMode getLockfileMode();
 
   @Option(
       name = "vendor_dir",
@@ -368,7 +442,7 @@ public class RepositoryOptions extends OptionsBase {
               + "whether for the purpose of fetching them into it or using them while building. "
               + "The path can be specified as either an absolute path or a path relative to the "
               + "workspace directory.")
-  public PathFragment vendorDirectory;
+  public abstract PathFragment getVendorDirectory();
 
   /** An enum for specifying different modes for checking direct dependency accuracy. */
   public enum CheckDirectDepsMode {
@@ -394,6 +468,33 @@ public class RepositoryOptions extends OptionsBase {
     public static class Converter extends EnumConverter<BazelCompatibilityMode> {
       public Converter() {
         super(BazelCompatibilityMode.class, "Bazel compatibility check mode");
+      }
+    }
+  }
+
+  /** An enum for specifying when repo and extension metadata is required. */
+  public enum RequireRepoExtensionMetadataMode {
+    FALSE, // Don't require metadata.
+    ALL, // Require metadata everywhere.
+    ROOT; // Require metadata for repo rules and extensions defined in the root module.
+
+    @Override
+    public String toString() {
+      return switch (this) {
+        case FALSE -> "false";
+        case ALL -> "all";
+        case ROOT -> "root";
+      };
+    }
+
+    /** Converts to {@link RequireRepoExtensionMetadataMode}. */
+    public static class Converter extends BoolOrEnumConverter<RequireRepoExtensionMetadataMode> {
+      public Converter() {
+        super(
+            RequireRepoExtensionMetadataMode.class,
+            "repo extension metadata mode",
+            RequireRepoExtensionMetadataMode.ALL,
+            RequireRepoExtensionMetadataMode.FALSE);
       }
     }
   }

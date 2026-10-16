@@ -46,6 +46,10 @@ msys*|mingw*|cygwin*)
   # This is necessary to avoid overly longs paths during bootstrapping, see for
   # example https://github.com/bazelbuild/bazel/issues/4536
   export TMPDIR="${TMPDIR:-${TMP:-${TEMP:-}}}"
+
+  # Set the pythonpath: without this, the bootstrapped bazel tries to execute
+  # bare "python.exe" and cannot find it.
+  DIST_BOOTSTRAP_ARGS="${DIST_BOOTSTRAP_ARGS} --python_path=$(which python.exe)"
 esac
 
 # If BAZEL_WRKDIR is set, default all variables to point into
@@ -77,7 +81,7 @@ function fail() {
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 WORKSPACE_DIR="$(dirname "$(dirname "${DIR}")")"
 
-JAVA_VERSION=${JAVA_VERSION:-21}
+JAVA_VERSION=${JAVA_VERSION:-25}
 BAZELRC=${BAZELRC:-"/dev/null"}
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 
@@ -89,13 +93,15 @@ linux)
   ;;
 
 freebsd)
-  # JAVA_HOME must point to a Java installation.
-  JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk11}"
+  # JAVA_HOME must point to a Java installation. The packages install
+  # under /usr/local/openjdk<N>; take the newest one present.
+  JAVA_HOME="${JAVA_HOME:-$(ls -d /usr/local/openjdk[0-9]* 2>/dev/null | sort -V | tail -n 1)}"
   ;;
 
 openbsd)
-  # JAVA_HOME must point to a Java installation.
-  JAVA_HOME="${JAVA_HOME:-/usr/local/jdk-11}"
+  # JAVA_HOME must point to a Java installation. The packages install
+  # under /usr/local/jdk-<N>; take the newest one present.
+  JAVA_HOME="${JAVA_HOME:-$(ls -d /usr/local/jdk-[0-9]* 2>/dev/null | sort -V | tail -n 1)}"
   ;;
 
 darwin)

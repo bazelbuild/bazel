@@ -18,12 +18,15 @@ import static com.google.devtools.build.lib.bazel.repository.decompressor.StripP
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,11 +38,10 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.spi.CharsetProvider;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -68,12 +70,13 @@ public abstract class CompressedTarFunction implements Decompressor {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
-    Optional<String> prefix = descriptor.prefix();
+    String prefix = descriptor.prefix();
+    int stripComponents = descriptor.stripComponents();
     Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
     // Store link, target info of symlinks, we create them after regular files are extracted.
-    Map<Path, PathFragment> symlinks = new HashMap<>();
+    Map<Path, PathFragment> symlinks = new LinkedHashMap<>();
 
     try (InputStream compressedInputStream = descriptor.archivePath().getInputStream();
         InputStream decompressorStream =
@@ -89,10 +92,11 @@ public abstract class CompressedTarFunction implements Decompressor {
         String entryName = toRawBytesString(entry.getName());
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(ISO_8859_1), prefix);
+            StripPrefixedPath.maybeDeprefix(
+                entryName.getBytes(ISO_8859_1), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
 
-        if (prefix.isPresent() && !foundPrefix) {
+        if (!prefix.isEmpty() && !foundPrefix) {
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(availablePrefixes::add);
         }
@@ -101,7 +105,20 @@ public abstract class CompressedTarFunction implements Decompressor {
           continue;
         }
 
-        Path filePath = descriptor.destinationPath().getRelative(entryPath.getPathFragment());
+        PathFragment strippedRelativePath = entryPath.getPathFragment();
+        if (strippedRelativePath.isAbsolute()) {
+          throw new IOException(
+              String.format(
+                  "Failed to extract %s, tarred paths cannot be absolute", strippedRelativePath));
+        }
+
+        Path filePath = descriptor.destinationPath().getRelative(strippedRelativePath);
+        if (!filePath.startsWith(descriptor.destinationPath())) {
+          throw new IOException(
+              String.format(
+                  "Failed to extract %s, path is escaping the destination directory",
+                  strippedRelativePath));
+        }
         filePath.getParentDirectory().createDirectoryAndParents();
         if (entry.isDirectory()) {
           filePath.createDirectoryAndParents();
@@ -111,12 +128,29 @@ public abstract class CompressedTarFunction implements Decompressor {
                 maybeDeprefixSymlink(
                     toRawBytesString(entry.getLinkName()).getBytes(ISO_8859_1),
                     prefix,
-                    descriptor.destinationPath());
+                    stripComponents,
+                    descriptor.destinationPath(),
+                    // Hard link target paths should be relative to the extraction directory.
+                    /* forceExtractRootRelative= */ entry.isLink());
+
+            Path resolvedTargetPath =
+                (entry.isSymbolicLink()
+                        ? filePath.getParentDirectory()
+                        : descriptor.destinationPath())
+                    .getRelative(targetName);
+            if (!targetName.isAbsolute()
+                && !resolvedTargetPath.startsWith(descriptor.destinationPath())) {
+              throw new IOException(
+                  String.format(
+                      "Tar entries cannot refer to files outside of their directory: %s has a"
+                          + " link %s pointing to %s",
+                      descriptor.archivePath(), entryName, targetName));
+            }
+
             if (entry.isSymbolicLink()) {
               symlinks.put(filePath, targetName);
             } else {
-              Path targetPath = descriptor.destinationPath().getRelative(targetName);
-              if (filePath.equals(targetPath)) {
+              if (filePath.equals(resolvedTargetPath)) {
                 // The behavior here is semantically different, depending on whether the underlying
                 // filesystem is case-sensitive or case-insensitive. However, it is effectively the
                 // same: we drop the link entry.
@@ -130,14 +164,16 @@ public abstract class CompressedTarFunction implements Decompressor {
                 if (filePath.exists()) {
                   filePath.delete();
                 }
-                FileSystemUtils.createHardLink(filePath, targetPath);
+                FileSystemUtils.createHardLink(filePath, resolvedTargetPath);
               }
             }
           } else {
             try (OutputStream out = filePath.getOutputStream()) {
               ByteStreams.copy(tarStream, out);
             }
-            filePath.chmod(entry.getMode());
+            // Ensure that all files are at least user-readable. Some archives contain files that
+            // are not, but many other tools are working around this and thus mask these issues.
+            filePath.chmod(entry.getMode() | 0400);
 
             // This can only be done on real files, not links, or it will skip the reader to
             // the next "real" file to try to find the mod time info.
@@ -153,13 +189,16 @@ public abstract class CompressedTarFunction implements Decompressor {
       for (Map.Entry<Path, PathFragment> symlink : symlinks.entrySet()) {
         Path linkPath = symlink.getKey();
         if (linkPath.exists()) {
+          if (linkPath.isDirectory(Symlinks.NOFOLLOW)) {
+            throw new NotASymlinkException(linkPath.asFragment());
+          }
           linkPath.delete();
         }
         FileSystemUtils.ensureSymbolicLink(linkPath, symlink.getValue());
       }
 
-      if (prefix.isPresent() && !foundPrefix) {
-        throw new CouldNotFindPrefixException(prefix.get(), availablePrefixes);
+      if (!prefix.isEmpty() && !foundPrefix) {
+        throw new CouldNotFindPrefixException(prefix, availablePrefixes);
       }
     }
 
@@ -185,9 +224,8 @@ public abstract class CompressedTarFunction implements Decompressor {
 
     @Override
     public Iterator<Charset> charsets() {
-      // This charset is only meant for internal use within CompressedTarFunction and thus should
-      // not be discoverable.
-      return Collections.emptyIterator();
+      // Native Image registers hosted charsets ahead of time by enumerating their providers.
+      return ImmutableSet.of(CHARSET).iterator();
     }
 
     @Override
@@ -202,12 +240,10 @@ public abstract class CompressedTarFunction implements Decompressor {
    * charset.
    */
   private static class MarkedIso88591Charset extends Charset {
-    // The name
-    // * must not collide with the name of any other charset.
-    // * must not appear in archive entry names by chance.
-    // * is internal to CompressedTarFunction.
-    // This is best served by a cryptographically random UUID, generated at startup.
-    private static final String NAME = UUID.randomUUID().toString();
+    // Native Image needs a stable name to register this charset ahead of time. The marker is
+    // random so it cannot occur in archive entry names by chance.
+    private static final String NAME = "X-BAZEL-MARKED-ISO-8859-1";
+    private static final String MARKER = UUID.randomUUID().toString();
 
     private MarkedIso88591Charset() {
       super(NAME, new String[0]);
@@ -216,8 +252,8 @@ public abstract class CompressedTarFunction implements Decompressor {
     public static Optional<String> getRawBytesStringIfMarked(String s) {
       // Check for the marker in all positions as TarArchiveInputStream manipulates the raw name in
       // certain cases (for example, appending a '/' to directory names).
-      if (s.contains(NAME)) {
-        return Optional.of(s.replaceAll(NAME, ""));
+      if (s.contains(MARKER)) {
+        return Optional.of(s.replace(MARKER, ""));
       }
       return Optional.empty();
     }
@@ -241,13 +277,18 @@ public abstract class CompressedTarFunction implements Decompressor {
         protected CoderResult implFlush(CharBuffer out) {
           // Append the marker to the end of the buffer to indicate that it was decoded with this
           // charset.
-          if (out.remaining() < NAME.length()) {
+          if (out.remaining() < MARKER.length()) {
             return CoderResult.OVERFLOW;
           }
-          out.put(NAME);
+          out.put(MARKER);
           return CoderResult.UNDERFLOW;
         }
       };
+    }
+
+    @Override
+    public boolean canEncode() {
+      return false;
     }
 
     @Override

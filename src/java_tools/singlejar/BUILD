@@ -17,7 +17,7 @@ filegroup(
         "//src/java_tools/singlejar/javatests/com/google/devtools/build/singlejar:srcs",
         "//src/java_tools/singlejar/javatests/com/google/devtools/build/zip:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//:__subpackages__"],
 )
 
 package_group(

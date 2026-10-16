@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
-
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -26,22 +24,9 @@ import javax.annotation.Nullable;
 /** Class to work with the shell toolchain, e.g. get the shell interpreter's path. */
 public final class ShToolchain {
 
-  private static PathFragment getHostOrDefaultPath() {
-    OS current = OS.getCurrent();
-    if (!ShellConfiguration.getShellExecutables().containsKey(current)) {
-      current = OS.UNKNOWN;
-    }
-    Preconditions.checkState(
-        ShellConfiguration.getShellExecutables().containsKey(current),
-        "shellExecutableFinder should set a value with key '%s'",
-        current);
-
-    return ShellConfiguration.getShellExecutables().get(current);
-  }
-
   /** Returns the default shell executable's path for the host OS. */
   public static PathFragment getPathForHost(BuildConfigurationValue config) {
-    return getPathForPlatform(config, null);
+    return getPathForPlatform(config, /* platformInfo= */ null);
   }
 
   /**
@@ -49,7 +34,7 @@ public final class ShToolchain {
    *
    * <p>1) the default path set by {@code --shell_executable}
    *
-   * <p>2) the path for the provided platform
+   * <p>2) the path for the provided platform if not null
    *
    * <p>3) the path for the host platform
    *
@@ -63,14 +48,10 @@ public final class ShToolchain {
       return shellConfiguration.getOptionsBasedDefault();
     }
 
-    if (platformInfo != null) {
-      for (OS os : ShellConfiguration.getShellExecutables().keySet()) {
-        if (platformInfo.constraints().hasConstraintValue(OS_TO_CONSTRAINTS.get(os))) {
-          return ShellConfiguration.getShellExecutables().get(os);
-        }
-      }
-    }
-    return getHostOrDefaultPath();
+    return ShellConfiguration.getShellExecutable(
+            ConstraintConstants.getOsFromConstraintsOrHost(platformInfo))
+        .or(() -> ShellConfiguration.getShellExecutable(OS.UNKNOWN))
+        .orElseThrow();
   }
 
   private ShToolchain() {}

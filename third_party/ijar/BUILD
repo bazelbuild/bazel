@@ -79,14 +79,24 @@ cc_binary(
     deps = [":zip"],
 )
 
+cc_library(
+    name = "classfile",
+    srcs = ["classfile.cc"],
+    hdrs = ["common.h"],
+    visibility = ["//third_party/ijar/test:__pkg__"],
+    deps = [":zip"],
+)
+
 cc_binary(
     name = "ijar",
     srcs = [
-        "classfile.cc",
         "ijar.cc",
     ],
     visibility = ["//visibility:public"],
-    deps = [":zip"],
+    deps = [
+        ":classfile",
+        ":zip",
+    ],
 )
 
 filegroup(
@@ -101,6 +111,8 @@ filegroup(
         "BUILD",
         "common.h",
         "mapped_file.h",
+        "mapped_file_unix.cc",
+        "mapped_file_windows.cc",
         "platform_utils.cc",
         "platform_utils.h",
         "zip.cc",
@@ -108,14 +120,7 @@ filegroup(
         "zip_main.cc",
         "zlib_client.cc",
         "zlib_client.h",
-    ] + select({
-        "//src/conditions:windows": [
-            "mapped_file_windows.cc",
-        ],
-        "//conditions:default": [
-            "mapped_file_unix.cc",
-        ],
-    }),
+    ],
     visibility = ["//visibility:public"],
 )
 

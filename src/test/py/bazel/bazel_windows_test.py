@@ -183,6 +183,37 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertNotIn('foo=bar2', result_in_lower_case)
     self.assertIn('foo=bar3', result_in_lower_case)
 
+  def testBatchModeWithLargeClientEnvironment(self):
+    # In batch mode, the client environment is passed to the server JVM as
+    # arguments, which exceed the command line length limit of CreateProcessW
+    # here.
+    env = {
+        'LARGE_ENV_1': 'C:\\foo\\ "bar" #baz \\' * 1000,
+        'LARGE_ENV_2': 'äöü€ \\"\\\\\n ' * 2000,
+    }
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'my_repo = use_repo_rule("//:repo.bzl", "my_repo")',
+            'my_repo(name = "env_test")',
+        ],
+    )
+    repo_bzl = ['def _my_repo_impl(repository_ctx):']
+    for name, value in env.items():
+      repo_bzl += [
+          '  if repository_ctx.getenv(%r) != %r:' % (name, value),
+          '    fail("unexpected value of %s")' % name,
+      ]
+    repo_bzl += [
+        '  repository_ctx.file("BUILD")',
+        '',
+        'my_repo = repository_rule(_my_repo_impl)',
+    ]
+    self.ScratchFile('repo.bzl', repo_bzl)
+
+    self.RunBazel(['--batch', 'fetch', '--repo=@env_test'], env_add=env)
+
   def testRunPowershellInAction(self):
     self.ScratchFile('BUILD', [
         'load(":execute.bzl", "run_powershell")',
@@ -581,7 +612,7 @@ class BazelWindowsTest(test_base.TestBase):
     self.ScratchFile('foo.sh')
 
     exit_code, stdout, stderr = self.RunBazel(
-        ['test', '--incompatible_check_sharding_support', '//:foo_test'],
+        ['test', '//:foo_test'],
         allow_failure=True,
     )
     # Check for "tests failed" exit code
@@ -597,9 +628,7 @@ class BazelWindowsTest(test_base.TestBase):
 
     self.ScratchFile('foo.sh', ['touch "$TEST_SHARD_STATUS_FILE"'])
 
-    self.RunBazel(
-        ['test', '--incompatible_check_sharding_support', '//:foo_test']
-    )
+    self.RunBazel(['test', '//:foo_test'])
 
   def testTestPrematureExitFile(self):
     self.ScratchFile('MODULE.bazel')

@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code.DEPENDENCY_NOT_FOUND;
 
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.ProjectResolutionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Scope;
@@ -37,6 +37,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -83,6 +84,34 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
                   .addScopeType(scopedFlag, scopeType)
                   .addOnLeaveScopeValue(scopedFlag, onLeaveScopeValue)
               : fullyResolvedBuildOptionsBuilder.addScopeType(scopedFlag, scopeType);
+
+      if (scopeType.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+        // handling custom exec case with scope "exec:--<another_flag_name>".
+        // For example: --python_launcher=--host_python_launcher
+        // have the --<another_flag_name> flag default value in the target config but also make sure
+        // that it won't propagate to the exec config by setting the scope to "target".
+        Label anotherFlag = Label.parseCanonicalUnchecked(scopeType.scopeType().substring(7));
+        Target anotherFlagTarget = getTarget(env, anotherFlag, scopedFlag.getPackageIdentifier());
+        if (anotherFlagTarget == null) {
+          return null;
+        }
+
+        if (!key.getBuildOptions().getStarlarkOptions().containsKey(anotherFlag)) {
+          var anotherFlagAttrs = RawAttributeMapper.of(anotherFlagTarget.getAssociatedRule());
+          String anotherFlagScopeType = Scope.ScopeType.DEFAULT;
+          if (anotherFlagAttrs.isAttributeValueExplicitlySpecified("scope")) {
+            anotherFlagScopeType = anotherFlagAttrs.get("scope", Type.STRING);
+          }
+          fullyResolvedBuildOptionsBuilder =
+              fullyResolvedBuildOptionsBuilder
+                  .addStarlarkOption(
+                      anotherFlag,
+                      anotherFlagTarget
+                          .getAssociatedRule()
+                          .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))
+                  .addScopeType(anotherFlag, new Scope.ScopeType(anotherFlagScopeType));
+        }
+      }
     }
 
     // get PROJECT.scl files for each scoped flag that is not universal
@@ -121,7 +150,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
       scopes.put(
           projectScopedFlag,
           new Scope(
-              scopes.get(projectScopedFlag).getScopeType(),
+              scopes.get(projectScopedFlag).scopeType(),
               projectValue.getDefaultProjectDirectories().isEmpty()
                   ? null
                   : new Scope.ScopeDefinition(projectValue.getDefaultProjectDirectories())));
@@ -129,7 +158,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
 
     return BuildOptionsScopeValue.create(
         fullyResolvedBuildOptionsBuilder.build(),
-        Lists.newArrayList(projectValueSkyKeysMap.keySet()),
+        new ArrayList<>(projectValueSkyKeysMap.keySet()),
         scopes);
   }
 
@@ -141,7 +170,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
 
     Map<Label, ProjectFilesLookupValue.Key> targetsToSkyKeys = new HashMap<>();
     for (Label starlarkOption : scopes.keySet()) {
-      if (scopes.get(starlarkOption).getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
+      if (scopes.get(starlarkOption).scopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
         targetsToSkyKeys.put(
             starlarkOption, ProjectFilesLookupValue.key(starlarkOption.getPackageIdentifier()));
       }
@@ -190,10 +219,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
 
     var attrs = RawAttributeMapper.of(target.getAssociatedRule());
     if (!attrs.has("scope", Type.STRING)
-        // TODO: https://github.com/bazelbuild/bazel/issues/26909 - Honor the rule's actual
-        // value when --incompatible_exclude_starlark_flags_from_exec_config is stably enabled
-        // and existing rules like skylib's have updated to TARGET.
-        || !attrs.isAttributeValueExplicitlySpecified("scope")) {
+        || attrs.get("scope", Type.STRING).equals(Type.STRING.getDefaultValue())) {
       return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
     }
     return new Scope.ScopeType(attrs.get("scope", Type.STRING));
@@ -202,7 +228,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
   @Nullable
   private Object getOnleaveScopeValue(Target target) {
     var attrs = RawAttributeMapper.of(target.getAssociatedRule());
-    if (!attrs.has("on_leave_scope")) {
+    if (!attrs.isAttributeValueExplicitlySpecified("on_leave_scope")) {
       // do nothing if on_leave_scope is not set.
       return null;
     }

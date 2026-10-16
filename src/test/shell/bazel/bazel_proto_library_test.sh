@@ -22,11 +22,14 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+export TESTENV_DONT_BAZEL_CLEAN=1
+
 function set_up() {
   add_protobuf "MODULE.bazel"
   add_rules_java "MODULE.bazel"
   # Enable disk cache to avoid compiling protobuf for each test.
   enable_disk_cache
+  use_prebuilt_protoc
 }
 
 # Creates directories and files with the structure:
@@ -532,39 +535,6 @@ EOF
   bazel build //a:c || fail "build failed"
 }
 
-function test_cc_proto_library_with_toolchain_resolution() {
-  add_rules_cc MODULE.bazel
-
-  mkdir -p a
-  cat > a/BUILD <<EOF
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
-
-proto_library(name='p', srcs=['p.proto'])
-cc_proto_library(name='cp', deps=[':p'])
-cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
-EOF
-
-  cat > a/p.proto <<EOF
-syntax = "proto2";
-package a;
-message A {
-  optional int32 a = 1;
-}
-EOF
-
-  cat > a/c.cc <<EOF
-#include "a/p.pb.h"
-
-void f() {
-  a::A a;
-}
-EOF
-
-  bazel build --incompatible_enable_cc_toolchain_resolution //a:c || fail "build failed"
-}
-
 function test_cc_proto_library_import_prefix_stripping() {
   add_rules_cc MODULE.bazel
   mkdir -p a/dir
@@ -688,13 +658,9 @@ message H {
 }
 EOF
 
-  bazel build -s --noexperimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
-  bazel build -s --noexperimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
-  bazel build -s --noexperimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
-
-  bazel build -s --experimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
-  bazel build -s --experimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
-  bazel build -s --experimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
+  bazel build -s //h >& $TEST_log || fail "failed"
+  bazel build -s //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build -s //h:h_java_proto >& $TEST_log || fail "failed"
 
   expect_not_log "warning: directory does not exist." # --proto_path is wrong
 }
@@ -805,13 +771,9 @@ message H {
 }
 EOF
 
-  bazel build -s --noexperimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
-  bazel build -s --noexperimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
-  bazel build -s --noexperimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
-
-  bazel build -s --experimental_sibling_repository_layout //h -s >& $TEST_log || fail "failed"
-  bazel build -s --experimental_sibling_repository_layout //h:h_cc_proto -s >& $TEST_log || fail "failed"
-  bazel build -s --experimental_sibling_repository_layout //h:h_java_proto  -s >& $TEST_log || fail "failed"
+  bazel build --verbose_failures //h >& $TEST_log || fail "failed"
+  bazel build --verbose_failures //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build --verbose_failures //h:h_java_proto >& $TEST_log || fail "failed"
 
   expect_not_log "warning: directory does not exist." # --proto_path is wrong
 

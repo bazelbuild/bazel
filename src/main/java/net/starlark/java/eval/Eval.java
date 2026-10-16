@@ -14,8 +14,13 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,12 +52,15 @@ import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.ReturnStatement;
 import net.starlark.java.syntax.SliceExpression;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.TypeAliasStatement;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeTable;
+import net.starlark.java.syntax.Types.CallableType;
 import net.starlark.java.syntax.UnaryOperatorExpression;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types.CallableType;
 
 final class Eval {
 
@@ -60,11 +68,15 @@ final class Eval {
 
   // ---- entry point ----
 
-  // Called from StarlarkFunction.fastcall.
+  // Called from StarlarkFunction.call().
   static Object execFunctionBody(StarlarkThread.Frame fr, List<Statement> statements)
       throws EvalException, InterruptedException {
     fr.thread.checkInterrupt();
-    execStatements(fr, statements, /* indented= */ false);
+    if (fn(fr).isToplevel() && fr.thread.postAssignHook != null) {
+      execStatementsWithPostAssignHook(fr, statements);
+    } else {
+      execStatementsWithoutPostAssignHook(fr, statements);
+    }
     return fr.result;
   }
 
@@ -72,41 +84,54 @@ final class Eval {
     return (StarlarkFunction) fr.fn;
   }
 
-  private static TokenKind execStatements(
-      StarlarkThread.Frame fr, List<Statement> statements, boolean indented)
+  /**
+   * Executes top-level statements and invokes {@link StarlarkThread#postAssignHook} (or {@link
+   * StarlarkFunction#export}) after assignments and function definitions to support {@code
+   * BzlLoadFunction}'s export semantics.
+   *
+   * <p>{@link #execFunctionBody} only calls this for statements outside any function ({@code
+   * isToplevel}) when a {@code postAssignHook} is set. Nested blocks ({@code if}/{@code for}
+   * bodies) go through {@link #execStatementsWithoutPostAssignHook}, so their assignments are not
+   * exported; the resolver rejects such blocks at top level anyway.
+   */
+  private static void execStatementsWithPostAssignHook(
+      StarlarkThread.Frame fr, List<Statement> statements)
       throws EvalException, InterruptedException {
-    boolean isToplevelFunction = fn(fr).isToplevel();
-
-    // Hot code path, good chance of short lists which don't justify the iterator overhead.
     for (int i = 0; i < statements.size(); i++) {
       Statement stmt = statements.get(i);
-      TokenKind flow = exec(fr, stmt);
-      if (flow != TokenKind.PASS) {
-        return flow;
+      if (exec(fr, stmt) != TokenKind.PASS) {
+        return;
       }
 
-      // Hack for BzlLoadFunction's "export" semantics.
-      // We enable it only for statements outside any function (isToplevelFunction)
-      // and outside any if- or for- statements (!indented).
-      if (isToplevelFunction && !indented && fr.thread.postAssignHook != null) {
-        if (stmt instanceof AssignmentStatement assign) {
-          for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
-            Object value = fn(fr).getGlobal(id.getBinding().getIndex());
-            // TODO(bazel-team): Instead of special casing StarlarkFunction, make it implement
-            // StarlarkExportable.
-            if (value instanceof StarlarkFunction func) {
-              // Optimization: The id token of a StarlarkFunction should be based on its global
-              // identifier when available. This enables an name-based lookup on deserialization.
-              func.export(fr.thread, id.getName());
-            } else {
-              fr.thread.postAssignHook.assign(id.getName(), id.getStartLocation(), value);
-            }
+      if (stmt instanceof AssignmentStatement assign) {
+        for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
+          Object value = fn(fr).getGlobal(id.getBinding().getIndex());
+          // TODO(bazel-team): Instead of special casing StarlarkFunction, make it implement
+          // StarlarkExportable.
+          if (value instanceof StarlarkFunction func) {
+            // Optimization: The id token of a StarlarkFunction should be based on its global
+            // identifier when available. This enables an name-based lookup on deserialization.
+            func.export(fr.thread, id.getName());
+          } else {
+            fr.thread.postAssignHook.assign(id.getName(), id.getStartLocation(), value);
           }
-        } else if (stmt instanceof DefStatement def) {
-          Identifier id = def.getIdentifier();
-          ((StarlarkFunction) fn(fr).getGlobal(id.getBinding().getIndex()))
-              .export(fr.thread, id.getName());
         }
+      } else if (stmt instanceof DefStatement def) {
+        Identifier id = def.getIdentifier();
+        ((StarlarkFunction) fn(fr).getGlobal(id.getBinding().getIndex()))
+            .export(fr.thread, id.getName());
+      }
+    }
+  }
+
+  private static TokenKind execStatementsWithoutPostAssignHook(
+      StarlarkThread.Frame fr, List<Statement> statements)
+      throws EvalException, InterruptedException {
+    // Hot code path, good chance of short lists which don't justify the iterator overhead.
+    for (int i = 0; i < statements.size(); i++) {
+      TokenKind flow = exec(fr, statements.get(i));
+      if (flow != TokenKind.PASS) {
+        return flow;
       }
     }
     return TokenKind.PASS;
@@ -130,25 +155,30 @@ final class Eval {
   private static TokenKind execFor(StarlarkThread.Frame fr, ForStatement node)
       throws EvalException, InterruptedException {
     Iterable<?> seq = evalAsIterable(fr, node.getCollection());
+    // size is -1 for non-Sequence iterables, which are iterated via their Iterator.
+    int size = seq instanceof Sequence<?> sequence ? sequence.size() : -1;
+    if (size == 0) {
+      return TokenKind.PASS;
+    }
     EvalUtils.addIterator(seq);
     try {
-      for (Object it : seq) {
-        assign(fr, node.getVars(), it);
-
-        switch (execStatements(fr, node.getBody(), /* indented= */ true)) {
-          case PASS:
-          case CONTINUE:
-            // Stay in loop.
-            fr.thread.checkInterrupt();
-            continue;
-          case BREAK:
-            // Finish loop, execute next statement after loop.
-            return TokenKind.PASS;
-          case RETURN:
-            // Finish loop, return from function.
-            return TokenKind.RETURN;
-          default:
-            throw new IllegalStateException("unreachable");
+      if (size > 0) {
+        Sequence<?> sequence = (Sequence<?>) seq;
+        @Nullable Object[] elems = getRawElemsArray(sequence);
+        // Note: `size` is sequence size, not elems.length (elems may have allocated but unused
+        // capacity).
+        for (int i = 0; i < size; i++) {
+          TokenKind flow = execForStep(fr, node, elems != null ? elems[i] : sequence.get(i));
+          if (flow != TokenKind.PASS) {
+            return flow == TokenKind.BREAK ? TokenKind.PASS : flow;
+          }
+        }
+      } else {
+        for (Object it : seq) {
+          TokenKind flow = execForStep(fr, node, it);
+          if (flow != TokenKind.PASS) {
+            return flow == TokenKind.BREAK ? TokenKind.PASS : flow;
+          }
         }
       }
     } catch (EvalException ex) {
@@ -158,6 +188,41 @@ final class Eval {
       EvalUtils.removeIterator(seq);
     }
     return TokenKind.PASS;
+  }
+
+  /**
+   * Executes one iteration of a for loop. Returns PASS to stay in the loop, BREAK to finish the
+   * loop, or RETURN to return from the enclosing function.
+   */
+  private static TokenKind execForStep(StarlarkThread.Frame fr, ForStatement node, Object it)
+      throws EvalException, InterruptedException {
+    assign(fr, node.getVars(), it);
+    TokenKind flow = execStatementsWithoutPostAssignHook(fr, node.getBody());
+    return switch (flow) {
+      case PASS, CONTINUE -> {
+        fr.thread.checkInterrupt();
+        yield TokenKind.PASS;
+      }
+      case BREAK, RETURN -> flow;
+      default -> throw new IllegalStateException("unreachable");
+    };
+  }
+
+  /**
+   * Returns the backing {@code Object[]} array of {@code seq} if it is stored directly as an array,
+   * or {@code null} if elements are stored inline (singleton tuples/lists) or computed dynamically
+   * (such as {@link RangeList}). Note that for {@link MutableStarlarkList}, the returned array's
+   * length may exceed {@code seq.size()}.
+   */
+  @Nullable
+  private static Object[] getRawElemsArray(Sequence<?> seq) {
+    if (seq instanceof RegularTuple tuple) {
+      return tuple.elems;
+    } else if (seq instanceof StarlarkList<?> list
+        && !(list instanceof ImmutableSingletonStarlarkList<?>)) {
+      return list.elems();
+    }
+    return null;
   }
 
   private static StarlarkFunction newFunction(StarlarkThread.Frame fr, Resolver.Function rfn)
@@ -170,9 +235,16 @@ final class Eval {
     Object[] defaults = null;
     int nparams =
         rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
-    @Nullable CallableType functionType = rfn.getFunctionType();
+
+    // Nested functions use the same typeTable as their enclosing function, since both were compiled
+    // from the same Program.
+    StarlarkFunction fn = fn(fr);
+    @Nullable
+    CallableType functionType = fn.getTypeTable() == null ? null : fn.getTypeTable().getType(rfn);
     boolean dynamicTypeCheckingEnabled =
-        fr.thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING);
+        fr.thread
+            .getSemantics()
+            .getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
     for (int i = 0; i < nparams; i++) {
       Expression expr = rfn.getParameters().get(i).getDefaultValue();
       if (expr == null && defaults == null) {
@@ -187,12 +259,13 @@ final class Eval {
       if (dynamicTypeCheckingEnabled && functionType != null) {
         // Typecheck the default value
         StarlarkType parameterType = functionType.getParameterTypeByPos(i);
-        if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
+        if (!TypeChecker.isValueSubtypeOf(
+            defaultValue, parameterType, fr.thread.getSemantics(), fr.thread.getTypeContext())) {
           throw Starlark.errorf(
               "%s(): parameter '%s' has default value of type '%s', declares '%s'",
               rfn.getName(),
               rfn.getParameterNames().get(i),
-              TypeChecker.type(defaultValue),
+              Starlark.getStarlarkType(defaultValue, fr.thread.getSemantics()),
               parameterType);
         }
       }
@@ -221,9 +294,9 @@ final class Eval {
 
     // Nested functions use the same globalIndex as their enclosing function,
     // since both were compiled from the same Program.
-    StarlarkFunction fn = fn(fr);
     return new StarlarkFunction(
         rfn,
+        fn.getTypeTable(),
         fn.getModule(),
         fn.globalIndex,
         Tuple.wrap(defaults),
@@ -235,9 +308,9 @@ final class Eval {
       throws EvalException, InterruptedException {
     boolean cond = Starlark.truth(eval(fr, node.getCondition()));
     if (cond) {
-      return execStatements(fr, node.getThenBlock(), /* indented= */ true);
+      return execStatementsWithoutPostAssignHook(fr, node.getThenBlock());
     } else if (node.getElseBlock() != null) {
-      return execStatements(fr, node.getElseBlock(), /* indented= */ true);
+      return execStatementsWithoutPostAssignHook(fr, node.getElseBlock());
     }
     return TokenKind.PASS;
   }
@@ -284,6 +357,20 @@ final class Eval {
     return TokenKind.RETURN;
   }
 
+  private static TokenKind execTypeAlias(StarlarkThread.Frame fr, TypeAliasStatement node) {
+    // The dynamic behavior of the type alias statement is to ignore the RHS, and to assign a
+    // StarlarkValue wrapping the statically-computed type constructor (computed by TypeTagger and
+    // saved in the TypeTable) to the LHS.
+    @Nullable TypeTable typeTable = fn(fr).getTypeTable();
+    // Assign a value to the type alias identifier only if type tagging is enabled.
+    if (typeTable != null) {
+      TypeConstructor typeConstructor =
+          checkNotNull(typeTable.getTypeConstructor(node.getIdentifier().getBinding()));
+      assignIdentifier(fr, node.getIdentifier(), TypeConstructorValue.of(typeConstructor));
+    }
+    return TokenKind.PASS;
+  }
+
   private static TokenKind exec(StarlarkThread.Frame fr, Statement st)
       throws EvalException, InterruptedException {
     if (fr.dbg != null) {
@@ -320,7 +407,7 @@ final class Eval {
       case RETURN:
         return execReturn(fr, (ReturnStatement) st);
       case TYPE_ALIAS:
-        return TokenKind.PASS;
+        return execTypeAlias(fr, (TypeAliasStatement) st);
       case VAR:
         return TokenKind.PASS;
     }
@@ -366,17 +453,17 @@ final class Eval {
   private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value) {
     Resolver.Binding bind = id.getBinding();
     switch (bind.getScope()) {
-      case LOCAL:
-        fr.locals[bind.getIndex()] = value;
-        break;
-      case CELL:
-        ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x = value;
-        break;
-      case GLOBAL:
-        fn(fr).setGlobal(bind.getIndex(), value);
-        break;
-      default:
-        throw new IllegalStateException(bind.getScope().toString());
+      case LOCAL -> fr.locals[bind.getIndex()] = value;
+      case CELL -> ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x = value;
+      case GLOBAL -> {
+        StarlarkFunction fn = fn(fr);
+        fn.setGlobal(bind.getIndex(), value);
+        @Nullable TypeTable typeTable = fn.getTypeTable();
+        if (typeTable != null) {
+          fn.setGlobalDeclaredType(bind.getIndex(), typeTable.getGlobalDeclaredType(bind));
+        }
+      }
+      default -> throw new IllegalStateException(bind.getScope().toString());
     }
   }
 
@@ -454,13 +541,7 @@ final class Eval {
       Object object = eval(fr, dot.getObject());
       String field = dot.getField().getName();
       try {
-        Object x =
-            Starlark.getattr(
-                fr.thread.mutability(),
-                fr.thread.getSemantics(),
-                object,
-                field,
-                /* defaultValue= */ null);
+        Object x = Starlark.getattr(fr.thread, object, field, /* defaultValue= */ null);
         Object y = eval(fr, rhs);
         Object z;
         try {
@@ -634,23 +715,26 @@ final class Eval {
 
   private static Object evalDict(StarlarkThread.Frame fr, DictExpression dictexpr)
       throws EvalException, InterruptedException {
-    Dict<Object, Object> dict = Dict.of(fr.thread.mutability());
+    LinkedHashMap<Object, Object> map =
+        Maps.newLinkedHashMapWithExpectedSize(dictexpr.getEntries().size());
     for (DictExpression.Entry entry : dictexpr.getEntries()) {
       Object k = eval(fr, entry.getKey());
       Object v = eval(fr, entry.getValue());
-      int before = dict.size();
       try {
-        dict.putEntry(k, v);
+        Starlark.checkHashable(k);
       } catch (EvalException ex) {
         fr.setErrorLocation(entry.getColonLocation());
         throw ex;
       }
-      if (dict.size() == before) {
+      if (map.put(k, v) != null) {
         fr.setErrorLocation(entry.getColonLocation());
-        throw Starlark.errorf("dictionary expression has duplicate key: %s", Starlark.repr(k));
+        throw Starlark.errorf(
+            "dictionary expression has duplicate key: %s",
+            Starlark.repr(k, fr.thread.getSemantics()));
       }
     }
-    return dict;
+    Mutability mu = fr.thread.mutability();
+    return mu.isFrozen() ? CompactImmutableDict.copyOf(map) : Dict.wrap(mu, map);
   }
 
   private static Object evalDot(StarlarkThread.Frame fr, DotExpression dot)
@@ -658,8 +742,7 @@ final class Eval {
     Object object = eval(fr, dot.getObject());
     String name = dot.getField().getName();
     try {
-      return Starlark.getattr(
-          fr.thread.mutability(), fr.thread.getSemantics(), object, name, /* defaultValue= */ null);
+      return Starlark.getattr(fr.thread, object, name, /* defaultValue= */ null);
     } catch (EvalException ex) {
       fr.setErrorLocation(dot.getDotLocation());
       throw ex;
@@ -877,9 +960,9 @@ final class Eval {
 
   private static Object evalComprehension(StarlarkThread.Frame fr, Comprehension comp)
       throws EvalException, InterruptedException {
-    final Dict<Object, Object> dict = comp.isDict() ? Dict.of(fr.thread.mutability()) : null;
-    final StarlarkList<Object> list =
-        comp.isDict() ? null : StarlarkList.newList(fr.thread.mutability());
+    LinkedHashMap<Object, Object> map =
+        comp.isDict() ? Maps.newLinkedHashMapWithExpectedSize(1) : null;
+    List<Object> list = comp.isDict() ? null : new ArrayList<>(0);
 
     // The Lambda class serves as a recursive lambda closure.
     class Lambda {
@@ -917,25 +1000,29 @@ final class Eval {
         }
 
         // base case: evaluate body and add to result.
-        if (dict != null) {
+        if (map != null) {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(fr, body.getKey());
           try {
             Starlark.checkHashable(k);
             Object v = eval(fr, body.getValue());
-            dict.putEntry(k, v);
+            map.put(k, v);
           } catch (EvalException ex) {
             fr.setErrorLocation(body.getColonLocation());
             throw ex;
           }
         } else {
-          list.addElement(eval(fr, ((Expression) comp.getBody())));
+          list.add(eval(fr, ((Expression) comp.getBody())));
         }
       }
     }
     new Lambda().execClauses(0);
 
-    return comp.isDict() ? dict : list;
+    Mutability mu = fr.thread.mutability();
+    if (!comp.isDict()) {
+      return StarlarkList.wrap(mu, list.toArray());
+    }
+    return mu.isFrozen() ? CompactImmutableDict.copyOf(map) : Dict.wrap(mu, map);
   }
 
   /**

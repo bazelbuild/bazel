@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
+import com.google.devtools.common.options.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Collections;
 
@@ -28,8 +29,7 @@ Generates Starlark API documentation, including Starlark and BUILD language
 built-in functions and data types, providers, configuration fragments, etc.
 """);
     System.err.println(
-        parser.describeOptionsWithDeprecatedCategories(
-            Collections.emptyMap(), OptionsParser.HelpVerbosity.LONG));
+        parser.describeOptionsWithDeprecatedCategories(Collections.emptyMap(), HelpVerbosity.LONG));
   }
 
   private static void fail(Throwable e, boolean printStackTrace) {
@@ -49,12 +49,12 @@ built-in functions and data types, providers, configuration fragments, etc.
     parser.parseAndExitUponError(args);
     StarlarkDocumentationOptions options = parser.getOptions(StarlarkDocumentationOptions.class);
 
-    if (options.help) {
+    if (options.getHelp()) {
       printUsage(parser);
       Runtime.getRuntime().exit(0);
     }
 
-    if (parser.getResidue().size() != 1 || options.linkMapPath.isEmpty()) {
+    if (parser.getResidue().size() != 1 || options.getLinkMapPath().isEmpty()) {
       printUsage(parser);
       Runtime.getRuntime().exit(1);
     }

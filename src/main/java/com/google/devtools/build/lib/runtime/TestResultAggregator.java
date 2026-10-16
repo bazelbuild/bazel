@@ -251,12 +251,14 @@ final class TestResultAggregator {
 
     List<String> warnings = new ArrayList<>();
     if (status == BlazeTestStatus.PASSED
-        && shouldEmitTestSizeWarningInSummary(
-            policy.testVerboseTimeoutWarnings,
-            warnings,
-            result.getData().getTestProcessTimesList(),
-            target)) {
-      summary.setWasUnreportedWrongSize(true);
+        && !result.isCached()
+        && !result.getData().getRemotelyCached()) {
+      boolean unused =
+          shouldEmitTestSizeWarningInSummary(
+              policy.testVerboseTimeoutWarnings,
+              warnings,
+              result.getData().getTestProcessTimesList(),
+              target);
     }
 
     summary

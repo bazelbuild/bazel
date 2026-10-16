@@ -13,6 +13,7 @@ filegroup(
 java_test(
     name = "EvalTests",
     srcs = [
+        "CompactImmutableDictTest.java",
         "DynamicTypeCheckTest.java",
         "EvalTests.java",  # (suite)
         "EvalUtilsTest.java",
@@ -32,6 +33,7 @@ java_test(
         "StarlarkMutableTest.java",
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
+        "StaticTypeCheckTest.java",
         "SymbolGeneratorTest.java",
     ],
     jvm_flags = [
@@ -43,7 +45,8 @@ java_test(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/java/net/starlark/java/types",
+        "//src/test/java/net/starlark/java/syntax:TestUtils",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
@@ -80,6 +83,23 @@ java_test(
     main_class = "net.starlark.java.eval.ScriptTest",
     use_testrunner = False,
     runtime_deps = [":ScriptTest_lib"],
+)
+
+# Integration test of the Starlark CPU profiler, which requires its own process.
+java_test(
+    name = "CpuProfilerTest",
+    srcs = ["CpuProfilerTest.java"],
+    data = ["//src/main/java/net/starlark/java/eval:cpu_profiler_jni"],
+    jvm_flags = ["-Djava.library.path=src/main/java/net/starlark/java/eval"],
+    main_class = "net.starlark.java.eval.CpuProfilerTest",
+    tags = ["no_windows"],
+    use_testrunner = False,
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support_impl",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/pprof:profile_java_proto",
+    ],
 )
 
 # Script-based benchmarks of the Starlark interpreter.

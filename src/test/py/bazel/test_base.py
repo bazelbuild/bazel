@@ -16,6 +16,7 @@
 
 """Bazel Python integration test framework."""
 
+import hashlib
 import os
 import re
 import shutil
@@ -24,6 +25,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import zipfile
 from absl.testing import absltest
 import runfiles
 
@@ -89,7 +91,11 @@ class TestBase(absltest.TestCase):
     with open(self._test_bazelrc, 'wt') as f:
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:
-        f.write('startup --install_base={}\n'.format(shared_install_base))
+        f.write(
+            'startup --install_base={}\n'.format(
+                self._InstallBaseForBazelBinary(shared_install_base)
+            )
+        )
       shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
       if shared_repo_cache:
         f.write('common --repository_cache={}\n'.format(shared_repo_cache))
@@ -102,6 +108,10 @@ class TestBase(absltest.TestCase):
         if TestBase.IsDarwin():
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')
+      # The repo contents cache defaults to a directory under the repository
+      # cache, which is shared with other tests and test attempts on CI. Tests
+      # that exercise the repo contents cache opt in explicitly.
+      f.write('common --repo_contents_cache=\n')
       if TestBase.IsDarwin() and _HasIpv6DefaultRoute():
         # Prefer IPv6 network on macOS only when an IPv6 default route exists.
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
@@ -197,6 +207,18 @@ class TestBase(absltest.TestCase):
           '(end stderr)------------------------------------------',
       ]))
 
+  def _InstallBaseForBazelBinary(self, shared_install_base):
+    """Returns a shared install base keyed by the Bazel binary under test."""
+
+    # Test rules may build Bazel in different configurations, which yields
+    # binaries with different install base keys. Bazel wipes an install base
+    # populated by a different binary, which fails on Windows while another
+    # Bazel server is still running from it, so the key is made part of the
+    # path.
+    with zipfile.ZipFile(self.Rlocation('io_bazel/src/bazel')) as bazel:
+      key = bazel.read('install_base_key').decode('ascii').strip()
+    return '{}-{}'.format(shared_install_base, key)
+
   def AssertExitCode(self,
                      actual_exit_code,
                      expected_exit_code,
@@ -219,13 +241,19 @@ class TestBase(absltest.TestCase):
 
   def AssertFileContentContains(self, file_path, entry):
     with open(file_path, 'r') as f:
-      if entry not in f.read():
-        self.fail('File "%s" does not contain "%s"' % (file_path, entry))
+      content = f.read()
+      if entry not in content:
+        self.fail(
+            'File "%s" does not contain "%s":\n%s' % (file_path, entry, content)
+        )
 
   def AssertFileContentNotContains(self, file_path, entry):
     with open(file_path, 'r') as f:
-      if entry in f.read():
-        self.fail('File "%s" does contain "%s"' % (file_path, entry))
+      content = f.read()
+      if entry in content:
+        self.fail(
+            'File "%s" does contain "%s":\n%s' % (file_path, entry, content)
+        )
 
   def AssertPathIsSymlink(self, path):
     if self.IsWindows():
@@ -307,6 +335,31 @@ class TestBase(absltest.TestCase):
       raise ArgumentError(('path="%s" may not be absolute and may not contain '
                            'uplevel references') % path)
     return os.path.join(self._test_cwd, path)
+
+  def GetTargetExecutable(self, target, flags=()):
+    """Returns the configured executable output path for a target."""
+    _, outputs, _ = self.RunBazel(
+        ['cquery', target, '--output=files'] + list(flags)
+    )
+    target_name = target.rsplit(':', 1)[-1]
+    if target_name == target:
+      target_name = target.rstrip('/').rsplit('/', 1)[-1]
+    if self.IsWindows():
+      target_name += '.exe'
+    executables = [
+        output for output in outputs if os.path.basename(output) == target_name
+    ]
+    self.assertLen(executables, 1, str(outputs))
+    return self.Path(executables[0])
+
+  def GetTargetTestlogs(self, target, flags=()):
+    """Returns the testlogs directory for a target's configuration."""
+    executable = self.GetTargetExecutable(target, flags)
+    relative_executable = os.path.relpath(executable, self._test_cwd)
+    path_parts = relative_executable.replace('\\', '/').split('/')
+    self.assertGreaterEqual(len(path_parts), 3, relative_executable)
+    self.assertEqual(path_parts[0], 'bazel-out', relative_executable)
+    return self.Path(os.path.join('bazel-out', path_parts[1], 'testlogs'))
 
   def Rlocation(self, runfile):
     """Returns the absolute path to a runfile."""
@@ -514,6 +567,21 @@ class TestBase(absltest.TestCase):
     shutil.rmtree(self._cas_path)
     # The worker needs the CAS path as well as the tmp dir to exist.
     os.makedirs(os.path.join(self._cas_path, 'tmp'))
+
+  def DeleteCasEntry(self, content):
+    """Deletes the CAS entry of the "local remote worker" with the given content.
+
+    Args:
+      content: bytes; the contents of the CAS entry to delete.
+
+    Returns:
+      str: the path of the deleted CAS entry.
+    """
+    digest = hashlib.sha256(content).hexdigest()
+    blob_path = os.path.join(self._cas_path, 'cas', digest[:2], digest)
+    self.assertTrue(os.path.exists(blob_path))
+    os.remove(blob_path)
+    return blob_path
 
   def RunProgram(
       self,

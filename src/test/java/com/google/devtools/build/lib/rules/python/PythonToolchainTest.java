@@ -61,7 +61,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
         ")");
     // A user rule that requires the Python toolchain type and spits out the resulting info.
     scratch.file(
-        "pkg/rules.bzl",
+        "tools/python/pkg/rules.bzl",
         "def _myrule_impl(ctx):",
         "    info = ctx.toolchains['" + TOOLCHAIN_TYPE + "']",
         "    print('PY3 path: ' + info.py3_runtime.interpreter_path)",
@@ -71,7 +71,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
         ")");
     // A toolchain implementation and an instance of the rule that will use it.
     scratch.file(
-        "pkg/BUILD",
+        "tools/python/pkg/BUILD",
         getPyLoad("py_runtime"),
         getPyLoad("py_runtime_pair"),
         "load(':rules.bzl', 'myrule')",
@@ -95,9 +95,10 @@ public class PythonToolchainTest extends BuildViewTestCase {
         ")");
     // Register the toolchain and ask for the platform.
     useConfiguration(
-        "--platforms=//platforms:my_platform", "--extra_toolchains=//pkg:my_toolchain");
+        "--platforms=//platforms:my_platform",
+        "--extra_toolchains=//tools/python/pkg:my_toolchain");
 
-    getConfiguredTarget("//pkg:mytarget");
+    getConfiguredTarget("//tools/python/pkg:mytarget");
     assertContainsEvent("PY3 path: /system/python3");
   }
 
@@ -105,7 +106,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
   public void missingProviderInToolchainAttribute() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
-        "pkg/BUILD",
+        "tools/python/pkg/BUILD",
         getPyLoad("py_runtime_pair"),
         "filegroup(",
         "    name = 'not_a_runtime',",
@@ -115,7 +116,8 @@ public class PythonToolchainTest extends BuildViewTestCase {
         "    name = 'bad_py_runtime_pair',",
         "    py3_runtime = ':not_a_runtime',",
         ")");
-    getConfiguredTarget("//pkg:bad_py_runtime_pair");
-    assertContainsEvent("'//pkg:not_a_runtime' does not have mandatory providers: 'PyRuntimeInfo'");
+    getConfiguredTarget("//tools/python/pkg:bad_py_runtime_pair");
+    assertContainsEvent(
+        "'//tools/python/pkg:not_a_runtime' does not have mandatory providers: 'PyRuntimeInfo'");
   }
 }

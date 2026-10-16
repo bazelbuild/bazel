@@ -16,17 +16,24 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext.Encoding;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.function.Predicate;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests for {@link ExpandedSpawnLogContext}. */
@@ -35,21 +42,105 @@ public final class ExpandedSpawnLogContextTest extends SpawnLogContextTestBase {
   private final Path logPath = fs.getPath("/log");
   private final Path tempPath = fs.getPath("/temp");
 
+  @Test
+  public void testMnemonicFilter() throws Exception {
+    SpawnBuilder spawn1 = defaultSpawnBuilder().withMnemonic("Mnemonic1");
+    SpawnBuilder spawn2 = defaultSpawnBuilder().withMnemonic("Mnemonic2");
+
+    SpawnLogContext context =
+        createSpawnLogContext(spawn -> spawn.getMnemonic().equals("Mnemonic1"));
+
+    context.logSpawn(
+        spawn1.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+    context.logSpawn(
+        spawn2.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(context, defaultSpawnExecBuilder().setMnemonic("Mnemonic1").build());
+  }
+
+  @Test
+  public void testStreaming() throws Exception {
+    SpawnBuilder spawn = defaultSpawnBuilder().withMnemonic("Mnemonic1");
+
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    BufferedOutputStream out = new BufferedOutputStream(baos);
+
+    SpawnLogContext context =
+        new ExpandedSpawnLogContext(
+            out,
+            "stream",
+            /* outputPath= */ null,
+            tempPath,
+            Encoding.BINARY,
+            /* sorted= */ false,
+            execRoot.asFragment(),
+            Options.getDefaults(RemoteOptions.class),
+            DigestHashFunction.SHA256,
+            SyscallCache.NO_CACHE,
+            /* shouldPublish= */ false,
+            /* logSpawnPredicate= */ s -> true);
+
+    context.logSpawn(
+        spawn.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    context.close();
+
+    ArrayList<SpawnExec> actual = new ArrayList<>();
+    try (InputStream in = new ByteArrayInputStream(baos.toByteArray())) {
+      SpawnExec ex;
+      while ((ex = SpawnExec.parseDelimitedFrom(in)) != null) {
+        actual.add(ex);
+      }
+    }
+
+    assertThat(actual).containsExactly(defaultSpawnExecBuilder().setMnemonic("Mnemonic1").build());
+  }
+
   @Override
   protected SpawnLogContext createSpawnLogContext(ImmutableMap<String, String> platformProperties)
       throws IOException, InterruptedException {
+    return createSpawnLogContext(platformProperties, /* logSpawnPredicate= */ spawn -> true);
+  }
+
+  SpawnLogContext createSpawnLogContext(Predicate<Spawn> logSpawnPredicate)
+      throws IOException, InterruptedException {
+    return createSpawnLogContext(ImmutableMap.of(), logSpawnPredicate);
+  }
+
+  SpawnLogContext createSpawnLogContext(
+      ImmutableMap<String, String> platformProperties, Predicate<Spawn> logSpawnPredicate)
+      throws IOException, InterruptedException {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteDefaultExecProperties = platformProperties.entrySet().asList();
+    remoteOptions.setRemoteDefaultExecPropertiesField(platformProperties.entrySet().asList());
 
     return new ExpandedSpawnLogContext(
-        logPath,
+        new BufferedOutputStream(logPath.getOutputStream()),
+        logPath.toString(),
+        /* outputPath= */ null,
         tempPath,
         Encoding.BINARY,
         /* sorted= */ false,
         execRoot.asFragment(),
         remoteOptions,
         DigestHashFunction.SHA256,
-        SyscallCache.NO_CACHE);
+        SyscallCache.NO_CACHE,
+        /* shouldPublish= */ false,
+        logSpawnPredicate);
   }
 
   @Override

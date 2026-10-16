@@ -13,18 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -50,13 +46,6 @@ public final class CollectionUtils {
       }
     }
     return duplicates == null ? ImmutableSet.of() : duplicates;
-  }
-
-  /**
-   * Returns an immutable set of all non-null parameters in the order in which they are specified.
-   */
-  public static <T> ImmutableSet<T> asSetWithoutNulls(T... elements) {
-    return Arrays.stream(elements).filter(Objects::nonNull).collect(toImmutableSet());
   }
 
   /** Returns a copy of the Map of Maps parameter. */

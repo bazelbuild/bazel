@@ -17,6 +17,7 @@ package com.google.devtools.build.buildjar;
 import static com.google.errorprone.scanner.BuiltInCheckerSuppliers.getSuppliers;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.BugCheckerInfo;
 import com.google.errorprone.bugpatterns.AlwaysThrows;
@@ -25,13 +26,12 @@ import com.google.errorprone.bugpatterns.ArrayFillIncompatibleType;
 import com.google.errorprone.bugpatterns.ArrayHashCode;
 import com.google.errorprone.bugpatterns.ArrayToString;
 import com.google.errorprone.bugpatterns.ArraysAsListPrimitiveArray;
-import com.google.errorprone.bugpatterns.AsyncCallableReturnsNull;
-import com.google.errorprone.bugpatterns.AsyncFunctionReturnsNull;
 import com.google.errorprone.bugpatterns.AutoValueBuilderDefaultsInConstructor;
 import com.google.errorprone.bugpatterns.BadAnnotationImplementation;
 import com.google.errorprone.bugpatterns.BadShiftAmount;
 import com.google.errorprone.bugpatterns.BanJNDI;
 import com.google.errorprone.bugpatterns.BoxedPrimitiveEquality;
+import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.bugpatterns.ChainingConstructorIgnoresParameter;
 import com.google.errorprone.bugpatterns.CheckNotNullMultipleTimes;
 import com.google.errorprone.bugpatterns.CheckReturnValue;
@@ -129,7 +129,6 @@ import com.google.errorprone.bugpatterns.StreamToString;
 import com.google.errorprone.bugpatterns.StringBuilderInitWithChar;
 import com.google.errorprone.bugpatterns.SubstringOfZero;
 import com.google.errorprone.bugpatterns.SuppressWarningsDeprecated;
-import com.google.errorprone.bugpatterns.TestParametersNotInitialized;
 import com.google.errorprone.bugpatterns.TheoryButNoTheories;
 import com.google.errorprone.bugpatterns.ThrowIfUncheckedKnownChecked;
 import com.google.errorprone.bugpatterns.ThrowNull;
@@ -219,8 +218,6 @@ final class BazelScannerSuppliers {
           ArraysAsListPrimitiveArray.class,
           AssistedInjectScoping.class,
           AssistedParameters.class,
-          AsyncCallableReturnsNull.class,
-          AsyncFunctionReturnsNull.class,
           AutoValueBuilderDefaultsInConstructor.class,
           AutoValueConstructorOrderChecker.class,
           BadAnnotationImplementation.class,
@@ -369,7 +366,6 @@ final class BazelScannerSuppliers {
           SubstringOfZero.class,
           SuppressWarningsDeprecated.class,
           TemporalAccessorGetChronoField.class,
-          TestParametersNotInitialized.class,
           TheoryButNoTheories.class,
           ThrowIfUncheckedKnownChecked.class,
           ThrowNull.class,
@@ -387,9 +383,28 @@ final class BazelScannerSuppliers {
           VarTypeName.class,
           WrongOneof.class,
           XorPower.class,
-          ZoneIdOfZ.class
+          ZoneIdOfZ.class,
+          findBugCheckerByName("AsyncCallableReturnsNull"),
+          findBugCheckerByName("AsyncFunctionReturnsNull"),
+          findBugCheckerByName("TestParametersNotInitialized")
           // keep-sorted end
           );
+
+  private static Class<? extends BugChecker> findBugCheckerByName(String simpleName) {
+    ImmutableList<String> bugCheckerPackages =
+        ImmutableList.of(
+            "com.google.errorprone.bugpatterns",
+            "com.google.errorprone.bugpatterns.nullness",
+            "com.google.errorprone.bugpatterns.testparameterinjector");
+    for (String packageName : bugCheckerPackages) {
+      try {
+        return Class.forName(packageName + "." + simpleName).asSubclass(BugChecker.class);
+      } catch (ClassNotFoundException e) {
+        // continue
+      }
+    }
+    throw new IllegalStateException("Could not find " + simpleName);
+  }
 
   private BazelScannerSuppliers() {}
 }

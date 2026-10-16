@@ -25,6 +25,7 @@ import java.io.IOException;
 
 /** Mixin helpers for Skycache integration tests. */
 interface SkycacheIntegrationTestHelpers {
+  static final String OFF_MODE_OPTION = "--experimental_remote_analysis_cache_mode=off";
   static final String UPLOAD_MODE_OPTION = "--experimental_remote_analysis_cache_mode=upload";
   static final String DOWNLOAD_MODE_OPTION = "--experimental_remote_analysis_cache_mode=download";
   static final String DUMP_MANIFEST_MODE_OPTION =
@@ -61,6 +62,12 @@ interface SkycacheIntegrationTestHelpers {
     buildTarget(targets);
     assertWithMessage("expected to deserialize at least one Skyframe node")
         .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getCacheHits())
+        .isNotEmpty();
+    assertWithMessage("expected to record hit latencies for at least one SkyFunction")
+        .that(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getHitLatenciesBySkyFunctionName())
         .isNotEmpty();
     assertWithMessage("expected to not have any SerializationExceptions")
         .that(

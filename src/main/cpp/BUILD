@@ -1,18 +1,12 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//tools/res:win_res.bzl", "windows_resources")
 
 # Description:
 #   The Bazel launcher.
 package(
     default_visibility = ["//visibility:public"],
 )
-
-WIN_LINK_OPTS = [
-    "-DEFAULTLIB:advapi32.lib",  # GetUserNameW
-    "-DEFAULTLIB:ole32.lib",  # CoTaskMemFree
-    "-DEFAULTLIB:shell32.lib",  # SHGetKnownFolderPath
-    "-DEFAULTLIB:ws2_32.lib",  # grpc
-]
 
 cc_library(
     name = "blaze_util",
@@ -54,18 +48,42 @@ cc_library(
         ],
         "//src/conditions:openbsd": [
         ],
-        "//src/conditions:windows": WIN_LINK_OPTS,
+        # System libraries needed on Windows:
+        #   advapi32: GetUserNameW
+        #   ole32:    CoTaskMemFree
+        #   shell32:  SHGetKnownFolderPath
+        #   uuid:     FOLDERID_Profile (MinGW only, MSVC defines it inline)
+        #   ws2_32:   grpc
+        "//src/conditions:windows_msvc_like": [
+            "-DEFAULTLIB:advapi32.lib",
+            "-DEFAULTLIB:ole32.lib",
+            "-DEFAULTLIB:shell32.lib",
+            "-DEFAULTLIB:ws2_32.lib",
+        ],
+        "//src/conditions:windows_gcc_like": [
+            "-ladvapi32",
+            "-lole32",
+            "-lshell32",
+            "-luuid",
+            "-lws2_32",
+        ],
         "//conditions:default": [
             "-lrt",
         ],
     }),
     deps = [
-        "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:md5",
+        "//src/main/cpp/util:numbers",
+        "//src/main/cpp/util:port",
+        "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/base:log_severity",
         "@abseil-cpp//absl/log:globals",
         "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/time",
     ] + select({
         "//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
@@ -85,12 +103,21 @@ cc_library(
     ],
     deps = [
         ":blaze_util",
-        "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
         "//third_party/ijar:zip",
     ],
+)
+
+exports_files(["bazel.ico"])
+
+# The icon of bazel.exe.
+windows_resources(
+    name = "resources",
+    rc_files = ["resources.rc"],
+    resources = ["bazel.ico"],
 )
 
 cc_binary(
@@ -101,12 +128,9 @@ cc_binary(
         "main.cc",
         "server_process_info.cc",
         "server_process_info.h",
-    ] + select({
-        "//src/conditions:windows": ["resources.o"],
-        "//conditions:default": [],
-    }),
+    ],
     copts = select({
-        "//src/conditions:windows": ["/wd4018"],
+        "//src/conditions:windows_msvc_like": ["/wd4018"],
         "//conditions:default": ["-Wno-sign-compare"],
     }),
     linkopts = select({
@@ -124,6 +148,20 @@ cc_binary(
             "-lrt",
             "-ldl",
         ],
+    }) + select({
+        # MinGW requires -municode when using wmain.
+        "//src/conditions:windows_gcc_like": [
+            "-municode",
+            # grpc only passes -defaultlib:ws2_32.lib and abseil only detects
+            # MinGW GCC, not clang, so their system library dependencies are
+            # missing.
+            # TODO: Remove once https://github.com/grpc/grpc/pull/43483 and
+            # https://github.com/abseil/abseil-cpp/pull/2172 are available in
+            # the versions of grpc and abseil used by Bazel.
+            "-lbcrypt",
+            "-lws2_32",
+        ],
+        "//conditions:default": [],
     }),
     visibility = ["//src:__pkg__"],
     deps = [
@@ -135,15 +173,22 @@ cc_binary(
         ":startup_interceptor",
         ":startup_options",
         ":workspace_layout",
-        "//src/main/cpp/util",
         "//src/main/cpp/util:bazel_log_handler",
+        "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:numbers",
+        "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_grpc",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
-    ],
+        "@abseil-cpp//absl/time",
+    ] + select({
+        "//src/conditions:windows": [":resources"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
@@ -168,8 +213,11 @@ cc_library(
         # and the double % get reduced down to 1 by the compiler. A
         # forward slash is used because \b is a special character,
         # backspace.
-        "//src/conditions:windows": [
+        "//src/conditions:windows_msvc_like": [
             "/DBAZEL_SYSTEM_BAZELRC_PATH#\\\"%%ProgramData%%/bazel.bazelrc\\\"",
+        ],
+        "@platforms//os:windows": [
+            "-DBAZEL_SYSTEM_BAZELRC_PATH=\\\"%%ProgramData%%/bazel.bazelrc\\\"",
         ],
         # For posix platforms, this can include environment variables in the
         # form ${var_name}. Braces are required.
@@ -187,9 +235,10 @@ cc_library(
         ":sem_ver",
         ":startup_options",
         ":workspace_layout",
-        "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/strings",
     ],
 )
@@ -222,9 +271,13 @@ cc_library(
         ":blaze_util",
         ":jvm_module_options",
         ":workspace_layout",
-        "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:filesystem",
+        "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:numbers",
+        "//src/main/cpp/util:strings",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -241,6 +294,8 @@ cc_library(
         ":startup_options",
         ":workspace_layout",
         "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:filesystem",
+        "//src/main/cpp/util:logging",
     ],
 )
 
@@ -254,7 +309,7 @@ cc_library(
     ],
     deps = [
         ":blaze_util",
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:filesystem",
     ],
 )
 
@@ -270,8 +325,9 @@ cc_library(
         ":blaze_util",
         ":sem_ver",
         ":workspace_layout",
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/algorithm:container",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/functional:function_ref",

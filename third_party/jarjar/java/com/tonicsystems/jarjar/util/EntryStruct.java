@@ -27,10 +27,6 @@ public final class EntryStruct {
     if (!name.endsWith(".class")) {
       return false;
     }
-    if (name.startsWith("META-INF/version")) {
-      // TODO(b/69678527): handle multi-release jar files
-      return false;
-    }
     return true;
   }
 

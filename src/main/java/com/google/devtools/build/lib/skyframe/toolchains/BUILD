@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__"],
 )
 
 java_library(
@@ -18,8 +18,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -37,9 +37,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -50,8 +51,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -81,10 +82,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -102,7 +104,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -122,29 +125,25 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -159,8 +158,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -179,7 +179,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -198,26 +199,21 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:exception",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_util",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -232,9 +228,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -260,9 +255,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -278,8 +273,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -292,8 +289,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -312,8 +309,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -329,9 +326,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -367,8 +365,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -390,8 +390,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -404,8 +404,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -420,8 +420,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )

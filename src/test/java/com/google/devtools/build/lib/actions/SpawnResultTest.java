@@ -63,6 +63,27 @@ public final class SpawnResultTest {
   }
 
   @Test
+  public void getSigkillOomMessage() {
+    SpawnResult r =
+        new SpawnResult.Builder()
+            .setStatus(Status.NON_ZERO_EXIT)
+            .setExitCode(137)
+            .setFailureDetail(
+                FailureDetail.newBuilder()
+                    .setSpawn(
+                        FailureDetails.Spawn.newBuilder()
+                            .setCode(Code.NON_ZERO_EXIT)
+                            .setSpawnExitCode(137))
+                    .build())
+            .setRunnerName("test")
+            .build();
+    assertThat(r.getDetailMessage("", false, false))
+        .contains(
+            "(Action was terminated by SIGKILL, likely killed by Linux OOM killer due to memory"
+                + " exhaustion.)");
+  }
+
+  @Test
   public void inMemoryContents() {
     ActionInput output = ActionInputHelper.fromPath("/foo/bar");
     ByteString contents = ByteString.copyFromUtf8("hello world");
@@ -78,5 +99,19 @@ public final class SpawnResultTest {
     assertThat(r.getInMemoryOutput(output)).isEqualTo(contents);
     assertThat(r.getInMemoryOutput(null)).isEqualTo(null);
     assertThat(r.getInMemoryOutput(ActionInputHelper.fromPath("/does/not/exist"))).isEqualTo(null);
+  }
+
+  @Test
+  public void defaultSpawnMetricsIncludesMeasuredMemoryFromResourceUsage() {
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setRunnerName("test")
+            .setWallTimeInMs(100)
+            .setMemoryInKb(1000L)
+            .build();
+
+    assertThat(result.getMetrics().measuredMemoryPeak()).isEqualTo(1000L * 1024L);
   }
 }

@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionGraphVisitor;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -40,7 +40,7 @@ public final class PrintActionVisitor extends ActionGraphVisitor {
     super(actionGraph);
     this.target = target;
     this.actionMnemonicMatcher = actionMnemonicMatcher;
-    actions = Lists.newArrayList();
+    actions = new ArrayList<>();
     targetConfigurationChecksum = target.getConfigurationChecksum();
   }
 

@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.CharMatcher;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Helper methods relating to implementations of {@link Spawn}. */
 public final class Spawns {
@@ -92,7 +95,11 @@ public final class Spawns {
    * according to its execution info tags.
    */
   public static boolean supportsWorkers(Spawn spawn) {
-    return "1".equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_WORKERS));
+    return supportsWorkers(spawn.getExecutionInfo());
+  }
+
+  public static boolean supportsWorkers(Map<String, String> executionInfo) {
+    return "1".equals(executionInfo.get(ExecutionRequirements.SUPPORTS_WORKERS));
   }
 
   /**
@@ -100,8 +107,24 @@ public final class Spawns {
    * strategy according to its execution info tags.
    */
   public static boolean supportsMultiplexWorkers(Spawn spawn) {
-    return "1"
-        .equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS));
+    return supportsMultiplexWorkers(spawn.getExecutionInfo());
+  }
+
+  public static boolean supportsMultiplexWorkers(Map<String, String> executionInfo) {
+    return "1".equals(executionInfo.get(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS));
+  }
+
+  /**
+   * Returns the execpath into which the spawn's standard output stream should be redirected, or
+   * {@code null} if its standard output should be captured as regular action output.
+   */
+  @Nullable
+  public static Path getStdoutRedirectPath(Spawn spawn, Path execRoot) {
+    Artifact stdoutOutput = spawn.getStdout();
+    if (stdoutOutput == null) {
+      return null;
+    }
+    return execRoot.getRelative(spawn.getPathMapper().map(stdoutOutput.getExecPath()));
   }
 
   public static boolean supportsWorkerCancellation(Spawn spawn) {
@@ -144,7 +167,19 @@ public final class Spawns {
   /** Returns the mnemonic that should be used in the worker's key. */
   public static String getWorkerKeyMnemonic(Spawn spawn) {
     String customValue = spawn.getExecutionInfo().get(ExecutionRequirements.WORKER_KEY_MNEMONIC);
-    return customValue != null ? customValue : spawn.getMnemonic();
+    String mnemonic = customValue != null ? customValue : spawn.getMnemonic();
+    if (!CharMatcher.inRange('a', 'z')
+        .or(CharMatcher.inRange('A', 'Z'))
+        .or(CharMatcher.inRange('0', '9'))
+        .or(CharMatcher.anyOf("-_"))
+        .matchesAllOf(mnemonic)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "worker-key-mnemonic must only contain letters, digits, underscores, and/or hyphens,"
+                  + " was: \"%s\"",
+              mnemonic));
+    }
+    return mnemonic;
   }
 
   /**

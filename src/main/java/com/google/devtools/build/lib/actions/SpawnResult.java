@@ -234,8 +234,8 @@ public interface SpawnResult {
   Long getNumInvoluntaryContextSwitches();
 
   /**
-   * Returns the memory in Kilobytes used during the {@link Spawn}'s execution. The spawn memory
-   * based on the maximum resident set size during command execution.
+   * Returns the memory in kibibytes (KiB) used during the {@link Spawn}'s execution. Based on the
+   * maximum resident set size during command execution.
    *
    * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
@@ -316,10 +316,14 @@ public interface SpawnResult {
       this.executorHostName = builder.executorHostName;
       this.runnerName = builder.runnerName;
       this.runnerSubtype = builder.runnerSubtype;
-      this.spawnMetrics =
+      SpawnMetrics metrics =
           builder.spawnMetrics != null
               ? builder.spawnMetrics
               : SpawnMetrics.forLocalExecution(builder.wallTimeInMs);
+      if (builder.memoryInKb != null) {
+        metrics = metrics.toBuilder().setMeasuredMemoryPeakBytes(builder.memoryInKb * 1024).build();
+      }
+      this.spawnMetrics = metrics;
       this.startTime = builder.startTime;
       this.wallTimeInMs = builder.wallTimeInMs;
       this.userTimeInMs = builder.userTimeInMs;
@@ -442,6 +446,10 @@ public interface SpawnResult {
         }
       } else if (status() == Status.OUT_OF_MEMORY) {
         explanation += " (Remote action was terminated due to Out of Memory.)";
+      } else if (exitCode() == 137 || (!status.exited() && status.getTerminatingSignal() == 9)) {
+        explanation +=
+            " (Action was terminated by SIGKILL, likely killed by Linux OOM killer due to memory"
+                + " exhaustion.)";
       }
       if (status() != Status.TIMEOUT && forciblyRunRemotely) {
         explanation +=
@@ -801,7 +809,7 @@ public interface SpawnResult {
                 // The memory usage of the largest child process. For Darwin maxrss returns size in
                 // bytes.
                 if (OS.getCurrent() == OS.DARWIN) {
-                  setMemoryInKb(resourceUsage.getMaximumResidentSetSize() / 1000);
+                  setMemoryInKb(Math.ceilDiv(resourceUsage.getMaximumResidentSetSize(), 1024));
                 } else {
                   setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
                 }

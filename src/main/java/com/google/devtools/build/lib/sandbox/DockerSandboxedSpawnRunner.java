@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.unix.ProcessUtilsService;
+import com.google.devtools.build.lib.unix.ProcessUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -75,7 +75,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    */
   public static boolean isSupported(CommandEnvironment cmdEnv, Path dockerClient)
       throws InterruptedException {
-    boolean verbose = cmdEnv.getOptions().getOptions(SandboxOptions.class).dockerVerbose;
+    boolean verbose = cmdEnv.getOptions().getOptions(SandboxOptions.class).getDockerVerbose();
 
     if (ProcessWrapper.fromCommandEnvironment(cmdEnv) == null) {
       if (verbose) {
@@ -87,28 +87,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                         + "This should never happen - is your Bazel binary corrupted?"));
       }
       return false;
-    }
-
-    // On Linux we need to know the UID and GID that we're running as, because otherwise Docker will
-    // create files as 'root' and we can't move them to the execRoot.
-    if (OS.getCurrent() == OS.LINUX) {
-      try {
-        var unused = ProcessUtilsService.getService().getuid();
-        unused = ProcessUtilsService.getService().getgid();
-      } catch (UnsatisfiedLinkError e) {
-        if (verbose) {
-          cmdEnv
-              .getReporter()
-              .handle(
-                  Event.error(
-                      "Docker sandboxing is disabled, because"
-                          + " ProcessUtilsService.getService().getuid/getgid threw an"
-                          + " UnsatisfiedLinkError. This means that you're running a Bazel version"
-                          + " that doesn't have JNI libraries - did you build it correctly?\n"
-                          + Throwables.getStackTraceAsString(e)));
-        }
-        return false;
-      }
     }
 
     Command cmd =
@@ -151,8 +129,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Reporter reporter;
   private final boolean useCustomizedImages;
   private final TreeDeleter treeDeleter;
-  private final int uid;
-  private final int gid;
+  private final long uid;
+  private final long gid;
   private final Set<UUID> containersToCleanup;
   private final CommandEnvironment cmdEnv;
 
@@ -187,8 +165,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.treeDeleter = treeDeleter;
     this.cmdEnv = cmdEnv;
     if (OS.getCurrent() == OS.LINUX) {
-      this.uid = ProcessUtilsService.getService().getuid();
-      this.gid = ProcessUtilsService.getService().getgid();
+      this.uid = ProcessUtils.getUid();
+      this.gid = ProcessUtils.getGid();
     } else {
       this.uid = -1;
       this.gid = -1;
@@ -218,8 +196,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            execRoot);
+            context.getInputMapping(/* willAccessRepeatedly= */ true), execRoot);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();
@@ -247,12 +224,13 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setImageName(customizedImageName)
         .setCommandArguments(spawn.getArguments())
         .setSandboxExecRoot(sandboxExecRoot)
-        .setAdditionalMounts(getSandboxOptions().sandboxAdditionalMounts)
-        .setPrivileged(getSandboxOptions().dockerPrivileged)
+        .setAdditionalMounts(getSandboxOptions().getSandboxAdditionalMounts())
+        .setPrivileged(getSandboxOptions().getDockerPrivileged())
         .setEnvironmentVariables(environment)
         .setCreateNetworkNamespace(
             !(allowNetwork
-                || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
+                || Spawns.requiresNetwork(
+                    spawn, getSandboxOptions().getDefaultSandboxAllowNetwork())))
         .setCommandId(commandId)
         .setUuid(uuid);
     // If uid / gid are -1, we are on an operating system that doesn't require us to set them on the

@@ -16,14 +16,15 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import java.util.concurrent.ConcurrentHashMap;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
@@ -43,7 +44,7 @@ public class BazelProtoCommon implements StarlarkValue {
       useStarlarkThread = true,
       documented = false)
   public boolean getDefineProtoToolchains(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ImmutableSet.of());
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return thread
         .getSemantics()
         .getBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION);
@@ -52,16 +53,33 @@ public class BazelProtoCommon implements StarlarkValue {
   @StarlarkMethod(name = "external_proto_infos", useStarlarkThread = true, documented = false)
   public StarlarkList<StarlarkProvider> getExternalProtoInfos(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ImmutableSet.of());
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+
+    // Same logic as in net.starlark.java.eval.CallUtils#getBuiltinManager.
+    StarlarkSemantics keySemantics = thread.getSemantics().getBuiltinManagerCacheKey();
+    StarlarkList<StarlarkProvider> externalProtoInfos =
+        externalProtoInfosForSemantics.get(keySemantics);
+    if (externalProtoInfos == null) {
+      externalProtoInfos =
+          StarlarkList.immutableCopyOf(
+              ProtoConstants.EXTERNAL_PROTO_INFO_KEYS.stream()
+                  .map(
+                      key ->
+                          StarlarkProvider.builder(
+                                  Location.BUILTIN, thread.getSemantics(), thread.getTypeContext())
+                              .buildExported(new StarlarkProvider.Key(key, "ProtoInfo")))
+                  .collect(toImmutableList()));
+      StarlarkList<StarlarkProvider> prev =
+          externalProtoInfosForSemantics.putIfAbsent(keySemantics, externalProtoInfos);
+      if (prev != null) {
+        externalProtoInfos = prev; // first thread wins
+      }
+    }
+
     return externalProtoInfos;
   }
 
-  private static final StarlarkList<StarlarkProvider> externalProtoInfos =
-      StarlarkList.immutableCopyOf(
-          ProtoConstants.EXTERNAL_PROTO_INFO_KEYS.stream()
-              .map(
-                  key ->
-                      StarlarkProvider.builder(Location.BUILTIN)
-                          .buildExported(new StarlarkProvider.Key(key, "ProtoInfo")))
-              .collect(toImmutableList()));
+  // The list of external ProtoInfo symbols for a given StarlarkSemantics.
+  private static final ConcurrentHashMap<StarlarkSemantics, StarlarkList<StarlarkProvider>>
+      externalProtoInfosForSemantics = new ConcurrentHashMap<>();
 }

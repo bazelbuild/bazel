@@ -23,20 +23,24 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 
 /**
  * Rule and configuration class definitions for testing late-bound split attributes.
  */
 public class LateBoundSplitUtil {
   /** A custom {@link FragmentOptions} with the option to be split. */
-  public static class TestOptions extends FragmentOptions { // public for options loader
+  @OptionsClass
+  public abstract static class TestOptions extends FragmentOptions { // public for options loader
+
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = ""
-    )
-    public String fooFlag;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "")
+    public abstract String getFooFlag();
+
+    public abstract void setFooFlag(String value);
   }
 
   /** The {@link Fragment} that contains the options. */

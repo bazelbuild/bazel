@@ -57,14 +57,14 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -236,8 +236,7 @@ public final class ActionsTestUtil {
         /* actionFileSystem= */ null,
         discoveredModulesPruner,
         SyscallCache.NO_CACHE,
-        ThreadStateReceiver.NULL_INSTANCE,
-        /* fileSystemSupportsInputDiscovery= */ true);
+        ThreadStateReceiver.NULL_INSTANCE);
   }
 
   /** Creates an {@link ActionExecutionValue} with only file outputs. */
@@ -460,6 +459,10 @@ public final class ActionsTestUtil {
 
     public NullAction(ActionOwner owner, Artifact... outputs) {
       super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableList.copyOf(outputs));
+    }
+
+    public NullAction(ActionOwner owner, NestedSet<Artifact> inputs) {
+      super(owner, inputs, ImmutableList.of(DUMMY_ARTIFACT));
     }
 
     public NullAction(Artifact... outputs) {
@@ -926,6 +929,12 @@ public final class ActionsTestUtil {
 
     @Override
     public SourceArtifact resolveSourceArtifact(
+        PathFragment execPath, RepositoryName repositoryName) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ImmutableList<SourceArtifact> resolveSourceArtifactsAsciiCaseInsensitively(
         PathFragment execPath, RepositoryName repositoryName) {
       throw new UnsupportedOperationException();
     }

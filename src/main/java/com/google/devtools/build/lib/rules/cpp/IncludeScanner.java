@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -240,6 +241,35 @@ public interface IncludeScanner {
       public Builder setIsValidUndeclaredHeader(
           @Nullable Predicate<Artifact> isValidUndeclaredHeader) {
         this.isValidUndeclaredHeader = isValidUndeclaredHeader;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder addDeclaredHeaders(NestedSet<Artifact> headers) {
+        if (headers.isEmpty()) {
+          return this;
+        }
+        // pathToDeclaredHeader is a fresh, per-action mutable CompactHashMap created by
+        // CcCompilationContext#createIncludeScanningHeaderData (which intentionally avoids the
+        // more expensive ImmutableMap). Mutating it in place here is therefore safe -- it is not
+        // shared across actions -- and consistent with that method's performance choice.
+        // Not using range-based for loops here as the additional overhead of the ImmutableList
+        // iterators has shown up in profiles.
+        ImmutableList<Artifact> headerList = headers.toList();
+        for (int i = 0; i < headerList.size(); i++) {
+          Artifact header = headerList.get(i);
+          // Only generated (output-directory) headers need to be registered here. Source
+          // headers already resolve via source-artifact lookup in the include scanner, so
+          // registering them would be redundant. Skipping them keeps this map empty for the
+          // common case of a source-file sysroot (e.g. GRTE), leaving those toolchains
+          // entirely unaffected. Tree artifacts are handled separately and are skipped.
+          if (!header.isSourceArtifact() && !header.isTreeArtifact()) {
+            // Use putIfAbsent so a header the target already declared for this exec path takes
+            // precedence: the target's own mapping is authoritative and must not be shadowed by
+            // a toolchain/prunable header that happens to share the path.
+            pathToDeclaredHeader.putIfAbsent(header.getExecPath(), header);
+          }
+        }
         return this;
       }
 

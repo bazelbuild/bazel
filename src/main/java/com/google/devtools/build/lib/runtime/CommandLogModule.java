@@ -52,7 +52,7 @@ public class CommandLogModule extends BlazeModule {
   public OutErr getOutputListener() {
     if (!env.getOptions()
         .getOptions(CommonCommandOptions.class)
-        .redirectLocalInstrumentationOutputWrites) {
+        .getRedirectLocalInstrumentationOutputWrites()) {
       // When instrumentation output are locally written, we need to unlink old local command log
       // from previous build, if present.
       Path commandLog = getCommandLogPath(env.getOutputBase());
@@ -66,7 +66,7 @@ public class CommandLogModule extends BlazeModule {
 
     try {
       CommonCommandOptions commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-      if (commandOptions.writeCommandLog && !Objects.equals(env.getCommandName(), "clean")) {
+      if (commandOptions.getWriteCommandLog() && !Objects.equals(env.getCommandName(), "clean")) {
         InstrumentationOutput commandLogOutput =
             env.getRuntime()
                 .getInstrumentationOutputFactory()

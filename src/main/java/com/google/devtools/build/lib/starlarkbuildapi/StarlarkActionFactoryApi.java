@@ -96,7 +96,7 @@ arguments:
       create actions.</li>
   <li><code>input_directories</code> (keyword-only): A dictionary mapping from the string keys of
       the <code>input_directories</code> argument of <code>actions.map_directory()</code> to their
-      values' corresponding <a href='../builtins/File.html'><code>ExpandedDirectory</code></a>
+      values' corresponding <a href='../builtins/ExpandedDirectory.html'><code>ExpandedDirectory</code></a>
       objects.</li>
   <li><code>output_directories</code> (keyword-only): The value of the
       <code>output_directories</code> argument of <code>actions.map_directory()</code>; a
@@ -372,9 +372,27 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+        @Param(
+            name = "execution_requirements",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Information for scheduling the action. See "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
+                    + "for useful keys."),
       })
-  void write(FileApi output, Object content, Boolean isExecutable, Object mnemonicUnchecked)
+  void write(
+      FileApi output,
+      Object content,
+      Boolean isExecutable,
+      Object mnemonicUnchecked,
+      Object executionRequirementsUnchecked)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -448,7 +466,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             positional = false,
             doc =
                 "Command line arguments of the action. "
-                    + "Must be a list of strings or "
+                    + "Must be a list of strings or a list of "
                     + "<a href=\"#args\"><code>actions.args()</code></a> objects."),
         @Param(
             name = "mnemonic",
@@ -459,7 +477,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "progress_message",
             allowedTypes = {
@@ -557,22 +575,24 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             name = "resource_set",
             allowedTypes = {
               @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = Dict.class),
               @ParamType(type = NoneType.class),
             },
             defaultValue = "None",
             named = true,
             positional = false,
             doc =
-                "A callback function that returns a resource set dictionary, used to estimate"
-                    + " resource usage at execution time if this action is run locally.<p>The"
-                    + " function accepts two positional arguments: a string representing an OS name"
-                    + " (e.g. \"osx\"), and an integer representing the number of inputs to the"
-                    + " action. The returned dictionary may contain the following entries, each of"
-                    + " which may be a float or an int:<ul><li>\"cpu\": number of CPUs; default"
-                    + " 1<li>\"memory\": in MB; default 250<li>\"local_test\": number of local"
-                    + " tests; default 1</ul><p>If this parameter is set to <code>None</code> , the"
-                    + " default values are used.<p>The callback must be top-level (lambda and"
-                    + " nested functions aren't allowed)."),
+                "A callback function or dictionary used to estimate resource usage at execution"
+                    + " time if this action is run locally.<p>If a dictionary is passed directly,"
+                    + " it may contain the following entries, each of which may be a float or an"
+                    + " int:<ul><li>\"cpu\": number of CPUs; default 1<li>\"memory\": in MB;"
+                    + " default 250<li>\"local_test\": number of local tests; default 1</ul><p>If a"
+                    + " callback function is passed, it accepts two positional arguments: a string"
+                    + " representing an OS name (e.g. \"osx\"), and an integer representing the"
+                    + " number of inputs to the action. It must return a dictionary with the same"
+                    + " entries described above. The callback must be top-level (lambda and nested"
+                    + " functions aren't allowed).<p>If this parameter is set to <code>None</code>,"
+                    + " the default values are used."),
         @Param(
             name = "toolchain",
             allowedTypes = {
@@ -593,6 +613,24 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                     + " `toolchain` and `exec_group` parameters are both set, `exec_group` will be"
                     + " used. An error is raised in case the `exec_group` doesn't specify the same"
                     + " toolchain.</p>"),
+        @Param(
+            name = "stdout",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "If set to a <code>File</code>, the standard output of the action is redirected"
+                    + " into that file. The file becomes a regular additional output of the action"
+                    + " (it must not also be listed in <code>outputs</code>)."
+                    + "<p>When the standard output is captured into the file, it is not displayed"
+                    + " in the terminal as regular action output."
+                    + "<p>This is incompatible with persistent worker execution (the"
+                    + " <code>supports-workers</code> or <code>supports-multiplex-workers</code>"
+                    + " execution requirements)."),
       })
   void run(
       Sequence<?> outputs,
@@ -610,7 +648,8 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
       Object execGroupUnchecked,
       Object shadowedAction,
       Object resourceSetUnchecked,
-      Object toolchainUnchecked)
+      Object toolchainUnchecked,
+      Object stdout)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -656,7 +695,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             positional = false,
             doc =
                 "Command line arguments of the action. Must be a list of strings or "
-                    + "<a href=\"#args\"><code>actions.args()</code></a> objects."
+                    + "a list of <a href=\"#args\"><code>actions.args()</code></a> objects."
                     + ""
                     + "<p>Bazel passes the elements in this attribute as arguments to the command."
                     + "The command can access these arguments using shell variable substitutions "
@@ -677,7 +716,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "command",
             allowedTypes = {
@@ -808,14 +847,15 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             name = "resource_set",
             allowedTypes = {
               @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = Dict.class),
               @ParamType(type = NoneType.class),
             },
             defaultValue = "None",
             named = true,
             positional = false,
             doc =
-                "A callback function for estimating resource usage if run locally. See"
-                    + "<a href=\"#run.resource_set\"><code>ctx.actions.run()</code></a>."),
+                "A callback function or dictionary for estimating resource usage if run locally."
+                    + " See <a href=\"#run.resource_set\"><code>ctx.actions.run()</code></a>."),
         @Param(
             name = "toolchain",
             allowedTypes = {
@@ -1016,6 +1056,20 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                 "A one-word description of the created actions, for example, CppCompile or"
                     + " GoLink."),
         @Param(
+            name = "resource_set",
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "A callback or dictionary that returns/contains the resource set used for local"
+                    + " scheduling of every action created by this template. See"
+                    + " <code>actions.run</code>'s argument of the same name."),
+        @Param(
             name = "implementation",
             allowedTypes = {@ParamType(type = StarlarkFunction.class)},
             named = true,
@@ -1035,6 +1089,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object mnemonicUnchecked,
+      Object resourceSetUnchecked,
       StarlarkFunction implementation,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

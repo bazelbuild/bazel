@@ -236,21 +236,52 @@ static void DeleteDirsUnder(const wstring& basedir,
   }
 
 // This is a macro so the assertions will have the correct line number.
-#define ASSERT_SHORTENING_FAILS(/* const WCHAR* */ input,             \
-                                /* const WCHAR* */ error_msg)         \
-  {                                                                   \
-    wstring actual;                                                   \
-    wstring result(AsExecutablePathForCreateProcess(input, &actual)); \
-    ASSERT_CONTAINS(result, error_msg);                               \
+#define ASSERT_SHORTENING_FAILS(/* const WCHAR* */ input,                  \
+                                /* const WCHAR* */ error_msg)              \
+  {                                                                        \
+    wstring actual;                                                        \
+    wstring extended_path;                                                 \
+    wstring result(                                                        \
+        AsExecutablePathForCreateProcess(input, &actual, &extended_path)); \
+    ASSERT_CONTAINS(result, error_msg);                                    \
+    ASSERT_EQ(extended_path, L"");                                         \
   }
 
 // This is a macro so the assertions will have the correct line number.
-#define ASSERT_SHORTENING_SUCCEEDS(/* const WCHAR* */ input,             \
-                                   /* const wstring& */ expected_result) \
-  {                                                                      \
-    wstring actual;                                                      \
-    ASSERT_EQ(AsExecutablePathForCreateProcess(input, &actual), L"");    \
-    ASSERT_EQ(actual, expected_result);                                  \
+#define ASSERT_SHORTENING_SUCCEEDS(/* const WCHAR* */ input,              \
+                                   /* const wstring& */ expected_result)  \
+  {                                                                       \
+    wstring actual;                                                       \
+    wstring extended_path = L"stale";                                     \
+    ASSERT_EQ(                                                            \
+        AsExecutablePathForCreateProcess(input, &actual, &extended_path), \
+        L"");                                                             \
+    ASSERT_EQ(actual, expected_result);                                   \
+    ASSERT_EQ(extended_path, L"");                                        \
+  }
+
+// This is a macro so the assertions will have the correct line number.
+#define ASSERT_FALLBACK_SUCCEEDS(/* const WCHAR* */ input)                \
+  {                                                                       \
+    wstring actual;                                                       \
+    wstring extended_path;                                                \
+    ASSERT_EQ(                                                            \
+        AsExecutablePathForCreateProcess(input, &actual, &extended_path), \
+        L"");                                                             \
+    ASSERT_EQ(extended_path, wstring(L"\\\\?\\") + input);                \
+    ASSERT_EQ(actual, wstring(L"\"") + input + L"\"");                    \
+  }
+
+// This is a macro so the assertions will have the correct line number.
+#define ASSERT_BATCH_FALLBACK_SUCCEEDS(/* const WCHAR* */ input)          \
+  {                                                                       \
+    wstring actual;                                                       \
+    wstring extended_path;                                                \
+    ASSERT_EQ(                                                            \
+        AsExecutablePathForCreateProcess(input, &actual, &extended_path), \
+        L"");                                                             \
+    ASSERT_EQ(extended_path, wstring(input));                             \
+    ASSERT_EQ(actual, wstring(L"\"") + input + L"\"");                    \
   }
 
 TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
@@ -271,7 +302,9 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
   // Relative paths are fine, they are absolutized.
   std::wstring rel(L"foo\\bar.exe");
   std::wstring actual;
-  EXPECT_EQ(AsExecutablePathForCreateProcess(rel, &actual), L"");
+  std::wstring extended_path;
+  EXPECT_EQ(AsExecutablePathForCreateProcess(rel, &actual, &extended_path),
+            L"");
   EXPECT_GT(actual.size(), rel.size());
   EXPECT_EQ(actual.rfind(rel), actual.size() - rel.size() - 1);
 }
@@ -298,15 +331,17 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
     // When i=0 then `wfilename` is `kMaxPath` - 1 long, so
     // `AsExecutablePathForCreateProcess` will not attempt to shorten it, and
     // so it also won't notice that the file doesn't exist. If however we pass
-    // a non-existent path to CreateProcessA, then it'll fail, so we'll find out
+    // a non-existent path to CreateProcessW, then it'll fail, so we'll find out
     // about this error in production code.
     // When i>0 then `wfilename` is at least `kMaxPath` long, so
     // `AsExecutablePathForCreateProcess` will attempt to shorten it, but
     // because the file doesn't yet exist, the shortening attempt will fail.
+    // For batch files, the fallback returns the native path (without the
+    // "\\?\" prefix) because cmd.exe cannot handle extended-length paths.
     if (i > 0) {
       ASSERT_EQ(::GetFileAttributesW(wfilename.c_str()),
                 INVALID_FILE_ATTRIBUTES);
-      ASSERT_SHORTENING_FAILS(wfilename.c_str(), L"GetShortPathNameW");
+      ASSERT_BATCH_FALLBACK_SUCCEEDS(wfilename.c_str());
     }
 
     // Create the file, now we should be able to shorten it when i=0, but not
@@ -319,8 +354,9 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
     } else {
       // The wfilename was too long to begin with, and it was impossible to
       // shorten any of the segments (since we deliberately created them that
-      // way), so shortening failed.
-      ASSERT_SHORTENING_FAILS(wfilename.c_str(), L"cannot shorten the path");
+      // way), so shortening failed. Batch files still succeed via the fallback
+      // which returns the native path without the "\\?\" prefix.
+      ASSERT_BATCH_FALLBACK_SUCCEEDS(wfilename.c_str());
     }
     DELETE_FILE(wfilename);
   }
@@ -337,8 +373,9 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
                          wstring(L".bat");
   ASSERT_GT(wshortenable.size(), kMaxPath);
 
-  // Attempt to shorten. It will fail because the file doesn't exist yet.
-  ASSERT_SHORTENING_FAILS(wshortenable, L"GetShortPathNameW");
+  // Attempt to shorten. It will fail because the file doesn't exist yet, but
+  // batch files still succeed via the fallback (native path, no "\\?\" prefix).
+  ASSERT_BATCH_FALLBACK_SUCCEEDS(wshortenable);
 
   // Create the file so shortening will succeed.
   CREATE_FILE(wshortenable);
@@ -347,6 +384,27 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
   DELETE_FILE(wshortenable);
 
   DeleteDirsUnder(tmpdir, short_root);
+}
+
+TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessFallback) {
+  wstring dir = L"c:\\" + wstring(kMaxPath, L'a');
+
+  // A deep, absolute, normalized executable path that can't be shortened (here
+  // because it doesn't exist) takes the fallback: `extended_path` gets the
+  // extended-length form and `quoted_path` the quoted path.
+  ASSERT_FALLBACK_SUCCEEDS(dir + L"\\foo.exe");
+
+  // Batch files (.bat, .cmd) get the fallback with the native path (no "\\?\"
+  // prefix) because cmd.exe cannot handle extended-length paths.
+  ASSERT_BATCH_FALLBACK_SUCCEEDS(dir + L"\\foo.bat");
+  ASSERT_BATCH_FALLBACK_SUCCEEDS(dir + L"\\foo.cmd");
+  ASSERT_BATCH_FALLBACK_SUCCEEDS(dir + L"\\foo.BAT");
+  ASSERT_BATCH_FALLBACK_SUCCEEDS(dir + L"\\foo.Cmd");
+
+  // A non-normalized path is denied the fallback because the "\\?\" prefix
+  // disables path normalization, so "." and ".." would reach the filesystem
+  // verbatim instead of being resolved.
+  ASSERT_SHORTENING_FAILS(dir + L"\\..\\foo.exe", L"path is not normalized");
 }
 
 }  // namespace windows

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 
 /** A remote cache for the contents of external repositories. */
@@ -33,6 +34,8 @@ public interface RemoteRepoContentsCache {
   /**
    * Retrieves a repository from the remote cache if possible.
    *
+   * <p>Callers have to check {@code env.valuesMissing()} after this method returns.
+   *
    * @return true if there was a cache hit and the repository has been fetched into the given
    *     directory.
    */
@@ -40,6 +43,6 @@ public interface RemoteRepoContentsCache {
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
-      ExtendedEventHandler reporter)
+      SkyFunction.Environment env)
       throws IOException, InterruptedException;
 }

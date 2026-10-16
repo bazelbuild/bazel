@@ -73,6 +73,12 @@ public class DecompressorValue implements SkyValue {
   private static final ImmutableList<String> SEVENZ_FORMATS =
       ImmutableList.<String>builder().add("7z").build();
 
+  private static final ImmutableList<String> TAR_BR_FORMATS =
+      ImmutableList.<String>builder().add("tar.br").build();
+
+  private static final ImmutableList<String> BROTLI_FORMATS =
+      ImmutableList.<String>builder().add("br").build();
+
   // List of supported compressor format file extensions with their corresponding Decompressor
   // instance. The order here is intentional and is the order in which a decompressor is searched
   // for.
@@ -90,6 +96,8 @@ public class DecompressorValue implements SkyValue {
           .add(Pair.of(BZ2_FORMATS, Bz2Function.INSTANCE))
           .add(Pair.of(AR_FORMATS, ArFunction.INSTANCE))
           .add(Pair.of(SEVENZ_FORMATS, SevenZDecompressor.INSTANCE))
+          .add(Pair.of(TAR_BR_FORMATS, TarBrFunction.INSTANCE))
+          .add(Pair.of(BROTLI_FORMATS, BrFunction.INSTANCE))
           .build();
 
   /**
@@ -258,14 +266,17 @@ public class DecompressorValue implements SkyValue {
         return getDecompressor(descriptor.archivePath()).decompress(descriptor);
       }
     } catch (ClosedByInterruptException e) {
-      throw new InterruptedException();
+      InterruptedException ie = new InterruptedException();
+      ie.initCause(e);
+      throw ie;
     } catch (IOException e) {
       Path destinationDirectory = descriptor.archivePath().getParentDirectory();
       throw new RepositoryFunctionException(
           new IOException(
               String.format(
                   "Error extracting %s to %s: %s",
-                  descriptor.archivePath(), destinationDirectory, e.getMessage())),
+                  descriptor.archivePath(), destinationDirectory, e.getMessage()),
+              e),
           Transience.TRANSIENT);
     }
   }

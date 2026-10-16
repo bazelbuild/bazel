@@ -24,7 +24,9 @@ import io.grpc.MethodDescriptor;
 import io.grpc.Status;
 import io.netty.channel.unix.Errors;
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.rxjava3.disposables.SerialDisposable;
 import io.reactivex.rxjava3.functions.Action;
 import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.IOException;
@@ -123,24 +125,90 @@ public class SharedConnectionFactory implements ConnectionPool {
    */
   @Override
   public Single<SharedConnection> create() {
-    return tokenBucket
-        .acquireToken()
-        .flatMap(
-            token ->
-                acquireConnection()
-                    .doOnError(ignored -> tokenBucket.addToken(token))
-                    .doOnDispose(() -> tokenBucket.addToken(token))
-                    .map(
-                        conn ->
-                            new SharedConnection(
-                                conn,
-                                /* onClose= */ () -> tokenBucket.addToken(token),
-                                fatalErrorPredicate,
-                                /* onFatalError= */ () -> {
-                                  synchronized (this) {
-                                    connectionAsyncSubject = null;
-                                  }
-                                })));
+    return new Single<>() {
+      @Override
+      protected void subscribeActual(SingleObserver<? super SharedConnection> observer) {
+        tokenBucket.acquireToken().subscribe(new ConnectionCreation(observer));
+      }
+    };
+  }
+
+  /**
+   * Creates a connection with the token it receives. Unlike {@code flatMap(this::createWithToken)},
+   * it subscribes to the creation even if it has been disposed in the meantime, so that the
+   * subscription, which is disposed right away, returns the token.
+   */
+  private final class ConnectionCreation implements SingleObserver<Integer> {
+    private final SingleObserver<? super SharedConnection> downstream;
+    private final SerialDisposable disposable = new SerialDisposable();
+
+    ConnectionCreation(SingleObserver<? super SharedConnection> downstream) {
+      this.downstream = downstream;
+    }
+
+    @Override
+    public void onSubscribe(Disposable d) {
+      disposable.replace(d);
+      downstream.onSubscribe(disposable);
+    }
+
+    @Override
+    public void onSuccess(Integer token) {
+      createWithToken(token)
+          .subscribe(
+              new SingleObserver<SharedConnection>() {
+                @Override
+                public void onSubscribe(Disposable d) {
+                  disposable.replace(d);
+                }
+
+                @Override
+                public void onSuccess(SharedConnection connection) {
+                  downstream.onSuccess(connection);
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                  downstream.onError(e);
+                }
+              });
+    }
+
+    @Override
+    public void onError(Throwable e) {
+      downstream.onError(e);
+    }
+  }
+
+  /**
+   * Non-blocking variant of {@link #create()} that eagerly reserves a permit, returning {@code
+   * null} if the connection is at capacity. The returned {@link Single} must be subscribed, or the
+   * reserved permit leaks.
+   */
+  @Nullable
+  Single<SharedConnection> tryCreate() {
+    Integer token = tokenBucket.tryAcquireToken();
+    if (token == null) {
+      return null;
+    }
+    return Single.defer(() -> createWithToken(token));
+  }
+
+  private Single<SharedConnection> createWithToken(int token) {
+    return acquireConnection()
+        .doOnError(ignored -> tokenBucket.addToken(token))
+        .doOnDispose(() -> tokenBucket.addToken(token))
+        .map(
+            conn ->
+                new SharedConnection(
+                    conn,
+                    /* onClose= */ () -> tokenBucket.addToken(token),
+                    fatalErrorPredicate,
+                    /* onFatalError= */ () -> {
+                      synchronized (this) {
+                        connectionAsyncSubject = null;
+                      }
+                    }));
   }
 
   /** Returns current number of available connections. */

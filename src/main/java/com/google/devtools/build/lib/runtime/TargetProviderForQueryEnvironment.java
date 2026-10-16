@@ -112,7 +112,7 @@ public class TargetProviderForQueryEnvironment implements TargetProvider {
     Optional<Package> optional =
         getPackageFromWalkableGraph(target.getPackageMetadata().packageIdentifier());
     if (optional.isPresent()) {
-      return optional.get().getTargets().values();
+      return optional.get().getTargets();
     }
     return delegate.getSiblingTargetsInPackage(eventHandler, target);
   }

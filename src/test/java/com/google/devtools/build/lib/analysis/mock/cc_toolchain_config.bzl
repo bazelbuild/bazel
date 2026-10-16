@@ -77,6 +77,8 @@ _FEATURE_NAMES = struct(
     enable_fdo_split_functions = "enable_fdo_split_functions",
     fdo_split_functions = "fdo_split_functions",
     memprof_optimize = "memprof_optimize",
+    enable_fdo_memprof_optimize = "enable_fdo_memprof_optimize",
+    fdo_implicit_memprof_optimize = "fdo_implicit_memprof_optimize",
     enable_autofdo_memprof_optimize = "enable_autofdo_memprof_optimize",
     autofdo_implicit_memprof_optimize = "autofdo_implicit_memprof_optimize",
     fdo_instrument = "fdo_instrument",
@@ -97,7 +99,9 @@ _FEATURE_NAMES = struct(
     static_linking_mode = "static_linking_mode",
     archive_param_file = "archive_param_file",
     compiler_param_file = "compiler_param_file",
+    compiler_param_file_on_demand = "compiler_param_file_on_demand",
     gcc_quoting_for_param_files = "gcc_quoting_for_param_files",
+    windows_quoting_for_param_files = "windows_quoting_for_param_files",
     objcopy_embed_flags = "objcopy_embed_flags",
     ld_embed_flags = "ld_embed_flags",
     opt = "opt",
@@ -641,6 +645,16 @@ _memprof_optimize_feature = feature(
     ],
 )
 
+_enable_fdo_memprof_optimize_feature = feature(
+    name = _FEATURE_NAMES.enable_fdo_memprof_optimize,
+    requires = [feature_set(features = ["fdo_implicit_memprof_optimize"])],
+    implies = ["memprof_optimize"],
+)
+
+_fdo_implicit_memprof_optimize_feature = feature(
+    name = _FEATURE_NAMES.fdo_implicit_memprof_optimize,
+)
+
 _enable_autofdo_memprof_optimize_feature = feature(
     name = _FEATURE_NAMES.enable_autofdo_memprof_optimize,
     requires = [feature_set(features = ["autofdo_implicit_memprof_optimize"])],
@@ -892,8 +906,18 @@ _compiler_param_file_feature = feature(
     enabled = True,
 )
 
+_compiler_param_file_on_demand_feature = feature(
+    name = _FEATURE_NAMES.compiler_param_file_on_demand,
+    enabled = True,
+)
+
 _gcc_quoting_for_param_files_feature = feature(
     name = _FEATURE_NAMES.gcc_quoting_for_param_files,
+    enabled = True,
+)
+
+_windows_quoting_for_param_files_feature = feature(
+    name = _FEATURE_NAMES.windows_quoting_for_param_files,
     enabled = True,
 )
 
@@ -1406,6 +1430,8 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.enable_xbinaryfdo_thinlto: _enable_xbinaryfdo_thinlto_feature,
     _FEATURE_NAMES.xbinaryfdo_implicit_thinlto: _xbinaryfdo_implicit_thinlto_feature,
     _FEATURE_NAMES.memprof_optimize: _memprof_optimize_feature,
+    _FEATURE_NAMES.enable_fdo_memprof_optimize: _enable_fdo_memprof_optimize_feature,
+    _FEATURE_NAMES.fdo_implicit_memprof_optimize: _fdo_implicit_memprof_optimize_feature,
     _FEATURE_NAMES.enable_autofdo_memprof_optimize: _enable_autofdo_memprof_optimize_feature,
     _FEATURE_NAMES.autofdo_implicit_memprof_optimize: _autofdo_implicit_memprof_optimize_feature,
     _FEATURE_NAMES.fsafdo: _fsafdo_feature,
@@ -1427,7 +1453,9 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.targets_windows: _targets_windows_feature,
     _FEATURE_NAMES.archive_param_file: _archive_param_file_feature,
     _FEATURE_NAMES.compiler_param_file: _compiler_param_file_feature,
+    _FEATURE_NAMES.compiler_param_file_on_demand: _compiler_param_file_on_demand_feature,
     _FEATURE_NAMES.gcc_quoting_for_param_files: _gcc_quoting_for_param_files_feature,
+    _FEATURE_NAMES.windows_quoting_for_param_files: _windows_quoting_for_param_files_feature,
     _FEATURE_NAMES.module_maps: _module_maps_feature,
     _FEATURE_NAMES.static_link_cpp_runtimes: _static_link_cpp_runtimes_feature,
     _FEATURE_NAMES.simple_compile_feature: _simple_compile_feature,

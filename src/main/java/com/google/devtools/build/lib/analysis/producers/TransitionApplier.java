@@ -20,14 +20,18 @@ import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.StarlarkTransitionVisitor;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -77,14 +81,22 @@ final class TransitionApplier
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
-    boolean doesStarlarkTransition;
+    AtomicBoolean doesStarlarkTransition = new AtomicBoolean(false);
+    AtomicBoolean stampDependent = new AtomicBoolean(false);
     try {
-      doesStarlarkTransition = StarlarkTransition.doesStarlarkTransition(transition);
+      transition.visit(
+          (StarlarkTransitionVisitor)
+              t -> {
+                doesStarlarkTransition.set(true);
+                if (!t.isExecTransition() && (t.readsStampSetting() || t.setsStampSetting())) {
+                  stampDependent.set(true);
+                }
+              });
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
       return runAfter;
     }
-    if (!doesStarlarkTransition) {
+    if (!doesStarlarkTransition.get()) {
       return new BuildConfigurationKeyMapProducer(
           this.sink,
           this.runAfter,
@@ -92,18 +104,44 @@ final class TransitionApplier
               TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler),
           this.label);
     }
+    if (stampDependent.get()
+        && fromConfiguration.getOptions().get(CoreOptions.class).getStampBinaries()) {
+      // Request the STAMP_SETTING_MARKER dep. It's a precomputed value so should already be done,
+      // but return a reference to the next step anyway as a state machine best practice.
+      tasks.lookUp(PrecomputedValue.STAMP_SETTING_MARKER.getKey(), val -> {});
+      return this::handleStarlarkTransition;
+    }
+    return handleStarlarkTransition(tasks);
+  }
 
+  private StateMachine handleStarlarkTransition(Tasks tasks) throws InterruptedException {
     ImmutableSet<Label> starlarkBuildSettings =
         transitionCache.getAllStarlarkBuildSettings(
             transition,
-            fromConfiguration.getOptions().get(CoreOptions.class).commandLineFlagAliases);
-    if (starlarkBuildSettings.isEmpty()) {
+            fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap());
+    Set<Label> hostFlags = new HashSet<>();
+
+    // If the transition is the exec transition, we want to look up the host flag declared by
+    // users in the blazerc/MODULE.bazel files with alias pointing to the starlark definition. This
+    // is useful to determine exec propagation for flags with scope that starts with "exec:--".
+    if (transition.getName().equals("exec")) {
+      for (Map.Entry<String, Label> alias :
+          fromConfiguration
+              .getOptions()
+              .get(CoreOptions.class)
+              .getCommandLineFlagAliasesMap()
+              .entrySet()) {
+        if (alias.getKey().startsWith("host_")) {
+          hostFlags.add(alias.getValue());
+        }
+      }
+    } else if (starlarkBuildSettings.isEmpty()) {
       // Quick escape if transition doesn't use any Starlark build settings.
       buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;
       return applyStarlarkTransition(tasks);
     }
     tasks.lookUp(
-        StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings),
+        StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings, hostFlags),
         TransitionException.class,
         (ValueOrExceptionSink<TransitionException>) this);
     return this::applyStarlarkTransition;
@@ -134,6 +172,10 @@ final class TransitionApplier
               fromConfiguration.getOptions(), transition, buildSettingsDetailsValue, eventHandler);
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
+      return runAfter;
+    } catch (InterruptedException e) {
+      // Workaround for https://github.com/bazelbuild/bazel/issues/29132. Is there some way for
+      // Skfyrame to handle this automaticaly without needing special checking here?
       return runAfter;
     }
 

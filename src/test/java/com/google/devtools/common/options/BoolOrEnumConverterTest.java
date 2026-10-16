@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BoolOrEnumConverterTest {
 
-  private enum CompilationMode {
+  public enum CompilationMode {
     DBG, OPT
   }
 
@@ -40,18 +40,16 @@ public class BoolOrEnumConverterTest {
     }
   }
 
-  /**
-   * The test options for the CompilationMode hybrid converter.
-   */
-  public static class CompilationModeTestOptions extends OptionsBase {
+  /** The test options for the CompilationMode hybrid converter. */
+  @OptionsClass
+  public abstract static class CompilationModeTestOptions extends OptionsBase {
     @Option(
-      name = "compile_mode",
-      converter = CompilationModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "dbg"
-    )
-    public CompilationMode compileMode;
+        name = "compile_mode",
+        converter = CompilationModeConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "dbg")
+    public abstract CompilationMode getCompileMode();
   }
 
   @Test
@@ -90,8 +88,8 @@ public class BoolOrEnumConverterTest {
     parser.parse("--nocompile_mode");
     CompilationModeTestOptions options =
         parser.getOptions(CompilationModeTestOptions.class);
-    assertThat(options.compileMode).isNotNull();
-    assertThat(options.compileMode).isEqualTo(CompilationMode.OPT);
+    assertThat(options.getCompileMode()).isNotNull();
+    assertThat(options.getCompileMode()).isEqualTo(CompilationMode.OPT);
   }
 
   @Test
@@ -101,8 +99,8 @@ public class BoolOrEnumConverterTest {
     parser.parse("--compile_mode");
     CompilationModeTestOptions options =
         parser.getOptions(CompilationModeTestOptions.class);
-    assertThat(options.compileMode).isNotNull();
-    assertThat(options.compileMode).isEqualTo(CompilationMode.DBG);
+    assertThat(options.getCompileMode()).isNotNull();
+    assertThat(options.getCompileMode()).isEqualTo(CompilationMode.DBG);
   }
 
 }

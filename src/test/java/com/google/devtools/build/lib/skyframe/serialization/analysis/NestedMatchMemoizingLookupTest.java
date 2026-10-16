@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMa
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.VersionedChanges.NO_MATCH;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FutureFileOpMatchResult;
@@ -41,12 +42,12 @@ import org.junit.runner.RunWith;
 public final class NestedMatchMemoizingLookupTest {
   private static final int THREAD_COUNT = 10;
 
+  private final SafeExecutorOwner executor = new SafeExecutorOwner(new ForkJoinPool(THREAD_COUNT));
   private final VersionedChanges changes = new VersionedChanges(ImmutableList.of());
   private final FileOpMatchMemoizingLookup fileOpMatches =
-      new FileOpMatchMemoizingLookup(changes, new ConcurrentHashMap<>());
+      new FileOpMatchMemoizingLookup(executor, changes, new ConcurrentHashMap<>());
   private final NestedMatchMemoizingLookup lookup =
-      new NestedMatchMemoizingLookup(
-          new ForkJoinPool(THREAD_COUNT), fileOpMatches, new ConcurrentHashMap<>());
+      new NestedMatchMemoizingLookup(executor, fileOpMatches, new ConcurrentHashMap<>());
 
   @Test
   public void matchingNested_inRangeValidityHorizon_matches() {

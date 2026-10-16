@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Optional;
@@ -45,18 +46,21 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.SubruleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -82,6 +86,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -122,7 +127,9 @@ import net.starlark.java.eval.Tuple;
  * (such attempts will result in {@link EvalException}s).
  */
 public final class StarlarkRuleContext
-    implements StarlarkRuleContextApi<ConstraintValueInfo>, StarlarkActionContext {
+    implements StarlarkRuleContextApi<ConstraintValueInfo>,
+        StarlarkActionContext,
+        FragmentCollection.FragmentSupplier {
 
   private static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
@@ -192,7 +199,7 @@ public final class StarlarkRuleContext
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.actionFactory = new StarlarkActionFactory(this);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
-    this.fragments = new FragmentCollection(ruleContext);
+    this.fragments = new FragmentCollection(this);
     this.aspectDescriptor = aspectDescriptor;
     this.isForAspect = aspectDescriptor != null;
     this.ruleClassUnderEvaluation = ruleContext.getRule().getRuleClassObject();
@@ -202,7 +209,7 @@ public final class StarlarkRuleContext
     if (aspectDescriptor == null) {
       Collection<Attribute> attributes =
           rule.getAttributes().stream()
-              .filter(attribute -> !attribute.getName().equals("aspect_hints"))
+              .filter(attribute -> !attribute.getName().equals(RuleClass.ASPECT_HINTS_ATTR))
               .collect(Collectors.toList());
 
       // Populate ctx.outputs.
@@ -240,7 +247,10 @@ public final class StarlarkRuleContext
           outputs.addOutput(attrName, artifacts);
         } else {
           throw ruleContext.throwWithRuleError(
-              String.format("Attribute %s has unexpected output type %s", attrName, type));
+              String.format(
+                  "attribute '%s' has type '%s', but only types 'output' and 'output_list' are"
+                      + " allowed for output attributes",
+                  attrName, type));
         }
       }
       // Add the implicit outputs. In the case where the rule has a native-defined implicit outputs
@@ -374,6 +384,12 @@ public final class StarlarkRuleContext
     }
 
     @Override
+    public boolean isAcyclic() {
+      // Artifacts are acyclic
+      return true;
+    }
+
+    @Override
     public ImmutableCollection<String> getFieldNames() {
       // TODO(b/175954936): There's an NPE here when accessing dir(ctx.outputs) after rule
       // analysis has completed. Since we can't throw EvalException here, this may require that we
@@ -409,7 +425,7 @@ public final class StarlarkRuleContext
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       if (isImmutable()) {
         printer.append("ctx.outputs(for ");
         printer.append(context.ruleLabelCanonicalName);
@@ -427,7 +443,7 @@ public final class StarlarkRuleContext
           first = false;
           printer.append(field);
           printer.append(" = ");
-          printer.repr(getValue(field));
+          printer.repr(getValue(field), semantics);
         }
         printer.append(")");
       } catch (EvalException e) {
@@ -585,7 +601,7 @@ public final class StarlarkRuleContext
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     if (isForAspect) {
       printer.append("<aspect context for " + ruleLabelCanonicalName + ">");
     } else {
@@ -726,6 +742,17 @@ public final class StarlarkRuleContext
   }
 
   @Override
+  @Nullable
+  public Object getStarlarkFragment(String name) throws EvalException {
+    return ruleContext.getStarlarkFragment(name);
+  }
+
+  @Override
+  public ImmutableCollection<String> getStarlarkFragmentNames() {
+    return ruleContext.getStarlarkFragmentNames();
+  }
+
+  @Override
   public BuildConfigurationValue getConfiguration() throws EvalException {
     checkMutable("configuration");
     return ruleContext.getConfiguration();
@@ -744,7 +771,21 @@ public final class StarlarkRuleContext
 
     BuildSetting buildSetting = ruleContext.getRule().getRuleClassObject().getBuildSetting();
     if (starlarkFlagSettings.containsKey(ruleContext.getLabel())) {
-      return starlarkFlagSettings.get(ruleContext.getLabel());
+      Object value = starlarkFlagSettings.get(ruleContext.getLabel());
+      if (value instanceof FeatureFlagValue) {
+        // FeatureFlagValue is only a valid value for native.config_feature_flag rules (which
+        // aren't Starlark flags so don't call this method). While rule definitions can restrict
+        // their attrs through parameters like "allowed_rules" or "providers" to already block
+        // this, that doesn't kick in until the requested dependency is evaluated. If that
+        // dependency is a Starlark flag that means this method kicks in first. So add an extra
+        // error check to prevent a Blaze crash.
+        throw new EvalException(
+            String.format(
+                "android_binary's \"feature_flags\" attribute can only set config_feature_flag"
+                    + " targets: %s is a %s.",
+                ruleContext.getLabel(), ruleContext.getRule().getRuleClassObject().getName()));
+      }
+      return value;
     } else {
       Object defaultValue =
           ruleContext
@@ -785,13 +826,13 @@ public final class StarlarkRuleContext
   @Override
   public ArtifactRoot getBinDirectory() throws EvalException {
     checkMutable("bin_dir");
-    return getConfiguration().getBinDirectory(ruleContext.getRule().getRepository());
+    return getConfiguration().getBinDirectory();
   }
 
   @Override
   public ArtifactRoot getGenfilesDirectory() throws EvalException {
     checkMutable("genfiles_dir");
-    return getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
+    return getConfiguration().getGenfilesDirectory();
   }
 
   @Override
@@ -1070,10 +1111,10 @@ public final class StarlarkRuleContext
     Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());
     boolean checkConflicts = false;
     if (Starlark.truth(collectData)) {
-      builder.addRunfiles(ruleContext, RunfilesProvider.DATA_RUNFILES);
+      RunfilesSupport.addRunfiles(builder, ruleContext, RunfilesProvider.DATA_RUNFILES);
     }
     if (Starlark.truth(collectDefault)) {
-      builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
+      RunfilesSupport.addRunfiles(builder, ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {
       Sequence<Artifact> artifacts = Sequence.cast(files, Artifact.class, "files");
@@ -1153,7 +1194,7 @@ public final class StarlarkRuleContext
     String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute");
     if (expandLocations) {
       command =
-          helper.resolveCommandAndExpandLabels(command, attribute, /*allowDataInLabel=*/ false);
+          helper.resolveCommandAndExpandLabels(command, attribute, /* allowDataInLabel= */ false);
     }
     if (!Starlark.isNullOrNone(makeVariablesUnchecked)) {
       Map<String, String> makeVariables =
@@ -1173,16 +1214,18 @@ public final class StarlarkRuleContext
                 "execution_requirements"));
     // TODO(b/234923262): Take exec_group into consideration instead of using the default
     // exec_group.
+    PlatformInfo executionPlatform = ruleContext.getExecutionPlatform();
     PathFragment shExecutable =
-        ShToolchain.getPathForPlatform(
-            ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
+        ShToolchain.getPathForPlatform(ruleContext.getConfiguration(), executionPlatform);
 
     BashCommandConstructor constructor =
         CommandHelper.buildBashCommandConstructor(
             executionRequirements,
             shExecutable,
             String.format(".resolve_command_%d.script.sh", resolveCommandScriptCounter++));
-    List<String> argv = helper.buildCommandLine(command, inputs, constructor);
+    List<String> argv =
+        helper.buildCommandLine(
+            command, inputs, constructor, getOsFromConstraintsOrHost(executionPlatform));
     return Tuple.triple(
         StarlarkList.copyOf(thread.mutability(), inputs),
         StarlarkList.copyOf(thread.mutability(), argv),
@@ -1212,6 +1255,23 @@ public final class StarlarkRuleContext
   }
 
   @Override
+  public Label packageRelativeLabel(Object input) throws EvalException {
+    checkMutable("package_relative_label");
+    if (input instanceof Label inputLabel) {
+      return inputLabel;
+    }
+    try {
+      return Label.parseWithPackageContext(
+          (String) input,
+          Label.PackageContext.of(
+              ruleContext.getLabel().getPackageIdentifier(),
+              ruleContext.getRule().getPackageMetadata().repositoryMapping()));
+    } catch (LabelSyntaxException e) {
+      throw Starlark.errorf("invalid label in ctx.package_relative_label: %s", e.getMessage());
+    }
+  }
+
+  @Override
   public StarlarkSemantics getStarlarkSemantics() {
     return ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
   }
@@ -1228,7 +1288,8 @@ public final class StarlarkRuleContext
     for (Map.Entry<?, ?> entry : labelDict.entrySet()) {
       Object key = entry.getKey();
       if (!(key instanceof Label)) {
-        throw Starlark.errorf("invalid key %s in 'label_dict'", Starlark.repr(key));
+        throw Starlark.errorf(
+            "invalid key %s in 'label_dict'", Starlark.repr(key, StarlarkSemantics.DEFAULT));
       }
       ImmutableList.Builder<Artifact> files = ImmutableList.builder();
       Object val = entry.getValue();
@@ -1238,11 +1299,12 @@ public final class StarlarkRuleContext
       } else {
         throw Starlark.errorf(
             "invalid value %s in 'label_dict': expected iterable, but got '%s'",
-            Starlark.repr(val), Starlark.type(val));
+            Starlark.repr(val, StarlarkSemantics.DEFAULT), Starlark.type(val));
       }
       for (Object file : valIter) {
         if (!(file instanceof Artifact)) {
-          throw Starlark.errorf("invalid value %s in 'label_dict'", Starlark.repr(val));
+          throw Starlark.errorf(
+              "invalid value %s in 'label_dict'", Starlark.repr(val, StarlarkSemantics.DEFAULT));
         }
         files.add((Artifact) file);
       }
@@ -1267,7 +1329,8 @@ public final class StarlarkRuleContext
       Label label = AliasProvider.getDependencyLabel(current);
       if (targetsMap.containsKey(label)) {
         throw Starlark.errorf(
-            "Label %s is found more than once in 'targets' list.", Starlark.repr(label.toString()));
+            "Label %s is found more than once in 'targets' list.",
+            Starlark.repr(label.toString(), StarlarkSemantics.DEFAULT));
       }
 
       var filesToRunProvider = current.getProvider(FilesToRunProvider.class);

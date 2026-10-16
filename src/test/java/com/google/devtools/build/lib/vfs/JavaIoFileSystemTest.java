@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
+
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -51,6 +55,39 @@ public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
   @Override
   @Test
   public void testBadPermissionsThrowsExceptionOnStatIfFound() {}
+
+  @Test
+  public void testInvalidPathWithNulCharacterHandling() throws Exception {
+    FileSystem testFs = getFreshFileSystem(DigestHashFunction.SHA256);
+    PathFragment invalidPath = PathFragment.create("/foo/bar\0bad");
+    Path path = testFs.getPath(invalidPath);
+
+    assertThat(path.exists()).isFalse();
+    assertThat(path.isDirectory()).isFalse();
+    assertThat(path.isFile()).isFalse();
+    assertThat(path.isSymbolicLink()).isFalse();
+    assertThat(path.statIfFound()).isNull();
+    assertThat(path.statIfFound(Symlinks.FOLLOW)).isNull();
+    assertThat(path.statIfFound(Symlinks.NOFOLLOW)).isNull();
+    assertThat(testFs.statIfFound(invalidPath, /* followSymlinks= */ true)).isNull();
+    assertThat(testFs.statIfFound(invalidPath, /* followSymlinks= */ false)).isNull();
+    assertThat(path.delete()).isFalse();
+    assertThrows(FileNotFoundException.class, () -> path.stat());
+    assertThrows(FileNotFoundException.class, () -> path.getDirectoryEntries());
+    assertThrows(FileNotFoundException.class, () -> path.readSymbolicLink());
+    assertThrows(IOException.class, () -> testFs.createDirectory(invalidPath));
+    assertThrows(IOException.class, () -> path.createDirectoryAndParents());
+    assertThrows(IOException.class, () -> path.createSymbolicLink(testFs.getPath("/target")));
+    assertThrows(
+        IOException.class,
+        () -> testFs.createFSDependentHardLink(invalidPath, PathFragment.create("/target")));
+    assertThrows(
+        IOException.class, () -> testFs.renameTo(invalidPath, PathFragment.create("/foo/dest")));
+    assertThrows(
+        IOException.class, () -> testFs.renameTo(PathFragment.create("/foo/src"), invalidPath));
+    assertThrows(IOException.class, () -> path.createReadWriteByteChannel());
+    assertThrows(IOException.class, () -> testFs.createReadWriteByteChannel(invalidPath));
+  }
 
   @Override
   protected boolean isHardLinked(Path a, Path b) throws IOException {

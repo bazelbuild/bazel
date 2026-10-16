@@ -95,10 +95,21 @@ public final class TopLevelArtifactHelper {
 
     /** Returns the artifacts that the user should know about. */
     public NestedSet<Artifact> getImportantArtifacts() {
+      return getImportantArtifactsExcluding(/* outputGroupsToExclude= */ ImmutableSet.of());
+    }
+
+    /**
+     * Returns the artifacts that the user should know about, excluding those that are only in the
+     * output groups named in {@code outputGroupsToExclude}.
+     *
+     * <p>An artifact that also belongs to an important output group not in {@code
+     * outputGroupsToExclude} is still returned.
+     */
+    public NestedSet<Artifact> getImportantArtifactsExcluding(Set<String> outputGroupsToExclude) {
       NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts.values()) {
-        if (artifactsInOutputGroup.areImportant()) {
-          builder.addTransitive(artifactsInOutputGroup.getArtifacts());
+      for (Map.Entry<String, ArtifactsInOutputGroup> entry : artifacts.entrySet()) {
+        if (entry.getValue().areImportant() && !outputGroupsToExclude.contains(entry.getKey())) {
+          builder.addTransitive(entry.getValue().getArtifacts());
         }
       }
       return builder.build();

@@ -28,6 +28,7 @@ import java.util.function.Function;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -52,6 +53,11 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
             StarlarkThread starlarkThread, StarlarkSemantics semantics, Object key) {
           return false;
         }
+
+        @Override
+        public StarlarkList<Label> toolchainTypes() {
+          return StarlarkList.empty();
+        }
       };
 
   public static ToolchainContextApi create(
@@ -73,12 +79,17 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
   protected abstract ImmutableSet<Label> resolvedToolchainTypeLabels();
 
   @Override
+  public StarlarkList<Label> toolchainTypes() {
+    return StarlarkList.immutableCopyOf(resolvedToolchainTypeLabels());
+  }
+
+  @Override
   public boolean isImmutable() {
     return true;
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<toolchain_context.resolved_labels: ");
     printer.append(
         resolvedToolchainTypeLabels().stream().map(Label::toString).collect(joining(", ")));

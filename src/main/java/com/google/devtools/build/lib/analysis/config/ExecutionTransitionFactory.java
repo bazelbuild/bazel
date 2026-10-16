@@ -66,10 +66,11 @@ public class ExecutionTransitionFactory
    * While that makes this cache seem unnecessary, it still has value. The exec transition uniquely
    * takes an extra parameter: the execution platform label. This is provided by toolchain
    * resolution - the transition can't read it from input build options. So we need to cache on
-   * {@code label, originalTransition} pairs.
+   * {@code label, provider} pairs.
    */
-  private static final Cache<Pair<Label, Integer>, PatchTransition> transitionInstanceCache =
-      Caffeine.newBuilder().weakValues().build();
+  private static final Cache<
+          Pair<Label, TransitionFactory<AttributeTransitionData>>, PatchTransition>
+      transitionInstanceCache = Caffeine.newBuilder().weakValues().build();
 
   @Override
   public PatchTransition create(AttributeTransitionData dataWithTargetAttributes)
@@ -116,7 +117,7 @@ public class ExecutionTransitionFactory
 
     return transitionInstanceCache.get(
         // A Starlark transition keeps the same instance unless we modify its .bzl file.
-        Pair.of(data.executionPlatform(), starlarkExecTransitionProvider.hashCode()),
+        Pair.of(data.executionPlatform(), starlarkExecTransitionProvider),
         (p) ->
             new ExecTransitionFinalizer(
                 data.executionPlatform(), starlarkExecTransitionProvider.create(data)));
@@ -201,7 +202,7 @@ public class ExecutionTransitionFactory
       // Set the target to the saved execution platform if there is one.
       PlatformOptions platformOptions = execOptions.get(PlatformOptions.class);
       if (platformOptions != null) {
-        platformOptions.platforms = ImmutableList.of(executionPlatform);
+        platformOptions.setPlatforms(ImmutableList.of(executionPlatform));
       }
 
       // Remove any FeatureFlags that were set.
@@ -221,20 +222,20 @@ public class ExecutionTransitionFactory
       // The conditional use of a Builder above may have replaced result and underlying options
       // with a clone so must refresh it.
       CoreOptions coreOptions = result.get(CoreOptions.class);
-      coreOptions.commandLineFlagAliases =
-          options.underlying().get(CoreOptions.class).commandLineFlagAliases;
+      coreOptions.setCommandLineFlagAliases(
+          options.underlying().get(CoreOptions.class).getCommandLineFlagAliases());
       // TODO(blaze-configurability-team): These updates probably requires a bit too much knowledge
       //   of exactly how the immutable state and mutable state of BuildOptions is interacting.
       //   Might be good to have an option to wipeout that state rather than cloning so much.
-      coreOptions.platformSuffix = "exec";
-      coreOptions.executionInfoModifier =
-          options.underlying().get(CoreOptions.class).executionInfoModifier;
-      coreOptions.overridePlatformCpuName =
-          options.underlying().get(CoreOptions.class).overridePlatformCpuName;
-      coreOptions.disabledSelectOptions =
-          options.underlying().get(CoreOptions.class).disabledSelectOptions;
-      coreOptions.incompatibleTargetCpuFromPlatform =
-          options.underlying().get(CoreOptions.class).incompatibleTargetCpuFromPlatform;
+      coreOptions.setPlatformSuffix("exec");
+      coreOptions.setExecutionInfoModifier(
+          options.underlying().get(CoreOptions.class).getExecutionInfoModifier());
+      coreOptions.setOverridePlatformCpuName(
+          options.underlying().get(CoreOptions.class).getOverridePlatformCpuName());
+      coreOptions.setDisabledSelectOptions(
+          options.underlying().get(CoreOptions.class).getDisabledSelectOptions());
+      coreOptions.setIncompatibleTargetCpuFromPlatform(
+          options.underlying().get(CoreOptions.class).getIncompatibleTargetCpuFromPlatform());
       return result;
     }
   }

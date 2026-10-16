@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.analysis.config.FragmentOptions.addMapToFingerprint;
 import static com.google.devtools.build.lib.skyframe.serialization.ImmutableMapCodecs.IMMUTABLE_MAP_CODEC;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 import static java.util.Comparator.naturalOrder;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -63,6 +63,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
 
 /** Stores the command-line options from a set of configuration fragments. */
 // TODO(janakr): If overhead of FragmentOptions class names is too high, add constructor that just
@@ -81,9 +82,10 @@ public final class BuildOptions implements Cloneable {
 
   /**
    * Converts the map containing String representation of scopes attributes to a map of {@link
-   * Label} of Starlark options to their corresponding {@link Scope.ScopeType}.
+   * Label} of Starlark options to their corresponding {@link Scope.ScopeType}, keeping only entries
+   * for flags present in {@code starlarkOptions}.
    */
-  private static ImmutableMap<Label, Scope.ScopeType> convertScopesAttributes(
+  public static ImmutableMap<Label, Scope.ScopeType> convertScopesAttributes(
       Map<String, String> scopesAttributes, Map<String, Object> starlarkOptions) {
     return scopesAttributes.entrySet().stream()
         .filter(e -> starlarkOptions.containsKey(e.getKey()))
@@ -170,7 +172,7 @@ public final class BuildOptions implements Cloneable {
     // See NoConfigTransition for why CoreOptions stays included.
     return fragmentOptionsMap.size() == 1
         && Iterables.getOnlyElement(fragmentOptionsMap.values())
-            .getClass()
+            .getOptionsClass()
             .getSimpleName()
             .equals("CoreOptions")
         && starlarkOptionsMap.isEmpty();
@@ -184,14 +186,13 @@ public final class BuildOptions implements Cloneable {
           if (fragmentOptionsMap.isEmpty() && starlarkOptionsMap.isEmpty()) {
             checksum = "0".repeat(64); // Make empty build options easy to distinguish.
           } else {
-            Fingerprint fingerprint = new Fingerprint();
-            for (FragmentOptions options : fragmentOptionsMap.values()) {
-              fingerprint.addString(options.cacheKey());
-            }
-            fingerprint.addString(OptionsBase.mapToCacheKey(starlarkOptionsMap));
-            fingerprint.addString(OptionsBase.mapToCacheKey(scopes));
-            fingerprint.addString(OptionsBase.mapToCacheKey(onLeaveScopeValuesMap));
-            checksum = fingerprint.hexDigestAndReset();
+            var fp = new Fingerprint();
+            fragmentOptionsMap.forEach((_, options) -> options.addToFingerprint(fp));
+            // Starlark types are observable to Starlark code, see b/478938163.
+            addMapToFingerprint(fp, starlarkOptionsMap, Starlark::type);
+            addMapToFingerprint(fp, scopes, /* valueType= */ _ -> "");
+            addMapToFingerprint(fp, onLeaveScopeValuesMap, Starlark::type);
+            checksum = fp.hexDigestAndReset();
           }
         }
       }
@@ -358,7 +359,7 @@ public final class BuildOptions implements Cloneable {
         ignoredDefinitions.add(optionDefinition);
         continue;
       }
-      Object originalValue = originalFragment.asMap().get(optionDefinition.getOptionName());
+      Object originalValue = optionDefinition.getValue(originalFragment);
       if (!Objects.equals(originalValue, parsedOption.getConvertedValue())) {
         return false;
       }
@@ -418,7 +419,7 @@ public final class BuildOptions implements Cloneable {
      */
     @CanIgnoreReturnValue
     public <T extends FragmentOptions> Builder addFragmentOptions(T options) {
-      fragmentOptions.put(options.getClass(), options.getNormalized());
+      fragmentOptions.put(options.getOptionsClass(), options.getNormalized());
       return this;
     }
 

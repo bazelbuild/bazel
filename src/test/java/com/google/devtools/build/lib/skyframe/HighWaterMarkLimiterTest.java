@@ -159,9 +159,9 @@ public final class HighWaterMarkLimiterTest {
   private static MemoryPressureOptions createOptions(
       int threshold, int minorGcDropLimit, int fullGcDropLimit) {
     MemoryPressureOptions options = Options.getDefaults(MemoryPressureOptions.class);
-    options.skyframeHighWaterMarkMemoryThreshold = threshold;
-    options.skyframeHighWaterMarkMinorGcDropsPerInvocation = minorGcDropLimit;
-    options.skyframeHighWaterMarkFullGcDropsPerInvocation = fullGcDropLimit;
+    options.setSkyframeHighWaterMarkMemoryThreshold(threshold);
+    options.setSkyframeHighWaterMarkMinorGcDropsPerInvocation(minorGcDropLimit);
+    options.setSkyframeHighWaterMarkFullGcDropsPerInvocation(fullGcDropLimit);
     return options;
   }
 
