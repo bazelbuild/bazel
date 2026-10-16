@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -115,9 +116,11 @@ public final class StarlarkExecTransitionLoader {
   }
 
   /** A marker class to distinguish the exec transition from other starlark transitions. */
+  @AutoCodec
   static class StarlarkExecTransitionProvider extends StarlarkAttributeTransitionProvider {
-    StarlarkExecTransitionProvider(StarlarkDefinedConfigTransition execTransition) {
-      super(execTransition);
+    StarlarkExecTransitionProvider(
+        StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
+      super(starlarkDefinedConfigTransition);
     }
 
     @Override
