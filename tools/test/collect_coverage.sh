@@ -22,6 +22,10 @@
 #   COVERAGE_DIR - optional, location of the coverage temp directory
 #   COVERAGE_OUTPUT_FILE - optional, location of the final lcov file
 #   VERBOSE_COVERAGE - optional, print debug info from the coverage scripts
+#   BAZEL_COVERAGE_COLLECT_ON_TEST_FAILURE - optional, if non-empty, still run
+#     coverage post-processing when the test fails (the test is still reported
+#     as failed). Useful for local iteration, e.g. via
+#     --test_env=BAZEL_COVERAGE_COLLECT_ON_TEST_FAILURE=1.
 #   BAZEL_LLVM_PROFILE_FILE - optional, custom LLVM profile filename pattern
 #     (defaults to "%h-%p-%m.profraw" if not set)
 #
@@ -60,6 +64,11 @@ for name in RUNFILES_DIR RUNFILES_MANIFEST_FILE JAVA_RUNFILES PYTHON_RUNFILES; d
     unset BAZEL_COVERAGE_INTERNAL_${name}
   fi
 done
+
+# Only the test spawn runs the test and thus sets this to the test's exit status;
+# the separate coverage spawn (IS_COVERAGE_SPAWN=1) leaves it at 0 so that the
+# exits below stay well-defined there.
+TEST_STATUS=0
 
 if [[ -z "$COVERAGE_MANIFEST" ]]; then
   echo --
@@ -170,10 +179,17 @@ if [[ "$IS_COVERAGE_SPAWN" == "0" ]]; then
 
   if [[ $TEST_STATUS -ne 0 ]]; then
     echo --
-    echo Coverage runner: Not collecting coverage for failed test.
-    echo The following commands failed with status $TEST_STATUS
-    echo "$@"
-    exit $TEST_STATUS
+    if [[ -n "${BAZEL_COVERAGE_COLLECT_ON_TEST_FAILURE:-}" ]]; then
+      echo Coverage runner: Collecting coverage for failed test because
+      echo BAZEL_COVERAGE_COLLECT_ON_TEST_FAILURE is set. Collected coverage
+      echo may be off. The following command failed with status $TEST_STATUS:
+      echo "$@"
+    else
+      echo Coverage runner: Not collecting coverage for failed test.
+      echo The following commands failed with status $TEST_STATUS
+      echo "$@"
+      exit $TEST_STATUS
+    fi
   fi
 fi
 
@@ -185,7 +201,7 @@ fi
 unset LLVM_PROFILE_FILE
 
 if [[ "$SPLIT_COVERAGE_POST_PROCESSING" == "1" && "$IS_COVERAGE_SPAWN" == "0" ]]; then
-  exit 0
+  exit $TEST_STATUS
 fi
 
 if [[ "$SPLIT_COVERAGE_POST_PROCESSING" == "1" && "$IS_COVERAGE_SPAWN" == "1" ]]; then
@@ -208,7 +224,7 @@ if [[ -z "$LCOV_MERGER" ]]; then
   # due to conflicts with how things work within Google.
   # The file creation is required because TestActionBuilder has already declared
   # it.
-  exit 0
+  exit $TEST_STATUS
 fi
 
 for name in "$LCOV_MERGER"; do
@@ -269,4 +285,11 @@ fi
 # Runfiles variables are set to the runfiles of the test, which does not contain
 # the runfiles of the LCOV merger. Unset them so that it can find its own
 # runfiles tree.
-JAVA_RUNFILES= RUNFILES_DIR= RUNFILES_MANIFEST_FILE= exec $LCOV_MERGER_CMD
+JAVA_RUNFILES= RUNFILES_DIR= RUNFILES_MANIFEST_FILE= $LCOV_MERGER_CMD
+LCOV_MERGER_CMD_STATUS=$?
+
+# A failing test must still fail, even if coverage was collected for it.
+if [[ $TEST_STATUS -ne 0 ]]; then
+  exit $TEST_STATUS
+fi
+exit $LCOV_MERGER_CMD_STATUS
