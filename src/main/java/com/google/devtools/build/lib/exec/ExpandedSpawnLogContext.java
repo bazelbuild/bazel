@@ -107,9 +107,10 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
       boolean shouldPublish,
-      Predicate<Spawn> logSpawnPredicate)
+      Predicate<Spawn> logSpawnPredicate,
+      boolean expandParamFiles)
       throws IOException {
-    super(logSpawnPredicate);
+    super(logSpawnPredicate, expandParamFiles);
     this.encoding = encoding;
     this.sorted = sorted;
     this.tempPath = tempPath;
@@ -166,7 +167,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
     }
     try (SilentCloseable c = Profiler.instance().profile("logSpawn")) {
       SpawnExec.Builder builder = SpawnExec.newBuilder();
-      builder.addAllCommandArgs(spawn.getArguments());
+      builder.addAllCommandArgs(getLoggedArguments(spawn));
       builder.addAllEnvironmentVariables(getEnvironmentVariables(spawn));
 
       ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
