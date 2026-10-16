@@ -83,11 +83,21 @@ public interface ActionCache {
   final class Entry {
     /** Unique instance standing for a corrupted cache entry. */
     public static final ActionCache.Entry CORRUPTED =
-        new Entry(null, null, false, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        new Entry(
+            null,
+            null,
+            null,
+            /* prunedInputs= */ false,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            ImmutableList.of());
 
     // Digest of all relevant properties of the action for cache invalidation purposes.
     // Null if the entry is corrupted.
     @Nullable private final byte[] digest;
+
+    // Digest of mandatory inputs for actions that split mandatory/discovered cache checking.
+    @Nullable private final byte[] mandatoryInputsDigest;
 
     // List of input paths discovered by the action.
     // Null if the action does not discover inputs.
@@ -103,6 +113,7 @@ public interface ActionCache {
 
     Entry(
         @Nullable byte[] digest,
+        @Nullable byte[] mandatoryInputsDigest,
         @Nullable ImmutableList<String> discoveredInputPaths,
         boolean prunedInputs,
         ImmutableMap<String, FileArtifactValue> outputFileMetadata,
@@ -112,6 +123,7 @@ public interface ActionCache {
           !prunedInputs || discoveredInputPaths != null,
           "Action had unused inputs but no discovered inputs");
       this.digest = digest;
+      this.mandatoryInputsDigest = mandatoryInputsDigest;
       this.discoveredInputPaths = discoveredInputPaths;
       this.prunedInputs = prunedInputs;
       this.outputFileMetadata = outputFileMetadata;
@@ -157,6 +169,13 @@ public interface ActionCache {
     public ImmutableList<String> getDiscoveredInputPaths() {
       checkState(!isCorrupted());
       return discoveredInputPaths;
+    }
+
+    /** Returns the digest of mandatory inputs, or null if not stored. */
+    @Nullable
+    public byte[] getMandatoryInputsDigest() {
+      checkState(!isCorrupted());
+      return mandatoryInputsDigest;
     }
 
     /** Gets the metadata of an output file. */
@@ -206,6 +225,7 @@ public interface ActionCache {
       return MoreObjects.toStringHelper(this)
           .add("digest", digest)
           .add("discoveredInputPaths", discoveredInputPaths)
+          .add("mandatoryInputsDigest", mandatoryInputsDigest)
           .add("outputFileMetadata", outputFileMetadata)
           .add("outputTreeMetadata", outputTreeMetadata)
           .add("proxyOutputs", proxyOutputs)
@@ -223,6 +243,9 @@ public interface ActionCache {
         for (String path : ImmutableList.sortedCopyOf(discoveredInputPaths)) {
           out.format("    %s\n", path);
         }
+      }
+      if (mandatoryInputsDigest != null) {
+        out.format("  mandatoryInputsDigest = %s\n", formatDigest(mandatoryInputsDigest));
       }
 
       if (!outputFileMetadata.isEmpty()) {
@@ -305,6 +328,7 @@ public interface ActionCache {
       // Null if the action does not discover inputs.
       @Nullable private final ImmutableList.Builder<String> discoveredInputPaths;
       private boolean prunedInputs = false;
+      @Nullable private byte[] mandatoryInputsDigest;
 
       private final ImmutableMap.Builder<String, FileArtifactValue> outputFileMetadata =
           ImmutableMap.builder();
@@ -339,6 +363,13 @@ public interface ActionCache {
         this.useArchivedTreeArtifacts = useArchivedTreeArtifacts;
       }
 
+      /** Sets the digest of mandatory inputs for split mandatory/discovered cache checking. */
+      @CanIgnoreReturnValue
+      public Builder setMandatoryInputsDigest(@Nullable byte[] mandatoryInputsDigest) {
+        this.mandatoryInputsDigest = mandatoryInputsDigest;
+        return this;
+      }
+
       /** Adds metadata of an input file. */
       @CanIgnoreReturnValue
       public Builder addInputFile(Artifact artifact, FileArtifactValue metadata) {
@@ -350,6 +381,21 @@ public interface ActionCache {
       @CanIgnoreReturnValue
       public Builder addInputFile(
           Artifact artifact, FileArtifactValue metadata, boolean saveExecPath) {
+        return addInputFile(artifact, metadata, saveExecPath, /* includeInDigest= */ true);
+      }
+
+      /**
+       * Adds an input, independently controlling path recording and metadata hashing.
+       *
+       * <p>Pruned actions must record all retained input paths, including mandatory inputs whose
+       * metadata is already covered by the separate mandatory inputs digest.
+       */
+      @CanIgnoreReturnValue
+      public Builder addInputFile(
+          Artifact artifact,
+          FileArtifactValue metadata,
+          boolean saveExecPath,
+          boolean includeInDigest) {
         checkState(
             inputDigest == null,
             "Cannot add input files when input digest is already set or computed");
@@ -360,7 +406,9 @@ public interface ActionCache {
         if (discoveredInputPaths != null && saveExecPath) {
           discoveredInputPaths.add(execPath);
         }
-        inputMetadataMap.put(execPath, metadata);
+        if (includeInDigest) {
+          inputMetadataMap.put(execPath, metadata);
+        }
         return this;
       }
 
@@ -485,11 +533,13 @@ public interface ActionCache {
             computeDigest(
                 actionKey,
                 discoveredInputPaths != null,
+                mandatoryInputsDigest,
                 combinedMetadataDigest,
                 clientEnv,
                 actionExecutionSalt,
                 outputPermissions,
                 useArchivedTreeArtifacts),
+            mandatoryInputsDigest,
             discoveredInputPaths != null ? discoveredInputPaths.build() : null,
             prunedInputs,
             outputFileMetadata.buildOrThrow(),
@@ -500,6 +550,7 @@ public interface ActionCache {
       private static byte[] computeDigest(
           String actionKey,
           boolean discoversInputs,
+          @Nullable byte[] mandatoryInputsDigest,
           byte[] metadataDigest,
           Map<String, String> clientEnv,
           String actionExecutionSalt,
@@ -508,6 +559,9 @@ public interface ActionCache {
         Fingerprint fp = new Fingerprint();
         fp.addString(actionKey);
         fp.addBoolean(discoversInputs);
+        if (mandatoryInputsDigest != null) {
+          fp.addBytes(mandatoryInputsDigest);
+        }
         fp.addBytes(metadataDigest);
         fp.addBytes(computeMapDigest(clientEnv));
         fp.addString(actionExecutionSalt);
