@@ -123,9 +123,7 @@ public class DiskCacheClient {
     try {
       // Use NOW_SENTINEL_TIME instead of obtaining the current time so that the operation succeeds
       // even when the file has a different owner, as might be the case for a shared cache.
-      path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
-    } catch (FileNotFoundException e) {
-      return false;
+      return path.setLastModifiedTimeIfExists(Path.NOW_SENTINEL_TIME);
     } catch (FileAccessException e) {
       // On Windows, setting the last modified time via java.io.File#setLastModified opens the file
       // with FILE_SHARE_READ | FILE_SHARE_WRITE (without FILE_SHARE_DELETE). If another thread or

@@ -358,10 +358,10 @@ public class UnixFileSystem extends DiskBackedFileSystem {
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+  public boolean setLastModifiedTimeIfExists(PathFragment path, long newTime) throws IOException {
     var comp = Blocker.begin();
     try {
-      run(
+      return run(
           () ->
               nativePosixFilesService.utimensat(
                   path.toString(), newTime == Path.NOW_SENTINEL_TIME, newTime));

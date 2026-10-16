@@ -598,10 +598,17 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
-  public synchronized void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    InMemoryContentInfo status = inodeStat(path, true);
-    status.setLastModifiedTime(
-        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime);
+  public synchronized boolean setLastModifiedTimeIfExists(PathFragment path, long newTime)
+      throws IOException {
+    InodeOrErrno status = inodeStatErrno(path, /* followSymlinks= */ true);
+    if (status == Errno.ENOENT) {
+      return false;
+    }
+    status
+        .inodeOrThrow(path)
+        .setLastModifiedTime(
+            newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime);
+    return true;
   }
 
   @Override
