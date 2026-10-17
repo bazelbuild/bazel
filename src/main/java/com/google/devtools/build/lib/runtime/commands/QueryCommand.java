@@ -13,11 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -30,6 +35,7 @@ import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.query.hash.TransitiveHashes;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
@@ -48,11 +54,13 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Either;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Command line wrapper for executing a query with blaze. */
 @Command(
@@ -101,7 +109,9 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     }
 
     try {
-      formatter.verifyCompatible(queryEnv, expr);
+      if (!queryOptions.getGenerateHashes()) {
+        formatter.verifyCompatible(queryEnv, expr);
+      }
     } catch (QueryException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return Either.ofLeft(BlazeCommandResult.failureDetail(e.getFailureDetail()));
@@ -130,7 +140,11 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     ThreadSafeOutputFormatterCallback<Target> callback;
     HashFunction hashFunction =
         env.getRuntime().getFileSystem().getDigestFunction().getHashFunction();
-    if (streamResults) {
+    boolean generateHashes = queryOptions.getGenerateHashes();
+    if (generateHashes) {
+      // Hashes are computed after evaluation, so aggregate the results instead of streaming them.
+      callback = QueryUtil.newLexicographicallySortedTargetAggregator();
+    } else if (streamResults) {
       disableAnsiCharactersFiltering(env);
       StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
       streamedFormatter.setOptions(
@@ -176,7 +190,24 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
           out.flush();
         }
       }
-      if (!streamResults || lexicographicallySortOutput) {
+      if (generateHashes) {
+        disableAnsiCharactersFiltering(env);
+        try (SilentCloseable closeable = Profiler.instance().profile("QueryCommand.outputHashes")) {
+          Set<Target> targets =
+              ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
+          BlazeCommandResult failure =
+              outputHashes(env, queryOptions, targets, out, queryEnv.getLabelPrinter());
+          if (failure != null) {
+            return Either.ofLeft(failure);
+          }
+        } catch (ClosedByInterruptException | InterruptedException e) {
+          return reportAndCreateInterruptedResult(env);
+        } catch (IOException e) {
+          return reportAndCreateIOExceptionResult(env, e.getMessage());
+        } finally {
+          out.flush();
+        }
+      } else if (!streamResults || lexicographicallySortOutput) {
         disableAnsiCharactersFiltering(env);
         try (SilentCloseable closeable = Profiler.instance().profile("QueryOutputUtils.output")) {
           Set<Target> targets =
@@ -206,6 +237,66 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     }
 
     return Either.ofRight(result);
+  }
+
+  /**
+   * Computes the transitive hash of every target and writes one {@code <label> <hash>} line per
+   * target. Returns a failure result if a hash could not be computed or may be wrong, or null.
+   */
+  @Nullable
+  private static BlazeCommandResult outputHashes(
+      CommandEnvironment env,
+      QueryOptions queryOptions,
+      Set<Target> targets,
+      OutputStream out,
+      LabelPrinter labelPrinter)
+      throws IOException, InterruptedException {
+    ImmutableList<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableList());
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setParallelism(
+                env.getOptions().getOptions(LoadingPhaseThreadsOption.class).getThreads())
+            .setEventHandler(env.getReporter())
+            .build();
+    TransitiveHashes.Result result =
+        TransitiveHashes.compute(
+            labels,
+            keys -> env.getSkyframeExecutor().prepareAndGet(keys, evaluationContext),
+            message -> env.getReporter().handle(Event.progress(message)));
+    String lineTerminator = queryOptions.getLineTerminator();
+    for (Label label : labels) {
+      String hash = result.hashes().get(label);
+      if (hash != null) {
+        out.write((labelPrinter.toString(label) + " " + hash + lineTerminator).getBytes(UTF_8));
+      }
+    }
+    result
+        .errors()
+        .forEach(
+            (label, error) ->
+                env.getReporter()
+                    .handle(
+                        Event.error(
+                            String.format(
+                                "failed to compute hash for %s: %s",
+                                labelPrinter.toString(label),
+                                error.getException() != null
+                                    ? error.getException().getMessage()
+                                    : error.toString()))));
+    if (result.errors().isEmpty()) {
+      return null;
+    }
+    String message =
+        String.format(
+            "failed to compute hashes: %d error(s); hashes of targets depending on them may be"
+                + " wrong",
+            result.errors().size());
+    return BlazeCommandResult.detailedExitCode(
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setQuery(Query.newBuilder().setCode(Code.BUILD_FILE_ERROR))
+                .build()));
   }
 
   /**
