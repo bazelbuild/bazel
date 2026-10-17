@@ -589,7 +589,10 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                     + " default 250<li>\"local_test\": number of local tests; default 1</ul><p>If a"
                     + " callback function is passed, it accepts two positional arguments: a string"
                     + " representing an OS name (e.g. \"osx\"), and an integer representing the"
-                    + " number of inputs to the action. It must return a dictionary with the same"
+                    + " number of inputs to the action. If it also declares an"
+                    + " <code>inputs_bytes</code> parameter (or <code>**kwargs</code>), it is"
+                    + " passed the total size in bytes of the action's expanded inputs as that"
+                    + " keyword argument. It must return a dictionary with the same"
                     + " entries described above. The callback must be top-level (lambda and nested"
                     + " functions aren't allowed).<p>If this parameter is set to <code>None</code>,"
                     + " the default values are used."),
