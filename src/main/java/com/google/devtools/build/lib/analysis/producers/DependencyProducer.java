@@ -33,9 +33,11 @@ import com.google.devtools.build.lib.analysis.DormantDependency;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.MaterializedDepsInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEvent;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer.MaterializerException;
@@ -215,6 +217,13 @@ final class DependencyProducer
       return DONE;
     }
     sink.acceptTransition(kind, toLabel, attributeTransition);
+    if (attributeTransition == NoConfigTransition.INSTANCE) {
+      // The result doesn't depend on the parent configuration, so skip the general machinery.
+      transitionedConfigurations =
+          ImmutableMap.of(
+              PATCH_TRANSITION_KEY, BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS));
+      return processTransitionResult(tasks);
+    }
     return new TransitionApplier(
         toLabel,
         configurationKey,
