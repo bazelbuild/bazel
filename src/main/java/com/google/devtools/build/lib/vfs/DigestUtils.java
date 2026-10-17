@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.vfs;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import com.github.benmanes.caffeine.cache.stats.ConcurrentStatsCounter;
+import com.github.benmanes.caffeine.cache.stats.StatsCounter;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.UnsafeByteOperations;
@@ -39,27 +41,50 @@ public class DigestUtils {
   private static final HexFormat HEX_FORMAT = HexFormat.of();
 
   /**
-   * Keys used to cache the values of the digests for files where we don't have fast digests.
+   * The digest of a file together with the metadata of the file it was computed from, for files
+   * where we don't have fast digests.
    *
-   * <p>The cache keys are derived from many properties of the file metadata in an attempt to be
-   * able to detect most file changes.
+   * <p>The cache holds one such value per file. A lookup only uses the digest if the file's current
+   * metadata still matches, which is derived from many properties of the file metadata in an
+   * attempt to detect most file changes.
+   *
+   * <p>The metadata lives in the value rather than the key so that a file that changes does not
+   * leave a stale entry behind. The change time only moves forward, so a file's old metadata can
+   * never be observed again.
    */
-  private static record CacheKey(
-      PathFragment path, long nodeId, long changeTime, long lastModifiedTime, long size) {
-    /**
-     * Constructs a new cache key.
-     *
-     * @param path path to the file
-     * @param status file status data from which to obtain the cache key properties
-     * @throws IOException if reading the file status data fails
-     */
-    private CacheKey(Path path, FileStatus status) throws IOException {
-      this(
-          path.asFragment(),
-          status.getNodeId(),
-          status.getLastChangeTime(),
-          status.getLastModifiedTime(),
-          status.getSize());
+  private static final class CachedDigest {
+    private final long nodeId;
+    private final long changeTime;
+    private final long size;
+    private final byte[] digest;
+
+    private CachedDigest(FileStatus status, byte[] digest) throws IOException {
+      this.nodeId = status.getNodeId();
+      this.changeTime = status.getLastChangeTime();
+      this.size = status.getSize();
+      this.digest = digest;
+    }
+
+    /** Returns whether the digest is still valid for a file with the given metadata. */
+    private boolean matches(FileStatus status) throws IOException {
+      return nodeId == status.getNodeId()
+          && changeTime == status.getLastChangeTime()
+          && size == status.getSize();
+    }
+  }
+
+  /**
+   * The cache together with its statistics counter.
+   *
+   * <p>Hits and misses are recorded by {@link #manuallyComputeDigest} itself, through {@code
+   * stats}, so that a present but stale entry counts as a miss. The cache records evictions into
+   * the same counter.
+   */
+  private record DigestCache(Cache<PathFragment, CachedDigest> cache, StatsCounter stats) {
+    private static DigestCache create(long maximumSize) {
+      var stats = new ConcurrentStatsCounter();
+      return new DigestCache(
+          Caffeine.newBuilder().maximumSize(maximumSize).recordStats(() -> stats).build(), stats);
     }
   }
 
@@ -69,11 +94,11 @@ public class DigestUtils {
    * <p>This is null when the cache is disabled.
    *
    * <p>Note that we do not use a {@link com.github.benmanes.caffeine.cache.LoadingCache} because
-   * our keys represent the paths as strings, not as {@link Path} instances. As a result, the
+   * our keys represent the paths as path fragments, not as {@link Path} instances. As a result, the
    * loading function cannot actually compute the digests of the files so we have to handle this
    * externally.
    */
-  private static Cache<CacheKey, byte[]> globalCache = null;
+  @Nullable private static DigestCache globalCache = null;
 
   /** Private constructor to prevent instantiation of utility class. */
   private DigestUtils() {}
@@ -87,11 +112,7 @@ public class DigestUtils {
    * @param maximumSize maximumSize of the cache in number of entries
    */
   public static void configureCache(long maximumSize) {
-    if (maximumSize == 0) {
-      globalCache = null;
-    } else {
-      globalCache = Caffeine.newBuilder().maximumSize(maximumSize).recordStats().build();
-    }
+    globalCache = maximumSize == 0 ? null : DigestCache.create(maximumSize);
   }
 
   /**
@@ -99,8 +120,9 @@ public class DigestUtils {
    * initialized.
    */
   public static void clearCache() {
-    if (globalCache != null) {
-      globalCache.invalidateAll();
+    DigestCache cache = globalCache;
+    if (cache != null) {
+      cache.cache().invalidateAll();
     }
   }
 
@@ -112,9 +134,9 @@ public class DigestUtils {
    * @return an immutable snapshot of the cache statistics
    */
   public static CacheStats getCacheStats() {
-    Cache<CacheKey, byte[]> cache = globalCache;
+    DigestCache cache = globalCache;
     Preconditions.checkNotNull(cache, "configureCache() must have been called with a size >= 0");
-    return cache.stats();
+    return cache.cache().stats();
   }
 
   /**
@@ -141,24 +163,29 @@ public class DigestUtils {
    */
   public static byte[] manuallyComputeDigest(Path path, @Nullable FileStatus status)
       throws IOException {
-    byte[] digest;
-
     // Attempt a cache lookup if the cache is enabled.
-    Cache<CacheKey, byte[]> cache = globalCache;
-    CacheKey key = null;
+    DigestCache cache = globalCache;
+    PathFragment key = null;
     if (cache != null) {
-      key = new CacheKey(path, status != null ? status : path.stat());
-      digest = cache.getIfPresent(key);
-      if (digest != null) {
-        return digest;
+      if (status == null) {
+        status = path.stat();
       }
+      key = path.asFragment();
+      // Look up through the map view, which informs the eviction policy but does not record
+      // statistics, so that only a usable digest counts as a hit.
+      CachedDigest cached = cache.cache().asMap().get(key);
+      if (cached != null && cached.matches(status)) {
+        cache.stats().recordHits(1);
+        return cached.digest;
+      }
+      cache.stats().recordMisses(1);
     }
 
-    digest = path.getDigest();
+    byte[] digest = path.getDigest();
 
     Preconditions.checkNotNull(digest, "Missing digest for %s", path);
     if (cache != null) {
-      cache.put(key, digest);
+      cache.cache().put(key, new CachedDigest(status, digest));
     }
     return digest;
   }
