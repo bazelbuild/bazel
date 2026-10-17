@@ -2405,12 +2405,20 @@ func(
     return null;
   }
 
+  /**
+   * Records that the fetch referred to the given repo by Label, so that the repo is fetched before
+   * the recording one is considered up to date.
+   */
+  protected void recordRepoDependency(RepositoryName repo)
+      throws EvalException, InterruptedException {}
+
   // Resolve the label given by value into a file path.
   protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
       throw new NeedsSkyframeRestartException();
     }
+    recordRepoDependency(label.getRepository());
     if (!label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
             instanceof LazyMaterializer lazyMaterializer) {

@@ -109,7 +109,12 @@ public abstract sealed class RepoRecordedInput {
     }
     for (Parser parser :
         new Parser[] {
-          File.PARSER, Dirents.PARSER, DirTree.PARSER, EnvVar.PARSER, RecordedRepoMapping.PARSER
+          File.PARSER,
+          Dirents.PARSER,
+          DirTree.PARSER,
+          EnvVar.PARSER,
+          RecordedRepoMapping.PARSER,
+          Repository.PARSER
         }) {
       if (parts.get(0).equals(parser.getPrefix())) {
         return parser.parse(parts.get(1));
@@ -854,6 +859,94 @@ public abstract sealed class RepoRecordedInput {
               name,
               oldValue == null ? "<unset>" : "'%s'".formatted(oldValue),
               newValue == null ? "<unset>" : "'%s'".formatted(newValue));
+    }
+  }
+
+  /**
+   * Represents another repo whose files the fetch referred to by Label. The repo is fetched before
+   * the repo recording this input is considered up to date, as its contents may be read through a
+   * symlink created by the fetch without a Skyframe dependency on it.
+   */
+  public static final class Repository extends RepoRecordedInput {
+    public static final Parser PARSER =
+        new Parser() {
+          @Override
+          public String getPrefix() {
+            return "REPO";
+          }
+
+          @Override
+          public RepoRecordedInput parse(String s) {
+            try {
+              return new Repository(RepositoryName.create(s));
+            } catch (LabelSyntaxException e) {
+              return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
+            }
+          }
+        };
+
+    private final RepositoryName repoName;
+
+    public Repository(RepositoryName repoName) {
+      this.repoName = repoName;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Repository repository)) {
+        return false;
+      }
+      return repoName.equals(repository.repoName);
+    }
+
+    @Override
+    public int hashCode() {
+      return repoName.hashCode();
+    }
+
+    @Override
+    public Parser getParser() {
+      return PARSER;
+    }
+
+    @Override
+    public String toStringInternal() {
+      return repoName.getName();
+    }
+
+    @Override
+    public SkyKey getSkyKey(BlazeDirectories directories) {
+      return RepositoryDirectoryValue.key(repoName);
+    }
+
+    @Override
+    protected boolean canBeRequestedUnconditionally() {
+      // The repo may no longer exist if the inputs recorded before this one are outdated.
+      return false;
+    }
+
+    @Override
+    public MaybeValue getValue(Environment env, BlazeDirectories directories)
+        throws InterruptedException {
+      var value = (RepositoryDirectoryValue) env.getValue(getSkyKey(directories));
+      if (value == null) {
+        return MaybeValue.VALUES_MISSING;
+      }
+      // Only the repo's existence is recorded: its contents are recorded separately if read.
+      return switch (value) {
+        case RepositoryDirectoryValue.Success unused -> new MaybeValue.Valid("");
+        case RepositoryDirectoryValue.Failure(String errorMsg) ->
+            new MaybeValue.Invalid(
+                "repository %s failed to fetch: %s".formatted(repoName, errorMsg));
+      };
+    }
+
+    @Override
+    public String describeChange(String oldValue, String newValue) {
+      return "repository %s changed".formatted(repoName);
     }
   }
 
