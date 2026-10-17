@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.chunking;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.ChunkingFunction;
@@ -270,8 +271,8 @@ public class ChunkingConfigTest {
     ServerCapabilities capabilities =
         capabilitiesWithRepMaxCdcParams(
             RepMaxCdcParams.newBuilder()
-                .setMinChunkSizeBytes(128 * 1024)
-                .setHorizonSizeBytes(1024 * 1024)
+                .setMinChunkSizeBytes(16 * 1024 * 1024)
+                .setHorizonSizeBytes(8 * 16 * 1024 * 1024)
                 .build());
 
     ChunkingConfig config =
@@ -279,13 +280,13 @@ public class ChunkingConfigTest {
 
     assertThat(config).isInstanceOf(RepMaxCdcChunkingConfig.class);
     RepMaxCdcChunkingConfig repMaxConfig = (RepMaxCdcChunkingConfig) config;
-    assertThat(repMaxConfig.minChunkSize()).isEqualTo(128 * 1024);
-    assertThat(repMaxConfig.horizonSize()).isEqualTo(1024 * 1024);
-    assertThat(repMaxConfig.chunkingThreshold()).isEqualTo(2 * 128 * 1024 - 1);
+    assertThat(repMaxConfig.minChunkSize()).isEqualTo(16 * 1024 * 1024);
+    assertThat(repMaxConfig.horizonSize()).isEqualTo(8 * 16 * 1024 * 1024);
+    assertThat(repMaxConfig.chunkingThreshold()).isEqualTo(32 * 1024 * 1024 - 1);
   }
 
   @Test
-  public void fromServerCapabilities_repMaxCdcMinSizeOutOfRange_fallsBackToDefault() {
+  public void fromServerCapabilities_repMaxCdcMinSizeOutOfRange_throws() {
     ServerCapabilities capabilities =
         capabilitiesWithRepMaxCdcParams(
             RepMaxCdcParams.newBuilder()
@@ -293,18 +294,15 @@ public class ChunkingConfigTest {
                 .setHorizonSizeBytes(1024 * 1024)
                 .build());
 
-    ChunkingConfig config =
-        ChunkingConfig.fromServerCapabilities(capabilities, ChunkingFunction.Value.REP_MAX_CDC);
-
-    assertThat(config).isInstanceOf(RepMaxCdcChunkingConfig.class);
-    RepMaxCdcChunkingConfig repMaxConfig = (RepMaxCdcChunkingConfig) config;
-    assertThat(repMaxConfig.minChunkSize())
-        .isEqualTo(RepMaxCdcChunkingConfig.DEFAULT_MIN_CHUNK_SIZE);
-    assertThat(repMaxConfig.horizonSize()).isEqualTo(1024 * 1024);
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ChunkingConfig.fromServerCapabilities(
+                capabilities, ChunkingFunction.Value.REP_MAX_CDC));
   }
 
   @Test
-  public void fromServerCapabilities_repMaxCdcHorizonSizeOutOfRange_fallsBackToDefault() {
+  public void fromServerCapabilities_repMaxCdcHorizonSizeOutOfRange_throws() {
     ServerCapabilities capabilities =
         capabilitiesWithRepMaxCdcParams(
             RepMaxCdcParams.newBuilder()
@@ -312,14 +310,11 @@ public class ChunkingConfigTest {
                 .setHorizonSizeBytes(1024L * 1024 * 1024)
                 .build());
 
-    ChunkingConfig config =
-        ChunkingConfig.fromServerCapabilities(capabilities, ChunkingFunction.Value.REP_MAX_CDC);
-
-    assertThat(config).isInstanceOf(RepMaxCdcChunkingConfig.class);
-    RepMaxCdcChunkingConfig repMaxConfig = (RepMaxCdcChunkingConfig) config;
-    assertThat(repMaxConfig.minChunkSize()).isEqualTo(128 * 1024);
-    assertThat(repMaxConfig.horizonSize())
-        .isEqualTo(RepMaxCdcChunkingConfig.DEFAULT_HORIZON_SIZE_FACTOR * 128 * 1024);
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ChunkingConfig.fromServerCapabilities(
+                capabilities, ChunkingFunction.Value.REP_MAX_CDC));
   }
 
   @Test
