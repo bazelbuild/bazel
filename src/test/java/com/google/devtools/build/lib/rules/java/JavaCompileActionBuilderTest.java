@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -531,21 +532,24 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
                     .setPath(depAdditionalTransitive.getRootRelativePath().getPathString()))
             .build();
 
+    var spawnOutputDepsProto =
+        ActionInputHelper.fromPath(outputDepsProto.getExecPathString() + ".unstripped");
     SpawnResult spawnResult =
         new SpawnResult.Builder()
             .setStatus(Status.SUCCESS)
             .setRunnerName("test")
-            .setInMemoryOutput(outputDepsProto, executorJdeps.toByteString())
+            .setInMemoryOutput(spawnOutputDepsProto, executorJdeps.toByteString())
             .build();
 
     ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
     when(actionExecutionContext.getInputPath(outputDepsProto))
-        .thenReturn(fs.getPath("/nonexistent"));
+        .thenReturn(fs.getPath("/liba.jdeps"));
 
     Deps.Dependencies fullOutputDeps =
         JavaCompileAction.createFullOutputDeps(
             spawnResult,
             outputDepsProto,
+            spawnOutputDepsProto,
             NestedSetBuilder.create(Order.STABLE_ORDER, depRootRelative, depMapped, depUnmapped),
             NestedSetBuilder.create(Order.STABLE_ORDER, depAdditionalTransitive),
             actionExecutionContext,
