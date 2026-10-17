@@ -18,12 +18,14 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder.InputsBytes;
 import com.google.devtools.build.lib.actions.SpawnInputs.FlattenedInputs;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -120,7 +122,7 @@ public final class SpawnTest {
             .withExecutionInfo("resources:cpu:4", "")
             .withCombinedExecProperties(ImmutableMap.of("resources:memory", "8000"))
             .build();
-    ResourceSet resources = spawn.getLocalResources();
+    ResourceSet resources = spawn.getLocalResources(InputsBytes.UNKNOWN);
 
     // Execution info and exec properties both override the declared amounts.
     assertThat(resources.getCpuUsage()).isEqualTo(4.0);
@@ -136,7 +138,7 @@ public final class SpawnTest {
             .withCombinedExecProperties(ImmutableMap.of("resources:memory", "8000"))
             .build();
 
-    assertThat(spawn.getLocalResources()).isEqualTo(DECLARED_RESOURCES);
+    assertThat(spawn.getLocalResources(InputsBytes.UNKNOWN)).isEqualTo(DECLARED_RESOURCES);
     // The declarations still reach the spawn, so strategy selection is unaffected.
     assertThat(spawn.getExecutionInfo()).containsKey("resources:cpu:4");
     assertThat(spawn.getCombinedExecProperties()).containsEntry("resources:memory", "8000");
@@ -155,7 +157,7 @@ public final class SpawnTest {
 
   @Test
   public void baseSpawn_getLocalResources_appliesResourceOverrides() throws Exception {
-    ResourceSet resources = baseSpawn(DECLARED_RESOURCES).getLocalResources();
+    ResourceSet resources = baseSpawn(DECLARED_RESOURCES).getLocalResources(InputsBytes.UNKNOWN);
 
     assertThat(resources.getCpuUsage()).isEqualTo(4.0);
   }
@@ -165,8 +167,41 @@ public final class SpawnTest {
       throws Exception {
     BaseSpawn spawn = baseSpawn(ResourceSetOrBuilder.ignoringOverrides(DECLARED_RESOURCES));
 
-    assertThat(spawn.getLocalResources()).isEqualTo(DECLARED_RESOURCES);
+    assertThat(spawn.getLocalResources(InputsBytes.UNKNOWN)).isEqualTo(DECLARED_RESOURCES);
     assertThat(spawn.getExecutionInfo()).containsKey("resources:cpu:4");
+  }
+
+  /** Books as many MB as input bytes, so that the booked memory shows what was passed. */
+  private static final ResourceSetOrBuilder INPUTS_BYTES_RESOURCES =
+      new ResourceSetOrBuilder() {
+        @Override
+        public ResourceSet buildResourceSet(OS os, int inputsSize) {
+          return DECLARED_RESOURCES;
+        }
+
+        @Override
+        public boolean needsInputsBytes() {
+          return true;
+        }
+
+        @Override
+        public ResourceSet buildResourceSet(OS os, int inputsSize, long inputsBytes) {
+          return ResourceSet.createWithRamCpu(/* memoryMb= */ inputsBytes, /* cpu= */ 1);
+        }
+      };
+
+  @Test
+  public void getLocalResources_passesInputsBytes() throws Exception {
+    Spawn spawn = new SpawnBuilder("/bin/true").withLocalResources(INPUTS_BYTES_RESOURCES).build();
+
+    assertThat(spawn.getLocalResources(() -> 42).getMemoryMb()).isEqualTo(42.0);
+  }
+
+  @Test
+  public void baseSpawn_getLocalResources_passesInputsBytes() throws Exception {
+    BaseSpawn spawn = baseSpawn(INPUTS_BYTES_RESOURCES);
+
+    assertThat(spawn.getLocalResources(() -> 42).getMemoryMb()).isEqualTo(42.0);
   }
 
   @Test

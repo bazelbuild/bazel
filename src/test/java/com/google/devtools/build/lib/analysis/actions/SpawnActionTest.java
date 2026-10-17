@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder.InputsBytes;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
@@ -183,7 +184,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(input);
     assertThat(action.getOutputs()).containsExactly(output);
-    assertThat(action.getSpawnForTesting().getLocalResources())
+    assertThat(action.getSpawnForTesting().getLocalResources(InputsBytes.UNKNOWN))
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/xxx");
     assertThat(action.getProgressMessage()).isEqualTo("Test");

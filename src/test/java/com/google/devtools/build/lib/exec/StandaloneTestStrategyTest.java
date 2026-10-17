@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder.InputsBytes;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -758,12 +759,12 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(xmlGeneratingSpawn.getOutputFiles()).containsExactly(testRunnerAction.getTestXml());
 
     // The test spawn honours the declared resources...
-    assertThat(testSpawn.getLocalResources().getCpuUsage()).isEqualTo(4.0);
-    assertThat(testSpawn.getLocalResources().getMemoryMb()).isEqualTo(8000.0);
+    assertThat(testSpawn.getLocalResources(InputsBytes.UNKNOWN).getCpuUsage()).isEqualTo(4.0);
+    assertThat(testSpawn.getLocalResources(InputsBytes.UNKNOWN).getMemoryMb()).isEqualTo(8000.0);
 
     // ...but the injected test.xml generator keeps its own modest, fixed footprint. Both
     // declarations still reach it as execution info, so strategy selection is unaffected.
-    assertThat(xmlGeneratingSpawn.getLocalResources())
+    assertThat(xmlGeneratingSpawn.getLocalResources(InputsBytes.UNKNOWN))
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(xmlGeneratingSpawn.getExecutionInfo()).containsKey("resources:cpu:4");
   }

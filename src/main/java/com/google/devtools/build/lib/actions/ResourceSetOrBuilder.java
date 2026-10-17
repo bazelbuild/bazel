@@ -29,17 +29,50 @@ public interface ResourceSetOrBuilder {
       throws ExecException, InterruptedException;
 
   /**
+   * Whether this declaration estimates resources from the total size of the inputs, so that {@link
+   * #buildLocalResources} computes it and calls {@link #buildResourceSet(OS, int, long)}.
+   */
+  default boolean needsInputsBytes() {
+    return false;
+  }
+
+  /**
+   * Like {@link #buildResourceSet(OS, int)}, also given the total size in bytes of the expanded
+   * inputs. Only called if {@link #needsInputsBytes} returns true.
+   */
+  default ResourceSet buildResourceSet(OS os, int inputsSize, long inputsBytes)
+      throws ExecException, InterruptedException {
+    return buildResourceSet(os, inputsSize);
+  }
+
+  /** Supplies the total size in bytes of a spawn's expanded inputs, computed on demand. */
+  @FunctionalInterface
+  interface InputsBytes {
+    /** For callers without input metadata at hand, such as tests: reports 0 bytes. */
+    InputsBytes UNKNOWN = () -> 0;
+
+    long get() throws ExecException, InterruptedException;
+  }
+
+  /**
    * Returns the resources a spawn with this declaration should book with the {@code
    * ResourceManager} (the built resource set), with the "resources:*" entries in {@code
    * executionInfo} and {@code execProperties} applied as overrides.
    *
    * <p>The entries are taken unparsed so that a declaration which ignores them, such as {@link
-   * #ignoringOverrides}, doesn't pay to parse them.
+   * #ignoringOverrides}, doesn't pay to parse them. Likewise, {@code inputsBytes} is only computed
+   * if {@link #needsInputsBytes} returns true.
    */
   default ResourceSet buildLocalResources(
-      OS os, int inputsSize, Map<String, String> executionInfo, Map<String, String> execProperties)
+      OS os,
+      int inputsSize,
+      InputsBytes inputsBytes,
+      Map<String, String> executionInfo,
+      Map<String, String> execProperties)
       throws ExecException, InterruptedException {
-    return buildResourceSet(os, inputsSize)
+    return (needsInputsBytes()
+            ? buildResourceSet(os, inputsSize, inputsBytes.get())
+            : buildResourceSet(os, inputsSize))
         .withResourceOverrides(
             ExecutionRequirements.parseResources(executionInfo),
             ExecutionRequirements.parseResources(execProperties));
@@ -60,6 +93,7 @@ public interface ResourceSetOrBuilder {
       public ResourceSet buildLocalResources(
           OS os,
           int inputsSize,
+          InputsBytes inputsBytes,
           Map<String, String> executionInfo,
           Map<String, String> execProperties) {
         return resources;

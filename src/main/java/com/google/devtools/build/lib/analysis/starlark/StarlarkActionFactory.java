@@ -945,15 +945,20 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static class StarlarkActionResourceSetBuilder implements ResourceSetOrBuilder {
     private static final Interner<StarlarkActionResourceSetBuilder> resourceSetBuilderInterner =
         BlazeInterners.newWeakInterner();
+    private static final String INPUTS_BYTES = "inputs_bytes";
     private final StarlarkCallable fn;
     private final String mnemonic;
     private final StarlarkSemantics semantics;
+    private final boolean acceptsInputsBytes; // opt-in, others keep the 2 positional arguments
 
     private StarlarkActionResourceSetBuilder(
         StarlarkCallable fn, String mnemonic, StarlarkSemantics semantics) {
       this.fn = fn;
       this.mnemonic = mnemonic;
       this.semantics = semantics;
+      this.acceptsInputsBytes =
+          fn instanceof StarlarkFunction sfn
+              && (sfn.hasKwargs() || sfn.getParameterNames().contains(INPUTS_BYTES));
     }
 
     public static StarlarkActionResourceSetBuilder create(
@@ -963,7 +968,18 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     @Override
+    public boolean needsInputsBytes() {
+      return acceptsInputsBytes;
+    }
+
+    @Override
     public ResourceSet buildResourceSet(OS os, int inputsSize)
+        throws ExecException, InterruptedException {
+      return buildResourceSet(os, inputsSize, /* inputsBytes= */ 0);
+    }
+
+    @Override
+    public ResourceSet buildResourceSet(OS os, int inputsSize, long inputsBytes)
         throws ExecException, InterruptedException {
       try (Mutability mu = Mutability.create("resource_set_builder_function")) {
         // Only numerical values are retained from the result, so a transient SymbolGenerator
@@ -973,7 +989,13 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 mu, semantics, "resource_set callback", SymbolGenerator.createTransient());
         StarlarkInt inputInt = StarlarkInt.of(inputsSize);
         Object response =
-            Starlark.positionalOnlyCall(thread, this.fn, os.getCanonicalName(), inputInt);
+            acceptsInputsBytes
+                ? Starlark.call(
+                    thread,
+                    this.fn,
+                    ImmutableList.of(os.getCanonicalName(), inputInt),
+                    ImmutableMap.of(INPUTS_BYTES, StarlarkInt.of(inputsBytes)))
+                : Starlark.positionalOnlyCall(thread, this.fn, os.getCanonicalName(), inputInt);
         Map<String, Object> resourceSetMapRaw =
             Dict.cast(response, String.class, Object.class, "resource_set");
 
