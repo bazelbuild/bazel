@@ -182,10 +182,18 @@ public final class RepositoryFetchFunction implements SkyFunction {
               env,
               "starlark-repository-" + repositoryName.getName(),
               (workerEnv) -> {
-                return computeInternal(
-                    workerEnv, repositoryName, starlarkSemantics, repoRoot, repoDefinition);
+                var value =
+                    computeInternal(
+                        workerEnv, repositoryName, starlarkSemantics, repoRoot, repoDefinition);
+                // An ongoing progress event has no matching finished event if computeInternal
+                // returns null for deps in error, or finds the repo up to date after the
+                // CancellationException retry below. A null return is final because the worker
+                // never sees Skyframe restarts.
+                workerEnv.getListener().post(RepositoryFetchProgress.finished(repositoryName));
+                return value;
               });
         } catch (ExecutionException e) {
+          env.getListener().post(RepositoryFetchProgress.finished(repositoryName));
           Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
           Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
           Throwables.throwIfUnchecked(e.getCause());
