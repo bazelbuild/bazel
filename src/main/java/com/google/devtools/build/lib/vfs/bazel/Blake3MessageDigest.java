@@ -46,6 +46,12 @@ public final class Blake3MessageDigest extends MessageDigest {
 
   @Override
   public void engineUpdate(byte[] data, int offset, int length) {
+    if (data == null) {
+      throw new NullPointerException("data cannot be null");
+    }
+    if (offset < 0 || length < 0 || offset > data.length - length) {
+      throw new IndexOutOfBoundsException("offset or length is out of bounds");
+    }
     blake3_hasher_update(hasher, data, offset, length);
   }
 
