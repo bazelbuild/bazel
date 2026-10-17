@@ -157,6 +157,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("opts", "option --order_output is not allowed");
       return null;
     }
+    if (queryOptions.getGenerateHashes()) {
+      ruleContext.attributeError("opts", "option --experimental_generate_hashes is not allowed");
+      return null;
+    }
     if (optionsParser.containsExplicitOption("experimental_graphless_query")) {
       ruleContext.attributeError("opts", "option --experimental_graphless_query is not allowed");
       return null;
