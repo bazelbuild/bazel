@@ -121,8 +121,8 @@ public final class Runfiles implements RunfilesApi {
         args.accept(artifact.getExecPathString());
       };
 
-  private static final Interner<PathFragment> workspacePathInterner =
-      BlazeInterners.newWeakInterner();
+  // Share immutable paths while preserving SymlinkEntry identity and overwrite order.
+  private static final Interner<PathFragment> pathInterner = BlazeInterners.newWeakInterner();
 
   /**
    * The directory to put all runfiles under.
@@ -389,8 +389,7 @@ public final class Runfiles implements RunfilesApi {
         finalManifest.put(externalPath, entry.getValue());
       } else {
         sawWorkspaceName = true;
-        finalManifest.put(
-            workspacePathInterner.intern(workspaceName.getRelative(path)), entry.getValue());
+        finalManifest.put(pathInterner.intern(workspaceName.getRelative(path)), entry.getValue());
       }
     }
 
@@ -598,7 +597,7 @@ public final class Runfiles implements RunfilesApi {
     /** Adds a symlink. */
     @CanIgnoreReturnValue
     public Builder addSymlink(PathFragment link, Artifact target) {
-      symlinksBuilder.add(new SymlinkEntry(link, target));
+      symlinksBuilder.add(new SymlinkEntry(pathInterner.intern(link), target));
       return this;
     }
 
@@ -606,7 +605,7 @@ public final class Runfiles implements RunfilesApi {
     @CanIgnoreReturnValue
     Builder addSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
-        symlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
+        addSymlink(symlink.getKey(), symlink.getValue());
       }
       return this;
     }
@@ -621,7 +620,7 @@ public final class Runfiles implements RunfilesApi {
     /** Adds a root symlink. */
     @CanIgnoreReturnValue
     public Builder addRootSymlink(PathFragment link, Artifact target) {
-      rootSymlinksBuilder.add(new SymlinkEntry(link, target));
+      rootSymlinksBuilder.add(new SymlinkEntry(pathInterner.intern(link), target));
       return this;
     }
 
@@ -629,7 +628,7 @@ public final class Runfiles implements RunfilesApi {
     @CanIgnoreReturnValue
     public Builder addRootSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
-        rootSymlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
+        addRootSymlink(symlink.getKey(), symlink.getValue());
       }
       return this;
     }
