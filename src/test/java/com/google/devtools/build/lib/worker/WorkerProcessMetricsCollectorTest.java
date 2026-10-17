@@ -404,6 +404,35 @@ public class WorkerProcessMetricsCollectorTest {
   }
 
   @Test
+  public void testCollectMetrics_measurementUnavailable_doesNotMarkWorkersKilled() {
+    WorkerProcessStatus status = new WorkerProcessStatus();
+    spyCollector.registerWorker(
+        WORKER_ID_1,
+        PROCESS_ID_1,
+        status,
+        JAVAC_MNEMONIC,
+        /* isMultiplex= */ false,
+        /* isSandboxed= */ false,
+        WORKER_KEY_HASH_1,
+        /* cgroup= */ null);
+    spyCollector.onWorkerFinishExecution(PROCESS_ID_1);
+
+    Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
+    clock.setTime(collectionTime.toEpochMilli());
+    doReturn(ResourceSnapshot.createUnavailable(collectionTime))
+        .when(spyCollector)
+        .collectResourceUsage();
+
+    ImmutableList<WorkerProcessMetrics> metrics = spyCollector.collectMetrics();
+
+    assertThat(status.isKilled()).isFalse();
+    assertThat(metrics.stream().flatMap(m -> m.getWorkerIds().stream()).collect(toImmutableSet()))
+        .containsExactly(WORKER_ID_1);
+    assertThat(getWorkerProcessMetricsFromList(WORKER_ID_1, metrics).isMeasurable()).isFalse();
+    assertThat(spyCollector.getLiveWorkerProcessMetrics()).hasSize(1);
+  }
+
+  @Test
   public void testCollectResourceUsage_windows() {
     Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
     clock.setTime(collectionTime.toEpochMilli());
@@ -415,8 +444,8 @@ public class WorkerProcessMetricsCollectorTest {
     ResourceSnapshot snapshot =
         spyCollector.collectResourceUsage(OS.WINDOWS, ImmutableSet.of(PROCESS_ID_1));
 
-    // On non-linux and non-darwin, it should always return an empty snapshot.
-    assertThat(snapshot).isEqualTo(ResourceSnapshot.create(ImmutableMap.of(), collectionTime));
+    // On non-linux and non-darwin, resource usage cannot be measured.
+    assertThat(snapshot).isEqualTo(ResourceSnapshot.createUnavailable(collectionTime));
   }
 
   @Test
