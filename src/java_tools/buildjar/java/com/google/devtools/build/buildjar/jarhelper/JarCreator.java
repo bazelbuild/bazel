@@ -51,7 +51,13 @@ public class JarCreator extends JarHelper {
     boolean exists() throws IOException;
   }
 
-  private record PathJarEntrySource(Path path) implements JarEntrySource {
+  private static final class PathJarEntrySource implements JarEntrySource {
+    private final Path path;
+
+    public PathJarEntrySource(Path path) {
+      this.path = path;
+    }
+
     @Override
     public boolean isDirectory() {
       return Files.isDirectory(path);
@@ -78,8 +84,13 @@ public class JarCreator extends JarHelper {
     }
   }
 
-  private record ByteArrayJarEntrySource(@SuppressWarnings("ArrayRecordComponent") byte[] bytes)
-      implements JarEntrySource {
+  private static final class ByteArrayJarEntrySource implements JarEntrySource {
+    private final byte[] bytes;
+
+    public ByteArrayJarEntrySource(byte[] bytes) {
+      this.bytes = bytes;
+    }
+
     @Override
     public boolean isDirectory() {
       return false;

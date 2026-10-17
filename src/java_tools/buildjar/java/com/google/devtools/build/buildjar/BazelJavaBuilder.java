@@ -22,7 +22,7 @@ import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
-import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlugin;
+import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorProneInvoker;
 import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkRequestHandler;
 import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkRequestHandlerBuilder;
@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.ServiceLoader;
 import javax.annotation.Nonnull;
 
 /** The JavaBuilder main called by bazel. */
@@ -133,8 +134,11 @@ public class BazelJavaBuilder {
       throws IOException, InvalidCommandLineException {
     OptionsParser optionsParser =
         new OptionsParser(args, JavacOptions.createWithWarningsAsErrorsDefault(ImmutableList.of()));
-    ImmutableList<BlazeJavaCompilerPlugin> plugins =
-        ImmutableList.of(new ErrorPronePlugin(BazelScannerSuppliers.bazelChecks()));
+    ImmutableList.Builder<BlazeJavaCompilerPlugin> pluginsBuilder = ImmutableList.builder();
+    for (ErrorProneInvoker invoker : ServiceLoader.load(ErrorProneInvoker.class, BazelJavaBuilder.class.getClassLoader())) {
+      pluginsBuilder.add(invoker.create());
+    }
+    ImmutableList<BlazeJavaCompilerPlugin> plugins = pluginsBuilder.build();
     return new JavaLibraryBuildRequest(
         optionsParser, plugins, new DependencyModule.Builder(), workDir);
   }
