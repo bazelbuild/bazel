@@ -16,6 +16,7 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/test/java/com/google/devtools/build/lib/query2/cquery:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/query2/query/hash:__pkg__",
     ],
     deps = [

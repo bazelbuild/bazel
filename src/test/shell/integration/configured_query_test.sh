@@ -1878,4 +1878,38 @@ EOF
   expect_log "//$pkg:valid"
 }
 
+function test_generate_hashes() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+filegroup(name = "a", srcs = ["a.txt", ":b"])
+filegroup(name = "b", srcs = ["b.txt"])
+EOF
+  echo a > $pkg/a.txt
+  echo b > $pkg/b.txt
+
+  bazel cquery --experimental_generate_hashes "//$pkg:a + //$pkg:b" > output \
+    2> $TEST_log || fail "Expected success"
+  assert_equals 2 "$(wc -l < output)"
+  grep -Eq "^//$pkg:a \([0-9a-f]+\) [0-9a-f]{64}$" output \
+    || fail "Unexpected output: $(cat output)"
+  cp output before
+
+  echo changed > $pkg/b.txt
+  bazel cquery --experimental_generate_hashes "//$pkg:a + //$pkg:b" > output \
+    2> $TEST_log || fail "Expected success"
+  [[ "$(grep //$pkg:a before)" != "$(grep //$pkg:a output)" ]] \
+    || fail "Expected the hash of //$pkg:a to change"
+}
+
+function test_generate_hashes_rejects_dependency_filters() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  echo 'filegroup(name = "a")' > $pkg/BUILD
+
+  bazel cquery --experimental_generate_hashes --notool_deps "//$pkg:a" > output \
+    2> $TEST_log && fail "Expected failure"
+  expect_log "can't be combined with --noimplicit_deps or --notool_deps"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"
