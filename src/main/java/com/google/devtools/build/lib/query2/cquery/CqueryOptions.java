@@ -20,6 +20,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsClass;
 
 /** Options class for cquery specific query options. */
@@ -51,6 +52,20 @@ public abstract class CqueryOptions extends CommonQueryOptions {
               + "If you select 'transitions', you also have to specify the "
               + "--transitions=(lite|full) option.")
   public abstract String getOutputFormat();
+
+  @Option(
+      name = "experimental_generate_hashes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set, prints each configured target in the cquery result followed by a hash of the"
+              + " target, its configuration, and its transitive configured dependencies"
+              + " (including resolved toolchains), instead of using --output. Unlike query"
+              + " --experimental_generate_hashes, select()s are resolved, so the hashes are only"
+              + " valid for the build options they were computed with.")
+  public abstract boolean getGenerateHashes();
 
   @Option(
       name = "transitions",

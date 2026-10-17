@@ -176,6 +176,17 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
           PackageManager packageManager,
           StarlarkSemantics starlarkSemantics)
           throws QueryException, InterruptedException {
+    if (cqueryOptions.getGenerateHashes()) {
+      return ImmutableList.of(
+          new HashesOutputFormatterCallback(
+              eventHandler,
+              cqueryOptions,
+              out,
+              skyframeExecutor,
+              accessor,
+              kct -> getFwdDeps(ImmutableList.of(kct)),
+              getLabelPrinter()));
+    }
     AspectResolver aspectResolver =
         cqueryOptions.getAspectDeps().createResolver(packageManager, eventHandler);
     return ImmutableList.of(
@@ -245,6 +256,9 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
 
   @Override
   public String getOutputFormat() {
+    if (cqueryOptions.getGenerateHashes()) {
+      return HashesOutputFormatterCallback.NAME;
+    }
     return cqueryOptions.getOutputFormat();
   }
 
