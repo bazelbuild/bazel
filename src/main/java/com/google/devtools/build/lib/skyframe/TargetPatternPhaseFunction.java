@@ -229,6 +229,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
             Objects.equals(nonExpandedLabels, targetLabels.getTargets())
                 ? targetLabels.getTargets()
                 : nonExpandedLabels,
+            removedTargetLabels,
             targets.hasError(),
             expandedTargets.hasError());
 

@@ -397,12 +397,17 @@ public final class SkyframeBuildView {
   /**
    * Analyzes the specified targets using Skyframe as the driving framework.
    *
+   * <p>{@code analysisOnlyCtKeys} are analyzed alongside {@code ctKeys}, but are neither built nor
+   * reported as top-level targets: they are absent from the result, no TargetConfiguredEvent is
+   * posted for them, and their actions aren't checked for conflicts.
+   *
    * @return the configured targets that should be built along with a WalkableGraph of the analysis.
    */
   public SkyframeAnalysisResult configureTargets(
       ExtendedEventHandler eventHandler,
       ImmutableMap<Label, Target> labelToTargetMap,
       ImmutableList<ConfiguredTargetKey> ctKeys,
+      ImmutableList<ConfiguredTargetKey> analysisOnlyCtKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectsKeys,
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
       EventBus eventBus,
@@ -416,7 +421,13 @@ public final class SkyframeBuildView {
     try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.configureTargets")) {
       result =
           skyframeExecutor.configureTargets(
-              eventHandler, labelToTargetMap, ctKeys, topLevelAspectsKeys, keepGoing, executors);
+              eventHandler,
+              labelToTargetMap,
+              ctKeys,
+              analysisOnlyCtKeys,
+              topLevelAspectsKeys,
+              keepGoing,
+              executors);
     } finally {
       enableAnalysis(false);
     }
@@ -611,6 +622,9 @@ public final class SkyframeBuildView {
   /**
    * Performs analysis & execution of the CTs and aspects with Skyframe.
    *
+   * <p>{@code analysisOnlyCtKeys} are analyzed alongside {@code ctKeys}, but are neither built nor
+   * reported as top-level targets. See {@link BuildDriverKey#ofAnalysisOnlyConfiguredTarget}.
+   *
    * <p>In case of error: --nokeep_going will eventually throw a ViewCreationFailedException,
    * whereas --keep_going will return a SkyframeAnalysisAndExecutionResult which contains the
    * failure details.
@@ -620,6 +634,7 @@ public final class SkyframeBuildView {
   public SkyframeAnalysisResult analyzeAndExecuteTargets(
       ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> ctKeys,
+      List<ConfiguredTargetKey> analysisOnlyCtKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectsKeys,
       @Nullable ImmutableSet<Label> testsToRun,
       ImmutableMap<Label, Target> labelTargetMap,
@@ -691,11 +706,22 @@ public final class SkyframeBuildView {
                         extraActionTopLevelOnly,
                         keepGoing))
             .collect(ImmutableSet.toImmutableSet());
+    // Analysis-only targets are excluded from action conflict checking (newKeys above) since none
+    // of their actions are executed. Their analysis must still be tracked by the
+    // AnalysisOperationWatcher, so they are part of topLevelKeys.
+    ImmutableSet<BuildDriverKey> analysisOnlyBuildDriverKeys =
+        analysisOnlyCtKeys.stream()
+            .map(
+                ctKey ->
+                    BuildDriverKey.ofAnalysisOnlyConfiguredTarget(
+                        ctKey, topLevelArtifactContext, keepGoing))
+            .collect(ImmutableSet.toImmutableSet());
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
     MultiThreadPoolsQuiescingExecutor executor =
         (MultiThreadPoolsQuiescingExecutor) executors.getMergedAnalysisAndExecutionExecutor();
-    Set<SkyKey> topLevelKeys =
-        Sets.newConcurrentHashSet(Sets.union(buildDriverCTKeys, buildDriverAspectKeys));
+    Set<SkyKey> topLevelKeys = Sets.newConcurrentHashSet(buildDriverCTKeys);
+    topLevelKeys.addAll(analysisOnlyBuildDriverKeys);
+    topLevelKeys.addAll(buildDriverAspectKeys);
 
     ConflictCheckingMode conflictCheckingMode =
         shouldCheckForConflicts(checkForActionConflicts, newKeys)
@@ -739,7 +765,7 @@ public final class SkyframeBuildView {
           mainEvaluationResult =
               skyframeExecutor.evaluateBuildDriverKeys(
                   eventHandler,
-                  buildDriverCTKeys,
+                  Sets.union(buildDriverCTKeys, analysisOnlyBuildDriverKeys),
                   buildDriverAspectKeys,
                   workspaceStatusArtifacts,
                   keepGoing,
