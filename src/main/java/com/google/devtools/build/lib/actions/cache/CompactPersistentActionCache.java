@@ -811,6 +811,7 @@ public class CompactPersistentActionCache implements ActionCache {
     if (resolvedPath != null) {
       VarInt.putVarInt(1, sink);
       VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.toString()), sink);
+      VarInt.putVarInt(value.isContentCopy() ? 1 : 0, sink);
     } else {
       VarInt.putVarInt(0, sink);
     }
@@ -822,7 +823,7 @@ public class CompactPersistentActionCache implements ActionCache {
           + VarInt.MAX_VARINT_SIZE // locationIndex
           + VarInt.MAX_VARLONG_SIZE // expirationTime
           + VarInt.MAX_VARINT_SIZE // inMemoryOutput
-          + (1 + VarInt.MAX_VARINT_SIZE); // resolvedPath
+          + (1 + VarInt.MAX_VARINT_SIZE + VarInt.MAX_VARINT_SIZE); // resolvedPath + contentCopy
 
   private FileArtifactValue decodeRemoteMetadata(ByteBuffer source) throws IOException {
     byte[] digest = MetadataDigestUtils.read(source);
@@ -836,12 +837,14 @@ public class CompactPersistentActionCache implements ActionCache {
     boolean inMemoryOutput = VarInt.getVarInt(source) != 0;
 
     PathFragment resolvedPath = null;
+    boolean contentCopy = false;
     int numResolvedPath = VarInt.getVarInt(source);
     if (numResolvedPath > 0) {
       if (numResolvedPath != 1) {
         throw new IOException("Invalid presence marker for resolved path");
       }
       resolvedPath = PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
+      contentCopy = VarInt.getVarInt(source) != 0;
     }
 
     FileArtifactValue metadata;
@@ -856,7 +859,10 @@ public class CompactPersistentActionCache implements ActionCache {
     }
 
     if (resolvedPath != null) {
-      metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);
+      metadata =
+          contentCopy
+              ? FileArtifactValue.createForContentCopy(metadata, resolvedPath)
+              : FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);
     }
 
     return metadata;
@@ -904,6 +910,7 @@ public class CompactPersistentActionCache implements ActionCache {
         estimatedOutputTreesSize +=
             // value.resolvedPath() optional
             1 + value.resolvedPath().map(ignored -> VarInt.MAX_VARINT_SIZE).orElse(0);
+        estimatedOutputTreesSize += VarInt.MAX_VARINT_SIZE; // value.contentCopy()
       }
 
       int maxProxyOutputsSize =
@@ -972,6 +979,8 @@ public class CompactPersistentActionCache implements ActionCache {
         } else {
           VarInt.putVarInt(0, sink);
         }
+
+        VarInt.putVarInt(serializableTreeArtifactValue.contentCopy() ? 1 : 0, sink);
       }
 
       VarInt.putVarInt(entry.getProxyOutputs().size(), sink);
@@ -1098,9 +1107,11 @@ public class CompactPersistentActionCache implements ActionCache {
                   PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source))));
         }
 
+        boolean contentCopy = VarInt.getVarInt(source) != 0;
+
         SerializableTreeArtifactValue value =
             new SerializableTreeArtifactValue(
-                childValues.buildOrThrow(), archivedFileValue, resolvedPath);
+                childValues.buildOrThrow(), archivedFileValue, resolvedPath, contentCopy);
         outputTrees.put(treeKey, value);
       }
 

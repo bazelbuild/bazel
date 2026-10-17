@@ -3151,6 +3151,43 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCopyActionInterface() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "src = ctx.actions.declare_file('src.txt')",
+            "ctx.actions.write(output=src, content='foo123')",
+            "ctx.actions.copy(output=out, target_file=src)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("action.mnemonic")).isEqualTo("Copy");
+    // The output is a copy of the source: the source is its input.
+    assertThat((Boolean) ev.eval("'src.txt' in [f.basename for f in action.inputs.to_list()]"))
+        .isTrue();
+  }
+
+  @Test
+  public void testCopyActionRejectsTypeMismatch() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "d = ctx.actions.declare_directory('src_dir')",
+            "ctx.actions.run_shell(outputs=[d], command='mkdir -p ' + d.path)",
+            "ctx.actions.copy(output=out, target_file=d)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:undertest");
+    assertContainsEvent("be the same type");
+  }
+
+  @Test
   public void testFileWriteActionInterfaceWithCustomMnemonic() throws Exception {
     scratch.file(
         "test/rules.bzl",
