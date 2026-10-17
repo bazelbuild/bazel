@@ -17,18 +17,22 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.chunking.FastCdcChunkingConfig;
+import com.google.devtools.build.lib.remote.chunking.RepMaxCdcChunkingConfig;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
@@ -40,11 +44,14 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.protobuf.ByteString;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
@@ -53,6 +60,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -151,9 +159,362 @@ public class ChunkedBlobDownloaderTest {
         .thenReturn(Futures.immediateFuture(chunkData));
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
+    ByteArrayOutputStream cachedManifestOut = new ByteArrayOutputStream();
+    boolean usedCachedManifest =
+        downloader.downloadChunked(context, blobDigest, out, cachedManifestOut);
+
+    assertThat(usedCachedManifest).isFalse();
+    assertThat(out.toByteArray()).isEqualTo(chunkData);
+    assertThat(cachedManifestOut.toByteArray()).isEmpty();
+    verify(combinedCache).uploadSplitBlobManifest(eq(context), any(), eq(splitResponse));
+  }
+
+  @Test
+  public void downloadChunked_responseUsesDifferentFunction_doesNotCacheManifest()
+      throws Exception {
+    byte[] chunkData = new byte[] {1, 2, 3, 4, 5};
+    Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
+    Digest blobDigest = chunkDigest;
+    ChunkingConfig repMaxCdcConfig =
+        new RepMaxCdcChunkingConfig(/* minChunkSize= */ 1024, /* horizonSize= */ 8192);
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(chunkDigest)
+            .setChunkingFunction(ChunkingFunction.Value.REP_MAX_CDC)
+            .build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), eq(ChunkingFunction.Value.FAST_CDC_2020)))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+    when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFuture(chunkData));
+    ChunkedBlobDownloader downloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            "instance",
+            ByteString.copyFromUtf8("fast-cdc-parameters"),
+            ImmutableMap.of(
+                CHUNKING_CONFIG.chunkingFunction(),
+                CHUNKING_CONFIG,
+                repMaxCdcConfig.chunkingFunction(),
+                repMaxCdcConfig));
+
+    downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream());
+
+    verify(combinedCache, never()).uploadSplitBlobManifest(any(), any(), any());
+  }
+
+  @Test
+  public void downloadChunked_cachedManifestUsesDifferentFunction_refetches() throws Exception {
+    byte[] chunkData = new byte[] {1, 2, 3, 4, 5};
+    Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
+    Digest blobDigest = chunkDigest;
+    SplitBlobResponse cachedResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(chunkDigest)
+            .setChunkingFunction(ChunkingFunction.Value.REP_MAX_CDC)
+            .build();
+    SplitBlobResponse remoteResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(chunkDigest)
+            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .build();
+    when(combinedCache.downloadSplitBlobManifest(eq(context), any())).thenReturn(cachedResponse);
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), eq(ChunkingFunction.Value.FAST_CDC_2020)))
+        .thenReturn(Futures.immediateFuture(remoteResponse));
+    when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFuture(chunkData));
+    ChunkingConfig repMaxCdcConfig =
+        new RepMaxCdcChunkingConfig(/* minChunkSize= */ 1024, /* horizonSize= */ 8192);
+    ChunkedBlobDownloader downloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            "instance",
+            ByteString.copyFromUtf8("fast-cdc-parameters"),
+            ImmutableMap.of(
+                CHUNKING_CONFIG.chunkingFunction(),
+                CHUNKING_CONFIG,
+                repMaxCdcConfig.chunkingFunction(),
+                repMaxCdcConfig));
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
     downloader.downloadChunked(context, blobDigest, out);
 
     assertThat(out.toByteArray()).isEqualTo(chunkData);
+    verify(combinedCache, never()).areBlobsPresentInDiskCache(any(), any());
+    verify(grpcCacheClient).splitBlob(context, blobDigest, ChunkingFunction.Value.FAST_CDC_2020);
+    verify(combinedCache).uploadSplitBlobManifest(eq(context), any(), eq(remoteResponse));
+  }
+
+  @Test
+  public void downloadChunked_manifestCached_doesNotCallSplitBlob() throws Exception {
+    byte[] chunkData = new byte[] {1, 2, 3, 4, 5};
+    Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
+    Digest blobDigest = chunkDigest;
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(combinedCache.downloadSplitBlobManifest(eq(context), any())).thenReturn(splitResponse);
+    when(combinedCache.areBlobsPresentInDiskCache(eq(context), any())).thenReturn(true);
+    when(combinedCache.downloadBlobFromDisk(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFuture(chunkData));
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    ByteArrayOutputStream cachedManifestOut = new ByteArrayOutputStream();
+    boolean usedCachedManifest =
+        downloader.downloadChunked(context, blobDigest, out, cachedManifestOut);
+
+    assertThat(usedCachedManifest).isTrue();
+    assertThat(out.toByteArray()).isEmpty();
+    assertThat(cachedManifestOut.toByteArray()).isEqualTo(chunkData);
+    verify(grpcCacheClient, never()).splitBlob(any(), any(), any());
+    verify(combinedCache, never()).uploadSplitBlobManifest(any(), any(), any());
+  }
+
+  @Test
+  public void downloadChunked_cachedManifestInvalid_refetchesAndOverwrites() throws Exception {
+    byte[] chunkData = new byte[] {1, 2, 3, 4, 5};
+    Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
+    Digest blobDigest = chunkDigest;
+    SplitBlobResponse invalidCachedResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(
+                DigestUtil.buildDigest(chunkDigest.getHash(), CHUNKING_CONFIG.maxChunkSize() + 1L))
+            .build();
+    SplitBlobResponse remoteResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(combinedCache.downloadSplitBlobManifest(eq(context), any()))
+        .thenReturn(invalidCachedResponse);
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
+        .thenReturn(Futures.immediateFuture(remoteResponse));
+    when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFuture(chunkData));
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    downloader.downloadChunked(context, blobDigest, out);
+
+    assertThat(out.toByteArray()).isEqualTo(chunkData);
+    verify(combinedCache).uploadSplitBlobManifest(eq(context), any(), eq(remoteResponse));
+  }
+
+  @Test
+  public void downloadChunked_cachedManifestDigestInvalid_refetchesBeforeDiskLookup()
+      throws Exception {
+    byte[] chunkData = new byte[] {1, 2, 3, 4, 5};
+    Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
+    Digest blobDigest = chunkDigest;
+    SplitBlobResponse invalidCachedResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(Digest.newBuilder().setHash("x").setSizeBytes(chunkData.length))
+            .build();
+    SplitBlobResponse remoteResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(combinedCache.downloadSplitBlobManifest(eq(context), any()))
+        .thenReturn(invalidCachedResponse);
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
+        .thenReturn(Futures.immediateFuture(remoteResponse));
+    when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFuture(chunkData));
+
+    downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream());
+
+    verify(combinedCache, never()).areBlobsPresentInDiskCache(any(), any());
+    verify(combinedCache).uploadSplitBlobManifest(eq(context), any(), eq(remoteResponse));
+  }
+
+  @Test
+  public void downloadChunked_cachedManifestChunkEvicted_propagatesCacheNotFound()
+      throws Exception {
+    byte[] chunkData = new byte[] {1, 2, 3, 4, 5};
+    Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
+    Digest blobDigest = chunkDigest;
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(combinedCache.downloadSplitBlobManifest(eq(context), any())).thenReturn(splitResponse);
+    when(combinedCache.areBlobsPresentInDiskCache(eq(context), any())).thenReturn(true);
+    when(combinedCache.downloadBlobFromDisk(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFailedFuture(new CacheNotFoundException(chunkDigest)));
+
+    assertThrows(
+        CacheNotFoundException.class,
+        () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
+  }
+
+  @Test
+  public void downloadChunked_cachedManifestChunkEvictedAfterPartialStaging_allowsFallback()
+      throws Exception {
+    byte[] firstChunk = new byte[] {1, 2, 3};
+    byte[] secondChunk = new byte[] {4, 5};
+    Digest firstDigest = DIGEST_UTIL.compute(firstChunk);
+    Digest secondDigest = DIGEST_UTIL.compute(secondChunk);
+    Digest blobDigest = DIGEST_UTIL.compute(Bytes.concat(firstChunk, secondChunk));
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(firstDigest)
+            .addChunkDigests(secondDigest)
+            .build();
+    when(combinedCache.downloadSplitBlobManifest(eq(context), any())).thenReturn(splitResponse);
+    when(combinedCache.areBlobsPresentInDiskCache(eq(context), any())).thenReturn(true);
+    when(combinedCache.downloadBlobFromDisk(context, firstDigest))
+        .thenReturn(Futures.immediateFuture(firstChunk));
+    when(combinedCache.downloadBlobFromDisk(context, secondDigest))
+        .thenReturn(Futures.immediateFailedFuture(new CacheNotFoundException(secondDigest)));
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    ByteArrayOutputStream stagingOut = new ByteArrayOutputStream();
+
+    assertThrows(
+        BlobNotSplittableException.class,
+        () -> downloader.downloadChunked(context, blobDigest, out, stagingOut));
+
+    assertThat(out.toByteArray()).isEmpty();
+    assertThat(stagingOut.toByteArray()).isEqualTo(firstChunk);
+    verify(combinedCache, never()).downloadBlob(any(), any());
+  }
+
+  @Test
+  public void downloadChunked_responseUsesUnsupportedFunction_allowsFallback() throws Exception {
+    byte[] chunkData = new byte[] {1, 2, 3};
+    Digest blobDigest = DIGEST_UTIL.compute(chunkData);
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(blobDigest)
+            .setChunkingFunction(ChunkingFunction.Value.REP_MAX_CDC)
+            .build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+    assertThrows(
+        BlobNotSplittableException.class,
+        () -> downloader.downloadChunked(context, blobDigest, out));
+
+    assertThat(out.toByteArray()).isEmpty();
+    verify(combinedCache, never()).downloadBlob(any(), any());
+    verify(combinedCache, never()).uploadSplitBlobManifest(any(), any(), any());
+  }
+
+  @Test
+  public void downloadChunked_chunkingParametersOrInstanceChanged_usesDifferentManifestKey()
+      throws Exception {
+    byte[] chunkData = new byte[] {1, 2, 3, 4, 5};
+    Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
+    Digest blobDigest = chunkDigest;
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+    when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFuture(chunkData));
+    ChunkedBlobDownloader firstDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            "instance",
+            ByteString.copyFromUtf8("parameters-v1"),
+            ImmutableMap.of(CHUNKING_CONFIG.chunkingFunction(), CHUNKING_CONFIG));
+    ChunkedBlobDownloader secondDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            "instance",
+            ByteString.copyFromUtf8("parameters-v2"),
+            ImmutableMap.of(CHUNKING_CONFIG.chunkingFunction(), CHUNKING_CONFIG));
+    ChunkedBlobDownloader downloaderWithChangedInstance =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            "other-instance",
+            ByteString.copyFromUtf8("parameters-v1"),
+            ImmutableMap.of(CHUNKING_CONFIG.chunkingFunction(), CHUNKING_CONFIG));
+
+    firstDownloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream());
+    secondDownloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream());
+    downloaderWithChangedInstance.downloadChunked(context, blobDigest, new ByteArrayOutputStream());
+
+    ArgumentCaptor<Digest> manifestKeys = ArgumentCaptor.forClass(Digest.class);
+    verify(combinedCache, times(3)).downloadSplitBlobManifest(eq(context), manifestKeys.capture());
+    assertThat(manifestKeys.getAllValues().get(0)).isNotEqualTo(manifestKeys.getAllValues().get(1));
+    assertThat(manifestKeys.getAllValues().get(0)).isNotEqualTo(manifestKeys.getAllValues().get(2));
+  }
+
+  @Test
+  public void downloadChunked_chunkingFunctionChanged_doesNotHitManifestCache() throws Exception {
+    byte[] chunkData = new byte[] {1, 2, 3, 4, 5};
+    Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
+    Digest blobDigest = chunkDigest;
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+    when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
+        .thenReturn(Futures.immediateFuture(chunkData));
+
+    Map<Digest, SplitBlobResponse> manifestCache = new HashMap<>();
+    when(combinedCache.downloadSplitBlobManifest(eq(context), any()))
+        .thenAnswer(invocation -> manifestCache.get(invocation.getArgument(1)));
+    when(combinedCache.areBlobsPresentInDiskCache(eq(context), any())).thenReturn(true);
+    doAnswer(
+            invocation -> {
+              manifestCache.put(invocation.getArgument(1), invocation.getArgument(2));
+              return null;
+            })
+        .when(combinedCache)
+        .uploadSplitBlobManifest(eq(context), any(), any());
+
+    ChunkingConfig fastCdcConfig = CHUNKING_CONFIG;
+    ChunkingConfig repMaxCdcConfig =
+        new RepMaxCdcChunkingConfig(/* minChunkSize= */ 1024, /* horizonSize= */ 8192);
+    ImmutableMap<ChunkingFunction.Value, ChunkingConfig> chunkingConfigs =
+        ImmutableMap.of(
+            fastCdcConfig.chunkingFunction(),
+            fastCdcConfig,
+            repMaxCdcConfig.chunkingFunction(),
+            repMaxCdcConfig);
+    ChunkedBlobDownloader fastCdcDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            fastCdcConfig,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            "instance",
+            ByteString.copyFromUtf8("same-parameters"),
+            chunkingConfigs);
+    ChunkedBlobDownloader repMaxCdcDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            repMaxCdcConfig,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            "instance",
+            ByteString.copyFromUtf8("same-parameters"),
+            chunkingConfigs);
+
+    fastCdcDownloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream());
+    repMaxCdcDownloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream());
+
+    verify(grpcCacheClient)
+        .splitBlob(eq(context), eq(blobDigest), eq(ChunkingFunction.Value.FAST_CDC_2020));
+    verify(grpcCacheClient)
+        .splitBlob(eq(context), eq(blobDigest), eq(ChunkingFunction.Value.REP_MAX_CDC));
+    ArgumentCaptor<Digest> manifestKeys = ArgumentCaptor.forClass(Digest.class);
+    verify(combinedCache, times(2)).downloadSplitBlobManifest(eq(context), manifestKeys.capture());
+    assertThat(manifestKeys.getAllValues().get(0)).isNotEqualTo(manifestKeys.getAllValues().get(1));
   }
 
   @Test
