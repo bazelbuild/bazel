@@ -567,6 +567,56 @@ public class FileFunctionTest {
   }
 
   @Test
+  public void testLoadingPhaseFilesWithNoFastDigestHaveDigest() throws Exception {
+    fastDigest = false;
+    for (var name :
+        ImmutableList.of(
+            "BUILD", "BUILD.bazel", "defs.bzl", "defs.scl", "MODULE.bazel", "REPO.bazel",
+            ".bazelignore")) {
+      var p = file("pkg/" + name, "some contents");
+      var value = valueForPath(p);
+      assertWithMessage(name).that(value.getDigest()).isEqualTo(p.getDigest());
+
+      // Touching the file changes its ctime, but not its value.
+      manualClock.advanceMillis(1);
+      p.setLastModifiedTime(42);
+      assertWithMessage(name).that(valueForPath(p)).isEqualTo(value);
+
+      // Changing the contents while keeping the size changes the value.
+      manualClock.advanceMillis(1);
+      FileSystemUtils.writeContentAsLatin1(p, "SOME CONTENTS");
+      assertWithMessage(name).that(valueForPath(p)).isNotEqualTo(value);
+    }
+  }
+
+  @Test
+  public void testOtherFilesWithNoFastDigestHaveNoDigest() throws Exception {
+    fastDigest = false;
+    var p = file("pkg/BUILD.txt", "some contents");
+    var value = valueForPath(p);
+    assertThat(value.getDigest()).isNull();
+
+    manualClock.advanceMillis(1);
+    p.setLastModifiedTime(42);
+    assertThat(valueForPath(p)).isNotEqualTo(value);
+  }
+
+  @Test
+  public void testUnreadableBuildFileWithNoFastDigest() throws Exception {
+    fastDigest = false;
+    var p = file("pkg/BUILD", "some contents");
+    p.chmod(0);
+
+    var value = valueForPath(p);
+    assertThat(value.exists()).isTrue();
+    assertThat(value.getDigest()).isNull();
+
+    manualClock.advanceMillis(1);
+    p.setLastModifiedTime(42);
+    assertThat(valueForPath(p)).isNotEqualTo(value);
+  }
+
+  @Test
   public void testUnreadableFileWithFastDigest() throws Exception {
     final byte[] expectedDigest = {1, 2, 3, 4};
 

@@ -141,6 +141,32 @@ public class IncrementalLoadingTest {
   }
 
   @Test
+  public void testTouchBuildFile() throws Exception {
+    tester.addFile("base/BUILD", "filegroup(name = 'hello', srcs = ['foo.txt'])");
+    tester.sync();
+    var oldTarget = tester.getTarget("//base:hello");
+
+    tester.touchFile("base/BUILD");
+    tester.sync();
+    assertThat(tester.getTarget("//base:hello")).isSameInstanceAs(oldTarget);
+  }
+
+  @Test
+  public void testTouchBzlFile() throws Exception {
+    tester.addFile("base/defs.bzl", "NAME = 'hello'");
+    tester.addFile(
+        "base/BUILD",
+        "load(':defs.bzl', 'NAME')",
+        "filegroup(name = NAME, srcs = ['foo.txt'])");
+    tester.sync();
+    var oldTarget = tester.getTarget("//base:hello");
+
+    tester.touchFile("base/defs.bzl");
+    tester.sync();
+    assertThat(tester.getTarget("//base:hello")).isSameInstanceAs(oldTarget);
+  }
+
+  @Test
   public void testModifyNonBuildFile() throws Exception {
     tester.addFile("base/BUILD", "filegroup(name = 'hello', srcs = ['foo.txt'])");
     tester.addFile("base/foo.txt", "nothing");
@@ -573,6 +599,14 @@ public class IncrementalLoadingTest {
     void removeFile(String fileName) throws IOException {
       Path path = workspace.getRelative(fileName);
       Preconditions.checkState(path.delete());
+      changes.add(path);
+    }
+
+    void touchFile(String fileName) throws IOException {
+      Path path = workspace.getRelative(fileName);
+      Preconditions.checkState(path.exists());
+      clock.advanceMillis(1);
+      path.setLastModifiedTime(clock.currentTimeMillis());
       changes.add(path);
     }
 
