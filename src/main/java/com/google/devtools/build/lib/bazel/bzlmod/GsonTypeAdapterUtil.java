@@ -26,12 +26,14 @@ import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInterna
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -132,6 +134,10 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
+  // There are few distinct repo rules, but many repos using them.
+  private static final Interner<RepoRuleId> REPO_RULE_ID_INTERNER =
+      BlazeInterners.newWeakInterner();
+
   public static final TypeAdapter<RepoRuleId> REPO_RULE_ID_TYPE_ADAPTER =
       new TypeAdapter<>() {
         @Override
@@ -147,11 +153,13 @@ public final class GsonTypeAdapterUtil {
         public RepoRuleId read(JsonReader jsonReader) throws IOException {
           String s = unicodeToInternal(jsonReader.nextString());
           int percent = s.indexOf('%');
-          if (percent == -1) {
-            return new RepoRuleId(null, s);
-          }
-          return new RepoRuleId(
-              Label.parseCanonicalUnchecked(s.substring(0, percent)), s.substring(percent + 1));
+          RepoRuleId repoRuleId =
+              percent == -1
+                  ? new RepoRuleId(null, s)
+                  : new RepoRuleId(
+                      Label.parseCanonicalUnchecked(s.substring(0, percent)),
+                      s.substring(percent + 1));
+          return REPO_RULE_ID_INTERNER.intern(repoRuleId);
         }
       };
 

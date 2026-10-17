@@ -16,8 +16,11 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import java.util.List;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -31,8 +34,30 @@ import net.starlark.java.eval.Starlark;
 @AutoValue
 public abstract class AttributeValues {
 
+  // Equal attribute values are common, e.g. between the result of evaluating a module extension and
+  // the lockfile entry for it, which are both retained.
+  private static final Interner<AttributeValues> interner = BlazeInterners.newWeakInterner();
+
   public static AttributeValues create(Dict<String, Object> attribs) {
-    return new AutoValue_AttributeValues(attribs);
+    // Copies dicts that are still mutable, such as the kwargs of a tag, into a compact immutable
+    // representation and returns immutable dicts as is.
+    Dict<String, Object> immutableAttribs = Dict.immutableCopyOf(attribs);
+    AttributeValues attributeValues = new AutoValue_AttributeValues(immutableAttribs);
+    // Values that can still change, such as lists passed to a tag in a module file that is being
+    // evaluated, must not be shared with other equal values.
+    return immutableAttribs.values().stream().allMatch(AttributeValues::isDeeplyImmutable)
+        ? interner.intern(attributeValues)
+        : attributeValues;
+  }
+
+  private static boolean isDeeplyImmutable(Object value) {
+    return switch (value) {
+      case Dict<?, ?> dict ->
+          dict.isImmutable() && dict.values().stream().allMatch(AttributeValues::isDeeplyImmutable);
+      case Sequence<?> sequence ->
+          sequence.isImmutable() && sequence.stream().allMatch(AttributeValues::isDeeplyImmutable);
+      default -> Starlark.isImmutable(value);
+    };
   }
 
   public abstract Dict<String, Object> attributes();
