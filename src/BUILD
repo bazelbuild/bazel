@@ -16,6 +16,7 @@ load(":windows_llvm_alias.bzl", "windows_llvm_alias")
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
 exports_files([
+    "combine_derived_java_srcs.sh",
     "jdeps_modules.golden",
     "MODULE.tools",
 ])

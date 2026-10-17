@@ -18,25 +18,29 @@ set -eu
 
 # Combine src jars to a single archive containing all the source files.
 
-
-case $1 in
-  "/"*) JAVABASE="$1" ;;
+case "$1" in
+  /*) JAVABASE="$1" ;;
   *) JAVABASE="${PWD}/$1" ;;
 esac
 shift
-OUTPUT="${PWD}/$1"
+case "$1" in
+  /*) OUTPUT="$1" ;;
+  *) OUTPUT="${PWD}/$1" ;;
+esac
 shift
 
 TMP_DIR=${TMPDIR:-/tmp}
-PACKAGE_DIR="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
-trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
+PACKAGE_DIR="$(mktemp -d "${TMP_DIR%%/}/bazel.XXXXXXXX")"
+trap 'rm -fr "${PACKAGE_DIR}"' EXIT
 JAVA_SRC_DIR="${PACKAGE_DIR}/derived/src/java"
 mkdir -p "${JAVA_SRC_DIR}"
 
-for i in $*
-do
-    JARFILE="${PWD}/$i"
-    (cd "${JAVA_SRC_DIR}" && "${JAVABASE}/bin/jar" xf "${JARFILE}")
+for i in "$@"; do
+  case "$i" in
+    /*) JARFILE="$i" ;;
+    *) JARFILE="${PWD}/$i" ;;
+  esac
+  (cd "${JAVA_SRC_DIR}" && "${JAVABASE}/bin/jar" xf "${JARFILE}")
 done
 
 find "${PACKAGE_DIR}" -exec touch -t 198001010000.00 '{}' '+'
