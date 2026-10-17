@@ -38,7 +38,7 @@ import java.util.Map;
  * "affectedness" into a simple hash value. The resulting hash may be compared across queries to
  * tell if a rule has changed in a potentially meaningful way.
  */
-class SyntheticAttributeHashCalculator {
+public final class SyntheticAttributeHashCalculator {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -53,7 +53,7 @@ class SyntheticAttributeHashCalculator {
    *     an optimization to avoid re-serializing attributes internally.
    * @param extraDataForAttrHash Extra data to add to the hash.
    */
-  static String compute(
+  public static String compute(
       Rule rule,
       Map<Attribute, Build.Attribute> serializedAttributes,
       Object extraDataForAttrHash,

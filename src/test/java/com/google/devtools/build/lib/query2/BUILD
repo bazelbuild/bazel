@@ -12,6 +12,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/query2/common:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2/cquery:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2/engine:srcs",
+        "//src/test/java/com/google/devtools/build/lib/query2/query/hash:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2/query/output:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil:srcs",
     ],

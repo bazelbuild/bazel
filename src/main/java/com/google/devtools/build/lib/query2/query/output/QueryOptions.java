@@ -47,6 +47,23 @@ public abstract class QueryOptions extends CommonQueryOptions {
   public abstract String getOutputFormat();
 
   @Option(
+      name = "experimental_generate_hashes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set, prints each target in the query result followed by a hash of the target and"
+              + " its transitive dependencies (attribute values, rule definitions, source file"
+              + " contents and the toolchains registered for the toolchain types it uses),"
+              + " instead of using --output. Two targets with equal hashes are expected to build"
+              + " the same, given the same Bazel version, build options and host. Edits inside"
+              + " fetched external repos that don't cause a refetch, --extra_toolchains and"
+              + " build options are not taken into account; use cquery"
+              + " --experimental_generate_hashes for the latter two.")
+  public abstract boolean getGenerateHashes();
+
+  @Option(
       name = "output:display_full_kind",
       defaultValue = "False",
       documentationCategory = OptionDocumentationCategory.QUERY,
