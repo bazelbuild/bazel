@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -30,6 +29,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -189,46 +190,68 @@ public final class TransitiveHashes {
 
   /** Combines direct hashes into transitive hashes using Tarjan's SCC algorithm. */
   static Map<Label, byte[]> combine(Map<Label, DirectTargetHashFunction.Value> graph) {
-    Map<Label, byte[]> hashes = new HashMap<>(graph.size());
-    Map<Label, Integer> index = new HashMap<>(graph.size());
-    Map<Label, Integer> lowLink = new HashMap<>(graph.size());
-    Deque<Label> stack = new ArrayDeque<>();
-    Set<Label> onStack = new HashSet<>();
+    Map<Label, Node<Label>> nodes = new HashMap<>(graph.size());
+    graph.forEach(
+        (label, value) -> nodes.put(label, new Node<>(value.getDirectHash(), value.getDeps())));
+    return combine(nodes, Comparator.naturalOrder(), Label::getUnambiguousCanonicalForm);
+  }
 
-    for (Label root : graph.keySet()) {
+  /**
+   * A node of the graph to hash: its direct hash and its dependencies, in a deterministic order.
+   * Dependencies that are not part of the graph are hashed as missing leaves.
+   */
+  public record Node<K>(byte[] directHash, List<K> deps) {}
+
+  /**
+   * Combines the direct hashes of {@code graph} into transitive hashes using Tarjan's SCC
+   * algorithm.
+   *
+   * @param order a deterministic total order of the nodes, used to order the members of a cycle
+   * @param name a stable, unique name of each node, hashed as the identity of edges and cycle
+   *     members
+   */
+  public static <K> Map<K, byte[]> combine(
+      Map<K, Node<K>> graph, Comparator<? super K> order, Function<? super K, String> name) {
+    Map<K, byte[]> hashes = new HashMap<>(graph.size());
+    Map<K, Integer> index = new HashMap<>(graph.size());
+    Map<K, Integer> lowLink = new HashMap<>(graph.size());
+    Deque<K> stack = new ArrayDeque<>();
+    Set<K> onStack = new HashSet<>();
+
+    for (K root : graph.keySet()) {
       if (index.containsKey(root)) {
         continue;
       }
-      Deque<Frame> work = new ArrayDeque<>();
+      Deque<Frame<K>> work = new ArrayDeque<>();
       push(root, graph, index, lowLink, stack, onStack, work);
       while (!work.isEmpty()) {
-        Frame frame = work.peek();
+        Frame<K> frame = work.peek();
         if (frame.next()[0] < frame.deps().size()) {
-          Label dep = frame.deps().get(frame.next()[0]++);
+          K dep = frame.deps().get(frame.next()[0]++);
           if (!graph.containsKey(dep)) {
             continue; // A missing leaf.
           }
           if (!index.containsKey(dep)) {
             push(dep, graph, index, lowLink, stack, onStack, work);
           } else if (onStack.contains(dep)) {
-            lowLink.merge(frame.label(), index.get(dep), Math::min);
+            lowLink.merge(frame.node(), index.get(dep), Math::min);
           }
           continue;
         }
         work.pop();
-        Label label = frame.label();
-        if (lowLink.get(label).equals(index.get(label))) {
-          List<Label> component = new ArrayList<>();
-          Label member;
+        K node = frame.node();
+        if (lowLink.get(node).equals(index.get(node))) {
+          List<K> component = new ArrayList<>();
+          K member;
           do {
             member = stack.pop();
             onStack.remove(member);
             component.add(member);
-          } while (!member.equals(label));
-          hashComponent(component, graph, hashes);
+          } while (!member.equals(node));
+          hashComponent(component, graph, order, name, hashes);
         }
         if (!work.isEmpty()) {
-          lowLink.merge(work.peek().label(), lowLink.get(label), Math::min);
+          lowLink.merge(work.peek().node(), lowLink.get(node), Math::min);
         }
       }
     }
@@ -236,69 +259,69 @@ public final class TransitiveHashes {
   }
 
   /** An explicit DFS frame, to avoid overflowing the Java stack on deep graphs. */
-  private record Frame(Label label, List<Label> deps, int[] next) {}
+  private record Frame<K>(K node, List<K> deps, int[] next) {}
 
-  private static void push(
-      Label label,
-      Map<Label, DirectTargetHashFunction.Value> graph,
-      Map<Label, Integer> index,
-      Map<Label, Integer> lowLink,
-      Deque<Label> stack,
-      Set<Label> onStack,
-      Deque<Frame> work) {
+  private static <K> void push(
+      K node,
+      Map<K, Node<K>> graph,
+      Map<K, Integer> index,
+      Map<K, Integer> lowLink,
+      Deque<K> stack,
+      Set<K> onStack,
+      Deque<Frame<K>> work) {
     int i = index.size();
-    index.put(label, i);
-    lowLink.put(label, i);
-    stack.push(label);
-    onStack.add(label);
-    work.push(new Frame(label, graph.get(label).getDeps(), new int[] {0}));
+    index.put(node, i);
+    lowLink.put(node, i);
+    stack.push(node);
+    onStack.add(node);
+    work.push(new Frame<>(node, graph.get(node).deps(), new int[] {0}));
   }
 
   /**
    * Hashes one strongly connected component. All deps outside of it have already been hashed,
    * because Tarjan's algorithm emits components in reverse topological order.
    */
-  private static void hashComponent(
-      List<Label> component,
-      Map<Label, DirectTargetHashFunction.Value> graph,
-      Map<Label, byte[]> hashes) {
-    if (component.size() == 1) {
-      // Not part of a cycle (self-edges are removed by DirectTargetHashFunction).
-      Label label = component.get(0);
-      DirectTargetHashFunction.Value value = graph.get(label);
+  private static <K> void hashComponent(
+      List<K> component,
+      Map<K, Node<K>> graph,
+      Comparator<? super K> order,
+      Function<? super K, String> name,
+      Map<K, byte[]> hashes) {
+    if (component.size() == 1 && !graph.get(component.get(0)).deps().contains(component.get(0))) {
+      // Not part of a cycle.
+      K node = component.get(0);
       Fingerprint fp = new Fingerprint();
-      fp.addBytes(value.getDirectHash());
-      addDeps(fp, value, /* component= */ Set.of(), hashes);
-      hashes.put(label, fp.digestAndReset());
+      fp.addBytes(graph.get(node).directHash());
+      addDeps(fp, graph.get(node), /* component= */ Set.of(), name, hashes);
+      hashes.put(node, fp.digestAndReset());
       return;
     }
-    ImmutableSortedSet<Label> members = ImmutableSortedSet.copyOf(component);
+    List<K> members = new ArrayList<>(component);
+    members.sort(order);
+    Set<K> memberSet = new HashSet<>(members);
     Fingerprint fp = new Fingerprint();
     fp.addString("<cycle>");
-    for (Label member : members) {
-      DirectTargetHashFunction.Value value = graph.get(member);
-      fp.addString(member.getUnambiguousCanonicalForm());
-      fp.addBytes(value.getDirectHash());
-      addDeps(fp, value, members, hashes);
+    for (K member : members) {
+      fp.addString(name.apply(member));
+      fp.addBytes(graph.get(member).directHash());
+      addDeps(fp, graph.get(member), memberSet, name, hashes);
     }
     byte[] componentHash = fp.digestAndReset();
-    for (Label member : members) {
+    for (K member : members) {
       hashes.put(
           member,
-          new Fingerprint()
-              .addBytes(componentHash)
-              .addString(member.getUnambiguousCanonicalForm())
-              .digestAndReset());
+          new Fingerprint().addBytes(componentHash).addString(name.apply(member)).digestAndReset());
     }
   }
 
-  private static void addDeps(
+  private static <K> void addDeps(
       Fingerprint fp,
-      DirectTargetHashFunction.Value value,
-      Set<Label> component,
-      Map<Label, byte[]> hashes) {
-    for (Label dep : value.getDeps()) {
-      fp.addString(dep.getUnambiguousCanonicalForm());
+      Node<K> node,
+      Set<K> component,
+      Function<? super K, String> name,
+      Map<K, byte[]> hashes) {
+    for (K dep : node.deps()) {
+      fp.addString(name.apply(dep));
       if (component.contains(dep)) {
         continue; // Edges within a cycle are covered by the component hash.
       }
