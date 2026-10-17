@@ -323,7 +323,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     if (cgroupFactory != null) {
       ImmutableMap<String, Double> spawnResourceLimits = ImmutableMap.of();
       if (sandboxOptions.getEnforceResources().matcher().test(spawn.getMnemonic())) {
-        spawnResourceLimits = spawn.getLocalResources().getResources();
+        spawnResourceLimits = spawn.getLocalResources(context::getInputsBytes).getResources();
       }
       VirtualCgroup cgroup = cgroupFactory.create(context.getId(), spawnResourceLimits);
       commandLineBuilder.setCgroupsDirs(cgroup.paths());

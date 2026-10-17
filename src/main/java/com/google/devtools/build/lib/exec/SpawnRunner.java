@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
@@ -215,6 +216,27 @@ public interface SpawnRunner {
      * obtain file digests and sizes.
      */
     InputMetadataProvider getInputMetadataProvider();
+
+    /**
+     * Returns the total size in bytes of the files in {@link #getInputMapping}, as known to {@link
+     * #getInputMetadataProvider}, which doesn't require inputs to be downloaded.
+     */
+    default long getInputsBytes() throws ExecException {
+      InputMetadataProvider inputMetadataProvider = getInputMetadataProvider();
+      long inputsBytes = 0;
+      try {
+        for (ActionInput input : getInputMapping(/* willAccessRepeatedly= */ true).values()) {
+          FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
+          if (metadata != null && metadata.getType().isFile()) {
+            inputsBytes += metadata.getSize();
+          }
+        }
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(
+            e, FailureDetails.Execution.Code.ACTION_INPUT_READ_IO_EXCEPTION);
+      }
+      return inputsBytes;
+    }
 
     /** The {@link ArtifactPathResolver} to use when directly writing output files. */
     default ArtifactPathResolver getPathResolver() {

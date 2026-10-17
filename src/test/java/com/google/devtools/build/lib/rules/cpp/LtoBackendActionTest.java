@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder.InputsBytes;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -142,7 +143,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(bitcode1Artifact, index1Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
-    assertThat(action.getSpawnForTesting().getLocalResources())
+    assertThat(action.getSpawnForTesting().getLocalResources(InputsBytes.UNKNOWN))
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
     assertThat(action.getProgressMessage()).isEqualTo("LTO Backend Compile output");
@@ -173,7 +174,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(bitcode2Artifact, index2Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
-    assertThat(action.getSpawnForTesting().getLocalResources())
+    assertThat(action.getSpawnForTesting().getLocalResources(InputsBytes.UNKNOWN))
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
     assertThat(action.getProgressMessage()).isEqualTo("LTO Backend Compile output");

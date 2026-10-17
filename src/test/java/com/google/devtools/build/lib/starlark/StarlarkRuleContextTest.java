@@ -785,6 +785,92 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_inputsBytes() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size, *, inputs_bytes):",
+        "  return {\"cpu\": 1., \"memory\": 100. + (inputs_bytes >> 20), \"local_test\": 0.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().needsInputsBytes()).isTrue();
+    assertThat(
+            action
+                .getResourceSetOrBuilder()
+                .buildLocalResources(
+                    OS.LINUX, 2, () -> 3L << 20, ImmutableMap.of(), ImmutableMap.of()))
+        .isEqualTo(ResourceSet.create(103, 1, 0));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_inputsBytesViaKwargs()
+      throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size, **kwargs):",
+        "  return {\"cpu\": 1., \"memory\": 100. + (kwargs['inputs_bytes'] >> 20),"
+            + " \"local_test\": 0.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().needsInputsBytes()).isTrue();
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2, 5L << 20))
+        .isEqualTo(ResourceSet.create(105, 1, 0));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_inputsBytesNotRequested()
+      throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return {\"cpu\": 1., \"memory\": 350. + inputs_size * 10, \"local_test\": 0.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().needsInputsBytes()).isFalse();
+    assertThat(
+            action
+                .getResourceSetOrBuilder()
+                .buildLocalResources(
+                    OS.LINUX,
+                    2,
+                    () -> {
+                      throw new AssertionError("inputs bytes computed without being requested");
+                    },
+                    ImmutableMap.of(),
+                    ImmutableMap.of()))
+        .isEqualTo(ResourceSet.create(370, 1, 0));
+  }
+
+  @Test
   public void testCreateStarlarkActionArgumentsWithResourceSet_noneResourceSet() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
