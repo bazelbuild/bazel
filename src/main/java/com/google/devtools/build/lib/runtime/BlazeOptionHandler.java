@@ -425,11 +425,6 @@ public final class BlazeOptionHandler {
    * not passed in here during {@link #getOptionsResult}.
    */
   DetailedExitCode parseStarlarkOptions(CommandEnvironment env, List<String> args) {
-    // For now, restrict starlark options to commands that already build to ensure that loading
-    // will work. We may want to open this up to other commands in the future.
-    if (!commandAnnotation.buildPhase().analyzes()) {
-      return DetailedExitCode.success();
-    }
     try {
       BuildSettingLoader buildSettingLoader = new SkyframeExecutorTargetLoader(env);
       StarlarkOptionsParser starlarkOptionsParser =
