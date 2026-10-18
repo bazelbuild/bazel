@@ -639,6 +639,19 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
 
   public abstract void setRemoteOutputsMode(RemoteOutputsMode value);
 
+  @Option(
+      name = "remote_download_stdouterr",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "When false, allow digest-backed stdout and stderr from successful remote test runs"
+              + " to be deferred until needed. Other action logs, cached results, inline logs,"
+              + " and stdout redirected to an output artifact are unaffected.")
+  public abstract boolean getRemoteDownloadStdoutStderr();
+
+  public abstract void setRemoteDownloadStdoutStderr(boolean value);
+
   /** Outputs strategy flag parser */
   public static class RemoteOutputsStrategyConverter extends EnumConverter<RemoteOutputsMode> {
     public RemoteOutputsStrategyConverter() {

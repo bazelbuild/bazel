@@ -2170,6 +2170,200 @@ function test_exclusive_if_local_test_no_remote_exec_runs_locally() {
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
+function test_test_logs_with_minimal_downloads_and_deferred_stdio() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "passing_test",
+    srcs = ["test.sh"],
+    args = ["0"],
+)
+
+sh_test(
+    name = "non_cacheable_test",
+    srcs = ["test.sh"],
+    args = ["0"],
+    tags = ["no-cache"],
+)
+
+sh_test(
+    name = "failing_test",
+    srcs = ["test.sh"],
+    args = ["1"],
+)
+EOF
+  cat > a/test.sh <<'EOF'
+#!/usr/bin/env bash
+echo RAW_LOG_TEST_STDOUT
+echo RAW_LOG_TEST_STDERR >&2
+printf 'ATTEMPT_NONCE=%s%s\n' "$RANDOM" "$RANDOM"
+# Leave test.xml absent so the remote XML helper must read the test output.
+exit "$1"
+EOF
+  chmod +x a/test.sh
+
+  if bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_stdouterr=false \
+      --remote_download_minimal \
+      --remote_download_regex='.*test[.]xml' \
+      --test_output=summary \
+      --flaky_test_attempts=2 \
+      //a:passing_test //a:failing_test >& $TEST_log; then
+    fail "Expected failing_test to fail"
+  fi
+
+  local expected='RAW_LOG_TEST_STDOUT
+RAW_LOG_TEST_STDERR'
+  local test_name
+  for test_name in passing_test failing_test; do
+    local path="bazel-testlogs/a/${test_name}/test.xml"
+    [[ -f "$path" ]] || fail "Missing test output: $path"
+    assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' "$path")"
+  done
+  # Successful output stays remote. The failure summary prints the failed log's local path
+  # without reading the log itself, so the file must exist even after retrying the attempt.
+  [[ ! -f bazel-testlogs/a/passing_test/test.log ]] \
+      || fail "Passing test log should not have been downloaded"
+  local failed_log=bazel-testlogs/a/failing_test/test.log
+  [[ -f "$failed_log" ]] || fail "Missing failed test log"
+  assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' "$failed_log")"
+  assert_contains 'exited with error code 1' bazel-testlogs/a/failing_test/test.xml
+  # Retries reuse the raw output path but produce new digests. The XML helper
+  # must not consume a cached download from the previous attempt.
+  assert_equals "$(grep -o 'ATTEMPT_NONCE=[0-9]*' "$failed_log")" \
+      "$(grep -o 'ATTEMPT_NONCE=[0-9]*' bazel-testlogs/a/failing_test/test.xml)"
+
+  # A second invocation that prints all test output must materialize the previously
+  # deferred log, even though the test is already in the local action cache.
+  bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_stdouterr=false \
+      --remote_download_minimal \
+      --remote_download_regex='.*test[.]xml' \
+      --test_output=all \
+      --flaky_test_attempts=2 \
+      //a:passing_test >& "$TEST_log" || fail "Failed to print previously deferred log"
+  expect_log RAW_LOG_TEST_STDOUT
+  assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' bazel-testlogs/a/passing_test/test.log)"
+
+  # Evict only the generated XML action results, leaving the test result and
+  # its raw streams cached remotely. The next XML helper must execute locally.
+  local cached_result
+  while IFS= read -r cached_result; do
+    if grep -aq 'test[.]xml' "$cached_result"; then
+      rm "$cached_result"
+    fi
+  done < <(find "$cas_path/ac" -type f)
+  bazel clean >& "$TEST_log" || fail "Failed to clean"
+  bazel test \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --spawn_strategy=standalone \
+      --remote_download_stdouterr=false \
+      --remote_download_minimal \
+      --test_output=all \
+      //a:passing_test >& "$TEST_log" || fail "Failed to generate XML locally"
+  expect_log '1 remote cache hit'
+  expect_log '1 local'
+  assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' bazel-testlogs/a/passing_test/test.xml)"
+  assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' bazel-testlogs/a/passing_test/test.log)"
+
+  # With a disk cache, retain eager logs both for cacheable tests and for tests that
+  # must use the execution server rather than reading from or writing to disk CAS.
+  bazel clean >& "$TEST_log" || fail "Failed to clean"
+  bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --disk_cache="$TEST_TMPDIR/log-policy-cache" \
+      --remote_download_stdouterr=false \
+      --remote_download_minimal \
+      --noremote_accept_cached \
+      //a:passing_test //a:non_cacheable_test >& "$TEST_log" || fail "Failed to test with disk cache"
+  for test_name in passing_test non_cacheable_test; do
+    local disk_log="bazel-testlogs/a/${test_name}/test.log"
+    [[ -f "$disk_log" ]] || fail "Missing log with disk cache: $disk_log"
+    assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' "$disk_log")"
+  done
+
+  # Download-all must still produce test.log when output-tree tracking is disabled.
+  bazel clean >& "$TEST_log" || fail "Failed to clean"
+  bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_stdouterr=false \
+      --remote_download_all \
+      --nooutput_tree_tracking \
+      --noremote_accept_cached \
+      //a:passing_test >& "$TEST_log" || fail "Failed to test without output-tree tracking"
+  assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' bazel-testlogs/a/passing_test/test.log)"
+}
+
+function test_build_event_file_references_remote_test_log() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name = "test", srcs = ["test.sh"])
+
+genrule(
+    name = "ordinary_output",
+    outs = ["testlogs/output/test.log"],
+    cmd = "echo ordinary > $@",
+)
+EOF
+  cat > a/test.sh <<'EOF'
+#!/usr/bin/env bash
+echo FILE_MODE_BEP_TEST_LOG
+EOF
+  chmod +x a/test.sh
+
+  # The cached test-log policy must not force a download from the bin tree.
+  bazel build --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal //a:ordinary_output >& "$TEST_log" || fail "Failed to build"
+  [[ ! -f bazel-bin/a/testlogs/output/test.log ]] || fail "Downloaded an unrelated output"
+
+  local bep_file="$TEST_TMPDIR/events.json"
+  local -a remote_args=(
+    --spawn_strategy=remote
+    --remote_executor=grpc://localhost:${worker_port}
+    --remote_download_stdouterr=false
+    --remote_download_minimal
+    --noremote_accept_cached
+  )
+  bazel test "${remote_args[@]}" //a:test >& "$TEST_log" || fail "Failed to test //a:test"
+  [[ ! -f bazel-testlogs/a/test/test.log ]] || fail "Passing log should still be remote"
+
+  # Enable file reporting without cleaning the previous minimal build's action cache.
+  bazel test "${remote_args[@]}" --build_event_json_file="$bep_file" \
+      //a:test >& "$TEST_log" || fail "Failed to report previously remote log"
+  assert_contains '"testSummary":.*"passed":.*"uri":"bytestream://' "$bep_file"
+  assert_contains FILE_MODE_BEP_TEST_LOG bazel-testlogs/a/test/test.log
+
+  # Restart Bazel so the next invocation reconstructs test events from the disk action cache.
+  bazel shutdown >& "$TEST_log" || fail "Failed to shut down Bazel"
+  bazel test "${remote_args[@]}" --build_event_json_file="$bep_file" \
+      //a:test >& "$TEST_log" || fail "Failed to report cached test log"
+  expect_log '(cached)'
+  assert_contains '"testSummary":.*"passed":.*"uri":"bytestream://' "$bep_file"
+
+  local local_path_mode test_log_uri
+  for local_path_mode in \
+      --nobuild_event_json_file_path_conversion \
+      --experimental_build_event_upload_strategy=local; do
+    bazel clean >& "$TEST_log" || fail "Failed to clean before testing $local_path_mode"
+    bazel test "${remote_args[@]}" --build_event_json_file="$bep_file" "$local_path_mode" \
+        //a:test >& "$TEST_log" || fail "Failed to report a local test log path"
+    test_log_uri=$(grep -o 'file://[^"]*/a/test/test[.]log' "$bep_file" | head -1)
+    [[ -n "$test_log_uri" ]] || fail "No local test log URI in build events"
+    assert_contains FILE_MODE_BEP_TEST_LOG "${test_log_uri#file://}"
+  done
+}
+
 function test_raw_stdout_does_not_conflict_with_nested_test_name() {
   mkdir -p a
   cat > a/flat_test.bzl <<'EOF'
@@ -2242,6 +2436,7 @@ EOF
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
+      --remote_download_stdouterr=false \
       --remote_download_regex='.*test[.]xml' \
       --experimental_split_coverage_postprocessing \
       --experimental_fetch_all_coverage_outputs \
@@ -3410,12 +3605,29 @@ exit 0
 EOF
   chmod +x x.sh
 
+  # Bash traces the wrapper's initial stderr redirection before it takes effect.
+  local trace_flags=()
+  if ! is_windows; then
+    trace_flags=(--test_env=SHELLOPTS=xtrace)
+  fi
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
-      --remote_download_minimal \
+      --remote_download_stdouterr=false \
+    --remote_download_minimal \
+      --remote_download_regex='.*test[.]xml' \
+      "${trace_flags[@]}" \
       --test_output=errors \
       //:x  &> $TEST_log && fail "expected failure"
   expect_log "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --"
+  if ! is_windows; then
+    local output
+    for output in test.xml test.log; do
+      local path="bazel-testlogs/x/${output}"
+      assert_contains 'fake pass' "$path"
+      assert_contains '^+ exec$' "$path"
+      assert_contains 'Test exited prematurely' "$path"
+    done
+  fi
 }
 
 function test_cache_key_scrubbing() {

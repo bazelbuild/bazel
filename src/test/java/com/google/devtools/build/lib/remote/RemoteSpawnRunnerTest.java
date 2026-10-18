@@ -1464,6 +1464,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteExecutionService(
             reporter,
             /* verboseFailures= */ true,
+            /* requireLocalLogPaths= */ false,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
@@ -1997,6 +1998,7 @@ public class RemoteSpawnRunnerTest {
             new RemoteExecutionService(
                 reporter,
                 /* verboseFailures= */ true,
+                /* requireLocalLogPaths= */ false,
                 execRoot,
                 remotePathResolver,
                 "build-req-id",

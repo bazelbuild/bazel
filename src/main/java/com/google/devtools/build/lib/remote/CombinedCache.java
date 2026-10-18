@@ -879,31 +879,13 @@ public class CombinedCache extends AbstractReferenceCounted {
     return f;
   }
 
-  /**
-   * Download the stdout and stderr of an executed action.
-   *
-   * @param context the context for the action.
-   * @param result the result of the action.
-   * @param outErr the {@link OutErr} that the stdout and stderr will be downloaded to.
-   */
-  public final List<ListenableFuture<Void>> downloadOutErr(
-      RemoteActionExecutionContext context, ActionResult result, OutErr outErr) {
-    return downloadOutErr(context, result, outErr, /* downloadStdout= */ true);
-  }
-
-  /**
-   * Download the stdout and stderr of an executed action.
-   *
-   * @param context the context for the action.
-   * @param result the result of the action.
-   * @param outErr the {@link OutErr} that the stdout and stderr will be downloaded to.
-   * @param downloadStdout whether to download stdout.
-   */
+  /** Downloads only the selected stdout/stderr streams of an executed action. */
   public final List<ListenableFuture<Void>> downloadOutErr(
       RemoteActionExecutionContext context,
       ActionResult result,
       OutErr outErr,
-      boolean downloadStdout) {
+      boolean downloadStdout,
+      boolean downloadStderr) {
     List<ListenableFuture<Void>> downloads = new ArrayList<>();
     if (downloadStdout) {
       if (!result.getStdoutRaw().isEmpty()) {
@@ -923,21 +905,23 @@ public class CombinedCache extends AbstractReferenceCounted {
                 outErr.getOutputStream()));
       }
     }
-    if (!result.getStderrRaw().isEmpty()) {
-      try {
-        result.getStderrRaw().writeTo(outErr.getErrorStream());
-        outErr.getErrorStream().flush();
-      } catch (IOException e) {
-        downloads.add(Futures.immediateFailedFuture(e));
+    if (downloadStderr) {
+      if (!result.getStderrRaw().isEmpty()) {
+        try {
+          result.getStderrRaw().writeTo(outErr.getErrorStream());
+          outErr.getErrorStream().flush();
+        } catch (IOException e) {
+          downloads.add(Futures.immediateFailedFuture(e));
+        }
+      } else if (result.hasStderrDigest()) {
+        downloads.add(
+            downloadBlob(
+                context,
+                /* blobName= */ "<stderr>",
+                /* execPath= */ null,
+                result.getStderrDigest(),
+                outErr.getErrorStream()));
       }
-    } else if (result.hasStderrDigest()) {
-      downloads.add(
-          downloadBlob(
-              context,
-              /* blobName= */ "<stderr>",
-              /* execPath= */ null,
-              result.getStderrDigest(),
-              outErr.getErrorStream()));
     }
     return downloads;
   }

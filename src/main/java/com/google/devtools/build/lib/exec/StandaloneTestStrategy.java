@@ -285,6 +285,9 @@ public class StandaloneTestStrategy extends TestStrategy {
     if (dataBuilder.getStatus() == BlazeTestStatus.PASSED) {
       dataBuilder.setPassedLog(renamedTestLog.toString());
     } else if (dataBuilder.getStatus() != BlazeTestStatus.INCOMPLETE) {
+      // Failure summaries point to this path even when the log is not printed. Opening the
+      // file materializes deferred remote output before we give the path to the user.
+      renamedTestLog.getInputStream().close();
       dataBuilder.addFailedLogs(renamedTestLog.toString());
     }
 
@@ -761,10 +764,13 @@ public class StandaloneTestStrategy extends TestStrategy {
           .setCachable(false)
           .setTestPassed(false)
           .setStatus(BlazeTestStatus.FAILED);
-      fileOutErr
-          .getErrorStream()
-          .write(
-              "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --\n".getBytes(UTF_8));
+      // Remote stderr may not have been materialized or written through FileOutErr. Append via
+      // the action filesystem so the diagnostic preserves any remotely stored prefix.
+      fileOutErr.getErrorStream().flush();
+      try (OutputStream err = fileOutErr.getErrorPath().getOutputStream(/* append= */ true)) {
+        err.write(
+            "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --\n".getBytes(UTF_8));
+      }
     }
 
     // Do not override a more informative test failure with a generic failure due to the missing
