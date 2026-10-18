@@ -744,7 +744,10 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             doc =
                 """
                 If set, indicate the error in the return value \
-                instead of raising an error for failed downloads.
+                instead of raising an error for failed downloads. A failed download may \
+                leave a partially downloaded file at the output path, or a file that \
+                doesn't match <code>sha256</code> or <code>integrity</code>, so check \
+                <code>success</code> before using the file.
                 """),
         @Param(
             name = "canonical_id",
