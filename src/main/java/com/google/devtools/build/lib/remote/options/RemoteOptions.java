@@ -883,15 +883,14 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
               + " seconds. Only takes effect with --experimental_circuit_breaker_strategy=failure.")
   public abstract Duration getRemoteCircuitBreakerRecoveryDelay();
 
+  @Deprecated
   @Option(
       name = "experimental_remote_cache_lease_extension",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If set to true, Bazel will extend the lease for outputs of remote actions during the"
-              + " build by sending `FindMissingBlobs` calls periodically to remote cache. The"
-              + " frequency is based on the value of `--experimental_remote_cache_ttl`.")
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help = "No-op. Kept here for backwards compatibility.")
   public abstract boolean getRemoteCacheLeaseExtension();
 
   @Option(

@@ -122,7 +122,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
     Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
 
     // Treat other download error as CacheNotFoundException so that Bazel can
-    // correctly rewind the action/build.
+    // correctly rewind the action.
     // Intentionally, do not transform IOExceptions directly thrown by downloadFile rather than in
     // the returned future, as those are likely to be caused by local FS issues.
     return Futures.catchingAsync(
