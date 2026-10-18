@@ -97,11 +97,6 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
         }
 
         if (!key.getBuildOptions().getStarlarkOptions().containsKey(anotherFlag)) {
-          var anotherFlagAttrs = RawAttributeMapper.of(anotherFlagTarget.getAssociatedRule());
-          String anotherFlagScopeType = Scope.ScopeType.DEFAULT;
-          if (anotherFlagAttrs.isAttributeValueExplicitlySpecified("scope")) {
-            anotherFlagScopeType = anotherFlagAttrs.get("scope", Type.STRING);
-          }
           fullyResolvedBuildOptionsBuilder =
               fullyResolvedBuildOptionsBuilder
                   .addStarlarkOption(
@@ -109,7 +104,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
                       anotherFlagTarget
                           .getAssociatedRule()
                           .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))
-                  .addScopeType(anotherFlag, new Scope.ScopeType(anotherFlagScopeType));
+                  .addScopeType(anotherFlag, getScopeType(anotherFlagTarget));
         }
       }
     }

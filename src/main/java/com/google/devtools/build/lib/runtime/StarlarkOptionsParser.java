@@ -335,21 +335,28 @@ public class StarlarkOptionsParser {
   private static String getScopeType(Target buildSettingTarget) throws OptionsParsingException {
     // TODO: b/384058698 - use NonConfigurableAttributeMapper to ensure "scope" isn't selectable.
     var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
-    String scopeType = ScopeType.DEFAULT.toString();
-    if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
-      scopeType = attrMap.get("scope", Type.STRING);
-      if (!ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
-          && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        throw new OptionsParsingException(
-            String.format(
-                "Can't load flag --%s: Invalid \"scope\" attribute value \"%s\". Allowed values:"
-                    + " [%s].",
-                buildSettingTarget.getLabel().getCanonicalForm(),
-                scopeType,
-                ScopeType.allowedAttributeValues().stream()
-                    .map(s -> "\"" + s + "\"")
-                    .collect(joining(", "))));
-      }
+    if (!attrMap.has("scope", Type.STRING)) {
+      return ScopeType.DEFAULT;
+    }
+    // Honor the rule's default for "scope" just like BuildOptionsScopeFunction does for flags set
+    // by transitions. Otherwise the same flag value results in different configurations depending
+    // on whether it was set on the command line or by a transition.
+    String scopeType = attrMap.get("scope", Type.STRING);
+    if (!attrMap.isAttributeValueExplicitlySpecified("scope")
+        && (scopeType.isEmpty() || scopeType.equals(ScopeType.DEFAULT))) {
+      return ScopeType.DEFAULT;
+    }
+    if (!ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
+        && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+      throw new OptionsParsingException(
+          String.format(
+              "Can't load flag --%s: Invalid \"scope\" attribute value \"%s\". Allowed values:"
+                  + " [%s].",
+              buildSettingTarget.getLabel().getCanonicalForm(),
+              scopeType,
+              ScopeType.allowedAttributeValues().stream()
+                  .map(s -> "\"" + s + "\"")
+                  .collect(joining(", "))));
     }
     return scopeType;
   }
