@@ -980,7 +980,10 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Whether to throttle the building of remote action to avoid OOM. Defaults to true.\n\n"
+          "Whether to limit the number of remote actions that are built or upload their inputs"
+              + " concurrently to the number of cores, which avoids OOMs. If disabled, concurrent"
+              + " uploads are instead limited by their number of input files relative to the"
+              + " maximum heap size.\n\n"
               + "This is a temporary flag to allow users switch off the behaviour. Once Bazel is"
               + " smart enough about the RAM/CPU usages, this flag will be removed.")
   public abstract boolean getThrottleRemoteActionBuilding();
