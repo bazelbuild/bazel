@@ -1719,7 +1719,7 @@ std::string CreateErrorTag(int exit_code) {
   }
 }
 
-bool CreateXmlLog(const Path& output, const Path& test_outerr,
+bool CreateXmlLog(const Path& output, const std::vector<Path>& test_logs,
                   const Duration duration, const int exit_code,
                   const DeleteAfterwards delete_afterwards,
                   const MainType main_type) {
@@ -1727,12 +1727,14 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     return true;
   }
 
-  Defer delete_test_outerr([test_outerr, delete_afterwards]() {
+  Defer delete_test_outerr([&test_logs, delete_afterwards]() {
     // Delete the test's outerr file after we have the XML file.
     // We don't care if this succeeds or not, because the outerr file is not a
     // declared output.
     if (delete_afterwards == DeleteAfterwards::kEnabled) {
-      DeleteFileW(test_outerr.Get().c_str());
+      for (const Path& path : test_logs) {
+        DeleteFileW(path.Get().c_str());
+      }
     }
   });
 
@@ -1750,6 +1752,7 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     return false;
   }
 
+  const Path& test_outerr = test_logs.front();
   bazel::windows::AutoHandle test_log;
   if (!OpenExistingFileForRead(test_outerr, &test_log)) {
     LogError(__LINE__, test_outerr.Get().c_str());
@@ -1991,7 +1994,7 @@ int TestWrapperMain(int argc, wchar_t** argv) {
   Duration test_duration;
   int result = RunSubprocess(executable, args, test_outerr, &test_duration);
   Path annotations_pb;
-  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result,
+  if (!CreateXmlLog(xml_log, {test_outerr}, test_duration, result,
                     DeleteAfterwards::kEnabled, MainType::kTestWrapperMain) ||
       !ArchiveUndeclaredOutputs(undecl) ||
       !CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
@@ -2012,7 +2015,7 @@ int XmlWriterMain(int argc, wchar_t** argv) {
   if (!GetCwd(&cwd) ||
       !ParseXmlWriterArgs(argc, argv, cwd, &test_outerr, &test_xml_log,
                           &duration, &exit_code) ||
-      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code,
+      !CreateXmlLog(test_xml_log, {test_outerr}, duration, exit_code,
                     DeleteAfterwards::kDisabled, MainType::kXmlWriterMain)) {
     return 1;
   }
