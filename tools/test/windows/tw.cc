@@ -1461,20 +1461,26 @@ bool ParseArgs(int argc, wchar_t** argv, const Path& exec_root,
 }
 
 bool ParseXmlWriterArgs(int argc, wchar_t** argv, const Path& cwd,
-                        Path* out_test_log, Path* out_xml_log,
+                        std::vector<Path>* out_test_logs, Path* out_xml_log,
                         Duration* out_duration, int* out_exit_code) {
   if (argc < 5) {
     LogError(__LINE__,
              "Usage: $0 <test_output_path> <xml_log_path>"
-             " <duration_in_seconds> <exit_code>");
+             " <duration_in_seconds> <exit_code> [additional_log_paths...]");
     return false;
   }
-  if (!out_test_log->Set(argv[1]) || out_test_log->Get().empty()) {
-    LogErrorWithArg(__LINE__, "Failed to parse test log path argument",
-                    argv[1]);
-    return false;
+  // The primary output is followed by any additional raw log files. Keep their
+  // order so escaping sees the same byte stream as concatenating the files.
+  for (int i = 1; i < argc; i = (i == 1 ? 5 : i + 1)) {
+    Path log;
+    if (!log.Set(argv[i]) || log.Get().empty()) {
+      LogErrorWithArg(__LINE__, "Failed to parse test log path argument",
+                      argv[i]);
+      return false;
+    }
+    log.Absolutize(cwd);
+    out_test_logs->push_back(log);
   }
-  out_test_log->Absolutize(cwd);
   if (!out_xml_log->Set(argv[2]) || out_xml_log->Get().empty()) {
     LogErrorWithArg(__LINE__, "Failed to parse XML log path argument", argv[2]);
     return false;
@@ -1694,7 +1700,84 @@ std::string CreateErrorTag(int exit_code) {
   }
 }
 
-bool CreateXmlLog(const Path& output, const Path& test_outerr,
+// Presents raw log files as one stream, without creating a merged test.log.
+// The buffer spans file boundaries so UTF-8 and CDATA lookahead work even when
+// a sequence is split between files. Only one input file is open at a time.
+class ConcatenatedLogStream : public IFStream {
+ public:
+  explicit ConcatenatedLogStream(const std::vector<Path>& paths)
+      : paths_(paths) {}
+
+  int Get() override {
+    Fill(1);
+    if (pos_ < end_) {
+      return buffer_[pos_++];
+    }
+    return failed_ ? kIFStreamErrorIO : kIFStreamErrorEOF;
+  }
+
+  DWORD Peek(DWORD n, uint8_t* out) const override {
+    n = std::min<DWORD>(n, sizeof(buffer_));
+    Fill(n);
+    DWORD count = std::min<DWORD>(n, end_ - pos_);
+    memcpy(out, buffer_ + pos_, count);
+    return count;
+  }
+
+ private:
+  void Fill(DWORD n) const {
+    if (end_ - pos_ >= n || failed_) {
+      return;
+    }
+    memmove(buffer_, buffer_ + pos_, end_ - pos_);
+    end_ -= pos_;
+    pos_ = 0;
+    while (end_ < n && !failed_) {
+      if (!file_.IsValid()) {
+        if (next_path_ == paths_.size()) {
+          return;
+        }
+        const Path& path = paths_[next_path_++];
+        file_ =
+            CreateFileW(AddUncPrefixMaybe(path).c_str(), GENERIC_READ,
+                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (!file_.IsValid()) {
+          DWORD error = GetLastError();
+          if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) {
+            continue;  // Empty stdout/stderr need not be materialized.
+          }
+          LogErrorWithArgAndValue(__LINE__, "Failed to open file", path.Get(),
+                                  error);
+          failed_ = true;
+          return;
+        }
+      }
+      DWORD read;
+      if (!ReadFile(file_, buffer_ + end_, sizeof(buffer_) - end_, &read,
+                    nullptr)) {
+        LogErrorWithValue(__LINE__, "Failed to read from file", GetLastError());
+        failed_ = true;
+        return;
+      }
+      if (read == 0) {
+        file_ = INVALID_HANDLE_VALUE;
+      } else {
+        end_ += read;
+      }
+    }
+  }
+
+  const std::vector<Path>& paths_;
+  mutable size_t next_path_ = 0;
+  mutable bazel::windows::AutoHandle file_;
+  mutable uint8_t buffer_[0x10000];
+  mutable DWORD pos_ = 0;
+  mutable DWORD end_ = 0;
+  mutable bool failed_ = false;
+};
+
+bool CreateXmlLog(const Path& output, const std::vector<Path>& test_logs,
                   const Duration duration, const int exit_code,
                   const DeleteAfterwards delete_afterwards,
                   const MainType main_type) {
@@ -1702,12 +1785,14 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     return true;
   }
 
-  Defer delete_test_outerr([test_outerr, delete_afterwards]() {
+  Defer delete_test_outerr([&test_logs, delete_afterwards]() {
     // Delete the test's outerr file after we have the XML file.
     // We don't care if this succeeds or not, because the outerr file is not a
     // declared output.
     if (delete_afterwards == DeleteAfterwards::kEnabled) {
-      DeleteFileW(test_outerr.Get().c_str());
+      for (const Path& path : test_logs) {
+        DeleteFileW(path.Get().c_str());
+      }
     }
   });
 
@@ -1725,17 +1810,7 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     return false;
   }
 
-  bazel::windows::AutoHandle test_log;
-  if (!OpenExistingFileForRead(test_outerr, &test_log)) {
-    LogError(__LINE__, test_outerr.Get().c_str());
-    return false;
-  }
-
-  std::unique_ptr<IFStream> istm(IFStreamImpl::Create(test_log));
-  if (istm == nullptr) {
-    LogError(__LINE__, test_outerr.Get().c_str());
-    return false;
-  }
+  ConcatenatedLogStream istm(test_logs);
 
   std::ofstream ostm(
       AddUncPrefixMaybe(output).c_str(),
@@ -1763,7 +1838,7 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
   }
 
   // Encode test log to make it embeddable in CDATA.
-  if (!CdataEscape(istm.get(), &ostm)) {
+  if (!CdataEscape(&istm, &ostm)) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
@@ -1966,7 +2041,7 @@ int TestWrapperMain(int argc, wchar_t** argv) {
   Duration test_duration;
   int result = RunSubprocess(executable, args, test_outerr, &test_duration);
   Path annotations_pb;
-  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result,
+  if (!CreateXmlLog(xml_log, {test_outerr}, test_duration, result,
                     DeleteAfterwards::kEnabled, MainType::kTestWrapperMain) ||
       !ArchiveUndeclaredOutputs(undecl) ||
       !CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
@@ -1980,14 +2055,15 @@ int TestWrapperMain(int argc, wchar_t** argv) {
 }
 
 int XmlWriterMain(int argc, wchar_t** argv) {
-  Path cwd, test_outerr, test_xml_log;
+  Path cwd, test_xml_log;
+  std::vector<Path> test_logs;
   Duration duration;
   int exit_code = 0;
 
   if (!GetCwd(&cwd) ||
-      !ParseXmlWriterArgs(argc, argv, cwd, &test_outerr, &test_xml_log,
-                          &duration, &exit_code) ||
-      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code,
+      !ParseXmlWriterArgs(argc, argv, cwd, &test_logs, &test_xml_log, &duration,
+                          &exit_code) ||
+      !CreateXmlLog(test_xml_log, test_logs, duration, exit_code,
                     DeleteAfterwards::kDisabled, MainType::kXmlWriterMain)) {
     return 1;
   }

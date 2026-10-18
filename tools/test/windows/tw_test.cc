@@ -501,6 +501,71 @@ TEST_F(TestWrapperWindowsTest, TestXmlWriterTestcaseHasClassname) {
   EXPECT_LT(xml.find(" classname=\"\"", testcase), xml.find('>', testcase));
 }
 
+// Exercise the public XML writer contract, including byte-for-byte input order.
+void ExpectXmlWriterOutput(const std::vector<std::wstring>& logs,
+                           const std::string& expected) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+  std::wstring test_xml = tmpdir + L"\\test.xml";
+  std::vector<std::wstring> args = {L"xml_writer", logs[0], test_xml, L"1",
+                                    L"0"};
+  args.insert(args.end(), logs.begin() + 1, logs.end());
+  std::vector<wchar_t*> argv;
+  for (auto& arg : args) {
+    argv.push_back(&arg[0]);
+  }
+  ASSERT_EQ(bazel::tools::test_wrapper::XmlWriterMain(argv.size(), argv.data()),
+            0);
+
+  bazel::windows::AutoHandle file(FopenRead(test_xml));
+  ASSERT_TRUE(file.IsValid());
+  char content[4096];
+  DWORD read;
+  ASSERT_TRUE(ReadFile(file, content, sizeof(content), &read, nullptr));
+  EXPECT_NE(std::string(content, read)
+                .find("<system-out><![CDATA[" + expected + "]]></system-out>"),
+            std::string::npos);
+  EXPECT_EQ(GetFileAttributesW((tmpdir + L"\\test.log").c_str()),
+            INVALID_FILE_ATTRIBUTES);
+}
+
+TEST_F(TestWrapperWindowsTest, TestXmlWriterConcatenatesRawLogsBeforeEscaping) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+  std::vector<std::wstring> logs = {
+      tmpdir + L"\\test.out", tmpdir + L"\\coverage.err",
+      tmpdir + L"\\coverage.out", tmpdir + L"\\test.err"};
+  // Both UTF-8 and the CDATA terminator span input boundaries. No newline or
+  // other delimiter may be added while combining the raw files.
+  ASSERT_TRUE(blaze_util::CreateDummyFile(logs[0], "stdout \xe2"));
+  ASSERT_TRUE(blaze_util::CreateDummyFile(logs[1], "\x82\xac coverage err ]"));
+  ASSERT_TRUE(blaze_util::CreateDummyFile(logs[2], "]"));
+  ASSERT_TRUE(blaze_util::CreateDummyFile(logs[3], "> test err"));
+  ExpectXmlWriterOutput(
+      logs, "stdout \xe2\x82\xac coverage err ]]>]]<![CDATA[> test err");
+}
+
+TEST_F(TestWrapperWindowsTest, TestXmlWriterAcceptsStderrWithoutStdout) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+  std::wstring test_err = tmpdir + L"\\test.err";
+  ASSERT_TRUE(blaze_util::CreateDummyFile(test_err, "stderr only"));
+  ExpectXmlWriterOutput(
+      {tmpdir + L"\\missing.out", tmpdir + L"\\missing_coverage.err",
+       tmpdir + L"\\missing_coverage.out", test_err},
+      "stderr only");
+}
+
+TEST_F(TestWrapperWindowsTest, TestXmlWriterAcceptsEmptyAndMissingLogs) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+  std::wstring empty = tmpdir + L"\\empty.err";
+  ASSERT_TRUE(blaze_util::CreateDummyFile(empty, ""));
+  ExpectXmlWriterOutput({tmpdir + L"\\missing.out", empty}, "");
+  // The four-argument contract also works when no output was materialized.
+  ExpectXmlWriterOutput({tmpdir + L"\\missing.out"}, "");
+}
+
 void AssertCdataEncodeBuffer(const wchar_t* wline, const char* input,
                              DWORD size, const char* expected_output) {
   bazel::windows::AutoHandle h(FopenContents(wline, input, size));
