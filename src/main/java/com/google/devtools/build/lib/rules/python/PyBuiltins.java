@@ -27,8 +27,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RepoMappingManifestAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -265,34 +263,6 @@ public abstract class PyBuiltins implements StarlarkValue {
         .getConstantMetadataArtifact(
             ctx.getRuleContext().getPackageDirectory().getRelative(PathFragment.create(name)),
             root);
-  }
-
-  @StarlarkMethod(
-      name = "create_sources_only_manifest",
-      doc = "Create a manifest of the files in runfiles",
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true, defaultValue = "unbound"),
-        @Param(name = "runfiles", positional = false, named = true, defaultValue = "unbound"),
-        @Param(name = "output", positional = false, named = true, defaultValue = "unbound")
-      })
-  public void createRunfilesManifest(
-      StarlarkRuleContext starlarkCtx, Runfiles runfiles, Artifact output) {
-    var ruleContext = starlarkCtx.getRuleContext();
-    ruleContext
-        .getAnalysisEnvironment()
-        .registerAction(
-            new SourceManifestAction(
-                ManifestType.SOURCES_ONLY,
-                ruleContext.getActionOwner(),
-                output,
-                runfiles,
-                /* repoMappingManifest= */ null,
-                ruleContext.getConfiguration().remotableSourceManifestActions(),
-                ruleContext
-                    .getConfiguration()
-                    .getOptions()
-                    .get(CoreOptions.class)
-                    .getPreferDependingConfigurationRunfiles()));
   }
 
   @StarlarkMethod(
