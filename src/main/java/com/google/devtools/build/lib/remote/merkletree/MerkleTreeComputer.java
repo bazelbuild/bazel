@@ -307,8 +307,8 @@ public final class MerkleTreeComputer {
    *     {@code KEEP_AND_REUPLOAD} is used, all blobs in the tree are retained and the resulting
    *     Merkle tree will be a {@link MerkleTree.Uploadable}.
    * @throws LostInputsExecException if inputs to this spawn that are remote-only have been
-   *     discovered to be missing from the remote cache. Action or build rewinding may be able to
-   *     recover from this.
+   *     discovered to be missing from the remote cache. Action rewinding may be able to recover
+   *     from this.
    */
   public MerkleTree buildForSpawn(
       Spawn spawn,

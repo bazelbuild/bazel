@@ -575,14 +575,13 @@ EOF
   bazel clean
   bazel build \
       --remote_cache=http://localhost:${http_port} \
-      --norewind_lost_inputs \
-      --experimental_remote_cache_eviction_retries=1 \
+      --experimental_remote_cache_eviction_retries=0 \
       //a:foo &> $TEST_log \
       || fail "Failed to build //a:foo with remote cache"
 
-  # Assert that AC is ignored because blobs are missing from CAS, and new output
-  # is uploaded to CAS.
-  expect_log '3 processes: 1 internal, 1 \(local\|.*-sandbox\), 1 \(local\|.*-sandbox\)'
+  # Assert that the stale AC entry of 'bar' is hit, but that 'bar' is rewound
+  # to regenerate its lost output and the new output is uploaded to CAS.
+  expect_log '3 processes: 1 remote cache hit, 1 internal, 1 \(local\|.*-sandbox\)'
   remote_cas_files="$(count_remote_cas_files)"
   [[ "$remote_cas_files" == 3 ]] || fail "Expected 3 remote cas entries, not $remote_cas_files"
 }

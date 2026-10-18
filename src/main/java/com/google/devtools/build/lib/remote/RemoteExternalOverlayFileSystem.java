@@ -314,8 +314,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
           filePath,
           // Using the *WithMaterializationData variant ensures that the file benefits from the
           // FileContentsProxy optimization to avoid widespread invalidation when it is
-          // materialized later, even if expiration times aren't relevant (depends on the usage
-          // of the lease extension).
+          // materialized later.
           FileArtifactValue.createForRemoteFileWithMaterializationData(
               DigestUtil.toBinaryDigest(file.getDigest()),
               file.getDigest().getSizeBytes(),

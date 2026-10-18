@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -162,8 +161,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 KeepGoingOption.class,
                 KeepStateAfterBuildOption.class,
                 BuildRequestOptions.class,
-                CoreOptions.class,
-                ExecutionOptions.class)
+                CoreOptions.class)
             .build();
     options.parse();
     inMemoryCache = new InMemoryActionCache();
@@ -564,11 +562,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     @Override
     public synchronized void remove(String key) {
       actionCache.remove(key);
-    }
-
-    @Override
-    public void removeIf(java.util.function.Predicate<Entry> predicate) {
-      actionCache.values().removeIf(predicate);
     }
 
     public synchronized void reset() {

@@ -93,7 +93,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -247,7 +246,6 @@ public final class SkyframeActionExecutor {
   private boolean checkRewoundActionOutputs;
   private int maxRepeatedLostInputs;
   @Nullable private Label bustActionCachesTarget;
-  private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
   private DiscoveredModulesPruner discoveredModulesPruner;
@@ -350,8 +348,6 @@ public final class SkyframeActionExecutor {
     this.checkRewoundActionOutputs = buildRequestOptions.getCheckRewoundActionOutputs();
     this.maxRepeatedLostInputs = buildRequestOptions.getMaxRepeatedLostInputs();
     this.bustActionCachesTarget = buildRequestOptions.getBustActionCachesTarget();
-    this.invocationRetriesEnabled =
-        options.getOptions(ExecutionOptions.class).getRemoteRetryOnTransientCacheError() > 0;
     this.outputService = checkNotNull(outputService);
     this.outputDirectoryHelper = outputDirectoryHelper;
 
@@ -449,10 +445,6 @@ public final class SkyframeActionExecutor {
    */
   public int maxRepeatedLostInputs() {
     return maxRepeatedLostInputs;
-  }
-
-  public boolean invocationRetriesEnabled() {
-    return invocationRetriesEnabled;
   }
 
   InputMetadataProvider getPerBuildFileCache() {

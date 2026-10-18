@@ -199,19 +199,12 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
    * Returns the time when the remote file contents may expire. If the contents never expire,
    * including when they're not remote, returns null.
    *
-   * <p>The expiration time does not factor into equality, as it can be mutated by {@link
-   * #setExpirationTime}.
+   * <p>The expiration time does not factor into equality.
    */
   @Nullable
   public Instant getExpirationTime() {
     return null;
   }
-
-  /**
-   * Sets the expiration time. If this metadata does not support setting the expiration time, does
-   * nothing.
-   */
-  public void setExpirationTime(Instant newExpirationTime) {}
 
   /**
    * Provides a best-effort determination whether the file was changed since the digest was
@@ -817,8 +810,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
 
   /**
    * Metadata for remotely stored files, with the additional ability to store a {@link
-   * #getExpirationTime} modifiable via {@link #setExpirationTime}, and a {@link #getContentsProxy}
-   * modifiable via {@link #setContentsProxy}.
+   * #getExpirationTime}, and a {@link #getContentsProxy} modifiable via {@link #setContentsProxy}.
    *
    * <p>This is used when the output mode allows for late materialization of remote outputs in the
    * local filesystem.
@@ -828,7 +820,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     // These fields represent per-JVM runtime materialization and lease state. They must remain
     // transient so DynamicCodec omits them from serialized Skycache entries, avoiding
     // non-deterministic fingerprints and cross-machine state pollution.
-    private transient long expirationTime;
+    private final transient long expirationTime;
     @Nullable private transient FileContentsProxy proxy;
     private transient boolean materializedAsToplevelOutput;
     private final boolean inMemoryOutput;
@@ -861,11 +853,6 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Nullable
     public Instant getExpirationTime() {
       return fromEpochMilli(expirationTime);
-    }
-
-    @Override
-    public void setExpirationTime(Instant expirationTime) {
-      this.expirationTime = toEpochMilli(expirationTime);
     }
 
     /**
@@ -1057,11 +1044,6 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Nullable
     public Instant getExpirationTime() {
       return delegate.getExpirationTime();
-    }
-
-    @Override
-    public void setExpirationTime(Instant newExpirationTime) {
-      delegate.setExpirationTime(newExpirationTime);
     }
 
     @Override

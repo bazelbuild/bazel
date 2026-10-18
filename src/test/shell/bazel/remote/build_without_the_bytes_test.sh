@@ -2330,7 +2330,7 @@ end_of_record"
   expect_log "log {     name: \"baseline_report.lcov\"     uri: \"bytestream://[^\"]*/${baseline_report_sha}/[^\"]*\""
 }
 
-function test_remote_cache_eviction_retries() {
+function test_lost_input_rewound() {
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
@@ -2378,27 +2378,16 @@ EOF
   echo "updated bar" > a/bar.in
 
   # Incremental build triggers remote cache eviction error but Bazel
-  # automatically retries the build and reruns the generating actions for
-  # missing blobs
+  # automatically reruns the generating actions for missing blobs within the
+  # same build
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
-      --norewind_lost_inputs \
-      --experimental_remote_cache_eviction_retries=1 \
+      --experimental_remote_cache_eviction_retries=0 \
       //a:bar >& $TEST_log || fail "Failed to build"
-
-  expect_log "Lost inputs no longer available remotely: a/foo.out (.*/4)"
-  expect_log "Found transient remote cache error, retrying the build..."
-
-  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
-  local first_id=$(echo "$invocation_ids" | head -n 1)
-  local second_id=$(echo "$invocation_ids" | tail -n 1)
-  if [ "$first_id" == "$second_id" ]; then
-    fail "Invocation IDs are the same"
-  fi
 }
 
-function test_retry_build_if_remote_executor_is_unavailable() {
+function test_lost_input_rewound_if_remote_executor_is_unavailable() {
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
@@ -2445,20 +2434,17 @@ EOF
 
   echo "updated bar" > a/bar.in
 
-  # Incremental build triggers remote cache error but Bazel automatically retries the build and reruns the generating
-  # actions locally for missing blobs
+  # Incremental build triggers remote cache error but Bazel automatically reruns the generating actions locally for
+  # missing blobs within the same build
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_local_fallback \
       --remote_download_minimal \
-      --norewind_lost_inputs \
-      --experimental_remote_cache_eviction_retries=1 \
+      --experimental_remote_cache_eviction_retries=0 \
       //a:bar >& $TEST_log || fail "Failed to build"
-
-  expect_log "Found transient remote cache error, retrying the build..."
 }
 
-function test_remote_cache_eviction_retries_toplevel_artifacts() {
+function test_lost_toplevel_artifacts_rewound() {
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
@@ -2501,13 +2487,12 @@ EOF
   start_worker
 
   # Incremental build triggers remote cache eviction error but Bazel
-  # automatically retries the build and reruns the generating actions for
-  # missing blobs
+  # automatically reruns the generating actions for missing blobs within the
+  # same build
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_toplevel \
-      --norewind_lost_inputs \
-      --experimental_remote_cache_eviction_retries=1 \
+      --experimental_remote_cache_eviction_retries=0 \
       //a:foo >& $TEST_log || fail "Failed to build"
 
   if [[ ! -f bazel-bin/a/foo1.out ]]; then
@@ -2516,19 +2501,9 @@ EOF
   if [[ ! -f bazel-bin/a/foo2.out ]]; then
     fail "Expected top-level output bazel-bin/a/foo2.out to be downloaded"
   fi
-
-  expect_log "Lost outputs no longer available remotely: a/foo1.out (.*/4), a/foo2.out (.*/8)"
-  expect_log "Found transient remote cache error, retrying the build..."
-
-  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
-  local first_id=$(echo "$invocation_ids" | head -n 1)
-  local second_id=$(echo "$invocation_ids" | tail -n 1)
-  if [ "$first_id" == "$second_id" ]; then
-    fail "Invocation IDs are the same"
-  fi
 }
 
-function test_remote_cache_eviction_retries_jdeps() {
+function test_lost_jdeps_rewound() {
   add_rules_java "MODULE.bazel"
   mkdir -p a
 
@@ -2593,165 +2568,13 @@ public class Binary {
 EOF
 
   # Incremental build triggers remote cache eviction error but Bazel
-  # automatically retries the build and reruns the generating actions for
-  # missing blobs
+  # automatically reruns the generating actions for missing blobs within the
+  # same build
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
-      --norewind_lost_inputs \
-      --experimental_remote_cache_eviction_retries=1 \
+      --experimental_remote_cache_eviction_retries=0 \
       //a:bin >& $TEST_log || fail "Failed to build"
-
-  expect_log "Lost inputs no longer available remotely: a/liblib-hjar.jdeps (.*)"
-  expect_log "Found transient remote cache error, retrying the build..."
-
-  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
-  local first_id=$(echo "$invocation_ids" | head -n 1)
-  local second_id=$(echo "$invocation_ids" | tail -n 1)
-  if [ "$first_id" == "$second_id" ]; then
-    fail "Invocation IDs are the same"
-  fi
-}
-
-function test_remote_cache_eviction_retries_with_fixed_invocation_id() {
-  mkdir -p a
-
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = 'foo',
-  srcs = ['foo.in'],
-  outs = ['foo.out'],
-  cmd = 'cat $(SRCS) > $@',
-)
-
-genrule(
-  name = 'bar',
-  srcs = ['foo.out', 'bar.in'],
-  outs = ['bar.out'],
-  cmd = 'cat $(SRCS) > $@',
-  tags = ['no-remote-exec'],
-)
-EOF
-
-  echo foo > a/foo.in
-  echo bar > a/bar.in
-
-  # Populate remote cache
-  bazel build \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --remote_download_minimal \
-      //a:bar >& $TEST_log || fail "Failed to build"
-
-  bazel clean
-
-  # Clean build, foo.out isn't downloaded
-  bazel build \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --remote_download_minimal \
-      //a:bar >& $TEST_log || fail "Failed to build"
-
-  if [[ -f bazel-bin/a/foo.out ]]; then
-    fail "Expected intermediate output bazel-bin/a/foo.out to not be downloaded"
-  fi
-
-  # Evict blobs from remote cache
-  stop_worker
-  start_worker
-
-  echo "updated bar" > a/bar.in
-
-  # Incremental build triggers remote cache eviction error and Bazel retries
-  # the build with a new invocation ID
-  bazel build \
-      --invocation_id=91648f28-6081-4af7-9374-cdfd3cd36ef2 \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --remote_download_minimal \
-      --norewind_lost_inputs \
-      --experimental_remote_cache_eviction_retries=1 \
-      --build_event_text_file=bes.txt \
-      //a:bar >& $TEST_log || fail "Failed to build"
-
-  expect_log "Lost inputs no longer available remotely: a/foo.out (.*/4)"
-  expect_log "Found transient remote cache error, retrying the build..."
-
-  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
-  local first_id=$(echo "$invocation_ids" | head -n 1)
-  if [[ "$first_id" != *"Invocation ID: 91648f28-6081-4af7-9374-cdfd3cd36ef2" ]]; then
-    fail "Expected fixed invocation ID to be preserved for the first invocation, got: $first_id"
-  fi
-  local second_id=$(echo "$invocation_ids" | tail -n 1)
-  if [[ "$second_id" == "$first_id" ]]; then
-    fail "Expected second invocation ID to be different from the fixed invocation ID"
-  fi
-
-  cat bes.txt | tr '\n' ' ' > $TEST_log
-  expect_log "uuid: \"${second_id#INFO: Invocation ID: }\""
-}
-
-function test_remote_cache_eviction_retries_preserve_grpc_log() {
-  mkdir -p a
-
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = 'foo',
-  srcs = ['foo.in'],
-  outs = ['foo.out'],
-  cmd = 'cat $(SRCS) > $@',
-)
-
-genrule(
-  name = 'bar',
-  srcs = ['foo.out', 'bar.in'],
-  outs = ['bar.out'],
-  cmd = 'cat $(SRCS) > $@',
-  tags = ['no-remote-exec'],
-)
-EOF
-
-  echo foo > a/foo.in
-  echo bar > a/bar.in
-
-  # Populate remote cache
-  bazel build \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --remote_download_minimal \
-      //a:bar >& $TEST_log || fail "Failed to build"
-
-  bazel clean
-
-  # Clean build, foo.out isn't downloaded
-  bazel build \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --remote_download_minimal \
-      //a:bar >& $TEST_log || fail "Failed to build"
-
-  # Evict blobs from remote cache
-  stop_worker
-  start_worker
-
-  echo "updated bar" > a/bar.in
-
-  # Incremental build triggers remote cache eviction error and Bazel retries the
-  # build in-process. The gRPC log of the attempt that hit the eviction must be
-  # preserved rather than truncated when the retry reopens the log.
-  bazel build \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --remote_download_minimal \
-      --norewind_lost_inputs \
-      --experimental_remote_cache_eviction_retries=1 \
-      --remote_grpc_log=grpc.log \
-      //a:bar >& $TEST_log || fail "Failed to build"
-
-  expect_log "Found transient remote cache error, retrying the build..."
-
-  # The retry renames the first attempt's log to grpc.log.1 and writes the second
-  # attempt's log at the base path, so both attempts are available for debugging.
-  [[ -f grpc.log.1 ]] \
-      || fail "Expected first attempt's gRPC log to be preserved as grpc.log.1"
-  [[ -s grpc.log.1 ]] \
-      || fail "Expected preserved gRPC log grpc.log.1 to be non-empty"
-  [[ -f grpc.log ]] \
-      || fail "Expected second attempt's gRPC log to be written to grpc.log"
 }
 
 function test_download_toplevel_symlinks_runfiles() {

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -58,7 +56,6 @@ public class RemoteOutputService implements OutputService {
 
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
-  @Nullable private LeaseService leaseService;
 
   RemoteOutputService(BlazeDirectories directories, boolean rewindLostInputs) {
     this.directories = checkNotNull(directories);
@@ -75,10 +72,6 @@ public class RemoteOutputService implements OutputService {
       this.rewoundActionSynchronizer =
           new RemoteRewoundActionSynchronizer(actionInputFetcher, graph);
     }
-  }
-
-  void setLeaseService(LeaseService leaseService) {
-    this.leaseService = leaseService;
   }
 
   @Override
@@ -159,22 +152,11 @@ public class RemoteOutputService implements OutputService {
     // Intentionally left empty.
   }
 
-  @Subscribe
-  public void onExecutionPhaseCompleteEvent(ExecutionPhaseCompleteEvent event) {
-    if (leaseService != null) {
-      leaseService.finalizeExecution();
-    }
-  }
-
   @Override
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, InterruptedException {
     if (actionInputFetcher != null) {
       actionInputFetcher.finalizeAction(action, outputMetadataStore);
-    }
-
-    if (leaseService != null) {
-      leaseService.finalizeAction();
     }
   }
 

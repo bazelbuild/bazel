@@ -99,7 +99,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
@@ -207,7 +206,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
               BuildLanguageOptions.class,
               BuildRequestOptions.class,
               CoreOptions.class,
-              ExecutionOptions.class,
               KeepStateAfterBuildOption.class,
               KeepGoingOption.class,
               PackageOptions.class,

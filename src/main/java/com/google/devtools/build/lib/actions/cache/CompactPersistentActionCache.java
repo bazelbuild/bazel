@@ -59,7 +59,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -623,28 +622,6 @@ public class CompactPersistentActionCache implements ActionCache {
     if (index != null) {
       actionMap.remove(index);
       timestampMap.remove(index);
-    }
-  }
-
-  @Override
-  public void removeIf(Predicate<Entry> predicate) {
-    // Be careful not to cause the timestamp to be updated on kept entries (i.e., don't use get()).
-    for (Map.Entry<Integer, byte[]> entry : actionMap.entrySet()) {
-      if (entry.getKey() == VALIDATION_KEY) {
-        // Skip the validation record.
-        continue;
-      }
-      ActionCache.Entry decodedEntry = decode(entry.getValue());
-      if (decodedEntry.isCorrupted()) {
-        // Skip corrupted entries.
-        continue;
-      }
-      if (predicate.test(decodedEntry)) {
-        // Although this is racy (the key might be concurrently set to a different value), we don't
-        // care because it's a very small window and it only impacts performance, not correctness.
-        actionMap.remove(entry.getKey());
-        timestampMap.remove(entry.getKey());
-      }
     }
   }
 
