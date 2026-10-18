@@ -31,7 +31,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -65,10 +64,13 @@ import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.ObjLongConsumer;
 import javax.annotation.Nullable;
 
 /** A {@link CombinedCache} with additional functionality needed for remote execution. */
@@ -91,7 +93,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
    * until explicitly invalidated, but a "missing" result is invalidated as soon as the triggered
    * upload attempt terminates.
    */
-  private final AsyncTaskCache<Digest, Boolean> findMissingCache = AsyncTaskCache.create();
+  private final AsyncTaskCache<BlobKey, Boolean> findMissingCache = AsyncTaskCache.create();
 
   private RemotePathChecker remotePathChecker =
       new RemotePathChecker() {
@@ -282,43 +284,80 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
     Completable completion;
   }
 
+  /**
+   * The key of {@link #findMissingCache}, which is cheaper to retain than a {@link Digest} with its
+   * hex string. The hash array may be shared with a {@link
+   * com.google.devtools.build.lib.actions.FileArtifactValue} and must not be modified.
+   */
+  private record BlobKey(@SuppressWarnings("ArrayRecordComponent") byte[] hash, long size) {
+    Digest toDigest() {
+      return DigestUtil.buildDigest(hash, size);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof BlobKey other && size == other.size && Arrays.equals(hash, other.hash);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(hash);
+    }
+  }
+
   private Single<List<UploadTask>> createUploadTasks(
       RemoteActionExecutionContext context,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
       boolean force) {
-    var allDigests = Iterables.concat(merkleTree.allDigests(), additionalInputs.keySet());
-    if (Iterables.isEmpty(allDigests)) {
-      return Single.just(ImmutableList.of());
-    }
     return Single.using(
         () -> Profiler.instance().profile("collect digests"),
         ignored ->
-            Flowable.fromIterable(allDigests)
+            Flowable.fromIterable(collectBlobKeysToCheck(merkleTree, additionalInputs, force))
                 .flatMapMaybe(
-                    digest ->
-                        maybeCreateUploadTask(context, merkleTree, additionalInputs, digest, force))
+                    key -> maybeCreateUploadTask(context, merkleTree, additionalInputs, key, force))
                 .collect(toImmutableList()),
         SilentCloseable::close);
+  }
+
+  /**
+   * Returns the keys of all blobs that aren't known to be present. Blobs known to be present are
+   * skipped as their upload tasks would be retained until all other blobs have been uploaded.
+   */
+  private List<BlobKey> collectBlobKeysToCheck(
+      MerkleTree.Uploadable merkleTree, Map<Digest, Message> additionalInputs, boolean force) {
+    var keys = new ArrayList<BlobKey>();
+    ObjLongConsumer<byte[]> addUnlessKnownPresent =
+        (hash, size) -> {
+          var key = new BlobKey(hash, size);
+          if (force || !Boolean.FALSE.equals(findMissingCache.getFinished(key))) {
+            keys.add(key);
+          }
+        };
+    merkleTree.forEachBlob(addUnlessKnownPresent);
+    for (Digest digest : additionalInputs.keySet()) {
+      addUnlessKnownPresent.accept(DigestUtil.toBinaryDigest(digest), digest.getSizeBytes());
+    }
+    return keys;
   }
 
   private Maybe<UploadTask> maybeCreateUploadTask(
       RemoteActionExecutionContext context,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
-      Digest digest,
+      BlobKey key,
       boolean force) {
     return Maybe.create(
         emitter -> {
           AsyncSubject<Void> completion = AsyncSubject.create();
           UploadTask uploadTask = new UploadTask();
-          uploadTask.digest = digest;
+          uploadTask.digest = key.toDigest();
           uploadTask.disposable = new AtomicReference<>();
           uploadTask.completion = Completable.fromObservable(completion);
           Completable upload =
               findMissingCache
                   .execute(
-                      digest,
+                      key,
                       Single.<Boolean>create(
                           continuation -> {
                             uploadTask.continuation = continuation;
@@ -359,8 +398,8 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                             // ensureInputsPresent invocation) skip both findMissingDigests and
                             // the upload path. On failure, invalidate so a subsequent caller
                             // (e.g., after action rewinding) re-queries the remote.
-                            .doOnComplete(() -> findMissingCache.put(digest, false))
-                            .doOnError(t -> findMissingCache.invalidate(digest));
+                            .doOnComplete(() -> findMissingCache.put(key, false))
+                            .doOnError(t -> findMissingCache.invalidate(key));
                       });
           upload.subscribe(
               new CompletableObserver() {
