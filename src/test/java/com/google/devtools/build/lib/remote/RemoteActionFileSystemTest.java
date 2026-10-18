@@ -36,6 +36,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
@@ -47,6 +49,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -67,6 +70,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -203,6 +207,72 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             eq(Priority.CRITICAL),
             eq(Reason.INPUTS));
     verifyNoMoreInteractions(inputFetcher);
+  }
+
+  @Test
+  public void readInjectedOutput_notOnActionInputs(@TestParameter boolean throughSymlink)
+      throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment path = getOutputPath("test.out");
+    FileArtifactValue metadata = injectRemoteFile(actionFs, path, "remote stdout");
+    ActionInput input = ActionInputHelper.fromPath(path.relativeTo(execRoot.asFragment()));
+    doAnswer(
+            invocation -> {
+              InputMetadataProvider provider = invocation.getArgument(3);
+              assertThat(provider.getInputMetadata(input)).isEqualTo(metadata);
+              FileSystemUtils.writeContent(fs.getPath(path), UTF_8, "remote stdout");
+              return immediateVoidFuture();
+            })
+        .when(inputFetcher)
+        .prefetchFiles(any(), any(), any(), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
+    Path readPath = actionFs.getPath(path);
+    if (throughSymlink) {
+      Path link = actionFs.getPath(getOutputPath("log-link"));
+      link.createSymbolicLink(path);
+      readPath = link;
+    }
+
+    assertThat(fs.getPath(path).exists()).isFalse();
+    assertThat(FileSystemUtils.readContent(readPath, UTF_8)).isEqualTo("remote stdout");
+  }
+
+  @Test
+  public void appendInjectedOutput_preservesPrefixAndUpdatesMetadata() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment path = getOutputPath("test.out");
+    injectRemoteFile(actionFs, path, "stdout prefix");
+    doAnswer(
+            invocation -> {
+              FileSystemUtils.writeContent(fs.getPath(path), UTF_8, "stdout prefix");
+              fs.getPath(path).setWritable(false);
+              return immediateVoidFuture();
+            })
+        .when(inputFetcher)
+        .prefetchFiles(any(), any(), any(), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
+
+    Path output = actionFs.getPath(path);
+    try (OutputStream stream = output.getOutputStream(/* append= */ true)) {
+      stream.write(" stderr suffix".getBytes(UTF_8));
+    }
+
+    assertThat(FileSystemUtils.readContent(output, UTF_8)).isEqualTo("stdout prefix stderr suffix");
+    assertThat(output.getFileSize()).isEqualTo(27);
+    assertThat(output.getDigest()).isEqualTo(fs.getPath(path).getDigest());
+    assertThat(actionFs.isRemote(output)).isFalse();
+  }
+
+  @Test
+  public void truncateInjectedOutput_doesNotFetchDiscardedBytes() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment path = getOutputPath("test.out");
+    injectRemoteFile(actionFs, path, "discarded stdout");
+    Path output = actionFs.getPath(path);
+    FileSystemUtils.writeContent(output, UTF_8, "replacement");
+
+    assertThat(FileSystemUtils.readContent(output, UTF_8)).isEqualTo("replacement");
+    assertThat(output.getFileSize()).isEqualTo(11);
+    assertThat(actionFs.isRemote(output)).isFalse();
+    verify(inputFetcher, never()).prefetchFiles(any(), any(), any(), any(), any(), any());
   }
 
   @Test

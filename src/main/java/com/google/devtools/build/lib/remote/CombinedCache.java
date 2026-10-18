@@ -904,6 +904,16 @@ public class CombinedCache extends AbstractReferenceCounted {
       ActionResult result,
       OutErr outErr,
       boolean downloadStdout) {
+    return downloadOutErr(context, result, outErr, downloadStdout, /* downloadStderr= */ true);
+  }
+
+  /** Downloads only the selected stdout/stderr streams of an executed action. */
+  public final List<ListenableFuture<Void>> downloadOutErr(
+      RemoteActionExecutionContext context,
+      ActionResult result,
+      OutErr outErr,
+      boolean downloadStdout,
+      boolean downloadStderr) {
     List<ListenableFuture<Void>> downloads = new ArrayList<>();
     if (downloadStdout) {
       if (!result.getStdoutRaw().isEmpty()) {
@@ -923,21 +933,23 @@ public class CombinedCache extends AbstractReferenceCounted {
                 outErr.getOutputStream()));
       }
     }
-    if (!result.getStderrRaw().isEmpty()) {
-      try {
-        result.getStderrRaw().writeTo(outErr.getErrorStream());
-        outErr.getErrorStream().flush();
-      } catch (IOException e) {
-        downloads.add(Futures.immediateFailedFuture(e));
+    if (downloadStderr) {
+      if (!result.getStderrRaw().isEmpty()) {
+        try {
+          result.getStderrRaw().writeTo(outErr.getErrorStream());
+          outErr.getErrorStream().flush();
+        } catch (IOException e) {
+          downloads.add(Futures.immediateFailedFuture(e));
+        }
+      } else if (result.hasStderrDigest()) {
+        downloads.add(
+            downloadBlob(
+                context,
+                /* blobName= */ "<stderr>",
+                /* execPath= */ null,
+                result.getStderrDigest(),
+                outErr.getErrorStream()));
       }
-    } else if (result.hasStderrDigest()) {
-      downloads.add(
-          downloadBlob(
-              context,
-              /* blobName= */ "<stderr>",
-              /* execPath= */ null,
-              result.getStderrDigest(),
-              outErr.getErrorStream()));
     }
     return downloads;
   }
