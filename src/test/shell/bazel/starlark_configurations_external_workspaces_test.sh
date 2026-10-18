@@ -417,4 +417,55 @@ EOF
   expect_not_log "No repository visible as '@sub'"
 }
 
+function test_bzl_module_flag_alias_in_rc_file() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<EOF
+flag_alias(name = "myflag", starlark_flag = "//:my_flag")
+EOF
+
+  cat > $pkg/rules.bzl <<EOF
+BuildSettingInfo = provider(fields = ['value'])
+
+my_flag = rule(
+    implementation = lambda ctx: BuildSettingInfo(value = ctx.build_setting_value),
+    build_setting = config.string(flag = True),
+)
+
+def _flag_reader_impl(ctx):
+    print("flag value: " + ctx.attr._flag[BuildSettingInfo].value)
+    return []
+
+flag_reader = rule(
+    implementation = _flag_reader_impl,
+    attrs = {
+        "_flag": attr.label(default = "//:my_flag"),
+    },
+)
+EOF
+
+  cat > $pkg/BUILD <<EOF
+load(":rules.bzl", "flag_reader", "my_flag")
+my_flag(name = "my_flag", build_setting_default = "default_value")
+flag_reader(name = "reader")
+EOF
+
+  echo "common --myflag=rc_value" > $pkg/.bazelrc
+  cd $pkg
+
+  # Commands that don't create a configuration don't know the alias, but must
+  # not fail on it.
+  bazel query //:reader >& "$TEST_log" || fail "Expected success"
+  bazel info release >& "$TEST_log" || fail "Expected success"
+  bazel info --myflag=command_line_value release >& "$TEST_log" \
+      && fail "Expected failure"
+  expect_log "Unrecognized option: --myflag=command_line_value"
+
+  bazel info --myflag=command_line_value bazel-bin >& "$TEST_log" \
+      || fail "Expected success"
+  bazel build //:reader >& "$TEST_log" || fail "Expected success"
+  expect_log "flag value: rc_value"
+}
+
 run_suite "${PRODUCT_NAME} starlark configurations tests"
