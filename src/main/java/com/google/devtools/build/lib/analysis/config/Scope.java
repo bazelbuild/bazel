@@ -52,7 +52,7 @@ public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefiniti
      *
      * <p>Platforms are compared by the labels in {@code --platforms}, so an alias of a platform
      * counts as a different platform. The flag also resets on exec transitions, where the exec
-     * platform's {@code flags} apply instead.
+     * platform's {@code flags} apply instead. Such flags can't set {@code on_leave_scope}.
      */
     public static final String PLATFORM = "platform";
 
