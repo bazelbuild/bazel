@@ -82,7 +82,8 @@ file. For more details, see the [global bazelrc section](#global-bazelrc).
 Like all UNIX "rc" files, the `.bazelrc` file is a text file with a line-based
 grammar. Empty lines and lines starting with `#` (comments) are ignored. Each
 line contains a sequence of words, which are tokenized according to the same
-rules as the Bourne shell.
+rules as the Bourne shell. Backslashes within single quotes are preserved
+literally and do not escape the following character.
 
 #### Imports {#imports}
 
