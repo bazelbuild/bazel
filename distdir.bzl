@@ -77,6 +77,7 @@ def _repo_cache_tar_impl(ctx):
         else:
             fail("Could not find integrity or sha256 hash for artifact %s" % url)
 
+    ctx.delete("./tempfile")
     ctx.file("README.md", readme_content)
     ctx.file(
         "BUILD",
@@ -87,10 +88,18 @@ def _repo_cache_tar_impl(ctx):
         ),
     )
 
+    if ctx.attr.reproducible:
+        return ctx.repo_metadata(reproducible = True)
+    return None
+
 _repo_cache_tar_attrs = {
     "lockfiles": attr.label_list(),
     "dirname": attr.string(default = "repository_cache"),
     "repos": attr.string_list(),
+    # Repos that are fetched for the side effect of populating the repository cache, e.g. for use by
+    # integration tests, must not be reproducible as they may then be served from a cache without
+    # downloading anything.
+    "reproducible": attr.bool(default = False),
 }
 
 repo_cache_tar = repository_rule(

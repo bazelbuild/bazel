@@ -35,6 +35,7 @@ def _bazel_build_deps(ctx):
             "//:MODULE.bazel.lock",
             "//src/test/tools/bzlmod:MODULE.bazel.lock",
         ],
+        reproducible = True,
     )
     BAZEL_TOOLS_DEPS_REPOS = parse_bazel_module_repos(ctx, ctx.path(Label("//src/test/tools/bzlmod:MODULE.bazel.lock")))
     repo_cache_tar(
