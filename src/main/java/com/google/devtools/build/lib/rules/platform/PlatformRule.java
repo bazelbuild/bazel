@@ -219,9 +219,10 @@ platform(
 
 <p>
   To avoid this for a Starlark flag, define it with <code>scope = "platform"</code>. Such a flag
-  is reset to its default value whenever a transition changes the target platform, unless that
-  transition sets the flag itself. Platforms are compared by label, so an <code>alias</code> of a
-  platform counts as a different platform.
+  is reset to its default value whenever a transition changes the target platform, unless the
+  flag is one of the transition's outputs. In that case, the value returned by the transition is
+  used instead, even if it is the value the flag had before the transition. Platforms are compared
+  by label, so an <code>alias</code> of a platform counts as a different platform.
 </p>
 
 <h4 id=platform_flags_repeated>Platforms and Repeatable Flags</h4>
