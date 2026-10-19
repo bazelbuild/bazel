@@ -2414,7 +2414,7 @@ func(
    * @param materialize whether the repo containing the file has to be available on the native file
    *     system
    */
-  private StarlarkPath getPathFromLabel(Label label, boolean materialize)
+  protected StarlarkPath getPathFromLabel(Label label, boolean materialize)
       throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {

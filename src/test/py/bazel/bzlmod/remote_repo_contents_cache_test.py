@@ -2728,7 +2728,7 @@ class RemoteRepoContentsCacheTest(
     )
 
 
-  def testReadOfLabelDoesNotMaterializeRepo(self):
+  def testReadOrTemplateOfLabelDoesNotMaterializeRepo(self):
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -2752,6 +2752,10 @@ class RemoteRepoContentsCacheTest(
             'def _reader_impl(rctx):',
             '  rctx.file("BUILD", "exports_files([\'copy.txt\'])")',
             '  rctx.file("copy.txt", rctx.read(rctx.attr.data))',
+            (
+                '  rctx.template("expanded.txt", rctx.attr.data,'
+                ' {"hello": "goodbye"})'
+            ),
             'reader = repository_rule(',
             '  _reader_impl,',
             '  attrs = {"data": attr.label()},',
@@ -2765,13 +2769,15 @@ class RemoteRepoContentsCacheTest(
     _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
-    # After expunging: cached. Reading a file of the repo through its label
-    # doesn't require the other files of the repo.
+    # After expunging: cached. Reading a file of the repo through its label,
+    # also as a template, doesn't require the other files of the repo.
     self.RunBazel(['clean', '--expunge'])
     _, _, stderr = self.RunBazel(['build', '@reader//:copy.txt'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     with open(os.path.join(reader_dir, 'copy.txt')) as f:
       self.assertEqual(f.read(), 'hello')
+    with open(os.path.join(reader_dir, 'expanded.txt')) as f:
+      self.assertEqual(f.read(), 'goodbye')
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'other.txt')))
 
 if __name__ == '__main__':
