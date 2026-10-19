@@ -74,6 +74,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -953,6 +954,7 @@ public final class ActionRewindStrategy {
 
     Map<ActionLookupData, ActionAnalysisMetadata> actions =
         Maps.newHashMapWithExpectedSize(actionExecutionDeps.size());
+    Map<ActionLookupData, ActionAnalysisMetadata> skippedActions = new HashMap<>();
     boolean missingAction = false;
     for (ActionLookupData dep : actionExecutionDeps) {
       ActionAnalysisMetadata actionAnalysisMetadata = getActionAnalysisMetadata(env, dep);
@@ -967,10 +969,18 @@ public final class ActionRewindStrategy {
           || actionAnalysisMetadata.getOutputs().stream()
               .anyMatch(lostInputsAndTransitiveOwners::contains)) {
         actions.put(dep, actionAnalysisMetadata);
+      } else {
+        skippedActions.put(dep, actionAnalysisMetadata);
       }
     }
     if (missingAction) {
       return null;
+    }
+    if (actions.size() == 1 && !skippedActions.isEmpty()) {
+      // No action of the expansion outputs a lost input, so the lost inputs don't identify the
+      // files of the tree artifact, e.g. because they are files of a symlink to it. Rewinding only
+      // the template wouldn't recreate any of them, so keep all actions.
+      actions.putAll(skippedActions);
     }
     return actions;
   }
