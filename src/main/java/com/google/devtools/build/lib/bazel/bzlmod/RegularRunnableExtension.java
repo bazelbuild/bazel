@@ -289,7 +289,7 @@ final class RegularRunnableExtension implements RunnableExtension {
               SymbolGenerator.create(extensionId));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       threadContext.storeInThread(thread);
-      moduleContext.storeRepoMappingRecorderInThread(thread);
+      moduleContext.attachToThread(thread);
       try (SilentCloseable c =
           Profiler.instance()
               .profile(ProfilerTask.BZLMOD, () -> "evaluate module extension: " + extensionId)) {

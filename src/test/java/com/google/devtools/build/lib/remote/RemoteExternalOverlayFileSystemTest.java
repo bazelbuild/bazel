@@ -69,12 +69,12 @@ public final class RemoteExternalOverlayFileSystemTest {
               unused -> {
                 // Finish another caller after the presence check but before task submission.
                 if (calls.incrementAndGet() == 2) {
-                  overlay.ensureMaterialized(repo, reporter);
+                  overlay.ensureMaterialized(repo, /* location= */ null, reporter);
                 }
                 return repo.getName();
               });
 
-      overlay.ensureMaterialized(delayedRepo, reporter);
+      overlay.ensureMaterialized(delayedRepo, /* location= */ null, reporter);
 
       assertThat(
               FileSystemUtils.readContent(

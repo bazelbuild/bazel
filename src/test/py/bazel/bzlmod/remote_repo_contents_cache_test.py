@@ -1402,7 +1402,12 @@ class RemoteRepoContentsCacheTest(
     # and then fully materialized because other accesses it.
     self.RunBazel(['clean', '--expunge'])
     _, _, stderr = self.RunBazel(['build', '@other//:haha'])
-    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertIn(
+        'other_repo.bzl:2:41: Materializing remote repo @@+repo+my_repo',
+        stderr,
+    )
     full_layout = snapshot()
 
     # Lazy action-input materialization: my_repo is restored from the cache into
@@ -2714,7 +2719,10 @@ class RemoteRepoContentsCacheTest(
     # Fully materialize my_repo onto the local disk by fetching @other, which
     # reads one of its files.
     _, _, stderr = self.RunBazel(['build', '--nobuild', '@other//:haha'])
-    self.assertIn('Materializing remote repo', '\n'.join(stderr))
+    self.assertIn(
+        'other_repo.bzl:3:49: Materializing remote repo @@+repo+my_repo',
+        '\n'.join(stderr),
+    )
 
     # Nothing has changed for //main:use_data, so nothing is reloaded or
     # analyzed again.

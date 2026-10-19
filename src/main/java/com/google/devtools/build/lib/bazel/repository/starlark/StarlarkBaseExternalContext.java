@@ -168,6 +168,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private final ExecutorService executorService;
 
   private boolean wasSuccessful = false;
+  // The thread that evaluates the repo rule or module extension.
+  @Nullable private StarlarkThread thread;
 
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
@@ -236,8 +238,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
   }
 
-  public void storeRepoMappingRecorderInThread(StarlarkThread thread) {
+  /** Sets up the thread that evaluates the repo rule or module extension with this context. */
+  public void attachToThread(StarlarkThread thread) {
     repoMappingRecorder.storeInThread(thread);
+    this.thread = thread;
   }
 
   /**
@@ -2422,7 +2426,10 @@ func(
         && directories.getOutputBase().getFileSystem()
             instanceof LazyMaterializer lazyMaterializer) {
       try {
-        lazyMaterializer.ensureMaterialized(label.getRepository(), env.getListener());
+        lazyMaterializer.ensureMaterialized(
+            label.getRepository(),
+            thread != null ? thread.getCallerLocation() : null,
+            env.getListener());
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
