@@ -42,6 +42,8 @@ def _bazel_build_deps(ctx):
         name = "bazel_tools_repo_cache",
         repos = BAZEL_TOOLS_DEPS_REPOS,
         lockfiles = ["//src/test/tools/bzlmod:MODULE.bazel.lock"],
+        # Integration tests rely on this repo's fetch populating the repository cache, which
+        # wouldn't happen if it were served from a cache.
         reproducible = False,
     )
     graalvm_repository(

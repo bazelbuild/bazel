@@ -94,9 +94,6 @@ _repo_cache_tar_attrs = {
     "lockfiles": attr.label_list(),
     "dirname": attr.string(default = "repository_cache"),
     "repos": attr.string_list(),
-    # Repos that are fetched for the side effect of populating the repository cache, e.g. for use by
-    # integration tests, must not be reproducible as they may then be served from a cache without
-    # downloading anything.
     "reproducible": attr.bool(mandatory = True),
 }
 
