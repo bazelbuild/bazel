@@ -118,6 +118,11 @@ public class InMemoryCacheClient extends RemoteCacheClient {
   }
 
   @Override
+  public ListenableFuture<ServerCapabilities> serverCapabilities() {
+    return Futures.immediateFuture(getServerCapabilities());
+  }
+
+  @Override
   public ListenableFuture<String> getAuthority() {
     return Futures.immediateFuture("");
   }

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.MaybePathBacked;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -46,25 +47,19 @@ public class ChunkedBlobDownloader {
   // stack below it, which is what bounds active remote RPC concurrency across blobs.
   private static final int MAX_IN_FLIGHT_CHUNK_DOWNLOADS = 16;
 
-  private final GrpcCacheClient grpcCacheClient;
+  private final RemoteCacheClient remoteCacheClient;
   private final CombinedCache combinedCache;
-  private final DigestUtil digestUtil;
   private final ChunkingFunction.Value chunkingFunction;
-  private final boolean verifyDownloads;
   private final ChunkLocationMap chunkLocationMap;
 
   public ChunkedBlobDownloader(
-      GrpcCacheClient grpcCacheClient,
+      RemoteCacheClient remoteCacheClient,
       CombinedCache combinedCache,
       ChunkingConfig chunkingConfig,
-      DigestUtil digestUtil,
-      boolean verifyDownloads,
       ChunkLocationMap chunkLocationMap) {
-    this.grpcCacheClient = grpcCacheClient;
+    this.remoteCacheClient = remoteCacheClient;
     this.combinedCache = combinedCache;
-    this.digestUtil = digestUtil;
     this.chunkingFunction = chunkingConfig.chunkingFunction();
-    this.verifyDownloads = verifyDownloads;
     this.chunkLocationMap = chunkLocationMap;
   }
 
@@ -85,8 +80,8 @@ public class ChunkedBlobDownloader {
       finalDestination = pathBacked.maybeGetFinalPath();
     }
     @Nullable DigestOutputStream digestOut = null;
-    if (verifyDownloads) {
-      digestOut = digestUtil.newDigestOutputStream(out);
+    if (remoteCacheClient.shouldVerifyDownloads()) {
+      digestOut = combinedCache.digestUtil().newDigestOutputStream(out);
       out = digestOut;
     }
 
@@ -115,7 +110,7 @@ public class ChunkedBlobDownloader {
       return List.of();
     }
     ListenableFuture<SplitBlobResponse> splitResponseFuture =
-        grpcCacheClient.splitBlob(context, blobDigest, chunkingFunction);
+        remoteCacheClient.splitBlob(context, blobDigest, chunkingFunction);
     if (splitResponseFuture == null) {
       throw new BlobNotSplittableException(blobDigest);
     }
@@ -217,7 +212,7 @@ public class ChunkedBlobDownloader {
 
     /** Returns the contents of a chunk, preferring a copy already on local disk over a download. */
     private ListenableFuture<byte[]> fetchChunk(Digest chunkDigest) {
-      byte[] local = chunkLocationMap.read(chunkDigest, destination, digestUtil);
+      byte[] local = chunkLocationMap.read(chunkDigest, destination, combinedCache.digestUtil());
       return local != null
           ? immediateFuture(local)
           : combinedCache.downloadBlob(context, chunkDigest);

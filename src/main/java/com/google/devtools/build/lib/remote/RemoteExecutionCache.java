@@ -122,6 +122,15 @@ public class RemoteExecutionCache extends CombinedCache {
     super(checkNotNull(remoteCacheClient), diskCacheClient, options, digestUtil, chunkLocationMap);
   }
 
+  RemoteExecutionCache(
+      RemoteCacheClient remoteCacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
+      RemoteOptions options,
+      DigestUtil digestUtil,
+      ListenableFuture<Chunking> chunking) {
+    super(checkNotNull(remoteCacheClient), diskCacheClient, options, digestUtil, chunking);
+  }
+
   @VisibleForTesting
   void setRemotePathChecker(RemotePathChecker remotePathChecker) {
     this.remotePathChecker = remotePathChecker;
@@ -253,7 +262,7 @@ public class RemoteExecutionCache extends CombinedCache {
           } catch (IOException e) {
             yield immediateFailedFuture(e);
           }
-          yield remoteCacheClient.uploadFile(context, digest, path, force);
+          yield uploadOrChunkFile(context, digest, path, force);
         }
       };
     }

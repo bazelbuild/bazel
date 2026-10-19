@@ -149,10 +149,6 @@ class OnDiskBlobStoreCache extends CombinedCache {
     return super.downloadBlob(context, digest);
   }
 
-  public DigestUtil getDigestUtil() {
-    return digestUtil;
-  }
-
   public RemoteOptions getRemoteOptions() {
     return options;
   }

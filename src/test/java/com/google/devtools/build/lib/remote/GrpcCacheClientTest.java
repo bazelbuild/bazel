@@ -720,7 +720,7 @@ public class GrpcCacheClientTest {
         UploadManifest.create(
             combinedCache.options,
             combinedCache.getRemoteCacheCapabilities(),
-            combinedCache.digestUtil,
+            combinedCache.digestUtil(),
             remotePathResolver,
             actionKey,
             action,
