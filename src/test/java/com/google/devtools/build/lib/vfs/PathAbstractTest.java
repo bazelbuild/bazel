@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -48,6 +49,25 @@ public abstract class PathAbstractTest {
     assertThat(create("/foo/").getBaseName()).isEqualTo("foo");
     assertThat(create("/foo").getBaseName()).isEqualTo("foo");
     assertThat(create("/").getBaseName()).isEmpty();
+  }
+
+  @Test
+  public void testGetChildWorks() {
+    Path path = create("/foo/bar");
+    assertThat(path.getChild("hi")).isEqualTo(create("/foo/bar/hi"));
+    assertThat(path.getChild(".hi")).isEqualTo(create("/foo/bar/.hi"));
+    assertThat(path.getChild("..hi")).isEqualTo(create("/foo/bar/..hi"));
+  }
+
+  @Test
+  public void testGetChildRejectsInvalidBaseNames() {
+    Path path = create("/foo/bar");
+    assertThrows(IllegalArgumentException.class, () -> path.getChild(""));
+    assertThrows(IllegalArgumentException.class, () -> path.getChild("."));
+    assertThrows(IllegalArgumentException.class, () -> path.getChild(".."));
+    assertThrows(IllegalArgumentException.class, () -> path.getChild("x/y"));
+    assertThrows(IllegalArgumentException.class, () -> path.getChild("/y"));
+    assertThrows(IllegalArgumentException.class, () -> path.getChild("y/"));
   }
 
   @Test

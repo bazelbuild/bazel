@@ -51,6 +51,12 @@ public class WindowsPathTest extends PathAbstractTest {
   }
 
   @Test
+  public void testGetChildRejectsBackslash() {
+    Path path = create("C:/foo/bar");
+    assertThrows(IllegalArgumentException.class, () -> path.getChild("x\\y"));
+  }
+
+  @Test
   public void testEqualsAndHashcodeWindows() {
     new EqualsTester()
         .addEqualityGroup(create("/a/b"))

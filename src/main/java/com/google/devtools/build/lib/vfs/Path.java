@@ -110,10 +110,14 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     return parent != null ? parent.getRelative(newName) : null;
   }
 
-  /** Synonymous with {@link Path#getRelative(String)}. */
+  /**
+   * Returns a path formed by appending a single {@code child} segment to this path.
+   *
+   * @throws IllegalArgumentException if {@code child} is empty, "." or "..", or contains path
+   *     separators
+   */
   public Path getChild(String child) {
-    FileSystemUtils.checkBaseName(child);
-    return getRelative(child);
+    return new Path(pathFragment.getChild(child), fileSystem);
   }
 
   /**
