@@ -229,6 +229,7 @@ public final class SkyframeActionExecutor {
   // Actions that failed because they lost their own outputs. Like rewound actions, they have to
   // regenerate their outputs rather than take them from a cache, but this alone must not suppress
   // their progress events. An action can also be rewound later, after its retry completed.
+  // This set is expected to remain empty in Blaze, but not in Bazel.
   private Set<OwnerlessArtifactWrapper> actionsWithLostOutputs;
 
   private ActionOutputDirectoryHelper outputDirectoryHelper;
