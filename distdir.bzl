@@ -88,9 +88,7 @@ def _repo_cache_tar_impl(ctx):
         ),
     )
 
-    if ctx.attr.reproducible:
-        return ctx.repo_metadata(reproducible = True)
-    return None
+    return ctx.repo_metadata(reproducible = ctx.attr.reproducible)
 
 _repo_cache_tar_attrs = {
     "lockfiles": attr.label_list(),
@@ -99,7 +97,7 @@ _repo_cache_tar_attrs = {
     # Repos that are fetched for the side effect of populating the repository cache, e.g. for use by
     # integration tests, must not be reproducible as they may then be served from a cache without
     # downloading anything.
-    "reproducible": attr.bool(default = False),
+    "reproducible": attr.bool(mandatory = True),
 }
 
 repo_cache_tar = repository_rule(
