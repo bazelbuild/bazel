@@ -47,8 +47,9 @@ public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefiniti
 
     /**
      * The flag's value belongs to the target platform: it resets to its default value whenever a
-     * transition changes {@code --platforms}, unless that transition sets the flag itself. The new
-     * platform's {@code flags} are then applied as usual, so a value set by the new platform wins.
+     * transition changes {@code --platforms}, unless the flag is one of the transition's outputs,
+     * in which case the value returned by the transition is used instead. The new platform's {@code
+     * flags} are then applied as usual, so a value set by the new platform wins.
      *
      * <p>Platforms are compared by the labels in {@code --platforms}, so an alias of a platform
      * counts as a different platform. The flag also resets on exec transitions, where the exec
