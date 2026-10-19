@@ -290,6 +290,13 @@ public class StarlarkOptionsParser {
       }
       var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
       if (attrMap.isAttributeValueExplicitlySpecified("on_leave_scope")) {
+        if (scopeType.equals(ScopeType.PLATFORM)) {
+          throw new OptionsParsingException(
+              String.format(
+                  "Can't load flag --%s: \"on_leave_scope\" can't be set on a flag with scope"
+                      + " \"platform\".",
+                  buildSettingTarget.getLabel().getCanonicalForm()));
+        }
         var onLeaveScopeValue = attrMap.get("on_leave_scope", buildSettingObject.getType());
         onLeaveScopeMap.put(buildSetting, onLeaveScopeValue);
       }

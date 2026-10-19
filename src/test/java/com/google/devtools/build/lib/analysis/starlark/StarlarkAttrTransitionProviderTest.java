@@ -3507,6 +3507,74 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     assertThat(getStarlarkOption(dep, "//test/flags:platform_flag")).isNull();
   }
 
+  @Test
+  public void testPlatformScopedFlag_onLeaveScopeIsError() throws Exception {
+    scratch.file(
+        "test/flags/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {
+                "scope": attr.string(),
+                "on_leave_scope": attr.string(),
+            },
+        )
+        """);
+    scratch.file(
+        "test/flags/BUILD",
+        """
+        load(":defs.bzl", "string_flag")
+
+        string_flag(
+            name = "platform_flag",
+            build_setting_default = "default",
+            scope = "platform",
+            on_leave_scope = "left",
+        )
+        """);
+    scratch.file(
+        "test/starlark/rules.bzl",
+        """
+        def _set_flag_impl(settings, attr):
+            return {"//test/flags:platform_flag": "from_transition"}
+
+        _set_flag = transition(
+            implementation = _set_flag_impl,
+            inputs = [],
+            outputs = ["//test/flags:platform_flag"],
+        )
+
+        def _impl(ctx):
+            return []
+
+        set_flag = rule(
+            implementation = _impl,
+            attrs = {"dep": attr.label(cfg = _set_flag)},
+        )
+
+        simple_rule = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load("//test/starlark:rules.bzl", "set_flag", "simple_rule")
+
+        set_flag(
+            name = "test",
+            dep = ":dep",
+        )
+
+        simple_rule(name = "dep")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/starlark:test");
+    assertContainsEvent(
+        "Can't load flag --//test/flags:platform_flag: \"on_leave_scope\" can't be set on a flag"
+            + " with scope \"platform\".");
+  }
+
   /*
    * If the transition claims to change --cpu but doesn't, it doesn't constitute a platform change
    * and also doesn't affect any other options.

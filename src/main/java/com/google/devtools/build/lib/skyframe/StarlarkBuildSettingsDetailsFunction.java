@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue.CustomExecScopeValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
@@ -182,6 +183,18 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
                       setting -> setting,
                       setting -> getActual(buildSettingPackages, setting).getAssociatedRule()));
       ImmutableSet<Rule> actualRules = ImmutableSet.copyOf(rawSettingToActualRule.values());
+      for (Rule rule : actualRules) {
+        var attrMap = RawAttributeMapper.of(rule);
+        if (attrMap.isAttributeValueExplicitlySpecified("on_leave_scope")
+            && attrMap.isAttributeValueExplicitlySpecified("scope")
+            && attrMap.get("scope", Type.STRING).equals(Scope.ScopeType.PLATFORM)) {
+          throw new TransitionException(
+              String.format(
+                  "Can't load flag --%s: \"on_leave_scope\" can't be set on a flag with scope"
+                      + " \"platform\".",
+                  rule.getLabel().getCanonicalForm()));
+        }
+      }
 
       // Calculate info based on the actual rules
       // Different rules have different labels so don't need a merge function
