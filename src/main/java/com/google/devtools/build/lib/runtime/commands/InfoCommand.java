@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.runtime.commands.info.CharacterEncodingInfo
 import com.google.devtools.build.lib.runtime.commands.info.ClientEnv;
 import com.google.devtools.build.lib.runtime.commands.info.CommittedHeapSizeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.DefaultPackagePathInfoItem;
-import com.google.devtools.build.lib.runtime.commands.info.DefaultsPackageInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ExecutionRootInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.GcCountInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.GcTimeInfoItem;
@@ -326,7 +325,6 @@ public class InfoCommand implements BlazeCommand {
             new JavaVirtualMachineInfoItem(),
             new JavaHomeInfoItem(),
             new CharacterEncodingInfoItem(),
-            new DefaultsPackageInfoItem(),
             new BuildLanguageInfoItem(),
             new DefaultPackagePathInfoItem(commandOptions),
             new StarlarkSemanticsInfoItem(commandOptions),
