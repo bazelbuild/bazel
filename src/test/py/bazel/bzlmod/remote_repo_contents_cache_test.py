@@ -1343,7 +1343,8 @@ class RemoteRepoContentsCacheTest(
         'other_repo.bzl',
         [
             'def _other_repo_impl(rctx):',
-            # Reading my_repo's BUILD forces full materialization of my_repo.
+            # Reading my_repo's BUILD through rctx.path, unlike reading it by
+            # label, forces full materialization of my_repo.
             '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
             # other is not reproducible, so it is always fetched and re-triggers
             # materialization of my_repo from the cache.
