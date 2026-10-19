@@ -46,6 +46,17 @@ public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefiniti
     public static final String PROJECT = "project";
 
     /**
+     * The flag's value belongs to the target platform: it resets to its default value whenever a
+     * transition changes {@code --platforms}, unless that transition sets the flag itself. The new
+     * platform's {@code flags} are then applied as usual, so a value set by the new platform wins.
+     *
+     * <p>Platforms are compared by the labels in {@code --platforms}, so an alias of a platform
+     * counts as a different platform. The flag also resets on exec transitions, where the exec
+     * platform's {@code flags} apply instead.
+     */
+    public static final String PLATFORM = "platform";
+
+    /**
      * Placeholder for flags that don't explicitly specify scope. Cannot be set by users in BUILD
      * files.
      *
@@ -61,6 +72,7 @@ public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefiniti
           || scopeType.equals(UNIVERSAL)
           || scopeType.equals(TARGET)
           || scopeType.equals(PROJECT)
+          || scopeType.equals(PLATFORM)
           || scopeType.startsWith("exec:"))) {
         // TODO: don't let blaze crash for an invalid scope type.
         throw new IllegalArgumentException("Invalid scope type: " + scopeType);
@@ -69,7 +81,7 @@ public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefiniti
 
     /** Which values can a rule's {@code scope} attribute have? */
     public static ImmutableList<String> allowedAttributeValues() {
-      return ImmutableList.of(UNIVERSAL, TARGET, PROJECT);
+      return ImmutableList.of(UNIVERSAL, TARGET, PROJECT, PLATFORM);
     }
   }
 
