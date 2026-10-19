@@ -320,7 +320,7 @@ public final class RemoteWorker {
       sslContextBuilder.trustManager(
           new File(internalToPlatform(workerOptions.getTlsCaCertificate().getPathString())));
     }
-    return GrpcSslContexts.configure(sslContextBuilder, SslProvider.OPENSSL);
+    return GrpcSslContexts.configure(sslContextBuilder, SslProvider.JDK);
   }
 
   private void createPidFile() throws IOException {
