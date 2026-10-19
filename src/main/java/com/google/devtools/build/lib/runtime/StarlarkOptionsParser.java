@@ -297,6 +297,14 @@ public class StarlarkOptionsParser {
                       .map(s -> "\"" + s + "\"")
                       .collect(joining(", "))));
         }
+        if (scopeType.equals(Scope.ScopeType.PLATFORM)
+            && attrMap.isAttributeValueExplicitlySpecified("on_leave_scope")) {
+          throw new OptionsParsingException(
+              String.format(
+                  "Can't load flag --%s: \"on_leave_scope\" can't be set on a flag with scope"
+                      + " \"platform\".",
+                  buildSetting));
+        }
       }
     }
 
