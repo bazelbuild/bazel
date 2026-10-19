@@ -386,6 +386,35 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataSupplier metadataSupplier,
       Priority priority,
       Reason reason) {
+    return prefetchFilesInterruptibly(
+        action, inputs, metadataSupplier, priority, reason, /* newFiles= */ false);
+  }
+
+  /**
+   * Like {@link #prefetchFilesInterruptibly(ActionExecutionMetadata, Iterable, MetadataSupplier,
+   * Priority, Reason)}, but for files outside the output tree that don't exist locally and can't be
+   * accessed until the returned future completes, e.g. the files of an external repo whose
+   * directory has just been deleted.
+   *
+   * <p>Such files are downloaded directly to their final paths without first checking for an
+   * up-to-date local copy, which saves file system operations per file.
+   */
+  public ListenableFuture<Void> prefetchNewFilesInterruptibly(
+      Iterable<? extends ActionInput> inputs,
+      MetadataSupplier metadataSupplier,
+      Priority priority,
+      Reason reason) {
+    return prefetchFilesInterruptibly(
+        /* action= */ null, inputs, metadataSupplier, priority, reason, /* newFiles= */ true);
+  }
+
+  private ListenableFuture<Void> prefetchFilesInterruptibly(
+      @Nullable ActionExecutionMetadata action,
+      Iterable<? extends ActionInput> inputs,
+      MetadataSupplier metadataSupplier,
+      Priority priority,
+      Reason reason,
+      boolean newFiles) {
     List<ActionInput> files = new ArrayList<>();
 
     for (ActionInput input : inputs) {
@@ -417,7 +446,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     try (var s = Profiler.instance().profile("compose prefetches")) {
       for (var file : files) {
         transfers.add(
-            prefetchFile(action, directoriesByTreeRoot, metadataSupplier, file, priority, reason));
+            prefetchFile(
+                action, directoriesByTreeRoot, metadataSupplier, file, priority, reason, newFiles));
       }
     }
 
@@ -456,7 +486,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataSupplier metadataSupplier,
       ActionInput input,
       Priority priority,
-      Reason reason) {
+      Reason reason,
+      boolean newFile) {
     try {
       if (input instanceof VirtualActionInput virtualActionInput) {
         prefetchVirtualActionInput(virtualActionInput);
@@ -526,7 +557,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   input,
                   metadata,
                   priority,
-                  reason)
+                  reason,
+                  newFile)
               .onErrorResumeNext(e -> Completable.error(maybeOverrideMissingInput(e, input)))
               .andThen(plantSymlinks);
 
@@ -718,7 +750,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       ActionInput actionInput,
       FileArtifactValue metadata,
       Priority priority,
-      Reason reason) {
+      Reason reason,
+      boolean newFile) {
     // If the path to be prefetched is a non-dangling symlink, prefetch its target path instead.
     // Note that this only applies to symlinks created by spawns (or, currently, with the internal
     // version of BwoB); symlinks created in-process through an ActionFileSystem should have already
@@ -757,6 +790,33 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
     }
 
+    if (newFile) {
+      // Since the file can't be accessed until the download has completed, it is written to its
+      // final path directly instead of being moved there from a temporary path.
+      Completable download =
+          Completable.using(
+              AtomicBoolean::new,
+              downloaded ->
+                  toCompletable(
+                          () ->
+                              doDownloadFile(
+                                  action, reporter, input, finalPath, finalPath, metadata, priority,
+                                  reason),
+                          directExecutor())
+                      .doOnComplete(
+                          () -> {
+                            finalizeNewFile(metadata, finalPath);
+                            downloaded.set(true);
+                          }),
+              downloaded -> {
+                if (!downloaded.get()) {
+                  deletePartialDownload(finalPath);
+                }
+              },
+              /* eager= */ false);
+      return downloadCache.execute(finalPath, download, forceRefetch(finalPath));
+    }
+
     Completable download =
         usingTempPath(
             (tempPath, alreadyDeleted) ->
@@ -789,6 +849,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               return Completable.complete();
             }),
         forceRefetch(finalPath));
+  }
+
+  private void finalizeNewFile(FileArtifactValue metadata, Path path) throws IOException {
+    // Matches finalizeDownload.
+    path.chmod(outputPermissions.getPermissionsMode());
+    metadata.setContentsProxy(FileContentsProxy.create(path.stat()));
   }
 
   private void finalizeDownload(
