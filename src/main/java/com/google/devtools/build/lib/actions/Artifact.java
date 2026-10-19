@@ -1084,11 +1084,17 @@ public abstract sealed class Artifact
     private static Path getExecRoot(ArtifactRoot artifactRoot) {
       // /output_base/execroot/bazel-out/k8-fastbuild/bin
       Path rootPath = artifactRoot.getRoot().asPath();
-      PathFragment rootPathFragment = rootPath.asFragment();
+      String rootPathStr = rootPath.getPathString();
+      String execPathStr = artifactRoot.getExecPath().getPathString();
       // /output_base/execroot
+      int endIndex =
+          execPathStr.isEmpty()
+              ? rootPathStr.length()
+              : Math.max(
+                  rootPath.asFragment().getDriveStrLength(),
+                  rootPathStr.length() - execPathStr.length() - 1);
       PathFragment execRootPath =
-          rootPathFragment.subFragment(
-              0, rootPathFragment.segmentCount() - artifactRoot.getExecPath().segmentCount());
+          PathFragment.createAlreadyNormalized(rootPathStr.substring(0, endIndex));
       return rootPath.getFileSystem().getPath(execRootPath);
     }
   }
