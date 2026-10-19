@@ -104,6 +104,7 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
@@ -162,7 +163,6 @@ public class RewindingTestsHelper {
     this.recorder = checkNotNull(recorder);
     this.lostOutputsModule = createLostOutputsModule();
   }
-
 
   public final LostImportantOutputHandlerModule getLostOutputsModule() {
     return lostOutputsModule;
@@ -1081,6 +1081,262 @@ public class RewindingTestsHelper {
     assertOnlyActionsRewound(rewoundKeys);
     assertThat(rewoundArtifactOwnerLabels(rewoundKeys))
         .containsExactly("//test:rule2", "//test:rule1");
+  }
+
+  public final void runChangedRewoundOutputDetected(
+      boolean producerFromPreviousBuild, boolean changeSecondaryOutput) throws Exception {
+    testCase.addOptions("--experimental_check_rewound_action_outputs");
+    testCase.write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "producer",
+            outs = ["lost.inlined", "sibling.inlined"],
+            cmd = "touch $(OUTS)",
+        )
+        genrule(
+            name = "consumer",
+            srcs = ["lost.inlined"],
+            outs = ["result.inlined"],
+            cmd = "cat $< > $@",
+        )
+        """);
+    AtomicInteger executions = new AtomicInteger();
+    SpawnShim producer =
+        (spawn, context) -> {
+          int run = executions.incrementAndGet();
+          for (ActionInput output : spawn.getOutputFiles()) {
+            boolean changes =
+                output
+                    .getExecPathString()
+                    .endsWith(changeSecondaryOutput ? "sibling.inlined" : "lost.inlined");
+            Path path = context.getExecRoot().getRelative(output.getExecPath());
+            path.getParentDirectory().createDirectoryAndParents();
+            writeContent(path, new byte[] {(byte) (changes ? run : 0)});
+          }
+          return ExecResult.of(
+              new SpawnResult.Builder()
+                  .setStatus(SpawnResult.Status.SUCCESS)
+                  .setRunnerName("shim")
+                  .build());
+        };
+    addSpawnShim("Executing genrule //test:producer", producer);
+    addSpawnShim("Executing genrule //test:producer", producer);
+    if (producerFromPreviousBuild) {
+      testCase.buildTarget("//test:producer");
+    }
+    AtomicInteger consumerAttempts = new AtomicInteger();
+    addSpawnShim(
+        "Executing genrule //test:consumer",
+        (spawn, context) -> {
+          consumerAttempts.incrementAndGet();
+          return createLostInputsExecException(spawn, context, "lost.inlined");
+        });
+
+    BuildFailedException failure =
+        assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//test:consumer"));
+
+    assertThat(failure.getDetailedExitCode().getFailureDetail().getExecution().getCode())
+        .isEqualTo(FailureDetails.Execution.Code.REWOUND_ACTION_OUTPUT_CHANGED);
+    assertThat(failure.getDetailedExitCode().getFailureDetail().getMessage())
+        .contains(changeSecondaryOutput ? "sibling.inlined" : "lost.inlined");
+    assertThat(executions.get()).isEqualTo(2);
+    assertThat(consumerAttempts.get()).isEqualTo(1);
+    verifyAllSpawnShimsConsumed();
+    assertThat(getExecutedSpawnDescriptions())
+        .containsExactly(
+            "Executing genrule //test:producer",
+            "Executing genrule //test:consumer",
+            "Executing genrule //test:producer")
+        .inOrder();
+  }
+
+  public final void runOmittedRewoundOutputCheckSucceeds(boolean omittedBeforeRewind)
+      throws Exception {
+    testCase.addOptions("--experimental_check_rewound_action_outputs");
+    testCase.write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "producer",
+            outs = ["lost.inlined", "sibling.inlined"],
+            cmd = "touch $(OUTS)",
+        )
+        genrule(
+            name = "consumer",
+            srcs = ["lost.inlined"],
+            outs = ["result.inlined"],
+            cmd = "cat $< > $@",
+        )
+        """);
+    AtomicInteger executions = new AtomicInteger();
+    SpawnShim producer =
+        (spawn, context) -> {
+          int run = executions.incrementAndGet();
+          for (ActionInput output : spawn.getOutputFiles()) {
+            if (output.getExecPathString().endsWith("sibling.inlined")
+                && (omittedBeforeRewind || run > 1)) {
+              // Remote execution can retain metadata for an orphaned output without downloading it.
+              var metadataStore = context.getOutputMetadataStore();
+              metadataStore.injectFile(
+                  (Artifact) output, FileArtifactValue.createForRemoteFile(new byte[] {1}, 1, 0));
+              metadataStore.markOmitted((Artifact) output);
+            } else {
+              Path path = context.getExecRoot().getRelative(output.getExecPath());
+              path.getParentDirectory().createDirectoryAndParents();
+              writeContent(path, new byte[] {0});
+            }
+          }
+          return ExecResult.of(
+              new SpawnResult.Builder()
+                  .setStatus(SpawnResult.Status.SUCCESS)
+                  .setRunnerName("shim")
+                  .build());
+        };
+    addSpawnShim("Executing genrule //test:producer", producer);
+    addSpawnShim("Executing genrule //test:producer", producer);
+    addSpawnShim(
+        "Executing genrule //test:consumer",
+        (spawn, context) -> createLostInputsExecException(spawn, context, "lost.inlined"));
+
+    testCase.buildTarget("//test:consumer");
+
+    assertThat(executions.get()).isEqualTo(2);
+    verifyAllSpawnShimsConsumed();
+    assertThat(getExecutedSpawnDescriptions())
+        .containsExactly(
+            "Executing genrule //test:producer",
+            "Executing genrule //test:consumer",
+            "Executing genrule //test:producer",
+            "Executing genrule //test:consumer")
+        .inOrder();
+  }
+
+  public final void runSharedRewoundOutputCheckIsBestEffort(boolean cacheHit, boolean changed)
+      throws Exception {
+    ensureMultipleJobs();
+    testCase.addOptions(
+        "--experimental_check_rewound_action_outputs", "--spawn_strategy=standalone");
+    testCase.write(
+        "shared/shared.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file("shared.out")
+            ctx.actions.run_shell(
+                inputs = [ctx.file.src],
+                outputs = [out],
+                command = "cp %s %s" % (ctx.file.src.path, out.path),
+                progress_message = "Generating for " + ctx.label.name,
+            )
+            return DefaultInfo(files = depset([out]))
+        shared = rule(implementation = _impl, attrs = {
+            "src": attr.label(allow_single_file = True),
+        })
+        """);
+    testCase.write("shared/source.txt", "original");
+    testCase.write(
+        "shared/BUILD",
+        """
+        load(":shared.bzl", "shared")
+        genrule(name = "input", srcs = ["source.txt"], outs = ["input.txt"], cmd = "cp $< $@")
+        shared(name = "first", src = "input.txt")
+        shared(name = "second", src = "input.txt")
+        genrule(
+            name = "consumer",
+            srcs = [":first"],
+            outs = ["result.inlined"],
+            cmd = "cat $< > $@",
+        )
+        """);
+    CountDownLatch secondAllowed = new CountDownLatch(1);
+    CountDownLatch secondDone = new CountDownLatch(1);
+    AtomicBoolean firstRewound = new AtomicBoolean();
+    AtomicBoolean delayedCacheLookup = new AtomicBoolean();
+    ThreadLocal<Boolean> evaluatingFirst = ThreadLocal.withInitial(() -> false);
+    testCase.injectListenerAtStartOfNextBuild(
+        (key, type, order, context) -> {
+          if (type == EventType.EVALUATE) {
+            evaluatingFirst.set(
+                key instanceof ActionLookupData actionKey
+                    && actionHasLabelAndIndex(actionKey, "first", 0));
+          }
+          if (!(key instanceof ActionLookupData actionKey)) {
+            return;
+          }
+          if (cacheHit
+              && firstRewound.get()
+              && evaluatingFirst.get()
+              && actionHasLabelAndIndex(actionKey, "input", 0)
+              && type == EventType.GET_VALUE_WITH_METADATA
+              && delayedCacheLookup.compareAndSet(false, true)) {
+            // Input metadata is requested after the execution-state probe. Let the other owner
+            // repopulate the local action cache before this action checks it.
+            secondAllowed.countDown();
+            assertThat(secondDone.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+          }
+          if (actionHasLabelAndIndex(actionKey, "second", 0)) {
+            if (type == EventType.IS_READY) {
+              assertThat(secondAllowed.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+            } else if (type == EventType.SET_VALUE && order == Order.AFTER) {
+              secondDone.countDown();
+            }
+          } else if (actionHasLabelAndIndex(actionKey, "first", 0)) {
+            if (type == EventType.MARK_DIRTY && order == Order.AFTER) {
+              firstRewound.set(true);
+            } else if (!cacheHit && firstRewound.get() && type == EventType.IS_READY) {
+              // Exercise the shared-result shortcut by allowing the other owner to finish before
+              // this action probes the executor.
+              secondAllowed.countDown();
+              assertThat(secondDone.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+            }
+          }
+        });
+    addSpawnShim(
+        "Generating for second",
+        (spawn, context) -> {
+          if (!changed) {
+            return ExecResult.delegate();
+          }
+          Path path =
+              context
+                  .getExecRoot()
+                  .getRelative(Iterables.getOnlyElement(spawn.getOutputFiles()).getExecPath());
+          path.getParentDirectory().createDirectoryAndParents();
+          writeContent(path, "changed".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+          return ExecResult.of(
+              new SpawnResult.Builder()
+                  .setStatus(SpawnResult.Status.SUCCESS)
+                  .setRunnerName("shim")
+                  .build());
+        });
+    addSpawnShim(
+        "Executing genrule //shared:consumer",
+        (spawn, context) -> createLostInputsExecException(spawn, context, "shared.out"));
+    // Only the first owner was rewound. Its cache-hit path checks the retained metadata, but
+    // reusing the second owner's execution result bypasses this best-effort check.
+    boolean detectsChange = cacheHit && changed;
+    if (detectsChange) {
+      BuildFailedException failure =
+          assertThrows(
+              BuildFailedException.class,
+              () -> testCase.buildTarget("//shared:consumer", "//shared:second"));
+      assertThat(failure.getDetailedExitCode().getFailureDetail().getExecution().getCode())
+          .isEqualTo(FailureDetails.Execution.Code.REWOUND_ACTION_OUTPUT_CHANGED);
+      assertThat(failure.getDetailedExitCode().getFailureDetail().getMessage())
+          .contains("shared.out");
+    } else {
+      testCase.buildTarget("//shared:consumer", "//shared:second");
+    }
+    assertThat(delayedCacheLookup.get()).isEqualTo(cacheHit);
+    assertThat(Collections.frequency(getExecutedSpawnDescriptions(), "Generating for first"))
+        .isEqualTo(1);
+    assertThat(Collections.frequency(getExecutedSpawnDescriptions(), "Generating for second"))
+        .isEqualTo(1);
+    assertThat(
+            Collections.frequency(
+                getExecutedSpawnDescriptions(), "Executing genrule //shared:consumer"))
+        .isEqualTo(detectsChange ? 1 : 2);
+    verifyAllSpawnShimsConsumed();
   }
 
   public final void runNondeterministicActionRewound() throws Exception {
