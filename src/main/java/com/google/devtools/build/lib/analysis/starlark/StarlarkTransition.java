@@ -255,44 +255,58 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     if (fromPlatformOptions == null) {
       return toOptions;
     }
+    List<Label> fromPlatforms = fromPlatformOptions.getPlatforms();
+    // Most transitions don't change the platform.
+    if (toOptions.values().stream()
+        .noneMatch(options -> changesPlatforms(options, fromPlatforms))) {
+      return toOptions;
+    }
 
-    // Lazily initialized since most transitions don't change the platform.
-    Set<Label> outputSettings = null;
+    Set<Label> outputSettings = getUnaliasedOutputSettings(root, details, flagsAliases);
     boolean changed = false;
     ImmutableMap.Builder<String, BuildOptions> resetOptionsMap =
         ImmutableMap.builderWithExpectedSize(toOptions.size());
     for (Entry<String, BuildOptions> entry : toOptions.entrySet()) {
       BuildOptions options = entry.getValue();
-      PlatformOptions platformOptions = options.get(PlatformOptions.class);
-      if (platformOptions == null
-          || platformOptions.getPlatforms().equals(fromPlatformOptions.getPlatforms())) {
-        resetOptionsMap.put(entry.getKey(), options);
-        continue;
-      }
-      BuildOptions.Builder resetOptions = null;
-      for (Label setting : options.getStarlarkOptions().keySet()) {
-        Scope.ScopeType scopeType = options.getScopeTypeMap().get(setting);
-        if (scopeType == null || !scopeType.scopeType().equals(Scope.ScopeType.PLATFORM)) {
-          continue;
-        }
-        if (outputSettings == null) {
-          outputSettings = getUnaliasedOutputSettings(root, details, flagsAliases);
-        }
-        if (outputSettings.contains(setting)) {
-          continue;
-        }
-        if (resetOptions == null) {
-          resetOptions = options.toBuilder();
-        }
-        resetOptions.removeStarlarkOption(setting);
-      }
-      if (resetOptions != null) {
-        options = resetOptions.build();
-        changed = true;
-      }
-      resetOptionsMap.put(entry.getKey(), options);
+      BuildOptions resetOptions =
+          resetPlatformScopedSettingsIfPlatformsChanged(options, fromPlatforms, outputSettings);
+      changed |= resetOptions != options;
+      resetOptionsMap.put(entry.getKey(), resetOptions);
     }
     return changed ? resetOptionsMap.buildOrThrow() : toOptions;
+  }
+
+  /**
+   * Returns {@code options} with all build settings with {@code scope = "platform"} that aren't in
+   * {@code outputSettings} reset to their default values if its {@code --platforms} differ from
+   * {@code fromPlatforms}.
+   *
+   * <p>Returns the same instance if no build setting has to be reset.
+   */
+  private static BuildOptions resetPlatformScopedSettingsIfPlatformsChanged(
+      BuildOptions options, List<Label> fromPlatforms, Set<Label> outputSettings) {
+    if (!changesPlatforms(options, fromPlatforms)) {
+      return options;
+    }
+    BuildOptions.Builder resetOptions = null;
+    for (Label setting : options.getStarlarkOptions().keySet()) {
+      Scope.ScopeType scopeType = options.getScopeTypeMap().get(setting);
+      if (scopeType == null
+          || !scopeType.scopeType().equals(Scope.ScopeType.PLATFORM)
+          || outputSettings.contains(setting)) {
+        continue;
+      }
+      if (resetOptions == null) {
+        resetOptions = options.toBuilder();
+      }
+      resetOptions.removeStarlarkOption(setting);
+    }
+    return resetOptions != null ? resetOptions.build() : options;
+  }
+
+  private static boolean changesPlatforms(BuildOptions options, List<Label> fromPlatforms) {
+    PlatformOptions platformOptions = options.get(PlatformOptions.class);
+    return platformOptions != null && !platformOptions.getPlatforms().equals(fromPlatforms);
   }
 
   /** Returns the Starlark build settings output by any Starlark transition in {@code root}. */

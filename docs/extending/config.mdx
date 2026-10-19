@@ -192,8 +192,10 @@ bool_flag(
 
 A build setting whose value should be determined by the target platform can set
 the `scope` attribute to `"platform"`. Such a build setting resets to its
-default value whenever a transition changes `--platforms`, unless that
-transition sets the build setting itself. The new platform's
+default value whenever a transition changes `--platforms`, unless the
+build setting is one of the transition's outputs. In that case, the value
+returned by the transition is used instead, even if it is the value the build
+setting had before the transition. The new platform's
 [`flags`](/reference/be/platforms-and-toolchains#platform.flags) are applied
 afterwards, so a value set by the new platform takes effect. This prevents
 values set by one platform's `flags` from leaking into the configurations of
