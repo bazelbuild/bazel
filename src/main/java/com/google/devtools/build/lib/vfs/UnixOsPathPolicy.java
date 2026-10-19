@@ -15,13 +15,12 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
 
 @VisibleForTesting
 class UnixOsPathPolicy implements OsPathPolicy {
 
   static final UnixOsPathPolicy INSTANCE = new UnixOsPathPolicy();
-  private static final Splitter PATH_SPLITTER = Splitter.onPattern("/+").omitEmptyStrings();
+  private static final Splitter PATH_SPLITTER = Splitter.on('/').omitEmptyStrings();
 
   @Override
   public int needsToNormalize(String path) {
@@ -71,7 +70,7 @@ class UnixOsPathPolicy implements OsPathPolicy {
     if (isAbsolute) {
       sb.append('/');
     }
-    String[] segments = Iterables.toArray(PATH_SPLITTER.splitToList(path), String.class);
+    String[] segments = PATH_SPLITTER.splitToList(path).toArray(new String[0]);
     int segmentCount = Utils.removeRelativePaths(segments, 0, isAbsolute);
     for (int i = 0; i < segmentCount; ++i) {
       sb.append(segments[i]);

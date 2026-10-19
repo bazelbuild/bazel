@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.WindowsPathOperations;
 import java.io.IOException;
@@ -32,7 +32,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   static final int NEEDS_SHORT_PATH_NORMALIZATION = NEEDS_NORMALIZE + 1;
 
   private static final Splitter WINDOWS_PATH_SPLITTER =
-      Splitter.onPattern("[\\\\/]+").omitEmptyStrings();
+      Splitter.on(CharMatcher.anyOf("\\/")).omitEmptyStrings();
 
   private final ShortPathResolver shortPathResolver;
 
@@ -137,7 +137,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
         path = resolvedPath;
       }
     }
-    String[] segments = Iterables.toArray(WINDOWS_PATH_SPLITTER.splitToList(path), String.class);
+    String[] segments = WINDOWS_PATH_SPLITTER.splitToList(path).toArray(new String[0]);
     int driveStrLength = getDriveStrLength(path);
     boolean isAbsolute = driveStrLength > 0;
     int segmentSkipCount = isAbsolute && driveStrLength > 1 ? 1 : 0;
