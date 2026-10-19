@@ -1,4 +1,4 @@
-startup --noexperimental_remote_repo_contents_cache
+startup --experimental_remote_repo_contents_cache
 
 common --@rules_python//python/config_settings:bootstrap_impl=script
 
