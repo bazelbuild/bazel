@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -50,6 +51,8 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
   private final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
   public abstract ServerCapabilities getServerCapabilities() throws IOException;
+
+  public abstract ListenableFuture<ServerCapabilities> serverCapabilities();
 
   public abstract ListenableFuture<String> getAuthority();
 
@@ -209,6 +212,22 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
   }
 
   /**
+   * Queries the cache client for chunk information about a blob using the SplitBlob RPC.
+   *
+   * <p>This is used for CDC (Content-Defined Chunking) downloads.
+   *
+   * @return A future representing pending completion of the split operation, or null if SplitBlob
+   *     is not supported by this cache client.
+   */
+  @Nullable
+  public ListenableFuture<SplitBlobResponse> splitBlob(
+      RemoteActionExecutionContext context,
+      Digest digest,
+      ChunkingFunction.Value chunkingFunction) {
+    return null;
+  }
+
+  /**
    * Deduplicates an upload by digest using the same cache as {@link #uploadFile} and {@link
    * #uploadBlob}. For use by callers that perform their own upload logic but want to share the
    * dedup state with the regular upload paths (e.g. chunked uploads).
@@ -251,4 +270,8 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
 
   /** Close resources associated with the remote cache. */
   public abstract void close();
+
+  public boolean shouldVerifyDownloads() {
+    return false;
+  }
 }
