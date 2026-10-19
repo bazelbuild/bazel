@@ -955,6 +955,143 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
+  public void testParseOptions_repeatConfigWithoutRepeatableFlags() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--config=foo",
+                "--default_override=0:build=--test_string=rc",
+                "--default_override=0:build:foo=--test_string=foo",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    // The result is the same as if foo had only been expanded on the command line.
+    assertThat(options.getTestString()).isEqualTo("foo");
+  }
+
+  @Test
+  public void testParseOptions_repeatSubConfigWithoutRepeatableFlags() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=--test_multiple_string=foo",
+                "--default_override=0:build:foo=--config=baz",
+                "--default_override=0:build:bar=--config=baz",
+                "--default_override=0:build:baz=--test_string=baz",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=bar"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(parser.getResidue()).isEmpty();
+    // The repeatable flag set by foo can't have been set by baz as bar doesn't result in one.
+    assertThat(eventHandler.getEvents()).isEmpty();
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.getTestMultipleString()).containsExactly("foo");
+    assertThat(options.getTestString()).isEqualTo("baz");
+  }
+
+  @Test
+  public void testParseOptions_repeatConfigWithExpansionToRepeatableFlag() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=--test_expansion_to_repeatable",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=foo"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [foo]. For repeatable flags, "
+                    + "repeats are counted twice and may lead to unexpected behavior."));
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.getTestMultipleString())
+        .containsExactly(
+            "expandedFirstValue",
+            "expandedSecondValue",
+            "expandedFirstValue",
+            "expandedSecondValue")
+        .inOrder();
+  }
+
+  @Test
+  public void testParseOptions_repeatConfigWithImplicitRequirement() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=--test_implicit_requirement=foo",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=foo"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(parser.getResidue()).isEmpty();
+    // The implicit requirements of an option may be repeatable.
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [foo]. For repeatable flags, "
+                    + "repeats are counted twice and may lead to unexpected behavior."));
+  }
+
+  @Test
+  public void testParseOptions_repeatConfigWithStarlarkFlag() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=--//f=foo",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=foo"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(parser.getResidue()).isEmpty();
+    // The Starlark flag may be repeatable.
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [foo]. For repeatable flags, "
+                    + "repeats are counted twice and may lead to unexpected behavior."));
+    assertThat(parser.getSkippedArgs()).containsExactly("--//f=foo", "--//f=foo").inOrder();
+  }
+
+  @Test
+  public void testParseOptions_repeatConfigWithResidue() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=foo",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=foo"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [foo]. For repeatable flags, "
+                    + "repeats are counted twice and may lead to unexpected behavior."));
+    assertThat(parser.getResidue()).containsExactly("foo", "foo").inOrder();
+  }
+
+  @Test
   public void testParseOptions_configCycleLength1() {
     DetailedExitCode unused =
         optionHandler.parseOptions(
