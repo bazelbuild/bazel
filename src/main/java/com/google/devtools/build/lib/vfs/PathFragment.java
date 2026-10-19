@@ -71,16 +71,8 @@ public abstract sealed class PathFragment
    * <p>The ordering imposed by this comparator differs from that of {@link
    * #compareTo(PathFragment)} as it sorts {@code foo/bar-baz/quz} after {@code foo/bar/quz} - it
    * has the property that the children of a path are sorted directly after their parent.
-   *
-   * <p>Note that the ordering imposed by this comparator is <em>not</em> consistent with equals if
-   * applied to paths that differ only in case on Windows. Paths of artifacts in a single build are
-   * known to not be affected by this as Bazel ensures that there is only a single artifact per
-   * equivalence class of {@link PathFragment}.
    */
-  // TODO(bazel-team): Consider making this the default comparator for PathFragment and revisit the
-  //  choice to assume case sensitivity based on the host OS. Windows case sensitivity is
-  //  configurable on a per-directory basis:
-  //  https://learn.microsoft.com/en-us/windows/wsl/case-sensitivity
+  // TODO(bazel-team): Consider making this the default comparator for PathFragment.
   public static final Comparator<PathFragment> HIERARCHICAL_COMPARATOR =
       (p1, p2) -> {
         int k = p1.getCommonPrefixLength(p2);
@@ -449,13 +441,23 @@ public abstract sealed class PathFragment
    */
   public boolean startsWithIgnoringCase(PathFragment other) {
     Preconditions.checkNotNull(other);
+    if (this == other) {
+      return true;
+    }
     // Drive strings are ASCII only and hence can be checked without conversion to Unicode.
-    if (getDriveStrLength() != other.getDriveStrLength()) {
+    int driveStrLength = getDriveStrLength();
+    if (driveStrLength != other.getDriveStrLength()) {
       return false;
     }
+    if (other.normalizedPath.length() == driveStrLength) {
+      return normalizedPath.regionMatches(true, 0, other.normalizedPath, 0, driveStrLength);
+    }
     // Convert to regular Unicode Java strings so that Unicode case mappings are applied correctly.
-    String normalizedPathUnicode = internalToUnicode(normalizedPath);
     String otherNormalizedPathUnicode = internalToUnicode(other.normalizedPath);
+    if (otherNormalizedPathUnicode.length() > normalizedPath.length()) {
+      return false;
+    }
+    String normalizedPathUnicode = internalToUnicode(normalizedPath);
     if (otherNormalizedPathUnicode.length() > normalizedPathUnicode.length()) {
       return false;
     }
@@ -464,7 +466,6 @@ public abstract sealed class PathFragment
       return false;
     }
     return normalizedPathUnicode.length() == otherNormalizedPathUnicode.length()
-        || other.normalizedPath.length() == getDriveStrLength()
         || normalizedPathUnicode.charAt(otherNormalizedPathUnicode.length()) == SEPARATOR_CHAR;
   }
 
@@ -518,8 +519,7 @@ public abstract sealed class PathFragment
   }
 
   /**
-   * Compares this path fragment to another path fragment as normalized strings, possibly ignoring
-   * casing based on the host OS.
+   * Compares this path fragment to another path fragment as normalized strings.
    *
    * <p>{@code dir/foo, dir/foo-bar/data.txt, dir/foo/data.txt} is sorted according to this method,
    * which is not consistent with viewing a path as a sequence of segments. See {@link
