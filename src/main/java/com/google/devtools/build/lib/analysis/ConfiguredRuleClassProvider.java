@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
-import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -165,8 +164,6 @@ public /*final*/ class ConfiguredRuleClassProvider
         ImmutableMap.builder();
     private final ImmutableMap.Builder<String, Object> starlarkBuiltinsInternals =
         ImmutableMap.builder();
-    private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
-        ImmutableList.builder();
     private final Set<String> reservedActionMnemonics = new TreeSet<>();
     private Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
@@ -340,12 +337,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     @CanIgnoreReturnValue
     public Builder addStarlarkBuiltinsInternal(String name, Object object) {
       this.starlarkBuiltinsInternals.put(name, object);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addSymlinkDefinition(SymlinkDefinition symlinkDefinition) {
-      this.symlinkDefinitions.add(symlinkDefinition);
       return this;
     }
 
@@ -577,7 +568,6 @@ public /*final*/ class ConfiguredRuleClassProvider
           starlarkAccessibleTopLevels.buildOrThrow(),
           starlarkBuiltinsInternals.buildOrThrow(),
           starlarkBootstraps.build(),
-          symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics,
@@ -663,8 +653,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
 
-  private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
-
   private final ImmutableSet<String> reservedActionMnemonics;
 
   private final Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider;
@@ -695,7 +683,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableMap<String, Object> starlarkBuiltinsInternals,
       ImmutableList<Bootstrap> starlarkBootstraps,
-      ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
       Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider,
       ConstraintSemantics<RuleContext> constraintSemantics,
@@ -714,7 +701,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(fragmentRegistry.getAllFragments());
@@ -867,21 +853,6 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public ImmutableMap<String, Class<?>> getConfigurationFragmentMap() {
     return configurationFragmentMap;
-  }
-
-  /**
-   * Returns the symlink definitions introduced by the fragments registered with this rule class
-   * provider.
-   *
-   * <p>This only includes definitions added by {@link Builder#addSymlinkDefinition}, not the
-   * standard symlinks in {@link com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils}.
-   *
-   * <p>Note: Usages of custom symlink definitions should be very rare. This feature was added to
-   * implement the py2-bin / py3-bin symlinks, which have since been removed from Bazel.
-   */
-  // TODO(bazel-team): Delete?
-  public ImmutableList<SymlinkDefinition> getSymlinkDefinitions() {
-    return symlinkDefinitions;
   }
 
   public ConstraintSemantics<RuleContext> getConstraintSemantics() {

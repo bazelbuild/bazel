@@ -273,7 +273,6 @@ public final class CleanCommand implements BlazeCommand {
     }
     // remove convenience links
     OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
-        runtime.getRuleClassProvider().getSymlinkDefinitions(),
         env.getWorkspace(),
         env.getReporter(),
         symlinkPrefix);
