@@ -126,7 +126,8 @@ public abstract sealed class PathFragment
 
   private static PathFragment makePathFragment(String normalizedPath, int driveStrLength) {
     return switch (driveStrLength) {
-      case 0 -> new RelativePathFragment(normalizedPath);
+      case 0 ->
+          normalizedPath.isEmpty() ? EMPTY_FRAGMENT : new RelativePathFragment(normalizedPath);
       case 1 -> new UnixStyleAbsolutePathFragment(normalizedPath);
       case 3 -> new WindowsStyleAbsolutePathFragment(normalizedPath);
       default ->
@@ -685,6 +686,9 @@ public abstract sealed class PathFragment
       starti = 0;
       driveStrLength = this.getDriveStrLength();
       endi = Math.max(endi, driveStrLength);
+    }
+    if (starti == 0 && endi == n) {
+      return this;
     }
     return makePathFragment(normalizedPath.substring(starti, endi), driveStrLength);
   }
