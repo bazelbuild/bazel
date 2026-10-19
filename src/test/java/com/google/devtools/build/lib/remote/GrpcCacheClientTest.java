@@ -837,7 +837,7 @@ public class GrpcCacheClientTest {
     UploadManifest uploadManifest =
         UploadManifest.create(
             combinedCache.getRemoteCacheCapabilities(),
-            combinedCache.digestUtil,
+            combinedCache.digestUtil(),
             remotePathResolver,
             actionKey,
             action,
