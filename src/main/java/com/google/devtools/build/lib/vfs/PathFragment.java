@@ -263,6 +263,9 @@ public abstract sealed class PathFragment
     if (isEmpty() || other.isAbsolute()) {
       return other;
     }
+    if (other.isEmpty()) {
+      return this;
+    }
     // The path fragment is already normal, use cheaper normalization check.
     String otherStr = other.normalizedPath;
     return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
@@ -276,16 +279,16 @@ public abstract sealed class PathFragment
    */
   public PathFragment getRelative(String other) {
     Preconditions.checkNotNull(other);
-    return getRelative(other, OS.getDriveStrLength(other), OS.needsToNormalize(other));
-  }
-
-  private PathFragment getRelative(String other, int otherDriveStrLength, int normalizationLevel) {
     if (isEmpty()) {
       return create(other);
     }
     if (other.isEmpty()) {
       return this;
     }
+    return getRelative(other, OS.getDriveStrLength(other), OS.needsToNormalize(other));
+  }
+
+  private PathFragment getRelative(String other, int otherDriveStrLength, int normalizationLevel) {
     // This is an absolute path, simply return it
     if (otherDriveStrLength > 0) {
       String normalizedPath =
@@ -582,6 +585,9 @@ public abstract sealed class PathFragment
    * <p>This operation is O(N) on the length of the string.
    */
   public String getSegment(int index) {
+    if (index < 0) {
+      throw new IllegalArgumentException("Illegal segment index: " + index);
+    }
     int n = normalizedPath.length();
     int segmentCount = 0;
     int i;
@@ -601,7 +607,7 @@ public abstract sealed class PathFragment
       ++segmentCount;
     }
     int endi = i;
-    if (index < 0 || index >= segmentCount) {
+    if (index >= segmentCount) {
       throw new IllegalArgumentException("Illegal segment index: " + index);
     }
     return normalizedPath.substring(starti, endi);
