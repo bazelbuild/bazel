@@ -190,6 +190,28 @@ bool_flag(
 )
 ```
 
+A build setting whose value should be determined by the target platform can set
+the `scope` attribute to `"platform"`. Such a build setting resets to its
+default value whenever a transition changes `--platforms`, unless that
+transition sets the build setting itself. The new platform's
+[`flags`](/reference/be/platforms-and-toolchains#platform.flags) are applied
+afterwards, so a value set by the new platform takes effect. This prevents
+values set by one platform's `flags` from leaking into the configurations of
+another platform. Platforms are compared by label, so an `alias` of a platform
+counts as a different platform. Like `"target"` build settings, `"platform"`
+build settings are not applied to the `exec` configuration; the execution
+platform's `flags` apply there instead.
+
+```python
+# example/BUILD
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+string_flag(
+    name = "fpu",
+    build_setting_default = "none",
+    scope = "platform"
+)
+```
+
 ### Predefined settings {#predefined-settings}
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/use_skylib_build_setting)
