@@ -79,6 +79,8 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.AbstractSet;
@@ -94,6 +96,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   private static final String FAKE_INSTALL_MD5_STRING = "abcedf1234567890abcedf1234567890";
 
   protected SkyframeExecutor skyframeExecutor;
+  protected ConfiguredRuleClassProvider ruleClassProvider;
+  private OptionsProvider syncedOptions;
   protected FileSystem fileSystem =
       new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
   private FakeRegistry registry;
@@ -318,11 +322,11 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   private void initTargetPatternEvaluator(ConfiguredRuleClassProvider ruleClassProvider) {
+    this.ruleClassProvider = ruleClassProvider;
     this.toolsRepository = ruleClassProvider.getToolsRepository();
     if (skyframeExecutor != null) {
       cleanUp();
     }
-    skyframeExecutor = createSkyframeExecutor(ruleClassProvider);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
 
     packageOptions.setDefaultVisibility(RuleVisibility.PRIVATE);
@@ -334,8 +338,22 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.setExperimentalGoogleLegacyApi(!analysisMock.isThisBazel());
     buildLanguageOptions.setExperimentalDormantDeps(true);
+    this.syncedOptions =
+        FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build();
 
-    ImmutableList<BuildFileName> buildFilesByPriority = skyframeExecutor.getBuildFilesByPriority();
+    skyframeExecutor = syncSkyframeExecutor(createSkyframeExecutor(ruleClassProvider));
+    pkgManager = skyframeExecutor.getPackageManager();
+    targetParser = new SkyframeTargetPatternEvaluator(skyframeExecutor);
+  }
+
+  /**
+   * Syncs {@code executor} with the package locator and options built in {@link
+   * #initTargetPatternEvaluator}, so every executor that this helper creates uses the same {@link
+   * PackageOptions} and {@link BuildLanguageOptions}.
+   */
+  @CanIgnoreReturnValue
+  protected final SkyframeExecutor syncSkyframeExecutor(SkyframeExecutor executor) {
+    ImmutableList<BuildFileName> buildFilesByPriority = executor.getBuildFilesByPriority();
     PathPackageLocator packageLocator;
     try {
       packageLocator =
@@ -346,12 +364,12 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                   buildFilesByPriority)
               : PathPackageLocator.create(
                   directories.getOutputBase(),
-                  packageOptions.getPackagePath(),
+                  syncedOptions.getOptions(PackageOptions.class).getPackagePath(),
                   getReporter(),
                   directories.getWorkspace().asFragment(),
                   rootDirectory,
                   buildFilesByPriority);
-      skyframeExecutor.sync(
+      executor.sync(
           getReporter(),
           packageLocator,
           UUID.randomUUID(),
@@ -359,14 +377,13 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           /* repoEnv= */ ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
           QuiescingExecutorsImpl.forTesting(),
-          FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build(),
+          syncedOptions,
           /* commandName= */ "query",
           /* commandExecutes= */ false);
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);
     }
-    pkgManager = skyframeExecutor.getPackageManager();
-    targetParser = new SkyframeTargetPatternEvaluator(skyframeExecutor);
+    return executor;
   }
 
   @Override
