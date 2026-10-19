@@ -702,10 +702,17 @@ public abstract sealed class PathFragment
       throw new IllegalArgumentException(
           String.format("Invalid number of components (%d)", numComponents));
     }
-    if (numComponents >= this.segmentCount()) {
+    int n = normalizedPath.length();
+    int i = getDriveStrLength();
+    for (; i < n && numComponents > 0; ++i) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
+        --numComponents;
+      }
+    }
+    if (i >= n) {
       return EMPTY_FRAGMENT;
     }
-    return this.subFragment(numComponents);
+    return new RelativePathFragment(normalizedPath.substring(i));
   }
 
   /**
