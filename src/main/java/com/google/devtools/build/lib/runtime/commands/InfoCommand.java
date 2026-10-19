@@ -86,6 +86,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import net.starlark.java.spelling.SpellChecker;
@@ -100,6 +101,7 @@ import net.starlark.java.spelling.SpellChecker;
     shortDescription = "Displays runtime info about the %{product} server.",
     options = {InfoCommand.Options.class},
     completion = "info-key",
+    mustRunInWorkspace = false,
     // We have InfoCommand inherit from {@link BuildCommand} because we want all
     // configuration defaults specified in ~/.blazerc for {@code build} to apply to
     // {@code info} too, even though it doesn't actually do a build.
@@ -175,6 +177,7 @@ public class InfoCommand implements BlazeCommand {
     Supplier<BuildConfigurationValue> configurationSupplier =
         createConfigurationSupplier(env, optionsParsingResult);
 
+    boolean inWorkspace = env.getDirectories().inWorkspace();
     Map<String, InfoItem> items = getInfoItemMap(env, optionsParsingResult);
     List<String> residue = optionsParsingResult.getResidue();
 
@@ -182,15 +185,26 @@ public class InfoCommand implements BlazeCommand {
         infoItemHandlerFactory.create(
             env, infoOptions.getInfoOutputType(), /* printKeys= */ residue.size() != 1)) {
       if (infoOptions.getShowMakeEnvironment()) {
-        populateMakeEnvironment(configurationSupplier, items);
+        Optional<BlazeCommandResult> failure =
+            populateMakeEnvironment(env, inWorkspace, configurationSupplier, items);
+        if (failure.isPresent()) {
+          return failure.get();
+        }
       }
 
       env.getEventBus().post(new NoBuildEvent());
       if (!residue.isEmpty()) {
         return printSpecifiedKeys(
-            env, optionsParsingResult, items, residue, configurationSupplier, infoItemHandler);
+            env,
+            optionsParsingResult,
+            items,
+            residue,
+            configurationSupplier,
+            infoItemHandler,
+            inWorkspace);
       }
-      return printAllKeys(env, optionsParsingResult, items, configurationSupplier, infoItemHandler);
+      return printAllKeys(
+          env, optionsParsingResult, items, configurationSupplier, infoItemHandler, inWorkspace);
     } catch (AbruptExitException e) {
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     } catch (AbruptExitRuntimeException e) {
@@ -239,13 +253,29 @@ public class InfoCommand implements BlazeCommand {
         });
   }
 
-  private static void populateMakeEnvironment(
-      Supplier<BuildConfigurationValue> configurationSupplier, Map<String, InfoItem> items) {
+  private static Optional<BlazeCommandResult> populateMakeEnvironment(
+      CommandEnvironment env,
+      boolean inWorkspace,
+      Supplier<BuildConfigurationValue> configurationSupplier,
+      Map<String, InfoItem> items) {
+    if (!inWorkspace) {
+      String message =
+          "option '--show_make_env' is only supported from within a workspace (below a"
+              + " directory having a MODULE.bazel file).\n"
+              + "See documentation at https://bazel.build/concepts/build-ref#workspace";
+      env.getReporter().handle(Event.error(message));
+      return Optional.of(
+          createFailureResult(
+              message,
+              ExitCode.COMMAND_LINE_ERROR,
+              FailureDetails.InfoCommand.Code.KEY_NOT_SUPPORTED_OUTSIDE_WORKSPACE));
+    }
     ImmutableMap<String, String> makeEnv = configurationSupplier.get().getMakeEnvironment();
     for (Map.Entry<String, String> entry : makeEnv.entrySet()) {
       InfoItem item = new MakeInfoItem(entry.getKey(), entry.getValue());
       items.put(item.getName(), item);
     }
+    return Optional.empty();
   }
 
   private static BlazeCommandResult printSpecifiedKeys(
@@ -254,13 +284,19 @@ public class InfoCommand implements BlazeCommand {
       Map<String, InfoItem> items,
       List<String> keys,
       Supplier<BuildConfigurationValue> configurationSupplier,
-      InfoItemHandler infoItemHandler)
+      InfoItemHandler infoItemHandler,
+      boolean inWorkspace)
       throws IOException, InterruptedException, AbruptExitException {
     ImmutableSet.Builder<String> unknownKeysBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<String> unsupportedKeysBuilder = ImmutableSet.builder();
     for (String key : keys) {
       if (items.containsKey(key)) {
+        InfoItem infoItem = items.get(key);
+        if (!inWorkspace && infoItem.requiresWorkspace()) {
+          unsupportedKeysBuilder.add(key);
+          continue;
+        }
         try (SilentCloseable c = Profiler.instance().profile(key + ".infoItem")) {
-          InfoItem infoItem = items.get(key);
           if (infoItem.needsSyncPackageLoading()) {
             ensureSyncPackageLoading(env, optionsParsingResult);
           }
@@ -282,6 +318,22 @@ public class InfoCommand implements BlazeCommand {
       return createFailureResult(
           message, ExitCode.COMMAND_LINE_ERROR, FailureDetails.InfoCommand.Code.KEY_NOT_RECOGNIZED);
     }
+    ImmutableSet<String> unsupportedKeys = unsupportedKeysBuilder.build();
+    if (!unsupportedKeys.isEmpty()) {
+      String message =
+          String.format(
+              "key(s) only supported from within a workspace (below a directory having a"
+                  + " MODULE.bazel file): %s\n"
+                  + "See documentation at https://bazel.build/concepts/build-ref#workspace",
+              unsupportedKeys.stream()
+                  .map(key -> "'%s'".formatted(key))
+                  .collect(Collectors.joining(", ")));
+      env.getReporter().handle(Event.error(message));
+      return createFailureResult(
+          message,
+          ExitCode.COMMAND_LINE_ERROR,
+          FailureDetails.InfoCommand.Code.KEY_NOT_SUPPORTED_OUTSIDE_WORKSPACE);
+    }
     return BlazeCommandResult.success();
   }
 
@@ -290,11 +342,17 @@ public class InfoCommand implements BlazeCommand {
       OptionsParsingResult optionsParsingResult,
       Map<String, InfoItem> items,
       Supplier<BuildConfigurationValue> configurationSupplier,
-      InfoItemHandler infoItemHandler)
+      InfoItemHandler infoItemHandler,
+      boolean inWorkspace)
       throws IOException, InterruptedException, AbruptExitException {
-    var unused = configurationSupplier.get(); // We'll need this later anyway
+    if (inWorkspace) {
+      var unused = configurationSupplier.get(); // We'll need this later anyway
+    }
     for (InfoItem infoItem : items.values()) {
       if (infoItem.isHidden()) {
+        continue;
+      }
+      if (!inWorkspace && infoItem.requiresWorkspace()) {
         continue;
       }
       if (infoItem.needsSyncPackageLoading()) {
