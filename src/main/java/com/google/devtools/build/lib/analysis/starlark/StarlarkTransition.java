@@ -18,10 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -219,6 +221,98 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       cleanedOptionMap.put(entry.getKey(), options);
     }
     return cleanedOptionMap.buildOrThrow();
+  }
+
+  /**
+   * Resets build settings with {@code scope = "platform"} to their default values when a transition
+   * changes {@code --platforms}.
+   *
+   * <p>A build setting is reset in an entry of {@code toOptions} if that entry's {@code
+   * --platforms} differs from {@code fromOptions}' and no Starlark transition in {@code root} has
+   * the build setting as an output. The new platform's flags are applied afterwards when the
+   * configuration key is created, so a value set by the new platform still wins.
+   *
+   * <p>Platforms are compared by label, so changing to an alias of the current platform also resets
+   * these build settings.
+   *
+   * @param root transition that was applied
+   * @param details a StarlarkBuildSettingsDetailsValue whose corresponding key was all the input
+   *     and output settings of root. Used to unalias the outputs of {@code root}.
+   * @param flagsAliases a list of starlark flag aliases defined via --flag_alias.
+   * @param fromOptions the options {@code root} was applied to
+   * @param toOptions result of applying {@code root}, as returned by {@link #validate}
+   * @return {@code toOptions} with platform-scoped build settings reset where needed
+   * @throws TransitionException if an error occurred while visiting {@code root}.
+   */
+  public static Map<String, BuildOptions> resetPlatformScopedSettings(
+      ConfigurationTransition root,
+      StarlarkBuildSettingsDetailsValue details,
+      ImmutableMap<String, Label> flagsAliases,
+      BuildOptions fromOptions,
+      Map<String, BuildOptions> toOptions)
+      throws TransitionException {
+    PlatformOptions fromPlatformOptions = fromOptions.get(PlatformOptions.class);
+    if (fromPlatformOptions == null) {
+      return toOptions;
+    }
+
+    // Lazily initialized since most transitions don't change the platform.
+    Set<Label> outputSettings = null;
+    boolean changed = false;
+    ImmutableMap.Builder<String, BuildOptions> resetOptionsMap =
+        ImmutableMap.builderWithExpectedSize(toOptions.size());
+    for (Entry<String, BuildOptions> entry : toOptions.entrySet()) {
+      BuildOptions options = entry.getValue();
+      PlatformOptions platformOptions = options.get(PlatformOptions.class);
+      if (platformOptions == null
+          || platformOptions.getPlatforms().equals(fromPlatformOptions.getPlatforms())) {
+        resetOptionsMap.put(entry.getKey(), options);
+        continue;
+      }
+      BuildOptions.Builder resetOptions = null;
+      for (Label setting : options.getStarlarkOptions().keySet()) {
+        Scope.ScopeType scopeType = options.getScopeTypeMap().get(setting);
+        if (scopeType == null || !scopeType.scopeType().equals(Scope.ScopeType.PLATFORM)) {
+          continue;
+        }
+        if (outputSettings == null) {
+          outputSettings = getUnaliasedOutputSettings(root, details, flagsAliases);
+        }
+        if (outputSettings.contains(setting)) {
+          continue;
+        }
+        if (resetOptions == null) {
+          resetOptions = options.toBuilder();
+        }
+        resetOptions.removeStarlarkOption(setting);
+      }
+      if (resetOptions != null) {
+        options = resetOptions.build();
+        changed = true;
+      }
+      resetOptionsMap.put(entry.getKey(), options);
+    }
+    return changed ? resetOptionsMap.buildOrThrow() : toOptions;
+  }
+
+  /** Returns the Starlark build settings output by any Starlark transition in {@code root}. */
+  private static Set<Label> getUnaliasedOutputSettings(
+      ConfigurationTransition root,
+      StarlarkBuildSettingsDetailsValue details,
+      ImmutableMap<String, Label> flagsAliases)
+      throws TransitionException {
+    ImmutableSet.Builder<Label> outputSettings = ImmutableSet.builder();
+    root.visit(
+        (StarlarkTransitionVisitor)
+            transition -> {
+              for (Label maybeAliasSetting :
+                  getRelevantStarlarkSettingsFromTransition(
+                      transition, flagsAliases, Settings.OUTPUTS)) {
+                outputSettings.add(
+                    details.aliasToActual().getOrDefault(maybeAliasSetting, maybeAliasSetting));
+              }
+            });
+    return outputSettings.build();
   }
 
   /**
