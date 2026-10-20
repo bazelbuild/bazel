@@ -734,7 +734,7 @@ public abstract class BuildIntegrationTestCase {
     // one for the actual host OS. macOS shares Linux's shell path, but Windows needs a different
     // one.
     if (OS.getCurrent() == OS.WINDOWS) {
-      runtimeWrapper.addOptions("--shell_executable=c:/msys64/usr/bin/bash.exe");
+      runtimeWrapper.addOptions("--shell_executable=C:/msys64/usr/bin/bash.exe");
     }
   }
 

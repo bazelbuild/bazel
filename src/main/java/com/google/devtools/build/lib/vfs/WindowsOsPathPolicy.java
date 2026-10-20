@@ -79,6 +79,9 @@ class WindowsOsPathPolicy implements OsPathPolicy {
     int n = path.length();
     int normalizationLevel = NORMALIZED;
     int driveStrLength = getDriveStrLength(path);
+    if (driveStrLength == 3 && Character.isLowerCase(path.charAt(0))) {
+      normalizationLevel = NEEDS_NORMALIZE;
+    }
     int dotCount = 0;
     char prevChar = 0;
     int segmentBeginIndex = 0; // The start index of the current path index

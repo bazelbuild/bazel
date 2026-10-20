@@ -146,6 +146,8 @@ public class PathFragmentWindowsTest {
   @Test
   public void testWindowsVolumeUppercase() {
     assertThat(create("C:/")).isEqualTo(create("c:/"));
+    assertThat(create("C:/foo/bar")).isEqualTo(create("c:/foo/bar"));
+    assertThat(create("c:/foo/bar").getPathString()).isEqualTo("C:/foo/bar");
   }
 
   @Test
