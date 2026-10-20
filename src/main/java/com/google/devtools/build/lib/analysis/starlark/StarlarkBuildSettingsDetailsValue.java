@@ -45,9 +45,8 @@ import javax.annotation.Nullable;
  *
  * <p>Potentially aliased targets can be unaliased with aliasToActual().getWithDefault(raw, raw);
  *
- * @param buildSettings The (possibly aliased) build settings this value was computed for, i.e. the
- *     ones in the {@link Key}. Lets {@link #covers} answer whether this value can stand in for one
- *     computed for a subset of these settings.
+ * @param buildSettings The (possibly aliased) build settings in the {@link Key} this value was
+ *     computed for. Used by {@link #covers}.
  * @param buildSettingToDefault Map from each build option to its default value. Does not include
  *     aliases.
  * @param buildSettingToType Map from each build option to its type information. Does not include
@@ -55,17 +54,16 @@ import javax.annotation.Nullable;
  * @param buildSettingIsAllowsMultiple If build option is in this set, is an allows_multiple option.
  *     Does not include aliases.
  * @param aliasToActual Map from an alias Label to actual Label it points to.
- * @param customExecScopeValues Map from a build setting Label to the custom exec scope value for
- *     that setting, including the default of the referenced flag even when it isn't set in the
- *     configuration. Host flag aliases also contribute entries when neither flag is set.
+ * @param customExecScopeValues Map from a build setting Label to its custom exec scope value, which
+ *     includes the referenced flag's default. Host flag aliases have entries even if neither flag
+ *     is set.
  * @param buildSettingToScopeType Map from each build option to its scope type. Does not include
  *     aliases.
  * @param buildSettingToOnLeaveScopeValue Map from each build option to its on_leave_scope value, if
  *     explicitly set. Does not include aliases.
  * @param projectScopes Map from each build option with {@link Scope.ScopeType#PROJECT} scope to its
- *     {@link Scope}, including the {@link Scope.ScopeDefinition} read from the PROJECT.scl file
- *     governing the option's package, if any. Does not include aliases. Options with any other
- *     scope type are absent: project scoping only ever resets project-scoped options.
+ *     {@link Scope}, including the {@link Scope.ScopeDefinition} from the PROJECT.scl file
+ *     governing the option's package, if any. Does not include aliases.
  */
 @CheckReturnValue
 @Immutable
@@ -137,21 +135,14 @@ public record StarlarkBuildSettingsDetailsValue(
   }
 
   /**
-   * Returns the key for the details of the Starlark flags of a configuration, or null if it has
-   * none.
-   *
-   * <p>This is the value {@code BuildConfigurationFunction} resolves once per configuration and
-   * stores on the configuration, so that the exec transition and project scoping can read scopes
-   * off the configuration rather than resolving them per configured target or dependency edge.
-   * Callers that fall back to resolving it themselves must use this same key so that they share the
-   * node.
+   * Returns the key for the details of a configuration's Starlark build settings and host flag
+   * aliases, or null if it has neither.
    *
    * @param starlarkOptions the configuration's Starlark options
    * @param hostFlags the Starlark flags that {@code --flag_alias} maps to a {@code host_}-prefixed
-   *     name, see {@code CoreOptions#getHostFlagAliases}. A flag scoped {@code exec:--host_foo}
-   *     takes the value of {@code --host_foo} in exec configurations even when neither is set, so
-   *     the exec transition needs the scopes of these flags whether or not the configuration sets
-   *     them.
+   *     name, see {@code CoreOptions#getHostFlagAliases}. Included since a flag scoped {@code
+   *     exec:--host_foo} takes the value of {@code --host_foo} in exec configurations, even if
+   *     neither is set.
    */
   @Nullable
   public static Key keyForStarlarkOptions(
@@ -160,25 +151,12 @@ public record StarlarkBuildSettingsDetailsValue(
     if (buildSettings.isEmpty() && hostFlags.isEmpty()) {
       return null;
     }
-    return keyForBuildSettings(buildSettings, hostFlags);
-  }
-
-  /**
-   * Returns the key for the details of the given build settings, see {@link #keyForStarlarkOptions}
-   * for {@code hostFlags}.
-   */
-  public static Key keyForBuildSettings(
-      ImmutableSet<Label> buildSettings, ImmutableSet<Label> hostFlags) {
     return Key.create(buildSettings, hostFlags);
   }
 
   /**
-   * Returns the labels of the Starlark options in {@code starlarkOptions} that are build settings
-   * and thus have scopes, i.e. all of them except feature flags.
-   *
-   * <p>Avoids allocating a new set in the common case where no feature flags are set. Returning the
-   * map's cached key set also lets {@link #covers} and the {@link Key} interner short-circuit on
-   * reference equality.
+   * Returns the labels of the Starlark options in {@code starlarkOptions} that aren't feature
+   * flags, which are the ones with scopes.
    */
   public static ImmutableSet<Label> scopedBuildSettings(
       ImmutableMap<Label, Object> starlarkOptions) {
@@ -190,21 +168,18 @@ public record StarlarkBuildSettingsDetailsValue(
             .collect(toImmutableSet());
       }
     }
+    // The map's own key set avoids an allocation and lets covers and the Key interner compare by
+    // reference.
     return starlarkOptions.keySet();
   }
 
   /**
-   * Returns whether this value has details for all of {@code buildSettings}.
-   *
-   * <p>Callers that hold a value computed for a superset of the build settings they care about can
-   * use it instead of asking Skyframe for one computed for the exact set.
-   *
-   * <p>This runs on every transitioned dependency edge, so it starts with a reference check. That
-   * hits whenever {@code buildSettings} is the very key set this value was computed from, which
-   * {@code ImmutableMap} hands out repeatedly for the same map: a transition that doesn't touch
-   * Starlark options passes its input {@code BuildOptions} straight through.
+   * Returns whether this value has details for all of {@code buildSettings}, in which case it can
+   * be used instead of a value computed for exactly those settings.
    */
   public boolean covers(Set<Label> buildSettings) {
+    // This runs on every transitioned dependency edge, so first check for the very set this value
+    // was computed for.
     return this.buildSettings == buildSettings
         || buildSettings.isEmpty()
         || (this.buildSettings.size() >= buildSettings.size()
@@ -226,6 +201,15 @@ public record StarlarkBuildSettingsDetailsValue(
   }
 
   /**
+   * Returns the scope type of the build setting with the actual (non-alias) label {@code
+   * buildSetting}, or {@link Scope.ScopeType#DEFAULT} if this value has no details for it.
+   */
+  public String scopeTypeOf(Label buildSetting) {
+    Scope.ScopeType scopeType = buildSettingToScopeType.get(buildSetting);
+    return scopeType != null ? scopeType.scopeType() : Scope.ScopeType.DEFAULT;
+  }
+
+  /**
    * Represents a custom exec scope value for a Starlark build setting.
    *
    * @param flag the label of the build setting, e.g. //:foo
@@ -233,19 +217,12 @@ public record StarlarkBuildSettingsDetailsValue(
    * @param hostFlag the label of the host flag, e.g. //:host_foo
    * @param hostFlagDefault the default value of the host flag, which is the value that will be used
    *     for the build setting in the exec configuration.
-   * @param flagScopeType the scope type of the build setting, e.g. "exec:--host_foo"
-   * @param hostFlagScopeType the scope type of the host flag, e.g. "default" or "target"
    */
   @AutoCodec
   @Immutable
   @ThreadSafe
   public record CustomExecScopeValue(
-      Label flag,
-      Object flagDefault,
-      Label hostFlag,
-      Object hostFlagDefault,
-      String flagScopeType,
-      String hostFlagScopeType) {}
+      Label flag, Object flagDefault, Label hostFlag, Object hostFlagDefault) {}
 
   /** {@link SkyKey} implementation used for {@link StarlarkBuildSettingsDetailsValue}. */
   @CheckReturnValue

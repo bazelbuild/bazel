@@ -406,8 +406,6 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
 
     @Override
     public StarlarkBuildSettingsDetailsValue getPreRuleTransitionFlagDetails() {
-      // Runs once per top-level aspect, so letting the rule transition resolve the scopes itself
-      // costs little.
       return StarlarkBuildSettingsDetailsValue.EMPTY;
     }
   }

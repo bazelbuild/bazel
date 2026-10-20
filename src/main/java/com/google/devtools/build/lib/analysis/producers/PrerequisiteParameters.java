@@ -136,11 +136,7 @@ public final class PrerequisiteParameters {
     return configuredTargetKey.getConfigurationKey();
   }
 
-  /**
-   * Returns the details of the Starlark flags set in {@link #configurationKey}'s configuration,
-   * taken from the {@link com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}
-   * this target is being analyzed in.
-   */
+  /** Returns the details of the Starlark flags of this target's configuration. */
   public StarlarkBuildSettingsDetailsValue starlarkFlagDetails() {
     return starlarkFlagDetails;
   }

@@ -95,12 +95,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
   }
 
   /**
-   * Resolves the details of the configuration's Starlark build settings, most importantly their
-   * scopes.
-   *
-   * <p>This is done once per configuration so that the exec transition and project scoping can read
-   * the scopes off the configuration rather than resolving them once per configured target or
-   * dependency edge, which would also make every configured target a reverse dep of the details.
+   * Resolves the details of the configuration's Starlark build settings, such as their scopes.
    *
    * @return null if Skyframe deps need loading.
    */

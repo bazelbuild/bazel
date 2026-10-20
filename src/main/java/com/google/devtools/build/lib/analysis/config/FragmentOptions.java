@@ -88,23 +88,13 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
   }
 
   /**
-   * Adds the given map of option values to the fingerprint by stringifying them.
+   * Adds the given option value to the fingerprint by stringifying it.
    *
-   * @param valueType the result of applying this function to each value (and, for collections, each
+   * @param valueType the result of applying this function to the value (and, for collections, each
    *     element) is also added, which makes the fingerprint sensitive to the type of a value in
    *     addition to its string representation
    */
-  static void addMapToFingerprint(
-      Fingerprint fp, Map<?, ?> optionsMap, Function<Object, String> valueType) {
-    fp.addInt(optionsMap.size());
-    optionsMap.forEach(
-        (key, value) -> {
-          fp.addString(key.toString());
-          addValueToFingerprint(fp, value, valueType);
-        });
-  }
-
-  private static void addValueToFingerprint(
+  static void addValueToFingerprint(
       Fingerprint fp, @Nullable Object value, Function<Object, String> valueType) {
     if (value == null) {
       fp.addBoolean(false);

@@ -67,10 +67,7 @@ public class BuildConfigurationKeyMapProducer
   private final Map<String, BuildConfigurationKey> results;
 
   /**
-   * @param sourceFlagDetails the details already resolved for the Starlark flags of the
-   *     configuration {@code options} was transitioned from, or {@link
-   *     StarlarkBuildSettingsDetailsValue#EMPTY} if the caller has none. See {@link
-   *     BuildConfigurationKeyProducer}.
+   * @param sourceFlagDetails see {@link BuildConfigurationKeyProducer}
    */
   public BuildConfigurationKeyMapProducer(
       ResultSink sink,

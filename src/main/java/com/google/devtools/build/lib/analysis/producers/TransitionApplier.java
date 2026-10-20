@@ -62,9 +62,9 @@ final class TransitionApplier
   private StarlarkBuildSettingsDetailsValue buildSettingsDetailsValue;
 
   /**
-   * @param fromConfigurationFlagDetails the details already resolved for {@code
-   *     fromConfiguration}'s Starlark flags, or {@link StarlarkBuildSettingsDetailsValue#EMPTY} if
-   *     the caller doesn't have them. See {@link BuildConfigurationKeyProducer}.
+   * @param fromConfigurationFlagDetails the details of {@code fromConfiguration}'s Starlark flags
+   *     or {@link StarlarkBuildSettingsDetailsValue#EMPTY}, see {@link
+   *     BuildConfigurationKeyProducer}
    */
   TransitionApplier(
       Label label,

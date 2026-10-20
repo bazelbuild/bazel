@@ -124,15 +124,7 @@ public class BuildConfigurationValue
   private final BuildOptions buildOptions;
   private final CoreOptions options;
 
-  /**
-   * Details of this configuration's Starlark build settings, most importantly their scopes, which
-   * the exec transition and project scoping need. {@link StarlarkBuildSettingsDetailsValue#EMPTY}
-   * if this configuration sets no Starlark build settings.
-   *
-   * <p>Resolved once per configuration by {@code BuildConfigurationFunction} rather than once per
-   * configured target or dependency edge: see {@code StarlarkExecTransitionLoader} and {@code
-   * BuildConfigurationKeyProducer}.
-   */
+  /** Details of this configuration's Starlark build settings, such as their scopes. */
   private final StarlarkBuildSettingsDetailsValue starlarkFlagDetails;
 
   /** The cpu value based on the platform the configuration is built for. */
@@ -363,22 +355,14 @@ public class BuildConfigurationValue
       return false;
     }
     // Only considering arguments that are non-dependent and non-server-global, plus the Starlark
-    // build setting details, which transition logic reads out of the configuration. They are
-    // derived from the build settings' definitions, so unlike the build options they can change
-    // without the key changing: leaving them out would let change pruning keep a stale copy alive.
-    // hashCode intentionally doesn't consider them: it isn't needed for correctness there and
-    // hashing these maps is far more expensive than hashing the build options.
+    // flag details. hashCode skips the latter since hashing them is expensive.
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.workspaceName.equals(otherVal.workspaceName)
         && this.mnemonic.equals(otherVal.mnemonic)
-        && (this.starlarkFlagDetails == otherVal.starlarkFlagDetails
-            || this.starlarkFlagDetails.equals(otherVal.starlarkFlagDetails));
+        && this.starlarkFlagDetails.equals(otherVal.starlarkFlagDetails);
   }
 
-  /**
-   * Returns the details of this configuration's Starlark build settings, or {@link
-   * StarlarkBuildSettingsDetailsValue#EMPTY} if it sets none.
-   */
+  /** Returns the details of this configuration's Starlark build settings. */
   public StarlarkBuildSettingsDetailsValue starlarkFlagDetails() {
     return starlarkFlagDetails;
   }

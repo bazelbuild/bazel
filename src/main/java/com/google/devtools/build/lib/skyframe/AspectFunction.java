@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.analysis.producers.DependencyContextProduce
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -418,11 +419,8 @@ final class AspectFunction implements SkyFunction {
                     : targetAndConfiguration.getConfiguration().getOptions(),
                 (bzlKey) ->
                     (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
-                // Already resolved once per configuration by BuildConfigurationFunction. Resolving
-                // it here would run once per aspect and make every aspect a reverse dep of a
-                // single node.
                 targetAndConfiguration.getConfiguration() == null
-                    ? null
+                    ? StarlarkBuildSettingsDetailsValue.EMPTY
                     : targetAndConfiguration.getConfiguration().starlarkFlagDetails());
         if (starlarkExecTransition == null) {
           return null; // Need Skyframe deps.
