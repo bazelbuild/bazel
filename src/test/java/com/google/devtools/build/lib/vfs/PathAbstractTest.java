@@ -75,6 +75,13 @@ public abstract class PathAbstractTest {
     String normal1 = "/a/b/hello.txt";
     assertThat(create(normal1).getPathString()).isSameInstanceAs(normal1);
 
+    String root = "/";
+    assertThat(create(root).getPathString()).isSameInstanceAs(root);
+
+    String trailingDotsInSegments = "/a./b../hello.txt.";
+    assertThat(create(trailingDotsInSegments).getPathString())
+        .isSameInstanceAs(trailingDotsInSegments);
+
     // Check our testing strategy
     String notNormal = "/a/../b";
     assertThat(create(notNormal).getPathString()).isNotSameInstanceAs(notNormal);

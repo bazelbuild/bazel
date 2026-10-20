@@ -78,6 +78,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   public int needsToNormalize(String path) {
     int n = path.length();
     int normalizationLevel = NORMALIZED;
+    int driveStrLength = getDriveStrLength(path);
     int dotCount = 0;
     char prevChar = 0;
     int segmentBeginIndex = 0; // The start index of the current path index
@@ -102,11 +103,18 @@ class WindowsOsPathPolicy implements OsPathPolicy {
         }
         segmentBeginIndex = i + 1;
         segmentHasShortPathChar = false;
-      } else if (c == '~') {
-        // This path segment might be a Windows short path segment
-        segmentHasShortPathChar = true;
+        dotCount = 0;
+      } else {
+        if (c == '~') {
+          // This path segment might be a Windows short path segment
+          segmentHasShortPathChar = true;
+        }
+        if (c == '.' && dotCount >= 0) {
+          dotCount++;
+        } else {
+          dotCount = -1;
+        }
       }
-      dotCount = c == '.' ? dotCount + 1 : 0;
       prevChar = c;
     }
     if (segmentHasShortPathChar) {
@@ -114,7 +122,11 @@ class WindowsOsPathPolicy implements OsPathPolicy {
         normalizationLevel = Math.max(normalizationLevel, NEEDS_SHORT_PATH_NORMALIZATION);
       }
     }
-    if ((n > 1 && isSeparator(prevChar)) || dotCount == 1 || dotCount == 2) {
+    boolean isUnnormalizedTrailingSlash =
+        isSeparator(prevChar)
+            && (n > driveStrLength
+                || (driveStrLength == 3 && Character.isLowerCase(path.charAt(0))));
+    if (isUnnormalizedTrailingSlash || dotCount == 1 || dotCount == 2) {
       normalizationLevel = Math.max(normalizationLevel, NEEDS_NORMALIZE);
     }
     return normalizationLevel;

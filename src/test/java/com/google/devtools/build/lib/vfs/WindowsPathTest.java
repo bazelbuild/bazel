@@ -157,6 +157,9 @@ public class WindowsPathTest extends PathAbstractTest {
         .isEqualTo(WindowsOsPathPolicy.NEEDS_SHORT_PATH_NORMALIZATION);
     assertThat(osPathPolicy.needsToNormalize("d:/no-normalization"))
         .isEqualTo(WindowsOsPathPolicy.NORMALIZED);
+    assertThat(osPathPolicy.needsToNormalize("D:/")).isEqualTo(WindowsOsPathPolicy.NORMALIZED);
+    assertThat(osPathPolicy.needsToNormalize("D:/foo./bar.."))
+        .isEqualTo(WindowsOsPathPolicy.NORMALIZED);
   }
 
   private static String normalize(OsPathPolicy osPathPolicy, String str) {

@@ -29,9 +29,6 @@ class UnixOsPathPolicy implements OsPathPolicy {
     char prevChar = 0;
     for (int i = 0; i < n; i++) {
       char c = path.charAt(i);
-      if (c == '\\') {
-        return NEEDS_NORMALIZE;
-      }
       if (c == '/') {
         if (prevChar == '/') {
           return NEEDS_NORMALIZE;
@@ -39,11 +36,15 @@ class UnixOsPathPolicy implements OsPathPolicy {
         if (dotCount == 1 || dotCount == 2) {
           return NEEDS_NORMALIZE;
         }
+        dotCount = 0;
+      } else if (c == '.' && dotCount >= 0) {
+        dotCount++;
+      } else {
+        dotCount = -1;
       }
-      dotCount = c == '.' ? dotCount + 1 : 0;
       prevChar = c;
     }
-    if (prevChar == '/' || dotCount == 1 || dotCount == 2) {
+    if ((n > 1 && prevChar == '/') || dotCount == 1 || dotCount == 2) {
       return NEEDS_NORMALIZE;
     }
     return NORMALIZED;
