@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -86,6 +87,94 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
               () -> createBuildOptions("--//test_flags:foo=True"));
       assertThat(exception).hasMessageThat().contains("Invalid \"scope\" attribute value");
     }
+  }
+
+  @Test
+  @TestParameters({
+    "{scope: 'badvalue'}",
+    "{scope: 'Universal'}",
+    "{scope: 'exec:--//test_flags:../bar'}",
+  })
+  public void invalidScope_isAnError(String scope) throws Exception {
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:build_setting.bzl", "bool_flag")
+        bool_flag(
+            name = "foo",
+            build_setting_default = False,
+            scope = "%s",
+        )
+        """
+            .formatted(scope));
+
+    var exception =
+        assertThrows(TransitionException.class, () -> executeFunction("//test_flags:foo"));
+    assertThat(exception)
+        .hasMessageThat()
+        .contains("Invalid \"scope\" attribute value \"%s\"".formatted(scope));
+  }
+
+  @Test
+  public void configurableScope_isAnError() throws Exception {
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:build_setting.bzl", "bool_flag")
+        config_setting(
+            name = "cond",
+            values = {"compilation_mode": "opt"},
+        )
+        bool_flag(
+            name = "foo",
+            build_setting_default = False,
+            scope = select({
+                ":cond": "target",
+                "//conditions:default": "universal",
+            }),
+        )
+        """);
+
+    var exception =
+        assertThrows(TransitionException.class, () -> executeFunction("//test_flags:foo"));
+    assertThat(exception).hasMessageThat().contains("can't use select()");
+    var parsingException =
+        assertThrows(
+            InvalidConfigurationException.class,
+            () -> createBuildOptions("--//test_flags:foo=True"));
+    assertThat(parsingException).hasMessageThat().contains("can't use select()");
+  }
+
+  @Test
+  public void onLeaveScopeOfWrongType_isAnError() throws Exception {
+    scratch.file(
+        "test_flags/string_on_leave_scope.bzl",
+        """
+        string_on_leave_scope_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+            attrs = {
+                "scope": attr.string(default = "target"),
+                "on_leave_scope": attr.string(),
+            },
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:string_on_leave_scope.bzl", "string_on_leave_scope_flag")
+        string_on_leave_scope_flag(
+            name = "foo",
+            build_setting_default = False,
+            on_leave_scope = "True",
+        )
+        """);
+
+    var exception =
+        assertThrows(TransitionException.class, () -> executeFunction("//test_flags:foo"));
+    assertThat(exception)
+        .hasMessageThat()
+        .contains("\"on_leave_scope\" attribute of build setting //test_flags:foo");
   }
 
   @Test
@@ -196,6 +285,12 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
     assertThat(details.buildSettingToScopeType()).containsExactly(foo, DEFAULT);
     assertThat(details.projectScopes()).isEmpty();
     assertThat(details.hasProjectScopedBuildSettings()).isFalse();
+  }
+
+  private StarlarkBuildSettingsDetailsValue executeFunction(String buildSetting) throws Exception {
+    return executeFunction(
+        StarlarkBuildSettingsDetailsValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical(buildSetting)), ImmutableSet.of()));
   }
 
   private StarlarkBuildSettingsDetailsValue executeFunction(
