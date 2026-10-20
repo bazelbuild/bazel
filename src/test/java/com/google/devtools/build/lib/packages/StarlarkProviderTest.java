@@ -31,6 +31,8 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Optional;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -681,6 +683,36 @@ public final class StarlarkProviderTest {
         .addEqualityGroup(provUnexported1, provUnexported1) // reflexive equality (unexported)
         .addEqualityGroup(provUnexported2)
         .testEquals();
+  }
+
+  @Test
+  public void providerKeyEqualsAndHashCode() throws Exception {
+    StarlarkProvider.Key keyFooA1 =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo.bzl")), "provA");
+    StarlarkProvider.Key keyFooA2 =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo.bzl")), "provA");
+    StarlarkProvider.Key keyFooB =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo.bzl")), "provB");
+    StarlarkProvider.Key keyBarA =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//bar.bzl")), "provA");
+
+    // Simulate DynamicCodec deserialization where transient hashCode is initialized to 0.
+    StarlarkProvider.Key keyFooADeserialized =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo.bzl")), "provA");
+    Field hashCodeField = StarlarkProvider.Key.class.getDeclaredField("hashCode");
+    hashCodeField.setAccessible(true);
+    assertThat(Modifier.isTransient(hashCodeField.getModifiers())).isTrue();
+    hashCodeField.setInt(keyFooADeserialized, 0);
+
+    new EqualsTester()
+        .addEqualityGroup(keyFooA1, keyFooA2, keyFooADeserialized)
+        .addEqualityGroup(keyFooB)
+        .addEqualityGroup(keyBarA)
+        .testEquals();
+
+    StarlarkProvider exported = StarlarkProvider.builder(Location.BUILTIN).buildExported(keyFooA1);
+    assertThat(exported.hashCode()).isEqualTo(keyFooA1.hashCode());
+    assertThat(keyFooADeserialized.hashCode()).isEqualTo(keyFooA1.hashCode());
   }
 
   /** Custom init equivalent to `def initBC(a): return {a:a, b:a*2, c:a*3}` */
