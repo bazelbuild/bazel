@@ -176,9 +176,11 @@ public interface Spawn extends DescribableExecutionUnit {
 
   /**
    * Returns the amount of resources needed for local execution. Calling this may trigger an
-   * expensive computation: do not call unless actually needed!
+   * expensive computation: do not call unless actually needed! {@code inputsBytes} is only
+   * evaluated if the resource declaration estimates from the inputs' total size.
    */
-  ResourceSet getLocalResources() throws ExecException, InterruptedException;
+  ResourceSet getLocalResources(ResourceSetOrBuilder.InputsBytes inputsBytes)
+      throws ExecException, InterruptedException;
 
   /** Returns a mnemonic (string constant) for this kind of spawn. */
   @Override
