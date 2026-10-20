@@ -238,14 +238,10 @@ public final class TargetAndConfigurationProducer
       return DONE;
     }
 
-    // The rule transition scopes the pre-rule-transition configuration's Starlark flags for this
-    // target, which needs their scopes. Requesting the configuration here is cheaper than having
-    // BuildConfigurationKeyProducer request the flag details from Skyframe once per configured
-    // target: most rules define no rule transition, and for those this is the very configuration
-    // requested in computeTargetAndConfigurationOrDelegatedValue below, so no dependency is added.
-    // The request shares a Skyframe batch with the rule transition's own first requests. Any error
-    // is ignored here and reported by whoever requests the configuration next; if the value isn't
-    // ready by the time the transition runs, the producer resolves the details itself.
+    // Read the flag scopes the rule transition needs off the configuration rather than having it
+    // look them up per configured target. Without a rule transition, this is the configuration
+    // requested below anyway. Errors surface when the configuration is requested again, and if the
+    // value isn't ready in time, the transition looks up the details itself.
     if (mayHaveStarlarkFlagDetails(configurationKey.getOptions())) {
       tasks.lookUp(
           configurationKey,

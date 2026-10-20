@@ -16,19 +16,12 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -47,23 +40,6 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
 
   @Before
   public void doBeforeEachTest() throws Exception {
-    // inject Precomputed.BASELINE_CONFIGURATION
-    AnalysisMock analysisMock = AnalysisMock.get();
-    ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
-    ImmutableSortedSet<Class<? extends FragmentOptions>> buildOptionClasses =
-        ruleClassProvider.getFragmentRegistry().getOptionsClasses();
-
-    SequencedSkyframeExecutor skyframeExecutor = getSkyframeExecutor();
-    BuildOptions defaultBuildOptions =
-        BuildOptions.getDefaultBuildOptionsForFragments(buildOptionClasses).clone();
-    skyframeExecutor.injectExtraPrecomputedValues(
-        new ImmutableList.Builder<PrecomputedValue.Injected>()
-            .add(
-                PrecomputedValue.injected(
-                    BaselineOptionsFunction.BASELINE_CONFIGURATION, defaultBuildOptions))
-            .addAll(analysisMock.getPrecomputedValues())
-            .build());
-
     scratch.file("test/BUILD");
     writeProjectSclDefinition("test/project_proto.scl");
     scratch.file(
@@ -153,7 +129,7 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
 
     StarlarkBuildSettingsDetailsValue details =
         executeFunction(
-            StarlarkBuildSettingsDetailsValue.keyForBuildSettings(
+            StarlarkBuildSettingsDetailsValue.Key.create(
                 ImmutableSet.of(fooAlias, bar, baz), ImmutableSet.of()));
 
     assertThat(details.buildSettings()).containsExactly(fooAlias, bar, baz);
@@ -187,8 +163,7 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
 
     StarlarkBuildSettingsDetailsValue details =
         executeFunction(
-            StarlarkBuildSettingsDetailsValue.keyForBuildSettings(
-                ImmutableSet.of(foo), ImmutableSet.of()));
+            StarlarkBuildSettingsDetailsValue.Key.create(ImmutableSet.of(foo), ImmutableSet.of()));
 
     assertThat(details.projectScopes()).containsExactly(foo, new Scope(PROJECT, null));
   }
@@ -216,8 +191,7 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
 
     StarlarkBuildSettingsDetailsValue details =
         executeFunction(
-            StarlarkBuildSettingsDetailsValue.keyForBuildSettings(
-                ImmutableSet.of(foo), ImmutableSet.of()));
+            StarlarkBuildSettingsDetailsValue.Key.create(ImmutableSet.of(foo), ImmutableSet.of()));
 
     assertThat(details.buildSettingToScopeType()).containsExactly(foo, DEFAULT);
     assertThat(details.projectScopes()).isEmpty();

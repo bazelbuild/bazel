@@ -100,7 +100,7 @@ public final class FunctionTransitionUtil {
       boolean isExecTransition,
       StructImpl attrObject,
       EventHandler handler,
-      @Nullable StarlarkBuildSettingsDetailsValue scopeDetails)
+      StarlarkBuildSettingsDetailsValue scopeDetails)
       throws InterruptedException {
     try {
       // TODO(waltl): Consider building this once and using it across different split transitions,
@@ -185,7 +185,7 @@ public final class FunctionTransitionUtil {
   private static BuildOptions maybeGetExecDefaults(
       BuildOptions fromOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
-      @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
+      StarlarkBuildSettingsDetailsValue scopeDetails) {
     if (starlarkTransition == null || !starlarkTransition.isExecTransition()) {
       // Not an exec transition: the baseline options are just the input options.
       return fromOptions;
@@ -194,9 +194,7 @@ public final class FunctionTransitionUtil {
     // Get the defaults:
     fromOptions.getNativeOptions().forEach(o -> defaultBuilder.addFragmentOptions(o.getDefault()));
     // Propagate Starlark options from the source config if allowed.
-    defaultBuilder.addStarlarkOptions(
-        getExecPropagatingStarlarkFlags(
-            fromOptions.getStarlarkOptions(), fromOptions, scopeDetails));
+    defaultBuilder.addStarlarkOptions(getExecPropagatingStarlarkFlags(fromOptions, scopeDetails));
     // Hard-code TestConfiguration for now, which clones the source options.
     // TODO(b/295936652): handle this directly in Starlark. This has two complications:
     //  1: --trim_test_configuration means the flags may not exist. Starlark logic needs to handle
@@ -228,28 +226,20 @@ public final class FunctionTransitionUtil {
   }
 
   /**
-   * Filters a map of Starlark flag <Label, value> pairs to those that should propagate from the
-   * target configuration to exec configuration.
+   * Filters the Starlark flags of {@code options} to those that should propagate from the target
+   * configuration to exec configuration.
    *
-   * @param scopeDetails the details of the Starlark flags in {@code starlarkOptions}, read off the
-   *     source configuration, or null if the caller has none at hand, in which case every flag is
-   *     treated as having the default scope
+   * @param scopeDetails the details of the Starlark flags in {@code options}, or {@link
+   *     StarlarkBuildSettingsDetailsValue#EMPTY}, in which case every flag has the default scope
    */
   private static ImmutableMap<Label, Object> getExecPropagatingStarlarkFlags(
-      Map<Label, Object> starlarkOptions,
-      BuildOptions options,
-      @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
+      BuildOptions options, StarlarkBuildSettingsDetailsValue scopeDetails) {
+    Map<Label, Object> starlarkOptions = options.getStarlarkOptions();
     if (starlarkOptions.isEmpty()) {
       return ImmutableMap.of();
     }
-    // The scopeDetails map is keyed by actual (non-alias) label. Flags in the config may be
-    // aliases, so we resolve through the alias map.
-    ImmutableMap<Label, Scope.ScopeType> scopeTypeMap =
-        scopeDetails != null ? scopeDetails.buildSettingToScopeType() : ImmutableMap.of();
-    ImmutableMap<Label, Label> aliasToActual =
-        scopeDetails != null ? scopeDetails.aliasToActual() : ImmutableMap.of();
-    ImmutableMap<Label, Object> onLeaveScopeValues =
-        scopeDetails != null ? scopeDetails.buildSettingToOnLeaveScopeValue() : ImmutableMap.of();
+    // The details are keyed by actual labels, but the options may use aliases.
+    ImmutableMap<Label, Label> aliasToActual = scopeDetails.aliasToActual();
 
     if (!options.get(CoreOptions.class).getExcludeStarlarkFlagsFromExecConfig()) {
       // Starlark flags propagate to exec by default. This can only be changed by a flag explicitly
@@ -259,9 +249,9 @@ public final class FunctionTransitionUtil {
       return starlarkOptions.entrySet().stream()
           .filter(
               entry -> {
-                Label actual = aliasToActual.getOrDefault(entry.getKey(), entry.getKey());
-                Scope.ScopeType scope = scopeTypeMap.get(actual);
-                String scopeType = scope != null ? scope.scopeType() : Scope.ScopeType.DEFAULT;
+                String scopeType =
+                    scopeDetails.scopeTypeOf(
+                        aliasToActual.getOrDefault(entry.getKey(), entry.getKey()));
                 return scopeType.equals(Scope.ScopeType.UNIVERSAL)
                     || scopeType.equals(Scope.ScopeType.PROJECT)
                     || scopeType.equals(Scope.ScopeType.DEFAULT);
@@ -284,8 +274,7 @@ public final class FunctionTransitionUtil {
     ImmutableMap.Builder<Label, Object> ans = ImmutableMap.builder();
     for (Map.Entry<Label, Object> entry : starlarkOptions.entrySet()) {
       Label actual = aliasToActual.getOrDefault(entry.getKey(), entry.getKey());
-      Scope.ScopeType scope = scopeTypeMap.get(actual);
-      String scopeType = scope != null ? scope.scopeType() : Scope.ScopeType.DEFAULT;
+      String scopeType = scopeDetails.scopeTypeOf(actual);
       if (scopeType.equals(Scope.ScopeType.UNIVERSAL)
           || scopeType.equals(Scope.ScopeType.PROJECT)) {
         // Universal flags always propagate. Project-scoped flags also propagate through exec
@@ -293,7 +282,7 @@ public final class FunctionTransitionUtil {
         // enforcement applied later at target-configuration time.
         ans.put(entry);
       } else if (scopeType.equals(Scope.ScopeType.TARGET)) {
-        Object onLeaveScopeValue = onLeaveScopeValues.get(actual);
+        Object onLeaveScopeValue = scopeDetails.buildSettingToOnLeaveScopeValue().get(actual);
         if (onLeaveScopeValue != null) {
           // if on_leave_scope is set, propagate to exec config with this value.
           ans.put(entry.getKey(), onLeaveScopeValue);

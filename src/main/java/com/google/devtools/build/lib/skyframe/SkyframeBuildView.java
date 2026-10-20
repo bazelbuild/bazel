@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoade
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -1420,10 +1421,9 @@ public final class SkyframeBuildView {
                     analysisEnvironment
                         .getSkyframeEnv()
                         .getValueOrThrow(bzlKey, BzlLoadFailedException.class),
-            // Already resolved once per configuration by BuildConfigurationFunction. Resolving it
-            // here would run once per configured target and make every configured target a reverse
-            // dep of a single node.
-            configuration == null ? null : configuration.starlarkFlagDetails());
+            configuration == null
+                ? StarlarkBuildSettingsDetailsValue.EMPTY
+                : configuration.starlarkFlagDetails());
     if (starlarkExecTransition == null) {
       return null;
     }

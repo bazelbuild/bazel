@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.devtools.build.lib.analysis.config.FragmentOptions.addMapToFingerprint;
+import static com.google.devtools.build.lib.analysis.config.FragmentOptions.addValueToFingerprint;
 import static com.google.devtools.build.lib.skyframe.serialization.ImmutableMapCodecs.IMMUTABLE_MAP_CODEC;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 import static java.util.Comparator.naturalOrder;
@@ -170,8 +170,13 @@ public final class BuildOptions implements Cloneable {
           } else {
             var fp = new Fingerprint();
             fragmentOptionsMap.forEach((_, options) -> options.addToFingerprint(fp));
-            // Starlark types are observable to Starlark code, see b/478938163.
-            addMapToFingerprint(fp, starlarkOptionsMap, Starlark::type);
+            fp.addInt(starlarkOptionsMap.size());
+            starlarkOptionsMap.forEach(
+                (label, value) -> {
+                  fp.addString(label.toString());
+                  // Starlark types are observable to Starlark code, see b/478938163.
+                  addValueToFingerprint(fp, value, Starlark::type);
+                });
             checksum = fp.hexDigestAndReset();
           }
         }

@@ -69,8 +69,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
     }
 
     // for each --flag_alias to --host_{flag} alias, we load the starlarkified host flag and get its
-    // default value.
-    // and scopeType. These information are only needed for flags that declare a scope of
+    // default value. This information is only needed for flags that declare a scope of
     // exec:--{some_other_flag}. This is necessary because Bazel doesn't know how to find Starlark
     // host flags if they're not set at the command line, and we need to ensure the exec transition
     // correctly sets --foo=--host_foo even for builds that don't reference either flag
@@ -120,42 +119,13 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
             if (starlarkifiedHostFlag == null) {
               return null;
             }
-            var hostAttrMap = RawAttributeMapper.of(starlarkifiedHostFlag.getAssociatedRule());
-            String hostScopeType =
-                attrMap.isAttributeValueExplicitlySpecified("scope")
-                    ? hostAttrMap.get("scope", Type.STRING)
-                    : "default";
-            Object hostFlagDefaultValue =
-                starlarkifiedHostFlag
-                    .getAssociatedRule()
-                    .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
-            if (starlarkifiedHostFlag
-                .getAssociatedRule()
-                .getRuleClassObject()
-                .getBuildSetting()
-                .allowsMultiple()) {
-              // allowed multiple
-              customExecScopeValuesBuilder.put(
-                  flagTarget.getLabel(),
-                  new CustomExecScopeValue(
-                      flagTarget.getLabel(),
-                      flagDefaultValue,
-                      hostFlag,
-                      ImmutableList.of(hostFlagDefaultValue),
-                      scopeType,
-                      hostScopeType));
-            } else {
-              // not allowed multiple
-              customExecScopeValuesBuilder.put(
-                  flagTarget.getLabel(),
-                  new CustomExecScopeValue(
-                      flagTarget.getLabel(),
-                      flagDefaultValue,
-                      hostFlag,
-                      hostFlagDefaultValue,
-                      scopeType,
-                      hostScopeType));
-            }
+            customExecScopeValuesBuilder.put(
+                flagTarget.getLabel(),
+                new CustomExecScopeValue(
+                    flagTarget.getLabel(),
+                    flagDefaultValue,
+                    hostFlag,
+                    getDefault(starlarkifiedHostFlag.getAssociatedRule())));
           }
         }
       } catch (TransitionException e) {
@@ -235,8 +205,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
       }
 
       // A flag introduced by a transition may refer to an unset flag with no host_ alias. Resolve
-      // those references in a batch. Keep their defaults in the details so target configurations
-      // only contain explicitly set values.
+      // those references in a batch.
       if (!customExecReferences.isEmpty()) {
         ImmutableMap<PackageIdentifier, PackageValue> referencedPackages =
             getBuildSettingPackages(env, ImmutableSet.copyOf(customExecReferences.values()));
@@ -252,9 +221,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
                   flag.getLabel(),
                   buildSettingToDefault.get(flag.getLabel()),
                   referencedFlag.getLabel(),
-                  getDefault(referencedFlag),
-                  getScopeType(flag).scopeType(),
-                  getScopeType(referencedFlag).scopeType()));
+                  getDefault(referencedFlag)));
         }
       }
 
@@ -470,8 +437,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
    * Scope.ScopeDefinition} from the PROJECT.scl file governing the setting's package.
    *
    * <p>A setting whose package isn't governed by any PROJECT.scl file, or whose PROJECT.scl file
-   * declares no project directories, gets a scope without a definition: every target is out of its
-   * scope.
+   * declares no project directories, gets a scope without a definition, which contains no target.
    *
    * @return null if Skyframe deps need loading.
    */
@@ -543,11 +509,12 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
 
   private static Scope.ScopeType getScopeType(Rule rule) {
     var attrs = RawAttributeMapper.of(rule);
-    if (!attrs.has("scope", Type.STRING)
-        || attrs.get("scope", Type.STRING).equals(Type.STRING.getDefaultValue())) {
+    if (!attrs.has("scope", Type.STRING)) {
       return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
     }
-    return new Scope.ScopeType(attrs.get("scope", Type.STRING));
+    String scope = attrs.get("scope", Type.STRING);
+    return new Scope.ScopeType(
+        scope.equals(Type.STRING.getDefaultValue()) ? Scope.ScopeType.DEFAULT : scope);
   }
 
   private static Object getDefault(Rule rule) {

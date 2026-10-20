@@ -71,10 +71,9 @@ public final class StarlarkExecTransitionLoader {
    * @param options the current configured target's {@link BuildOptions}. This is used to find the
    *     value for {@link CoreOptions#starlarkExecConfig}.
    * @param bzlFileLoader caller-provided logic for loading {@link BzlLoadValue.Key} skyvalues.
-   * @param scopeDetails the details of {@code options}' Starlark flags, which callers holding the
-   *     corresponding {@code BuildConfigurationValue} read off it with {@code
-   *     starlarkFlagDetails()}. Null if the caller has no configuration at hand; the exec
-   *     transition then treats every flag as having the default scope.
+   * @param scopeDetails the details of {@code options}' Starlark flags as stored on their {@code
+   *     BuildConfigurationValue}, or {@link StarlarkBuildSettingsDetailsValue#EMPTY} if the caller
+   *     has no configuration, in which case every flag has the default scope.
    * @return null if Skyframe deps need loading. A filled {@link Optional} if this build implements
    *     the exec transition with a Starlark transition. An empty {@link Optional} if this build
    *     implements the exec transition with native logic.
@@ -85,7 +84,7 @@ public final class StarlarkExecTransitionLoader {
   public static Optional<StarlarkAttributeTransitionProvider> loadStarlarkExecTransition(
       @Nullable BuildOptions options,
       BzlFileLoader bzlFileLoader,
-      @Nullable StarlarkBuildSettingsDetailsValue scopeDetails)
+      StarlarkBuildSettingsDetailsValue scopeDetails)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
     if (options == null || options.equals(CommonOptions.EMPTY_OPTIONS)) {
       return Optional.empty();
@@ -126,23 +125,20 @@ public final class StarlarkExecTransitionLoader {
 
   /** A marker class to distinguish the exec transition from other starlark transitions. */
   static class StarlarkExecTransitionProvider extends StarlarkAttributeTransitionProvider {
-    /**
-     * The details of the Starlark flags of the configuration this provider transitions from, read
-     * off that configuration by the caller. Compared and hashed by identity so the exec transition
-     * instance cache distinguishes configurations and changes to flag definitions without hashing
-     * these maps once per configured target.
-     */
-    @Nullable private final StarlarkBuildSettingsDetailsValue scopeDetails;
+    /** The details of the source configuration's Starlark flags. */
+    private final StarlarkBuildSettingsDetailsValue scopeDetails;
 
     StarlarkExecTransitionProvider(
         StarlarkDefinedConfigTransition execTransition,
-        @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
+        StarlarkBuildSettingsDetailsValue scopeDetails) {
       super(execTransition);
       this.scopeDetails = scopeDetails;
     }
 
     @Override
     public boolean equals(Object obj) {
+      // Comparing and hashing the details by identity tells configurations and edited flag
+      // definitions apart without hashing the details for every configured target.
       return obj instanceof StarlarkExecTransitionProvider other
           && scopeDetails == other.scopeDetails
           && super.equals(other);

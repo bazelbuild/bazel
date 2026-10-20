@@ -234,7 +234,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
               isExecTransition(),
               attrObject,
               eventHandler,
-              /* scopeDetails= */ null);
+              StarlarkBuildSettingsDetailsValue.EMPTY);
       if (result == null) {
         return buildOptions.clone();
       }

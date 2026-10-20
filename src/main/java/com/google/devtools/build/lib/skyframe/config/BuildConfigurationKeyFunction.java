@@ -51,7 +51,6 @@ public final class BuildConfigurationKeyFunction implements SkyFunction {
                 /* runAfter= */ StateMachine.DONE,
                 ImmutableMap.of(BUILD_OPTIONS_MAP_SINGLETON_KEY, key.buildOptions()),
                 key.forBaseline(),
-                // There is no source configuration here: the options come straight from the key.
                 StarlarkBuildSettingsDetailsValue.EMPTY,
                 null));
 
