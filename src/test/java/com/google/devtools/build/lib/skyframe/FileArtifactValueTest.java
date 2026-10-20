@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
@@ -220,6 +221,39 @@ public final class FileArtifactValueTest {
     assertThat(value.getType()).isEqualTo(FileStateType.DIRECTORY);
     assertThat(value.getResolvedPath()).isEqualTo(PathFragment.create("/file"));
     assertThat(value.getModifiedTime()).isEqualTo(delegate.getModifiedTime());
+  }
+
+  @Test
+  public void testDirectoryWithHash() {
+    FileArtifactValue value =
+        FileArtifactValue.createForDirectoryWithHash(new byte[] {1}, /* fileCount= */ 3);
+    assertThat(value.getType()).isEqualTo(FileStateType.DIRECTORY);
+    assertThat(value.getFileCount()).isEqualTo(3);
+  }
+
+  @Test
+  public void testSymlinkTreeProxy() {
+    FileArtifactValue value =
+        FileArtifactValue.createSymlinkTreeProxy(new byte[] {1}, /* fileCount= */ 3);
+    assertThat(value.getType()).isEqualTo(FileStateType.DIRECTORY);
+    assertThat(value.getFileCount()).isEqualTo(3);
+  }
+
+  @Test
+  public void testResolvedSymlinkToDirectoryWithHash() {
+    FileArtifactValue delegate =
+        FileArtifactValue.createForDirectoryWithHash(new byte[] {1}, /* fileCount= */ 3);
+    FileArtifactValue value =
+        FileArtifactValue.createFromExistingWithResolvedPath(delegate, PathFragment.create("/dir"));
+    assertThat(value.getFileCount()).isEqualTo(3);
+  }
+
+  @Test
+  public void testProxyToDirectoryWithHash() {
+    FileArtifactValue delegate =
+        FileArtifactValue.createForDirectoryWithHash(new byte[] {1}, /* fileCount= */ 3);
+    FileArtifactValue value = new ProxyFileArtifactValue(delegate, fs.getPath("/dir"));
+    assertThat(value.getFileCount()).isEqualTo(3);
   }
 
   // Empty files are the same as normal files -- mtime is not stored.

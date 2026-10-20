@@ -405,7 +405,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     spawnMetrics.setSetupTime(setupInputsTime);
 
     Stopwatch queueStopwatch = Stopwatch.createStarted();
-    ResourceSet localResources = getLocalResources(spawn, context);
+    ResourceSet localResources = spawn.getLocalResources(context.getInputMetadataProvider());
     ResourceSet resourceSet =
         ResourceSet.create(localResources.getResources(), localResources.getLocalTestCount(), key);
 

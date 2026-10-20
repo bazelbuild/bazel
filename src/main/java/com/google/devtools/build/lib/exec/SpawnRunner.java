@@ -25,14 +25,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -51,10 +49,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.ExecutionException;
-import java.util.function.BiPredicate;
 import javax.annotation.Nullable;
 
 /**
@@ -411,37 +407,6 @@ public interface SpawnRunner {
    */
   default void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter)
       throws IOException, InterruptedException {}
-
-  /**
-   * Returns the resources {@code spawn} needs for local execution, from the input mapping and
-   * metadata of {@code context}.
-   */
-  default ResourceSet getLocalResources(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException {
-    return spawn.getLocalResources(
-        () -> {
-          InputMetadataProvider inputMetadataProvider = context.getInputMetadataProvider();
-          BiPredicate<PathFragment, ActionInput> isToolInput =
-              Spawns.isToolInput(spawn, inputMetadataProvider);
-          int inputsSize = 0;
-          for (Map.Entry<PathFragment, ActionInput> entry :
-              context.getInputMapping(/* willAccessRepeatedly= */ true).entrySet()) {
-            if (isToolInput.test(entry.getKey(), entry.getValue())) {
-              continue;
-            }
-            try {
-              inputsSize +=
-                  entry.getValue() instanceof Artifact artifact && artifact.isSourceArtifact()
-                      ? inputMetadataProvider.getInputMetadata(artifact).getFileCount()
-                      : 1;
-            } catch (IOException e) {
-              throw new EnvironmentalExecException(
-                  e, FailureDetails.Execution.Code.ACTION_INPUT_READ_IO_EXCEPTION);
-            }
-          }
-          return inputsSize;
-        });
-  }
 
   /**
    * Returns a {@link SpawnResult.Builder} prepopulated with the runner name and the spawn digest.

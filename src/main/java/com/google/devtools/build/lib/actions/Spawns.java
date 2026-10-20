@@ -14,21 +14,15 @@
 
 package com.google.devtools.build.lib.actions;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.base.CharMatcher;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.function.BiPredicate;
 import javax.annotation.Nullable;
 
 /** Helper methods relating to implementations of {@link Spawn}. */
@@ -229,27 +223,28 @@ public final class Spawns {
   }
 
   /**
-   * Returns a predicate telling whether an entry of the input mapping of {@code spawn}, given by
-   * its path and input, belongs to the spawn's tools, including their tree artifacts and runfiles
-   * trees.
+   * Returns the statistics of the inputs of {@code spawn}, excluding its tools, from {@code
+   * inputMetadataProvider}.
    */
-  public static BiPredicate<PathFragment, ActionInput> isToolInput(
+  static ResourceSetOrBuilder.InputsStats getInputsStats(
       Spawn spawn, InputMetadataProvider inputMetadataProvider) {
-    ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
-    ImmutableList<PathFragment> toolRunfilesDirectories =
-        toolFiles.stream()
-            .filter(
-                actionInput ->
-                    actionInput instanceof Artifact artifact && artifact.isRunfilesTree())
-            .map(inputMetadataProvider::getRunfilesMetadata)
-            .map(RunfilesArtifactValue::getRunfilesTree)
-            .map(RunfilesTree::getExecPath)
-            .collect(toImmutableList());
-    return (path, input) ->
-        toolFiles.contains(input)
-            || (input instanceof TreeFileArtifact treeFileArtifact
-                && toolFiles.contains(treeFileArtifact.getParent()))
-            || toolRunfilesDirectories.stream().anyMatch(path::startsWith);
+    return () -> {
+      ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
+      int inputsSize = 0;
+      for (ActionInput input : spawn.getInputFiles().flatten()) {
+        if (toolFiles.contains(input)) {
+          continue;
+        }
+        try {
+          FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
+          inputsSize += metadata == null ? 1 : metadata.getFileCount();
+        } catch (IOException e) {
+          throw new EnvironmentalExecException(
+              e, FailureDetails.Execution.Code.ACTION_INPUT_READ_IO_EXCEPTION);
+        }
+      }
+      return inputsSize;
+    };
   }
 
   /**

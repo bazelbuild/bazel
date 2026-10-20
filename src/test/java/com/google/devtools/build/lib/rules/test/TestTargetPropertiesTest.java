@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
@@ -72,7 +73,8 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     TestRunnerAction testAction =
         (TestRunnerAction)
             getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
-    ResourceSet localResourceUsage = createTestSpawn(testAction).getLocalResources(() -> 0);
+    ResourceSet localResourceUsage =
+        createTestSpawn(testAction).getLocalResources(StaticInputMetadataProvider.empty());
     assertThat(localResourceUsage.getCpuUsage()).isEqualTo(4.0);
   }
 
@@ -99,7 +101,8 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     TestRunnerAction testAction =
         (TestRunnerAction)
             getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
-    ResourceSet localResourceUsage = createTestSpawn(testAction).getLocalResources(() -> 0);
+    ResourceSet localResourceUsage =
+        createTestSpawn(testAction).getLocalResources(StaticInputMetadataProvider.empty());
     // Tags-specified resources overrides --default_test_resources=gpu.
     assertThat(localResourceUsage.getResources()).containsEntry("gpu", 4.0);
     // The last-specified value of --default_test_resources=cpu is used.

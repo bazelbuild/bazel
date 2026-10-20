@@ -92,6 +92,7 @@ public final class TreeArtifactValueTest {
         .containsExactly(child1.getParentRelativePath(), child2.getParentRelativePath());
     assertThat(tree.getDigest()).isNotNull();
     assertThat(tree.getMetadata().getDigest()).isEqualTo(tree.getDigest());
+    assertThat(tree.getMetadata().getFileCount()).isEqualTo(2);
   }
 
   @Test
@@ -143,6 +144,7 @@ public final class TreeArtifactValueTest {
     assertThat(emptyTree.getChildPaths()).isEmpty();
     assertThat(emptyTree.getDigest()).isNotNull();
     assertThat(emptyTree.getMetadata().getDigest()).isEqualTo(emptyTree.getDigest());
+    assertThat(emptyTree.getMetadata().getFileCount()).isEqualTo(0);
   }
 
   @Test

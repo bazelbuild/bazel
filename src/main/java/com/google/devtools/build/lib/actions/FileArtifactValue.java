@@ -109,7 +109,8 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   public abstract long getModifiedTime();
 
   /**
-   * Returns the number of files in a source directory whose contents are tracked, or 1 otherwise.
+   * Returns the number of files in a tree artifact, a fileset, a runfiles tree or a source
+   * directory whose contents are tracked, or 1 otherwise.
    */
   public int getFileCount() {
     return 1;
@@ -455,9 +456,9 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
    * Creates a FileArtifactValue used as a 'proxy' input for a {@link RunfilesArtifactValue} and
    * {@link FilesetOutputTree}. These are used in {@link ActionCacheChecker}.
    */
-  public static FileArtifactValue createSymlinkTreeProxy(byte[] digest) {
+  public static FileArtifactValue createSymlinkTreeProxy(byte[] digest, int fileCount) {
     checkNotNull(digest);
-    return new SymlinkTreeProxyArtifactValue(digest);
+    return new SymlinkTreeProxyArtifactValue(digest, fileCount);
   }
 
   private static String bytesToString(@Nullable byte[] bytes) {
@@ -699,9 +700,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   /** Proxy metadata for a runfiles tree or fileset. */
   private static final class SymlinkTreeProxyArtifactValue extends FileArtifactValue {
     private final byte[] digest;
+    private final int fileCount;
 
-    private SymlinkTreeProxyArtifactValue(byte[] digest) {
+    private SymlinkTreeProxyArtifactValue(byte[] digest, int fileCount) {
       this.digest = digest;
+      this.fileCount = fileCount;
     }
 
     @Override
@@ -712,6 +715,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public long getSize() {
       return 0;
+    }
+
+    @Override
+    public int getFileCount() {
+      return fileCount;
     }
 
     @Override
@@ -1025,6 +1033,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public long getSize() {
       return delegate.getSize();
+    }
+
+    @Override
+    public int getFileCount() {
+      return delegate.getFileCount();
     }
 
     @Override
@@ -1404,6 +1417,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public long getSize() {
       return delegate.getSize();
+    }
+
+    @Override
+    public int getFileCount() {
+      return delegate.getFileCount();
     }
 
     @Override

@@ -86,14 +86,17 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ResourceSet getLocalResources(ResourceSetOrBuilder.InputsStats inputsStats)
+  public ResourceSet getLocalResources(InputMetadataProvider inputMetadataProvider)
       throws ExecException, InterruptedException {
     ResourceSet result = localResourcesCached;
     if (result == null) {
       // Not expected to be called concurrently, and an idempotent computation if it is.
       result =
           localResources.buildLocalResources(
-              OS.getCurrent(), inputsStats, getExecutionInfo(), getCombinedExecProperties());
+              OS.getCurrent(),
+              Spawns.getInputsStats(this, inputMetadataProvider),
+              getExecutionInfo(),
+              getCombinedExecProperties());
       localResourcesCached = result;
     }
     return result;
