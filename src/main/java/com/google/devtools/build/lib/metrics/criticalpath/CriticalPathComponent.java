@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochCon
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import java.time.Duration;
+import java.util.function.ToLongFunction;
 import javax.annotation.Nullable;
 
 /**
@@ -50,7 +51,13 @@ public class CriticalPathComponent {
   /** Spawn metrics for this action. */
   @Nullable private SpawnMetrics phaseMaxMetrics = null;
 
-  private AggregatedSpawnMetrics totalSpawnMetrics = AggregatedSpawnMetrics.EMPTY;
+  /**
+   * Holds either {@code null}, a single {@link SpawnMetrics} (the vast majority of actions have
+   * only one execution kind), or an {@link AggregatedSpawnMetrics} when metrics from multiple
+   * execution kinds are aggregated.
+   */
+  @Nullable private Object spawnMetrics = null;
+
   private int longestRunningTotalDurationInMs = 0;
   private boolean phaseChange;
 
@@ -114,10 +121,10 @@ public class CriticalPathComponent {
     }
 
     // If the phaseMaxMetrics has Duration, then we want to aggregate it to the total.
-    if (this.phaseMaxMetrics != null && !this.phaseMaxMetrics.isEmpty()) {
-      this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
+    if (this.phaseMaxMetrics != null) {
+      addSpawnMetrics(this.phaseMaxMetrics);
+      this.phaseMaxMetrics = null;
     }
-    this.phaseMaxMetrics = null;
   }
 
   @SuppressWarnings("ReferenceEquality")
@@ -203,8 +210,8 @@ public class CriticalPathComponent {
   void addSpawnResult(
       SpawnMetrics metrics, @Nullable String runnerName, String runnerSubtype, boolean wasRemote) {
     if (this.phaseChange) {
-      if (this.phaseMaxMetrics != null && !this.phaseMaxMetrics.isEmpty()) {
-        this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
+      if (this.phaseMaxMetrics != null) {
+        addSpawnMetrics(this.phaseMaxMetrics);
       }
       this.phaseMaxMetrics = metrics;
       this.phaseChange = false;
@@ -224,12 +231,58 @@ public class CriticalPathComponent {
     this.phaseChange = true;
   }
 
+  private static SpawnMetrics combineSpawnMetrics(SpawnMetrics existing, SpawnMetrics other) {
+    return SpawnMetrics.Builder.forExec(existing.execKind())
+        .addDurations(existing)
+        .addDurations(other)
+        .maxNonDurations(existing)
+        .maxNonDurations(other)
+        .build();
+  }
+
+  private void addSpawnMetrics(SpawnMetrics metrics) {
+    if (metrics.isEmpty()) {
+      return;
+    }
+    if (this.spawnMetrics == null) {
+      this.spawnMetrics = metrics;
+    } else if (this.spawnMetrics instanceof SpawnMetrics existing) {
+      if (existing.execKind() == metrics.execKind()) {
+        this.spawnMetrics = combineSpawnMetrics(existing, metrics);
+      } else {
+        this.spawnMetrics = AggregatedSpawnMetrics.forExec(existing).sumDurationsMaxOther(metrics);
+      }
+    } else if (this.spawnMetrics instanceof AggregatedSpawnMetrics aggregated) {
+      this.spawnMetrics = aggregated.sumDurationsMaxOther(metrics);
+    }
+  }
+
   /**
    * Returns total spawn metrics of the maximum (longest running) spawn metrics of all phases for
    * the execution of the action.
    */
   public AggregatedSpawnMetrics getSpawnMetrics() {
-    return totalSpawnMetrics;
+    if (spawnMetrics instanceof AggregatedSpawnMetrics asm) {
+      return asm;
+    }
+    if (spawnMetrics instanceof SpawnMetrics sm) {
+      return AggregatedSpawnMetrics.forExec(sm);
+    }
+    return AggregatedSpawnMetrics.EMPTY;
+  }
+
+  /**
+   * Returns the maximum non-duration metric value extracted across all spawn metrics, avoiding
+   * wrapper allocations when a single {@link SpawnMetrics} is stored.
+   */
+  public long getMaxNonDuration(long initialValue, ToLongFunction<SpawnMetrics> extract) {
+    if (spawnMetrics instanceof SpawnMetrics sm) {
+      return Math.max(initialValue, extract.applyAsLong(sm));
+    }
+    if (spawnMetrics instanceof AggregatedSpawnMetrics asm) {
+      return asm.getMaxNonDuration(initialValue, extract);
+    }
+    return initialValue;
   }
 
   /**
@@ -336,9 +389,10 @@ public class CriticalPathComponent {
       currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s";
     }
     sb.append(currentTime);
-    if (!getSpawnMetrics().getRemoteMetrics().isEmpty()) {
+    AggregatedSpawnMetrics metrics = getSpawnMetrics();
+    if (!metrics.getRemoteMetrics().isEmpty()) {
       sb.append(", ");
-      sb.append(getSpawnMetrics().toString(getElapsedTimeNoCheck(), /* summary= */ false));
+      sb.append(metrics.toString(getElapsedTimeNoCheck(), /* summary= */ false));
     }
     sb.append(" ");
     sb.append(getActionString());

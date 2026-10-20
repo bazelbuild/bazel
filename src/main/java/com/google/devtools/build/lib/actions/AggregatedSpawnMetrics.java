@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -28,6 +30,17 @@ public final class AggregatedSpawnMetrics {
 
   public static final AggregatedSpawnMetrics EMPTY =
       new AggregatedSpawnMetrics(null, null, null, null);
+
+  /** Returns an {@link AggregatedSpawnMetrics} wrapping the single given {@link SpawnMetrics}. */
+  public static AggregatedSpawnMetrics forExec(SpawnMetrics metrics) {
+    requireNonNull(metrics);
+    return switch (metrics.execKind()) {
+      case REMOTE -> new AggregatedSpawnMetrics(metrics, null, null, null);
+      case LOCAL -> new AggregatedSpawnMetrics(null, metrics, null, null);
+      case WORKER -> new AggregatedSpawnMetrics(null, null, metrics, null);
+      case OTHER -> new AggregatedSpawnMetrics(null, null, null, metrics);
+    };
+  }
 
   // Note that we are using fields instead of e.g. a map of SpawnMetrics to avoid the map overhead.
   // While this results in a bit more boilerplate code, it is worth the memory savings.
