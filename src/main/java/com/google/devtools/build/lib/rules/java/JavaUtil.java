@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -71,23 +72,24 @@ public final class JavaUtil {
     if (path.isAbsolute()) {
       throw new IllegalArgumentException("path must not be absolute: '" + path + "'");
     }
-    int rootIndex = Iterables.indexOf(path.segments(), KNOWN_SOURCE_ROOTS::contains);
+    ImmutableList<String> segments = path.splitToListOfSegments();
+    int rootIndex = Iterables.indexOf(segments, KNOWN_SOURCE_ROOTS::contains);
     if (rootIndex == -1) {
       return -1;
     }
-    final boolean isSrc = "src".equals(path.getSegment(rootIndex));
+    boolean isSrc = segments.get(rootIndex).equals("src");
     int checkMavenIndex = isSrc ? rootIndex : -1;
     if (rootIndex == 0 || isSrc) {
       // Check for a nested root directory.
-      for (int i = rootIndex + 1, max = path.segmentCount() - 2; i <= max; i++) {
-        String segment = path.getSegment(i);
-        if ("src".equals(segment)
-            || (isSrc && ("javatests".equals(segment) || "java".equals(segment)))) {
-          String next = path.getSegment(i + 1);
-          if ("com".equals(next) || "org".equals(next) || "net".equals(next)) {
+      for (int i = rootIndex + 1, max = segments.size() - 2; i <= max; i++) {
+        String segment = segments.get(i);
+        if (segment.equals("src")
+            || (isSrc && (segment.equals("javatests") || segment.equals("java")))) {
+          String next = segments.get(i + 1);
+          if (next.equals("com") || next.equals("org") || next.equals("net")) {
             // Check for common first element of java package, to avoid false positives.
             rootIndex = i;
-          } else if ("src".equals(segment)) {
+          } else if (segment.equals("src")) {
             // Also accept maven style src/(main|test)/(java|resources).
             checkMavenIndex = i;
           }
@@ -96,11 +98,11 @@ public final class JavaUtil {
       }
     }
     // Check for (main|test)/(java|resources) after /src/.
-    if (checkMavenIndex >= 0 && checkMavenIndex + 2 < path.segmentCount()) {
-      String next = path.getSegment(checkMavenIndex + 1);
-      if ("main".equals(next) || "test".equals(next)) {
-        next = path.getSegment(checkMavenIndex + 2);
-        if ("java".equals(next) || "resources".equals(next)) {
+    if (checkMavenIndex >= 0 && checkMavenIndex + 2 < segments.size()) {
+      String next = segments.get(checkMavenIndex + 1);
+      if (next.equals("main") || next.equals("test")) {
+        next = segments.get(checkMavenIndex + 2);
+        if (next.equals("java") || next.equals("resources")) {
           rootIndex = checkMavenIndex + 2;
         }
       }
