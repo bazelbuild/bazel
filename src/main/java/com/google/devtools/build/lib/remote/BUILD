@@ -424,6 +424,23 @@ java_library(
 )
 
 java_library(
+    name = "live_output_streamer",
+    srcs = ["LiveOutputStreamer.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/common",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/google/longrunning:operations_java_proto",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
     name = "remote_execution_cache",
     srcs = ["RemoteExecutionCache.java"],
     visibility = [
@@ -1247,11 +1264,13 @@ java_library(
         "//src/tools/remote:__subpackages__",
     ],
     deps = [
+        ":ExecutionStatusException",
         ":ReferenceCountedChannel",
         ":Retrier",
         ":api_version",
         ":client_api_version",
         ":combined_cache",
+        ":live_output_streamer",
         ":platform_properties",
         ":remote_action",
         ":remote_action_file_system",
@@ -1312,6 +1331,7 @@ java_library(
         "//src/main/protobuf:cache_salt_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/flogger",
         "//third_party/java/grpc:core",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
