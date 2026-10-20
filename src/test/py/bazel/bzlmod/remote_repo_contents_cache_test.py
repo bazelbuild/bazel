@@ -612,6 +612,12 @@ class RemoteRepoContentsCacheTest(
     self.assertTrue(os.path.exists(os.path.join(other_repo_dir, 'BUILD')))
 
   def testAccessFromOtherRepo_readLabel(self):
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -626,7 +632,8 @@ class RemoteRepoContentsCacheTest(
         'repo.bzl',
         [
             'def _repo_impl(rctx):',
-            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  rctx.file("real_BUILD", "filegroup(name=\'haha\')")',
+            '  rctx.symlink("real_BUILD", "BUILD")',
             '  rctx.file("unread.txt")',
             '  return rctx.repo_metadata(reproducible=True)',
             'repo = repository_rule(_repo_impl)',
@@ -650,8 +657,8 @@ class RemoteRepoContentsCacheTest(
     self.assertTrue(os.path.exists(unread_file))
     self.RunBazel(['clean', '--expunge'])
 
-    # Unlike rctx.path, rctx.read reads a single file without materializing
-    # the repo restored from the cache.
+    # Unlike rctx.path, rctx.read reads a single file, here through a symlink,
+    # without materializing the repo restored from the cache.
     self.RunBazel(['build', '@other//:haha'])
     self.assertFalse(os.path.exists(unread_file))
 
@@ -697,7 +704,7 @@ class RemoteRepoContentsCacheTest(
     repo_dir = self.RepoDir('my_repo')
 
     # Populate the cache: my_repo is materialized as a side effect of fetching
-    # other, which reads my_repo's BUILD file.
+    # other, which takes a path to my_repo's BUILD file.
     self.RunBazel(['build', '@other//:haha'])
 
     # After expunging, fetch my_repo only: it is injected from the cache but not
@@ -1387,8 +1394,8 @@ class RemoteRepoContentsCacheTest(
         'other_repo.bzl',
         [
             'def _other_repo_impl(rctx):',
-            # Reading my_repo's BUILD forces full materialization of my_repo.
-            '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+            # A path to my_repo's BUILD forces full materialization of my_repo.
+            '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
             # other is not reproducible, so it is always fetched and re-triggers
             # materialization of my_repo from the cache.
             '  return rctx.repo_metadata()',
@@ -1525,8 +1532,8 @@ class RemoteRepoContentsCacheTest(
         'other_repo.bzl',
         [
             'def _other_repo_impl(rctx):',
-            # Reading my_repo's BUILD forces full materialization of my_repo.
-            '  rctx.read(rctx.attr.build_file)',
+            # A path to my_repo's BUILD forces full materialization of my_repo.
+            '  rctx.read(rctx.path(rctx.attr.build_file))',
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
             '  return rctx.repo_metadata()',
             (
@@ -1768,7 +1775,7 @@ class RemoteRepoContentsCacheTest(
             # Materialize dep_repo before my_repo so that the external symlink
             # target exists when my_repo is materialized.
             '  rctx.watch(rctx.attr.dep_file)',
-            '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+            '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
             '  return rctx.repo_metadata()',
             (
                 'other_repo_rule = repository_rule(_other_repo_impl,'
@@ -1911,7 +1918,7 @@ class RemoteRepoContentsCacheTest(
         [
             'def _materializer_impl(rctx):',
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
-            '  rctx.read(rctx.attr.dep_file)',
+            '  rctx.read(rctx.path(rctx.attr.dep_file))',
             '  return rctx.repo_metadata()',
             (
                 'materializer_rule = repository_rule(_materializer_impl,'
@@ -2247,7 +2254,7 @@ class RemoteRepoContentsCacheTest(
       # symlink target exists when my_repo is materialized.
       other_repo_lines.append('  rctx.watch(rctx.attr.dep_file)')
     other_repo_lines.extend([
-        '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+        '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
         # other_repo is not reproducible, so it is always fetched
         # and triggers materialization of my_repo.
         '  return rctx.repo_metadata()',
@@ -2832,7 +2839,7 @@ class RemoteRepoContentsCacheTest(
         'other_repo.bzl',
         [
             'def _other_repo_impl(rctx):',
-            # Reading my_repo's data.txt forces full materialization of
+            # A path to my_repo's data.txt forces full materialization of
             # my_repo, recording a contents proxy on each materialized file.
             # other is not reproducible, so it is always refetched
             # and re-triggers materialization.
@@ -2872,7 +2879,8 @@ class RemoteRepoContentsCacheTest(
     _, _, stderr = self.RunBazel(['build', '//main:use_data'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
 
-    # Fully materialize my_repo onto the local disk (other reads its files),
+    # Fully materialize my_repo onto the local disk (other takes a path to
+    # one of its files),
     # which records a contents
     # proxy on the injected metadata and evicts the repo from the overlay.
     self.RunBazel(['build', '@other//:haha'])
@@ -2918,7 +2926,8 @@ class RemoteRepoContentsCacheTest(
         'other_repo.bzl',
         [
             'def _other_repo_impl(rctx):',
-            # Reading my_repo's data.txt forces full materialization of my_repo.
+            # A path to my_repo's data.txt forces full materialization of
+            # my_repo.
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
             (
                 '  rctx.file("data_copy.txt",'
@@ -2967,7 +2976,7 @@ class RemoteRepoContentsCacheTest(
     )
 
     # Fully materialize my_repo onto the local disk by fetching @other, which
-    # reads one of its files.
+    # takes a path to one of its files.
     _, _, stderr = self.RunBazel(['build', '--nobuild', '@other//:haha'])
     self.assertIn('Materializing remote repo', '\n'.join(stderr))
 
