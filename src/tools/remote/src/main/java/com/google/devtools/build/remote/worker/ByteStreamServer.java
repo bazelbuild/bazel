@@ -31,8 +31,11 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.remote.worker.LiveOutputStreams.LiveOutput;
+import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.protobuf.StatusProto;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -43,9 +46,17 @@ import javax.annotation.Nullable;
 /** A basic implementation of a {@link ByteStreamImplBase} service. */
 final class ByteStreamServer extends ByteStreamImplBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /** Largest chunk of live output sent in a single response. */
+  private static final int LIVE_OUTPUT_CHUNK_SIZE = 64 * 1024;
+
+  /** How long a live output read waits for new output before checking for cancellation. */
+  private static final long LIVE_OUTPUT_POLL_MILLIS = 500;
+
   private final OnDiskBlobStoreCache cache;
   private final Path workPath;
   private final DigestUtil digestUtil;
+  @Nullable private final LiveOutputStreams liveOutputStreams;
 
   @Nullable
   static Digest parseDigestFromResourceName(String resourceName) {
@@ -62,14 +73,27 @@ final class ByteStreamServer extends ByteStreamImplBase {
     }
   }
 
-  public ByteStreamServer(OnDiskBlobStoreCache cache, Path workPath, DigestUtil digestUtil) {
+  public ByteStreamServer(
+      OnDiskBlobStoreCache cache,
+      Path workPath,
+      DigestUtil digestUtil,
+      @Nullable LiveOutputStreams liveOutputStreams) {
     this.cache = cache;
     this.workPath = workPath;
     this.digestUtil = digestUtil;
+    this.liveOutputStreams = liveOutputStreams;
   }
 
   @Override
   public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+    if (liveOutputStreams != null) {
+      LiveOutput liveOutput = liveOutputStreams.get(request.getResourceName());
+      if (liveOutput != null) {
+        readLiveOutput(liveOutput, request, responseObserver);
+        return;
+      }
+    }
+
     RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(meta);
     Digest digest = parseDigestFromResourceName(request.getResourceName());
@@ -124,6 +148,50 @@ final class ByteStreamServer extends ByteStreamImplBase {
     } catch (Exception e) {
       logger.atWarning().withCause(e).log("Read request failed");
       responseObserver.onError(StatusUtils.internalError(e));
+    }
+  }
+
+  /** Sends the output of an executing action as it is produced, until the action finishes. */
+  private static void readLiveOutput(
+      LiveOutput liveOutput, ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+    long offset = request.getReadOffset();
+    long readLimit = request.getReadLimit();
+    if (offset < 0) {
+      responseObserver.onError(
+          StatusUtils.outOfRangeError(
+              "read_offset", "Expected a non-negative value, received: %d".formatted(offset)));
+      return;
+    }
+    if (readLimit < 0) {
+      responseObserver.onError(
+          StatusUtils.invalidArgumentError(
+              "read_limit", "Expected a non-negative value, received: %d".formatted(readLimit)));
+      return;
+    }
+    long end = readLimit > 0 ? offset + readLimit : Long.MAX_VALUE;
+    ServerCallStreamObserver<ReadResponse> serverObserver =
+        (ServerCallStreamObserver<ReadResponse>) responseObserver;
+    try {
+      while (offset < end && !serverObserver.isCancelled()) {
+        int maxBytes = (int) Math.min(LIVE_OUTPUT_CHUNK_SIZE, end - offset);
+        ByteString data = liveOutput.read(offset, maxBytes, LIVE_OUTPUT_POLL_MILLIS);
+        if (data == null) {
+          break;
+        }
+        if (!data.isEmpty()) {
+          responseObserver.onNext(ReadResponse.newBuilder().setData(data).build());
+          offset += data.size();
+        }
+      }
+      if (!serverObserver.isCancelled()) {
+        responseObserver.onCompleted();
+      }
+    } catch (IllegalArgumentException e) {
+      responseObserver.onError(StatusUtils.outOfRangeError("read_offset", e.getMessage()));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      responseObserver.onError(
+          Status.CANCELLED.withDescription("live output read interrupted").asException());
     }
   }
 
