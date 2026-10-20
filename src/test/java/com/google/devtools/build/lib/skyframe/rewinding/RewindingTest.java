@@ -259,6 +259,11 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void actionTemplateExpansionRewound_symlinkToTreeLost() throws Exception {
+    helper.runActionTemplateExpansionRewound_symlinkToTreeLost();
+  }
+
+  @Test
   public void actionTemplateExpansionRewound_siblingActionsReExecuteConcurrently()
       throws Exception {
     helper.runActionTemplateExpansionRewound_siblingActionsReExecuteConcurrently();
