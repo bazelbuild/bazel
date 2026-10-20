@@ -197,7 +197,7 @@ build setting is one of the transition's outputs. In that case, the value
 returned by the transition is used instead, even if it is the value the build
 setting had before the transition. The new platform's
 [`flags`](/reference/be/platforms-and-toolchains#platform.flags) are applied
-afterwards, so a value set by the new platform takes effect. This prevents
+afterwards, so a value set by the new platform takes effect. The `platform` scope prevents
 values set by one platform's `flags` from leaking into the configurations of
 another platform. Platforms are compared by label, so an `alias` of a platform
 counts as a different platform. Like `"target"` build settings, `"platform"`
