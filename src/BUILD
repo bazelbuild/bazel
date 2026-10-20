@@ -175,6 +175,13 @@ copy_file(
     allow_symlink = True,
 )
 
+copy_file(
+    name = "objcopy_for_jlink",
+    src = "@llvm//tools:llvm-objcopy",
+    out = "objcopy",
+    allow_symlink = True,
+)
+
 # Reads the app manifest of a Windows executable.
 cc_binary(
     name = "read_manifest",
@@ -205,7 +212,10 @@ cc_binary(
 sh_binary(
     name = "minimize_jdk",
     srcs = ["minimize_jdk.sh"],
-    data = select({
+    data = [
+        ":objcopy_for_jlink",
+        "//third_party/ijar:zipper",
+    ] + select({
         "@platforms//os:windows": [
             ":read_manifest",
             ":write_manifest",
@@ -326,17 +336,6 @@ genrule(
     ("_notools", False, False),
     ("_nojdk", True, False),
 ]]
-
-genrule(
-    name = "package_bazel_on_host_platform",
-    srcs = ["package-bazel.sh"],
-    outs = ["package-bazel-on-host-platform.sh"],
-    cmd = select({
-        "//src/conditions:freebsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
-        "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
-        "//conditions:default": "cp $(SRCS) $@",
-    }),
-)
 
 [bazel_binary(
     name = "bazel-bin" + suffix,

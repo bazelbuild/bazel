@@ -43,7 +43,11 @@ if [ "$1" == "--allmodules" ]; then
   shift
   modules="ALL-MODULE-PATH"
 else
-  modules=$(cat "$3" | paste -sd "," - | tr -d '\r')
+  modules=""
+  while IFS= read -r module; do
+    module=${module%$'\r'}
+    modules=${modules:+$modules,}$module
+  done < "$3"
   # We have to add this module explicitly because jdeps doesn't find the
   # dependency on it but it is still necessary for TLSv1.3.
   modules="$modules,jdk.crypto.ec"
@@ -60,6 +64,11 @@ if [ -n "$jmods_archive" ]; then
 fi
 
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
+ZIPPER=$(rlocation io_bazel/third_party/ijar/zipper)
+ZIPPER=$(cd "${ZIPPER%/*}" && echo "$PWD/${ZIPPER##*/}")
+OBJCOPY=$(rlocation io_bazel/src/objcopy)
+OBJCOPY=$(cd "${OBJCOPY%/*}" && echo "$PWD/${OBJCOPY##*/}")
+export PATH="${OBJCOPY%/*}:$PATH"
 # Options for the JVM that runs the Bazel server, which are either required or
 # recommended when using the embedded JDK on platforms that use a minified JDK.
 # Setting these options here rather than in blaze.cc avoids the need to detect
@@ -76,7 +85,7 @@ JVM_OPTIONS+=' -XX:MinHeapFreeRatio=40 -XX:MaxHeapFreeRatio=70'
 # Archives aren't necessarily named after their format (e.g. the tool JDK is
 # copied to an extensionless file), so detect zip files by their content.
 is_zip() {
-  unzip -l "$1" >/dev/null 2>&1
+  "$ZIPPER" v "$1" >/dev/null 2>&1
 }
 
 # Extracts a JDK archive, which is a zip file for Windows JDKs and a tarball
@@ -86,7 +95,7 @@ extract_jdk() {
   local dir=$2
   mkdir -p "$dir"
   if is_zip "$archive"; then
-    unzip -q "$archive" -d "$dir"
+    "$ZIPPER" x "$archive" -d "$dir"
   else
     # The --no-same-owner flag instructs tar to not try to chown extracted
     # files to the owner stored in the archive - it will try to do that when
@@ -144,7 +153,7 @@ if [ ! -f jmods/java.base.jmod ]; then
   if [ -n "$jmods_archive" ]; then
     mkdir -p jmods
     if is_zip "$jmods_archive"; then
-      unzip -q "$jmods_archive" -d jmods_tmp
+      "$ZIPPER" x "$jmods_archive" -d jmods_tmp
       # The archive contains a single top-level directory with jmod files.
       mv jmods_tmp/*/* jmods_tmp/ 2>/dev/null || true
       mv jmods_tmp/*.jmod jmods/
@@ -196,7 +205,7 @@ else
   cp lib/libdt_socket.* lib/libjdwp.* reduced/lib
 fi
 find reduced -exec touch -ht 198001010000 {} +
-zip -q -X -r ../reduced.zip reduced/
+"$ZIPPER" cC "$(pwd)/../reduced.zip" $(find reduced -print)
 cd ..
 mv reduced.zip "$out"
 rm -rf "target_jdk.$$" "tool_jdk.$$"

@@ -88,4 +88,9 @@ function test_generated_testcase_has_classname() {
       "$TEST_TMPDIR/test.xml"
 }
 
+function test_without_sed_on_path() {
+  assert_equals 'Simple ascii' \
+    "$(echo 'Simple ascii' | PATH=/does-not-exist "$BASH" "$GENERATE_XML" - - - -)"
+}
+
 run_suite "generate-xml.sh tests"
