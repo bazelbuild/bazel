@@ -123,8 +123,6 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("ARTIFACT_NESTED_SET");
   public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
       SkyFunctionName.createHermetic("RECURSIVE_FILESYSTEM_TRAVERSAL");
-  public static final SkyFunctionName FILESET_ENTRY =
-      SkyFunctionName.createHermetic("FILESET_ENTRY");
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.createHermetic("BUILD_INFO");
   public static final SkyFunctionName PLATFORM = SkyFunctionName.createHermetic("PLATFORM");
   public static final SkyFunctionName PLATFORM_MAPPING =
