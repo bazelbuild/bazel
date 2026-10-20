@@ -1638,7 +1638,13 @@ Strip the given number of leading components from file paths on extraction. Only
       })
   public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath(path);
+    // The contents are read through Bazel's own file system, which fetches a single file of a repo
+    // restored from the remote repo contents cache on demand, so the whole repo doesn't have to be
+    // materialized.
+    StarlarkPath p =
+        path instanceof Label label
+            ? getPathFromLabel(label, /* materialize= */ false)
+            : getPath(path);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
             p.toString(), identifyingStringForLogging, thread.getCallerLocation());
@@ -2407,11 +2413,24 @@ func(
 
   // Resolve the label given by value into a file path.
   protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+    return getPathFromLabel(label, /* materialize= */ true);
+  }
+
+  /**
+   * Resolves the label into a file path.
+   *
+   * @param materialize whether to materialize the label's repo on the native file system if it is
+   *     only available in memory. This is required whenever the path may be accessed by anything
+   *     other than Bazel's own file system, such as a subprocess.
+   */
+  private StarlarkPath getPathFromLabel(Label label, boolean materialize)
+      throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
       throw new NeedsSkyframeRestartException();
     }
-    if (!label.getRepository().isMain()
+    if (materialize
+        && !label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
             instanceof LazyMaterializer lazyMaterializer) {
       try {

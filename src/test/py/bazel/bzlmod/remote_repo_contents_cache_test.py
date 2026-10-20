@@ -611,6 +611,50 @@ class RemoteRepoContentsCacheTest(
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(other_repo_dir, 'BUILD')))
 
+  def testAccessFromOtherRepo_readLabel(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", build_file = "@my_repo//:BUILD")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  rctx.file("unread.txt")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"build_file": attr.label()})'
+            ),
+        ],
+    )
+    unread_file = os.path.join(self.RepoDir('my_repo'), 'unread.txt')
+
+    self.RunBazel(['build', '@other//:haha'])
+    self.assertTrue(os.path.exists(unread_file))
+    self.RunBazel(['clean', '--expunge'])
+
+    # Unlike rctx.path, rctx.read reads a single file without materializing
+    # the repo restored from the cache.
+    self.RunBazel(['build', '@other//:haha'])
+    self.assertFalse(os.path.exists(unread_file))
+
   def testAccessFromOtherRepo_withoutRemoteCache(self):
     # Regression test for a crash when a command that doesn't configure a remote
     # cache accesses a repo that a previous cached build injected into the
