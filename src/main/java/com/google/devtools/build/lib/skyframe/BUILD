@@ -1731,7 +1731,6 @@ java_library(
     deps = [
         ":dirents",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party/java/caffeine",
         "//third_party/java/error_prone:annotations",
