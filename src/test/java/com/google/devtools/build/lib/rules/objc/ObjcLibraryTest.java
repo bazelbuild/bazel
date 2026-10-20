@@ -19,7 +19,6 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
-import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -459,7 +458,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     checkError(
         "x",
         "x",
-        String.format(CompilationSupport.FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT, "x/foo.m"),
+        String.format(FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT, "x/foo.m"),
         "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
         "objc_library(name = 'x', srcs = ['foo.m'], non_arc_srcs = ['foo.m'])");
   }
@@ -549,10 +548,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments())
         .containsAtLeast("-isysroot", "__BAZEL_XCODE_SDKROOT__")
         .inOrder();
-    assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
-    assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
+    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(DEFAULT_COMPILER_FLAGS);
+    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(SIMULATOR_COMPILE_FLAGS);
     assertThat(compileActionA.getArguments()).contains("-fobjc-arc");
     assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
@@ -592,10 +589,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments())
         .containsAtLeast("-isysroot", "__BAZEL_XCODE_SDKROOT__")
         .inOrder();
-    assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
-    assertThat(compileActionA.getArguments())
-        .containsNoneIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
+    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(DEFAULT_COMPILER_FLAGS);
+    assertThat(compileActionA.getArguments()).containsNoneIn(SIMULATOR_COMPILE_FLAGS);
 
     assertThat(compileActionA.getArguments()).contains("-fobjc-arc");
     assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
@@ -813,11 +808,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
     assertThat(removeConfigFragment(compileActionA.getArguments()))
         .containsAtLeast(
-            "-fmodules",
-            "-fmodules-cache-path="
-                + OUTPUTDIR
-                + "/"
-                + CompilationSupport.OBJC_MODULE_CACHE_DIR_NAME);
+            "-fmodules", "-fmodules-cache-path=" + OUTPUTDIR + "/" + OBJC_MODULE_CACHE_DIR_NAME);
   }
 
   @Test
@@ -1060,7 +1051,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     checkError(
         "x",
         "x",
-        String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, "/absolute/path"),
+        "The path '/absolute/path' is absolute, but only relative paths are allowed.",
         "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
         "objc_library(",
         "    name = 'x',",
@@ -1230,7 +1221,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .add("-fasm-blocks")
                 .add("-fobjc-abi-version=2")
                 .add("-fobjc-legacy-dispatch")
-                .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
+                .addAll(DEFAULT_COMPILER_FLAGS)
                 .add("-arch x86_64")
                 .add("-isysroot", "__BAZEL_XCODE_SDKROOT__")
                 .add("-iquote", ".")
