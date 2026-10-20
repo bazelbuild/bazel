@@ -841,7 +841,10 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           Which model to use for where in the output tree rules write their outputs, particularly
           for multi-platform / multi-configuration builds. This is highly experimental. See
           [GH-6526] for details. Starlark actions can opt into path mapping by adding the key
-          `supports-path-mapping` to the `execution_requirements` dict.
+          `supports-path-mapping` to the `execution_requirements` dict. If its value is
+          `output-package`, the package of the target is additionally removed from the paths of the
+          action's outputs, which allows identical actions declared in different packages to share
+          cache entries.
 
           [GH-6526]: https://github.com/bazelbuild/bazel/issues/6526
           """)

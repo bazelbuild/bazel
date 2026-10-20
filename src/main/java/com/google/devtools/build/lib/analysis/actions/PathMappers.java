@@ -69,6 +69,10 @@ public final class PathMappers {
       if (executionInfo.containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING)) {
         fingerprint.addString(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING);
       }
+      if (ExecutionRequirements.PATH_MAPPING_OUTPUT_PACKAGE.equals(
+          executionInfo.get(ExecutionRequirements.SUPPORTS_PATH_MAPPING))) {
+        fingerprint.addString(ExecutionRequirements.PATH_MAPPING_OUTPUT_PACKAGE);
+      }
       // These artifacts are not part of the actual command line or inputs, but influence the
       // behavior of path mapping.
       actionKeyContext.addNestedSetToFingerprint(fingerprint, additionalArtifactsForPathMapping);

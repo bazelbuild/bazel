@@ -1039,6 +1039,107 @@ EOF
   expect_log '4 remote cache hit'
 }
 
+function test_package_path_mapping_identical_actions_in_different_packages() {
+  if is_windows; then
+    echo "Skipping test_package_path_mapping_identical_actions_in_different_packages on Windows as it requires sandboxing"
+    return
+  fi
+
+  mkdir rules
+  touch rules/BUILD
+  cat > rules/defs.bzl <<'EOF'
+def _merge_impl(ctx):
+    # The output names don't depend on the target name, so the action is
+    # identical in all packages after package path mapping.
+    out = ctx.actions.declare_file("merged.txt")
+    out_dir = ctx.actions.declare_directory("merged_dir")
+    # The param file is named after the first output and thus also subject to
+    # package path mapping.
+    args = ctx.actions.args()
+    args.set_param_file_format("multiline")
+    args.use_param_file("%s", use_always = True)
+    args.add(out)
+    args.add_all([out_dir], expand_directories = False)
+    args.add_all(ctx.files.layers)
+    ctx.actions.run_shell(
+        outputs = [out, out_dir],
+        inputs = ctx.files.layers,
+        command = """
+        # Sleep to ensure that two actions are scheduled in parallel.
+        sleep 3
+
+        params=$1
+        out=$(sed -n 1p $params)
+        out_dir=$(sed -n 2p $params)
+        tail -n +3 $params | xargs cat > $out
+        tail -n +3 $params | xargs -I{} cp {} $out_dir/
+        """,
+        arguments = [args],
+        execution_requirements = {"supports-path-mapping": "output-package"},
+    )
+    return [DefaultInfo(files = depset([out, out_dir]))]
+
+merge = rule(
+    _merge_impl,
+    attrs = {"layers": attr.label_list(allow_files = True)},
+)
+EOF
+
+  mkdir -p layers
+  cat > layers/BUILD <<'EOF'
+genrule(
+    name = "a",
+    outs = ["a.txt"],
+    cmd = "echo a > $@",
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "b",
+    outs = ["b.txt"],
+    cmd = "echo b > $@",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  for pkg in app1 app2/nested app3; do
+    mkdir -p $pkg
+    cat > $pkg/BUILD <<'EOF'
+load("//rules:defs.bzl", "merge")
+
+merge(
+    name = "image",
+    layers = [
+        "//layers:a",
+        "//layers:b",
+    ],
+)
+EOF
+  done
+
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //app1:image //app2/nested:image &> $TEST_log || fail "build failed unexpectedly"
+  # The two genrules plus one of the merge actions.
+  expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_log '1 deduplicated'
+  assert_equals "a
+b" "$(cat bazel-bin/app1/merged.txt)"
+  assert_equals "a
+b" "$(cat bazel-bin/app2/nested/merged.txt)"
+  assert_equals "b" "$(cat bazel-bin/app2/nested/merged_dir/b.txt)"
+
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //app3:image &> $TEST_log || fail "build failed unexpectedly"
+  expect_log '1 remote cache hit'
+  assert_equals "a
+b" "$(cat bazel-bin/app3/merged.txt)"
+  assert_equals "a" "$(cat bazel-bin/app3/merged_dir/a.txt)"
+}
+
 function test_path_stripping_deduplicated_action_output_not_created() {
   if is_windows; then
     echo "Skipping test_path_stripping_deduplicated_action_output_not_created on Windows as it requires sandboxing"

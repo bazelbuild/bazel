@@ -21,12 +21,17 @@ import static java.lang.String.format;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -115,6 +120,11 @@ public class PathMappersTest extends BuildViewTestCase {
   }
 
   private void addStarlarkRule(Dict<String, String> executionRequirements) throws IOException {
+    addStarlarkRule(executionRequirements, "MyRuleAction");
+  }
+
+  private void addStarlarkRule(Dict<String, String> executionRequirements, String mnemonic)
+      throws IOException {
     scratch.file("defs/BUILD");
     scratch.file(
         "defs/defs.bzl",
@@ -134,7 +144,7 @@ public class PathMappersTest extends BuildViewTestCase {
         "        inputs = ctx.files.srcs,",
         "        executable = ctx.executable._tool,",
         "        arguments = [args],",
-        "        mnemonic = 'MyRuleAction',",
+        format("        mnemonic = '%s',", mnemonic),
         format(
             "        execution_requirements = %s,",
             Starlark.repr(executionRequirements, StarlarkSemantics.DEFAULT)),
@@ -239,6 +249,268 @@ public class PathMappersTest extends BuildViewTestCase {
   }
 
   @Test
+  public void starlarkRule_packagePathMapping() throws Exception {
+    addStarlarkRule(
+        Dict.<String, String>builder()
+            .put("supports-path-mapping", "output-package")
+            .buildImmutable());
+
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//pkg:my_rule");
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    PathMapper pathMapper = spawn.getPathMapper();
+    assertThat(pathMapper.isNoop()).isFalse();
+    String outDir = analysisMock.getProductName() + "-out";
+    // Only the outputs of the action lose the package. Inputs, even those in the same package, and
+    // the tool are only config-stripped. short_path is never mapped.
+    assertThat(spawn.getArguments().stream().collect(toImmutableList()))
+        .containsExactly(
+            format("%s/cfg/bin/tool/tool", outDir),
+            format("%s/out/bin/out.bin", outDir),
+            "-source",
+            format(
+                "<pkg/gen_src.txt:%1$s/cfg/bin/pkg/gen_src.txt:%1$s/cfg/bin:%1$s/cfg/bin/pkg>",
+                outDir),
+            "-source",
+            "<pkg/source.txt:pkg/source.txt::pkg>")
+        .inOrder();
+
+    Artifact genSrc = getBinArtifact("gen_src.txt", getConfiguredTarget("//pkg:gen_src"));
+    Artifact out = getBinArtifact("out.bin", getConfiguredTarget("//pkg:my_rule"));
+    for (Artifact artifact : ImmutableList.of(genSrc, out)) {
+      assertThat(pathMapper.computeExecPathLengthDiff((Artifact.DerivedArtifact) artifact))
+          .isEqualTo(
+              artifact.getExecPathString().length()
+                  - pathMapper.getMappedExecPathString(artifact).length());
+    }
+    assertThat(pathMapper.map(out.getExecPath()))
+        .isEqualTo(PathFragment.create(outDir + "/out/bin/out.bin"));
+    assertThat(pathMapper.map(genSrc.getExecPath()))
+        .isEqualTo(PathFragment.create(outDir + "/cfg/bin/pkg/gen_src.txt"));
+    assertThat(pathMapper.mapRoot(out).getExecPathString()).isEqualTo(outDir + "/out/bin");
+    assertThat(pathMapper.mapRoot(genSrc).getExecPathString()).isEqualTo(outDir + "/cfg/bin");
+  }
+
+  @Test
+  public void starlarkRule_packagePathMapping_identicalAcrossPackages() throws Exception {
+    // Sets up //tool.
+    addStarlarkRule(Dict.empty());
+    scratch.file(
+        "defs/merge.bzl",
+        """
+        def _dirname(file):
+            return file.dirname
+
+        def _merge_impl(ctx):
+            # The output names don't depend on the target name.
+            out = ctx.actions.declare_file("merged.bin")
+            out_tree = ctx.actions.declare_directory("merged_tree")
+            args = ctx.actions.args()
+            args.add("--output", out)
+            args.add_all([out], before_each = "--output_dir", map_each = _dirname)
+            args.add_all([out_tree], before_each = "--output_tree", expand_directories = False)
+            args.add_all(ctx.files.srcs, before_each = "--input")
+            args.add_all(ctx.files.srcs, before_each = "--dir", map_each = _dirname)
+            ctx.actions.run(
+                outputs = [out, out_tree],
+                inputs = ctx.files.srcs,
+                executable = ctx.executable._tool,
+                arguments = [args],
+                execution_requirements = {"supports-path-mapping": "output-package"},
+            )
+            return [DefaultInfo(files = depset([out, out_tree]))]
+
+        merge = rule(
+            implementation = _merge_impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "_tool": attr.label(default = "//tool", executable = True, cfg = "exec"),
+            },
+        )
+        """);
+    scratch.file(
+        "shared/BUILD",
+        """
+        exports_files(['shared.txt'])
+        genrule(
+            name = 'gen_src',
+            outs = ['gen_src.txt'],
+            cmd = '<some command>',
+            visibility = ['//visibility:public'],
+        )
+        """);
+    for (String pkg : ImmutableList.of("app1", "app2/nested")) {
+      scratch.file(
+          pkg + "/BUILD",
+          """
+          load('//defs:merge.bzl', 'merge')
+          merge(
+              name = 'merge',
+              srcs = [
+                  '//shared:gen_src',
+                  '//shared:shared.txt',
+              ],
+          )
+          """);
+    }
+
+    Spawn app1Spawn = getMergeSpawn("//app1:merge");
+    Spawn app2Spawn = getMergeSpawn("//app2/nested:merge");
+
+    String outDir = analysisMock.getProductName() + "-out";
+    assertThat(app1Spawn.getArguments())
+        .containsExactly(
+            format("%s/cfg/bin/tool/tool", outDir),
+            "--output",
+            format("%s/out/bin/merged.bin", outDir),
+            "--output_dir",
+            format("%s/out/bin", outDir),
+            "--output_tree",
+            format("%s/out/bin/merged_tree", outDir),
+            "--input",
+            format("%s/cfg/bin/shared/gen_src.txt", outDir),
+            "--input",
+            "shared/shared.txt",
+            "--dir",
+            format("%s/cfg/bin/shared", outDir),
+            "--dir",
+            "shared")
+        .inOrder();
+    assertThat(app2Spawn.getArguments()).isEqualTo(app1Spawn.getArguments());
+    assertThat(mappedPaths(app1Spawn.getInputFiles().flatten(), app1Spawn.getPathMapper()))
+        .isEqualTo(mappedPaths(app2Spawn.getInputFiles().flatten(), app2Spawn.getPathMapper()));
+    assertThat(mappedPaths(app1Spawn.getOutputFiles(), app1Spawn.getPathMapper()))
+        .isEqualTo(mappedPaths(app2Spawn.getOutputFiles(), app2Spawn.getPathMapper()));
+  }
+
+  @Test
+  public void starlarkRule_outputPackagePathMapping_nestedOutputsAndParamFile() throws Exception {
+    // Sets up //tool.
+    addStarlarkRule(Dict.empty());
+    scratch.file(
+        "defs/nested.bzl",
+        """
+        def _nested_impl(ctx):
+            foo = ctx.actions.declare_file("foo.txt")
+            lib_foo = ctx.actions.declare_file("lib/foo.txt")
+            args = ctx.actions.args()
+            args.use_param_file("@%s", use_always = True)
+            args.add_all([foo, lib_foo], before_each = "--output")
+            ctx.actions.run(
+                outputs = [foo, lib_foo],
+                executable = ctx.executable._tool,
+                arguments = [args],
+                execution_requirements = {"supports-path-mapping": "output-package"},
+            )
+            return [DefaultInfo(files = depset([foo, lib_foo]))]
+
+        nested = rule(
+            implementation = _nested_impl,
+            attrs = {
+                "_tool": attr.label(default = "//tool", executable = True, cfg = "exec"),
+            },
+        )
+        """);
+    scratch.file("app1/BUILD", "load('//defs:nested.bzl', 'nested')", "nested(name = 'a')");
+    scratch.file("app2/nested/BUILD", "load('//defs:nested.bzl', 'nested')", "nested(name = 'b')");
+
+    String outDir = analysisMock.getProductName() + "-out";
+    for (String label : ImmutableList.of("//app1:a", "//app2/nested:b")) {
+      ConfiguredTarget target = getConfiguredTarget(label);
+      SpawnAction action = (SpawnAction) getGeneratingAction(getBinArtifact("foo.txt", target));
+      Spawn spawn =
+          action.getSpawn(
+              new ActionExecutionContextBuilder()
+                  .setMetadataProvider(new FakeActionInputFileCache())
+                  .build());
+
+      // The outputs lose the package, but keep their path relative to it. The same applies to the
+      // param file, which is named after the primary output.
+      assertThat(mappedPaths(spawn.getOutputFiles(), spawn.getPathMapper()))
+          .containsExactly(
+              format("%s/out/bin/foo.txt", outDir), format("%s/out/bin/lib/foo.txt", outDir));
+      assertThat(spawn.getArguments())
+          .containsExactly(
+              format("%s/cfg/bin/tool/tool", outDir),
+              format("@%s/out/bin/foo.txt-0.params", outDir))
+          .inOrder();
+      ParamFileActionInput paramFile =
+          Iterables.getOnlyElement(
+              Iterables.filter(spawn.getInputFiles().flatten(), ParamFileActionInput.class));
+      assertThat(spawn.getPathMapper().map(paramFile.getExecPath()))
+          .isEqualTo(PathFragment.create(outDir + "/out/bin/foo.txt-0.params"));
+      assertThat(paramFile.getArguments())
+          .containsExactly(
+              "--output",
+              format("%s/out/bin/foo.txt", outDir),
+              "--output",
+              format("%s/out/bin/lib/foo.txt", outDir))
+          .inOrder();
+    }
+  }
+
+  private Spawn getMergeSpawn(String label) throws Exception {
+    SpawnAction action =
+        (SpawnAction) getGeneratingAction(getBinArtifact("merged.bin", getConfiguredTarget(label)));
+    return action.getSpawn(
+        new ActionExecutionContextBuilder()
+            .setMetadataProvider(new FakeActionInputFileCache())
+            .build());
+  }
+
+  private static ImmutableList<String> mappedPaths(
+      Iterable<? extends ActionInput> inputs, PathMapper pathMapper) {
+    return ImmutableList.sortedCopyOf(
+        Streams.stream(inputs)
+            .map(input -> pathMapper.map(input.getExecPath()).getPathString())
+            .collect(toImmutableList()));
+  }
+
+  @Test
+  public void starlarkRule_packagePathMapping_ignoredWithHeuristicPathMapping() throws Exception {
+    useConfiguration(
+        "--experimental_output_paths=strip",
+        "--modify_execution_info=MyRuleAction=+supports-heuristic-path-mapping");
+    addStarlarkRule(
+        Dict.<String, String>builder()
+            .put("supports-path-mapping", "output-package")
+            .buildImmutable());
+
+    assertOutputOfMyRuleOnlyConfigStripped();
+  }
+
+  @Test
+  public void starlarkRule_packagePathMapping_ignoredForLegacyArgsHandling() throws Exception {
+    addStarlarkRule(
+        Dict.<String, String>builder()
+            .put("supports-path-mapping", "output-package")
+            .buildImmutable(),
+        "AndroidMyRuleAction");
+
+    assertOutputOfMyRuleOnlyConfigStripped();
+  }
+
+  private void assertOutputOfMyRuleOnlyConfigStripped() throws Exception {
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//pkg:my_rule");
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    PathMapper pathMapper = spawn.getPathMapper();
+    assertThat(pathMapper.isNoop()).isFalse();
+    String outDir = analysisMock.getProductName() + "-out";
+    Artifact out = getBinArtifact("out.bin", getConfiguredTarget("//pkg:my_rule"));
+    assertThat(pathMapper.getMappedExecPathString(out))
+        .isEqualTo(format("%s/cfg/bin/pkg/out.bin", outDir));
+  }
+
+  @Test
   public void starlarkRule_heuristicPathMappingNotAllowedViaExecutionRequirements()
       throws Exception {
     useConfiguration("--experimental_output_paths=strip");
@@ -340,6 +612,46 @@ public class PathMappersTest extends BuildViewTestCase {
     assertThat(digestOff).isNotEqualTo(digestStructured);
     assertThat(digestStructured).isNotEqualTo(digestHeuristic);
     assertThat(digestOff).isNotEqualTo(digestHeuristic);
+  }
+
+  @Test
+  public void addToFingerprint_differentiatesPackagePathMapping() throws Exception {
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    NestedSet<Artifact> emptyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
+    Fingerprint fpStructured = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, ""),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpStructured);
+
+    Fingerprint fpPackage = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(
+            ExecutionRequirements.SUPPORTS_PATH_MAPPING,
+            ExecutionRequirements.PATH_MAPPING_OUTPUT_PACKAGE),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpPackage);
+
+    Fingerprint fpPackageOff = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(
+            ExecutionRequirements.SUPPORTS_PATH_MAPPING,
+            ExecutionRequirements.PATH_MAPPING_OUTPUT_PACKAGE),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.OFF,
+        fpPackageOff);
+
+    assertThat(fpStructured.hexDigestAndReset()).isNotEqualTo(fpPackage.hexDigestAndReset());
+    assertThat(fpPackageOff.hexDigestAndReset()).isEqualTo(new Fingerprint().hexDigestAndReset());
   }
 
   @Test

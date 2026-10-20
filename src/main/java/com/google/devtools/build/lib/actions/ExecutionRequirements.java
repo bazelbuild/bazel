@@ -399,8 +399,22 @@ public class ExecutionRequirements {
   /**
    * Indicates that the action is compatible with path mapping, e.g., removing the configuration
    * segment from the paths of all inputs and outputs.
+   *
+   * <p>The value is ignored unless it is {@link #PATH_MAPPING_OUTPUT_PACKAGE}.
    */
   public static final String SUPPORTS_PATH_MAPPING = "supports-path-mapping";
+
+  /**
+   * Value of {@link #SUPPORTS_PATH_MAPPING} indicating that the action is additionally compatible
+   * with having the package of the target that owns it removed from the paths of its outputs (e.g.,
+   * the outputs {@code bazel-out/k8-fastbuild/bin/pkg/foo.txt} and {@code
+   * bazel-out/k8-fastbuild/bin/pkg/lib/foo.txt} of an action owned by {@code //pkg:target} become
+   * {@code bazel-out/out/bin/foo.txt} and {@code bazel-out/out/bin/lib/foo.txt}).
+   *
+   * <p>This allows actions with identical inputs and command lines to share cache entries across
+   * targets in different packages. It is only supported for Starlark actions.
+   */
+  public static final String PATH_MAPPING_OUTPUT_PACKAGE = "output-package";
 
   /**
    * Indicates that the action is compatible with heuristic path mapping, e.g., removing the
