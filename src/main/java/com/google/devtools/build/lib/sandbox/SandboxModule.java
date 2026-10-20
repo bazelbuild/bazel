@@ -579,8 +579,6 @@ public final class SandboxModule extends BlazeModule {
         treeDeleter = null; // Avoid potential reexecution if we crash.
       }
     }
-
-    SandboxStash.shutdown();
   }
 
   @Override
