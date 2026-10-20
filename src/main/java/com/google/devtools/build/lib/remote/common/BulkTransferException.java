@@ -105,9 +105,9 @@ public class BulkTransferException extends IOException {
       }
       var actionInput = actionInputResolver.apply(execPath);
       if (actionInput == null) {
-        // This can happen if the lost artifact is not an input of the action, but an output that
-        // e.g. failed to be retrieved from the remote cache after a cache hit. This also can't be
-        // solved by the rewinding that LostArtifacts would trigger.
+        // This can happen if the lost artifact is not known to the resolver, e.g. an output that
+        // failed to be retrieved from the remote cache after a cache hit while resolving inputs.
+        // Rewinding can't recover an artifact it can't identify.
         return LostArtifacts.EMPTY;
       }
       byDigestBuilder.put(DigestUtil.toString(missingDigest), actionInput);
