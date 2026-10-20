@@ -45,11 +45,8 @@ public final class BuildConfigurationKeyValue implements SkyValue {
     }
 
     /**
-     * Creates a key for the baseline configuration's options.
-     *
-     * <p>Scoping the options of the baseline configuration would require knowing the baseline
-     * configuration, so the resulting key skips the scoping step. Baseline options don't need
-     * scoping anyway: they are what scoping resets flags to.
+     * Creates a key for the baseline configuration's options, which skips scoping since that would
+     * create a cycle.
      */
     public static Key createForBaseline(BuildOptions buildOptions) {
       return create(buildOptions, /* forBaseline= */ true);

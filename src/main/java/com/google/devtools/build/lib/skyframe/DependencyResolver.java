@@ -408,11 +408,8 @@ public final class DependencyResolver {
                   ? null
                   : targetAndConfiguration.getConfiguration().getOptions(),
               (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
-              // Already resolved once per configuration by BuildConfigurationFunction. Resolving it
-              // here would run once per configured target and make every configured target a
-              // reverse dep of a single node.
               targetAndConfiguration.getConfiguration() == null
-                  ? null
+                  ? StarlarkBuildSettingsDetailsValue.EMPTY
                   : targetAndConfiguration.getConfiguration().starlarkFlagDetails());
       if (starlarkExecTransition == null) {
         return false;
@@ -730,9 +727,6 @@ public final class DependencyResolver {
                 new DependencyMapProducer(
                     new PrerequisiteParameters(
                         configuredTargetKey,
-                        // Already resolved once per configuration by BuildConfigurationFunction;
-                        // requesting it from Skyframe per dependency edge would make every
-                        // configured target a reverse dep of it.
                         ctgValue.getConfiguration() == null
                             ? StarlarkBuildSettingsDetailsValue.EMPTY
                             : ctgValue.getConfiguration().starlarkFlagDetails(),

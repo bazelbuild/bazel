@@ -2273,9 +2273,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public StarlarkAttributeTransitionProvider getStarlarkExecTransition(
       BuildOptions options, ExtendedEventHandler eventHandler)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
-    // Unlike the analysis phase skyfunctions, this has no configuration to read the scope info off,
-    // so it evaluates it through Skyframe.
-    StarlarkBuildSettingsDetailsValue scopeDetails = null;
+    StarlarkBuildSettingsDetailsValue scopeDetails = StarlarkBuildSettingsDetailsValue.EMPTY;
     StarlarkBuildSettingsDetailsValue.Key scopeDetailsKey =
         StarlarkBuildSettingsDetailsValue.keyForStarlarkOptions(
             options.getStarlarkOptions(), options.get(CoreOptions.class).getHostFlagAliases());

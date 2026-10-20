@@ -61,9 +61,8 @@ import javax.annotation.Nullable;
  * Scopes are applied after platform-based flags or platform mappings are applied. The logic is:
  *
  * <ul>
- *   <li>The scopes of the starlark flags are taken from the configuration the transition was
- *       applied to, which almost always sets the same flags. Otherwise they are looked up via
- *       {@link StarlarkBuildSettingsDetailsValue}.
+ *   <li>The scopes of the starlark flags are taken from the source configuration if it sets all of
+ *       them and looked up via {@link StarlarkBuildSettingsDetailsValue} otherwise.
  *   <li>If no starlark flag has ScopeType.PROJECT, no further processing is done.
  *   <li>If the ScopeType for a flag is ScopeType.PROJECT, and the flag is not in the scope of the
  *       current package, the flag is reset to its baseline value if it is present in the baseline.
@@ -115,12 +114,10 @@ public final class BuildConfigurationKeyProducer<C>
 
   /**
    * @param forBaseline whether {@code options} are the baseline configuration's options, which
-   *     aren't scoped: doing so would require the baseline configuration, i.e. this very result.
-   * @param sourceFlagDetails the details already resolved for the Starlark flags of the
-   *     configuration {@code options} was transitioned from, or {@link
-   *     StarlarkBuildSettingsDetailsValue#EMPTY} if the caller has none. Transitions rarely
-   *     introduce Starlark flags, so this usually covers {@code options} too and spares this
-   *     producer a Skyframe lookup on every dependency edge.
+   *     aren't scoped since that would create a cycle
+   * @param sourceFlagDetails the details of the Starlark flags of the configuration {@code options}
+   *     was transitioned from, or {@link StarlarkBuildSettingsDetailsValue#EMPTY} if the caller has
+   *     none.
    */
   BuildConfigurationKeyProducer(
       ResultSink<C> sink,
@@ -141,10 +138,8 @@ public final class BuildConfigurationKeyProducer<C>
 
   @Override
   public StateMachine step(Tasks tasks) {
-    // Resolve the details of the flags set before platform processing here rather than in
-    // findFlagDetails so that any lookup shares a Skyframe batch with the platform lookups below
-    // instead of adding a round of its own. Platform-based flags and platform mappings hardly ever
-    // add Starlark flags; findFlagDetails requests the right value if they do.
+    // Requested here so that the lookup, if any, is batched with the platform lookups below.
+    // findFlagDetails covers the rare Starlark flags added by platform processing.
     requestFlagDetails(tasks, options);
 
     // Short-circuit if there are no platform options.
@@ -190,9 +185,8 @@ public final class BuildConfigurationKeyProducer<C>
   }
 
   /**
-   * Makes the {@link StarlarkBuildSettingsDetailsValue} for {@code buildOptions}' Starlark flags
-   * available to {@link #possiblyApplyScopes}, looking it up in Skyframe unless a value that
-   * answers for all of them is already at hand.
+   * Sets {@link #flagDetails} to details covering {@code buildOptions}' Starlark flags, looking
+   * them up in Skyframe if {@link #sourceFlagDetails} doesn't cover them.
    */
   private void requestFlagDetails(Tasks tasks, BuildOptions buildOptions) {
     if (forBaseline) {
@@ -203,18 +197,19 @@ public final class BuildConfigurationKeyProducer<C>
     if (buildSettings.isEmpty()) {
       return;
     }
+    // Transitions rarely add Starlark flags, so this usually avoids a Skyframe lookup.
     if (sourceFlagDetails.covers(buildSettings)) {
       this.flagDetails = sourceFlagDetails;
       return;
     }
-    // Use the same key as BuildConfigurationFunction so that the node is shared with it.
+    // Same key as in BuildConfigurationFunction, so the node is shared.
     CoreOptions coreOptions = buildOptions.get(CoreOptions.class);
     tasks.lookUp(
-        StarlarkBuildSettingsDetailsValue.keyForBuildSettings(
+        StarlarkBuildSettingsDetailsValue.Key.create(
             buildSettings,
             coreOptions == null ? ImmutableSet.of() : coreOptions.getHostFlagAliases()),
         TransitionException.class,
-        (ValueOrExceptionSink<TransitionException>) this::acceptFlagDetails);
+        this::acceptFlagDetails);
   }
 
   private void acceptFlagDetails(@Nullable SkyValue value, @Nullable TransitionException e) {
@@ -226,10 +221,7 @@ public final class BuildConfigurationKeyProducer<C>
     sink.acceptTransitionError(e);
   }
 
-  /**
-   * Requests the details of the Starlark flags {@link #postPlatformProcessedOptions} gained during
-   * platform processing, if any: {@link #step} only requested the ones set before it.
-   */
+  /** Requests details for the Starlark flags added by platform processing, if any. */
   private StateMachine findFlagDetails(Tasks tasks) {
     Preconditions.checkNotNull(this.postPlatformProcessedOptions);
     if (flagDetailsError) {
@@ -307,14 +299,12 @@ public final class BuildConfigurationKeyProducer<C>
     if (flagDetailsError) {
       return DONE;
     }
-    // A null value here doesn't mean a Skyframe lookUp came back empty: it means no details were
-    // requested at all, because these options set no Starlark flags or this is the baseline.
+    // Null if these options set no scoped Starlark flags or are the baseline.
     if (flagDetails == null || !flagDetails.hasProjectScopedBuildSettings()) {
       return finishConfigurationKeyProcessing(postPlatformProcessedOptions);
     }
 
-    // The details may have been resolved for a superset of these options' Starlark flags, so check
-    // that at least one of the flags actually set here is project-scoped.
+    // The details may cover more flags than these options set.
     boolean shouldApplyScopes =
         postPlatformProcessedOptions.getStarlarkOptions().keySet().stream()
             .anyMatch(flag -> flagDetails.projectScopeOf(flag) != null);
@@ -364,14 +354,10 @@ public final class BuildConfigurationKeyProducer<C>
       BuildOptions transitionedOptions,
       BuildOptions baselineConfiguration,
       @Nullable Label label) {
-    Preconditions.checkNotNull(flagDetails);
-    Preconditions.checkNotNull(baselineConfiguration);
-    boolean flagsRemoved = false;
-    boolean flagsResetToBaseline = false;
+    boolean flagsChanged = false;
     BuildOptions.Builder optionsBuilder = transitionedOptions.toBuilder();
     for (Map.Entry<Label, Object> flagEntry : transitionedOptions.getStarlarkOptions().entrySet()) {
       Label flagLabel = flagEntry.getKey();
-      // Only project-scoped flags have a project scope, so a hit means the flag has to be scoped.
       Scope scope = flagDetails.projectScopeOf(flagLabel);
       if (scope != null) {
         Object flagValue = flagEntry.getValue();
@@ -379,16 +365,15 @@ public final class BuildConfigurationKeyProducer<C>
         if (flagValue != baselineValue && !isInScope(label, scope.scopeDefinition())) {
           if (baselineValue == null) {
             optionsBuilder.removeStarlarkOption(flagLabel);
-            flagsRemoved = true;
           } else {
             optionsBuilder.addStarlarkOption(flagLabel, baselineValue);
-            flagsResetToBaseline = true;
           }
+          flagsChanged = true;
         }
       }
     }
 
-    if (!flagsRemoved && !flagsResetToBaseline) {
+    if (!flagsChanged) {
       return transitionedOptions;
     }
 

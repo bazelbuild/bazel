@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
+import com.google.devtools.build.lib.util.HashCodes;
 import java.util.LinkedHashMap;
 import java.util.Objects;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -82,28 +82,22 @@ public class StarlarkAttributeTransitionProvider
 
   @Override
   public SplitTransition create(AttributeTransitionData data) {
+    return createWithScopeDetails(data, StarlarkBuildSettingsDetailsValue.EMPTY);
+  }
+
+  /**
+   * Creates a {@link FunctionSplitTransition} with the given scope details. Only the exec
+   * transition reads them, see {@link
+   * com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionProvider}.
+   */
+  protected SplitTransition createWithScopeDetails(
+      AttributeTransitionData data, StarlarkBuildSettingsDetailsValue scopeDetails) {
     AttributeMap attributeMap = data.attributes();
     Preconditions.checkArgument(
         attributeMap == null || attributeMap instanceof ConfiguredAttributeMapper);
     // TODO(bazel-team): consider caching transition instances to save CPU time, similar to what's
     // done in StarlarkRuleTransitionProvider. This could benefit builds that apply transitions over
     // many build graph edges.
-    return new FunctionSplitTransition(
-        starlarkDefinedConfigTransition,
-        (ConfiguredAttributeMapper) attributeMap,
-        /* scopeDetails= */ null);
-  }
-
-  /**
-   * Creates a {@link FunctionSplitTransition} with scope details for exec transitions. Only called
-   * by {@link
-   * com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionProvider}.
-   */
-  protected SplitTransition createWithScopeDetails(
-      AttributeTransitionData data, @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
-    AttributeMap attributeMap = data.attributes();
-    Preconditions.checkArgument(
-        attributeMap == null || attributeMap instanceof ConfiguredAttributeMapper);
     return new FunctionSplitTransition(
         starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap, scopeDetails);
   }
@@ -133,13 +127,13 @@ public class StarlarkAttributeTransitionProvider
 
   final class FunctionSplitTransition extends StarlarkTransition implements SplitTransition {
     private final StructImpl attrObject;
-    @Nullable private final StarlarkBuildSettingsDetailsValue scopeDetails;
+    private final StarlarkBuildSettingsDetailsValue scopeDetails;
     private final int hashCode;
 
     private FunctionSplitTransition(
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition,
         ConfiguredAttributeMapper attributeMap,
-        @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
+        StarlarkBuildSettingsDetailsValue scopeDetails) {
       super(starlarkDefinedConfigTransition);
       this.scopeDetails = scopeDetails;
 
@@ -161,8 +155,8 @@ public class StarlarkAttributeTransitionProvider
         }
       }
       attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
-      this.hashCode =
-          Objects.hash(attrObject, super.hashCode(), System.identityHashCode(scopeDetails));
+      int hash = HashCodes.MULTIPLIER * attrObject.hashCode() + super.hashCode();
+      this.hashCode = HashCodes.MULTIPLIER * hash + System.identityHashCode(scopeDetails);
     }
 
     /**

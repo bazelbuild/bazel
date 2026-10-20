@@ -2063,11 +2063,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -2076,6 +2076,7 @@ java_library(
     srcs = ["starlark/StarlarkRuleTransitionProvider.java"],
     deps = [
         ":starlark/function_transition_util",
+        ":starlark/starlark_build_settings_details_value",
         ":starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:config_matching_provider",

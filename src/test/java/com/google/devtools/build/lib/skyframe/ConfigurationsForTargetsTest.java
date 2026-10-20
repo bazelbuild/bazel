@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoade
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -198,7 +199,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 (bzlKey) ->
                     (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
                 targetAndConfiguration.getConfiguration() == null
-                    ? null
+                    ? StarlarkBuildSettingsDetailsValue.EMPTY
                     : targetAndConfiguration.getConfiguration().starlarkFlagDetails());
         if (starlarkExecTransition == null) {
           return null;

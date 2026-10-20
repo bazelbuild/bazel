@@ -601,12 +601,10 @@ EOF
   expect_log "Exec dep flag value: default"
 }
 
-# Dependency edges take the scopes of the flags set in a configuration off that configuration's
-# BuildConfigurationValue rather than resolving them per edge, so editing a PROJECT.scl has to
-# invalidate that configuration.
+# Flag scopes are stored on the configuration, so editing a PROJECT.scl has to invalidate it.
 function test_project_file_change_rescopes_dependencies() {
   local -r pkg="$FUNCNAME"
-  # Must not start with ${pkg}: project directories are matched by label prefix.
+  # Project directories are matched by label prefix, so this must not start with ${pkg}.
   local -r dep_pkg="dep_of_${pkg}"
   mkdir -p "${pkg}" "${dep_pkg}"
 
@@ -680,7 +678,7 @@ EOF
   expect_log "//${pkg}:top: flag value is: transitioned_value"
   expect_log "//${dep_pkg}:dep: flag value is: default_value"
 
-  # Bring the dependency's package into the flag's project: it now keeps the flag's value.
+  # With the dependency's package in the flag's project, the dependency keeps the flag's value.
   cat > "${pkg}/PROJECT.scl" <<EOF
 load("//third_party/bazel/src/main/protobuf/project:project_proto.scl", "project_pb2")
 project = project_pb2.Project.create(project_directories = ["//${pkg}", "//${dep_pkg}"])
