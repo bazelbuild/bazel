@@ -374,6 +374,85 @@ class RemoteRepoContentsCacheTest(
     with open(self.Path('bazel-bin/platform.txt')) as f:
       self.assertEqual(f.read().strip(), 'macOS')
 
+  def testLostMarkerFile_otherEntryUsed(self):
+    # The test worker would inline the marker file into the cache entry, unlike
+    # caches that don't support inlining, and would refuse to serve an entry
+    # whose marker file is gone, unlike caches that don't check their blobs.
+    self.RestartRemoteWorker(
+        ['--noinline_output_files', '--noaction_cache_integrity_check']
+    )
+    # Two fetches of the same repo that read their inputs in different orders
+    # (chosen by a client environment variable, which isn't recorded) produce two
+    # cache entries: the external file is read first and both inputs end up in
+    # one batch, or the main repo file is read first and the external file,
+    # which can't be requested unconditionally, starts a second batch. The
+    # one-batch entry is found first. If its marker file has been lost, the
+    # other entry is used. The canonical repo name avoids recording the repo
+    # mapping, which would start the second batch in both orders.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'other = use_repo_rule("//:repo.bzl", "other")',
+            'other(name = "other")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel', ['exports_files(["m.txt"])'])
+    self.ScratchFile('m.txt', ['m'])
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _other_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'b.txt\'])")',
+            '  rctx.file("b.txt", "b")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'other = repository_rule(_other_impl)',
+            'def _repo_impl(rctx):',
+            '  if rctx.os.environ.get("ORDER") == "m_first":',
+            '    m = rctx.read(Label("//:m.txt"))',
+            '    b = rctx.read(Label("@@+other+other//:b.txt"))',
+            '  else:',
+            '    b = rctx.read(Label("@@+other+other//:b.txt"))',
+            '    m = rctx.read(Label("//:m.txt"))',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", b + m)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+    marker_path = os.path.join(
+        os.path.dirname(repo_dir), '@' + os.path.basename(repo_dir) + '.marker'
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(marker_path, 'rb') as f:
+      b_first_marker = f.read()
+
+    # The remote cache loses the marker file of the first fetch's entry, so the
+    # second fetch, which reads the inputs in the other order, has to run and
+    # adds an entry with two batches next to the first one.
+    self.DeleteCasEntry(b_first_marker)
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@my_repo//:data.txt'], env_add={'ORDER': 'm_first'}
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(marker_path, 'rb') as f:
+      m_first_marker = f.read()
+    self.assertNotEqual(b_first_marker, m_first_marker)
+
+    # The first fetch's entry is still found first, but only the second one's
+    # is complete.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(repo_dir, 'data.txt')) as f:
+      self.assertEqual(f.read(), 'bm\n')
+
   def testRecordedInputs_differentInputs(self):
     platform_file = self.ScratchFile('platform.txt')
 
