@@ -472,6 +472,7 @@ public abstract class ExecutionOptions extends OptionsBase {
   @Option(
       name = "cache_computed_file_digests",
       defaultValue = "50000",
+      converter = Converters.NonNegativeIntegerConverter.class,
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -480,7 +481,7 @@ public abstract class ExecutionOptions extends OptionsBase {
               + "Setting this to 0 ensures correctness because not all file changes can be noted "
               + "from file metadata. When not 0, the number indicates the size of the cache as the "
               + "number of file digests to be cached.")
-  public abstract long getCacheSizeForComputedFileDigests();
+  public abstract int getCacheSizeForComputedFileDigests();
 
   @Option(
       name = "experimental_enable_critical_path_profiling",
