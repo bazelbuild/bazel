@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DormantDependency;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
@@ -364,12 +363,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                     .value(true)
                     .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
                     .build());
-
-    env.getNetworkAllowlistForTests()
-        .ifPresent(
-            label ->
-                builder.add(
-                    Allowlist.getAttributeFromAllowlistName("external_network").value(label)));
 
     return builder.build();
   }

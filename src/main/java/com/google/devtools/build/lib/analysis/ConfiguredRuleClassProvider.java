@@ -169,8 +169,6 @@ public /*final*/ class ConfiguredRuleClassProvider
         (BuildOptions options) -> ActionEnvironment.EMPTY;
     @Nullable private ConstraintSemantics<RuleContext> constraintSemantics;
 
-    // TODO(b/192694287): Remove once we migrate all tests from the allowlist
-    @Nullable private Label networkAllowlistForTests;
     @Nullable private Label noExplicitMnemonicAllowlist;
 
     @CanIgnoreReturnValue
@@ -571,24 +569,12 @@ public /*final*/ class ConfiguredRuleClassProvider
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics,
-          networkAllowlistForTests,
           noExplicitMnemonicAllowlist);
     }
 
     @Override
     public RepositoryName getToolsRepository() {
       return toolsRepository;
-    }
-
-    @Override
-    public Optional<Label> getNetworkAllowlistForTests() {
-      return Optional.ofNullable(networkAllowlistForTests);
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setNetworkAllowlistForTests(Label allowlist) {
-      networkAllowlistForTests = allowlist;
-      return this;
     }
 
     @Override
@@ -661,8 +647,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final ConstraintSemantics<RuleContext> constraintSemantics;
 
-  // TODO(b/192694287): Remove once we migrate all tests from the allowlist
-  @Nullable private final Label networkAllowlistForTests;
   @Nullable private final Label noExplicitMnemonicAllowlist;
 
   private ConfiguredRuleClassProvider(
@@ -686,7 +670,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableSet<String> reservedActionMnemonics,
       Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      @Nullable Label networkAllowlistForTests,
       @Nullable Label noExplicitMnemonicAllowlist) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
@@ -705,7 +688,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(fragmentRegistry.getAllFragments());
     this.constraintSemantics = constraintSemantics;
-    this.networkAllowlistForTests = networkAllowlistForTests;
     this.noExplicitMnemonicAllowlist = noExplicitMnemonicAllowlist;
 
     ImmutableMap<String, Object> registeredBzlToplevels =
@@ -857,11 +839,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   public ConstraintSemantics<RuleContext> getConstraintSemantics() {
     return constraintSemantics;
-  }
-
-  @Override
-  public Optional<Label> getNetworkAllowlistForTests() {
-    return Optional.ofNullable(networkAllowlistForTests);
   }
 
   @Override
