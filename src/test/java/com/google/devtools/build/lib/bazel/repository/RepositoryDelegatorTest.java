@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireR
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -315,6 +317,49 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         .isInstanceOf(AlreadyReportedRepositoryAccessException.class);
     assertThat(eventHandler.hasErrors()).isTrue();
     assertThat(eventHandler.getEvents()).hasSize(1);
+  }
+
+  @Test
+  public void testFetchWithDepInError_lastProgressIsFinished() throws Exception {
+    scratch.file(rootPath.getRelative("BUILD").getPathString());
+    scratch.file(
+        rootPath.getRelative("repo_rule.bzl").getPathString(),
+        "def _broken_impl(repo_ctx):",
+        "    fail('broken')",
+        "broken_repo = repository_rule(implementation = _broken_impl)",
+        "def _consumer_impl(repo_ctx):",
+        "    repo_ctx.file('BUILD')",
+        "    repo_ctx.read(Label('@broken//:BUILD'))",
+        "consumer_repo = repository_rule(implementation = _consumer_impl)");
+    scratch.overwriteFile(
+        rootPath.getRelative("MODULE.bazel").getPathString(),
+        "broken_repo = use_repo_rule('//:repo_rule.bzl', 'broken_repo')",
+        "broken_repo(name = 'broken')",
+        "consumer_repo = use_repo_rule('//:repo_rule.bzl', 'consumer_repo')",
+        "consumer_repo(name = 'consumer')");
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    SkyKey key =
+        RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("+consumer_repo+consumer"));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(true)
+            .setParallelism(8)
+            .setEventHandler(eventHandler)
+            .build();
+    EvaluationResult<SkyValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    ImmutableList<FetchProgress> progress =
+        eventHandler.getPosts().stream()
+            .filter(post -> post instanceof FetchProgress)
+            .map(post -> (FetchProgress) post)
+            .filter(p -> p.getResourceIdentifier().contains("+consumer_repo+consumer"))
+            .collect(toImmutableList());
+    assertThat(progress).isNotEmpty();
+    assertThat(progress.getFirst().isFinished()).isFalse();
+    assertThat(progress.getLast().isFinished()).isTrue();
   }
 
   @Test
