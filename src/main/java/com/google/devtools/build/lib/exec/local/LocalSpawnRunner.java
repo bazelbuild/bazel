@@ -143,7 +143,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       try (ResourceHandle handle =
           resourceManager.acquireResources(
               owner,
-              spawn.getLocalResources(),
+              getLocalResources(spawn, context),
               context.speculating()
                   ? ResourcePriority.DYNAMIC_STANDALONE
                   : ResourcePriority.LOCAL)) {

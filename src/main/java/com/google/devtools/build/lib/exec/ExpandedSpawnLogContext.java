@@ -14,20 +14,13 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
-import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -62,6 +55,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -169,16 +163,8 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
       builder.addAllCommandArgs(spawn.getArguments());
       builder.addAllEnvironmentVariables(getEnvironmentVariables(spawn));
 
-      ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
-      ImmutableList<PathFragment> toolRunfilesDirectories =
-          toolFiles.stream()
-              .filter(
-                  actionInput ->
-                      actionInput instanceof Artifact artifact && artifact.isRunfilesTree())
-              .map(inputMetadataProvider::getRunfilesMetadata)
-              .map(RunfilesArtifactValue::getRunfilesTree)
-              .map(RunfilesTree::getExecPath)
-              .collect(toImmutableList());
+      BiPredicate<PathFragment, ActionInput> isToolInput =
+          Spawns.isToolInput(spawn, inputMetadataProvider);
 
       try (SilentCloseable c1 = Profiler.instance().profile("logSpawn/inputs")) {
         for (Map.Entry<PathFragment, ActionInput> e : inputMap.get().entrySet()) {
@@ -190,15 +176,11 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
             builder
                 .addInputsBuilder()
                 .setPath(displayPath.getPathString())
-                .setIsTool(toolRunfilesDirectories.stream().anyMatch(displayPath::startsWith));
+                .setIsTool(isToolInput.test(displayPath, input));
             continue;
           }
 
-          boolean isTool =
-              toolFiles.contains(input)
-                  || (input instanceof TreeFileArtifact treeFileArtifact
-                      && toolFiles.contains(treeFileArtifact.getParent()))
-                  || toolRunfilesDirectories.stream().anyMatch(displayPath::startsWith);
+          boolean isTool = isToolInput.test(displayPath, input);
 
           Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
 

@@ -758,12 +758,12 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(xmlGeneratingSpawn.getOutputFiles()).containsExactly(testRunnerAction.getTestXml());
 
     // The test spawn honours the declared resources...
-    assertThat(testSpawn.getLocalResources().getCpuUsage()).isEqualTo(4.0);
-    assertThat(testSpawn.getLocalResources().getMemoryMb()).isEqualTo(8000.0);
+    assertThat(testSpawn.getLocalResources(() -> 0).getCpuUsage()).isEqualTo(4.0);
+    assertThat(testSpawn.getLocalResources(() -> 0).getMemoryMb()).isEqualTo(8000.0);
 
     // ...but the injected test.xml generator keeps its own modest, fixed footprint. Both
     // declarations still reach it as execution info, so strategy selection is unaffected.
-    assertThat(xmlGeneratingSpawn.getLocalResources())
+    assertThat(xmlGeneratingSpawn.getLocalResources(() -> 0))
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(xmlGeneratingSpawn.getExecutionInfo()).containsKey("resources:cpu:4");
   }

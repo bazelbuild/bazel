@@ -50,7 +50,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         outputs,
         /* mandatoryOutputs= */ null,
-        (os, inputsSize) ->
+        (os, inputsStats) ->
             action.getTestProperties().getLocalResourceUsage(action.getOwner().getLabel(), false));
   }
 
@@ -72,7 +72,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     TestRunnerAction testAction =
         (TestRunnerAction)
             getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
-    ResourceSet localResourceUsage = createTestSpawn(testAction).getLocalResources();
+    ResourceSet localResourceUsage = createTestSpawn(testAction).getLocalResources(() -> 0);
     assertThat(localResourceUsage.getCpuUsage()).isEqualTo(4.0);
   }
 
@@ -99,7 +99,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     TestRunnerAction testAction =
         (TestRunnerAction)
             getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
-    ResourceSet localResourceUsage = createTestSpawn(testAction).getLocalResources();
+    ResourceSet localResourceUsage = createTestSpawn(testAction).getLocalResources(() -> 0);
     // Tags-specified resources overrides --default_test_resources=gpu.
     assertThat(localResourceUsage.getResources()).containsEntry("gpu", 4.0);
     // The last-specified value of --default_test_resources=cpu is used.

@@ -183,7 +183,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(input);
     assertThat(action.getOutputs()).containsExactly(output);
-    assertThat(action.getSpawnForTesting().getLocalResources())
+    assertThat(action.getSpawnForTesting().getLocalResources(() -> 0))
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/xxx");
     assertThat(action.getProgressMessage()).isEqualTo("Test");

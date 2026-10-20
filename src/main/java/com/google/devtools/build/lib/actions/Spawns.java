@@ -14,14 +14,21 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.CharMatcher;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.function.BiPredicate;
 import javax.annotation.Nullable;
 
 /** Helper methods relating to implementations of {@link Spawn}. */
@@ -219,6 +226,30 @@ public final class Spawns {
     String disablePrefetchRequest =
         spawn.getExecutionInfo().get(ExecutionRequirements.DISABLE_LOCAL_PREFETCH);
     return (disablePrefetchRequest == null) || disablePrefetchRequest.equals("0");
+  }
+
+  /**
+   * Returns a predicate telling whether an entry of the input mapping of {@code spawn}, given by
+   * its path and input, belongs to the spawn's tools, including their tree artifacts and runfiles
+   * trees.
+   */
+  public static BiPredicate<PathFragment, ActionInput> isToolInput(
+      Spawn spawn, InputMetadataProvider inputMetadataProvider) {
+    ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
+    ImmutableList<PathFragment> toolRunfilesDirectories =
+        toolFiles.stream()
+            .filter(
+                actionInput ->
+                    actionInput instanceof Artifact artifact && artifact.isRunfilesTree())
+            .map(inputMetadataProvider::getRunfilesMetadata)
+            .map(RunfilesArtifactValue::getRunfilesTree)
+            .map(RunfilesTree::getExecPath)
+            .collect(toImmutableList());
+    return (path, input) ->
+        toolFiles.contains(input)
+            || (input instanceof TreeFileArtifact treeFileArtifact
+                && toolFiles.contains(treeFileArtifact.getParent()))
+            || toolRunfilesDirectories.stream().anyMatch(path::startsWith);
   }
 
   /**

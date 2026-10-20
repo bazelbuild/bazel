@@ -473,6 +473,16 @@ java_test(
 )
 
 java_test(
+    name = "ResourceSetIntegrationTest",
+    srcs = ["ResourceSetIntegrationTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/java/junit",
+    ],
+)
+
+java_test(
     name = "SymlinkDependencyAnalysisTest",
     srcs = ["SymlinkDependencyAnalysisTest.java"],
     deps = [

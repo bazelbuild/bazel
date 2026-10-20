@@ -14,10 +14,14 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder.InputsStats;
 import com.google.devtools.build.lib.actions.SpawnInputs.FlattenedInputs;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -112,6 +116,10 @@ public final class SpawnTest {
   private static final ResourceSet DECLARED_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 250, /* cpu= */ 1);
 
+  private static final ResourceSetOrBuilder INPUTS_SIZE_RESOURCES =
+      (os, inputsStats) ->
+          ResourceSet.createWithRamCpu(/* memoryMb= */ inputsStats.getInputsSize(), /* cpu= */ 1);
+
   @Test
   public void getLocalResources_appliesResourceOverrides() throws Exception {
     Spawn spawn =
@@ -120,11 +128,21 @@ public final class SpawnTest {
             .withExecutionInfo("resources:cpu:4", "")
             .withCombinedExecProperties(ImmutableMap.of("resources:memory", "8000"))
             .build();
-    ResourceSet resources = spawn.getLocalResources();
+    ResourceSet resources = spawn.getLocalResources(() -> 0);
 
     // Execution info and exec properties both override the declared amounts.
     assertThat(resources.getCpuUsage()).isEqualTo(4.0);
     assertThat(resources.getMemoryMb()).isEqualTo(8000.0);
+  }
+
+  @Test
+  public void getLocalResources_resourceSet_doesNotQueryInputsSize() throws Exception {
+    Spawn spawn = new SpawnBuilder("/bin/true").withLocalResources(DECLARED_RESOURCES).build();
+    InputsStats inputsStats = mock(InputsStats.class);
+    ResourceSet resources = spawn.getLocalResources(inputsStats);
+
+    assertThat(resources).isEqualTo(DECLARED_RESOURCES);
+    verify(inputsStats, never()).getInputsSize();
   }
 
   @Test
@@ -136,10 +154,18 @@ public final class SpawnTest {
             .withCombinedExecProperties(ImmutableMap.of("resources:memory", "8000"))
             .build();
 
-    assertThat(spawn.getLocalResources()).isEqualTo(DECLARED_RESOURCES);
+    assertThat(spawn.getLocalResources(() -> 0)).isEqualTo(DECLARED_RESOURCES);
     // The declarations still reach the spawn, so strategy selection is unaffected.
     assertThat(spawn.getExecutionInfo()).containsKey("resources:cpu:4");
     assertThat(spawn.getCombinedExecProperties()).containsEntry("resources:memory", "8000");
+  }
+
+  @Test
+  public void getLocalResources_builder_queriesInputsSize() throws Exception {
+    Spawn spawn = new SpawnBuilder("/bin/true").withLocalResources(INPUTS_SIZE_RESOURCES).build();
+    ResourceSet resources = spawn.getLocalResources(() -> 42);
+
+    assertThat(resources.getMemoryMb()).isEqualTo(42.0);
   }
 
   // NullAction's owner has no exec properties, so these only exercise the execution-info route.
@@ -155,7 +181,7 @@ public final class SpawnTest {
 
   @Test
   public void baseSpawn_getLocalResources_appliesResourceOverrides() throws Exception {
-    ResourceSet resources = baseSpawn(DECLARED_RESOURCES).getLocalResources();
+    ResourceSet resources = baseSpawn(DECLARED_RESOURCES).getLocalResources(() -> 0);
 
     assertThat(resources.getCpuUsage()).isEqualTo(4.0);
   }
@@ -165,8 +191,15 @@ public final class SpawnTest {
       throws Exception {
     BaseSpawn spawn = baseSpawn(ResourceSetOrBuilder.ignoringOverrides(DECLARED_RESOURCES));
 
-    assertThat(spawn.getLocalResources()).isEqualTo(DECLARED_RESOURCES);
+    assertThat(spawn.getLocalResources(() -> 0)).isEqualTo(DECLARED_RESOURCES);
     assertThat(spawn.getExecutionInfo()).containsKey("resources:cpu:4");
+  }
+
+  @Test
+  public void baseSpawn_getLocalResources_builder_queriesInputsSize() throws Exception {
+    ResourceSet resources = baseSpawn(INPUTS_SIZE_RESOURCES).getLocalResources(() -> 42);
+
+    assertThat(resources.getMemoryMb()).isEqualTo(42.0);
   }
 
   @Test

@@ -109,6 +109,13 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   public abstract long getModifiedTime();
 
   /**
+   * Returns the number of files in a source directory whose contents are tracked, or 1 otherwise.
+   */
+  public int getFileCount() {
+    return 1;
+  }
+
+  /**
    * Returns a contents proxy (typically, a subset of the file system object's inode properties)
    * that can be used to detect modifications more cheaply (at the cost of increased chance of a
    * false negative) in situations where a digest would be too expensive to compute.
@@ -408,8 +415,8 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
         path, /* isFile= */ true, size, /* proxy= */ null, /* digest= */ null, xattrProvider);
   }
 
-  public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {
-    return new HashedDirectoryArtifactValue(digest);
+  public static FileArtifactValue createForDirectoryWithHash(byte[] digest, int fileCount) {
+    return new HashedDirectoryArtifactValue(digest, fileCount);
   }
 
   public static FileArtifactValue createForDirectoryWithMtime(long mtime) {
@@ -521,9 +528,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   private static final class HashedDirectoryArtifactValue extends FileArtifactValue {
 
     private final byte[] digest;
+    private final int fileCount;
 
-    private HashedDirectoryArtifactValue(byte[] digest) {
+    private HashedDirectoryArtifactValue(byte[] digest, int fileCount) {
       this.digest = digest;
+      this.fileCount = fileCount;
     }
 
     @Override
@@ -559,6 +568,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public long getSize() {
       return 0;
+    }
+
+    @Override
+    public int getFileCount() {
+      return fileCount;
     }
 
     @Override
