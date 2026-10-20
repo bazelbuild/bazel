@@ -80,9 +80,15 @@ public final class FileSystemLock implements AutoCloseable {
   @ThreadSafety.ThreadHostile
   public static FileSystemLock tryGet(Path path, LockMode mode) throws IOException {
     FileChannel channel = prepareChannel(path);
-    FileLock lock = channel.tryLock(0, Long.MAX_VALUE, mode == LockMode.SHARED);
-    if (lock == null) {
-      throw new LockAlreadyHeldException(mode, path);
+    FileLock lock;
+    try {
+      lock = channel.tryLock(0, Long.MAX_VALUE, mode == LockMode.SHARED);
+      if (lock == null) {
+        throw new LockAlreadyHeldException(mode, path);
+      }
+    } catch (IOException e) {
+      closeAfterFailure(channel, e);
+      throw e;
     }
     return new FileSystemLock(channel, lock);
   }
@@ -103,8 +109,26 @@ public final class FileSystemLock implements AutoCloseable {
       Thread.interrupted(); // clear interrupt bit
       channel.close();
       throw new InterruptedException();
+    } catch (IOException e) {
+      closeAfterFailure(channel, e);
+      throw e;
     }
     return new FileSystemLock(channel, lock);
+  }
+
+  /**
+   * Closes a channel on which no lock was acquired.
+   *
+   * <p>The channel must not be left to be closed by the garbage collector: On POSIX systems,
+   * closing any file descriptor of a file releases all locks the process holds on it, which would
+   * include locks acquired in the meantime through other channels.
+   */
+  private static void closeAfterFailure(FileChannel channel, IOException e) {
+    try {
+      channel.close();
+    } catch (IOException closeException) {
+      e.addSuppressed(closeException);
+    }
   }
 
   @VisibleForTesting
