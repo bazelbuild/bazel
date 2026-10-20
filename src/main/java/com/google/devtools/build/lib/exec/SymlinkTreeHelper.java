@@ -144,13 +144,18 @@ public final class SymlinkTreeHelper {
     //    directory on disk. If it is a directory, recurse into that directory.
     try (SilentCloseable c = Profiler.instance().profile("Create symlink tree")) {
       Directory<T> root = new Directory<>();
+      PathFragment previousParent = PathFragment.EMPTY_FRAGMENT;
+      Directory<T> parentDir = root;
       for (Map.Entry<PathFragment, T> entry : symlinkMap.entrySet()) {
         PathFragment path = entry.getKey();
-        T value = entry.getValue();
         checkArgument(!path.isEmpty() && !path.isAbsolute(), path);
-        // This creates intermediate directory nodes as a side effect.
-        Directory<T> parentDir = root.walk(path.getParentDirectory());
-        parentDir.addSymlink(path.getBaseName(), value);
+        PathFragment parent = path.getParentDirectory();
+        if (!parent.equals(previousParent)) {
+          // walk creates intermediate directory nodes as a side effect.
+          parentDir = root.walk(parent);
+          previousParent = parent;
+        }
+        parentDir.addSymlink(path.getBaseName(), entry.getValue());
       }
       root.syncTreeRecursively(symlinkTreeRoot, targetPathFn, requiresExistingFileTargets());
       createWorkspaceSubdirectory();
@@ -296,19 +301,41 @@ public final class SymlinkTreeHelper {
         }
       }
 
+      createMissingEntries(at, targetPathFn, fileSymlinksAreCopies);
+    }
+
+    void createMissingEntries(
+        Path at, TargetPathFunction<T> targetPathFn, boolean fileSymlinksAreCopies)
+        throws IOException {
       for (Map.Entry<String, T> entry : symlinks.entrySet()) {
         Path next = at.getChild(entry.getKey());
         T value = entry.getValue();
         if (value == null) {
           FileSystemUtils.createEmptyFile(next);
         } else {
-          FileSystemUtils.ensureSymbolicLink(next, targetPathFn.get(value));
+          PathFragment target = targetPathFn.get(value);
+          try {
+            next.createSymbolicLink(target);
+          } catch (IOException e) {
+            // An entry or its parent may have changed since the directory was examined.
+            FileSystemUtils.ensureSymbolicLink(next, target);
+          }
         }
       }
       for (Map.Entry<String, Directory<T>> entry : directories.entrySet()) {
-        entry
-            .getValue()
-            .syncTreeRecursively(at.getChild(entry.getKey()), targetPathFn, fileSymlinksAreCopies);
+        Path next = at.getChild(entry.getKey());
+        boolean created;
+        try {
+          created = next.createDirectory();
+        } catch (IOException e) {
+          // Filesets can contain both a symlink and entries below that symlink.
+          created = false;
+        }
+        if (created) {
+          entry.getValue().createMissingEntries(next, targetPathFn, fileSymlinksAreCopies);
+        } else {
+          entry.getValue().syncTreeRecursively(next, targetPathFn, fileSymlinksAreCopies);
+        }
       }
     }
   }
