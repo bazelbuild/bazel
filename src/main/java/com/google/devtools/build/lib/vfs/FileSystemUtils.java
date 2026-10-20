@@ -69,26 +69,56 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns the common ancestor between two paths, or null if none (including
-   * if they are on different filesystems).
+   * Returns the common ancestor between two paths, or null if none (including if they are on
+   * different filesystems).
    */
+  @Nullable
   public static Path commonAncestor(Path a, Path b) {
-    while (a != null && !b.startsWith(a)) {
-      a = a.getParentDirectory();  // returns null at root
+    if (!a.getFileSystem().equals(b.getFileSystem())) {
+      return null;
     }
-    return a;
+    PathFragment ancestor = commonAncestor(a.asFragment(), b.asFragment());
+    if (ancestor == null) {
+      return null;
+    }
+    if (ancestor.equals(a.asFragment())) {
+      return a;
+    }
+    if (ancestor.equals(b.asFragment())) {
+      return b;
+    }
+    return a.getFileSystem().getPath(ancestor);
   }
 
   /**
    * Returns the longest common ancestor of the two path fragments, or either "/" or "" (depending
    * on whether {@code a} is absolute or relative) if there is none.
    */
+  @Nullable
   public static PathFragment commonAncestor(PathFragment a, PathFragment b) {
-    while (a != null && !b.startsWith(a)) {
-      a = a.getParentDirectory();
+    if (a.getDriveStrLength() != b.getDriveStrLength()) {
+      return null;
     }
-
-    return a;
+    int driveLen = a.getDriveStrLength();
+    int k = a.getCommonPrefixLength(b);
+    if (k < driveLen) {
+      return null;
+    }
+    String sA = a.getPathString();
+    String sB = b.getPathString();
+    if (k == sA.length() && (k == sB.length() || k == driveLen || sB.charAt(k) == '/')) {
+      return a;
+    }
+    if (k == sB.length() && (k == driveLen || sA.charAt(k) == '/')) {
+      return b;
+    }
+    int lastSlash = sA.lastIndexOf('/', k - 1);
+    if (lastSlash < driveLen) {
+      return driveLen == 0
+          ? PathFragment.EMPTY_FRAGMENT
+          : PathFragment.createAlreadyNormalized(sA.substring(0, driveLen));
+    }
+    return PathFragment.createAlreadyNormalized(sA.substring(0, lastSlash));
   }
 
   /**
