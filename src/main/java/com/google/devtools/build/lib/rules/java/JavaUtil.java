@@ -56,6 +56,8 @@ public final class JavaUtil {
   public static final ImmutableSet<String> KNOWN_SOURCE_ROOTS =
       ImmutableSet.of("java", "javatests", "src", "testsrc");
 
+  private static final PathFragment THIRD_PARTY_JAVA = PathFragment.create("third_party/java");
+
   /**
    * Finds the index of the segment in a Java path fragment that precedes the source root. Starts
    * from the first "java" or "javatests" or "src" or "testsrc" segment. If the found item was
@@ -72,6 +74,19 @@ public final class JavaUtil {
     if (path.isAbsolute()) {
       throw new IllegalArgumentException("path must not be absolute: '" + path + "'");
     }
+    if (path.startsWith(THIRD_PARTY_JAVA)) {
+      // For third_party/java, try skipping past the first two segments and looking for a nested
+      // source root, to relativize e.g. third_party/java/foo/java/resource into 'resource',
+      // not 'foo/java/resource'.
+      int nested = javaSegmentIndexImpl(path.subFragment(2));
+      if (nested >= 0) {
+        return nested + 2;
+      }
+    }
+    return javaSegmentIndexImpl(path);
+  }
+
+  private static int javaSegmentIndexImpl(PathFragment path) {
     ImmutableList<String> segments = path.splitToListOfSegments();
     int rootIndex = Iterables.indexOf(segments, KNOWN_SOURCE_ROOTS::contains);
     if (rootIndex == -1) {
