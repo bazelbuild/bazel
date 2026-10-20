@@ -55,16 +55,15 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -239,6 +238,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     Path resolveOne() throws IOException {
       return resolveOneSymlink(linkPath, targetPath);
+    }
+
+    /** Resolves the link in the given path, which has to be equal to or lie below the link. */
+    Path resolveOne(Path path) throws IOException {
+      return resolveOne().getRelative(path.relativeTo(linkPath));
     }
   }
 
@@ -503,15 +507,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         return toListenableFuture(plantSymlinks);
       }
 
-      if (!symlinks.isEmpty()) {
-        // Symlink may track the parent of a TreeFileArtifact, so the parent relative path has to be
-        // translated relative to it.
-        var parentRelativePath = inputPath.relativeTo(symlinks.getFirst().linkPath());
-        inputPath =
-            inputPath
-                .getFileSystem()
-                .getPath(
-                    symlinks.getLast().resolveOne().asFragment().getRelative(parentRelativePath));
+      for (var symlink : symlinks) {
+        // A symlink may be located at an ancestor of the path, e.g. at the root of the tree
+        // artifact that a TreeFileArtifact belongs to or at a directory of an external repo, so the
+        // part of the path below it has to be translated relative to its target.
+        inputPath = symlink.resolveOne(inputPath);
       }
 
       @Nullable Path treeRootPath = maybeGetTreeRoot(input, metadataSupplier);
@@ -605,19 +605,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         && !inputPath.startsWith(execRoot)) {
       // A path in an external repo, e.g. a source artifact consumed by an action or a file
       // prefetched during the materialization of an external repo. It may be (part of) a chain of
-      // symlinks created by the repo rule, which has to be reproduced verbatim on disk.
+      // symlinks created by the repo rule, which has to be reproduced verbatim on disk. This
+      // includes symlinks at the directories above it, as these would otherwise be created as
+      // regular directories and thus no longer match the contents of the repo.
       var symlinkChain = ImmutableList.<Symlink>builder();
-      FileStatus stat;
       Path currentPath = inputPath;
+      Path symlinkPath;
       var maxAttempt = 32;
-      while ((stat = currentPath.statIfFound(Symlinks.NOFOLLOW)) != null && stat.isSymbolicLink()) {
+      while ((symlinkPath = getFirstSymlinkOnPath(currentPath)) != null) {
         if (maxAttempt-- == 0) {
           throw new FileSymlinkLoopException(
               inputPath.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
         }
-        var symlink = new Symlink(currentPath, currentPath.readSymbolicLink());
+        var symlink = new Symlink(symlinkPath, symlinkPath.readSymbolicLink());
         symlinkChain.add(symlink);
-        currentPath = symlink.resolveOne();
+        currentPath = symlink.resolveOne(currentPath);
       }
       return symlinkChain.build();
     }
@@ -626,6 +628,37 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return ImmutableList.of();
     }
     return ImmutableList.of(new Symlink(inputPath, resolvedPath));
+  }
+
+  /**
+   * Returns the topmost symlink among the given path and its ancestors, or null if none of them is
+   * a symlink.
+   */
+  @Nullable
+  private static Path getFirstSymlinkOnPath(Path path) throws IOException {
+    Path parent = checkNotNull(path.getParentDirectory());
+    Path resolvedParent;
+    try {
+      resolvedParent = parent.resolveSymbolicLinks();
+    } catch (IOException e) {
+      // The parent doesn't exist or is reached through a dangling symlink or a symlink loop, which
+      // are reproduced verbatim.
+      resolvedParent = parent;
+    }
+    // Only the path itself and those of its ancestors that aren't also ancestors of the resolved
+    // parent can be symlinks.
+    var candidates = new ArrayDeque<Path>();
+    for (Path candidate = path;
+        !resolvedParent.startsWith(candidate);
+        candidate = candidate.getParentDirectory()) {
+      candidates.push(candidate);
+    }
+    for (Path candidate : candidates) {
+      if (candidate.isSymbolicLink()) {
+        return candidate;
+      }
+    }
+    return null;
   }
 
   private static Path resolveOneSymlink(Path path, @Nullable PathFragment targetPathFragment)
