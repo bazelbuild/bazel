@@ -750,7 +750,7 @@ public final class PathFragmentTest {
     assertThat(create("a/../..")).isEqualTo(create(".."));
     assertThat(create("a/../b")).isEqualTo(create("b"));
     assertThat(create("a/b/../b")).isEqualTo(create("a/b"));
-    assertThat(create("/..")).isEqualTo(create("/.."));
+    assertThat(create("/..")).isEqualTo(create("/"));
     assertThat(create("..")).isEqualTo(create(".."));
   }
 

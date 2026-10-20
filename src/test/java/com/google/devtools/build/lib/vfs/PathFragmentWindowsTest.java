@@ -244,7 +244,7 @@ public class PathFragmentWindowsTest {
     assertThat(create("C:/a/b")).isEqualTo(create("C:/a/b"));
     assertThat(create("C:/a/./b")).isEqualTo(create("C:/a/b"));
     assertThat(create("C:/a/../b")).isEqualTo(create("C:/b"));
-    assertThat(create("C:/../b")).isEqualTo(create("C:/../b"));
+    assertThat(create("C:/../b")).isEqualTo(create("C:/b"));
   }
 
   @Test
