@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDeta
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue.CustomExecScopeValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -102,12 +103,11 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
         if (flagTarget == null) {
           return null;
         }
-        var attrMap = RawAttributeMapper.of(flagTarget.getAssociatedRule());
-        Object flagDefaultValue =
-            flagTarget.getAssociatedRule().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
-        if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
-          String scopeType = attrMap.get("scope", Type.STRING);
-          if (scopeType.startsWith("exec:--")) {
+        Rule flagRule = flagTarget.getAssociatedRule();
+        Object flagDefaultValue = flagRule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
+        if (flagRule.isAttributeValueExplicitlySpecified("scope")) {
+          String scopeType = getScopeType(flagRule).scopeType();
+          if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
             // load the starlarkified host flag
             Target starlarkifiedHostFlag;
             try {
@@ -193,10 +193,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
           projectScopedBuildSettings.add(rule.getLabel());
         } else if (scopeType.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)
             && !implicitCustomExecScopes.containsKey(rule.getLabel())) {
-          customExecReferences.put(
-              rule,
-              Label.parseCanonicalUnchecked(
-                  scopeType.scopeType().substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length())));
+          customExecReferences.put(rule, getCustomExecReference(rule, scopeType));
         }
         Object onLeaveScopeValue = getOnLeaveScopeValue(rule);
         if (onLeaveScopeValue != null) {
@@ -507,14 +504,41 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
     return projectScopes.buildOrThrow();
   }
 
-  private static Scope.ScopeType getScopeType(Rule rule) {
+  private static Scope.ScopeType getScopeType(Rule rule) throws TransitionException {
     var attrs = RawAttributeMapper.of(rule);
     if (!attrs.has("scope", Type.STRING)) {
       return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
     }
+    if (attrs.isConfigurable("scope")) {
+      throw new TransitionException(
+          String.format(
+              "The \"scope\" attribute of build setting %s can't use select()", rule.getLabel()));
+    }
     String scope = attrs.get("scope", Type.STRING);
-    return new Scope.ScopeType(
-        scope.equals(Type.STRING.getDefaultValue()) ? Scope.ScopeType.DEFAULT : scope);
+    if (scope.equals(Type.STRING.getDefaultValue())) {
+      return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
+    }
+    if (!Scope.ScopeType.isValid(scope)) {
+      throw new TransitionException(
+          String.format(
+              "Invalid \"scope\" attribute value \"%s\" of build setting %s",
+              scope, rule.getLabel()));
+    }
+    return new Scope.ScopeType(scope);
+  }
+
+  private static Label getCustomExecReference(Rule rule, Scope.ScopeType scopeType)
+      throws TransitionException {
+    String reference = scopeType.scopeType().substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length());
+    try {
+      return Label.parseCanonical(reference);
+    } catch (LabelSyntaxException e) {
+      throw new TransitionException(
+          String.format(
+              "Invalid \"scope\" attribute value \"%s\" of build setting %s: %s",
+              scopeType.scopeType(), rule.getLabel(), e.getMessage()),
+          e);
+    }
   }
 
   private static Object getDefault(Rule rule) {
@@ -525,12 +549,20 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
   }
 
   @Nullable
-  private static Object getOnLeaveScopeValue(Rule rule) {
+  private static Object getOnLeaveScopeValue(Rule rule) throws TransitionException {
     var attrs = RawAttributeMapper.of(rule);
     if (!attrs.isAttributeValueExplicitlySpecified("on_leave_scope")) {
       return null;
     }
-    return attrs.get("on_leave_scope", rule.getRuleClassObject().getBuildSetting().getType());
+    Type<?> type = rule.getRuleClassObject().getBuildSetting().getType();
+    if (!attrs.has("on_leave_scope", type) || attrs.isConfigurable("on_leave_scope")) {
+      throw new TransitionException(
+          String.format(
+              "The \"on_leave_scope\" attribute of build setting %s must have the type of the"
+                  + " build setting and can't use select()",
+              rule.getLabel()));
+    }
+    return attrs.get("on_leave_scope", type);
   }
 
   private static final class StarlarkBuildSettingsDetailsException extends SkyFunctionException {

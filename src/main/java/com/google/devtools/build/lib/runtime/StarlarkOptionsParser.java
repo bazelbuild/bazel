@@ -275,6 +275,13 @@ public class StarlarkOptionsParser {
 
       var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
       if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
+        if (!attrMap.has("scope", Type.STRING) || attrMap.isConfigurable("scope")) {
+          throw new OptionsParsingException(
+              String.format(
+                  "Can't load flag --%s: The \"scope\" attribute must be a string and can't use"
+                      + " select().",
+                  buildSetting));
+        }
         String scopeType = attrMap.get("scope", Type.STRING);
         if (!Scope.ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
             && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
