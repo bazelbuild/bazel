@@ -1647,7 +1647,9 @@ Specifies how test output should be displayed:
 *   `all` is similar to `errors` but prints output for
     all tests, including those which passed.
 *   `streamed` streams stdout/stderr output from each test in
-    real-time.
+    real-time. Tests run one at a time and without sharding. With remote
+    execution, output is streamed while a test runs only if the remote executor
+    supports live output streams.
 
 #### `--java_debug` {#java-debug}
 
