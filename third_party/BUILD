@@ -543,7 +543,8 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "@maven//:io_netty_netty_buffer_file",
-        "@maven//:io_netty_netty_codec_file",
+        "@maven//:io_netty_netty_codec_base_file",
+        "@maven//:io_netty_netty_codec_compression_file",
         "@maven//:io_netty_netty_codec_http2_file",
         "@maven//:io_netty_netty_codec_http_file",
         "@maven//:io_netty_netty_common_file",
