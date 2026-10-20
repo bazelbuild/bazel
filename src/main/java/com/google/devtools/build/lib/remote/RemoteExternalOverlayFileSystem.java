@@ -170,12 +170,25 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // Clean up the in-memory contents of materialized repos to save memory, or those that need to
     // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
     // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
-    // refetching is not atomic.
+    // refetching is not atomic. The repos with lost files stay recorded until they have been
+    // fetched again so that their cache entries aren't used in the meantime.
     materializedRepos.forEach(this::evictInMemoryRepo);
     reposWithLostFiles.forEach(this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposWithLostFiles);
-    reposWithLostFiles.clear();
     this.evaluator = null;
+  }
+
+  /**
+   * Returns whether the remote cache has lost files of the given repo, in which case the cache
+   * entry of the repo must not be used again until the repo has been fetched anew.
+   */
+  public boolean hasLostFiles(RepositoryName repo) {
+    return reposWithLostFiles.contains(repo.getName());
+  }
+
+  /** Records that the given repo has been fetched anew, which makes its cache entry usable again. */
+  public void repoRefetched(RepositoryName repo) {
+    reposWithLostFiles.remove(repo.getName());
   }
 
   /** Removes the contents of the given repo from the in-memory overlay file system. */
@@ -467,6 +480,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    * <p>This is used to make the files below a source directory action input available to local
    * actions, which access them through the native file system.
    */
+  @Override
+  public void markLostRepoFile(PathFragment path) {
+    if (path.startsWith(externalDirectory) && path.segmentCount() > externalDirectorySegmentCount) {
+      String repoName = path.getSegment(externalDirectorySegmentCount);
+      if (markerFileContents.containsKey(repoName)) {
+        reposWithLostFiles.add(repoName);
+      }
+    }
+  }
+
   @Override
   public void ensureSubtreeMaterialized(PathFragment path)
       throws IOException, InterruptedException {
