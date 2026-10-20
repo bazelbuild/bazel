@@ -871,8 +871,10 @@ bool IsStandardTerminal() {
 
 int GetTerminalColumns() {
   struct winsize ws;
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
-    return ws.ws_col;
+  for (int fd : {STDOUT_FILENO, STDERR_FILENO}) {
+    if (ioctl(fd, TIOCGWINSZ, &ws) != -1 && ws.ws_col > 0) {
+      return ws.ws_col;
+    }
   }
   string columns_env = GetEnv("COLUMNS");
   if (!columns_env.empty()) {
