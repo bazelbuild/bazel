@@ -89,9 +89,28 @@ public class ResolverTest {
   @Test
   public void testLoadAfterStatement() throws Exception {
     options.requireLoadStatementsFirst(true);
-    List<SyntaxError> errors = getResolutionErrors("a = 5", "load(':b.bzl', 'c')");
-    assertContainsError(errors, ":2:1: load statements must appear before any other statement");
-    assertContainsError(errors, ":1:1: \tfirst non-load statement appears here");
+    List<SyntaxError> errors =
+        getResolutionErrors(
+            "a = 5", //
+            "load(':b.bzl', 'c')",
+            "load(':d.bzl', 'e')");
+    assertContainsError(
+        errors,
+        ":2:1: load statements must appear before any other statement (first non-load statement at"
+            + " line 1)");
+    assertThat(errors).hasSize(1);
+
+    errors =
+        getResolutionErrors(
+            "\"\"\"docstring\"\"\"", //
+            "load(':a.bzl', 'a')",
+            "b = 5",
+            "load(':c.bzl', 'c')");
+    assertContainsError(
+        errors,
+        ":4:1: load statements must appear before any other statement (first non-load statement at"
+            + " line 3)");
+    assertThat(errors).hasSize(1);
   }
 
   @Test

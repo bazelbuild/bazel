@@ -1362,14 +1362,15 @@ public final class Resolver extends NodeVisitor {
       }
 
       if (statement instanceof LoadStatement) {
-        if (firstStatement == null) {
-          continue;
+        if (firstStatement != null) {
+          errorf(
+              statement,
+              "load statements must appear before any other statement (first non-load statement at"
+                  + " line %d)",
+              firstStatement.getStartLocation().line());
+          return;
         }
-        errorf(statement, "load statements must appear before any other statement");
-        errorf(firstStatement, "\tfirst non-load statement appears here");
-      }
-
-      if (firstStatement == null) {
+      } else if (firstStatement == null) {
         firstStatement = statement;
       }
     }
