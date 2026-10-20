@@ -42,10 +42,10 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -99,6 +99,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -384,8 +385,11 @@ public final class MerkleTreeComputer {
     try {
       return getFromFuture(
           build(
-              Lists.transform(
-                  allInputs, input -> entry(pathMapper.map(input.getExecPath()), input)),
+              allInputs,
+              pathMapper.isNoop()
+                  ? ActionInput::getExecPath
+                  : input -> pathMapper.map(input.getExecPath()),
+              Function.identity(),
               toolInputs.isEmpty() ? alwaysFalse() : toolInputs::contains,
               scrubber != null ? scrubber.forSpawn(spawn) : null,
               spawnExecutionContext.getInputMetadataProvider(),
@@ -487,10 +491,12 @@ public final class MerkleTreeComputer {
       return (MerkleTree.Uploadable)
           getFromFuture(
               build(
-                  Lists.transform(
-                      ImmutableList.sortedCopyOf(
-                          Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
-                      e -> entry(e.getKey(), new PathActionInput(e.getKey(), e.getValue()))),
+                  ImmutableList.sortedCopyOf(
+                      comparing(PathActionInput::getExecPath, HIERARCHICAL_COMPARATOR),
+                      Collections2.transform(
+                          inputs.entrySet(), e -> new PathActionInput(e.getKey(), e.getValue()))),
+                  PathActionInput::getExecPath,
+                  Function.identity(),
                   alwaysFalse(),
                   /* spawnScrubber= */ null,
                   StaticInputMetadataProvider.empty(),
@@ -500,8 +506,10 @@ public final class MerkleTreeComputer {
     }
   }
 
-  private ListenableFuture<MerkleTree> build(
-      Collection<? extends Map.Entry<PathFragment, ? extends ActionInput>> sortedInputs,
+  private <T> ListenableFuture<MerkleTree> build(
+      Collection<T> sortedInputs,
+      Function<? super T, PathFragment> getPath,
+      Function<? super T, ? extends ActionInput> getInput,
       Predicate<PathFragment> isToolInput,
       @Nullable SpawnScrubber spawnScrubber,
       InputMetadataProvider metadataProvider,
@@ -512,6 +520,8 @@ public final class MerkleTreeComputer {
     var subTreesFuture =
         precomputeSubTrees(
             sortedInputs,
+            getPath,
+            getInput,
             isToolInput,
             metadataProvider,
             artifactPathResolver,
@@ -524,6 +534,8 @@ public final class MerkleTreeComputer {
             return buildWithPrecomputedSubTrees(
                 subTreeRoots,
                 sortedInputs,
+                getPath,
+                getInput,
                 isToolInput,
                 spawnScrubber,
                 metadataProvider,
@@ -538,10 +550,11 @@ public final class MerkleTreeComputer {
         subTreesFuture.isDone() ? directExecutor() : MERKLE_TREE_BUILD_POOL);
   }
 
-  private MerkleTree buildWithPrecomputedSubTrees(
-      ImmutableMap<? extends Map.Entry<PathFragment, ? extends ActionInput>, MerkleTree.RootOnly>
-          subTreeRoots,
-      Collection<? extends Map.Entry<PathFragment, ? extends ActionInput>> sortedInputs,
+  private <T> MerkleTree buildWithPrecomputedSubTrees(
+      ImmutableMap<T, MerkleTree.RootOnly> subTreeRoots,
+      Collection<T> sortedInputs,
+      Function<? super T, PathFragment> getPath,
+      Function<? super T, ? extends ActionInput> getInput,
       Predicate<PathFragment> isToolInput,
       @Nullable SpawnScrubber spawnScrubber,
       InputMetadataProvider metadataProvider,
@@ -566,21 +579,21 @@ public final class MerkleTreeComputer {
 
     PathFragment currentParent = PathFragment.EMPTY_FRAGMENT;
     PathFragment lastSourceDirPath = null;
-    Map.Entry<PathFragment, ? extends ActionInput> lastEntry = null;
-    for (var entry : sortedInputs) {
+    PathFragment lastPath = null;
+    for (T rawInput : sortedInputs) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
 
-      PathFragment path = entry.getKey();
+      PathFragment path = getPath.apply(rawInput);
       // The same path may appear multiple times if the inputs are outputs of shared actions,
       // if identical inputs are not deduplicated or if path mapping maps artifacts from
       // different configurations to the same path. Only stage the first one as we assume
       // that the inputs have been validated before.
-      if (lastEntry != null && path.equals(lastEntry.getKey())) {
+      if (path.equals(lastPath)) {
         continue;
       }
-      lastEntry = entry;
+      lastPath = path;
       if (spawnScrubber != null && spawnScrubber.shouldOmitInput(path)) {
         continue;
       }
@@ -591,7 +604,7 @@ public final class MerkleTreeComputer {
         }
         lastSourceDirPath = null;
       }
-      ActionInput input = entry.getValue();
+      ActionInput input = getInput.apply(rawInput);
       if (!isParentDirectory(currentParent, path)) {
         PathFragment newParent = checkNotNull(path.getParentDirectory());
         String currentParentString = currentParent.getPathString();
@@ -628,7 +641,8 @@ public final class MerkleTreeComputer {
         case Artifact.SpecialArtifact specialArtifact
             when specialArtifact.isTreeArtifact() || specialArtifact.isRunfilesTree() -> {
           var subTreeRoot =
-              Preconditions.checkNotNull(subTreeRoots.get(entry), "missing subtree for %s", input);
+              Preconditions.checkNotNull(
+                  subTreeRoots.get(rawInput), "missing subtree for %s", input);
           currentDirectory.addDirectories(
               DirectoryNode.newBuilder().setName(name).setDigest(subTreeRoot.digest()).build());
           inputFiles += subTreeRoot.inputFiles();
@@ -657,7 +671,7 @@ public final class MerkleTreeComputer {
           if (metadata.getType() == FileStateType.DIRECTORY) {
             var subTreeRoot =
                 Preconditions.checkNotNull(
-                    subTreeRoots.get(entry), "missing subtree for %s", input);
+                    subTreeRoots.get(rawInput), "missing subtree for %s", input);
             currentDirectory.addDirectories(
                 DirectoryNode.newBuilder().setName(name).setDigest(subTreeRoot.digest()).build());
             inputFiles += subTreeRoot.inputFiles();
@@ -780,26 +794,23 @@ public final class MerkleTreeComputer {
     return addedBytes;
   }
 
-  private ListenableFuture<
-          ImmutableMap<
-              ? extends Map.Entry<PathFragment, ? extends ActionInput>, MerkleTree.RootOnly>>
-      precomputeSubTrees(
-          Collection<? extends Map.Entry<PathFragment, ? extends ActionInput>> sortedInputs,
-          Predicate<PathFragment> isToolInput,
-          InputMetadataProvider metadataProvider,
-          ArtifactPathResolver artifactPathResolver,
-          RemoteActionExecutionContext remoteActionExecutionContext,
-          BlobPolicy blobPolicy)
-          throws IOException {
-    List<
-            ListenableFuture<
-                Map.Entry<Map.Entry<PathFragment, ? extends ActionInput>, MerkleTree.RootOnly>>>
-        subTreeFutures = null;
-    for (var entry : sortedInputs) {
+  private <T> ListenableFuture<ImmutableMap<T, MerkleTree.RootOnly>> precomputeSubTrees(
+      Collection<T> sortedInputs,
+      Function<? super T, PathFragment> getPath,
+      Function<? super T, ? extends ActionInput> getInput,
+      Predicate<PathFragment> isToolInput,
+      InputMetadataProvider metadataProvider,
+      ArtifactPathResolver artifactPathResolver,
+      RemoteActionExecutionContext remoteActionExecutionContext,
+      BlobPolicy blobPolicy)
+      throws IOException {
+    List<ListenableFuture<Map.Entry<T, MerkleTree.RootOnly>>> subTreeFutures = null;
+    for (T rawInput : sortedInputs) {
       var future =
           maybeCacheSubtree(
-              entry.getValue(),
-              entry.getKey(),
+              rawInput,
+              getPath,
+              getInput,
               isToolInput,
               metadataProvider,
               artifactPathResolver,
@@ -809,7 +820,8 @@ public final class MerkleTreeComputer {
         if (subTreeFutures == null) {
           subTreeFutures = new ArrayList<>();
         }
-        subTreeFutures.add(transform(future, subTree -> entry(entry, subTree), directExecutor()));
+        subTreeFutures.add(
+            transform(future, subTree -> entry(rawInput, subTree), directExecutor()));
       }
     }
     if (subTreeFutures == null) {
@@ -827,21 +839,22 @@ public final class MerkleTreeComputer {
   }
 
   @Nullable
-  private ListenableFuture<MerkleTree.RootOnly> maybeCacheSubtree(
-      @Nullable ActionInput input,
-      PathFragment mappedExecPath,
+  private <T> ListenableFuture<MerkleTree.RootOnly> maybeCacheSubtree(
+      T rawInput,
+      Function<? super T, PathFragment> getPath,
+      Function<? super T, ? extends ActionInput> getInput,
       Predicate<PathFragment> isToolInput,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
       BlobPolicy blobPolicy)
       throws IOException {
-    return switch (input) {
+    return switch (getInput.apply(rawInput)) {
       case Artifact artifact when artifact.isTreeArtifact() ->
           computeForTreeArtifactIfAbsent(
               artifact.getExecPath(),
               metadataProvider.getTreeMetadata(artifact),
-              mappedExecPath,
+              getPath.apply(rawInput),
               isToolInput,
               metadataProvider,
               artifactPathResolver,
@@ -850,7 +863,7 @@ public final class MerkleTreeComputer {
       case Artifact artifact when artifact.isRunfilesTree() ->
           computeForRunfilesTreeIfAbsent(
               metadataProvider.getRunfilesMetadata(artifact),
-              mappedExecPath,
+              getPath.apply(rawInput),
               isToolInput,
               metadataProvider,
               artifactPathResolver,
@@ -868,7 +881,9 @@ public final class MerkleTreeComputer {
             // Source artifacts are not path mapped.
             /* unmappedExecPath= */ null,
             () -> explodeDirectory(artifact, artifactPathResolver).entrySet(),
-            isToolInput.test(mappedExecPath),
+            Map.Entry::getKey,
+            Map.Entry::getValue,
+            isToolInput.test(getPath.apply(rawInput)),
             metadataProvider,
             artifactPathResolver,
             remoteActionExecutionContext,
@@ -916,6 +931,8 @@ public final class MerkleTreeComputer {
                 Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR),
                 // Values in this entry set may be null, which represents an empty runfile.
                 runfilesArtifactValue.getRunfilesTree().getMapping().entrySet()),
+        Map.Entry::getKey,
+        Map.Entry::getValue,
         isTool,
         metadataProvider,
         artifactPathResolver,
@@ -946,12 +963,12 @@ public final class MerkleTreeComputer {
         treeArtifactValue,
         unmappedExecPath,
         () ->
-            Lists.transform(
-                ImmutableList.sortedCopyOf(
-                    comparing(
-                        Artifact.TreeFileArtifact::getParentRelativePath, HIERARCHICAL_COMPARATOR),
-                    treeArtifactValue.getChildren()),
-                child -> entry(child.getParentRelativePath(), child)),
+            ImmutableList.sortedCopyOf(
+                comparing(
+                    Artifact.TreeFileArtifact::getParentRelativePath, HIERARCHICAL_COMPARATOR),
+                treeArtifactValue.getChildren()),
+        Artifact.TreeFileArtifact::getParentRelativePath,
+        Function.identity(),
         isTool,
         metadataProvider,
         artifactPathResolver,
@@ -959,9 +976,8 @@ public final class MerkleTreeComputer {
         blobPolicy);
   }
 
-  private interface SortedInputsSupplier {
-    Collection<? extends Map.Entry<PathFragment, ? extends ActionInput>> compute()
-        throws IOException, InterruptedException;
+  private interface SortedInputsSupplier<T> {
+    Collection<T> compute() throws IOException, InterruptedException;
   }
 
   /**
@@ -976,10 +992,12 @@ public final class MerkleTreeComputer {
    *     the cache key, null if this aggregate input is not subject to path mapping or the metadata
    *     already includes the path
    */
-  private ListenableFuture<MerkleTree.RootOnly> computeIfAbsent(
+  private <T> ListenableFuture<MerkleTree.RootOnly> computeIfAbsent(
       Object cacheKey,
       @Nullable PathFragment unmappedExecPath,
-      SortedInputsSupplier sortedInputsSupplier,
+      SortedInputsSupplier<T> sortedInputsSupplier,
+      Function<? super T, PathFragment> getPath,
+      Function<? super T, ? extends ActionInput> getInput,
       boolean isTool,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
@@ -1026,6 +1044,8 @@ public final class MerkleTreeComputer {
             merkleTreeFuture =
                 build(
                     sortedInputsSupplier.compute(),
+                    getPath,
+                    getInput,
                     isTool ? alwaysTrue() : alwaysFalse(),
                     /* spawnScrubber= */ null,
                     metadataProvider,
