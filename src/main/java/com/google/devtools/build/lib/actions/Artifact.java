@@ -634,7 +634,13 @@ public abstract sealed class Artifact
     return false;
   }
 
-  /** The disjunction of {@link #isTreeArtifact} and {@link #isFileset}. */
+  /**
+   * Whether this artifact represents a directory rather than a single file.
+   *
+   * <p>For derived artifacts this is the disjunction of {@link #isTreeArtifact} and {@link
+   * #isFileset}, fixed at declaration. {@link SourceArtifact} overrides this to reflect the type of
+   * the source path on disk.
+   */
   @Override
   public boolean isDirectory() {
     return isTreeArtifact() || isFileset();
@@ -771,10 +777,37 @@ public abstract sealed class Artifact
   public static final class SourceArtifact extends Artifact {
     private final ArtifactOwner owner;
 
+    /** Set by {@link #setIsDirectory}. */
+    private volatile boolean isDirectory;
+
     @VisibleForTesting
     public SourceArtifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
       super(root, execPath, execPath.hashCode());
       this.owner = owner;
+    }
+
+    /**
+     * Returns whether the source path is a directory on the filesystem.
+     *
+     * <p>A source artifact's type is not declared, so it is recorded via {@link #setIsDirectory}
+     * when the input file target owning it is analyzed, and is {@code false} before then. Symlinks
+     * are followed, so a symlink to a directory is a directory.
+     *
+     * <p>Always {@code false} unless {@code --incompatible_source_directory_is_directory} is set,
+     * preserving the historical behavior of treating every source artifact as a regular file.
+     */
+    @Override
+    public boolean isDirectory() {
+      return isDirectory;
+    }
+
+    public void setIsDirectory(boolean isDirectory) {
+      this.isDirectory = isDirectory;
+    }
+
+    /** Returns the source artifact at {@code relativePath} beneath this directory. */
+    public SourceArtifact getChild(PathFragment relativePath) {
+      return new SourceArtifact(getRoot(), getExecPath().getRelative(relativePath), owner);
     }
 
     /**

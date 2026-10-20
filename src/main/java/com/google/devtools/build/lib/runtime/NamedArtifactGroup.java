@@ -189,7 +189,11 @@ class NamedArtifactGroup implements BuildEvent {
   private record NormalExpandedArtifact(Artifact artifact, FileArtifactValue metadata)
       implements ExpandedArtifact {
     private NormalExpandedArtifact {
-      checkState(!artifact.isDirectory(), "artifact must be expanded: %s", artifact);
+      // Source directories are expanded only when tracked; otherwise they are reported as is.
+      checkState(
+          !artifact.isTreeArtifact() && !artifact.isFileset(),
+          "artifact must be expanded: %s",
+          artifact);
     }
   }
 

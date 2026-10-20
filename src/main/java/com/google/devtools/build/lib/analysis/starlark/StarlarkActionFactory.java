@@ -1238,7 +1238,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             Dict.cast(
                 inputDirectories,
                 String.class,
-                SpecialArtifact.class,
+                Artifact.class,
                 StarlarkMapActionTemplate.INPUT_DIRECTORIES_KEY),
             Dict.cast(
                 additionalInputs,

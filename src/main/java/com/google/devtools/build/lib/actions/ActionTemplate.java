@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableListMultimap.toImmutableListMul
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -62,7 +63,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata, StarlarkValue {
   /**
-   * Given a list of input TreeFileArtifacts resolved at execution time, returns a list of expanded
+   * Given the files of the input directories resolved at execution time, returns a list of expanded
    * actions to be executed.
    *
    * <p>Each of the expanded actions' outputs must be a {@link TreeFileArtifact} owned by {@code
@@ -72,6 +73,7 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    * @param inputTreeFileArtifacts a list of {@link TreeFileArtifact}s from the input
    *     TreeArtifact(s). Use {@link TreeFileArtifact#getParent()} to identify which input {@link
    *     TreeArtifact} the tree file artifact is from.
+   * @param inputSourceDirectoryFiles the files of each input source directory
    * @param artifactOwner the {@link ArtifactOwner} of the generated output {@link
    *     TreeFileArtifact}s
    * @param eventHandler the {@link EventHandler} to report events to.
@@ -79,12 +81,13 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    */
   ImmutableList<T> generateActionsForInputArtifacts(
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
       ActionLookupKey artifactOwner,
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException;
 
-  /** Returns the input TreeArtifacts. */
-  ImmutableList<SpecialArtifact> getInputTreeArtifacts();
+  /** Returns the input directories: TreeArtifacts and, if supported, source directories. */
+  ImmutableList<Artifact> getInputDirectories();
 
   /**
    * Helper method to partition/denormalize the flattened list of input {@link TreeFileArtifact}s
@@ -97,8 +100,8 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
   }
 
   @Override
-  default SpecialArtifact getPrimaryInput() {
-    return getInputTreeArtifacts().get(0);
+  default Artifact getPrimaryInput() {
+    return getInputDirectories().get(0);
   }
 
   @Override

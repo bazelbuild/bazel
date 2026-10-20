@@ -55,6 +55,7 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -287,6 +288,25 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     return null;
   }
 
+  /** For a tracked source directory, the files beneath it. Returns {@code null} otherwise. */
+  @Nullable
+  public SourceDirectoryEntries getSourceDirectoryEntries() {
+    return null;
+  }
+
+  /** The files beneath a tracked source directory. */
+  public interface SourceDirectoryEntries {
+    /** Visits each file, keyed by its path relative to the directory, in traversal order. */
+    void forEach(BiConsumer<PathFragment, FileArtifactValue> consumer);
+
+    /** Visits each file as a child artifact of {@code directory}. */
+    default void forEachChild(
+        Artifact.SourceArtifact directory,
+        BiConsumer<? super Artifact.SourceArtifact, FileArtifactValue> consumer) {
+      forEach((path, metadata) -> consumer.accept(directory.getChild(path), metadata));
+    }
+  }
+
   /**
    * Marker interface for singleton implementations of this class.
    *
@@ -408,8 +428,9 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
         path, /* isFile= */ true, size, /* proxy= */ null, /* digest= */ null, xattrProvider);
   }
 
-  public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {
-    return new HashedDirectoryArtifactValue(digest);
+  public static FileArtifactValue createForDirectoryWithHash(
+      byte[] digest, SourceDirectoryEntries entries) {
+    return new HashedDirectoryArtifactValue(digest, entries);
   }
 
   public static FileArtifactValue createForDirectoryWithMtime(long mtime) {
@@ -521,9 +542,12 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   private static final class HashedDirectoryArtifactValue extends FileArtifactValue {
 
     private final byte[] digest;
+    // Not part of equality: the digest already covers it.
+    private final SourceDirectoryEntries entries;
 
-    private HashedDirectoryArtifactValue(byte[] digest) {
+    private HashedDirectoryArtifactValue(byte[] digest, SourceDirectoryEntries entries) {
       this.digest = digest;
+      this.entries = checkNotNull(entries);
     }
 
     @Override
@@ -559,6 +583,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public long getSize() {
       return 0;
+    }
+
+    @Override
+    public SourceDirectoryEntries getSourceDirectoryEntries() {
+      return entries;
     }
 
     @Override

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -232,6 +233,25 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
     assertThat(outFile.getUri()).endsWith("/bin/foo/dir/file.txt");
     assertThat(outFile.getLength()).isEqualTo("Hello".length());
     assertDigest("Hello", BaseEncoding.base16().lowerCase().decode(outFile.getDigest()));
+  }
+
+  @Test
+  public void outputSourceDirectory_isExpanded() throws Exception {
+    write("foo/BUILD", "filegroup(name = 'fg', srcs = ['dir'])");
+    getWorkspace().getRelative("foo/dir/sub").createDirectoryAndParents();
+    FileSystemUtils.writeIsoLatin1(getWorkspace().getRelative("foo/dir/sub/file.txt"), "Hello");
+
+    addOptions(
+        "--incompatible_source_directory_is_directory",
+        "--experimental_build_event_output_group_mode=default=named_set_of_files_only");
+    File bep = buildTargetAndCaptureBEP("//foo:fg");
+
+    BuildEventStreamProtos.File outFile = findOutputFileInBEPStream(bep, "file.txt");
+    assertThat(outFile).isNotNull();
+    assertThat(outFile.getUri()).startsWith("file://");
+    assertThat(outFile.getUri()).endsWith("/foo/dir/sub/file.txt");
+    assertThat(outFile.getLength()).isEqualTo("Hello\n".length());
+    assertDigest("Hello\n", BaseEncoding.base16().lowerCase().decode(outFile.getDigest()));
   }
 
   @Test

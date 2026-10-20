@@ -149,7 +149,9 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
     inputFile.createDirectoryAndParents();
     Digest digest = digestUtil.compute(content);
     setMetadata(
-        input, FileArtifactValue.createForDirectoryWithHash(DigestUtil.toBinaryDigest(digest)));
+        input,
+        FileArtifactValue.createForDirectoryWithHash(
+            DigestUtil.toBinaryDigest(digest), consumer -> {}));
     return digest;
   }
 

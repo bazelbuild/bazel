@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -57,6 +55,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -363,14 +362,22 @@ public class StarlarkCustomCommandLine extends CommandLine {
         // TreeArtifact level to avoid storing all of the child path-mapped strings in `seen`,
         // which can explode memory (see b/557333408).
         Set<Artifact> seenTreeArtifacts = new HashSet<>();
-        values = new ArrayList<>(originalValues.size());
+        List<Object> uniqueValues = new ArrayList<>(originalValues.size());
+        values = uniqueValues;
         HashSet<String> seen = Sets.newHashSetWithExpectedSize(originalValues.size());
         for (Object object : originalValues) {
           if (isDirectory(object)) {
             Artifact artifact = (Artifact) object;
             if (artifact.isTreeArtifact()) {
-              if (seen.add(pathMapper.getMappedExecPathString((DerivedArtifact) artifact))) {
-                expandTreeArtifact(inputMetadataProvider, artifact, values, seen, pathMapper);
+              if (seen.add(pathMapper.getMappedExecPathString(artifact))) {
+                expandDirectory(
+                    inputMetadataProvider,
+                    artifact,
+                    child -> {
+                      if (!seen.contains(pathMapper.getMappedExecPathString(child))) {
+                        uniqueValues.add(child);
+                      }
+                    });
                 seenTreeArtifacts.add(artifact);
               }
             } else if (artifact.isFileset()) {
@@ -385,17 +392,26 @@ public class StarlarkCustomCommandLine extends CommandLine {
               for (Object filesetValue : filesetValues) {
                 Object val = expandToCommandLine(filesetValue, mainRepoMapping);
                 if (seen.add(maybePathMap(val, pathMapper))) {
-                  values.add(val);
+                  uniqueValues.add(val);
                 }
               }
             } else {
-              throw new AssertionError("Unknown artifact type.");
+              // Source directory files have no parent link, so deduplicate each of them.
+              expandDirectory(
+                  inputMetadataProvider,
+                  artifact,
+                  child -> {
+                    Object val = expandToCommandLine(child, mainRepoMapping);
+                    if (seen.add(maybePathMap(val, pathMapper))) {
+                      uniqueValues.add(val);
+                    }
+                  });
             }
           } else if (!(object instanceof Artifact artifact
               && isChildOfSeenTreeArtifact(artifact, seenTreeArtifacts))) {
             Object val = expandToCommandLine(object, mainRepoMapping);
             if (seen.add(maybePathMap(val, pathMapper))) {
-              values.add(val);
+              uniqueValues.add(val);
             }
           }
         }
@@ -495,32 +511,35 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return object instanceof Artifact artifact && artifact.isDirectory();
     }
 
-    private static void expandTreeArtifact(
+    /** Passes the files of a tree artifact or source directory to {@code consumer}. */
+    private static void expandDirectory(
         InputMetadataProvider inputMetadataProvider,
-        Artifact artifact,
-        List<Object> targetList,
-        @Nullable Set<String> seen,
-        PathMapper pathMapper)
+        Artifact directory,
+        Consumer<Artifact> consumer)
         throws CommandLineExpansionException {
-      TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
-      if (treeArtifactValue == null) {
-        throw new CommandLineExpansionException(
-            String.format(
-                "Failed to expand directory %s. Either add the directory as an input of the"
-                    + " action or set 'expand_directories = False' in the 'add_all' or"
-                    + " 'add_joined' call to have the path of the directory added to the"
-                    + " command line instead of its contents.",
-                Starlark.repr(artifact, StarlarkSemantics.DEFAULT)));
+      boolean found;
+      try {
+        found =
+            InputMetadataProvider.forEachDirectoryFile(
+                inputMetadataProvider, directory, (file, unused) -> consumer.accept(file));
+      } catch (IOException e) {
+        throw cannotExpandDirectory(directory, e);
       }
-      if (seen == null) {
-        targetList.addAll(treeArtifactValue.getChildren());
-        return;
+      if (!found) {
+        throw cannotExpandDirectory(directory, /* cause= */ null);
       }
-      for (TreeFileArtifact child : treeArtifactValue.getChildren()) {
-        if (!seen.contains(pathMapper.getMappedExecPathString(child))) {
-          targetList.add(child);
-        }
-      }
+    }
+
+    private static CommandLineExpansionException cannotExpandDirectory(
+        Artifact directory, @Nullable IOException cause) {
+      return new CommandLineExpansionException(
+          String.format(
+              "Failed to expand directory %s. Either add the directory as an input of the"
+                  + " action or set 'expand_directories = False' in the 'add_all' or"
+                  + " 'add_joined' call to have the path of the directory added to the command"
+                  + " line instead of its contents.",
+              Starlark.repr(directory, StarlarkSemantics.DEFAULT)),
+          cause);
     }
 
     private static boolean isChildOfSeenTreeArtifact(
@@ -549,10 +568,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       for (Object object : originalValues) {
         if (isDirectory(object)) {
           Artifact artifact = (Artifact) object;
-          if (artifact.isTreeArtifact()) {
-            expandTreeArtifact(
-                inputMetadataProvider, artifact, expandedValues, /* seen= */ null, pathMapper);
-          } else if (artifact.isFileset()) {
+          if (artifact.isFileset()) {
             expandFileset(
                 inputMetadataProvider,
                 artifact,
@@ -561,7 +577,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
                 /* seen= */ null,
                 /* seenTreeArtifacts= */ null);
           } else {
-            throw new AssertionError("Unknown artifact type.");
+            expandDirectory(inputMetadataProvider, artifact, expandedValues::add);
           }
         } else {
           expandedValues.add(object);
@@ -1275,19 +1291,25 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Override
     public ImmutableList<FileApi> list(FileApi file) throws EvalException {
       Artifact artifact = (Artifact) file;
-      if (artifact.isTreeArtifact()) {
-        TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
-        if (treeArtifactValue == null) {
-          throw Starlark.errorf(
-              "Failed to expand directory %s. Only directories that are action inputs can be"
-                  + " expanded.",
-              Starlark.repr(artifact, StarlarkSemantics.DEFAULT));
-        }
-
-        return ImmutableList.copyOf(treeArtifactValue.getChildren());
-      } else {
+      if (!artifact.isDirectory() || artifact.isFileset()) {
         return ImmutableList.of(file);
       }
+      ImmutableList.Builder<FileApi> files = ImmutableList.builder();
+      boolean found;
+      try {
+        found =
+            InputMetadataProvider.forEachDirectoryFile(
+                inputMetadataProvider, artifact, (child, unused) -> files.add(child));
+      } catch (IOException e) {
+        throw new EvalException(e.getMessage(), e);
+      }
+      if (!found) {
+        throw Starlark.errorf(
+            "Failed to expand directory %s. Only directories that are action inputs can be"
+                + " expanded.",
+            Starlark.repr(artifact, StarlarkSemantics.DEFAULT));
+      }
+      return files.build();
     }
   }
 

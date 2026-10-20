@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -862,6 +863,35 @@ public final class MerkleTreeComputer {
                 metadataProvider.getInputMetadata(artifact), "missing metadata: %s", artifact);
         if (metadata.getType() != FileStateType.DIRECTORY) {
           yield null;
+        }
+        ImmutableList<SourceArtifact> files =
+            InputMetadataProvider.getSourceDirectoryFiles(metadataProvider, artifact);
+        if (files != null) {
+          // Like a tree artifact, the directory contains either only tool inputs or none, and its
+          // files have been expanded into the tool input paths.
+          boolean isTool =
+              files.isEmpty()
+                  ? isToolInput.test(mappedExecPath)
+                  : isToolInput.test(
+                      mappedExecPath.getRelative(
+                          files.getFirst().getExecPath().relativeTo(artifact.getExecPath())));
+          yield computeIfAbsent(
+              metadata,
+              // Source artifacts are not path mapped.
+              /* unmappedExecPath= */ null,
+              () -> {
+                var entries = new ArrayList<Map.Entry<PathFragment, ActionInput>>(files.size());
+                for (SourceArtifact file : files) {
+                  entries.add(entry(file.getExecPath().relativeTo(artifact.getExecPath()), file));
+                }
+                entries.sort(Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR));
+                return entries;
+              },
+              isTool,
+              metadataProvider,
+              artifactPathResolver,
+              remoteActionExecutionContext,
+              blobPolicy);
         }
         yield computeIfAbsent(
             metadata,

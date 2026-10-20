@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -197,6 +198,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
               ActionLookupKey artifactOwner,
               EventHandler eventHandler) {
             return ImmutableList.of();
@@ -231,6 +233,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
               ActionLookupKey artifactOwner,
               EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
@@ -260,6 +263,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
               ActionLookupKey artifactOwner,
               EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
@@ -291,6 +295,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
               ActionLookupKey artifactOwner,
               EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
@@ -323,6 +328,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
               ActionLookupKey artifactOwner,
               EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
@@ -357,17 +363,19 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
               ActionLookupKey artifactOwner,
               EventHandler eventHandler) {
             ImmutableList.Builder<DummyAction> actions = ImmutableList.builder();
             ImmutableListMultimap<SpecialArtifact, TreeFileArtifact> inputTreeArtifactsToChildren =
                 ActionTemplate.getInputTreeArtifactsToChildren(inputTreeFileArtifacts);
             int i = 0;
-            for (SpecialArtifact inputTreeArtifact : getInputTreeArtifacts()) {
+            for (Artifact inputTreeArtifact : getInputDirectories()) {
               actions.add(
                   new DummyAction(
                       NestedSetBuilder.<Artifact>wrap(
-                          Order.STABLE_ORDER, inputTreeArtifactsToChildren.get(inputTreeArtifact)),
+                          Order.STABLE_ORDER,
+                          inputTreeArtifactsToChildren.get((SpecialArtifact) inputTreeArtifact)),
                       TreeFileArtifact.createTemplateExpansionOutput(
                           outputTree, "child-" + i++, artifactOwner)));
             }
@@ -472,8 +480,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
-    public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
-      return inputTreeArtifacts;
+    public ImmutableList<Artifact> getInputDirectories() {
+      return ImmutableList.copyOf(inputTreeArtifacts);
     }
 
     @Override

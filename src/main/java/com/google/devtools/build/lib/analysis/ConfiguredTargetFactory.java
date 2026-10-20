@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -74,7 +75,10 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.IncrementalArtifactConflictFinder;
+import com.google.devtools.build.lib.skyframe.IsDirectoryValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -331,17 +335,24 @@ public final class ConfiguredTargetFactory {
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
                   .build());
-      if (dependsOnFileKey) {
-        // This code branch is here because in the current implementation, the invalidation data for
-        // actions in the remote analysis cache is stored with the configured targets / aspects and
-        // is found by a simple "get if present" lookup in the Skyframe graph. With async analysis
-        // caching, this doesn't work because analysis nodes usually get uploaded before any actions
-        // execute.
-        if (analysisEnvironment.getSkyframeEnv().getValue(FileKey.create(artifact.getRootedPath()))
-            == null) {
-          return null;
-        }
+      SkyFunction.Environment env = analysisEnvironment.getSkyframeEnv();
+      // This file dependency is here because in the current implementation, the invalidation data
+      // for actions in the remote analysis cache is stored with the configured targets / aspects
+      // and is found by a simple "get if present" lookup in the Skyframe graph. With async
+      // analysis caching, this doesn't work because analysis nodes usually get uploaded before any
+      // actions execute.
+      SkyValue fileValue =
+          dependsOnFileKey ? env.getValue(FileKey.create(artifact.getRootedPath())) : null;
+      IsDirectoryValue isDirectory =
+          analysisEnvironment
+                  .getStarlarkSemantics()
+                  .getBool(BuildLanguageOptions.INCOMPATIBLE_SOURCE_DIRECTORY_IS_DIRECTORY)
+              ? (IsDirectoryValue) env.getValue(IsDirectoryValue.key(artifact.getRootedPath()))
+              : IsDirectoryValue.NOT_DIRECTORY;
+      if ((dependsOnFileKey && fileValue == null) || isDirectory == null) {
+        return null;
       }
+      artifact.setIsDirectory(isDirectory.isDirectory());
       return new InputFileConfiguredTarget(targetContext, artifact);
     } else if (target instanceof PackageGroup packageGroup) {
       TargetContext targetContext =

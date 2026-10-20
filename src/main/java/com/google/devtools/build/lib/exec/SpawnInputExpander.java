@@ -17,9 +17,11 @@ import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPAR
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
@@ -117,7 +119,19 @@ public final class SpawnInputExpander {
         FilesetOutputTree filesetOutput = inputMetadataProvider.getFileset(artifact);
         addFilesetManifest(location, artifact, filesetOutput, inputMap);
       } else {
-        addMapping(inputMap, mapForRunfiles(pathMapper, root, location), artifact);
+        PathFragment mappedLocation = mapForRunfiles(pathMapper, root, location);
+        ImmutableList<SourceArtifact> sourceDirectoryFiles =
+            InputMetadataProvider.getSourceDirectoryFiles(inputMetadataProvider, artifact);
+        if (sourceDirectoryFiles == null || sourceDirectoryFiles.isEmpty()) {
+          addMapping(inputMap, mappedLocation, artifact);
+        } else {
+          for (SourceArtifact file : sourceDirectoryFiles) {
+            addMapping(
+                inputMap,
+                mappedLocation.getRelative(file.getExecPath().relativeTo(artifact.getExecPath())),
+                file);
+          }
+        }
       }
     }
   }

@@ -2170,6 +2170,39 @@ java_test(
 )
 
 java_test(
+    name = "SourceDirectoryIsDirectoryIntegrationTest",
+    srcs = ["SourceDirectoryIsDirectoryIntegrationTest.java"],
+    jvm_flags = [
+        "-DBAZEL_TRACK_SOURCE_DIRECTORIES=1",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "SourceDirectoryTrackingDisabledTest",
+    srcs = ["SourceDirectoryTrackingDisabledTest.java"],
+    jvm_flags = [
+        "-DBAZEL_TRACK_SOURCE_DIRECTORIES=0",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "FileArtifactValueTest",
     timeout = "short",
     srcs = ["FileArtifactValueTest.java"],

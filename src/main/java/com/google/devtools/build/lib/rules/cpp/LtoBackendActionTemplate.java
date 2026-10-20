@@ -17,6 +17,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -179,6 +181,7 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
   @Override
   public ImmutableList<LtoBackendAction> generateActionsForInputArtifacts(
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
       ActionLookupKey artifactOwner,
       EventHandler eventHandler)
       throws ActionExecutionException {
@@ -361,7 +364,7 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+  public ImmutableList<Artifact> getInputDirectories() {
     return ImmutableList.of(firstNonNull(indexAndImportsTreeArtifact, fullBitcodeTreeArtifact));
   }
 

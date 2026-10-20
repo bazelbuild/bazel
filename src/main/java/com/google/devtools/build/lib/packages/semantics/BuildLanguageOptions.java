@@ -641,6 +641,37 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract void setExperimentalDormantDeps(boolean value);
 
   @Option(
+      name = "incompatible_source_directory_is_directory",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          """
+          If set to true, source directories are treated like directories declared with \
+          `ctx.actions.declare_directory`:
+
+          - `File.is_directory` is true.
+          - `Args.add_all` expands them into their files.
+          - `Args.add` rejects them.
+          - They can be passed in `input_directories` to `ctx.actions.map_directory`.
+          - Actions that take them as inputs are given the files recorded when the directory was \
+            hashed, staged individually under sandboxed and remote execution. Empty \
+            subdirectories are not staged.
+          - They can be passed as `target_file` to `ctx.actions.symlink` for a directory output. \
+            As with any `target_file`, actions see that output as a symlink only under local \
+            execution; remote execution sees an identical directory.
+
+          Requires source directory tracking (the default); the build fails if it is disabled.
+
+          Symlinks are resolved as before: a symlink to a directory is a source directory, and \
+          symlinks within a source directory are followed, so expansion lists their contents.
+
+          See [#12954](https://github.com/bazelbuild/bazel/issues/12954) for details.
+          """)
+  public abstract boolean getIncompatibleSourceDirectoryIsDirectory();
+
+  @Option(
       name = "experimental_starlark_type_syntax",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -982,6 +1013,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, getExperimentalRuleExtensionApi())
             .setBool(EXPERIMENTAL_DORMANT_DEPS, getExperimentalDormantDeps())
             .setBool(
+                INCOMPATIBLE_SOURCE_DIRECTORY_IS_DIRECTORY,
+                getIncompatibleSourceDirectoryIsDirectory())
+            .setBool(
                 StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_SYNTAX,
                 getExperimentalStarlarkTypeSyntax())
             .setBool(
@@ -1172,6 +1206,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_RULE_EXTENSION_API =
       FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME;
   public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
+  public static final String INCOMPATIBLE_SOURCE_DIRECTORY_IS_DIRECTORY =
+      "-incompatible_source_directory_is_directory";
 
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";

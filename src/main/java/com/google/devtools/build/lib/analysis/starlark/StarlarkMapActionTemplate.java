@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -87,7 +88,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
       ImmutableSet.of(SpecialArtifact.class);
 
   private final ActionOwner actionOwner;
-  private final Dict<String, SpecialArtifact> inputDirectories;
+  private final Dict<String, Artifact> inputDirectories;
   // Values in `additionalInputs` are either Artifact(s), FilesToRunProvider(s),
   // or NestedSet<Artifact>.
   private final Dict<String, Object> additionalInputs;
@@ -110,7 +111,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
 
   public StarlarkMapActionTemplate(
       ActionOwner actionOwner,
-      Dict<String, SpecialArtifact> inputDirectories,
+      Dict<String, Artifact> inputDirectories,
       Dict<String, Object> additionalInputs,
       Dict<String, SpecialArtifact> outputDirectories,
       Dict<String, Object> tools,
@@ -129,8 +130,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     NestedSetBuilder<Artifact> allInputsNsBuilder = NestedSetBuilder.<Artifact>stableOrder();
     NestedSetBuilder<Artifact> toolsNsBuilder = NestedSetBuilder.<Artifact>stableOrder();
     this.actionOwner = actionOwner;
-    this.inputDirectories =
-        validateDictValues(inputDirectories, INPUT_DIRECTORIES_KEY, DIRECTORY_CLASSES);
+    this.inputDirectories = validateInputDirectories(inputDirectories);
     addDictValuesToNestedSets(inputDirectories, INPUT_DIRECTORIES_KEY, allInputsNsBuilder);
     this.additionalInputs =
         validateDictValues(additionalInputs, ADDITIONAL_INPUTS_KEY, ADDITIONAL_INPUTS_CLASSES);
@@ -152,6 +152,20 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     this.semantics = semantics;
     this.symbolGenerator = symbolGenerator;
     this.isSubdirectoryAllowed = isSubdirectoryAllowed;
+  }
+
+  private static Dict<String, Artifact> validateInputDirectories(
+      Dict<String, Artifact> inputDirectories) throws EvalException {
+    for (Entry<String, Artifact> entry : inputDirectories.entrySet()) {
+      Artifact directory = entry.getValue();
+      if (!directory.isTreeArtifact()
+          && !(directory instanceof SourceArtifact && directory.isDirectory())) {
+        throw Starlark.errorf(
+            "Expected a directory in %s['%s'], but got file %s.",
+            INPUT_DIRECTORIES_KEY, entry.getKey(), directory.getExecPathString());
+      }
+    }
+    return Dict.immutableCopyOf(inputDirectories);
   }
 
   private <V> Dict<String, V> validateDictValues(
@@ -209,6 +223,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   @Override
   public ImmutableList<AbstractAction> generateActionsForInputArtifacts(
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ImmutableListMultimap<SourceArtifact, SourceArtifact> inputSourceDirectoryFiles,
       ActionLookupKey artifactOwner,
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException {
@@ -228,9 +243,12 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
             isSubdirectoryAllowed);
 
     ImmutableMap.Builder<String, ExpandedDirectory> expandedDirectories = ImmutableMap.builder();
-    for (Entry<String, SpecialArtifact> entry : inputDirectories.entrySet()) {
-      SpecialArtifact inputDirectory = entry.getValue();
-      ImmutableList<TreeFileArtifact> children = inputTreeArtifactsToChildren.get(inputDirectory);
+    for (Entry<String, Artifact> entry : inputDirectories.entrySet()) {
+      Artifact inputDirectory = entry.getValue();
+      ImmutableList<? extends Artifact> children =
+          inputDirectory instanceof SourceArtifact sourceDirectory
+              ? inputSourceDirectoryFiles.get(sourceDirectory)
+              : inputTreeArtifactsToChildren.get((SpecialArtifact) inputDirectory);
       expandedDirectories.put(entry.getKey(), new ExpandedDirectory(inputDirectory, children));
     }
 
@@ -407,7 +425,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+  public ImmutableList<Artifact> getInputDirectories() {
     return ImmutableList.copyOf(inputDirectories.values());
   }
 
@@ -424,7 +442,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
 
   @Override
   public String describe() {
-    return String.format("Expanding %s into actions", getInputTreeArtifacts());
+    return String.format("Expanding %s into actions", inputDirectories.values());
   }
 
   /**
@@ -433,16 +451,16 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
    * <p>This is used to access the files within this directory that were previously generated by
    * other actions.
    *
-   * <p>Implements {@link FileApi} and delegates all calls to the underlying {@link
-   * SpecialArtifact}.
+   * <p>Implements {@link FileApi} and delegates all calls to the underlying directory {@link
+   * Artifact}.
    */
   public static class ExpandedDirectory implements ExpandedDirectoryApi {
 
-    private final SpecialArtifact directory;
+    private final Artifact directory;
     private final StarlarkList<FileApi> children;
 
-    public ExpandedDirectory(SpecialArtifact directory, ImmutableList<TreeFileArtifact> children) {
-      checkArgument(directory.isTreeArtifact());
+    public ExpandedDirectory(Artifact directory, ImmutableList<? extends Artifact> children) {
+      checkArgument(directory.isDirectory());
       this.directory = directory;
       this.children = StarlarkList.immutableCopyOf(children);
     }
@@ -453,7 +471,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     }
 
     @Override
-    public SpecialArtifact getDirectory() {
+    public Artifact getDirectory() {
       return directory;
     }
 
