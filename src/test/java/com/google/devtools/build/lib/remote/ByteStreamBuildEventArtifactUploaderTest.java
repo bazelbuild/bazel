@@ -168,7 +168,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
       FileSystemUtils.writeContent(file, blob);
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file, file.stat()).getHash()), blob);
       filesToUpload.put(
           file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
@@ -208,7 +208,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
       FileSystemUtils.writeContent(file, blob);
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file, file.stat()).getHash()), blob);
       filesToUpload.put(
           file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
@@ -238,11 +238,16 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void directory_notUploaded() throws Exception {
+  public void directories_notUploaded() throws Exception {
     Path dir = fs.getPath("/dir");
+    Path runfilesDir = fs.getPath("/unmaterialized.runfiles");
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
         dir, new LocalFile(dir, LocalFileType.OUTPUT_DIRECTORY, /* artifactMetadata= */ null));
+    filesToUpload.put(
+        runfilesDir,
+        new LocalFile(
+            runfilesDir, LocalFileType.OUTPUT_DIRECTORY, FileArtifactValue.RUNFILES_TREE_MARKER));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
@@ -252,12 +257,15 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
+    assertThat(pathConverter.apply(runfilesDir)).isNull();
+    assertThat(eventHandler.getEvents()).isEmpty();
     artifactUploader.release();
   }
 
   @Test
   public void symlink_notUploaded() throws Exception {
     Path sym = fs.getPath("/sym");
+    sym.createSymbolicLink(PathFragment.create("missing-target"));
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
         sym, new LocalFile(sym, LocalFileType.OUTPUT_SYMLINK, /* artifactMetadata= */ null));
@@ -270,6 +278,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(sym)).isNull();
+    assertThat(eventHandler.getEvents()).isEmpty();
     artifactUploader.release();
   }
 
@@ -354,7 +363,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
       FileSystemUtils.writeContent(file, blob);
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file, file.stat()).getHash()), blob);
       filesToUpload.put(
           file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
@@ -471,10 +480,10 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // arrange
     Path remoteFile = fs.getPath("/remote-file");
     FileSystemUtils.writeContent(remoteFile, StandardCharsets.UTF_8, "hello world");
-    Digest remoteDigest = DIGEST_UTIL.compute(remoteFile);
+    Digest remoteDigest = DIGEST_UTIL.compute(remoteFile, remoteFile.stat());
     Path localFile = fs.getPath("/local-file");
     FileSystemUtils.writeContent(localFile, StandardCharsets.UTF_8, "foo bar");
-    Digest localDigest = DIGEST_UTIL.compute(localFile);
+    Digest localDigest = DIGEST_UTIL.compute(localFile, localFile.stat());
 
     StaticMissingDigestsFinder digestQuerier =
         Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));

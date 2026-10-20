@@ -352,6 +352,11 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     return version.lastChanged();
   }
 
+  /** Returns the version at which this node was last evaluated; see {@link NodeVersion}. */
+  public final Version lastEvaluatedVersion() {
+    return version.lastEvaluated();
+  }
+
   @Override
   public final synchronized ImmutableSet<SkyKey> getAllDirectDepsForIncompleteNode()
       throws InterruptedException {
