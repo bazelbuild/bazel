@@ -434,6 +434,22 @@ public final class StarlarkEvaluationTest {
       return "with_args_and_kwargs(" + foo + ", " + argsString + ", " + kwargsString + ")";
     }
 
+    @StarlarkMethod(
+        name = "mutate_kwargs",
+        documented = false,
+        parameters = {
+          @Param(name = "key", named = true),
+          @Param(name = "value", named = true),
+        },
+        extraKeywords = @Param(name = "kwargs"),
+        useStarlarkThread = true)
+    public Dict<String, Object> mutateKwargs(
+        String key, Object value, Dict<String, Object> kwargs, StarlarkThread thread)
+        throws EvalException {
+      kwargs.putEntry(key, value);
+      return kwargs;
+    }
+
     @Override
     public String toString() {
       return "<mock>";
@@ -1344,6 +1360,14 @@ public final class StarlarkEvaluationTest {
   }
 
   @Test
+  public void testJavaFunctionMutatingEmptyKwargs() throws Exception {
+    ev.new Scenario()
+        .update("mock", new Mock())
+        .setUp("d = mock.mutate_kwargs(key='k', value='v')")
+        .testEval("d['k']", "'v'");
+  }
+
+  @Test
   public void testProxyMethodsObjectWithArgsAndKwargs() throws Exception {
     // Foo is used positionally
     ev.new Scenario()
@@ -1949,6 +1973,7 @@ public final class StarlarkEvaluationTest {
             "function",
             "interrupted_struct_field",
             "is_empty",
+            "mutate_kwargs",
             "nullfunc_failing",
             "nullfunc_working",
             "proxy_methods_object",
