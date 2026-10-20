@@ -176,6 +176,25 @@ class Docs2MdxHeadingAnchorTest(parameterized.TestCase):
     self.assertNotIn("{#", result)
 
 
+class Docs2MdxListItemAnchorTest(unittest.TestCase):
+
+  def test_list_item_id_becomes_anchor_element(self):
+    md = "*   [Build Tools](https://aka.ms/buildtools){:#install-vc}"
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn(
+        '*   [Build Tools](https://aka.ms/buildtools)<a name="install-vc"></a>',
+        result,
+    )
+
+  def test_list_item_id_after_attribute_list(self):
+    md = "1.  [JDK](https://example.com/jdk){: .external}{:#install-jdk}"
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn(
+        '1.  [JDK](https://example.com/jdk)<a name="install-jdk"></a>', result
+    )
+    self.assertNotIn("{:", result)
+
+
 class Docs2MdxFlagAnchorTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
