@@ -238,7 +238,6 @@ public class StarlarkOptionsParser {
     }
 
     Map<String, Object> parsedOptions = new HashMap<>();
-    List<String> customExecFlags = new ArrayList<>();
     for (String buildSetting : buildSettingWithTargetAndValue.keySet()) {
       Pair<Target, Object> buildSettingAndFinalValue =
           buildSettingWithTargetAndValue.get(buildSetting);
@@ -274,7 +273,6 @@ public class StarlarkOptionsParser {
         }
       }
 
-      // Validate and check for custom exec scope to handle "exec:--<another_flag_name>" pattern.
       var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
       if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
         String scopeType = attrMap.get("scope", Type.STRING);
@@ -290,42 +288,13 @@ public class StarlarkOptionsParser {
                       .map(s -> "\"" + s + "\"")
                       .collect(joining(", "))));
         }
-        if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-          customExecFlags.add(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()));
-        }
       }
-    }
-
-    // handling custom exec case with scope "exec:--<another_flag_name>".
-    // For example: --python_launcher=--host_python_launcher
-    // have the --<another_flag_name> flag in the target config but also make sure that it
-    // won't propagate to the exec config by setting the scope to "target".
-    for (String customExecFlag : customExecFlags) {
-      // if the custom exec flag is already in the parsedOptions, we use that value.
-      if (parsedOptions.containsKey(customExecFlag)) {
-        continue;
-      }
-
-      // get the default value for the custom exec flag if it's not set yet.
-      Target customExecFlagTarget = loadBuildSetting(customExecFlag);
-      parsedOptions.put(customExecFlag, getDefaultValueForAnyBuildSetting(customExecFlagTarget));
     }
 
     nativeOptionsParser.setStarlarkOptions(
         ImmutableMap.copyOf(parsedOptions), getStarlarkOptionsAllowingMultiple());
     this.starlarkOptions.putAll(parsedOptions);
     return true;
-  }
-
-  private static Object getDefaultValueForAnyBuildSetting(Target buildSettingTarget) {
-    BuildSetting buildSettingObject =
-        buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
-    Object defaultValue =
-        buildSettingTarget.getAssociatedRule().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
-    if (buildSettingObject.allowsMultiple()) {
-      return ImmutableList.of(Objects.requireNonNull(defaultValue));
-    }
-    return defaultValue;
   }
 
   /**
