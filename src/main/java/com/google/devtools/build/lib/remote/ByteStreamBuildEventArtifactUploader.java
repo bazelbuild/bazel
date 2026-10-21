@@ -218,10 +218,20 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       }
     }
 
-    if (file.type == LocalFileType.OUTPUT_DIRECTORY
-        || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
-                || file.type == LocalFileType.FAILED_TEST_OUTPUT)
-            && path.isDirectory())) {
+    if (file.type == LocalFileType.OUTPUT_DIRECTORY || file.type == LocalFileType.OUTPUT_SYMLINK) {
+      return new PathMetadata(
+          path,
+          /* digest= */ null,
+          /* directory= */ file.type == LocalFileType.OUTPUT_DIRECTORY,
+          /* symlink= */ file.type == LocalFileType.OUTPUT_SYMLINK,
+          /* remote= */ false,
+          /* isBuildToolLog= */ false,
+          digestFunction);
+    }
+    var stat = path.stat();
+    if ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
+            || file.type == LocalFileType.FAILED_TEST_OUTPUT)
+        && stat.isDirectory()) {
       return new PathMetadata(
           path,
           /* digest= */ null,
@@ -231,18 +241,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* isBuildToolLog= */ false,
           digestFunction);
     }
-    if (file.type == LocalFileType.OUTPUT_SYMLINK) {
-      return new PathMetadata(
-          path,
-          /* digest= */ null,
-          /* directory= */ false,
-          /* symlink= */ true,
-          /* remote= */ false,
-          /* isBuildToolLog= */ false,
-          digestFunction);
-    }
 
-    Digest digest = digestUtil.compute(path);
+    Digest digest = digestUtil.compute(path, stat);
     return new PathMetadata(
         path,
         digest,
