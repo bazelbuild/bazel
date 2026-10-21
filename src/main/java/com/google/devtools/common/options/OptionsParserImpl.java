@@ -805,7 +805,7 @@ class OptionsParserImpl {
       } else {
         suggestion = "";
       }
-      throw new OptionsParsingException("Unrecognized option: " + arg + suggestion, arg);
+      throw new UnrecognizedOptionException(arg, suggestion);
     }
 
     if (unconvertedValue == null) {
