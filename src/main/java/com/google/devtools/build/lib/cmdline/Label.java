@@ -731,7 +731,8 @@ public final class Label
       try {
         mainRepoMapping = threadContext.getMainRepoMapping();
       } catch (InterruptedException e) {
-        // ignore
+        // Fall back to using canonical names for labels.
+        Thread.currentThread().interrupt();
       }
     }
     printer.append(getShorthandDisplayForm(mainRepoMapping));

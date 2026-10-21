@@ -116,11 +116,7 @@ public sealed interface AspectPropagationEdgesSupplier<T> {
       return Objects.hash(function, semantics);
     }
 
-    private static final class AspectPropagationEdgesThreadContext extends StarlarkThreadContext {
-      private AspectPropagationEdgesThreadContext() {
-        super(null);
-      }
-    }
+    private record AspectPropagationEdgesThreadContext() implements StarlarkThreadContext {}
 
     protected StarlarkList<?> runFunction(
         StarlarkAspectPropagationContextApi context, ExtendedEventHandler eventHandler)

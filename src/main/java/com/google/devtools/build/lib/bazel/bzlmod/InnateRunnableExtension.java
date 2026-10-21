@@ -159,7 +159,6 @@ final class InnateRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping,
       Facts facts,
       RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
       throws InterruptedException, ExternalDepsException {

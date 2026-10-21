@@ -25,8 +25,12 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -467,6 +471,51 @@ public class LabelTest {
     assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@hello//x:x");
     assertThat(Starlark.repr(label, StarlarkSemantics.DEFAULT))
         .isEqualTo("Label(\"@@hello//x:x\")");
+  }
+
+  private static String debugPrint(Label label, @Nullable RepositoryMapping mainRepoMapping) {
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+      if (mainRepoMapping != null) {
+        new StarlarkThreadContext() {
+          @Override
+          public RepositoryMapping getMainRepoMapping() {
+            return mainRepoMapping;
+          }
+        }.storeInThread(thread);
+      }
+      return new Printer().debugPrint(label, thread).toString();
+    }
+  }
+
+  @Test
+  public void starlarkDebugPrint_withoutMainRepoMapping_usesCanonicalRepoNames() throws Exception {
+    assertThat(debugPrint(Label.parseCanonical("//foo/bar:bar"), null)).isEqualTo("//foo/bar");
+    assertThat(debugPrint(Label.parseCanonical("//foo/bar:baz"), null)).isEqualTo("//foo/bar:baz");
+    assertThat(debugPrint(Label.parseCanonical("@@other//bar:bar"), null))
+        .isEqualTo("@@other//bar");
+    assertThat(debugPrint(Label.parseCanonical("@@other//bar:baz"), null))
+        .isEqualTo("@@other//bar:baz");
+    assertThat(debugPrint(Label.parseCanonical("@@other//:other"), null)).isEqualTo("@@other");
+  }
+
+  @Test
+  public void starlarkDebugPrint_withMainRepoMapping_usesApparentRepoNames() throws Exception {
+    RepositoryMapping mainRepoMapping =
+        RepositoryMapping.create(
+            ImmutableMap.of("", RepositoryName.MAIN, "local", RepositoryName.create("canonical")),
+            RepositoryName.MAIN);
+
+    assertThat(debugPrint(Label.parseCanonical("//foo/bar:bar"), mainRepoMapping))
+        .isEqualTo("//foo/bar");
+    assertThat(debugPrint(Label.parseCanonical("@@canonical//bar:bar"), mainRepoMapping))
+        .isEqualTo("@local//bar");
+    assertThat(debugPrint(Label.parseCanonical("@@canonical//bar:baz"), mainRepoMapping))
+        .isEqualTo("@local//bar:baz");
+    assertThat(debugPrint(Label.parseCanonical("@@canonical//:local"), mainRepoMapping))
+        .isEqualTo("@local");
+    assertThat(debugPrint(Label.parseCanonical("@@other//bar:baz"), mainRepoMapping))
+        .isEqualTo("@@other//bar:baz");
   }
 
   @Test

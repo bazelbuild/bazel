@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -31,8 +32,8 @@ import net.starlark.java.eval.StarlarkThread;
  * Bazel application data for the Starlark thread that evaluates the top-level code in a .bzl (or
  * .scl) module (i.e. when evaluating that module's global symbols).
  */
-public final class BzlInitThreadContext extends StarlarkThreadContext
-    implements RuleDefinitionEnvironment {
+public final class BzlInitThreadContext
+    implements RuleDefinitionEnvironment, StarlarkThreadContext {
 
   private final Label bzlFile;
 
@@ -49,6 +50,9 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
   // Used for `configuration_field`.
   private final ImmutableMap<String, Class<?>> fragmentNameToClass;
 
+  // Supplies the main repo mapping for Label#debugPrint. Null if unavailable.
+  @Nullable private final InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier;
+
   /**
    * Constructs a new context for initializing a .bzl file.
    *
@@ -58,7 +62,9 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
    * @param noExplicitMnemonicAllowlist an allowlist for explicit mnemonic enforcement
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class
-   * @param mainRepoMapping the repository mapping of the main repository
+   * @param mainRepoMappingSupplier a lazy supplier of the repository mapping of the main
+   *     repository, used only to render labels in {@code print()} and {@code fail()} output. Can be
+   *     null, in which case labels are printed with canonical repository names.
    */
   public BzlInitThreadContext(
       Label bzlFile,
@@ -66,13 +72,19 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
       RepositoryName toolsRepository,
       Optional<Label> noExplicitMnemonicAllowlist,
       ImmutableMap<String, Class<?>> fragmentNameToClass,
-      RepositoryMapping mainRepoMapping) {
-    super(() -> mainRepoMapping);
+      @Nullable InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) {
     this.bzlFile = bzlFile;
     this.transitiveDigest = transitiveDigest;
     this.toolsRepository = toolsRepository;
     this.noExplicitMnemonicAllowlist = noExplicitMnemonicAllowlist;
     this.fragmentNameToClass = fragmentNameToClass;
+    this.mainRepoMappingSupplier = mainRepoMappingSupplier;
+  }
+
+  @Override
+  @Nullable
+  public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+    return mainRepoMappingSupplier == null ? null : mainRepoMappingSupplier.get();
   }
 
   /**

@@ -185,7 +185,6 @@ public class PackageTest {
         /* symbolicMacroStrictAttrs= */ StarlarkSemantics.DEFAULT.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
         /* repositoryMapping= */ RepositoryMapping.EMPTY,
-        /* mainRepositoryMapping= */ null,
         /* cpuBoundSemaphore= */ null,
         PackageOverheadEstimator.NOOP_ESTIMATOR,
         /* generatorMap= */ null,

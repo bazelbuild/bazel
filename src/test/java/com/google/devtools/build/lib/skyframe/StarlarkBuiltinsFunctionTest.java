@@ -228,6 +228,19 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void builtinsLabelDebugPrint_usesCanonicalRepoNames() throws Exception {
+    EvaluationResult<StarlarkBuiltinsValue> result =
+        evalBuiltins(
+            "print(Label('//:target'), Label('@@other+//pkg:target'))",
+            "exported_toplevels = {}",
+            "exported_rules = {}",
+            "exported_to_java = {}");
+
+    assertThatEvaluationResult(result).hasNoError();
+    assertContainsEvent("@@_builtins//:target @@other+//pkg:target");
+  }
+
+  @Test
   public void regularBzlCannotAccessBuiltinsInternalModule() throws Exception {
     scratch.file(
         "pkg/BUILD", //

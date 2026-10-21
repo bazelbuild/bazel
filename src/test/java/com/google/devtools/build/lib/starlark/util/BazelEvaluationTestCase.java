@@ -171,7 +171,7 @@ public final class BazelEvaluationTestCase {
             TestConstants.TOOLS_REPOSITORY,
             noExplicitMnemonicAllowlist,
             fragmentNameToClass,
-            /* mainRepoMapping= */ null)
+            /* mainRepoMappingSupplier= */ null)
         .storeInThread(thread);
   }
 
