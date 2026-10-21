@@ -126,12 +126,10 @@ java_library(
         ":action_environment",
         ":action_input_prefetcher",
         ":action_key_context",
-        ":build_configuration_event",
         ":commandline_limits",
         ":exec_exception",
         ":has_digest",
         ":output_checker",
-        ":total_and_configured_target_only_metric",
     ],
     deps = [
         ":action_environment",

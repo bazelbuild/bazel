@@ -932,6 +932,7 @@ java_library(
         ":test_summary",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",
