@@ -92,6 +92,24 @@ function test_bazel_uses_bundled_jdk() {
       fail "bazel's java-home is not inside the install base"
 }
 
+function test_bundled_jdk_cacerts_excludes_distrusted_roots() {
+  local -r bundled_java_home="$(bazel --batch info java-home 2>> "$TEST_log")" \
+      || fail "bazel info java-home failed"
+  local -r cacerts="${bundled_java_home}/lib/security/cacerts"
+  [[ -f "$cacerts" ]] || fail "Bundled cacerts not found at $cacerts"
+
+  local -r keytool="${javabase}/bin/keytool${EXE_EXT}"
+  "$keytool" -list -v -keystore "$cacerts" -storepass changeit \
+      &> "$TEST_log" || fail "keytool -list failed on $cacerts"
+
+  expect_not_log "D7:A7:A0:FB:5D:7E:27:31:D7:71:E9:48:4E:BC:DE:F7:1D:5F:0C:3E:0A:29:48:78:2B:C8:3E:E0:EA:69:9E:F4"
+  expect_not_log "86:A1:EC:BA:08:9C:4A:8D:3B:BE:27:34:C6:12:BA:34:1D:81:3E:04:3C:F9:E8:A8:62:CD:5C:57:A3:6B:BE:6B"
+  expect_not_log "40:F6:AF:03:46:A9:9A:A1:CD:1D:55:5A:4E:9C:CE:62:C7:F9:63:46:03:EE:40:66:15:83:3D:C8:C8:D0:03:67"
+  expect_not_log "1A:A0:C2:70:9E:83:1B:D6:E3:B5:12:9A:00:BA:41:F7:EE:EF:02:08:72:F1:E6:50:4B:F0:F6:C3:F2:4F:3A:F3"
+  expect_not_log "12:56:09:AA:30:1D:A0:A2:49:B9:7A:82:39:CB:6A:34:21:6F:44:DC:AC:9F:39:54:B1:42:92:F2:E8:C8:60:8F"
+  expect_not_log "BC:4D:80:9B:15:18:9D:78:DB:3E:1D:8C:F4:F9:72:6A:79:5D:A1:64:3C:A5:F1:35:8E:1D:DB:0E:DC:0D:7E:B3"
+}
+
 function test_bazel_preserves_heap_shrinking() {
   bazel --batch --host_jvm_args=-XX:+PrintFlagsFinal info \
       &> "$TEST_log" || fail "bazel info failed"
