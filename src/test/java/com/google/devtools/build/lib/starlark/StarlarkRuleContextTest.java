@@ -3151,6 +3151,140 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCopyActionInterface() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "src = ctx.actions.declare_file('src.txt')",
+            "ctx.actions.write(output=src, content='foo123')",
+            "ctx.actions.copy(output=out, src=src)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("action.mnemonic")).isEqualTo("Copy");
+    // The output is a copy of the source: the source is its input.
+    assertThat((Boolean) ev.eval("'src.txt' in [f.basename for f in action.inputs.to_list()]"))
+        .isTrue();
+  }
+
+  @Test
+  public void testCopyActionTreeToTree() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        def _impl(ctx):
+            d = ctx.actions.declare_directory(ctx.label.name + "_src")
+            ctx.actions.run_shell(outputs = [d], command = "mkdir -p " + d.path)
+            out = ctx.actions.declare_directory(ctx.label.name + "_out")
+            ctx.actions.copy(output = out, src = d)
+            return DefaultInfo(files = depset([out]))
+        r = rule(implementation = _impl)
+        """);
+    scratch.file("test/BUILD", "load(':rules.bzl', 'r')", "r(name = 'undertest')");
+    ConfiguredTarget target = getConfiguredTarget("//test:undertest");
+    Artifact out = getFilesToBuild(target).toList().get(0);
+    assertThat(out.isTreeArtifact()).isTrue();
+    assertThat(getGeneratingAction(out).getMnemonic()).isEqualTo("Copy");
+  }
+
+  @Test
+  public void testCopyActionSrcIsKeywordOnly() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "src = ctx.actions.declare_file('src.txt')",
+            "ctx.actions.write(output=src, content='foo123')",
+            "ctx.actions.copy(out, src)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:undertest");
+    assertContainsEvent("copy() got unexpected positional argument");
+  }
+
+  @Test
+  public void testCopyActionRejectsOldTargetFileArgument() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "src = ctx.actions.declare_file('src.txt')",
+            "ctx.actions.write(output=src, content='foo123')",
+            "ctx.actions.copy(output=out, target_file=src)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:undertest");
+    assertContainsEvent("unexpected keyword argument 'target_file'");
+  }
+
+  @Test
+  public void testCopyActionRejectsFileToDirectory() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "src = ctx.actions.declare_file('src.txt')",
+            "ctx.actions.write(output=src, content='foo123')",
+            "d = ctx.actions.declare_directory('out_dir')",
+            "ctx.actions.copy(output=d, src=src)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:undertest");
+    assertContainsEvent("\"output\" (directory) and \"src\" (file) be the same type");
+  }
+
+  @Test
+  public void testCopyActionRejectsDirectoryToFile() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "d = ctx.actions.declare_directory('src_dir')",
+            "ctx.actions.run_shell(outputs=[d], command='mkdir -p ' + d.path)",
+            "ctx.actions.copy(output=out, src=d)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:undertest");
+    assertContainsEvent("\"output\" (file) and \"src\" (directory) be the same type");
+  }
+
+  @Test
+  public void testCopyActionRejectsSymlinkOutput() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "src = ctx.actions.declare_file('src.txt')",
+            "ctx.actions.write(output=src, content='foo123')",
+            "l = ctx.actions.declare_symlink('out_link')",
+            "ctx.actions.copy(output=l, src=src)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:undertest");
+    assertContainsEvent("copy() of symlink artifacts is not yet supported");
+  }
+
+  @Test
+  public void testCopyActionRejectsSymlinkSource() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "l = ctx.actions.declare_symlink('src_link')",
+            "ctx.actions.symlink(output=l, target_path='/nonexistent')",
+            "ctx.actions.copy(output=out, src=l)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:undertest");
+    assertContainsEvent("copy() of symlink artifacts is not yet supported");
+  }
+
+  @Test
   public void testFileWriteActionInterfaceWithCustomMnemonic() throws Exception {
     scratch.file(
         "test/rules.bzl",

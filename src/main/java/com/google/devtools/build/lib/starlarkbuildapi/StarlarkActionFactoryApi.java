@@ -339,6 +339,47 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
       throws EvalException;
 
   @StarlarkMethod(
+      name = "copy",
+      doc =
+          "Creates an action that makes the content of <code>src</code> available at"
+              + " <code>output</code> with the same digest. No process is spawned.<p>Bazel never"
+              + " creates a symbolic link for <code>output</code>, and when it materializes"
+              + " <code>output</code> on disk, it is a regular file (or directory of regular"
+              + " files) at its own path. How and when that happens is unspecified: it can be"
+              + " copied (possibly using copy-on-write) while the action runs, or, if the content"
+              + " of <code>src</code> is only available remotely, downloaded later if a local"
+              + " action needs it.<p>Only files and directories are supported: declare"
+              + " <code>output</code> with <a href=\"#declare_file\"><code>declare_file()</code></a>"
+              + " or <a href=\"#declare_directory\"><code>declare_directory()</code></a> to match"
+              + " the type of <code>src</code>. Symlink artifacts are not yet supported.",
+      parameters = {
+        @Param(
+            name = "output",
+            named = true,
+            positional = false,
+            doc = "The output of this action. Must match the type of <code>src</code>."),
+        @Param(
+            name = "src",
+            allowedTypes = {@ParamType(type = FileApi.class)},
+            named = true,
+            positional = false,
+            doc = "The File or directory whose content is made available at <code>output</code>."),
+        @Param(
+            name = "progress_message",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc = "Progress message to show to the user during the build."),
+      },
+      useStarlarkThread = true)
+  void copy(FileApi output, FileApi src, Object progressMessage, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
       name = "write",
       doc =
           "Creates a file write action. When the action is executed, it will write the given "

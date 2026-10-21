@@ -1135,6 +1135,296 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
   }
 
+  private void writeCopyRule() throws IOException {
+    FileSystemUtils.touchFile(getWorkspace().getRelative("BUILD"));
+    write(
+        "copy.bzl",
+        """
+        def _copy_impl(ctx):
+            if ctx.file.src.is_directory:
+                out = ctx.actions.declare_directory(ctx.attr.name)
+            else:
+                out = ctx.actions.declare_file(ctx.attr.name)
+            ctx.actions.copy(output = out, src = ctx.file.src)
+            return DefaultInfo(files = depset([out]))
+
+        copy = rule(
+            implementation = _copy_impl,
+            attrs = {"src": attr.label(allow_single_file = True)},
+        )
+        """);
+  }
+
+  private void assertRegularFileNotSymlink(String binRelativePath) throws Exception {
+    Path path = getOutputPath(binRelativePath);
+    assertThat(path.isSymbolicLink()).isFalse();
+    assertThat(path.isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(path.resolveSymbolicLinks()).isEqualTo(path);
+  }
+
+  private void writeRemoteFileCopyWorkspace() throws Exception {
+    writeCopyRule();
+    write(
+        "a/BUILD",
+        """
+        load("//:copy.bzl", "copy")
+
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        copy(
+            name = "foo_copy",
+            src = ":foo.out",
+        )
+
+        copy(
+            name = "foo_copy_copy",
+            src = ":foo_copy",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                ":foo_copy",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+            tags = ["no-remote-exec"],
+        )
+
+        genrule(
+            name = "bar_chained",
+            srcs = [
+                ":foo_copy_copy",
+                "bar.in",
+            ],
+            outs = ["bar_chained.out"],
+            cmd = "cat $(SRCS) > $@",
+            tags = ["no-remote-exec"],
+        )
+        """);
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+  }
+
+  @Test
+  public void copyOfRemoteOnlyFile_downloadsNothingAndHasIndependentMetadata() throws Exception {
+    writeRemoteFileCopyWorkspace();
+
+    buildTarget("//a:foo_copy");
+
+    assertOutputDoesNotExist("a/foo.out");
+    assertOutputDoesNotExist("a/foo_copy");
+    var source = getOnlyElement(getMetadata("//a:foo").values());
+    var copy = getOnlyElement(getMetadata("//a:foo_copy").values());
+    assertThat(copy.isRemote()).isTrue();
+    assertThat(copy.getDigest()).isEqualTo(source.getDigest());
+    assertThat(copy.getSize()).isEqualTo(source.getSize());
+    assertThat(copy).isNotSameInstanceAs(source);
+    assertThat(copy.getResolvedPath()).isNull();
+  }
+
+  @Test
+  public void copyOfRemoteOnlyFile_localConsumerDownloadsToOwnPath() throws Exception {
+    writeRemoteFileCopyWorkspace();
+
+    buildTarget("//a:bar");
+
+    assertValidOutputFile("a/bar.out", "foo\nbar\n");
+    // The consumer needed the copy only: it is downloaded at its own path as a regular file, and
+    // the source is neither downloaded nor linked.
+    assertValidOutputFile("a/foo_copy", "foo\n");
+    assertRegularFileNotSymlink("a/foo_copy");
+    assertOutputDoesNotExist("a/foo.out");
+  }
+
+  @Test
+  public void copyOfRemoteOnlyFile_toplevelDownloadsToOwnPath() throws Exception {
+    writeRemoteFileCopyWorkspace();
+    setDownloadToplevel();
+
+    buildTarget("//a:foo_copy_copy");
+    waitDownloads();
+
+    assertValidOutputFile("a/foo_copy_copy", "foo\n");
+    assertRegularFileNotSymlink("a/foo_copy_copy");
+    assertOutputDoesNotExist("a/foo.out");
+    assertOutputDoesNotExist("a/foo_copy");
+  }
+
+  @Test
+  public void copyOfRemoteOnlyTree_downloadsNothingAndConsumerDownloadsToOwnPaths()
+      throws Exception {
+    writeCopyRule();
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        """
+        load("//:copy.bzl", "copy")
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "tree",
+            content_map = {"file-1": "1", "file-2": "2"},
+        )
+
+        copy(
+            name = "tree_copy",
+            src = ":tree",
+        )
+
+        genrule(
+            name = "consume",
+            srcs = [":tree_copy"],
+            outs = ["consume.out"],
+            cmd = "cat $(location :tree_copy)/file-1 $(location :tree_copy)/file-2 > $@",
+            tags = ["no-remote-exec"],
+        )
+        """);
+
+    buildTarget("//a:tree_copy");
+
+    // The (empty) tree root directories may be created by action preparation; no files are.
+    assertOutputDoesNotExist("a/tree/file-1");
+    assertOutputDoesNotExist("a/tree/file-2");
+    assertOutputDoesNotExist("a/tree_copy/file-1");
+    assertOutputDoesNotExist("a/tree_copy/file-2");
+    var sourceTree = getOnlyElement(getTreeMetadata("//a:tree").values());
+    var copyTree = getOnlyElement(getTreeMetadata("//a:tree_copy").values());
+    assertThat(copyTree.getChildValues()).hasSize(2);
+    assertThat(copyTree.getResolvedPath()).isEmpty();
+    assertThat(copyTree.getArchivedRepresentation()).isEmpty();
+    for (var child : copyTree.getChildValues().entrySet()) {
+      var sourceChild =
+          sourceTree.getChildValues().entrySet().stream()
+              .filter(
+                  e ->
+                      e.getKey()
+                          .getParentRelativePath()
+                          .equals(child.getKey().getParentRelativePath()))
+              .findFirst()
+              .orElseThrow()
+              .getValue();
+      assertThat(child.getValue().isRemote()).isTrue();
+      assertThat(child.getValue()).isNotSameInstanceAs(sourceChild);
+      assertThat(child.getValue().getDigest()).isEqualTo(sourceChild.getDigest());
+    }
+
+    buildTarget("//a:consume");
+
+    assertValidOutputFile("a/consume.out", "12");
+    assertValidOutputFile("a/tree_copy/file-1", "1");
+    assertValidOutputFile("a/tree_copy/file-2", "2");
+    assertRegularFileNotSymlink("a/tree_copy/file-1");
+    assertThat(getOutputPath("a/tree_copy").isSymbolicLink()).isFalse();
+    assertOutputDoesNotExist("a/tree/file-1");
+    assertOutputDoesNotExist("a/tree/file-2");
+  }
+
+  @Test
+  public void copyOfSourceFile_isRealCopyEvenWhenRemoteCacheIsConfigured() throws Exception {
+    writeCopyRule();
+    write(
+        "a/BUILD",
+        """
+        load("//:copy.bzl", "copy")
+
+        copy(
+            name = "src_copy",
+            src = "src.txt",
+        )
+        """);
+    write("a/src.txt", "source");
+
+    buildTarget("//a:src_copy");
+
+    assertValidOutputFile("a/src_copy", "source\n");
+    assertRegularFileNotSymlink("a/src_copy");
+  }
+
+  private void populateAndCleanBuild(String target, String... generatedOutputs) throws Exception {
+    // Populate remote cache.
+    buildTarget(target);
+    for (String output : generatedOutputs) {
+      getOutputPath(output).delete();
+    }
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build: nothing but the remote metadata is known.
+    buildTarget(target);
+    for (String output : generatedOutputs) {
+      assertOutputDoesNotExist(output);
+    }
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingCopiedInput_exitWithCode39() throws Exception {
+    writeRemoteFileCopyWorkspace();
+    populateAndCleanBuild("//a:bar", "a/foo.out", "a/foo_copy", "a/bar.out");
+
+    // Evict all blobs (including the source's) and do an incremental build that needs only the
+    // copy.
+    evictAllBlobs();
+    write("a/bar.in", "updated bar");
+    disableActionRewinding();
+    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
+    assertThat(error).hasMessageThat().contains("a/foo_copy");
+    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingCopiedInput_succeedsWithActionRewinding()
+      throws Exception {
+    writeRemoteFileCopyWorkspace();
+    populateAndCleanBuild("//a:bar", "a/foo.out", "a/foo_copy", "a/bar.out");
+
+    evictAllBlobs();
+    write("a/bar.in", "updated bar");
+    enableActionRewinding();
+    buildTarget("//a:bar");
+
+    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+    assertRegularFileNotSymlink("a/foo_copy");
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingCopyOfCopy_exitWithCode39() throws Exception {
+    writeRemoteFileCopyWorkspace();
+    populateAndCleanBuild("//a:bar_chained", "a/foo.out", "a/bar_chained.out");
+
+    evictAllBlobs();
+    write("a/bar.in", "updated bar");
+    disableActionRewinding();
+    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar_chained"));
+
+    assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
+    assertThat(error).hasMessageThat().contains("a/foo_copy_copy");
+    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingCopyOfCopy_succeedsWithActionRewinding()
+      throws Exception {
+    writeRemoteFileCopyWorkspace();
+    populateAndCleanBuild("//a:bar_chained", "a/foo.out", "a/bar_chained.out");
+
+    evictAllBlobs();
+    write("a/bar.in", "updated bar");
+    enableActionRewinding();
+    buildTarget("//a:bar_chained");
+
+    assertValidOutputFile("a/bar_chained.out", "foo\nupdated bar\n");
+    assertRegularFileNotSymlink("a/foo_copy_copy");
+  }
+
   @Test
   public void actionRewinding_lostTree(@TestParameter boolean localExecution) throws Exception {
     // Verify that a lost tree can be rewound, both the Tree message itself and its children.
