@@ -24,6 +24,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:pseudo_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:repo_mapping_manifest_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis:source_manifest_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",

@@ -419,3 +419,8 @@ java_library(
         "//third_party/java/jsr305_annotations",
     ],
 )
+
+alias(
+    name = "source_manifest_action",
+    actual = "//src/main/java/com/google/devtools/build/lib/analysis:source_manifest_action",
+)
