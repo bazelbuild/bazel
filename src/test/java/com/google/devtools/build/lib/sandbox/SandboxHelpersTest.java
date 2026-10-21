@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -58,6 +60,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
@@ -653,5 +656,44 @@ public class SandboxHelpersTest {
     assertThat(dir.exists()).isFalse();
     assertThat(trashBase.exists()).isFalse();
   }
-}
 
+  @Test
+  public void sandboxStash_prefersStashFromSamePackage() throws Exception {
+    SandboxOptions options =
+        Options.parse(SandboxOptions.class, "--reuse_sandbox_directories").getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_same_package");
+    SandboxOutputs outputs = SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of());
+
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      for (String pkg : ImmutableList.of("a/b/c", "a/b/d", "a/x")) {
+        Path sandbox = scratch.dir("/sandbox_stash_same_package/" + pkg);
+        scratch.file(sandbox.getRelative("execroot/" + pkg + "/marker").getPathString());
+        SandboxStash.stashSandbox(
+            sandbox,
+            "Mnemonic",
+            ImmutableMap.of(),
+            outputs,
+            new SynchronousTreeDeleter(),
+            Label.parseCanonicalUnchecked("//" + pkg + ":target"));
+      }
+
+      Path sandbox = scratch.dir("/sandbox_stash_same_package/new");
+      Optional<SandboxContents> taken =
+          SandboxStash.takeStashedSandbox(
+              sandbox,
+              "Mnemonic",
+              ImmutableMap.of(),
+              outputs,
+              Label.parseCanonicalUnchecked("//a/b/c:other"));
+      assertThat(taken).isNotNull();
+      assertThat(sandbox.getRelative("execroot/a/b/c/marker").exists()).isTrue();
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+}
