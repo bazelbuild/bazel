@@ -18,8 +18,6 @@ load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 
 visibility("//tools/...")
 
-BZLMOD_ENABLED = str(Label("@bazel_tools//:foo")).startswith("@@")
-
 IS_HOST_WINDOWS = Label("@platforms//os:windows") in [Label(label) for label in HOST_CONSTRAINTS]
 
 def _single_binary_toolchain_rule_impl(ctx):

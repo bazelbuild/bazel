@@ -235,7 +235,7 @@ register_toolchains("@javabase//:runtime_toolchain_definition")
 register_toolchains("@javabase//:bootstrap_runtime_toolchain_definition")
 
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
-use_repo(java_toolchains, "local_jdk")
+use_repo(java_toolchains, "local_jdk", "remote_java_tools")
 EOF
 
   mkdir -p zoo/bin
@@ -248,7 +248,7 @@ default_java_toolchain(
     # Implicitly use the host_javabase bootclasspath, since the target doesn't
     # exist in this test.
     bootclasspath = [],
-    javabuilder = "@bazel_tools//tools/jdk:vanillajavabuilder",
+    javabuilder = "@remote_java_tools//:VanillaJavaBuilder",
     jvm_opts = [],
     visibility = ["//visibility:public"],
     java_runtime = "@local_jdk//:jdk",
