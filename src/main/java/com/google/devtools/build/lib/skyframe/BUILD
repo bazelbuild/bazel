@@ -1972,6 +1972,17 @@ java_library(
 )
 
 java_library(
+    name = "spawn_executed_notifying_event_handler",
+    srcs = ["SpawnExecutedNotifyingEventHandler.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party/java/guava:base",
+    ],
+)
+
+java_library(
     name = "recursive_directory_traversal_function",
     srcs = ["RecursiveDirectoryTraversalFunction.java"],
     deps = [
@@ -2292,6 +2303,7 @@ java_library(
         ":action_output_metadata_store",
         ":metadata_consumer_for_metrics",
         ":progress_suppressing_event_handler",
+        ":spawn_executed_notifying_event_handler",
         ":track_source_directories_flag",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
