@@ -203,6 +203,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private final byte[] digest;
   private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
+
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final long totalChildSize;
 
   /**
@@ -218,6 +220,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    */
   @Nullable private final PathFragment resolvedPath;
 
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final boolean entirelyRemote;
 
   /** A FileArtifactValue used to stand in for a TreeArtifactValue. */
@@ -241,12 +244,14 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       if (!(o instanceof TreeArtifactCompositeFileArtifactValue that)) {
         return false;
       }
-      return Arrays.equals(digest, that.digest) && Objects.equals(resolvedPath, that.resolvedPath);
+      return Arrays.equals(digest, that.digest)
+          && isRemote == that.isRemote
+          && Objects.equals(resolvedPath, that.resolvedPath);
     }
 
     @Override
     public int hashCode() {
-      return HashCodes.hashObjects(Arrays.hashCode(digest), resolvedPath);
+      return HashCodes.hashObjects(Arrays.hashCode(digest), isRemote, resolvedPath);
     }
 
     @Override
