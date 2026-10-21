@@ -4684,9 +4684,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getTarget("//test:BUILD");
-    assertContainsEvent(
-        "Label() can only be used during .bzl initialization (top-level evaluation)",
-        ImmutableSet.of(EventKind.ERROR));
+    assertContainsEvent("Label() can only be used in .bzl files", ImmutableSet.of(EventKind.ERROR));
   }
 
   // Regression test for b/575861296.
@@ -4721,8 +4719,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     invalidatePackages();
     getTarget("//test:BUILD");
     assertContainsEvent(
-        "Label.relative() with an argument containing a repository name can only be used during"
-            + " .bzl initialization (top-level evaluation)",
+        "Label.relative() with an argument containing a repository name can only be used in .bzl"
+            + " files",
         ImmutableSet.of(EventKind.ERROR));
   }
 
