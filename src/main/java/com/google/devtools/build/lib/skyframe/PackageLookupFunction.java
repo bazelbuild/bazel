@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -55,24 +53,13 @@ import net.starlark.java.eval.EvalException;
 
 /** SkyFunction for {@link PackageLookupValue}s. */
 public class PackageLookupFunction implements SkyFunction {
-  /** Lists possible ways to handle a package label which crosses into a new repository. */
-  public enum CrossRepositoryLabelViolationStrategy {
-    /** Ignore the violation. */
-    IGNORE,
-    /** Generate an error. */
-    ERROR
-  }
-
   private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
-  private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
   private final ImmutableList<BuildFileName> buildFilesByPriority;
 
   public PackageLookupFunction(
       AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority) {
     this.deletedPackages = deletedPackages;
-    this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
   }
 
@@ -263,58 +250,6 @@ public class PackageLookupFunction implements SkyFunction {
       BuildFileName buildFileName)
       throws InterruptedException, PackageLookupFunctionException {
     PathFragment buildFileFragment = buildFileName.getBuildFileFragment(packageIdentifier);
-
-    if (crossRepositoryLabelViolationStrategy == CrossRepositoryLabelViolationStrategy.ERROR) {
-      // Is this path part of a local repository?
-      RootedPath currentPath =
-          RootedPath.toRootedPath(packagePathEntry, buildFileFragment.getParentDirectory());
-      SkyKey repositoryLookupKey = LocalRepositoryLookupValue.key(currentPath);
-
-      // TODO(jcater): Consider parallelizing these lookups.
-      LocalRepositoryLookupValue localRepository;
-      try {
-        localRepository =
-            (LocalRepositoryLookupValue)
-                env.getValueOrThrow(repositoryLookupKey, ErrorDeterminingRepositoryException.class);
-        if (localRepository == null) {
-          return null;
-        }
-      } catch (ErrorDeterminingRepositoryException e) {
-        // If the directory selected isn't part of a repository, that's an error.
-        // TODO(katre): Improve the error message given here.
-        throw new PackageLookupFunctionException(
-            new BuildFileNotFoundException(
-                packageIdentifier,
-                "Unable to determine the local repository for directory "
-                    + currentPath.asPath().getPathString()),
-            Transience.PERSISTENT);
-      }
-
-      if (localRepository.exists()
-          && !localRepository.getRepository().equals(packageIdentifier.getRepository())) {
-        // There is a repository mismatch, this is an error.
-        // The correct package path is the one originally given, minus the part that is the local
-        // repository.
-        PathFragment pathToRequestedPackage = packageIdentifier.getSourceRoot();
-        PathFragment localRepositoryPath = localRepository.getPath();
-        if (localRepositoryPath.isAbsolute()) {
-          // We need the package path to also be absolute.
-          pathToRequestedPackage =
-              packagePathEntry.getRelative(pathToRequestedPackage).asFragment();
-        }
-        PathFragment remainingPath = pathToRequestedPackage.relativeTo(localRepositoryPath);
-        PackageIdentifier correctPackage =
-            PackageIdentifier.create(localRepository.getRepository(), remainingPath);
-        return PackageLookupValue.incorrectRepositoryReference(packageIdentifier, correctPackage);
-      }
-
-      // There's no local repository, keep going.
-    } else {
-      // Future-proof against adding future values to CrossRepositoryLabelViolationStrategy.
-      Preconditions.checkState(
-          crossRepositoryLabelViolationStrategy == CrossRepositoryLabelViolationStrategy.IGNORE,
-          crossRepositoryLabelViolationStrategy);
-    }
 
     // Check for the existence of the build file.
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(packagePathEntry, buildFileFragment);

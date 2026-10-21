@@ -132,8 +132,6 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("REPOSITORY_DIRECTORY");
   public static final SkyFunctionName ACTION_TEMPLATE_EXPANSION =
       SkyFunctionName.createHermetic("ACTION_TEMPLATE_EXPANSION");
-  public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
-      SkyFunctionName.createHermetic("LOCAL_REPOSITORY_LOOKUP");
   public static final SkyFunctionName REGISTERED_EXECUTION_PLATFORMS =
       SkyFunctionName.createHermetic("REGISTERED_EXECUTION_PLATFORMS");
   public static final SkyFunctionName REGISTERED_TOOLCHAINS =

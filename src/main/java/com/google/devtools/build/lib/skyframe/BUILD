@@ -1520,20 +1520,6 @@ java_library(
 )
 
 java_library(
-    name = "local_repository_lookup_value",
-    srcs = ["LocalRepositoryLookupValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-    ],
-)
-
-java_library(
     name = "map_as_package_roots",
     srcs = ["MapAsPackageRoots.java"],
     deps = [
@@ -1625,7 +1611,6 @@ java_library(
     deps = [
         ":already_reported_exception",
         ":ignored_subdirectories_value",
-        ":local_repository_lookup_value",
         ":package_lookup_value",
         ":precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -3255,16 +3240,6 @@ java_library(
 )
 
 java_library(
-    name = "local_repository_lookup_function",
-    srcs = ["LocalRepositoryLookupFunction.java"],
-    deps = [
-        ":local_repository_lookup_value",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
     name = "macro_instance_function",
     srcs = ["MacroInstanceFunction.java"],
     deps = [
@@ -4026,7 +4001,6 @@ java_library(
         ":load_aspects_key",
         ":load_aspects_value",
         ":loading_phase_started_event",
-        ":local_repository_lookup_function",
         ":macro_instance_function",
         ":map_as_package_roots",
         ":metadata_consumer_for_metrics",

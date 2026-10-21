@@ -47,9 +47,7 @@ import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingStateFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -193,7 +191,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   SkyFunctions.REPOSITORY_ENVIRONMENT_VARIABLE,
                   new RepoEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
-              .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
               .put(SkyFunctions.REPOSITORY_DIRECTORY, repositoryFetchFunction)
               .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
               .put(
@@ -225,11 +222,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
 
   private BazelPackageLoader(Builder builder) {
     super(builder);
-  }
-
-  @Override
-  protected CrossRepositoryLabelViolationStrategy getCrossRepositoryLabelViolationStrategy() {
-    return BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY;
   }
 
   @Override

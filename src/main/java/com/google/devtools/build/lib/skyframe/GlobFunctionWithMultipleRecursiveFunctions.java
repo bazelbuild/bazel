@@ -99,10 +99,6 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
                   .build());
         }
         return GlobValueWithNestedSet.EMPTY;
-      } else if (globSubdirPkgLookupValue
-          instanceof PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue) {
-        // We crossed a repository boundary, so glob expansion should not descend into that subdir.
-        return GlobValueWithNestedSet.EMPTY;
       }
     }
 
@@ -422,12 +418,6 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
         glob);
 
     PackageLookupValue packageLookupValue = (PackageLookupValue) valueRequested;
-    if (packageLookupValue
-        instanceof PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue) {
-      // This is a separate repository, so ignore it.
-      return null;
-    }
-
     boolean isSubpackagesOp = glob.globberOperation() == Globber.Operation.SUBPACKAGES;
     boolean pkgExists = packageLookupValue.packageExists();
 
