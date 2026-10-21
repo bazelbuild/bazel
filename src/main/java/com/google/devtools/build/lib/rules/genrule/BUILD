@@ -20,6 +20,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:command_constructor",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuration_make_variable_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:make_variable_supplier",
