@@ -723,8 +723,8 @@ static bool IsServerMode(const string &command) {
 // @Command(mustRunInWorkspace = false).
 static bool CanRunOutsideWorkspace(const string& command) {
   return command == "canonicalize-flags" || command == "dump" ||
-         command == "help" || command == "license" || command == "shutdown" ||
-         command == "version";
+         command == "help" || command == "info" || command == "license" ||
+         command == "shutdown" || command == "version";
 }
 
 // Returns the path of the file that the server JVM reads its arguments from on

@@ -60,7 +60,6 @@ filegroup(
         "//third_party/java/junit:srcs",
         "//third_party/java/mockito:srcs",
         "//third_party/java/netty4:srcs",
-        "//third_party/java/netty_tcnative:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/java/protobuf:srcs",
         "//third_party/java/protobuf/util:srcs",
@@ -335,13 +334,13 @@ java_library(
     name = "async_profiler_native",
     resource_strip_prefix = select({
         "//src/conditions:darwin": get_repo_root("async_profiler_macos"),
-        "//src/conditions:linux_arm": get_repo_root("async_profiler_linux_arm64"),
+        "//src/conditions:linux_aarch64": get_repo_root("async_profiler_linux_arm64"),
         "//src/conditions:linux_x86_64": get_repo_root("async_profiler_linux_x64"),
         "//conditions:default": None,
     }),
     resources = select({
         "//src/conditions:darwin": ["@async_profiler_macos//:libasyncProfiler"],
-        "//src/conditions:linux_arm": ["@async_profiler_linux_arm64//:libasyncProfiler"],
+        "//src/conditions:linux_aarch64": ["@async_profiler_linux_arm64//:libasyncProfiler"],
         "//src/conditions:linux_x86_64": ["@async_profiler_linux_x64//:libasyncProfiler"],
         "//conditions:default": [],
     }),
@@ -539,43 +538,6 @@ alias(
     actual = "@maven//:javax_inject_javax_inject",
 )
 
-UNNECESSARY_DYNAMIC_LIBRARIES = select({
-    "//src/conditions:windows": "*.so *.jnilib",
-    "//src/conditions:darwin": "*.so *.dll *.pyd",
-    "//src/conditions:linux_x86_64": "*.jnilib *.dll *.pyd",
-    "//src/conditions:linux_s390x": "*.jnilib *.dll *.pyd",
-    # The .so file is an x86/s390x one, so we can just remove it if the CPU is not x86/s390x
-    "//src/conditions:arm": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:freebsd": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:openbsd": "*.so *.jnilib *.dll *.pyd",
-    # Default is to play it safe -- better have a big binary than a slow binary
-    #   The empty string means nothing is to be removed from the library;
-    #   the rule command tests for the empty string explictly to avoid
-    #   zip erroring when it finds nothing to remove.
-    "//conditions:default": "",
-})
-
-# Remove native libraries that are for a platform different from the one we are
-# building Bazel for.
-genrule(
-    name = "filter_netty_dynamic_libs",
-    srcs = select({
-        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_tcnative_boringssl_static_osx_aarch_64_file"],
-        "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_tcnative_boringssl_static_osx_x86_64_file"],
-        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_tcnative_boringssl_static_linux_aarch_64_file"],
-        "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_tcnative_boringssl_static_linux_x86_64_file"],
-        "//src/conditions:windows": ["@maven//:io_netty_netty_tcnative_boringssl_static_windows_x86_64_file"],
-        "//conditions:default": [],
-    }),
-    outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
-    cmd = "cp $< $@ && " +
-          # Make sure we can write the output file, even if the input isn't writable.
-          "chmod +w $@ && " +
-          "zip -qd $@ */license/* " + UNNECESSARY_DYNAMIC_LIBRARIES,
-)
-
 distrib_java_import(
     name = "netty",
     enable_distributions = ["debian"],
@@ -605,21 +567,6 @@ distrib_java_import(
     }) + select({
         "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_transport_native_epoll_linux_aarch_64_file"],
         "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_transport_native_epoll_linux_x86_64_file"],
-        "//conditions:default": [],
-    }),
-)
-
-distrib_java_import(
-    name = "netty_tcnative",
-    enable_distributions = ["debian"],
-    jars = [
-        "@maven//:io_netty_netty_tcnative_classes_file",
-    ] + select({
-        "//src/conditions:darwin_arm64": [":netty_tcnative/netty-tcnative-filtered.jar"],
-        "//src/conditions:darwin_x86_64": [":netty_tcnative/netty-tcnative-filtered.jar"],
-        "//src/conditions:linux_aarch64": [":netty_tcnative/netty-tcnative-filtered.jar"],
-        "//src/conditions:linux_x86_64": [":netty_tcnative/netty-tcnative-filtered.jar"],
-        "//src/conditions:windows": [":netty_tcnative/netty-tcnative-filtered.jar"],
         "//conditions:default": [],
     }),
 )

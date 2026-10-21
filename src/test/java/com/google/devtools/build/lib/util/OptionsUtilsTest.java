@@ -213,4 +213,24 @@ public class OptionsUtilsTest {
 
     assertThat(e).hasMessageThat().isEqualTo("Not an absolute path: 'relative/path'");
   }
+
+  @Test
+  public void workspacePathFragmentConverter() throws Exception {
+    OptionsUtils.WorkspacePathFragmentConverter converter =
+        new OptionsUtils.WorkspacePathFragmentConverter();
+
+    assertThat(converter.convert("relative/path")).isEqualTo(PathFragment.create("relative/path"));
+
+    OptionsParsingException absoluteException =
+        assertThrows(OptionsParsingException.class, () -> converter.convert("/absolute/path"));
+    assertThat(absoluteException)
+        .hasMessageThat()
+        .isEqualTo("Expected relative path but got '/absolute/path'.");
+
+    OptionsParsingException uplevelException =
+        assertThrows(OptionsParsingException.class, () -> converter.convert("../uplevel/path"));
+    assertThat(uplevelException)
+        .hasMessageThat()
+        .isEqualTo("Expected path without uplevel references ('..') but got '../uplevel/path'.");
+  }
 }

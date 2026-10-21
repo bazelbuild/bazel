@@ -80,6 +80,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
 
   @Before
   public void createBasePkg() throws IOException {
+    targetName = "bin";
     scratch.overwriteFile(
         "base/BUILD",
         """

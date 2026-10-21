@@ -2085,7 +2085,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Path workspaceDir = workspace.getWorkspace();
     if (symlinkPrefix != null && workspaceDir != null) {
       OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
-          ruleClassProvider.getSymlinkDefinitions(),
           workspaceDir,
           event -> logger.atWarning().log("%s", event.getMessage()),
           symlinkPrefix);

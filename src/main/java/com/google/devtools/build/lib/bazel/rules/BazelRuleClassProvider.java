@@ -92,7 +92,7 @@ public class BazelRuleClassProvider {
   @VisibleForTesting
   public static final ImmutableMap<OS, PathFragment> SHELL_EXECUTABLES =
       ImmutableMap.<OS, PathFragment>builder()
-          .put(OS.WINDOWS, PathFragment.create("c:/msys64/usr/bin/bash.exe"))
+          .put(OS.WINDOWS, PathFragment.create("C:/msys64/usr/bin/bash.exe"))
           .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
           .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
           .put(OS.LINUX, PathFragment.create("/bin/bash"))

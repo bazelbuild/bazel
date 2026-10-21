@@ -1,4 +1,4 @@
-// Copyright 2020 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,25 +18,27 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 
-/**
- * Info item for the default package. It is deprecated, it still works, when explicitly requested,
- * but are not shown by default. It prints multi-line messages and thus don't play well with grep.
- * We don't print them unless explicitly requested.
- */
-// TODO(lberki): Try to remove this using an incompatible flag.
-@Deprecated
-public final class DefaultsPackageInfoItem extends InfoItem {
-  public DefaultsPackageInfoItem() {
-    super("defaults-package", "Obsolete. Retained for backwards compatibility.", true);
+/** Info item for the external_directory, under which external repositories are fetched. */
+public final class ExternalDirectoryInfoItem extends InfoItem {
+  public ExternalDirectoryInfoItem() {
+    super(
+        "external_directory",
+        "The directory under which external repositories are fetched, one subdirectory per"
+            + " canonical repository name.",
+        false);
   }
 
   @Override
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     checkNotNull(env);
-    return print("");
+    return print(
+        env.getDirectories()
+            .getOutputBase()
+            .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
   }
 }

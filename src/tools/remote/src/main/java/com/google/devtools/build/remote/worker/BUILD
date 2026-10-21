@@ -28,9 +28,6 @@ java_library(
     ],
     resources = ["//src/main/tools:linux-sandbox"],
     visibility = ["//src/tools/remote:__subpackages__"],
-    runtime_deps = [
-        "//third_party/java/netty_tcnative",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",

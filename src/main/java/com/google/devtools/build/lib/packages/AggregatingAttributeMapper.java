@@ -73,12 +73,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    */
   @Override
   public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
-    Type.LabelVisitor visitor =
-        (label, attribute) -> {
-          if (label != null) {
-            consumer.accept(attribute, label);
-          }
-        };
+    Type.LabelVisitor visitor = (label, attribute) -> consumer.accept(attribute, label);
     visitLabels(filter, visitor);
   }
 
@@ -202,7 +197,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
             }
             if (includeValues) {
               T value = selector.isValueSet(key) ? val : type.cast(attribute.getDefaultValue(rule));
-              type.visitLabels(visitor, value, attribute);
+              if (value != null) {
+                type.visitLabels(visitor, value, attribute);
+              }
             }
           }
         };

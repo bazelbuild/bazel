@@ -712,6 +712,7 @@ message InfoCommand {
     KEY_NOT_RECOGNIZED = 2 [(metadata) = { exit_code: 2 }];
     INFO_BLOCK_WRITE_FAILURE = 3 [(metadata) = { exit_code: 7 }];
     ALL_INFO_WRITE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+    KEY_NOT_SUPPORTED_OUTSIDE_WORKSPACE = 5 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

@@ -156,6 +156,28 @@ public final class BlazeOptionHandler {
    * was called from the output directory and fail if it was.
    */
   private DetailedExitCode checkCwdInWorkspace(EventHandler eventHandler) {
+    if (workspace.getDirectories().inWorkspace()) {
+      Path workspacePath = workspace.getWorkspace();
+      if (workspacePath != null && workspacePath.getParentDirectory() != null) {
+        Path doNotBuild =
+            workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
+
+        boolean doNotBuildExists;
+        try {
+          doNotBuildExists = doNotBuild.exists();
+        } catch (IOException e) {
+          // TODO(tjgq): Propagate this error.
+          doNotBuildExists = false;
+        }
+
+        if (doNotBuildExists) {
+          String message = getNotInRealWorkspaceError(doNotBuild);
+          eventHandler.handle(Event.error(message));
+          return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);
+        }
+      }
+    }
+
     if (!commandAnnotation.mustRunInWorkspace()) {
       return DetailedExitCode.success();
     }
@@ -172,25 +194,6 @@ public final class BlazeOptionHandler {
       return createDetailedExitCode(message, Code.NOT_IN_WORKSPACE);
     }
 
-    Path workspacePath = workspace.getWorkspace();
-    if (workspacePath.getParentDirectory() != null) {
-      Path doNotBuild =
-          workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
-
-      boolean doNotBuildExists;
-      try {
-        doNotBuildExists = doNotBuild.exists();
-      } catch (IOException e) {
-        // TODO(tjgq): Propagate this error.
-        doNotBuildExists = false;
-      }
-
-      if (doNotBuildExists) {
-        String message = getNotInRealWorkspaceError(doNotBuild);
-        eventHandler.handle(Event.error(message));
-        return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);
-      }
-    }
     return DetailedExitCode.success();
   }
 

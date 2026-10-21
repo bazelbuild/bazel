@@ -34,6 +34,19 @@ public class JavaUtilTest {
                 .getPathString())
         .isEqualTo("com/google/foo/FooModule.java");
     assertThat(JavaUtil.getJavaPath(PathFragment.create("org/foo/FooUtil.java"))).isNull();
+    assertThat(
+            JavaUtil.getJavaPath(PathFragment.create("src/main/java/com/google/foo/FooModule.java"))
+                .getPathString())
+        .isEqualTo("com/google/foo/FooModule.java");
+    assertThat(
+            JavaUtil.getJavaPath(
+                    PathFragment.create("src/workspace/src/main/java/foo/FooModule.java"))
+                .getPathString())
+        .isEqualTo("foo/FooModule.java");
+    assertThat(
+            JavaUtil.getJavaPath(PathFragment.create("java/foo/src/com/google/foo/FooModule.java"))
+                .getPathString())
+        .isEqualTo("com/google/foo/FooModule.java");
   }
 
   @Test

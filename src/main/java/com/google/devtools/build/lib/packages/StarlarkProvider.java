@@ -559,7 +559,7 @@ public final class StarlarkProvider extends StarlarkType
 
   @Override
   public int hashCode() {
-    return keyOrIdentityToken.hashCode();
+    return keyOrIdentityToken instanceof Key k ? k.hashCode() : keyOrIdentityToken.hashCode();
   }
 
   @Override
@@ -647,10 +647,15 @@ public final class StarlarkProvider extends StarlarkType
   public static final class Key extends Provider.Key {
     private final BzlLoadValue.Key key;
     private final String exportedName;
+    // Marked transient because BzlLoadValue.Key.hashCode() incorporates getClass().hashCode(),
+    // which is non-deterministic across JVM instances, and DynamicCodec serializes non-transient
+    // fields. Recomputed lazily if 0 (e.g., after DynamicCodec unsafe allocation).
+    private transient int hashCode;
 
     public Key(BzlLoadValue.Key key, String exportedName) {
       this.key = checkNotNull(key);
       this.exportedName = checkNotNull(exportedName);
+      this.hashCode = hashObjects(key, exportedName);
     }
 
     public Label getExtensionLabel() {
@@ -667,7 +672,13 @@ public final class StarlarkProvider extends StarlarkType
 
     @Override
     public int hashCode() {
-      return hashObjects(key, exportedName);
+      int h = hashCode;
+      if (h == 0) {
+        // Recomputes if the hash happens to be 0 (or after deserialization), like String.hashCode.
+        h = hashObjects(key, exportedName);
+        hashCode = h;
+      }
+      return h;
     }
 
     @Override
@@ -679,7 +690,9 @@ public final class StarlarkProvider extends StarlarkType
       if (!(obj instanceof Key other)) {
         return false;
       }
-      return Objects.equals(this.key, other.key)
+      // Fast-reject unequal keys (e.g. different providers from the same .bzl file).
+      return this.hashCode() == other.hashCode()
+          && Objects.equals(this.key, other.key)
           && Objects.equals(this.exportedName, other.exportedName);
     }
 
@@ -799,7 +812,7 @@ public final class StarlarkProvider extends StarlarkType
 
     @Override
     public int hashCode() {
-      return Objects.hash(ProviderType.class, provider);
+      return hashObjects(ProviderType.class, provider);
     }
 
     @Override

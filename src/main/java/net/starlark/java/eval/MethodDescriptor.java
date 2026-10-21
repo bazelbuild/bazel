@@ -582,23 +582,30 @@ final class MethodDescriptor {
       return;
     }
 
-    // TODO(b/407506132): A method enabled by a non-experimental flag should not be marked as
-    //  experimental
     if (!thread
         .getSemantics()
         .isFeatureEnabledBasedOnTogglingFlags(
             conditionalCheck.enableOnlyWithFlag(), conditionalCheck.disableWithFlag())) {
       if (!conditionalCheck.enableOnlyWithFlag().isEmpty()) {
+        String flagName = conditionalCheck.enableOnlyWithFlag().substring(1); // remove [+-] prefix
         throw Starlark.errorf(
-            "function %s() is experimental and thus unavailable with the current flags. It may be"
-                + " enabled by setting --%s",
-            name, conditionalCheck.enableOnlyWithFlag().substring(1)); // remove [+-] prefix
+            "function %s() is %s. It may be enabled by setting --%s",
+            name,
+            flagName.startsWith("experimental_")
+                ? "experimental and thus unavailable with the current flags"
+                : "unavailable with the current flags",
+            flagName);
       }
       if (!conditionalCheck.disableWithFlag().isEmpty()) {
+        String flagName = conditionalCheck.disableWithFlag().substring(1); // remove [+-] prefix
         throw Starlark.errorf(
-            "function %s() is deprecated and will be removed soon. It may be temporarily re-enabled"
-                + " by setting --%s",
-            name, conditionalCheck.disableWithFlag().substring(1)); // remove [+-] prefix
+            "function %s() is %s. It may be %s by setting --%s=false",
+            name,
+            flagName.startsWith("incompatible_")
+                ? "deprecated and will be removed soon"
+                : "unavailable with the current flags",
+            flagName.startsWith("incompatible_") ? "temporarily re-enabled" : "enabled",
+            flagName);
       }
     }
   }

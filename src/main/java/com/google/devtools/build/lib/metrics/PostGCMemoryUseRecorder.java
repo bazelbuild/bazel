@@ -347,8 +347,10 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
           documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
           effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
           help =
-              "If true calls System.gc() after a build that did not run any full GC in an attempt"
-                  + " to ensure that the peak post-GC heap metric is populated.")
+              """
+              If true calls `System.gc()` after a build that did not run any full GC in an attempt
+              to ensure that the peak post-GC heap metric is populated.
+              """)
       public abstract boolean getForceGcAfterBuild();
 
       @Option(
@@ -357,8 +359,10 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
           documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
           effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
           help =
-              "If true calls System.gc() before discarding the analysis cache in an attempt to"
-                  + " ensure that the peak post-GC heap metric captures the true peak.")
+              """
+              If true calls `System.gc()` before discarding the analysis cache in an attempt to
+              ensure that the peak post-GC heap metric captures the true peak.
+              """)
       public abstract boolean getForceGcBeforeDiscardAnalysisCache();
     }
 

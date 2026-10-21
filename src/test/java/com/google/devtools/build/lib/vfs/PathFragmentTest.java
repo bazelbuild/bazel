@@ -206,6 +206,9 @@ public final class PathFragmentTest {
   public void testEmptyPathToEmptyPath() {
     assertThat(create("/").getPathString()).isEqualTo("/");
     assertThat(create("").getPathString()).isEqualTo("");
+    assertThat(create(".")).isSameInstanceAs(EMPTY_FRAGMENT);
+    assertThat(create("a/..")).isSameInstanceAs(EMPTY_FRAGMENT);
+    assertThat(create("/").toRelative()).isSameInstanceAs(EMPTY_FRAGMENT);
   }
 
   @Test
@@ -358,23 +361,25 @@ public final class PathFragmentTest {
 
   @Test
   public void testSubFragment() {
-    assertThat(create("/foo/bar/baz").subFragment(0, 3).getPathString()).isEqualTo("/foo/bar/baz");
-    assertThat(create("foo/bar/baz").subFragment(0, 3).getPathString()).isEqualTo("foo/bar/baz");
+    PathFragment absFooBarBaz = create("/foo/bar/baz");
+    PathFragment relFooBarBaz = create("foo/bar/baz");
+    assertThat(absFooBarBaz.subFragment(0, 3)).isSameInstanceAs(absFooBarBaz);
+    assertThat(relFooBarBaz.subFragment(0, 3)).isSameInstanceAs(relFooBarBaz);
+    assertThat(absFooBarBaz.subFragment(0)).isSameInstanceAs(absFooBarBaz);
+    assertThat(relFooBarBaz.subFragment(0)).isSameInstanceAs(relFooBarBaz);
     assertThat(create("/foo/bar/baz").subFragment(0, 2).getPathString()).isEqualTo("/foo/bar");
     assertThat(create("/foo/bar/baz").subFragment(1, 3).getPathString()).isEqualTo("bar/baz");
     assertThat(create("/foo/bar/baz").subFragment(0, 1).getPathString()).isEqualTo("/foo");
     assertThat(create("/foo/bar/baz").subFragment(1, 2).getPathString()).isEqualTo("bar");
     assertThat(create("/foo/bar/baz").subFragment(2, 3).getPathString()).isEqualTo("baz");
     assertThat(create("/foo/bar/baz").subFragment(0, 0).getPathString()).isEqualTo("/");
-    assertThat(create("foo/bar/baz").subFragment(0, 0).getPathString()).isEqualTo("");
-    assertThat(create("foo/bar/baz").subFragment(1, 1).getPathString()).isEqualTo("");
+    assertThat(create("foo/bar/baz").subFragment(0, 0)).isSameInstanceAs(EMPTY_FRAGMENT);
+    assertThat(create("foo/bar/baz").subFragment(1, 1)).isSameInstanceAs(EMPTY_FRAGMENT);
 
-    assertThat(create("/foo/bar/baz").subFragment(0).getPathString()).isEqualTo("/foo/bar/baz");
-    assertThat(create("foo/bar/baz").subFragment(0).getPathString()).isEqualTo("foo/bar/baz");
     assertThat(create("/foo/bar/baz").subFragment(1).getPathString()).isEqualTo("bar/baz");
     assertThat(create("foo/bar/baz").subFragment(1).getPathString()).isEqualTo("bar/baz");
     assertThat(create("foo/bar/baz").subFragment(2).getPathString()).isEqualTo("baz");
-    assertThat(create("foo/bar/baz").subFragment(3).getPathString()).isEqualTo("");
+    assertThat(create("foo/bar/baz").subFragment(3)).isSameInstanceAs(EMPTY_FRAGMENT);
 
     assertThrows(IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(3, 2));
     assertThrows(IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(4, 4));
@@ -745,7 +750,7 @@ public final class PathFragmentTest {
     assertThat(create("a/../..")).isEqualTo(create(".."));
     assertThat(create("a/../b")).isEqualTo(create("b"));
     assertThat(create("a/b/../b")).isEqualTo(create("a/b"));
-    assertThat(create("/..")).isEqualTo(create("/.."));
+    assertThat(create("/..")).isEqualTo(create("/"));
     assertThat(create("..")).isEqualTo(create(".."));
   }
 

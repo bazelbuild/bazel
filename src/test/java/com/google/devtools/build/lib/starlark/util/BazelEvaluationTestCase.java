@@ -169,7 +169,6 @@ public final class BazelEvaluationTestCase {
             label,
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
-            /* networkAllowlistForTests= */ Optional.empty(),
             noExplicitMnemonicAllowlist,
             fragmentNameToClass,
             /* mainRepoMapping= */ null)

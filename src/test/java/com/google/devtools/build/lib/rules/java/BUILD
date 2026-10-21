@@ -51,8 +51,6 @@ java_library(
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
-        "//third_party/java/protobuf",
-        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -232,25 +230,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party/java/guava:collect",
-        "//third_party/java/junit",
-        "//third_party/java/truth",
-    ],
-)
-
-java_test(
-    name = "JavaInfoCodecTest",
-    srcs = ["JavaInfoCodecTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/rules/java:java-info",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/truth",

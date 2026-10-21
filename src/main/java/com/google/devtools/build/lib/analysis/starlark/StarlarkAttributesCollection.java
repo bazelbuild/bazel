@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.platform.ExecGroupCollecti
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -177,8 +177,10 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
   }
 
   public static Builder builder(
-      StarlarkRuleContext ruleContext, PrerequisitesCollection prerequisitesCollection) {
-    return new Builder(ruleContext, prerequisitesCollection);
+      StarlarkRuleContext ruleContext,
+      PrerequisitesCollection prerequisitesCollection,
+      int expectedAttributeCount) {
+    return new Builder(ruleContext, prerequisitesCollection, expectedAttributeCount);
   }
 
   /** A builder for {@link StarlarkAttributesCollection}. */
@@ -186,19 +188,24 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
     private final StarlarkRuleContext context;
     private final PrerequisitesCollection prerequisites;
 
-    private final LinkedHashMap<String, Object> attrBuilder = new LinkedHashMap<>();
-    private final LinkedHashMap<String, Object> executableBuilder = new LinkedHashMap<>();
+    // The field maps are only used to create structs, which store their fields sorted by name, so
+    // insertion order doesn't matter.
+    private final HashMap<String, Object> attrBuilder;
+    private final HashMap<String, Object> executableBuilder = new HashMap<>();
     private final ImmutableMap.Builder<Artifact, FilesToRunProvider> executableRunfilesbuilder =
         ImmutableMap.builder();
-    private final LinkedHashMap<String, Object> fileBuilder = new LinkedHashMap<>();
-    private final LinkedHashMap<String, Object> filesBuilder = new LinkedHashMap<>();
+    private final HashMap<String, Object> fileBuilder = new HashMap<>();
+    private final HashMap<String, Object> filesBuilder = new HashMap<>();
     private final HashSet<Artifact> seenExecutables = new HashSet<>();
     private final Dict.Builder<String, String> ruleVariablesBuilder = new Dict.Builder<>();
 
     private Builder(
-        StarlarkRuleContext ruleContext, PrerequisitesCollection prerequisitesCollection) {
+        StarlarkRuleContext ruleContext,
+        PrerequisitesCollection prerequisitesCollection,
+        int expectedAttributeCount) {
       this.context = ruleContext;
       this.prerequisites = prerequisitesCollection;
+      this.attrBuilder = Maps.newHashMapWithExpectedSize(expectedAttributeCount);
     }
 
     private static Map<Label, TransitiveInfoCollection> buildPrequisiteMap(
@@ -346,30 +353,30 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
         return maybeVal;
       }
 
+      return convertDependencyAttributeValue(prerequisiteSupplier.get(), a, val);
+    }
+
+    private static Object convertDependencyAttributeValue(
+        List<? extends TransitiveInfoCollection> prerequisites, Attribute a, Object val) {
       Type<?> type = a.getType();
 
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
-        List<? extends TransitiveInfoCollection> prerequisites = prerequisiteSupplier.get();
         return prerequisites.isEmpty() ? Starlark.NONE : prerequisites.get(0);
       } else if (type == BuildType.LABEL_LIST
           || (type == BuildType.LABEL && a.getTransitionFactory().isSplit())) {
-        List<?> allPrereq = prerequisiteSupplier.get();
-        return StarlarkList.immutableCopyOf(allPrereq);
+        return StarlarkList.immutableCopyOf(prerequisites);
       } else if (type == BuildType.LABEL_DICT_UNARY) {
-        return convertStringToLabelMap(
-            BuildType.LABEL_DICT_UNARY.cast(val), prerequisiteSupplier.get());
+        return convertStringToLabelMap(BuildType.LABEL_DICT_UNARY.cast(val), prerequisites);
       } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
         Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
         ImmutableMap.Builder<TransitiveInfoCollection, String> builder =
             ImmutableMap.builderWithExpectedSize(original.size());
-        List<? extends TransitiveInfoCollection> allPrereq = prerequisiteSupplier.get();
-        for (TransitiveInfoCollection prereq : allPrereq) {
+        for (TransitiveInfoCollection prereq : prerequisites) {
           builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
         return Dict.immutableCopyOf(builder.buildOrThrow());
       } else if (type == BuildType.LABEL_LIST_DICT) {
-        return convertStringToLabelListMap(
-            BuildType.LABEL_LIST_DICT.cast(val), prerequisiteSupplier.get());
+        return convertStringToLabelListMap(BuildType.LABEL_LIST_DICT.cast(val), prerequisites);
       } else {
         throw new IllegalArgumentException(
             "Can't transform attribute "
@@ -389,10 +396,16 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
         return;
       }
 
-      Object starlarkVal =
-          convertAttributeValue(() -> prerequisites.getPrerequisites(a.getName()), a, val);
-      if (starlarkVal == null) {
+      if (shouldIgnore(a)) {
         return;
+      }
+
+      // Look up the prerequisites at most once and share them between ctx.attr and ctx.files.
+      List<? extends TransitiveInfoCollection> attrPrerequisites = null;
+      Object starlarkVal = maybeDirectVal(a, val);
+      if (starlarkVal == null) {
+        attrPrerequisites = prerequisites.getPrerequisites(a.getName());
+        starlarkVal = convertDependencyAttributeValue(attrPrerequisites, a, val);
       }
 
       attrBuilder.put(skyname, starlarkVal);
@@ -400,7 +413,10 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
         return;
       }
 
-      NestedSet<Artifact> files = PrerequisiteArtifacts.nestedSet(prerequisites, a.getName());
+      if (attrPrerequisites == null) {
+        attrPrerequisites = prerequisites.getPrerequisites(a.getName());
+      }
+      NestedSet<Artifact> files = PrerequisiteArtifacts.nestedSet(attrPrerequisites);
       filesBuilder.put(
           skyname,
           files.isEmpty()
