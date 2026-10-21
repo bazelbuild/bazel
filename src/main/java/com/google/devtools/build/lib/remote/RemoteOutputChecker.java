@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -62,7 +63,7 @@ public class RemoteOutputChecker implements OutputChecker {
 
   private final CommandMode commandMode;
   private final RemoteOutputsMode outputsMode;
-  @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
+  @Nullable private RemoteOutputChecker lastRemoteOutputChecker;
 
   @Nullable private Clock clock;
 
@@ -93,6 +94,17 @@ public class RemoteOutputChecker implements OutputChecker {
     this.outputsMode = outputsMode;
     this.patternsToDownload = patternsToDownload;
     this.lastRemoteOutputChecker = lastRemoteOutputChecker;
+  }
+
+  @VisibleForTesting
+  @Nullable
+  RemoteOutputChecker getLastRemoteOutputChecker() {
+    return lastRemoteOutputChecker;
+  }
+
+  void clearPreviousCommand() {
+    // Retain only this command's policy for the next command.
+    lastRemoteOutputChecker = null;
   }
 
   /** Sets this checker to check the TTL of remote metadata when deciding whether to trust it. */
