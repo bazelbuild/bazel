@@ -80,6 +80,23 @@ public interface StarlarkTemplateContextApi extends StarlarkValue {
   CommandLineArgsApi args(StarlarkThread thread);
 
   @StarlarkMethod(
+      name = "write",
+      doc =
+          "Creates an action that writes a string to a file without running an executable."
+              + " The output must be declared with <code>template_ctx.declare_file()</code>"
+              + " in the same implementation call.",
+      parameters = {
+        @Param(name = "output", named = true, doc = "The file to write."),
+        @Param(name = "content", named = true, doc = "The contents of the file."),
+        @Param(
+            name = "is_executable",
+            named = true,
+            defaultValue = "False",
+            doc = "Whether the output file should be executable.")
+      })
+  void write(FileApi output, String content, boolean isExecutable) throws EvalException;
+
+  @StarlarkMethod(
       name = "run",
       doc = "Creates an action that runs an executable.",
       parameters = {

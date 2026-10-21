@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
@@ -214,6 +216,143 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
         """);
     write("test/data.txt", "some data");
     write("test/data2.txt", "other data");
+  }
+
+  @Test
+  public void writeMatchesOrdinaryFileWrite(
+      @TestParameter({"''", "'text'", "'\\000éλ😀\\r\\n'", "'large' * 8192"}) String content,
+      @TestParameter boolean executable)
+      throws Exception {
+    writeFileWriteRule(content, executable);
+    buildTarget("//test:target");
+
+    SpecialArtifact tree = assertTreeBuilt("test/target_output_dir");
+    TreeFileArtifact child = getTreeFileArtifact(tree, "nested/metadata", 0);
+    FileWriteAction expanded = (FileWriteAction) getGeneratingAction(child);
+    Artifact ordinaryOutput =
+        getArtifacts("//test:target").stream()
+            .filter(a -> a.getFilename().equals("ordinary"))
+            .findFirst()
+            .orElseThrow();
+    FileWriteAction ordinary = (FileWriteAction) getGeneratingAction(ordinaryOutput);
+    Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
+    byte[] expected =
+        FileSystemUtils.readContent(execRoot.getRelative(ordinaryOutput.getExecPath()));
+    Path output = execRoot.getRelative(child.getExecPath());
+    assertThat(FileSystemUtils.readContent(output)).isEqualTo(expected);
+    assertThat(
+            FileSystemUtils.readContent(execRoot.getRelative(tree.getExecPath().getChild("copy"))))
+        .isEqualTo(expected);
+    assertThat(output.isExecutable())
+        .isEqualTo(execRoot.getRelative(ordinaryOutput.getExecPath()).isExecutable());
+    assertThat(expanded.makeExecutable()).isEqualTo(executable);
+    assertThat(expanded.getInputs().toList()).isEmpty();
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    assertThat(expanded.getKey(actionKeyContext, null))
+        .isEqualTo(ordinary.getKey(actionKeyContext, null));
+  }
+
+  @Test
+  public void writeUpdatesAfterContentOrExecutableChanges(@TestParameter boolean changeExecutable)
+      throws Exception {
+    writeFileWriteRule("'before'", false);
+    buildTarget("//test:target");
+    SpecialArtifact tree = assertTreeBuilt("test/target_output_dir");
+    Path output =
+        directories
+            .getExecRoot(TestConstants.WORKSPACE_NAME)
+            .getRelative(tree.getExecPath().getRelative("nested/metadata"));
+    assertThat(new String(FileSystemUtils.readContentAsLatin1(output))).isEqualTo("before");
+    FileWriteAction before =
+        (FileWriteAction) getGeneratingAction(getTreeFileArtifact(tree, "nested/metadata", 0));
+    assertThat(before.makeExecutable()).isFalse();
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    String beforeKey = before.getKey(actionKeyContext, null);
+
+    writeFileWriteRule(changeExecutable ? "'before'" : "'after'", changeExecutable);
+    buildTarget("//test:target");
+    assertThat(new String(FileSystemUtils.readContentAsLatin1(output)))
+        .isEqualTo(changeExecutable ? "before" : "after");
+    FileWriteAction after =
+        (FileWriteAction)
+            getGeneratingAction(
+                getTreeFileArtifact(
+                    assertTreeBuilt("test/target_output_dir"), "nested/metadata", 0));
+    assertThat(after.makeExecutable()).isEqualTo(changeExecutable);
+    assertThat(after.getKey(actionKeyContext, null)).isNotEqualTo(beforeKey);
+  }
+
+  private void writeFileWriteRule(String content, boolean executable) throws Exception {
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir")
+
+        def write_impl(template_ctx, output_directories, additional_params, tools, **kwargs):
+            directory = output_directories["output"]
+            output = template_ctx.declare_file("nested/metadata", directory = directory)
+            template_ctx.write(output, additional_params["content"], additional_params["executable"])
+            copy = template_ctx.declare_file("copy", directory = directory)
+            template_ctx.run(
+                inputs = [output],
+                outputs = [copy],
+                executable = tools["cat"],
+                arguments = [copy.path, output.path],
+            )
+
+        def rule_impl(ctx):
+            content = %s
+            executable = %s
+            ordinary = ctx.actions.declare_file("ordinary")
+            ctx.actions.write(ordinary, content, executable)
+            output = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = write_impl,
+                input_directories = {"input": create_seed_dir(ctx, "input", 1, 1)},
+                output_directories = {"output": output},
+                tools = {"cat": ctx.attr.cat_tool.files_to_run},
+                additional_params = {"content": content, "executable": executable},
+            )
+            return [DefaultInfo(files = depset([output, ordinary]))]
+        """
+            .formatted(content, executable ? "True" : "False"));
+  }
+
+  @Test
+  public void writeRejectsOutputsNotDeclaredByCallback(
+      @TestParameter({"output_dir", "input_dir.children[0]", "additional_inputs['file']", "subdir"})
+          String output)
+      throws Exception {
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir")
+
+        def write_impl(template_ctx, input_directories, output_directories, additional_inputs, **kwargs):
+            output_dir = output_directories["output"]
+            input_dir = input_directories["input"]
+            subdir = template_ctx.declare_subdirectory("subdir", directory = output_dir)
+            template_ctx.write(output = %s, content = "metadata")
+
+        def rule_impl(ctx):
+            output = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = write_impl,
+                input_directories = {"input": create_seed_dir(ctx, "input", 1, 1)},
+                output_directories = {"output": output},
+                additional_inputs = {"file": ctx.file.data},
+                tools = {},
+            )
+            return [DefaultInfo(files = depset([output]))]
+        """
+            .formatted(output));
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .contains(
+            "template_ctx.write() output must be a file declared by template_ctx.declare_file()"
+                + " in the same implementation call");
   }
 
   @Test

@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.actions.Compression;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -149,6 +151,19 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
       }
     }
     actions.add(action);
+  }
+
+  @Override
+  public void write(FileApi output, String content, boolean isExecutable) throws EvalException {
+    if (!(output instanceof TreeFileArtifact artifact)
+        || !artifact.getArtifactOwner().equals(artifactOwner)) {
+      throw Starlark.errorf(
+          "template_ctx.write() output must be a file declared by template_ctx.declare_file()"
+              + " in the same implementation call, got %s",
+          output);
+    }
+    registerAction(
+        FileWriteAction.create(actionOwner, artifact, content, isExecutable, Compression.ALLOW));
   }
 
   public void registerAction(AbstractAction action) {
