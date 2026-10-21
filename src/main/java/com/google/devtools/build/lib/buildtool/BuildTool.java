@@ -62,8 +62,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.StartingAqueryDumpAfte
 import com.google.devtools.build.lib.buildtool.buildevent.UpdateOptionsEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -94,7 +92,6 @@ import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Co
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
-import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
@@ -124,7 +121,6 @@ import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -382,7 +378,6 @@ public class BuildTool {
       var analysisDeps =
           RemoteAnalysisCacheFactory.create(
               env,
-              projectEvaluationResult.activeDirectoriesMatcher(),
               targetPatternPhaseValue.getTargetLabels(),
               BuildView.getTopLevelConfigurationTrimmedOfTestOptions(
                   buildOptions, env.getReporter()),
@@ -1341,32 +1336,6 @@ public class BuildTool {
   public void validateOptions(BuildRequest request) {
     for (String issue : request.validateOptions()) {
       getReporter().handle(Event.warn(issue));
-    }
-  }
-
-  /** Returns the project directories found in a project file. */
-  public static PathFragmentPrefixTrie getActiveDirectoriesMatcher(
-      Label projectFile, SkyframeExecutor skyframeExecutor, ExtendedEventHandler eventHandler)
-      throws InvalidConfigurationException {
-    ProjectValue.Key key = new ProjectValue.Key(projectFile);
-    EvaluationResult<SkyValue> result =
-        skyframeExecutor.evaluateSkyKeys(
-            eventHandler, ImmutableList.of(key), /* keepGoing= */ false);
-
-    if (result.hasError()) {
-      // InvalidConfigurationException is chosen for convenience, and it's distinguished from
-      // the other InvalidConfigurationException cases by Code.INVALID_PROJECT.
-      throw new InvalidConfigurationException(
-          "unexpected error reading project configuration: " + result.getError(),
-          Code.INVALID_PROJECT);
-    }
-
-    try {
-      return PathFragmentPrefixTrie.of(
-          ((ProjectValue) result.get(key)).getDefaultProjectDirectories());
-    } catch (PathFragmentPrefixTrieException e) {
-      throw new InvalidConfigurationException(
-          "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
     }
   }
 
