@@ -247,8 +247,11 @@ public class ConfigCommand implements BlazeCommand {
       findConfigurations(CommandEnvironment env) {
     MemoizingEvaluator evaluator =
         env.getRuntime().getWorkspace().getSkyframeExecutor().getEvaluator();
-    return evaluator.getDoneValues().entrySet().stream()
-        .filter(e -> SkyFunctions.BUILD_CONFIGURATION.equals(e.getKey().functionName()))
+    return evaluator
+        .getInMemoryGraph()
+        .collectDoneValues(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
+        .entrySet()
+        .stream()
         .collect(
             toImmutableSortedMap(
                 comparing(e -> e.getOptions().checksum()),
