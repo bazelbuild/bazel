@@ -272,7 +272,8 @@ public final class OutputPathMnemonicComputer {
       // Only use non-default platforms.
 
       if (!PlatformOptions.platformIsDefault(platform)) {
-        return platform.getName();
+        // Target names may contain slashes, but the mnemonic has to be a single path segment.
+        return platform.getName().replace('/', '_');
       }
       // Fall back to using the CPU.
       return options.cpu;
