@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.rewinding;
 
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 
@@ -40,21 +39,6 @@ public abstract sealed class ActionRewindException extends Exception implements 
           FailureDetail.newBuilder()
               .setMessage(getMessage())
               .setActionRewinding(ActionRewinding.newBuilder().setCode(code))
-              .build());
-    }
-  }
-
-  static final class FallbackToBuildRewindingException extends ActionRewindException {
-    FallbackToBuildRewindingException(String message) {
-      super(message);
-    }
-
-    @Override
-    public DetailedExitCode getDetailedExitCode() {
-      return DetailedExitCode.of(
-          FailureDetail.newBuilder()
-              .setMessage(getMessage())
-              .setSpawn(Spawn.newBuilder().setCode(Spawn.Code.REMOTE_CACHE_EVICTED))
               .build());
     }
   }

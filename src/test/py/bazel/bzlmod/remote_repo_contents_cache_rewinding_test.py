@@ -114,6 +114,50 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
+  def _loseRemoteFilesOfCachedRepoWithSubpackage(self):
+    self._setupRepoWithSubpackage()
+    self.RunBazel(['build', '@my_repo//:root'])
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.ClearRemoteCache()
+
+  def testLostRemoteFile_retryUsesNewInvocationId(self):
+    self._loseRemoteFilesOfCachedRepoWithSubpackage()
+
+    fixed_invocation_id = '91648f28-6081-4af7-9374-cdfd3cd36ef2'
+    _, _, stderr = self.RunBazel([
+        'build',
+        '--invocation_id=' + fixed_invocation_id,
+        '--build_event_text_file=bes.txt',
+        '@my_repo//sub:sub',
+    ])
+    stderr = '\n'.join(stderr)
+    self.assertIn(
+        'Found transient remote cache error, retrying the build...', stderr
+    )
+    invocation_ids = re.findall(r'Invocation ID: ([0-9a-f-]+)', stderr)
+    self.assertGreater(len(invocation_ids), 1)
+    self.assertEqual(invocation_ids[0], fixed_invocation_id)
+    self.assertLen(set(invocation_ids), len(invocation_ids))
+    with open(self.Path('bes.txt')) as f:
+      self.assertIn('uuid: "%s"' % invocation_ids[-1], f.read())
+
+  def testLostRemoteFile_retryPreservesGrpcLog(self):
+    self._loseRemoteFilesOfCachedRepoWithSubpackage()
+
+    _, _, stderr = self.RunBazel(
+        ['build', '--remote_grpc_log=grpc.log', '@my_repo//sub:sub']
+    )
+    self.assertIn(
+        'Found transient remote cache error, retrying the build...',
+        '\n'.join(stderr),
+    )
+    # Each retry renames the log of the previous attempt to grpc.log.<attempt>
+    # and writes its own log at the base path.
+    self.assertGreater(os.path.getsize(self.Path('grpc.log.1')), 0)
+    self.assertTrue(os.path.exists(self.Path('grpc.log')))
+
   def testLostRemoteFile_remoteExecutionUpload(self):
     # Regression test for a crash when a file in a remotely cached repo has
     # been evicted after the analysis phase and this is only noticed while
@@ -156,7 +200,6 @@ class RemoteRepoContentsCacheRewindingTest(
         '--remote_executor=grpc://localhost:' + str(self._worker_port),
         # Rewinding of lost repo files isn't supported yet.
         '--norewind_lost_inputs',
-        '--experimental_remote_cache_eviction_retries=1',
     ]
     self.RunBazel(args + ['--nobuild'])
     self.RunBazel(['clean', '--expunge'])
@@ -168,13 +211,11 @@ class RemoteRepoContentsCacheRewindingTest(
     # inputs of the action.
     self.DeleteCasEntry(b'hello')
     exit_code, _, stderr = self.RunBazel(args, allow_failure=True)
-    self.AssertExitCode(exit_code, 39, stderr)
-    stderr = '\n'.join(stderr)
-    self.assertIn(
-        'Found transient remote cache error, retrying the build...', stderr
-    )
+    self.AssertExitCode(exit_code, 1, stderr)
     self.assertRegex(
-        stderr, r'Lost inputs no longer available remotely: data.txt \(.*/5\)'
+        '\n'.join(stderr),
+        r'Unexpected lost inputs \(pass --rewind_lost_inputs to enable'
+        r' recovery\): .*data.txt',
     )
 
 

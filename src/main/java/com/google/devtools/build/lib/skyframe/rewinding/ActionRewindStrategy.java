@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
@@ -64,7 +63,6 @@ import com.google.devtools.build.lib.skyframe.TopLevelActionLookupKeyWrapper;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionDescription;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.LostInput;
-import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException.FallbackToBuildRewindingException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException.GenericActionRewindException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -160,7 +158,7 @@ public final class ActionRewindStrategy {
       Set<Artifact> builtArtifacts,
       Environment env)
       throws ActionRewindException, InterruptedException {
-    checkRewindingEnabled(lostOutputsByDigest, LostType.OUTPUT, env.getListener());
+    checkRewindingEnabled(lostOutputsByDigest, LostType.OUTPUT);
 
     ImmutableList<LostInputRecord> lostRecords = createLostInputRecords(lostOutputsByDigest);
 
@@ -236,7 +234,7 @@ public final class ActionRewindStrategy {
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
     ImmutableSetMultimap<String, ActionInput> lostInputsByDigest = e.getLostInputs();
-    checkRewindingEnabled(lostInputsByDigest, LostType.INPUT, env.getListener());
+    checkRewindingEnabled(lostInputsByDigest, LostType.INPUT);
 
     ImmutableList<LostInputRecord> lostInputRecords = createLostInputRecords(lostInputsByDigest);
 
@@ -305,32 +303,10 @@ public final class ActionRewindStrategy {
   }
 
   private void checkRewindingEnabled(
-      ImmutableSetMultimap<String, ActionInput> lostArtifacts,
-      LostType lostType,
-      ExtendedEventHandler listener)
+      ImmutableSetMultimap<String, ActionInput> lostArtifacts, LostType lostType)
       throws ActionRewindException {
     if (skyframeActionExecutor.rewindingEnabled()) {
-      // Action rewinding takes precedence over whole-invocation retries when both are enabled.
-      // Remote execution skips cache lookup for rewound actions without tracking lost digests.
-      // Other transient cache errors, including evicted repository files read during loading,
-      // can still trigger invocation retries in BlazeCommandDispatcher without passing here.
       return;
-    }
-    if (skyframeActionExecutor.invocationRetriesEnabled()) {
-      // Bazel's (but not Blaze's) remote implementation needs to learn about lost digests so that
-      // the retried invocation doesn't accept the same stale action result.
-      listener.post(new LostInputsEvent(lostArtifacts.keySet()));
-      // When action rewinding is disabled, recover by retrying the invocation in
-      // BlazeCommandDispatcher instead.
-      throw new FallbackToBuildRewindingException(
-          lostArtifacts.entries().stream()
-              .limit(MAX_LOST_INPUTS_RECORDED)
-              .map(lost -> "%s (%s)".formatted(prettyPrint(lost.getValue()), lost.getKey()))
-              .collect(
-                  joining(
-                      ", ",
-                      "Lost %s no longer available remotely: ".formatted(lostType.description),
-                      "")));
     }
     throw new GenericActionRewindException(
         "Unexpected lost %s (pass --rewind_lost_inputs to enable recovery): %s"

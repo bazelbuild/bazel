@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
-import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
@@ -48,7 +46,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import org.junit.ClassRule;
@@ -130,10 +127,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Override
   protected void enableActionRewinding() {
-    addOptions(
-        "--rewind_lost_inputs",
-        // Disable build rewinding.
-        "--experimental_remote_cache_eviction_retries=0");
+    addOptions("--rewind_lost_inputs");
   }
 
   @Override
@@ -458,55 +452,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void leaseExtension() throws Exception {
-    // The lease service is only used when action rewinding is disabled.
-    disableActionRewinding();
-    // Test that Bazel will extend the leases for remote output by sending FindMissingBlobs calls
-    // periodically to remote server. The test assumes remote server will set mtime of referenced
-    // blobs to `now`.
-    write(
-        "BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = [],",
-        "  outs = ['out/foo.txt'],",
-        "  cmd = 'echo -n foo > $@',",
-        ")",
-        "genrule(",
-        "  name = 'foobar',",
-        "  srcs = [':foo'],",
-        "  outs = ['out/foobar.txt'],",
-        // We need the action lasts more than --experimental_remote_cache_ttl so Bazel has the
-        // chance to extend the lease
-        "  cmd = 'sleep 2 && cat $(location :foo) > $@ && echo bar >> $@',",
-        ")");
-    addOptions("--experimental_remote_cache_ttl=1s", "--experimental_remote_cache_lease_extension");
-    var blobPath = getFileSystem().getPath(worker.getCasBlobPath("foo".getBytes(UTF_8)));
-    var mtimes = Sets.newConcurrentHashSet();
-    // Observe the mtime of the blob in background.
-    var thread =
-        new Thread(
-            () -> {
-              while (!Thread.currentThread().isInterrupted()) {
-                try {
-                  mtimes.add(blobPath.getLastModifiedTime());
-                } catch (IOException ignored) {
-                  // Intentionally ignored
-                }
-              }
-            });
-    thread.start();
-
-    buildTarget("//:foobar");
-    waitDownloads();
-
-    thread.interrupt();
-    thread.join();
-    // We should be able to observe more than 1 mtime if the server extends the lease.
-    assertThat(mtimes.size()).isGreaterThan(1);
-  }
-
-  @Test
   public void actionRewinding_lostInputWithStaleActionCacheEntry_recovers() throws Exception {
     // The unverified worker serves cached action results even if the blobs they reference are
     // missing from the CAS, emulating a remote cache without integrity checks. Rewinding must not
@@ -558,8 +503,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void actionRewinding_chainedLostInputsWithStaleActionCacheEntries_recovers(
-      @TestParameter boolean actionCacheIntegrityCheck, @TestParameter boolean invocationRetries)
-      throws Exception {
+      @TestParameter boolean actionCacheIntegrityCheck) throws Exception {
     // A rewound action that itself observes a lost input must rewind that input's producer too.
     // Each rewound action must skip its stale cache entry to avoid repeatedly losing the same
     // input.
@@ -569,8 +513,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     try (var ignored = chainWorker.start()) {
       addOptions("--remote_executor=grpc://localhost:" + chainWorker.getPort());
       enableActionRewinding();
-      // Action rewinding takes precedence, even if whole-invocation retries are also enabled.
-      addOptions("--experimental_remote_cache_eviction_retries=" + (invocationRetries ? 5 : 0));
       write(
           "a/BUILD",
           """
@@ -1070,8 +1012,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteFilesExpiredBetweenBuilds(@TestParameter boolean actionRewinding)
-      throws Exception {
+  public void remoteFilesExpiredBetweenBuilds() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -1116,17 +1057,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Act: Do an incremental build.
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    if (actionRewinding) {
-      // The expired input's generating action is rewound within the same build.
-      enableActionRewinding();
-    } else {
-      // The build fails with the exit code that, in a non-integration test setup, would retry
-      // the invocation automatically. Simulate the retry.
-      disableActionRewinding();
-      var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-      assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
-          .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
-    }
+    // The expired input's generating action is rewound within the same build.
+    enableActionRewinding();
 
     buildTarget("//a:bar");
     waitDownloads();
@@ -1195,8 +1127,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteTreeFilesExpiredBetweenBuilds(@TestParameter boolean actionRewinding)
-      throws Exception {
+  public void remoteTreeFilesExpiredBetweenBuilds() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
     writeOutputDirRule();
@@ -1242,17 +1173,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Act: Do an incremental build.
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    if (actionRewinding) {
-      // The expired input's generating action is rewound within the same build.
-      enableActionRewinding();
-    } else {
-      // The build fails with the exit code that, in a non-integration test setup, would retry
-      // the invocation automatically. Simulate the retry.
-      disableActionRewinding();
-      var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-      assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
-          .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
-    }
+    // The expired input's generating action is rewound within the same build.
+    enableActionRewinding();
 
     buildTarget("//a:bar");
     waitDownloads();

@@ -140,7 +140,6 @@ java_library(
         ":google_channel_connection_factory",
         ":grpc_cache_client",
         ":grpc_remote_executor",
-        ":lease_service",
         ":remote_action_context_provider",
         ":remote_action_input_fetcher",
         ":remote_download_idle_timeout_interceptor",
@@ -148,7 +147,6 @@ java_library(
         ":remote_external_overlay_file_system",
         ":remote_grpc_service_config",
         ":remote_important_output_handler",
-        ":remote_lease_extension",
         ":remote_output_checker",
         ":remote_output_service",
         ":remote_server_capabilities",
@@ -645,40 +643,6 @@ java_library(
 )
 
 java_library(
-    name = "remote_lease_extension",
-    srcs = ["RemoteLeaseExtension.java"],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib:build_lib",
-        "//src/tools/remote:__subpackages__",
-    ],
-    deps = [
-        ":combined_cache",
-        ":lease_service",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions/cache",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/remote/common",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party/java/flogger",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/guava:concurrent",
-        "//third_party/java/jsr305_annotations",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
-    ],
-)
-
-java_library(
     name = "byte_stream_build_event_artifact_uploader_factory",
     srcs = ["ByteStreamBuildEventArtifactUploaderFactory.java"],
     visibility = [
@@ -757,7 +721,6 @@ java_library(
         "//src/tools/remote:__subpackages__",
     ],
     deps = [
-        ":lease_service",
         ":remote_action_file_system",
         ":remote_action_input_fetcher",
         ":remote_output_checker",
@@ -767,7 +730,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:output_checker",
         "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -778,7 +740,6 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
-        "//third_party/java/guava:eventbus",
         "//third_party/java/jsr305_annotations",
     ],
 )
@@ -1139,22 +1100,6 @@ java_library(
 )
 
 java_library(
-    name = "lease_service",
-    srcs = ["LeaseService.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions/cache",
-        "//src/main/java/com/google/devtools/build/lib/remote/common:lost_inputs_event",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//third_party/java/guava:eventbus",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
     name = "scrubber",
     srcs = ["Scrubber.java"],
     deps = [
@@ -1280,7 +1225,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
-        "//src/main/java/com/google/devtools/build/lib/remote/common:lost_inputs_event",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util:bulk_transfers",

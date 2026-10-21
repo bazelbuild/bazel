@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
-import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -222,43 +221,6 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void testRemoveIf() throws IOException {
-    // Add 100 entries, 5 of which discover inputs, and do a full save.
-    for (int i = 0; i < 100; i++) {
-      putKey(Integer.toString(i), i % 20 == 0);
-    }
-    assertFullSave();
-
-    // Remove entries that discover inputs and flush the journal.
-    cache.removeIf(Entry::discoversInputs);
-    assertFullSave();
-
-    // Check that the entries that discover inputs are gone, and the rest are still there.
-    for (int i = 0; i < 100; i++) {
-      ActionCache.Entry entry = cache.get(Integer.toString(i));
-      if (i % 20 == 0) {
-        assertThat(entry).isNull();
-      } else {
-        assertThat(entry).isNotNull();
-      }
-    }
-
-    // Make sure we get the same result after deserializing into a new cache.
-    CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(
-            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
-    verify(eventHandler, never()).handle(any());
-    for (int i = 0; i < 100; i++) {
-      ActionCache.Entry entry = newerCache.get(Integer.toString(i));
-      if (i % 20 == 0) {
-        assertThat(entry).isNull();
-      } else {
-        assertThat(entry).isNotNull();
-      }
-    }
-  }
-
-  @Test
   public void testClear() throws IOException {
     // Add 100 entries and do a full save.
     for (int i = 0; i < 100; i++) {
@@ -290,8 +252,6 @@ public class CompactPersistentActionCacheTest {
     putKey("ghi");
     clock.advance(Duration.ofDays(100));
     putKey("jkl");
-    clock.advance(Duration.ofDays(100));
-    putKey("mno", /* discoversInputs= */ true);
 
     // Getting an entry should update its timestamp.
     clock.advance(Duration.ofDays(100));
@@ -305,18 +265,14 @@ public class CompactPersistentActionCacheTest {
     clock.advance(Duration.ofDays(100));
     cache.remove("ghi");
 
-    // Removing entries matching a predicate should not affect the timestamp of other entries.
-    clock.advance(Duration.ofDays(100));
-    cache.removeIf(Entry::discoversInputs);
-
     assertFullSave();
 
     assertThat(cache.getActionTimestampMap())
         .containsExactly(
             "abc",
-            EPOCH.plus(Duration.ofDays(600)),
+            EPOCH.plus(Duration.ofDays(500)),
             "def",
-            EPOCH.plus(Duration.ofDays(700)),
+            EPOCH.plus(Duration.ofDays(600)),
             "jkl",
             EPOCH.plus(Duration.ofDays(400)));
 
@@ -328,9 +284,9 @@ public class CompactPersistentActionCacheTest {
     assertThat(newerCache.getActionTimestampMap())
         .containsExactly(
             "abc",
-            EPOCH.plus(Duration.ofDays(600)),
+            EPOCH.plus(Duration.ofDays(500)),
             "def",
-            EPOCH.plus(Duration.ofDays(700)),
+            EPOCH.plus(Duration.ofDays(600)),
             "jkl",
             EPOCH.plus(Duration.ofDays(400)));
   }

@@ -385,7 +385,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
         "//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:rewinding_tests_helper",
         "//src/test/java/com/google/devtools/build/lib/testutil:action_event_recorder",

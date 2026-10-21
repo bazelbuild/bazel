@@ -79,10 +79,7 @@ public class RemoteCircuitBreakerRecoveryIntegrationTest extends BuildIntegratio
         "--remote_download_minimal",
         // Both tests recover a lost input via action rewinding: a failed prefetch (with
         // --remote_retries=0) is treated as a lost input, and rewinding re-runs the action.
-        "--rewind_lost_inputs",
-        // Disable build-level invocation retries (default 5) so recovery is exercised via action
-        // rewinding within one build, not by retrying the whole build with a fresh breaker.
-        "--experimental_remote_cache_eviction_retries=0");
+        "--rewind_lost_inputs");
   }
 
   @Override

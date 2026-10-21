@@ -290,8 +290,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
                     action, forceUploadInput.getAndSet(true));
               } catch (BulkTransferException e) {
                 // An input that is missing from the remote cache and not available locally can
-                // only be regenerated reliably by action rewinding or an invocation retry. Unwrap
-                // the LostInputsExecException, which is not classified as retryable.
+                // only be regenerated reliably by action rewinding. Unwrap the
+                // LostInputsExecException, which is not classified as retryable.
                 e.getLostArtifacts(context.getInputMetadataProvider()::getInput).throwIfNotEmpty();
                 throw e;
               }

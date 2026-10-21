@@ -81,7 +81,6 @@ import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.concurrent.CancellableTask;
 import com.google.devtools.build.lib.events.Event;
@@ -99,7 +98,6 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultM
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
@@ -206,7 +204,6 @@ public class RemoteExecutionService {
   private final OutputService outputService;
 
   @Nullable private final Scrubber scrubber;
-  private final Set<Digest> knownMissingCasDigests;
   private final Predicate<ActionAnalysisMetadata> wasRewound;
 
   private Boolean useOutputPaths;
@@ -228,7 +225,6 @@ public class RemoteExecutionService {
       @Nullable Path captureCorruptedOutputsDir,
       @Nullable RemoteOutputChecker remoteOutputChecker,
       OutputService outputService,
-      Set<Digest> knownMissingCasDigests,
       Predicate<ActionAnalysisMetadata> wasRewound) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
@@ -259,7 +255,6 @@ public class RemoteExecutionService {
 
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputService = outputService;
-    this.knownMissingCasDigests = knownMissingCasDigests;
     this.wasRewound = wasRewound;
   }
 
@@ -826,38 +821,7 @@ public class RemoteExecutionService {
       return null;
     }
 
-    var result = RemoteActionResult.createFromCache(cachedActionResult);
-
-    // The legacy whole-invocation retry path uses knownMissingCasDigests to prevent a retried
-    // invocation from accepting the same stale action result. Action rewinding bypasses cache
-    // lookup above without populating this set.
-    if (!knownMissingCasDigests.isEmpty()) {
-      ActionResultMetadata metadata;
-      try {
-        metadata =
-            result.getOrParseActionResultMetadata(
-                combinedCache,
-                digestUtil,
-                action.getRemoteActionExecutionContext(),
-                action.getRemotePathResolver());
-      } catch (BulkTransferException e) {
-        if (!e.allCausedByCacheNotFoundException()) {
-          throw e;
-        }
-        return null; // Handle dangling reference to lost Tree message as AC miss.
-      }
-
-      // If we already know digests referenced by this AC is missing from remote cache, ignore it so
-      // that we can fall back to execution. This could happen when the remote cache is an HTTP
-      // cache, or doesn't implement AC integrity check.
-      //
-      // See https://github.com/bazelbuild/bazel/issues/18696.
-      if (updateKnownMissingCasDigests(knownMissingCasDigests, metadata)) {
-        return null;
-      }
-    }
-
-    return result;
+    return RemoteActionResult.createFromCache(cachedActionResult);
   }
 
   /**
@@ -872,29 +836,6 @@ public class RemoteExecutionService {
       return PathFragment.create(outputPath);
     }
     return null;
-  }
-
-  /**
-   * Removes digests referenced by {@code metadata} from {@code knownMissingCasDigests} and returns
-   * whether any were removed
-   */
-  private static boolean updateKnownMissingCasDigests(
-      Set<Digest> knownMissingCasDigests, ActionResultMetadata metadata) {
-    // Using `remove` below because we assume the missing blob will be uploaded afterwards.
-    var result = false;
-    for (var file : metadata.files()) {
-      if (knownMissingCasDigests.remove(file.digest())) {
-        result = true;
-      }
-    }
-    for (var entry : metadata.directories()) {
-      for (var file : entry.getValue().files()) {
-        if (knownMissingCasDigests.remove(file.digest())) {
-          result = true;
-        }
-      }
-    }
-    return result;
   }
 
   private ListenableFuture<FileMetadata> downloadFile(
@@ -1511,12 +1452,6 @@ public class RemoteExecutionService {
         throw new IOException(
             "mandatory output %s was not created"
                 .formatted(prettyPrint(missingMandatoryOutput.get())));
-      }
-
-      if (result.executeResponse != null && !knownMissingCasDigests.isEmpty()) {
-        // A succeeded execution uploads outputs to CAS. Refresh our knowledge about missing
-        // digests.
-        var unused = updateKnownMissingCasDigests(knownMissingCasDigests, metadata);
       }
 
       // When downloading outputs from just remotely executed action, the action result comes from
@@ -2211,22 +2146,6 @@ public class RemoteExecutionService {
   @Subscribe
   public void onBuildInterrupted(BuildInterruptedEvent event) {
     buildInterrupted.set(true);
-  }
-
-  @Subscribe
-  public void onBuildComplete(BuildCompleteEvent event) {
-    if (event.getResult().getSuccess()) {
-      // If build succeeded, clear knownMissingCasDigests in case there are missing digests from
-      // other targets from previous builds which are not relevant anymore.
-      knownMissingCasDigests.clear();
-    }
-  }
-
-  @Subscribe
-  public void onLostInputs(LostInputsEvent event) {
-    for (String digest : event.missingDigests()) {
-      knownMissingCasDigests.add(DigestUtil.fromString(digest));
-    }
   }
 
   /** Shuts the service down. */
