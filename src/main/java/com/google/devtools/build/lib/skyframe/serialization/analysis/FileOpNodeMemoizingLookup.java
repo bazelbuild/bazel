@@ -59,6 +59,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.protobuf.ByteString;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -411,15 +412,15 @@ public final class FileOpNodeMemoizingLookup {
    *
    * @param leafIds the dense leaf numbering
    * @param uploadOrder every selected key that will be uploaded: analysis keys without a nested
-   *     node, then analysis keys in the depth-first post-order of their node, then owned keys
-   *     (execution keys and {@link ActionLookupSummaryKey}s). See {@link SelectionPartition}.
+   *     node, then analysis keys by the longest-path depth of their node, deepest first, then owned
+   *     keys (execution keys and {@link ActionLookupSummaryKey}s). See {@link SelectionPartition}.
    */
   public record DenseLeafIdsAndUploadOrder(
       LeafIdAssignment leafIds, ImmutableList<SkyKey> uploadOrder) {}
 
   /**
    * Numbers every leaf reachable from {@code selection} so that each node's leaf closure is close
-   * to a contiguous range, and derives the upload order from the post-order of the same walk.
+   * to a contiguous range, and derives the upload order from the node depths of the same walk.
    *
    * <p>Must run after {@link #materializeNodeGraph}, which is what materializes the node graph, and
    * before any serialization work asks for an ID.
@@ -429,13 +430,13 @@ public final class FileOpNodeMemoizingLookup {
     try (var _ = Profiler.instance().profile("partitionSelection")) {
       partition = SelectionPartition.partition(selection, this::isSkipped, this::resolvedNode);
     }
-    LeafIdAssignment leafIds = NodeGraphLayout.populateLeafIds(partition.roots());
+    LeafIdsAndMaxDepth layout = NodeGraphLayout.populateLeafIdsAndDepths(partition.roots());
 
     ImmutableList<SkyKey> uploadOrder;
     try (var _ = Profiler.instance().profile("uploadOrder")) {
-      uploadOrder = partition.uploadOrder();
+      uploadOrder = partition.uploadOrder(layout.maxDepth());
     }
-    return new DenseLeafIdsAndUploadOrder(leafIds, uploadOrder);
+    return new DenseLeafIdsAndUploadOrder(layout.leafIds(), uploadOrder);
   }
 
   /** Whether serialization skips {@code key}: absent from the graph, or deserialized from cache. */
@@ -458,40 +459,52 @@ public final class FileOpNodeMemoizingLookup {
     };
   }
 
+  /** The leaf numbering, and the greatest depth assigned to any node. */
+  private record LeafIdsAndMaxDepth(LeafIdAssignment leafIds, int maxDepth) {}
+
   /**
    * One depth-first walk of the node graph that lays it out for upload: it numbers the leaves and
-   * records every nested node's post-order index.
+   * assigns every nested node its longest-path depth.
    *
    * <p>Numbering leaves in depth-first order puts the leaves of each subtree into a nearly
    * contiguous range, which compresses to a handful of run containers in a {@code RoaringBitmap}.
    *
-   * <p>Each node's {@link AbstractNestedFileOpNodes#getPostOrderIndex} field doubles as the visited
-   * marker while the walk is running, and is overwritten with the node's index when it finishes.
+   * <p>Each node's {@link AbstractNestedFileOpNodes#getLongestPathDepth} field doubles as the
+   * visited marker while the walk is running, and {@link #assignLongestPathDepths} overwrites it
+   * with the final depth afterwards.
    *
-   * <p>Only reachable through {@link #populateLeafIds}, so the walk's scratch state is unreachable
-   * once it returns.
+   * <p>Only reachable through {@link #populateLeafIdsAndDepths}, so the walk's scratch state is
+   * unreachable once it returns.
    */
   private static final class NodeGraphLayout {
     private final Object2IntOpenHashMap<FileOpNode> analysisIds = newIdMap();
     private final Object2IntOpenHashMap<FileKey> sourceIds = newIdMap();
 
+    /**
+     * Every nested node the walk reached, in the order it finished. Consumed by {@link
+     * #assignLongestPathDepths}.
+     */
+    private final ArrayList<AbstractNestedFileOpNodes> postOrder = new ArrayList<>();
+
     /** Shared by both channels: the two maps land in the same bitmap, so IDs must not collide. */
     private int nextLeafId = 0;
 
-    private int nextPostOrderIndex = AbstractNestedFileOpNodes.FIRST_POST_ORDER_INDEX;
-
     /**
-     * Numbers every leaf reachable from {@code roots} and sets the post-order index of every nested
-     * node reachable from them.
+     * Numbers every leaf reachable from {@code roots} and sets the depth of every nested node
+     * reachable from them.
      */
-    private static LeafIdAssignment populateLeafIds(List<FileOpNode> roots) {
+    private static LeafIdsAndMaxDepth populateLeafIdsAndDepths(List<FileOpNode> roots) {
       var layout = new NodeGraphLayout();
       try (var _ = Profiler.instance().profile("leafIdWalk")) {
         for (FileOpNode root : roots) {
           layout.visitRoot(root);
         }
       }
-      return layout.buildLeafIds();
+      int maxDepth;
+      try (var _ = Profiler.instance().profile("assignLongestPathDepths")) {
+        maxDepth = layout.assignLongestPathDepths();
+      }
+      return new LeafIdsAndMaxDepth(layout.buildLeafIds(), maxDepth);
     }
 
     private void visitRoot(FileOpNode root) {
@@ -504,6 +517,8 @@ public final class FileOpNodeMemoizingLookup {
     }
 
     private void visitNested(AbstractNestedFileOpNodes node) {
+      // Provisional: assignLongestPathDepths may push the node deeper once all its parents are
+      // known.
       if (!node.markVisited()) {
         return;
       }
@@ -518,7 +533,31 @@ public final class FileOpNodeMemoizingLookup {
       if (node instanceof NestedFileOpNodesWithSource withSource) {
         assignIdIfAbsent(sourceIds, withSource.source());
       }
-      node.setPostOrderIndex(nextPostOrderIndex++);
+      postOrder.add(node);
+    }
+
+    /**
+     * Assigns every walked node its longest-path depth, and returns the greatest one.
+     *
+     * <p>In a depth-first post-order, every node finishes before any node that depends on it, so
+     * reading {@link #postOrder} backwards visits each node after all its parents. By then its
+     * depth is final, and it only has to push the next depth down onto its children. One pass over
+     * the nodes and their edges suffices.
+     */
+    private int assignLongestPathDepths() {
+      int maxDepth = AbstractNestedFileOpNodes.TOP_DEPTH;
+      for (int i = postOrder.size() - 1; i >= 0; i--) {
+        AbstractNestedFileOpNodes node = postOrder.get(i);
+        // Since all ancestors have already been traversed, this is the node's final depth.
+        int depth = node.getLongestPathDepth();
+        maxDepth = max(maxDepth, depth);
+        for (int j = 0; j < node.analysisDependenciesCount(); j++) {
+          if (node.getAnalysisDependency(j) instanceof AbstractNestedFileOpNodes child) {
+            child.placeBelow(depth);
+          }
+        }
+      }
+      return maxDepth;
     }
 
     private void assignAnalysisId(FileOpNode leaf) {

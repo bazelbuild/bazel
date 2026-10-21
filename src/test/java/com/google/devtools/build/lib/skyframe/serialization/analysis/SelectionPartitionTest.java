@@ -46,7 +46,7 @@ public final class SelectionPartitionTest {
   private final FileKey fileB = FileKey.create(rootedPath("b.txt"));
 
   @Test
-  public void uploadOrder_unrankedThenPostOrderThenOwned() {
+  public void uploadOrder_unrankedThenDeepestFirstThenOwned() {
     ActionLookupKey empty = key("empty");
     ActionLookupKey bareLeaf = key("bare_leaf");
     ActionLookupKey top = key("top");
@@ -57,9 +57,9 @@ public final class SelectionPartitionTest {
         ImmutableMap.<ActionLookupKey, FileOpNodeOrEmpty>builder()
             .put(empty, EMPTY_FILE_OP_NODE)
             .put(bareLeaf, fileA)
-            .put(top, nested(/* postOrderIndex= */ 3))
-            .put(middle, nested(/* postOrderIndex= */ 2))
-            .put(bottom, nested(/* postOrderIndex= */ 1))
+            .put(top, nested(/* depth= */ 1))
+            .put(middle, nested(/* depth= */ 2))
+            .put(bottom, nested(/* depth= */ 3))
             .buildOrThrow();
 
     SelectionPartition partition =
@@ -68,7 +68,7 @@ public final class SelectionPartitionTest {
             key -> false,
             nodes::get);
 
-    assertThat(partition.uploadOrder())
+    assertThat(partition.uploadOrder(/* maxDepth= */ 3))
         .containsExactly(empty, bareLeaf, bottom, middle, top, action)
         .inOrder();
   }
@@ -78,26 +78,28 @@ public final class SelectionPartitionTest {
     ActionLookupKey first = key("first");
     ActionLookupKey second = key("second");
     ActionLookupKey third = key("third");
-    AbstractNestedFileOpNodes shared = nested(/* postOrderIndex= */ 2);
+    AbstractNestedFileOpNodes shared = nested(/* depth= */ 2);
     var nodes =
         ImmutableMap.<ActionLookupKey, FileOpNodeOrEmpty>of(
-            first, shared, second, nested(/* postOrderIndex= */ 1), third, shared);
+            first, shared, second, nested(/* depth= */ 2), third, shared);
 
     SelectionPartition partition =
         SelectionPartition.partition(
             ImmutableList.of(first, second, third), key -> false, nodes::get);
 
-    assertThat(partition.uploadOrder()).containsExactly(second, first, third).inOrder();
+    assertThat(partition.uploadOrder(/* maxDepth= */ 2))
+        .containsExactly(first, second, third)
+        .inOrder();
   }
 
   @Test
   public void partition_skippedKeysAreLeftOut() {
     ActionLookupKey kept = key("kept");
     ActionLookupKey skipped = key("skipped");
-    AbstractNestedFileOpNodes keptNode = nested(/* postOrderIndex= */ 1);
+    AbstractNestedFileOpNodes keptNode = nested(/* depth= */ 1);
     var nodes =
         ImmutableMap.<ActionLookupKey, FileOpNodeOrEmpty>of(
-            kept, keptNode, skipped, nested(/* postOrderIndex= */ 1));
+            kept, keptNode, skipped, nested(/* depth= */ 1));
 
     SelectionPartition partition =
         SelectionPartition.partition(
@@ -106,13 +108,13 @@ public final class SelectionPartitionTest {
             nodes::get);
 
     assertThat(partition.roots()).containsExactly(keptNode);
-    assertThat(partition.uploadOrder()).containsExactly(kept);
+    assertThat(partition.uploadOrder(/* maxDepth= */ 1)).containsExactly(kept);
   }
 
   @Test
   public void partition_ownedKeysContributeOwnerNodeToRoots_resolvingEachOwnerOnce() {
     ActionLookupKey owner = key("owner");
-    AbstractNestedFileOpNodes ownerNode = nested(/* postOrderIndex= */ 1);
+    AbstractNestedFileOpNodes ownerNode = nested(/* depth= */ 1);
     var resolved = new ArrayList<ActionLookupKey>();
     var nodes = ImmutableMap.<ActionLookupKey, FileOpNodeOrEmpty>of(owner, ownerNode);
 
@@ -129,7 +131,7 @@ public final class SelectionPartitionTest {
     assertThat(resolved).containsExactly(owner);
     // Duplicates are retained; the leaf walk dedups.
     assertThat(partition.roots()).containsExactly(ownerNode, ownerNode, ownerNode);
-    assertThat(partition.uploadOrder())
+    assertThat(partition.uploadOrder(/* maxDepth= */ 1))
         .containsExactly(
             owner, ActionLookupData.create(owner, 0), ActionLookupData.create(owner, 1))
         .inOrder();
@@ -144,17 +146,20 @@ public final class SelectionPartitionTest {
     SelectionPartition partition =
         SelectionPartition.partition(ImmutableList.of(unwalked), key -> false, key -> node);
 
-    assertThat(assertThrows(IllegalStateException.class, partition::uploadOrder))
+    assertThat(
+            assertThrows(
+                IllegalStateException.class, () -> partition.uploadOrder(/* maxDepth= */ 1)))
         .hasMessageThat()
         .contains("the node was not reached by this walk");
   }
 
-  /** A fresh nested node, finished at {@code postOrderIndex} as the leaf walk would. */
-  private AbstractNestedFileOpNodes nested(int postOrderIndex) {
+  /** A fresh nested node, placed at {@code depth} as the leaf walk would. */
+  private AbstractNestedFileOpNodes nested(int depth) {
     var node =
         (AbstractNestedFileOpNodes) AbstractNestedFileOpNodes.from(ImmutableList.of(fileA, fileB));
     assertThat(node.markVisited()).isTrue();
-    node.setPostOrderIndex(postOrderIndex);
+    node.placeBelow(depth - 1);
+    assertThat(node.getLongestPathDepth()).isEqualTo(depth);
     return node;
   }
 

@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
+import static java.lang.Math.max;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Function;
@@ -53,6 +54,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -396,7 +398,7 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
   // The tests below cover graph materialization and dense leaf ID assignment.
 
   @Test
-  public void computeLeafIdsAndUploadOrder_postOrderIndexFollowsDependencies() throws Exception {
+  public void computeLeafIdsAndUploadOrder_depthIsLongestPathFromTop() throws Exception {
     writeDiamond();
     ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);
     var lookup = newLookup(selection);
@@ -404,25 +406,31 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
     assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
     var _ = lookup.computeLeafIdsAndUploadOrder(selection);
 
+    // In a DAG, this recurrence has exactly one solution, so checking it locally at every node
+    // checks every depth.
     Map<AbstractNestedFileOpNodes, List<AbstractNestedFileOpNodes>> parents =
         nodeParents(lookup, selection);
-    var indices = new HashSet<Integer>();
+    int maxDepth = 0;
     for (var entry : parents.entrySet()) {
-      int index = entry.getKey().getPostOrderIndex();
-      assertWithMessage("post-order index of %s", entry.getKey())
-          .that(index)
-          .isAtLeast(AbstractNestedFileOpNodes.FIRST_POST_ORDER_INDEX);
-      assertWithMessage("post-order index of %s", entry.getKey()).that(indices.add(index)).isTrue();
-      for (AbstractNestedFileOpNodes parent : entry.getValue()) {
-        assertWithMessage("%s finished after its parent %s", entry.getKey(), parent)
-            .that(index)
-            .isLessThan(parent.getPostOrderIndex());
-      }
+      int expected =
+          AbstractNestedFileOpNodes.TOP_DEPTH
+              + entry.getValue().stream()
+                  .mapToInt(AbstractNestedFileOpNodes::getLongestPathDepth)
+                  .max()
+                  .orElse(AbstractNestedFileOpNodes.TOP_DEPTH - 1);
+      assertWithMessage("longest-path depth of %s", entry.getKey())
+          .that(entry.getKey().getLongestPathDepth())
+          .isEqualTo(expected);
+      maxDepth = max(maxDepth, expected);
     }
+    // The diamond alone is three levels deep, so a flat assignment cannot pass by accident. Not
+    // exact: the selection holds every done ActionLookupKey, including platform and toolchain
+    // targets outside the diamond, whose nodes can add levels.
+    assertThat(maxDepth).isAtLeast(3);
   }
 
   @Test
-  public void computeLeafIdsAndUploadOrder_uploadOrderAscendsByPostOrderIndex() throws Exception {
+  public void computeLeafIdsAndUploadOrder_uploadOrderDescendsByDepth() throws Exception {
     writeDiamond();
     ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);
     var lookup = newLookup(selection);
@@ -431,16 +439,16 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
     ImmutableList<SkyKey> uploadOrder =
         lookup.computeLeafIdsAndUploadOrder(selection).uploadOrder();
 
-    var indices = new ArrayList<Integer>();
+    var depths = new ArrayList<Integer>();
     for (SkyKey key : uploadOrder) {
       if (resolvedNode(lookup, (ActionLookupKey) key) instanceof AbstractNestedFileOpNodes node) {
-        indices.add(node.getPostOrderIndex());
+        depths.add(node.getLongestPathDepth());
       }
     }
-    // At least the diamond's three nested nodes. Not exact: the selection holds every done
-    // ActionLookupKey, including platform and toolchain targets outside the diamond.
-    assertThat(ImmutableSet.copyOf(indices).size()).isAtLeast(3);
-    assertThat(indices).isInOrder();
+    // At least the diamond's three levels. Not exact, for the same reason as in
+    // computeLeafIdsAndUploadOrder_depthIsLongestPathFromTop.
+    assertThat(ImmutableSet.copyOf(depths).size()).isAtLeast(3);
+    assertThat(depths).isInOrder(Comparator.reverseOrder());
   }
 
   @Test

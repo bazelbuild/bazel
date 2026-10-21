@@ -55,11 +55,12 @@ import java.util.function.Predicate;
  *       node non-empty; and one whose node is a bare leaf can only depend on empty nodes or the
  *       same leaf, since a nested child would make its own node nested or collapse onto that child.
  *       Nothing here depends on a ranked key.
- *   <li><b>Ranked analysis keys</b>, ordered by the depth-first post-order index of their node (see
- *       {@link AbstractNestedFileOpNodes#getPostOrderIndex}). If one depends on another, the
- *       dependency's node is in the dependent's collector, so it is either a child, which the walk
- *       finished first, or, when it was the only element, the very node the dependent collapsed
- *       onto. Keys sharing a node therefore tie; ties keep selection order.
+ *   <li><b>Ranked analysis keys</b>, ordered by the longest-path depth of their node, deepest first
+ *       (see {@link AbstractNestedFileOpNodes#getLongestPathDepth}). If one depends on another, the
+ *       dependency's node is in the dependent's collector, so it is either a child at a strictly
+ *       greater depth or, when it was the only element, the very node the dependent collapsed onto.
+ *       Keys sharing a node therefore tie, as do unrelated keys at the same depth; ties keep
+ *       selection order.
  *   <li><b>Owned keys</b>, in selection order. These are the keys that are not themselves {@link
  *       ActionLookupKey}s and so take their file dependencies from an owner (see {@link
  *       FileOpNodeMemoizingLookup#getDependencyKey}): execution keys ({@link ActionLookupData} and
@@ -69,6 +70,11 @@ import java.util.function.Predicate;
  * </ol>
  *
  * <p>The only inversions this admits are within the unranked bucket and among ties.
+ *
+ * <p>Ordering by depth rather than by post-order schedules each node as late as its dependents
+ * allow. Every node below the top depth has a parent exactly one level shallower, so its bitmap is
+ * consumed soon after it is produced rather than whenever the depth-first walk happened to return
+ * to a parent. That shortens bitmap lifetimes, and with them peak residency.
  *
  * <p>Owned keys still contribute their owner's node to {@link #roots}. That keeps the walk's input,
  * and so the leaf numbering, identical to what it was before upload ordering was derived from it.
@@ -147,31 +153,46 @@ final class SelectionPartition {
   }
 
   /**
-   * Assembles the upload order. Must run after the leaf walk has assigned post-order indices.
+   * Assembles the upload order. Must run after the leaf walk has assigned depths.
    *
-   * <p>Each ranked key is packed into a {@code long} with its node's post-order index in the high
-   * half and its selection index in the low half, so a plain sort orders the keys by post-order
-   * index and breaks ties by selection order.
+   * <p>A counting sort: every ranked node's depth is a small integer in {@code [TOP_DEPTH,
+   * maxDepth]}, so an array indexed by depth can hold one chain of keys per depth. Each ranked key
+   * is chained onto its node's depth and the chains are read out from the deepest up. Chains are
+   * built by prepending in reverse, so ties keep selection order.
+   *
+   * @param maxDepth the greatest depth the walk assigned to any node
    */
-  ImmutableList<SkyKey> uploadOrder() {
+  ImmutableList<SkyKey> uploadOrder(int maxDepth) {
     int ranked = rankedAnalysisKeys.size();
-    long[] packed = new long[ranked];
-    for (int i = 0; i < ranked; i++) {
-      int postOrderIndex = rankedNodes.get(i).getPostOrderIndex();
+    // head stores the index of the first key at the corresponding depth.
+    // For example: if head[1] = 5 means that the rankedAnalysisKeys.get(5) is the first key at
+    // depth 1
+    int[] head = new int[maxDepth + 1];
+    Arrays.fill(head, -1); // -1 is the end-of-list sentinel value
+    // `next` stores next pointers for per-depth lists rooted in `head`.
+    // For example: if head[1] = 5 and next[5] = 7, next[7] = -1, then depth 1 contains 5 and 7.
+    int[] next = new int[ranked];
+    for (int i = ranked - 1; i >= 0; i--) {
+      int depth = rankedNodes.get(i).getLongestPathDepth();
       checkState(
-          postOrderIndex >= AbstractNestedFileOpNodes.FIRST_POST_ORDER_INDEX,
-          "%s has no post-order index: the node was not reached by this walk",
-          rankedAnalysisKeys.get(i));
-      packed[i] = ((long) postOrderIndex << Integer.SIZE) | i;
+          depth >= AbstractNestedFileOpNodes.TOP_DEPTH && depth <= maxDepth,
+          "depth %s of %s is outside [%s, %s]: the node was not reached by this walk",
+          depth,
+          rankedAnalysisKeys.get(i),
+          AbstractNestedFileOpNodes.TOP_DEPTH,
+          maxDepth);
+      next[i] = head[depth];
+      head[depth] = i;
     }
-    Arrays.sort(packed);
 
     var order =
         ImmutableList.<SkyKey>builderWithExpectedSize(
             unrankedAnalysisKeys.size() + ranked + ownedKeys.size());
     order.addAll(unrankedAnalysisKeys);
-    for (long entry : packed) {
-      order.add(rankedAnalysisKeys.get((int) entry));
+    for (int depth = maxDepth; depth >= AbstractNestedFileOpNodes.TOP_DEPTH; depth--) {
+      for (int i = head[depth]; i >= 0; i = next[i]) {
+        order.add(rankedAnalysisKeys.get(i));
+      }
     }
     return order.addAll(ownedKeys).build();
   }

@@ -214,7 +214,7 @@ final class SelectedEntrySerializer {
       return materializeNodeGraphTime;
     }
 
-    /** The leaf walk and upload ordering. */
+    /** The leaf walk, longest-path depth assignment and upload ordering. */
     Duration computeLeafIdsAndUploadOrderTime() {
       return computeLeafIdsAndUploadOrderTime;
     }
@@ -351,7 +351,7 @@ final class SelectedEntrySerializer {
     // the majority of the Skyframe graph is not serialized), but does help when serializing a
     // lot of nodes.
     //
-    // The order is the depth-first post-order of each key's node, so dependencies come first. See
+    // The order is by the longest-path depth of each key's node, deepest first. See
     // SelectionPartition.
     stopwatch.reset().start();
     try (var _ = Profiler.instance().profile("driveUploads")) {
