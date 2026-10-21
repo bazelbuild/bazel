@@ -150,9 +150,6 @@ public class BuildConfigurationValue
   @Nullable // lazily initialized
   private transient volatile BuildConfigurationEvent buildEvent;
 
-  @Nullable // lazily initialized
-  private transient volatile BuildEventId buildEventId;
-
   /**
    * Validates the options for this BuildConfigurationValue. Issues warnings for the use of
    * deprecated options, and warnings or errors for any option settings that conflict.
@@ -951,14 +948,7 @@ public class BuildConfigurationValue
   }
 
   public BuildEventId getEventId() {
-    if (buildEventId == null) {
-      synchronized (this) {
-        if (buildEventId == null) {
-          buildEventId = BuildEventIdUtil.configurationId(checksum());
-        }
-      }
-    }
-    return buildEventId;
+    return BuildEventIdUtil.configurationId(checksum());
   }
 
   @Override
