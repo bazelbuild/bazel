@@ -39,19 +39,6 @@ public interface OptionsProvider {
           return Collections.emptyMap();
         }
 
-        @SuppressWarnings("EmptyMap") // no Guava in skybridge interfaces
-        @Override
-        public Map<String, String> getScopesAttributes() {
-          return Collections.emptyMap();
-        }
-
-        @SuppressWarnings("EmptyMap") // no Guava in skybridge interfaces
-        @Override
-        public Map<String, Object> getOnLeaveScopeValues() {
-          return Collections.emptyMap();
-        }
-
-        @SuppressWarnings("EmptyMap") // no Guava in skybridge interfaces
         @Override
         public Map<String, Object> getExplicitCommandLineStarlarkOptions() {
           return Collections.emptyMap();
@@ -110,8 +97,4 @@ public interface OptionsProvider {
    * map of option name to the option's {@code expandedFrom}, or "" if the option was not expanded.
    */
   Map<String, String> getUserOptions();
-
-  Map<String, String> getScopesAttributes();
-
-  Map<String, Object> getOnLeaveScopeValues();
 }

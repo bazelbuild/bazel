@@ -16,8 +16,9 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -44,7 +45,11 @@ public class BuildConfigurationKeyMapProducer
 
     void acceptPlatformFlagsError(InvalidPlatformException error);
 
-    void acceptBuildOptionsScopeFunctionError(BuildOptionsScopeFunctionException e);
+    /**
+     * Accepts an error resolving the scopes of the options' Starlark flags, or, for callers that
+     * apply a Starlark transition, an error applying it.
+     */
+    void acceptTransitionError(TransitionException e);
 
     void acceptTransitionedConfigurations(
         ImmutableMap<String, BuildConfigurationKey> transitionedOptions);
@@ -54,16 +59,28 @@ public class BuildConfigurationKeyMapProducer
   private final ResultSink sink;
   private final StateMachine runAfter;
   private final Map<String, BuildOptions> options;
+  private final boolean forBaseline;
+  private final StarlarkBuildSettingsDetailsValue sourceFlagDetails;
   private final Label label;
 
   // -------------------- Internal State --------------------
   private final Map<String, BuildConfigurationKey> results;
 
+  /**
+   * @param sourceFlagDetails see {@link BuildConfigurationKeyProducer}
+   */
   public BuildConfigurationKeyMapProducer(
-      ResultSink sink, StateMachine runAfter, Map<String, BuildOptions> options, Label label) {
+      ResultSink sink,
+      StateMachine runAfter,
+      Map<String, BuildOptions> options,
+      boolean forBaseline,
+      StarlarkBuildSettingsDetailsValue sourceFlagDetails,
+      Label label) {
     this.sink = sink;
     this.runAfter = runAfter;
     this.options = options;
+    this.forBaseline = forBaseline;
+    this.sourceFlagDetails = sourceFlagDetails;
     this.results = Maps.newHashMapWithExpectedSize(options.size());
     this.label = label;
   }
@@ -78,6 +95,8 @@ public class BuildConfigurationKeyMapProducer
                     StateMachine.DONE,
                     context,
                     buildOptions,
+                    forBaseline,
+                    sourceFlagDetails,
                     label)));
     return this::combineResults;
   }
@@ -122,7 +141,7 @@ public class BuildConfigurationKeyMapProducer
   }
 
   @Override
-  public void acceptBuildOptionsScopeFunctionError(BuildOptionsScopeFunctionException e) {
-    this.sink.acceptBuildOptionsScopeFunctionError(e);
+  public void acceptTransitionError(TransitionException e) {
+    this.sink.acceptTransitionError(e);
   }
 }

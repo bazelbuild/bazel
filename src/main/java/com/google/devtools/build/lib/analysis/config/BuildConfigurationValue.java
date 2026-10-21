@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -123,6 +124,9 @@ public class BuildConfigurationValue
   private final BuildOptions buildOptions;
   private final CoreOptions options;
 
+  /** Details of this configuration's Starlark build settings, such as their scopes. */
+  private final StarlarkBuildSettingsDetailsValue starlarkFlagDetails;
+
   /** The cpu value based on the platform the configuration is built for. */
   private final String platformCpu;
 
@@ -205,6 +209,7 @@ public class BuildConfigurationValue
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
       String platformCpu,
+      StarlarkBuildSettingsDetailsValue starlarkFlagDetails,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -226,6 +231,7 @@ public class BuildConfigurationValue
         mnemonic.mnemonic(),
         mnemonic.dependsOnBaseline(),
         platformCpu,
+        starlarkFlagDetails,
         globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
@@ -259,6 +265,7 @@ public class BuildConfigurationValue
         // The mnemonic passed to createForTesting is taken at face value.
         /* mnemonicDependsOnBaseline= */ false,
         "",
+        StarlarkBuildSettingsDetailsValue.EMPTY,
         globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
@@ -286,6 +293,7 @@ public class BuildConfigurationValue
       String mnemonic,
       boolean mnemonicDependsOnBaseline,
       String platformCpu,
+      StarlarkBuildSettingsDetailsValue starlarkFlagDetails,
       // Arguments below this are either server-global and constant or completely dependent values.
       String workspaceName,
       BlazeDirectories directories,
@@ -297,6 +305,7 @@ public class BuildConfigurationValue
             ImmutableSortedMap.copyOf(fragments, FragmentClassSet.LEXICAL_FRAGMENT_SORTER));
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
+    this.starlarkFlagDetails = starlarkFlagDetails;
     this.mnemonic = mnemonic;
     this.mnemonicDependsOnBaseline = mnemonicDependsOnBaseline;
     this.options = buildOptions.get(CoreOptions.class);
@@ -345,10 +354,17 @@ public class BuildConfigurationValue
     if (!(other instanceof BuildConfigurationValue otherVal)) {
       return false;
     }
-    // Only considering arguments that are non-dependent and non-server-global.
+    // Only considering arguments that are non-dependent and non-server-global, plus the Starlark
+    // flag details. hashCode skips the latter since hashing them is expensive.
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.workspaceName.equals(otherVal.workspaceName)
-        && this.mnemonic.equals(otherVal.mnemonic);
+        && this.mnemonic.equals(otherVal.mnemonic)
+        && this.starlarkFlagDetails.equals(otherVal.starlarkFlagDetails);
+  }
+
+  /** Returns the details of this configuration's Starlark build settings. */
+  public StarlarkBuildSettingsDetailsValue starlarkFlagDetails() {
+    return starlarkFlagDetails;
   }
 
   @Override
