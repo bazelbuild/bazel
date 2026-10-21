@@ -381,10 +381,8 @@ public final class SkyframeErrorProcessor {
    *       ErrorProcessingResult}.
    * </ul>
    *
-   * <p>A null {@code eventBus} indicates that this is a {@code BuildViewTestCase}. Such tests don't
-   * parse target patterns before requesting analysis, so the {@code result} may contain {@link
-   * SkyKey}s that are neither {@link AspectBaseKey}s nor {@link ConfiguredTargetKey}s, which cannot
-   * happen in production. Those keys are reported to the event handler and otherwise ignored.
+   * <p>When {@code eventBus} is null (in {@code BuildViewTestCase}), root causes are reported to
+   * {@code eventHandler} instead of posted to the event bus.
    *
    * @throws ViewCreationFailedException when the root cause is analysis-related.
    * @throws BuildFailedException when the root cause is execution-related.
@@ -405,8 +403,6 @@ public final class SkyframeErrorProcessor {
           ViewCreationFailedException,
           BuildFailedException,
           TestExecException {
-    boolean inBuildViewTest = eventBus == null;
-
     Map<SkyKey, ErrorInfo> allErrors = result.errorMap();
 
     // Phase 0: report the cycles and take the action conflicts out.
@@ -440,9 +436,7 @@ public final class SkyframeErrorProcessor {
         classifyAll(
             result,
             conflictHarvest.remainingErrors(),
-            eventHandler,
             keepEdges,
-            inBuildViewTest,
             bugReporter,
             includeExecutionPhase);
 
@@ -454,7 +448,7 @@ public final class SkyframeErrorProcessor {
 
     // Phase 2: report.
     for (ClassifiedError error : abortWith == null ? errors : ImmutableList.of(abortWith)) {
-      maybePostFailureEvents(eventHandler, eventBus, inBuildViewTest, error);
+      maybePostFailureEvents(eventHandler, eventBus, error);
       if (keepGoing) {
         logOrPrintWarningsKeepGoing(error, eventHandler);
       }
@@ -476,17 +470,11 @@ public final class SkyframeErrorProcessor {
    * Validates the non-conflict {@link RemainingError}s from {@link #harvestActionConflicts} and
    * converts each one via {@link #classify} into a {@link ClassifiedError} (recording its {@link
    * ReportingPriority}, {@link DetailedExitCode}, and root causes).
-   *
-   * <p>In {@code BuildViewTestCase} ({@code inBuildViewTest}), entries whose key is not a valid
-   * top-level error key are reported directly to {@code eventHandler} and omitted from the returned
-   * list.
    */
   private static ImmutableList<ClassifiedError> classifyAll(
       EvaluationResult<? extends SkyValue> result,
       ImmutableList<RemainingError> remainingErrors,
-      ExtendedEventHandler eventHandler,
       boolean keepEdges,
-      boolean inBuildViewTest,
       @Nullable BugReporter bugReporter,
       boolean includeExecutionPhase)
       throws InterruptedException {
@@ -504,15 +492,6 @@ public final class SkyframeErrorProcessor {
       }
       Preconditions.checkState(
           errorInfo.getException() != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
-
-      // TODO(b/561978611): Can we remove this divergence?
-      if (inBuildViewTest && !isValidErrorKeyType(errorKey)) {
-        // Tests don't call target pattern parsing before requesting the analysis of a target.
-        // Therefore if the package that contains them cannot be loaded, we get an error key that's
-        // neither a ConfiguredTargetKey nor an AspectBaseKey, which cannot happen in production.
-        eventHandler.handle(Event.error(errorInfo.toString()));
-        continue;
-      }
 
       errors.add(classify(result, bugReporter, errorKey, errorInfo));
     }
@@ -545,17 +524,14 @@ public final class SkyframeErrorProcessor {
    * {@link AspectBaseKey} nor a {@link ConfiguredTargetKey} gets nothing.
    */
   private static void maybePostFailureEvents(
-      ExtendedEventHandler eventHandler,
-      @Nullable EventBus eventBus,
-      boolean inBuildViewTest,
-      ClassifiedError error) {
-    if (inBuildViewTest) {
-      // eventBus is null, but tests can still assert on the expected root causes being found.
+      ExtendedEventHandler eventHandler, @Nullable EventBus eventBus, ClassifiedError error) {
+    if (eventBus == null) {
+      // In BuildViewTestCase, eventBus is null, but tests can still assert on the expected root
+      // causes being found.
       eventHandler.handle(Event.error(error.analysisRootCauses().toList().toString()));
       return;
     }
 
-    Preconditions.checkNotNull(eventBus);
     ConfiguredTargetKey attributedTo =
         switch (error.normalizedKey()) {
           case AspectBaseKey aspectKey -> aspectKey.getBaseConfiguredTargetKey();

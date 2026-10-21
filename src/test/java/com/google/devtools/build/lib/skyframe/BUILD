@@ -467,6 +467,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_failure_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
@@ -493,6 +494,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:test_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_conflict_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/skyframe",
