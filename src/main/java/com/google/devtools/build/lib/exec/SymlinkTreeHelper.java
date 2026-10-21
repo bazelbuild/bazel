@@ -228,12 +228,16 @@ public final class SymlinkTreeHelper {
     private final Map<String, Directory<T>> directories = new HashMap<>();
 
     void addSymlink(String basename, @Nullable T target) {
-      symlinks.put(basename, target);
+      // Fileset children take precedence over a symlink or empty file at their parent.
+      if (!directories.containsKey(basename)) {
+        symlinks.put(basename, target);
+      }
     }
 
     Directory<T> walk(PathFragment dir) {
       Directory<T> result = this;
       for (String segment : dir.segments()) {
+        result.symlinks.remove(segment);
         result = result.directories.computeIfAbsent(segment, unused -> new Directory<>());
       }
       return result;
@@ -251,91 +255,65 @@ public final class SymlinkTreeHelper {
     void syncTreeRecursively(
         Path at, TargetPathFunction<T> targetPathFn, boolean fileSymlinksAreCopies)
         throws IOException {
-      FileStatus stat = at.statIfFound(Symlinks.FOLLOW);
-      if (stat == null) {
-        at.createDirectoryAndParents();
-      } else if (!stat.isDirectory()) {
-        at.deleteTree();
-        at.createDirectoryAndParents();
-      } else {
-        // If the directory already exists, ensure it has appropriate permissions.
-        int perms = stat.getPermissions();
-        if (perms == -1) {
-          at.chmod(0755);
-        } else if ((perms & 0700) != 0700) {
-          at.chmod(stat.getPermissions() | 0700);
+      FileStatus stat = at.statIfFound(Symlinks.NOFOLLOW);
+      if (stat == null || !stat.isDirectory()) {
+        if (stat != null) {
+          at.deleteTree();
         }
+        at.createDirectoryAndParents();
+        createMissingEntries(at, targetPathFn);
+        return;
+      }
+      // If the directory already exists, ensure it has appropriate permissions.
+      int perms = stat.getPermissions();
+      if (perms == -1) {
+        at.chmod(0755);
+      } else if ((perms & 0700) != 0700) {
+        at.chmod(perms | 0700);
       }
       for (Dirent dirent : at.readdir(Symlinks.NOFOLLOW)) {
         String basename = dirent.getName();
         Path next = at.getChild(basename);
         if (symlinks.containsKey(basename)) {
-          T value = symlinks.remove(basename);
-          if (value == null) {
-            if (dirent.getType() != Dirent.Type.FILE) {
-              next.deleteTree();
-              FileSystemUtils.createEmptyFile(next);
-            }
+          T value = symlinks.get(basename);
+          if (value == null && dirent.getType() == Dirent.Type.FILE) {
             // For historical reasons, we don't truncate the file if one exists.
             // TODO(tjgq): Ponder whether this is still necessary to preserve the intentional
             // non-hermeticity of symlink trees under source edits.
-          } else {
-            // ensureSymbolicLink will replace a symlink that doesn't have the correct target, but
-            // everything else needs to be deleted first. If symlinks to files are emulated by
-            // copies, an existing symlink to the correct target may be a junction created while
-            // the file didn't exist yet (or a symlink from a build with a different setting) and
-            // must also be replaced.
-            if (dirent.getType() != Dirent.Type.SYMLINK || fileSymlinksAreCopies) {
-              next.deleteTree();
-            }
+            symlinks.remove(basename);
+          } else if (value != null
+              && dirent.getType() == Dirent.Type.SYMLINK
+              && !fileSymlinksAreCopies) {
             FileSystemUtils.ensureSymbolicLink(next, targetPathFn.get(value));
-          }
-        } else if (directories.containsKey(basename)) {
-          Directory<T> nextDir = directories.remove(basename);
-          if (dirent.getType() != Dirent.Type.DIRECTORY) {
+            symlinks.remove(basename);
+          } else {
+            // Leave deleted entries in the map for createMissingEntries.
             next.deleteTree();
           }
-          nextDir.syncTreeRecursively(at.getChild(basename), targetPathFn, fileSymlinksAreCopies);
+        } else if (directories.containsKey(basename) && dirent.getType() == Dirent.Type.DIRECTORY) {
+          directories.remove(basename).syncTreeRecursively(next, targetPathFn, fileSymlinksAreCopies);
         } else {
-          at.getChild(basename).deleteTree();
+          next.deleteTree();
         }
       }
 
-      createMissingEntries(at, targetPathFn, fileSymlinksAreCopies);
+      createMissingEntries(at, targetPathFn);
     }
 
-    void createMissingEntries(
-        Path at, TargetPathFunction<T> targetPathFn, boolean fileSymlinksAreCopies)
-        throws IOException {
+    void createMissingEntries(Path at, TargetPathFunction<T> targetPathFn) throws IOException {
       for (Map.Entry<String, T> entry : symlinks.entrySet()) {
         Path next = at.getChild(entry.getKey());
         T value = entry.getValue();
         if (value == null) {
           FileSystemUtils.createEmptyFile(next);
         } else {
-          PathFragment target = targetPathFn.get(value);
-          try {
-            next.createSymbolicLink(target);
-          } catch (IOException e) {
-            // An entry or its parent may have changed since the directory was examined.
-            FileSystemUtils.ensureSymbolicLink(next, target);
-          }
+          next.createSymbolicLink(targetPathFn.get(value));
         }
       }
       for (Map.Entry<String, Directory<T>> entry : directories.entrySet()) {
         Path next = at.getChild(entry.getKey());
-        boolean created;
-        try {
-          created = next.createDirectory();
-        } catch (IOException e) {
-          // Filesets can contain both a symlink and entries below that symlink.
-          created = false;
-        }
-        if (created) {
-          entry.getValue().createMissingEntries(next, targetPathFn, fileSymlinksAreCopies);
-        } else {
-          entry.getValue().syncTreeRecursively(next, targetPathFn, fileSymlinksAreCopies);
-        }
+        next.createDirectory();
+        entry.getValue().createMissingEntries(next, targetPathFn);
       }
     }
   }
