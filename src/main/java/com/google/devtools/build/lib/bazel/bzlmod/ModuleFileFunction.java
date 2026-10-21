@@ -104,7 +104,7 @@ import net.starlark.java.syntax.Location;
 public class ModuleFileFunction implements SkyFunction {
 
   // Never empty.
-  public static final Precomputed<ImmutableSet<String>> REGISTRIES =
+  public static final Precomputed<ImmutableList<String>> REGISTRIES =
       new Precomputed<>("registries");
   public static final Precomputed<Boolean> IGNORE_DEV_DEPS =
       new Precomputed<>("ignore_dev_dependency");
@@ -857,11 +857,11 @@ public class ModuleFileFunction implements SkyFunction {
               + " non-registry override?",
           key.name());
     }
-    ImmutableSet<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
+    ImmutableList<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
     if (override instanceof RegistryOverride registryOverride) {
       String overrideRegistry = registryOverride.getRegistry();
       if (!overrideRegistry.isEmpty()) {
-        registries = ImmutableSet.of(overrideRegistry);
+        registries = ImmutableList.of(overrideRegistry);
       }
     } else if (override != null) {
       // This should never happen.
