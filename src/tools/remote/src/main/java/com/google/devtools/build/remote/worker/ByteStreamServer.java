@@ -169,8 +169,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
       return;
     }
     long end = readLimit > 0 ? offset + readLimit : Long.MAX_VALUE;
-    ServerCallStreamObserver<ReadResponse> serverObserver =
-        (ServerCallStreamObserver<ReadResponse>) responseObserver;
+    var serverObserver = (ServerCallStreamObserver<ReadResponse>) responseObserver;
     try {
       while (offset < end && !serverObserver.isCancelled()) {
         int maxBytes = (int) Math.min(LIVE_OUTPUT_CHUNK_SIZE, end - offset);
