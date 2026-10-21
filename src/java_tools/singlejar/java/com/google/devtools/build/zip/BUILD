@@ -1,3 +1,4 @@
+load("@rules_java//java:defs.bzl", "java_binary")
 load("//src:build_defs.bzl", "java_11_library")
 
 # Description:
@@ -26,4 +27,12 @@ java_11_library(
     srcs = glob(["*.java"]),
     visibility = ["//visibility:public"],
     deps = ["//third_party:jsr305"],
+)
+
+# Adjusts zip offsets in self-extracting archive (like zip -qA, but out-of-place).
+java_binary(
+    name = "adjust_sfx",
+    main_class = "com.google.devtools.build.zip.AdjustSfx",
+    visibility = ["//src:__pkg__"],
+    runtime_deps = [":zip"],
 )
