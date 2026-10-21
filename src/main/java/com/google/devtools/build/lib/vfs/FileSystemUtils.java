@@ -356,6 +356,22 @@ public class FileSystemUtils {
    */
   @ThreadSafe // but not atomic
   public static void ensureSymbolicLink(Path link, PathFragment target) throws IOException {
+    ensureSymbolicLink(link, target, SymlinkTargetType.UNSPECIFIED);
+  }
+
+  /**
+   * Creates or updates an existing symbolic link from 'link' to 'target', of the given target
+   * type. Missing ancestor directories of 'link' will also be created.
+   *
+   * <p>This operation is not atomic.
+   *
+   * @throws NotASymlinkException if the path already exists and is not a symbolic link
+   * @throws IOException if creating the symbolic link or its ancestor directories failed for any
+   *     other reason
+   */
+  @ThreadSafe // but not atomic
+  public static void ensureSymbolicLink(Path link, PathFragment target, SymlinkTargetType type)
+      throws IOException {
     // TODO(bazel-team): (2009) consider adding the logic for recovering from the case when
     // we have already created a parent directory symlink earlier.
     boolean parentKnownToExist = false;
@@ -374,7 +390,7 @@ public class FileSystemUtils {
     if (!parentKnownToExist) {
       link.getParentDirectory().createDirectoryAndParents();
     }
-    link.createSymbolicLink(target);
+    link.createSymbolicLink(target, type);
   }
 
   public static ByteSource asByteSource(final Path path) {

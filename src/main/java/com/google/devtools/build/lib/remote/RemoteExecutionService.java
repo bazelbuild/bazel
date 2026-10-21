@@ -1011,6 +1011,10 @@ public class RemoteExecutionService {
       // must first delete the preexisting empty directory. Since this is rare (and in the future
       // BwoB may no longer eagerly create these directories), we don't delete the directory
       // beforehand.
+      // TODO: The remote execution API doesn't record whether a symlink's target is a file or a
+      //  directory, which Windows needs to know when it creates a symlink. So on Windows, a dangling
+      //  symlink to a directory, such as one declared with ctx.actions.symlink(target_type =
+      //  "directory"), is restored from a cache as a symlink to a file.
       try {
         symlink.path().createSymbolicLink(symlink.target());
       } catch (IOException e) {

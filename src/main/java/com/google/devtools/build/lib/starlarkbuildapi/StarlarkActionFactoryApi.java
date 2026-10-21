@@ -280,7 +280,10 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             doc =
                 "The exact path that the output symlink will point to. No normalization or other "
-                    + "processing is applied."),
+                    + "processing is applied.<p>On Windows, a relative path is only kept as is with"
+                    + " <code>--windows_enable_symlinks</code>. Otherwise, it is resolved"
+                    + " against the output's location, and the output is a junction to the"
+                    + " resulting absolute path or a copy of the file there."),
         @Param(
             name = "target_type",
             allowedTypes = {
@@ -294,8 +297,9 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                 "May only be used with <code>target_path</code>, not <code>target_file</code>. If"
                     + " specified, it must be one of 'file' or 'directory', indicating the target"
                     + " path's expected type.<p>On Windows, this determines which kind of"
-                    + " filesystem object to create (junction for a directory, symlink for a file)."
-                    + " It has no effect on other operating systems."),
+                    + " filesystem object to create if the target doesn't exist yet (a directory"
+                    + " symlink or junction for a directory, a file symlink for a file). It has no"
+                    + " effect on other operating systems."),
         @Param(
             name = "is_executable",
             named = true,

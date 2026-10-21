@@ -584,6 +584,14 @@ public abstract class FileSystem {
   public abstract PathFragment readSymbolicLink(PathFragment path) throws IOException;
 
   /**
+   * Returns the type of target that a symbolic link was created for. See {@link
+   * Path#getSymlinkTargetType} for specification.
+   */
+  public SymlinkTargetType getSymlinkTargetType(PathFragment path) throws IOException {
+    return SymlinkTargetType.UNSPECIFIED;
+  }
+
+  /**
    * Returns the target of a symbolic link, under the assumption that the given path is indeed a
    * symbolic link (this assumption permits efficient implementations). See {@link
    * Path#readSymbolicLinkUnchecked} for specification.

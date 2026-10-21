@@ -277,6 +277,11 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
+  public SymlinkTargetType getSymlinkTargetType(PathFragment path) throws IOException {
+    return delegateFs.getSymlinkTargetType(toDelegatePath(path));
+  }
+
+  @Override
   public PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
     return delegateFs.readSymbolicLinkUnchecked(toDelegatePath(path));
   }
