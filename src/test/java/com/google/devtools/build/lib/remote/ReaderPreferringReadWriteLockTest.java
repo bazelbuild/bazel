@@ -253,8 +253,7 @@ public class ReaderPreferringReadWriteLockTest {
     lock.unlockRead();
 
     // Cancelling the only writer must leave subsequent readers independent of the monitor, so they
-    // finish while it is held. The reader's state isn't checked for BLOCKED since a terminating
-    // thread briefly blocks on its own Thread object, which Thread#start may still hold.
+    // finish while it is held.
     var reader =
         new TestThread(
             () -> {
