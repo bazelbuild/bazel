@@ -38,8 +38,9 @@ public class TargetLoadingUtil {
    *
    * <p>Establishes all Skyframe dependencies needed for incremental correctness.
    *
-   * <p>Returns {@link TargetAndErrorIfAny} if no dep was mising; otherwise, returns the {@link
-   * SkyKey} specifying the missing dep.
+   * <p>Returns {@link TargetAndErrorIfAny} if no dep was missing; otherwise, returns the {@link
+   * SkyKey} of a dep that either isn't done yet or failed with an exception this method doesn't
+   * throw.
    */
   // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion, don't
   // load full packages unless needed.
