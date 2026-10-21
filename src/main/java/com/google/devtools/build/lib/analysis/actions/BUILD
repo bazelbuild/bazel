@@ -399,9 +399,6 @@ java_library(
         "TemplateExpansionAction.java",
         "TemplateExpansionContext.java",
     ],
-    exports = [
-        ":template_expansion_exception",
-    ],
     deps = [
         ":file_write_action_context",
         ":substitution",

@@ -53,6 +53,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:parameter_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:substitution",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:template_expansion_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:template_expansion_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:config_matching_provider",

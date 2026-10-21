@@ -26,6 +26,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:parameter_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:substitution",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:template_expansion_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:template_expansion_exception",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",

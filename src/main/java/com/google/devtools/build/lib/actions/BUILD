@@ -128,8 +128,6 @@ java_library(
         ":action_key_context",
         ":commandline_limits",
         ":exec_exception",
-        ":has_digest",
-        ":output_checker",
     ],
     deps = [
         ":action_environment",
