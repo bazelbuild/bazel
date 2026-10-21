@@ -103,7 +103,11 @@ public abstract sealed class RepoRecordedInput {
    *     NeverUpToDateRepoRecordedInput#PARSE_FAILURE} if the string representation is invalid
    */
   public static RepoRecordedInput parse(String s) {
-    List<String> parts = Splitter.on(':').limit(2).splitToList(s);
+    String decoded = unescape(s);
+    if (decoded == null) {
+      return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
+    }
+    List<String> parts = Splitter.on(':').limit(2).splitToList(decoded);
     if (parts.size() < 2) {
       return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
     }
@@ -125,7 +129,7 @@ public abstract sealed class RepoRecordedInput {
     public static Optional<RepoRecordedInput.WithValue> parse(String s) {
       int sChar = s.indexOf(' ');
       if (sChar > 0) {
-        var input = RepoRecordedInput.parse(unescape(s.substring(0, sChar)));
+        var input = RepoRecordedInput.parse(s.substring(0, sChar));
         if (!input.equals(NeverUpToDateRepoRecordedInput.PARSE_FAILURE)) {
           return Optional.of(new WithValue(input, unescape(s.substring(sChar + 1))));
         }
