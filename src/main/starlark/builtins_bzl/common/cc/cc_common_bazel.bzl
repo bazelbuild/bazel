@@ -51,10 +51,6 @@ def _add_go_exec_groups_to_binary_rules() -> bool:
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _cc_common_internal.add_go_exec_groups_to_binary_rules()
 
-def _get_tool_requirement_for_action(*, feature_configuration, action_name: str) -> Sequence[str]:
-    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return _cc_common_internal.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = action_name)
-
 def _implementation_deps_allowed_by_allowlist(*, ctx: Ctx) -> bool:
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _cc_common_internal.implementation_deps_allowed_by_allowlist(ctx = ctx)
@@ -80,6 +76,5 @@ cc_common = struct(
     incompatible_disable_objc_library_transition = _incompatible_disable_objc_library_transition,
     add_go_exec_groups_to_binary_rules = _add_go_exec_groups_to_binary_rules,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
-    get_tool_requirement_for_action = _get_tool_requirement_for_action,
     implementation_deps_allowed_by_allowlist = _implementation_deps_allowed_by_allowlist,
 )

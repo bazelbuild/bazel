@@ -52,10 +52,6 @@ def _add_go_exec_groups_to_binary_rules() -> bool:
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _cc_common_internal.add_go_exec_groups_to_binary_rules()
 
-def _get_tool_requirement_for_action(*, feature_configuration, action_name: str) -> Sequence[str]:
-    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return _cc_common_internal.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = action_name)
-
 def _create_compile_action(
         *,
         actions,
@@ -111,7 +107,6 @@ cc_common = struct(
     get_execution_requirements = _get_execution_requirements,
     get_memory_inefficient_command_line = _get_memory_inefficient_command_line,
     get_tool_for_action = _get_tool_for_action,
-    get_tool_requirement_for_action = _get_tool_requirement_for_action,
     implementation_deps_allowed_by_allowlist = _implementation_deps_allowed_by_allowlist,
     incompatible_disable_objc_library_transition = _incompatible_disable_objc_library_transition,
     legacy_cc_flags_make_variable_do_not_use = _legacy_cc_flags_make_variable_do_not_use,
