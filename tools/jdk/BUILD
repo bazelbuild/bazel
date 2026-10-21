@@ -12,6 +12,7 @@ filegroup(
         "BUILD.java_tools_prebuilt_darwin_x86_64",
         "BUILD.tools",
         "default_java_toolchain.bzl",
+        "javabuilder.bzl",
         "launcher_flag_alias.bzl",
         "local_java_repository.bzl",
         "proguard_allowlister.cc",
@@ -37,6 +38,7 @@ filegroup(
     srcs = [
         "BUILD.tools",
         "default_java_toolchain.bzl",
+        "javabuilder.bzl",
         "launcher_flag_alias.bzl",
         "local_java_repository.bzl",
         "proguard_allowlister.cc",
