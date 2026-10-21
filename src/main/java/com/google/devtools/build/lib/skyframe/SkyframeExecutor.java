@@ -2139,9 +2139,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Returns every {@link BuildConfigurationKey} in the graph. */
   public Collection<SkyKey> getTransitiveConfigurationKeys() {
-    return memoizingEvaluator.getDoneValues().keySet().stream()
-        .filter(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
-        .collect(toImmutableList());
+    return ImmutableList.copyOf(
+        memoizingEvaluator
+            .getInMemoryGraph()
+            .collectDoneValues(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
+            .keySet());
   }
 
   /**
@@ -4014,7 +4016,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
         batchDirtyResult =
             fsvc.getDirtyKeys(
-                memoizingEvaluator.getDoneValues(),
+                memoizingEvaluator
+                    .getInMemoryGraph()
+                    .collectDoneValues(
+                        DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker()::applies),
                 new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
       }
       if (externalDirtinessChecker != null) {

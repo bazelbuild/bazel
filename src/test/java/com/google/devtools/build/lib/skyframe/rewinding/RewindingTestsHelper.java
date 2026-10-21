@@ -1915,6 +1915,83 @@ public class RewindingTestsHelper {
   }
 
   /**
+   * Verifies that losing a file in a symlink to a tree artifact populated by an {@link
+   * com.google.devtools.build.lib.actions.ActionTemplate} expansion rewinds the expansion actions.
+   *
+   * <p>The lost file is a child of the symlink, so it doesn't identify the action of the expansion
+   * that generated the file it points to.
+   */
+  public final void runActionTemplateExpansionRewound_symlinkToTreeLost() throws Exception {
+    testCase.addOptions("--experimental_allow_map_directory");
+    testCase.write(
+        "foo/map.bzl",
+        """
+        def _map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for in_file in input_directories["in"].children:
+                out_file = template_ctx.declare_file(
+                    in_file.basename,
+                    directory = output_directories["out"],
+                )
+                template_ctx.run(
+                    progress_message = "Copying file to %{output}",
+                    inputs = [in_file],
+                    outputs = [out_file],
+                    executable = tools["copy_tool"],
+                    arguments = [out_file.path, in_file.path],
+                )
+
+        def _map_dir_impl(ctx):
+            tool = ctx.actions.declare_file(ctx.attr.name + ".bat")
+            ctx.actions.write(tool, r\"\"\"COPY_TOOL_SCRIPT\"\"\", is_executable = True)
+
+            in_dir = ctx.actions.declare_directory("in_tree")
+            ctx.actions.run_shell(
+                progress_message = "Creating in_tree",
+                outputs = [in_dir],
+                command = "echo 1 > $1/a && echo 2 > $1/b",
+                arguments = [in_dir.path],
+            )
+            out_dir = ctx.actions.declare_directory("out_tree")
+            ctx.actions.map_directory(
+                implementation = _map_impl,
+                input_directories = {"in": in_dir},
+                output_directories = {"out": out_dir},
+                tools = {"copy_tool": tool},
+            )
+            link_dir = ctx.actions.declare_directory("link_tree")
+            ctx.actions.symlink(output = link_dir, target_file = out_dir)
+            return DefaultInfo(files = depset([link_dir]))
+
+        map_dir = rule(implementation = _map_dir_impl)
+        """
+            .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT));
+    testCase.write(
+        "foo/BUILD",
+        """
+        load(":map.bzl", "map_dir")
+        map_dir(name = "map")
+        genrule(name = "consumer", srcs = [":map"], outs = ["consumer.out"], cmd = "ls $< > $@")
+        """);
+
+    addSpawnShim(
+        "Executing genrule //foo:consumer",
+        (spawn, context) -> {
+          SpecialArtifact linkTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "link_tree");
+          Artifact lost = SpawnInputUtils.getExpandedToArtifact("a", linkTree, spawn, context);
+          return createLostInputsExecException(context, lost);
+        });
+
+    testCase.buildTarget("//foo:consumer");
+
+    verifyAllSpawnShimsConsumed();
+    var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
+    assertThat(executedSpawns).hasCount("Creating in_tree", 1);
+    assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/a", 2);
+    assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/b", 2);
+    assertThat(executedSpawns).hasCount("Executing genrule //foo:consumer", 2);
+  }
+
+  /**
    * Verifies that sibling actions of a rewound {@link
    * com.google.devtools.build.lib.actions.ActionTemplate} expansion re-execute concurrently.
    */
