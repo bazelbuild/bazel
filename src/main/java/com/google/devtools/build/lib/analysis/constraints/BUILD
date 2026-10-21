@@ -145,6 +145,7 @@ java_library(
         ":constraint_semantics",
         ":environment_collection",
         ":supported_environments_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:alias_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
