@@ -47,6 +47,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_info",
         "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:package_specification_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",

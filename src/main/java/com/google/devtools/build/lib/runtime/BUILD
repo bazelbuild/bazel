@@ -528,6 +528,7 @@ java_library(
     srcs = ["TestResultAggregator.java"],
     deps = [
         ":test_summary",
+        "//src/main/java/com/google/devtools/build/lib/analysis:alias_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
@@ -740,6 +741,7 @@ java_library(
     srcs = ["TestSummary.java"],
     deps = [
         ":build_event_streamer_utils",
+        "//src/main/java/com/google/devtools/build/lib/analysis:alias_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
@@ -933,8 +935,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:extra/extra_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -1032,6 +1034,7 @@ java_library(
         ":test_result_notifier",
         ":test_summary",
         ":test_summary_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:alias_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_failure_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
