@@ -378,14 +378,13 @@ public class BuildView {
         if (discardAnalysisCacheAfterAnalysis
             && remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled()) {
           // When remote analysis value retrieval is enabled, it is possible for analysis to occur
-          // during the logical execution phase. Discarding the analysis cache fully can lead to
-          // crashes.
+          // during the logical execution phase. In Skymeld mode, discarding the analysis cache
+          // while analysis/execution nodes are in flight can lead to crashes (see b/575886997).
           //
           // TODO: b/466388360 - consider alternatives
           eventHandler.handle(
-              Event.warn(
-                  "Remote analysis caching is enabled. Performing only a partial analysis cache"
-                      + " discard."));
+              Event.warn("Remote analysis caching is enabled. Not discarding the analysis cache."));
+          discardAnalysisCacheAfterAnalysis = false;
         }
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
