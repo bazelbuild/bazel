@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
 import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
+import com.google.devtools.common.options.Options;
 
 /**
  * Default implementation of {@link PlatformConfigurationProvider} with option trimming and mnemonic
@@ -35,16 +36,43 @@ public final class DefaultPlatformConfigurationProvider implements PlatformConfi
   private final Label topLevelPlatformLabel;
   private final BuildOptions targetBaseline;
   private final BuildOptions targetBaselineTrimmed;
+  private final BuildOptions targetBaselineWithDefaultTestOptions;
   private final BuildOptions execBaseline;
   private final BuildOptions execBaselineTrimmed;
+  private final BuildOptions execBaselineWithDefaultTestOptions;
 
   public DefaultPlatformConfigurationProvider(
       Label topLevelPlatformLabel, BuildOptions targetBaseline, BuildOptions execBaseline) {
     this.topLevelPlatformLabel = checkNotNull(topLevelPlatformLabel);
     this.targetBaseline = checkNotNull(targetBaseline);
     this.targetBaselineTrimmed = TestTrimmingLogic.trim(targetBaseline);
+    this.targetBaselineWithDefaultTestOptions = withDefaultTestOptions(targetBaselineTrimmed);
     this.execBaseline = checkNotNull(execBaseline);
     this.execBaselineTrimmed = TestTrimmingLogic.trim(execBaseline);
+    this.execBaselineWithDefaultTestOptions = withDefaultTestOptions(execBaselineTrimmed);
+  }
+
+  /**
+   * Returns {@code trimmedBaseline} with {@link TestOptions} at their default values.
+   *
+   * <p>This is the baseline that untrimmed configurations are diffed against. It must not contain
+   * this build's {@link TestOptions} or its untrimmed {@code --run_under}: those are not part of
+   * the configuration checksum in {@code FrontierNodeVersion}, which is computed from the
+   * test-trimmed top-level options. If the baseline carried them, they would cancel out of the
+   * diff, and builds that differ only in test flags would serialize their untrimmed keys to
+   * identical bytes under the same {@code FrontierNodeVersion}, sharing cache entries that they
+   * must not share (b/570095568). The trimmed part of the baseline is covered by {@code
+   * FrontierNodeVersion}, and the defaults are the same for every build of the same Blaze binary,
+   * so with this baseline every test option that differs from its default is recorded in the diff.
+   *
+   * <p>This build's own test options still determine the output directory mnemonics of untrimmed
+   * configurations (see {@link #getActualBaseOptionsForPlatform}), so the codec records them
+   * separately for untrimmed keys.
+   */
+  private static BuildOptions withDefaultTestOptions(BuildOptions trimmedBaseline) {
+    return trimmedBaseline.toBuilder()
+        .addFragmentOptions(Options.getDefaults(TestOptions.class))
+        .build();
   }
 
   @Override
@@ -58,9 +86,29 @@ public final class DefaultPlatformConfigurationProvider implements PlatformConfi
     Preconditions.checkNotNull(platformLabel);
     BuildOptions base =
         isExec
+            ? (trimTestOptions ? execBaselineTrimmed : execBaselineWithDefaultTestOptions)
+            : (trimTestOptions ? targetBaselineTrimmed : targetBaselineWithDefaultTestOptions);
+    return withPlatform(base, platformLabel);
+  }
+
+  /**
+   * Returns this build's baseline, which, unlike the one returned by {@link
+   * #getBaseOptionsForPlatform}, includes this build's {@link TestOptions} and full {@code
+   * --run_under} for untrimmed configurations. Output directory mnemonics depend on these, since
+   * Skyframe computes them against this build's baseline.
+   */
+  @Override
+  public BuildOptions getActualBaseOptionsForPlatform(
+      Label platformLabel, boolean isExec, boolean trimTestOptions) {
+    Preconditions.checkNotNull(platformLabel);
+    BuildOptions base =
+        isExec
             ? (trimTestOptions ? execBaselineTrimmed : execBaseline)
             : (trimTestOptions ? targetBaselineTrimmed : targetBaseline);
+    return withPlatform(base, platformLabel);
+  }
 
+  private static BuildOptions withPlatform(BuildOptions base, Label platformLabel) {
     BuildOptions clonedOptions = base.clone();
     clonedOptions.get(PlatformOptions.class).setPlatforms(ImmutableList.of(platformLabel));
     return clonedOptions;
@@ -81,7 +129,7 @@ public final class DefaultPlatformConfigurationProvider implements PlatformConfi
     boolean isExec = coreOptions.getIsExec();
     boolean trimTestOptions = !targetOptions.contains(TestOptions.class);
     BuildOptions baselineOptions =
-        getBaseOptionsForPlatform(platformLabel, isExec, trimTestOptions);
+        getActualBaseOptionsForPlatform(platformLabel, isExec, trimTestOptions);
     try {
       return OutputPathMnemonicComputer.computeMnemonic(
               targetOptions, baselineOptions, ImmutableSortedMap.of())

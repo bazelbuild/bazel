@@ -720,6 +720,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:platform_providers",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
     ],
