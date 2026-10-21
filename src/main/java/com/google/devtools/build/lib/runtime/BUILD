@@ -1033,6 +1033,7 @@ java_library(
         ":test_summary",
         ":test_summary_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_failure_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_complete_event",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
