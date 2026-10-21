@@ -207,6 +207,24 @@ public final class BugReportTest {
   }
 
   @Test
+  public void crashContext_redactsArgsForLogging(@TestParameter boolean useVarargs) {
+    ImmutableList<String> args =
+        ImmutableList.of("build", "--client_env=FOO=BAR", "--client_env=SERVICE_ToKEn=secret");
+    CrashContext ctx = CrashContext.keepAlive();
+    if (useVarargs) {
+      ctx.withArgs(args.toArray(new String[0]));
+    } else {
+      ctx.withArgs(args);
+    }
+
+    assertThat(ctx.toString())
+        .contains(
+            "args=[build, --client_env=FOO=BAR,"
+                + " --client_env=SERVICE_ToKEn=__private_value_removed__]");
+    assertThat(ctx.toString()).doesNotContain("secret");
+  }
+
+  @Test
   public void convenienceMethod(@TestParameter CrashType crashType) throws Exception {
     Throwable t = crashType.createThrowable();
     FailureDetail expectedFailureDetail =
