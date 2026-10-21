@@ -184,12 +184,16 @@ java_library(
 
 java_library(
     name = "file_op_node_map",
-    srcs = ["FileOpNodeMemoizingLookup.java"],
+    srcs = [
+        "FileOpNodeMemoizingLookup.java",
+        "SelectionPartition.java",
+    ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
     deps = [
+        ":leaf_id_assignment",
         ":missing_skyframe_entry_exception",
         ":value_or_future_map",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
@@ -199,6 +203,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:sky_functions",
@@ -206,6 +211,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/error_prone:annotations",
+        "//third_party/java/fastutil:object-to-int-open-hash-map",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:concurrent",

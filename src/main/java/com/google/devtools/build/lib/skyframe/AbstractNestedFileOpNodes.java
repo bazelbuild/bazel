@@ -126,6 +126,56 @@ public abstract sealed class AbstractNestedFileOpNodes implements FileOpNodeOrFu
     this.serializationScratch = value;
   }
 
+  /**
+   * This node's position in the depth-first post-order of the upload layout walk, or a traversal
+   * sentinel while the walk is still running.
+   *
+   * <p>Positions are numbered from {@link #FIRST_POST_ORDER_INDEX}. The walk finishes a node only
+   * after every node it depends on, so every edge points to a strictly smaller index, and visiting
+   * nodes in increasing index order places each node after all its dependencies.
+   *
+   * <p>Doubles as the traversal's visited marker. A separate visited set over the whole node
+   * population would cost tens of megabytes, which is the same order as the bitmap residency the
+   * traversal exists to reduce.
+   *
+   * <p>Not volatile: written only by the single-threaded walk in {@link
+   * com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpNodeMemoizingLookup}, which
+   * happens-before the serialization work that reads it.
+   */
+  private int postOrderIndex = UNDISCOVERED;
+
+  /** Sentinel for a node the traversal has not reached yet. Matches the default field value. */
+  private static final int UNDISCOVERED = 0;
+
+  /** Sentinel for a node the traversal has reached but not yet finished. */
+  private static final int VISITING = -1;
+
+  /** The post-order index of the first node the walk finishes. */
+  public static final int FIRST_POST_ORDER_INDEX = 1;
+
+  public int getPostOrderIndex() {
+    return postOrderIndex;
+  }
+
+  /**
+   * Marks this node visited. It has no post-order index until {@link #setPostOrderIndex}.
+   *
+   * @return false if the node was already visited
+   */
+  public boolean markVisited() {
+    if (postOrderIndex != UNDISCOVERED) {
+      return false;
+    }
+    postOrderIndex = VISITING;
+    return true;
+  }
+
+  /** Records that the walk finished this node at {@code index}. */
+  public void setPostOrderIndex(int index) {
+    checkArgument(index >= FIRST_POST_ORDER_INDEX, "invalid post-order index %s", index);
+    postOrderIndex = index;
+  }
+
   /** A set of {@link FileOpNode}s with no immediate source dependencies. */
   public static final class NestedFileOpNodes extends AbstractNestedFileOpNodes {
     private NestedFileOpNodes(FileOpNode[] analysisDependencies) {

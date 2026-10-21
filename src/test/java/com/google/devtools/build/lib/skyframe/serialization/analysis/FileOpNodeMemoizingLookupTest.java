@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
+import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -50,9 +51,13 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNod
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -73,6 +78,17 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
   // TODO: b/364831651 - consider adding test cases covering other scenarios, like symlinks.
 
   private static final int CONCURRENCY = 4;
+
+  /**
+   * A diamond: {@code top} depends on {@code mid1} and {@code mid2}, which share {@code leaf}.
+   *
+   * <p>{@code leaf} globs, so the graph includes a directory listing.
+   */
+  private static final String DIAMOND_BUILD =
+      genrule("top", "[':mid1', ':mid2']")
+          + genrule("mid1", "['a.txt', ':leaf']")
+          + genrule("mid2", "['b.txt', ':leaf']")
+          + genrule("leaf", "glob(['*.txt'])");
 
   private ForkJoinPool forkJoinPool;
 
@@ -377,6 +393,131 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
     }
   }
 
+  // The tests below cover graph materialization and dense leaf ID assignment.
+
+  @Test
+  public void computeLeafIdsAndUploadOrder_postOrderIndexFollowsDependencies() throws Exception {
+    writeDiamond();
+    ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+    var _ = lookup.computeLeafIdsAndUploadOrder(selection);
+
+    Map<AbstractNestedFileOpNodes, List<AbstractNestedFileOpNodes>> parents =
+        nodeParents(lookup, selection);
+    var indices = new HashSet<Integer>();
+    for (var entry : parents.entrySet()) {
+      int index = entry.getKey().getPostOrderIndex();
+      assertWithMessage("post-order index of %s", entry.getKey())
+          .that(index)
+          .isAtLeast(AbstractNestedFileOpNodes.FIRST_POST_ORDER_INDEX);
+      assertWithMessage("post-order index of %s", entry.getKey()).that(indices.add(index)).isTrue();
+      for (AbstractNestedFileOpNodes parent : entry.getValue()) {
+        assertWithMessage("%s finished after its parent %s", entry.getKey(), parent)
+            .that(index)
+            .isLessThan(parent.getPostOrderIndex());
+      }
+    }
+  }
+
+  @Test
+  public void computeLeafIdsAndUploadOrder_uploadOrderAscendsByPostOrderIndex() throws Exception {
+    writeDiamond();
+    ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+    ImmutableList<SkyKey> uploadOrder =
+        lookup.computeLeafIdsAndUploadOrder(selection).uploadOrder();
+
+    var indices = new ArrayList<Integer>();
+    for (SkyKey key : uploadOrder) {
+      if (resolvedNode(lookup, (ActionLookupKey) key) instanceof AbstractNestedFileOpNodes node) {
+        indices.add(node.getPostOrderIndex());
+      }
+    }
+    // At least the diamond's three nested nodes. Not exact: the selection holds every done
+    // ActionLookupKey, including platform and toolchain targets outside the diamond.
+    assertThat(ImmutableSet.copyOf(indices).size()).isAtLeast(3);
+    assertThat(indices).isInOrder();
+  }
+
+  @Test
+  public void computeLeafIdsAndUploadOrder_uploadOrderPlacesDependenciesFirst() throws Exception {
+    writeDiamond();
+    ImmutableSet<SkyKey> selection =
+        doneKeys(key -> key instanceof ActionLookupKey || key instanceof ActionLookupData);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+    ImmutableList<SkyKey> uploadOrder =
+        lookup.computeLeafIdsAndUploadOrder(selection).uploadOrder();
+
+    assertThat(uploadOrder).containsNoDuplicates();
+    assertThat(uploadOrder).containsExactlyElementsIn(selection);
+    var position = new HashMap<SkyKey, Integer>();
+    for (int i = 0; i < uploadOrder.size(); i++) {
+      position.put(uploadOrder.get(i), i);
+    }
+
+    // SelectionPartition admits exactly two kinds of analysis-to-analysis inversion: keys that
+    // share a node (a collapse tie), and keys that both lack a nested node (the unranked bucket).
+    // Anything else means a dependency is uploaded after its dependent.
+    InMemoryGraph graph = graph();
+    int checkedRankedEdges = 0;
+    for (SkyKey key : uploadOrder) {
+      if (!(key instanceof ActionLookupKey parent)) {
+        // Owned keys (execution and summary keys) follow every analysis key, so each follows its
+        // owner.
+        ActionLookupKey owner = FileOpNodeMemoizingLookup.getDependencyKey(key);
+        if (position.containsKey(owner)) {
+          assertWithMessage("owner %s of %s", owner, key)
+              .that(position.get(owner))
+              .isLessThan(position.get(key));
+        }
+        continue;
+      }
+      FileOpNodeOrEmpty parentNode = resolvedNode(lookup, parent);
+      for (SkyKey dep : graph.getIfPresent(key).getDirectDeps()) {
+        if (!(dep instanceof ActionLookupKey child) || !position.containsKey(dep)) {
+          continue;
+        }
+        FileOpNodeOrEmpty childNode = resolvedNode(lookup, child);
+        boolean parentRanked = parentNode instanceof AbstractNestedFileOpNodes;
+        boolean childRanked = childNode instanceof AbstractNestedFileOpNodes;
+        if (parentRanked && childRanked && !Objects.equals(parentNode, childNode)) {
+          checkedRankedEdges++;
+        }
+        if (position.get(dep) < position.get(key)
+            || (parentRanked && childRanked && Objects.equals(parentNode, childNode))
+            || (!parentRanked && !childRanked)) {
+          continue;
+        }
+        assertWithMessage("%s is uploaded after its dependent %s", dep, key).fail();
+      }
+    }
+    assertThat(checkedRankedEdges).isGreaterThan(0);
+  }
+
+  @Test
+  public void computeLeafIdsAndUploadOrder_absentKey_excludedFromUploadOrder() throws Exception {
+    write("pkg/a.txt", "a");
+    write("pkg/BUILD", genrule("ok", "['a.txt']"));
+    buildTarget("//pkg:ok");
+    ConfiguredTargetKey okKey = ctKey("//pkg:ok");
+    ActionLookupKey absentKey = unbuiltKey("//pkg:absent");
+    ImmutableSet<SkyKey> selection = ImmutableSet.of(okKey, absentKey);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+
+    ImmutableList<SkyKey> uploadOrder =
+        lookup.computeLeafIdsAndUploadOrder(selection).uploadOrder();
+    assertThat(uploadOrder).contains(okKey);
+    assertThat(uploadOrder).doesNotContain(absentKey);
+  }
+
   @Test
   public void materializeNodeGraph_missingDependency_returnsOneFailurePerFailedNode()
       throws Exception {
@@ -609,6 +750,13 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
     }
   }
 
+  private void writeDiamond() throws Exception {
+    write("pkg/a.txt", "a");
+    write("pkg/b.txt", "b");
+    write("pkg/BUILD", DIAMOND_BUILD);
+    buildTarget("//pkg:top");
+  }
+
   /** A genrule concatenating {@code srcs}, a Starlark list or glob expression. */
   private static String genrule(String name, String srcs) {
     return String.format(
@@ -629,6 +777,55 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
 
   private ImmutableSet<SkyKey> doneKeys(Predicate<SkyKey> filter) {
     return graph().getDoneValues().keySet().stream().filter(filter).collect(toImmutableSet());
+  }
+
+  /**
+   * Every nested node reachable from the nodes of {@code selection}, mapped to the nested nodes
+   * that depend on it. Built independently of the lookup's own walk, to check what it recorded.
+   */
+  private static Map<AbstractNestedFileOpNodes, List<AbstractNestedFileOpNodes>> nodeParents(
+      FileOpNodeMemoizingLookup lookup, ImmutableSet<SkyKey> selection) {
+    var parents = new HashMap<AbstractNestedFileOpNodes, List<AbstractNestedFileOpNodes>>();
+    var pending = new ArrayDeque<AbstractNestedFileOpNodes>();
+    for (SkyKey key : selection) {
+      if (resolvedNode(lookup, (ActionLookupKey) key) instanceof AbstractNestedFileOpNodes root
+          && parents.putIfAbsent(root, new ArrayList<>()) == null) {
+        pending.add(root);
+      }
+    }
+    while (!pending.isEmpty()) {
+      AbstractNestedFileOpNodes parent = pending.remove();
+      for (int i = 0; i < parent.analysisDependenciesCount(); i++) {
+        if (parent.getAnalysisDependency(i) instanceof AbstractNestedFileOpNodes child) {
+          List<AbstractNestedFileOpNodes> childParents = parents.get(child);
+          if (childParents == null) {
+            childParents = new ArrayList<>();
+            parents.put(child, childParents);
+            pending.add(child);
+          }
+          childParents.add(parent);
+        }
+      }
+    }
+    return parents;
+  }
+
+  /**
+   * The materialized node for {@code key}.
+   *
+   * <p>{@link FileOpNodeMemoizingLookup#computeNode} can still return the completed future for a
+   * key after {@link FileOpNodeMemoizingLookup#materializeNodeGraph} returns: the future completes,
+   * and so releases quiescence, before its callback replaces the map entry with the node. Checking
+   * {@code computeNode(key) instanceof AbstractNestedFileOpNodes} directly would then miss the
+   * node, while {@link FileOpNodeMemoizingLookup#computeLeafIdsAndUploadOrder} unwraps the future
+   * and walks it.
+   */
+  private static FileOpNodeOrEmpty resolvedNode(
+      FileOpNodeMemoizingLookup lookup, ActionLookupKey key) {
+    return switch (lookup.computeNode(key)) {
+      case FileOpNodeOrEmpty node -> node;
+      case FutureFileOpNode future -> Futures.getUnchecked(future);
+    };
   }
 
   private FileOpNodeMemoizingLookup newLookup(

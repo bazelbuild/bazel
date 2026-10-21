@@ -58,6 +58,7 @@ import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
@@ -194,6 +195,7 @@ public final class FrontierSerializer {
                   serializationStats.analysisNodes(),
                   serializationStats.executionNodes(),
                   stopwatch)));
+      reporter.handle(Event.info(formatUploadPhases(serializationStats, stopwatch.elapsed())));
     } catch (ExecutionException e) {
       // The writeStatus future is not known to throw any ExecutionExceptions.
       Throwable cause = e.getCause();
@@ -219,6 +221,21 @@ public final class FrontierSerializer {
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
     return Optional.empty();
+  }
+
+  /**
+   * Breaks the sync write's elapsed time into the synchronous phases of {@link
+   * SelectedEntrySerializer#uploadSelection} and the remaining wait for writes to land.
+   */
+  private static String formatUploadPhases(
+      SelectedEntrySerializer.SerializationStats stats, Duration total) {
+    Duration materialize = stats.materializeNodeGraphTime();
+    Duration leafIds = stats.computeLeafIdsAndUploadOrderTime();
+    Duration drive = stats.driveUploadsTime();
+    Duration awaitWrites = total.minus(materialize).minus(leafIds).minus(drive);
+    return String.format(
+        "Skycache sync write: materialize=%d ms, assign and order=%d ms, drive=%d ms, await=%d ms",
+        materialize.toMillis(), leafIds.toMillis(), drive.toMillis(), awaitWrites.toMillis());
   }
 
   /**
