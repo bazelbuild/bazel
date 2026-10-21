@@ -1120,7 +1120,7 @@ Strip the given number of leading components from file paths on extraction. Only
     createDirectory(outputPath.getPath());
 
     Path downloadedPath;
-    Path downloadDirectory;
+    Path downloadDirectory = null;
     try {
       // Download to temp directory inside the outputDirectory and delete it after extraction
       downloadDirectory = outputPath.getPath().createTempDirectory("temp");
@@ -1159,6 +1159,10 @@ Strip the given number of leading components from file paths on extraction. Only
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
+        // Ensure deterministic contents of the repo directory in case it recovers.
+        if (downloadDirectory != null) {
+          deleteTreeWithRetries(downloadDirectory);
+        }
         return StarlarkInfo.create(
             StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
       } else {
