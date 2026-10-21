@@ -79,6 +79,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * A file system that overlays the native file system with a {@link RemoteExternalFileSystem} for
@@ -391,7 +392,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    * AbstractActionInputPrefetcher}.
    */
   @Override
-  public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+  public void ensureMaterialized(
+      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
       // The repo has not been injected into the in-memory file system.
@@ -410,15 +412,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
                   }
                   return materializationExecutor.submit(
                       () -> {
-                        doMaterialize(repo, reporter);
+                        doMaterialize(repo, location, reporter);
                         return null;
                       });
                 }));
   }
 
-  private void doMaterialize(RepositoryName repo, ExtendedEventHandler reporter)
+  private void doMaterialize(
+      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
-    reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
+    reporter.handle(Event.debug(location, "Materializing remote repo %s".formatted(repo)));
     materializeSubtree(externalDirectory.getChild(repo.getName()));
     materializedRepos.add(repo.getName());
 

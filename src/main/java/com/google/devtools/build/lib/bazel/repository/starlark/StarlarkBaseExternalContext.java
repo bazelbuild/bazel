@@ -168,6 +168,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private final ExecutorService executorService;
 
   private boolean wasSuccessful = false;
+  // The thread that evaluates the repo rule or module extension.
+  @Nullable private StarlarkThread thread;
 
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
@@ -236,8 +238,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
   }
 
-  public void storeRepoMappingRecorderInThread(StarlarkThread thread) {
+  /** Sets up the thread that evaluates the repo rule or module extension with this context. */
+  public void attachToThread(StarlarkThread thread) {
     repoMappingRecorder.storeInThread(thread);
+    this.thread = thread;
   }
 
   /**
@@ -1601,7 +1605,7 @@ Strip the given number of leading components from file paths on extraction. Only
   public StarlarkPath getPath(Object path) throws EvalException, InterruptedException {
     return switch (path) {
       case String s -> new StarlarkPath(this, workingDirectory.getRelative(s));
-      case Label label -> getPathFromLabel(label);
+      case Label label -> getPathFromLabel(label, /* materialize= */ true);
       case StarlarkPath starlarkPath -> starlarkPath;
       // This can never happen because we check it in the Starlark interpreter.
       default -> throw new IllegalArgumentException("expected string or label for path");
@@ -1638,7 +1642,11 @@ Strip the given number of leading components from file paths on extraction. Only
       })
   public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath(path);
+    StarlarkPath p =
+        path instanceof Label label
+            // Only the file itself is read, which doesn't require the rest of its repo.
+            ? getPathFromLabel(label, /* materialize= */ false)
+            : getPath(path);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
             p.toString(), identifyingStringForLogging, thread.getCallerLocation());
@@ -1877,7 +1885,7 @@ Strip the given number of leading components from file paths on extraction. Only
 
   private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label)
       throws EvalException, InterruptedException {
-    Path localPath = getPathFromLabel(label).getPath();
+    Path localPath = getPathFromLabel(label, /* materialize= */ true).getPath();
     PathFragment remotePath =
         label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
     return Maps.immutableEntry(remotePath, localPath);
@@ -2063,7 +2071,7 @@ Strip the given number of leading components from file paths on extraction. Only
     List<String> args = new ArrayList<>(arguments.size());
     for (Object arg : arguments) {
       if (arg instanceof Label label) {
-        args.add(getPathFromLabel(label).toString());
+        args.add(getPathFromLabel(label, /* materialize= */ true).toString());
       } else {
         // String or StarlarkPath expected
         args.add(arg.toString());
@@ -2405,17 +2413,27 @@ func(
     return null;
   }
 
-  // Resolve the label given by value into a file path.
-  protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+  /**
+   * Resolves the label into a file path.
+   *
+   * @param materialize whether the repo containing the file has to be available on the native file
+   *     system
+   */
+  protected StarlarkPath getPathFromLabel(Label label, boolean materialize)
+      throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
       throw new NeedsSkyframeRestartException();
     }
-    if (!label.getRepository().isMain()
+    if (materialize
+        && !label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
             instanceof LazyMaterializer lazyMaterializer) {
       try {
-        lazyMaterializer.ensureMaterialized(label.getRepository(), env.getListener());
+        lazyMaterializer.ensureMaterialized(
+            label.getRepository(),
+            thread != null ? thread.getCallerLocation() : null,
+            env.getListener());
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());

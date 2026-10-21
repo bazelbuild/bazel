@@ -319,7 +319,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath p = getPath(path);
-    StarlarkPath t = getPath(template);
+    StarlarkPath t =
+        template instanceof Label label
+            // Only the template itself is read, which doesn't require the rest of its repo.
+            ? getPathFromLabel(label, /* materialize= */ false)
+            : getPath(template);
     Map<String, String> substitutionMap =
         Dict.cast(substitutions, String.class, String.class, "substitutions");
     WorkspaceRuleEvent w =
