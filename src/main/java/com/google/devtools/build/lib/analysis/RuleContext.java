@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -1724,8 +1723,8 @@ public class RuleContext extends TargetContext
 
           if (attribute.isForDependencyResolution()) {
             if (!configuredTarget.isForDependencyResolution()
-                && !(configuredTarget.getConfiguredTarget()
-                    instanceof PackageGroupConfiguredTarget)) {
+                && configuredTarget.getConfiguredTarget().get(PackageSpecificationProvider.PROVIDER)
+                    == null) {
               attributeError(
                   attribute.getName(),
                   String.format(
@@ -1741,13 +1740,13 @@ public class RuleContext extends TargetContext
           if (!forAspect() && !allowMaterializerRuleRealDeps) {
             // Materializer rules can depend only on dependency resolution rules via "normal" /
             // non-dormant attributes, and everything else only via dormant attributes, except
-            // for PackageGroupConfiguredTargets and build settings.
+            // for package groups and build settings.
             if (target.getAssociatedRule().getRuleClassObject().isMaterializerRule()
                 && !(attribute.getType() == BuildType.DORMANT_LABEL
                     || attribute.getType() == BuildType.DORMANT_LABEL_LIST)
                 && !configuredTarget.isForDependencyResolution()
-                && !(configuredTarget.getConfiguredTarget()
-                    instanceof PackageGroupConfiguredTarget)) {
+                && configuredTarget.getConfiguredTarget().get(PackageSpecificationProvider.PROVIDER)
+                    == null) {
               attributeError(
                   attribute.getName(),
                   String.format(

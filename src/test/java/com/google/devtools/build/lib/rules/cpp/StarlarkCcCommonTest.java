@@ -8179,6 +8179,39 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     getConfiguredTarget("//bazel_internal/test_rules/cc:custom");
   }
 
+  @Test
+  public void testAbsoluteSymlinkRelativePathThrowsEvalError() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        """
+        load(":custom_rule.bzl", "custom_rule")
+
+        custom_rule(name = "custom")
+        """);
+    scratch.file(
+        "bazel_internal/test_rules/cc/custom_rule.bzl",
+        """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            cc_common.absolute_symlink(
+                ctx = ctx,
+                output = out,
+                target_path = "relative/path",
+                progress_message = "Symlinking %{input}",
+            )
+            return [DefaultInfo(files = depset([out]))]
+
+        custom_rule = rule(
+            implementation = _impl,
+        )
+        """);
+
+    checkError(
+        "//bazel_internal/test_rules/cc:custom",
+        "target_path must be an absolute path, got 'relative/path'");
+  }
+
   // grep_includes is not supported by Bazel.
   @Test
   public void testGrepIncludesIsSetToNullInsideCcToolchain() throws Exception {

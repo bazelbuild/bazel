@@ -71,13 +71,15 @@ public class SpawnIncludeScanner {
   private boolean inMemoryOutput;
   private final int remoteExtractionThreshold;
   private final SyscallCache syscallCache;
+  private final String productName;
 
   /** Constructs a new SpawnIncludeScanner. */
   public SpawnIncludeScanner(
-      Path execRoot, int remoteExtractionThreshold, SyscallCache syscallCache) {
+      Path execRoot, int remoteExtractionThreshold, SyscallCache syscallCache, String productName) {
     this.execRoot = execRoot;
     this.remoteExtractionThreshold = remoteExtractionThreshold;
     this.syscallCache = syscallCache;
+    this.productName = productName;
   }
 
   public void setOutputService(OutputService outputService) {
@@ -101,11 +103,11 @@ public class SpawnIncludeScanner {
       return resolver
           .toPath(src)
           .getParentDirectory()
-          .getRelative(src.getFilename() + ".blaze-grepped_includes_" + fileType);
+          .getRelative(src.getFilename() + "." + productName + "-grepped_includes_" + fileType);
     }
     return resolver
         .convertPath(execRoot)
-        .getChild("blaze-grepped_includes_" + fileType.getFileType())
+        .getChild(productName + "-grepped_includes_" + fileType.getFileType())
         .getRelative(src.getExecPath());
   }
 

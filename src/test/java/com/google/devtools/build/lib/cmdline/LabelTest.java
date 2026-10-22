@@ -551,7 +551,7 @@ public class LabelTest {
           .hasMessageThat()
           .contains(
               "Label.relative() with an argument containing a repository name can only be used"
-                  + " during .bzl initialization (top-level evaluation)");
+                  + " in .bzl files");
     }
   }
 }
