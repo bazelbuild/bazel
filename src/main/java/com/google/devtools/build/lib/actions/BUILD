@@ -184,6 +184,28 @@ java_library(
     ],
 )
 
+java_library(
+    name = "action_graph",
+    srcs = [
+        "ActionGraph.java",
+        "ActionGraphVisitor.java",
+        "ActionRegistry.java",
+        "BipartiteVisitor.java",
+        "MutableActionGraph.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
+    deps = [
+        ":action_exceptions",
+        ":action_input_prefetcher",
+        ":action_lookup_key",
+        ":artifacts",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -193,24 +215,19 @@ java_library(
         "ActionCacheUtils.java",
         "ActionConcurrencyMeter.java",
         "ActionContextMarker.java",
-        "ActionGraph.java",
-        "ActionGraphVisitor.java",
         "ActionInputMap.java",
         "ActionKeyComputer.java",
         "ActionLogBufferPathGenerator.java",
         "ActionLookupValue.java",
-        "ActionRegistry.java",
         "ActionTemplate.java",
         "ActionWithDiscoveredInputsState.java",
         "Actions.java",
         "BasicActionLookupValue.java",
-        "BipartiteVisitor.java",
         "ChangedFilesMessage.java",
         "CompletionContext.java",
         "EventReportingArtifacts.java",
         "FailAction.java",
         "MapBasedActionGraph.java",
-        "MutableActionGraph.java",
         "NotifyOnActionCacheHit.java",
         "ProxyMetadataFactory.java",
         "ResourceEstimator.java",
@@ -226,6 +243,7 @@ java_library(
         ":action_environment",
         ":action_events",
         ":action_exceptions",
+        ":action_graph",
         ":action_input_prefetcher",
         ":action_key_context",
         ":commandline",
@@ -237,6 +255,7 @@ java_library(
         ":action_environment",
         ":action_events",
         ":action_exceptions",
+        ":action_graph",
         ":action_input",
         ":action_input_prefetcher",
         ":action_lookup_data",
