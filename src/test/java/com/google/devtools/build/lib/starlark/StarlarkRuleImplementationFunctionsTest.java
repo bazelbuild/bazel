@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -361,6 +362,106 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertArtifactFilenames(action.getInputs().toList(), "a.txt", "b.img", "t.exe");
     assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img");
     MoreAsserts.assertContainsSublist(action.getArguments(), "foo/t.exe", "--a", "--b");
+  }
+
+  @Test
+  public void testCreateSpawnActionWithStdout() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = out)");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img", "stdout.txt");
+    Artifact stdoutOutput = action.getStdoutOutput();
+    assertThat(stdoutOutput).isNotNull();
+    assertThat(stdoutOutput.getFilename()).isEqualTo("stdout.txt");
+
+    Spawn spawn = action.getSpawnForTesting();
+    assertThat(spawn.getOutputFiles()).contains(stdoutOutput);
+    assertThat(spawn.getStdout()).isEqualTo(stdoutOutput);
+  }
+
+  @Test
+  public void testCreateSpawnActionWithStdoutOnlyOutput() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    // An empty 'outputs' is allowed as long as 'stdout' provides an output.
+    ev.exec(
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = out)");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertArtifactFilenames(action.getOutputs(), "stdout.txt");
+    assertThat(action.getStdoutOutput()).isEqualTo(action.getPrimaryOutput());
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutAlsoInOutputsFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "may not also be listed in 'outputs'",
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [out],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = out)");
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutWrongType() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "parameter 'stdout' got value of type 'string', want 'File or NoneType'",
+        "ruleContext.actions.run(",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = 'not_a_file')");
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutWithWorkerFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "parameter 'stdout' of actions.run is incompatible with worker execution",
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  execution_requirements = {'supports-workers': '1'},",
+        "  stdout = out)");
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutWithMultiplexWorkerFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "parameter 'stdout' of actions.run is incompatible with worker execution",
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  execution_requirements = {'supports-multiplex-workers': '1'},",
+        "  stdout = out)");
   }
 
   @Test
