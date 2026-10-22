@@ -150,6 +150,40 @@ java_library(
     ],
 )
 
+java_library(
+    name = "spawns",
+    srcs = [
+        "BaseSpawn.java",
+        "DynamicStrategyRegistry.java",
+        "SandboxedSpawnStrategy.java",
+        "SimpleSpawn.java",
+        "SpawnStrategy.java",
+        "Spawns.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
+    deps = [
+        ":action_input",
+        ":action_input_prefetcher",
+        ":artifacts",
+        ":exec_exception",
+        ":execution_requirements",
+        ":localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -169,12 +203,10 @@ java_library(
         "ActionTemplate.java",
         "ActionWithDiscoveredInputsState.java",
         "Actions.java",
-        "BaseSpawn.java",
         "BasicActionLookupValue.java",
         "BipartiteVisitor.java",
         "ChangedFilesMessage.java",
         "CompletionContext.java",
-        "DynamicStrategyRegistry.java",
         "EventReportingArtifacts.java",
         "FailAction.java",
         "MapBasedActionGraph.java",
@@ -184,10 +216,6 @@ java_library(
         "ResourceEstimator.java",
         "RichDataProducingAction.java",
         "RunfilesTreeAction.java",
-        "SandboxedSpawnStrategy.java",
-        "SimpleSpawn.java",
-        "SpawnStrategy.java",
-        "Spawns.java",
         "ToolProvider.java",
     ],
     visibility = [
@@ -203,6 +231,7 @@ java_library(
         ":commandline",
         ":commandline_limits",
         ":exec_exception",
+        ":spawns",
     ],
     deps = [
         ":action_environment",
@@ -231,6 +260,7 @@ java_library(
         ":parameter_file",
         ":runfiles_metadata",
         ":runfiles_tree",
+        ":spawns",
         "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
