@@ -91,12 +91,39 @@ java_library(
     ],
 )
 
+java_library(
+    name = "commandline",
+    srcs = [
+        "AbstractCommandLine.java",
+        "CommandLine.java",
+        "CommandLines.java",
+        "SingleStringArgFormatter.java",
+    ],
+    deps = [
+        ":action_input_prefetcher",
+        ":artifacts",
+        ":commandline_item",
+        ":commandline_limits",
+        ":param_file_action_input",
+        ":param_file_info",
+        ":parameter_file",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
     srcs = [
         "AbstractAction.java",
-        "AbstractCommandLine.java",
         "ActionCacheChecker.java",
         "ActionCacheUtils.java",
         "ActionConcurrencyMeter.java",
@@ -118,8 +145,6 @@ java_library(
         "BipartiteVisitor.java",
         "BuildFailedException.java",
         "ChangedFilesMessage.java",
-        "CommandLine.java",
-        "CommandLines.java",
         "CompletionContext.java",
         "DigestOfDirectoryException.java",
         "DynamicStrategyRegistry.java",
@@ -137,7 +162,6 @@ java_library(
         "RunfilesTreeAction.java",
         "SandboxedSpawnStrategy.java",
         "SimpleSpawn.java",
-        "SingleStringArgFormatter.java",
         "SpawnActionExecutionException.java",
         "SpawnStrategy.java",
         "Spawns.java",
@@ -154,6 +178,7 @@ java_library(
         ":action_events",
         ":action_input_prefetcher",
         ":action_key_context",
+        ":commandline",
         ":commandline_limits",
         ":exec_exception",
     ],
@@ -166,6 +191,7 @@ java_library(
         ":action_lookup_key",
         ":artifact_owner",
         ":artifacts",
+        ":commandline",
         ":commandline_item",
         ":commandline_limits",
         ":exec_exception",
