@@ -45,7 +45,6 @@ java_library(
         "RuleConfiguredTargetFactory.java",
         "RuleContext.java",
         "RuleDefinition.java",
-        "RunfilesProvider.java",
         "RunfilesSupport.java",
         "Util.java",
         "configuredtargets/AbstractConfiguredTarget.java",
@@ -82,6 +81,7 @@ java_library(
         ":materialized_deps_info",
         ":package_specification_provider",
         ":runfiles",
+        ":runfiles_provider",
         ":sh_toolchain",
         ":shell_configuration",
         ":transitive_visibility_provider",
@@ -127,6 +127,7 @@ java_library(
         ":rule_error_consumer",
         ":run_environment_info",
         ":runfiles",
+        ":runfiles_provider",
         ":sh_toolchain",
         ":source_manifest_action",
         ":starlark/args",
@@ -1064,6 +1065,18 @@ java_library(
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "runfiles_provider",
+    srcs = ["RunfilesProvider.java"],
+    deps = [
+        ":runfiles",
+        ":transitive_info_collection",
+        ":transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//third_party/java/guava:base",
     ],
 )
 
