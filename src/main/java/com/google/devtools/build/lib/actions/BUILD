@@ -206,6 +206,34 @@ java_library(
     ],
 )
 
+java_library(
+    name = "action_input_map",
+    srcs = [
+        "ActionInputMap.java",
+        "ProxyMetadataFactory.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
+    deps = [
+        ":action_input",
+        ":action_input_prefetcher",
+        ":artifacts",
+        ":file_metadata",
+        ":fileset_output_tree",
+        ":runfiles_metadata",
+        ":runfiles_tree",
+        "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -215,7 +243,6 @@ java_library(
         "ActionCacheUtils.java",
         "ActionConcurrencyMeter.java",
         "ActionContextMarker.java",
-        "ActionInputMap.java",
         "ActionKeyComputer.java",
         "ActionLogBufferPathGenerator.java",
         "ActionLookupValue.java",
@@ -229,7 +256,6 @@ java_library(
         "FailAction.java",
         "MapBasedActionGraph.java",
         "NotifyOnActionCacheHit.java",
-        "ProxyMetadataFactory.java",
         "ResourceEstimator.java",
         "RichDataProducingAction.java",
         "RunfilesTreeAction.java",
@@ -244,6 +270,7 @@ java_library(
         ":action_events",
         ":action_exceptions",
         ":action_graph",
+        ":action_input_map",
         ":action_input_prefetcher",
         ":action_key_context",
         ":commandline",
@@ -257,6 +284,7 @@ java_library(
         ":action_exceptions",
         ":action_graph",
         ":action_input",
+        ":action_input_map",
         ":action_input_prefetcher",
         ":action_lookup_data",
         ":action_lookup_key",
