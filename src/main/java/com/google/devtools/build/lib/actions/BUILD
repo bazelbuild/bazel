@@ -119,6 +119,37 @@ java_library(
     ],
 )
 
+java_library(
+    name = "action_exceptions",
+    srcs = [
+        "ActionConflictException.java",
+        "BuildFailedException.java",
+        "DigestOfDirectoryException.java",
+        "InputFileErrorException.java",
+        "MissingInputFileException.java",
+        "TopLevelOutputException.java",
+    ],
+    deps = [
+        ":action_input_prefetcher",
+        ":action_lookup_key",
+        ":artifact_owner",
+        ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/net/starlark/java/syntax",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -127,7 +158,6 @@ java_library(
         "ActionCacheChecker.java",
         "ActionCacheUtils.java",
         "ActionConcurrencyMeter.java",
-        "ActionConflictException.java",
         "ActionContextMarker.java",
         "ActionGraph.java",
         "ActionGraphVisitor.java",
@@ -139,21 +169,15 @@ java_library(
         "ActionTemplate.java",
         "ActionWithDiscoveredInputsState.java",
         "Actions.java",
-        "AlreadyReportedActionExecutionException.java",
         "BaseSpawn.java",
         "BasicActionLookupValue.java",
         "BipartiteVisitor.java",
-        "BuildFailedException.java",
         "ChangedFilesMessage.java",
         "CompletionContext.java",
-        "DigestOfDirectoryException.java",
         "DynamicStrategyRegistry.java",
-        "EnvironmentalExecException.java",
         "EventReportingArtifacts.java",
         "FailAction.java",
-        "InputFileErrorException.java",
         "MapBasedActionGraph.java",
-        "MissingInputFileException.java",
         "MutableActionGraph.java",
         "NotifyOnActionCacheHit.java",
         "ProxyMetadataFactory.java",
@@ -162,12 +186,9 @@ java_library(
         "RunfilesTreeAction.java",
         "SandboxedSpawnStrategy.java",
         "SimpleSpawn.java",
-        "SpawnActionExecutionException.java",
         "SpawnStrategy.java",
         "Spawns.java",
-        "TestExecException.java",
         "ToolProvider.java",
-        "TopLevelOutputException.java",
     ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:build_lib",
@@ -176,6 +197,7 @@ java_library(
     exports = [
         ":action_environment",
         ":action_events",
+        ":action_exceptions",
         ":action_input_prefetcher",
         ":action_key_context",
         ":commandline",
@@ -185,6 +207,7 @@ java_library(
     deps = [
         ":action_environment",
         ":action_events",
+        ":action_exceptions",
         ":action_input",
         ":action_input_prefetcher",
         ":action_lookup_data",
@@ -458,11 +481,14 @@ java_library(
 java_library(
     name = "exec_exception",
     srcs = [
+        "EnvironmentalExecException.java",
         "ExecException.java",
+        "TestExecException.java",
         "UserExecException.java",
     ],
     deps = [
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:base",
         "//third_party/java/jsr305_annotations",
     ],
 )
@@ -795,6 +821,7 @@ java_library(
         "ActionOwner.java",
         "ActionResult.java",
         "AggregatedSpawnMetrics.java",
+        "AlreadyReportedActionExecutionException.java",
         "CommandAction.java",
         "CommandLineExpansionException.java",
         "DelegatingPairInputMetadataProvider.java",
@@ -805,6 +832,7 @@ java_library(
         "LostInputsExecException.java",
         "MissingDepExecException.java",
         "Spawn.java",
+        "SpawnActionExecutionException.java",
         "SpawnInputs.java",
         "SpawnMetrics.java",
         "SpawnResult.java",
