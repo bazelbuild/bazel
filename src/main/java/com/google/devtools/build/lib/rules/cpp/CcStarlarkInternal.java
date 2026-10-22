@@ -448,13 +448,15 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   // TODO(b/333997009): remove command line flags that specify FDO with absolute path
   public void absoluteSymlink(
-      StarlarkActionContext ctx, Artifact output, String targetPath, String progressMessage) {
+      StarlarkActionContext ctx, Artifact output, String targetPath, String progressMessage)
+      throws EvalException {
+    PathFragment targetPathFragment = PathFragment.create(targetPath);
+    if (!targetPathFragment.isAbsolute()) {
+      throw Starlark.errorf("target_path must be an absolute path, got '%s'", targetPath);
+    }
     SymlinkAction action =
         SymlinkAction.toAbsolutePath(
-            ctx.getRuleContext().getActionOwner(),
-            PathFragment.create(targetPath),
-            output,
-            progressMessage);
+            ctx.getRuleContext().getActionOwner(), targetPathFragment, output, progressMessage);
     ctx.getRuleContext().registerAction(action);
   }
 
