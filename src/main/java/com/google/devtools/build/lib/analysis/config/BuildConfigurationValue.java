@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -998,21 +997,18 @@ public class BuildConfigurationValue
     BuildEventId eventId = getEventId();
     BuildEventStreamProtos.BuildEvent.Builder builder =
         BuildEventStreamProtos.BuildEvent.newBuilder();
-    builder
-        .setId(eventId)
-        .setConfiguration(
-            BuildEventStreamProtos.Configuration.newBuilder()
-                .setMnemonic(internalToUnicode(getMnemonic()))
-                .setPlatformName(internalToUnicode(cpu))
-                .putAllMakeVariable(
-                    getMakeEnvironment().entrySet().stream()
-                        .collect(
-                            toImmutableMap(
-                                e -> internalToUnicode(e.getKey()),
-                                e -> internalToUnicode(e.getValue()))))
-                .setCpu(internalToUnicode(cpu))
-                .setIsTool(isToolConfiguration())
-                .build());
+    BuildEventStreamProtos.Configuration.Builder configuration =
+        BuildEventStreamProtos.Configuration.newBuilder()
+            .setMnemonic(internalToUnicode(getMnemonic()))
+            .setPlatformName(internalToUnicode(cpu))
+            .setCpu(internalToUnicode(cpu))
+            .setIsTool(isToolConfiguration());
+    // Distinct keys that aren't valid UTF-8 can map to the same Unicode string.
+    getMakeEnvironment()
+        .forEach(
+            (key, value) ->
+                configuration.putMakeVariable(internalToUnicode(key), internalToUnicode(value)));
+    builder.setId(eventId).setConfiguration(configuration.build());
     return new BuildConfigurationEvent(eventId, builder.build());
   }
 

@@ -183,7 +183,8 @@ class IncludeParser {
     private static final Pattern WS_PAT = Pattern.compile("\\s+");
     @VisibleForTesting static final String ALLOWED_PREFIX = "third_party/";
     // Match regular expressions that can only match paths under ALLOWED_PREFIX .
-    private static final Pattern ALLOWED_PATTERN = Pattern.compile("^\\(*" + ALLOWED_PREFIX + ".*");
+    private static final Pattern ALLOWED_PATTERN =
+        Pattern.compile("^\\(*" + ALLOWED_PREFIX + ".*", Pattern.DOTALL);
 
     private static final int HINTS_CACHE_CONCURRENCY = 100;
 

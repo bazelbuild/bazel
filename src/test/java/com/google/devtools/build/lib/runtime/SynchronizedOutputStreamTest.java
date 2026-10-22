@@ -49,7 +49,9 @@ public class SynchronizedOutputStreamTest {
     underTest.registerStreamer(mockStreamer);
 
     underTest.write(new byte[] {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'});
-    assertThat(underTest.readAndReset(/* isFinal= */ false)).containsExactly("abcde", "fgh").inOrder();
+    assertThat(underTest.readAndReset(/* isFinal= */ false))
+        .containsExactly("abcde", "fgh")
+        .inOrder();
 
     assertThat(underTest.readAndReset(/* isFinal= */ false)).isEmpty();
 

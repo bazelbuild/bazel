@@ -231,7 +231,7 @@ public class BazelOutputService implements OutputService {
             .setArgs(
                 Any.pack(
                     StartBuildArgs.newBuilder()
-                        .setRemoteCache(remoteCache)
+                        .setRemoteCache(internalToUnicode(remoteCache))
                         .setInstanceName(remoteInstanceName)
                         .setDigestFunction(digestFunction)
                         .build()))

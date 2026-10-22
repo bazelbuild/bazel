@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatfo
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.MoreObjects;
@@ -30,6 +31,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLConnection;
 import java.util.Collection;
+import java.util.HexFormat;
 import java.util.Objects;
 
 /** HTTP utilities. */
@@ -66,7 +68,16 @@ public final class HttpUtils {
 
   /** Percent-encodes non-ASCII characters, which the JDK would send as ISO-8859-1. */
   static URI toAsciiUri(URI uri) {
-    return URI.create(uri.toASCIIString());
+    // Unlike URI#toASCIIString, this doesn't normalize the URI to NFC, which can change the path.
+    var ascii = new StringBuilder();
+    for (byte b : uri.toString().getBytes(UTF_8)) {
+      if (b >= 0) {
+        ascii.append((char) b);
+      } else {
+        ascii.append('%').append(HexFormat.of().withUpperCase().toHexDigits(b));
+      }
+    }
+    return URI.create(ascii.toString());
   }
 
   /** Opens a {@code file:} URL, whose path the JDK decodes as Unicode. */

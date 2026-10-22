@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.runtime;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -45,7 +44,7 @@ public class SynchronizedOutputStream extends OutputStream {
   // {@link write(byte[] buffer, int offset, int count)} method.
   private final int maxBufferedLength;
 
-  private final Splitter maxChunkSizeSplitter;
+  private final int chunkSize;
 
   private final boolean isStderr;
 
@@ -67,7 +66,7 @@ public class SynchronizedOutputStream extends OutputStream {
     buf = new byte[64];
     count = 0;
     this.maxBufferedLength = maxBufferedLength;
-    this.maxChunkSizeSplitter = Splitter.fixedLength(Math.max(maxChunkSize, maxBufferedLength));
+    this.chunkSize = Math.max(maxChunkSize, maxBufferedLength);
     this.isStderr = isStderr;
   }
 
@@ -96,7 +95,23 @@ public class SynchronizedOutputStream extends OutputStream {
     incompleteSuffix = Arrays.copyOfRange(bytes, completeLength, length);
     buf = new byte[64];
     count = 0;
-    return content.isEmpty() ? ImmutableList.of() : maxChunkSizeSplitter.split(content);
+    return split(content);
+  }
+
+  private ImmutableList<String> split(String content) {
+    var chunks = ImmutableList.<String>builder();
+    var start = 0;
+    while (start < content.length()) {
+      var end = start + Math.min(chunkSize, content.length() - start);
+      if (end < content.length()
+          && Character.isSurrogatePair(content.charAt(end - 1), content.charAt(end))) {
+        // Don't split a surrogate pair, but always make progress.
+        end += end - start > 1 ? -1 : 1;
+      }
+      chunks.add(content.substring(start, end));
+      start = end;
+    }
+    return chunks.build();
   }
 
   private static int lengthWithoutIncompleteUtf8Suffix(byte[] bytes, int length) {

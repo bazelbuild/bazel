@@ -1319,8 +1319,12 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
     BuildEventStreamer.OutErrProvider outErr = mock(BuildEventStreamer.OutErrProvider.class);
     String stdoutMsg = "Some text that was written to stdout.";
     String stderrMsg = "The UI text that bazel wrote to stderr.";
-    when(outErr.getOut(anyBoolean())).thenReturn(ImmutableList.of(stdoutMsg)).thenReturn(ImmutableList.of());
-    when(outErr.getErr(anyBoolean())).thenReturn(ImmutableList.of(stderrMsg)).thenReturn(ImmutableList.of());
+    when(outErr.getOut(anyBoolean()))
+        .thenReturn(ImmutableList.of(stdoutMsg))
+        .thenReturn(ImmutableList.of());
+    when(outErr.getErr(anyBoolean()))
+        .thenReturn(ImmutableList.of(stderrMsg))
+        .thenReturn(ImmutableList.of());
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));

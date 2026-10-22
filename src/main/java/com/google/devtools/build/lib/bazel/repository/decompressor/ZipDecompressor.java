@@ -186,7 +186,7 @@ public class ZipDecompressor implements Decompressor {
       if (!target.isAbsolute() && !targetPath.startsWith(destinationDirectory)) {
         throw new IOException(
             "Zip entries cannot refer to files outside of their directory: "
-                + reader.getFilename()
+                + platformToInternal(reader.getFilename())
                 + " has a symlink "
                 + strippedRelativePath
                 + " pointing to "

@@ -181,7 +181,8 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
   @Override
   public void exceptionCaught(ChannelHandlerContext ctx, Throwable t) {
     if (t instanceof ReadTimeoutException) {
-      super.exceptionCaught(ctx, new DownloadTimeoutException(path, bytesReceived, contentLength));
+      super.exceptionCaught(
+          ctx, new DownloadTimeoutException(unicodeToInternal(path), bytesReceived, contentLength));
     } else if (t instanceof TooLongFrameException) {
       super.exceptionCaught(ctx, new IOException("HTTP response too large", t));
     } else {
