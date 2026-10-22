@@ -234,6 +234,32 @@ java_library(
     ],
 )
 
+java_library(
+    name = "completion_context",
+    srcs = [
+        "CompletionContext.java",
+        "EventReportingArtifacts.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
+    deps = [
+        ":action_input",
+        ":action_input_map",
+        ":artifacts",
+        ":file_metadata",
+        ":fileset_output_symlink",
+        ":fileset_output_tree",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -251,8 +277,6 @@ java_library(
         "Actions.java",
         "BasicActionLookupValue.java",
         "ChangedFilesMessage.java",
-        "CompletionContext.java",
-        "EventReportingArtifacts.java",
         "FailAction.java",
         "MapBasedActionGraph.java",
         "NotifyOnActionCacheHit.java",
@@ -275,6 +299,7 @@ java_library(
         ":action_key_context",
         ":commandline",
         ":commandline_limits",
+        ":completion_context",
         ":exec_exception",
         ":spawns",
     ],
@@ -293,6 +318,7 @@ java_library(
         ":commandline",
         ":commandline_item",
         ":commandline_limits",
+        ":completion_context",
         ":exec_exception",
         ":execution_requirements",
         ":file_metadata",
