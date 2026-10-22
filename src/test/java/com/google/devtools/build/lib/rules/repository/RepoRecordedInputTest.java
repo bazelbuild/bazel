@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValu
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -57,6 +58,15 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
     assertMarkerFileEscaping("a \\\\nb");
     assertMarkerFileEscaping("a \\\nb");
     assertMarkerFileEscaping("a \nb");
+  }
+
+  @Test
+  public void testParseRoundTrip_fileWithSpace() {
+    var input =
+        new RepoRecordedInput.File(
+            RepoCacheFriendlyPath.createInsideWorkspace(
+                RepositoryName.MAIN, PathFragment.create("input with space.txt")));
+    assertThat(RepoRecordedInput.parse(input.toString())).isEqualTo(input);
   }
 
   @Test
