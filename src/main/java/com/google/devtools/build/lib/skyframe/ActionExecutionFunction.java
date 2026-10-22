@@ -778,6 +778,7 @@ public class ActionExecutionFunction implements SkyFunction {
                 skyframeActionExecutor.discoverInputs(
                     action,
                     actionLookupData,
+                    state.allInputs.getAllInputs(),
                     state.compositeInputMetadataProvider,
                     env,
                     state.actionFileSystem);

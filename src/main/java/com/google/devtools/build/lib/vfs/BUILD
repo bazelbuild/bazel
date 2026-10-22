@@ -122,6 +122,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:output_checker",
         "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
