@@ -523,6 +523,7 @@ java_library(
     srcs = ["ImportantOutputHandler.java"],
     deps = [
         ":action_input",
+        ":action_input_prefetcher",
         ":actions",
         ":artifacts",
         ":param_file_action_input",
@@ -646,6 +647,7 @@ java_library(
     ],
     deps = [
         ":actions",
+        ":exec_exception",
         ":localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
