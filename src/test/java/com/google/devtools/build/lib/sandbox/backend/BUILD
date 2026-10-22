@@ -124,3 +124,43 @@ java_test(
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
+
+java_test(
+    name = "SandboxBackendDynamicExecutionIntegrationTest",
+    size = "medium",
+    srcs = [
+        "FakeBackend.java",
+        "SandboxBackendDynamicExecutionIntegrationTest.java",
+    ],
+    jvm_flags = [
+        # Required for compatibility with records.
+        "-Djol.magicFieldOffset=true",
+    ],
+    test_class = "com.google.devtools.build.lib.sandbox.backend.SandboxBackendDynamicExecutionIntegrationTest",
+    runtime_deps = [
+        "//third_party/java/grpc:util",
+    ],
+    deps = COMMON_DEPS + [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/google/bytestream:bytestream_grpc",
+        "//third_party/google/bytestream:bytestream_java_proto",
+        "//third_party/google/longrunning:operations_java_proto",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/google/rpc:error_details_java_proto",
+        "//third_party/google/rpc:status_java_proto",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:inprocess",
+        "//third_party/java/grpc:netty",
+        "//third_party/java/grpc:stub",
+        "//third_party/java/netty4:transport",
+        "//third_party/java/netty4:transport_native_epoll",
+        "//third_party/java/netty4:transport_native_kqueue",
+        "//third_party/java/netty4:transport_native_unix_common",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)

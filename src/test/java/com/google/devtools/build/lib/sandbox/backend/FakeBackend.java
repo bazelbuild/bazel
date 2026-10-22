@@ -80,6 +80,7 @@ final class FakeBackend implements AutoCloseable {
   final AtomicInteger findMissingCalls = new AtomicInteger();
   private final Map<String, ByteString> readable = new ConcurrentHashMap<>();
   private volatile ExecuteHandler handler = (request, responses) -> {};
+  private volatile Runnable onRead = () -> {};
   private final String name = "fake-backend-" + UUID.randomUUID();
   /** The full names of all RPCs that the backend has received. */
   final Set<String> rpcs = Collections.synchronizedSet(new TreeSet<>());
@@ -139,6 +140,11 @@ final class FakeBackend implements AutoCloseable {
 
   ManagedChannel newChannel() {
     return InProcessChannelBuilder.forName(name).build();
+  }
+
+  /** Runs before each {@code ByteStream.Read} is answered, on the thread of the server. */
+  void setOnRead(Runnable onRead) {
+    this.onRead = onRead;
   }
 
   void setExecuteHandler(ExecuteHandler handler) {
@@ -250,6 +256,7 @@ final class FakeBackend implements AutoCloseable {
 
     @Override
     public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+      onRead.run();
       ByteString data = readable.get(hashOf(request.getResourceName(), 2));
       if (data == null) {
         responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
