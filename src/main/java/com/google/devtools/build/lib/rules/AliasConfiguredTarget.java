@@ -139,6 +139,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   }
 
   @Override
+  public ConfiguredTarget getActualNoFollow() {
+    return actual;
+  }
+
+  @Override
   public ActionLookupKey getLookupKey() {
     return this.actionLookupKey;
   }
