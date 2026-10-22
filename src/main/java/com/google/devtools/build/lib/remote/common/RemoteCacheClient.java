@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -112,6 +113,18 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
     @Nullable
     default String description() {
       return null;
+    }
+
+    /**
+     * The number of bytes {@link #get} yields, if that differs from the size of the digest the blob
+     * is uploaded under.
+     *
+     * <p>This is for protocols in which the bytes streamed for a digest are a reference to the
+     * blob (for example a file location) rather than the blob itself. Such blobs are never
+     * compressed.
+     */
+    default OptionalLong streamedSize() {
+      return OptionalLong.empty();
     }
   }
 
@@ -273,5 +286,21 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
 
   public boolean shouldVerifyDownloads() {
     return false;
+  }
+
+  /**
+   * Downloads the bytes the server streams for {@code digest} and writes them to {@code out},
+   * without requiring their number or hash to match {@code digest}.
+   *
+   * <p>This is for protocols in which the server may answer a read with a reference to the blob
+   * instead of the blob itself, which the caller then recognizes and resolves. It is the caller's
+   * responsibility to decide whether the bytes are the blob. It's also the callers responsibility
+   * to close {@code out}.
+   *
+   * <p>The default implementation throws {@link UnsupportedOperationException}.
+   */
+  public ListenableFuture<Void> downloadStreamedBytes(
+      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+    throw new UnsupportedOperationException();
   }
 }

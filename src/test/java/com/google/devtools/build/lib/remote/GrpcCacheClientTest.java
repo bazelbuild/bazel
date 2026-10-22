@@ -79,8 +79,10 @@ import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
@@ -133,6 +135,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -1755,5 +1758,107 @@ public class GrpcCacheClientTest {
         });
     IOException e = assertThrows(IOException.class, () -> downloadBlob(context, client, digest));
     assertThat(e).hasMessageThat().contains("Received more bytes than expected");
+  }
+
+  @Test
+  public void downloadStreamedBytes_acceptsBytesDifferingFromDigest() throws Exception {
+    GrpcCacheClient client = newClient();
+    Digest digest = DIGEST_UTIL.computeAsUtf8("foo");
+    ByteString reference = ByteString.copyFromUtf8("file:///some/much/longer/path/than/foo");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(ReadResponse.newBuilder().setData(reference).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    var out = new ByteArrayOutputStream();
+    getFromFuture(client.downloadStreamedBytes(context, digest, out));
+
+    assertThat(out.toByteArray()).isEqualTo(reference.toByteArray());
+    // The regular download path must still reject such a response.
+    assertThrows(IOException.class, () -> downloadBlob(context, client, digest));
+  }
+
+  @Test
+  public void downloadStreamedBytes_notFound() throws Exception {
+    GrpcCacheClient client = newClient();
+    Digest digest = DIGEST_UTIL.computeAsUtf8("foo");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onError(Status.NOT_FOUND.asException());
+          }
+        });
+
+    assertThrows(
+        CacheNotFoundException.class,
+        () ->
+            getFromFuture(
+                client.downloadStreamedBytes(context, digest, new ByteArrayOutputStream())));
+  }
+
+  @Test
+  public void uploadBlob_streamedSizeDiffersFromDigest() throws Exception {
+    GrpcCacheClient client = newClient();
+    Digest digest = DIGEST_UTIL.computeAsUtf8("foo");
+    ByteString reference = ByteString.copyFromUtf8("file:///a/path/that/is/longer/than/foo");
+    var resourceName = new AtomicReference<String>();
+    var received = new ByteArrayOutputStream();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> responseObserver) {
+            return new StreamObserver<>() {
+              long committed;
+
+              @Override
+              public void onNext(WriteRequest request) {
+                if (!request.getResourceName().isEmpty()) {
+                  resourceName.set(request.getResourceName());
+                }
+                try {
+                  request.getData().writeTo(received);
+                } catch (IOException e) {
+                  throw new IllegalStateException(e);
+                }
+                committed += request.getData().size();
+              }
+
+              @Override
+              public void onError(Throwable t) {}
+
+              @Override
+              public void onCompleted() {
+                responseObserver.onNext(
+                    WriteResponse.newBuilder().setCommittedSize(committed).build());
+                responseObserver.onCompleted();
+              }
+            };
+          }
+        });
+
+    getFromFuture(
+        client.uploadBlob(
+            context,
+            digest,
+            new RemoteCacheClient.Blob() {
+              @Override
+              public InputStream get() {
+                return reference.newInput();
+              }
+
+              @Override
+              public OptionalLong streamedSize() {
+                return OptionalLong.of(reference.size());
+              }
+            },
+            /* force= */ false));
+
+    assertThat(resourceName.get()).endsWith("/blobs/" + digest.getHash() + "/3");
+    assertThat(received.toByteArray()).isEqualTo(reference.toByteArray());
   }
 }
