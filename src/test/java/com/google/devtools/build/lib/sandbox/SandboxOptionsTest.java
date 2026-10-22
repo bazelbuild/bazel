@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -140,5 +141,32 @@ public final class SandboxOptionsTest {
       ImmutableMap.Entry<String, String> pathPair, String source, String target) {
     assertThat(source).isEqualTo(pathPair.getKey());
     assertThat(target).isEqualTo(pathPair.getValue());
+  }
+
+  @Test
+  public void sandboxBackendFlags_areRepeatableAssignments() throws Exception {
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--sandbox_backend=a=/bin/a",
+                "--sandbox_backend=b=b",
+                "--sandbox_backend_opt=a=--x=1",
+                "--sandbox_backend_opt=a=--y")
+            .getOptions();
+
+    assertThat(options.getSandboxBackends())
+        .containsExactly(Map.entry("a", "/bin/a"), Map.entry("b", "b"))
+        .inOrder();
+    assertThat(options.getSandboxBackendOpts())
+        .containsExactly(Map.entry("a", "--x=1"), Map.entry("a", "--y"))
+        .inOrder();
+  }
+
+  @Test
+  public void sandboxBackendFlags_defaultToEmpty() throws Exception {
+    SandboxOptions options = Options.getDefaults(SandboxOptions.class);
+
+    assertThat(options.getSandboxBackends()).isEmpty();
+    assertThat(options.getSandboxBackendOpts()).isEmpty();
   }
 }

@@ -8,6 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/sandbox/backend:srcs",
         "//src/test/java/com/google/devtools/build/lib/sandbox/cgroups:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],

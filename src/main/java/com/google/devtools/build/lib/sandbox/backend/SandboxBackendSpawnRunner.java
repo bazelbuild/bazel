@@ -223,6 +223,7 @@ public final class SandboxBackendSpawnRunner implements SpawnRunner {
         return resultBuilder(context, metrics, total)
             .setStatus(Status.TIMEOUT)
             .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
+            .setFailureDetail(failureDetail("timed out", FailureDetails.Spawn.Code.TIMEOUT))
             .build();
       }
       return failure(
@@ -279,16 +280,28 @@ public final class SandboxBackendSpawnRunner implements SpawnRunner {
     } finally {
       scratch.deleteTree();
     }
-    return resultBuilder(context, metrics, total)
-        .setStatus(result.getExitCode() == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
-        .setExitCode(result.getExitCode())
-        .build();
+    SpawnResult.Builder builder =
+        resultBuilder(context, metrics, total)
+            .setStatus(result.getExitCode() == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
+            .setExitCode(result.getExitCode());
+    if (result.getExitCode() != 0) {
+      builder.setFailureDetail(
+          failureDetail("exited with code " + result.getExitCode(), FailureDetails.Spawn.Code.NON_ZERO_EXIT));
+    }
+    return builder.build();
   }
 
   private SpawnResult.Builder resultBuilder(
       SpawnExecutionContext context, SpawnMetrics.Builder metrics, Stopwatch total) {
     return getSpawnResultBuilder(context)
         .setSpawnMetrics(metrics.setTotalTime(total.elapsed()).build());
+  }
+
+  private static FailureDetail failureDetail(String message, FailureDetails.Spawn.Code code) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setSpawn(FailureDetails.Spawn.newBuilder().setCode(code))
+        .build();
   }
 
   private static String messageFor(SandboxBackendSession session, IOException cause) {
@@ -302,13 +315,7 @@ public final class SandboxBackendSpawnRunner implements SpawnRunner {
         .setStatus(Status.EXECUTION_FAILED)
         .setExitCode(1)
         .setFailureMessage(message)
-        .setFailureDetail(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setSpawn(
-                    FailureDetails.Spawn.newBuilder()
-                        .setCode(FailureDetails.Spawn.Code.EXEC_IO_EXCEPTION))
-                .build())
+        .setFailureDetail(failureDetail(message, FailureDetails.Spawn.Code.EXEC_IO_EXCEPTION))
         .setSpawnMetrics(SpawnMetrics.Builder.forLocalExec().setTotalTime(total.elapsed()).build())
         .build();
   }
