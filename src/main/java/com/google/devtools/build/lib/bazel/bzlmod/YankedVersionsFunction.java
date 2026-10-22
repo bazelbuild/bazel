@@ -44,18 +44,24 @@ public class YankedVersionsFunction implements SkyFunction {
       return null;
     }
 
+    var lockfileYankedVersionsValue = registry.tryGetYankedVersionsFromLockfile(key.moduleKey());
+    if (lockfileYankedVersionsValue.isPresent()) {
+      return lockfileYankedVersionsValue.get();
+    }
+
+    String moduleName = key.moduleKey().name();
     try (SilentCloseable c =
         Profiler.instance()
-            .profile(ProfilerTask.BZLMOD, () -> "getting yanked versions: " + key.moduleName())) {
+            .profile(ProfilerTask.BZLMOD, () -> "getting yanked versions: " + moduleName)) {
       return YankedVersionsValue.create(
-          registry.getYankedVersions(key.moduleName(), env.getListener(), downloadManager));
+          registry.getYankedVersions(moduleName, env.getListener(), downloadManager));
     } catch (IOException e) {
       env.getListener()
           .handle(
               Event.warn(
                   String.format(
                       "Could not read metadata file for module %s from registry %s: %s",
-                      key.moduleName(), key.registryUrl(), e.getMessage())));
+                      moduleName, key.registryUrl(), e.getMessage())));
       // This is failing open: If we can't read the metadata file, we allow yanked modules to be
       // fetched.
       return YankedVersionsValue.create(Optional.empty());
