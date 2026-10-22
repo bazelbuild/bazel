@@ -50,7 +50,6 @@ java_library(
         "Util.java",
         "configuredtargets/AbstractConfiguredTarget.java",
         "configuredtargets/MergedConfiguredTarget.java",
-        "configuredtargets/PackageGroupConfiguredTarget.java",
         "configuredtargets/RuleConfiguredTarget.java",
         "extra/ExtraActionMapProvider.java",
         "extra/ExtraActionSpec.java",
@@ -571,6 +570,7 @@ java_library(
     deps = [
         ":alias_provider",
         ":analysis_core",
+        ":configuredtargets/package_group_configured_target",
         ":rule_error_consumer",
         ":transitive_visibility_provider",
         ":visibility_provider",
@@ -2449,6 +2449,31 @@ java_library(
 )
 
 java_library(
+    name = "configuredtargets/package_group_configured_target",
+    srcs = ["configuredtargets/PackageGroupConfiguredTarget.java"],
+    deps = [
+        ":analysis_core",
+        ":file_provider",
+        ":package_specification_provider",
+        ":target_context",
+        ":transitive_info_collection",
+        ":transitive_info_provider",
+        ":visibility_provider",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "configured_target_factory",
     srcs = ["ConfiguredTargetFactory.java"],
     deps = [
@@ -2458,6 +2483,7 @@ java_library(
         ":configured_target",
         ":configuredtargets/environment_group_configured_target",
         ":configuredtargets/file_configured_target",
+        ":configuredtargets/package_group_configured_target",
         ":dependency_kind",
         ":exec_group_collection",
         ":package_specification_provider",

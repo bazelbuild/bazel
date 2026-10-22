@@ -746,6 +746,8 @@ java_test(
     srcs = ["PackageGroupBuildViewTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/package_group_configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:package_specification_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
