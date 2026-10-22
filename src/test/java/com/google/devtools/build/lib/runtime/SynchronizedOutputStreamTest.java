@@ -49,12 +49,12 @@ public class SynchronizedOutputStreamTest {
     underTest.registerStreamer(mockStreamer);
 
     underTest.write(new byte[] {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'});
-    assertThat(underTest.readAndReset()).containsExactly("abcde", "fgh").inOrder();
+    assertThat(underTest.readAndReset(/* isFinal= */ false)).containsExactly("abcde", "fgh").inOrder();
 
-    assertThat(underTest.readAndReset()).isEmpty();
+    assertThat(underTest.readAndReset(/* isFinal= */ false)).isEmpty();
 
     underTest.write(new byte[] {'i', 'j', 'k'});
-    assertThat(underTest.readAndReset()).containsExactly("ijk");
+    assertThat(underTest.readAndReset(/* isFinal= */ false)).containsExactly("ijk");
   }
 
   @Test
@@ -67,7 +67,7 @@ public class SynchronizedOutputStreamTest {
     BuildEventStreamer mockStreamer = mock(BuildEventStreamer.class);
     doAnswer(
             inv -> {
-              writes.add(ImmutableList.copyOf(underTest.readAndReset()));
+              writes.add(ImmutableList.copyOf(underTest.readAndReset(/* isFinal= */ false)));
               return null;
             })
         .when(mockStreamer)
@@ -99,7 +99,7 @@ public class SynchronizedOutputStreamTest {
     underTest.registerStreamer(mockStreamer);
 
     underTest.write(new byte[] {'a', 'b', 'c', 'd'});
-    assertThat(underTest.readAndReset()).containsExactly("ab", "cd").inOrder();
+    assertThat(underTest.readAndReset(/* isFinal= */ false)).containsExactly("ab", "cd").inOrder();
   }
 
   // TODO(b/154242266): Make BES handle binary data correctly.
@@ -113,7 +113,7 @@ public class SynchronizedOutputStreamTest {
     byte[] input = new byte[] {(byte) 0xff};
     underTest.write(input);
 
-    String result = Iterables.getOnlyElement(underTest.readAndReset());
+    String result = Iterables.getOnlyElement(underTest.readAndReset(/* isFinal= */ false));
     // In the real code the result eventually winds up in a protobuf, which treats strings as utf8.
     assertThat(result.getBytes(StandardCharsets.UTF_8)).isEqualTo(input);
   }

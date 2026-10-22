@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInterna
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
@@ -67,7 +68,7 @@ public class FactsAdapter extends TypeAdapter<Facts> {
       return Facts.validateAndCreate(
           Json.INSTANCE.decode(jsonString, Starlark.UNBOUND, starlarkThread));
     } catch (EvalException e) {
-      throw new IOException("Failed to decode facts JSON: " + e.getMessage(), e);
+      throw new JsonParseException("Failed to decode facts JSON: " + e.getMessage(), e);
     }
   }
 }

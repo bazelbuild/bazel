@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.zip.ZipFileEntry;
 import com.google.devtools.build.zip.ZipReader;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -87,7 +89,7 @@ public class ZipDecompressor implements Decompressor {
     Map<Path, PathFragment> symlinks = new HashMap<>();
 
     var archiveFile = descriptor.archivePath().getPathFile();
-    try (ZipReader reader = new ZipReader(archiveFile, ISO_8859_1)) {
+    try (ZipReader reader = openZipReader(archiveFile)) {
       Collection<ZipFileEntry> entries = reader.entries();
       for (ZipFileEntry entry : entries) {
         String entryName = entry.getName();
@@ -120,6 +122,9 @@ public class ZipDecompressor implements Decompressor {
         throw new CouldNotFindPrefixException(prefix, prefixes);
       }
     } catch (ZipException e) {
+      if (e.getMessage() == null) {
+        throw e;
+      }
       // ZipReader quotes the archive's file name as a platform string.
       var internalMessage =
           e.getMessage().replace(archiveFile.getName(), platformToInternal(archiveFile.getName()));
@@ -131,6 +136,15 @@ public class ZipDecompressor implements Decompressor {
     }
 
     return destinationDirectory;
+  }
+
+  private static ZipReader openZipReader(File archiveFile) throws IOException {
+    try {
+      return new ZipReader(archiveFile, ISO_8859_1);
+    } catch (FileNotFoundException e) {
+      throw (FileNotFoundException)
+          new FileNotFoundException(platformToInternal(e.getMessage())).initCause(e);
+    }
   }
 
   private static void extractZipEntry(

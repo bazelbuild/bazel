@@ -86,7 +86,8 @@ public final class HttpUtils {
     try {
       connection.connect();
     } catch (FileNotFoundException e) {
-      throw new FileNotFoundException(platformToInternal(e.getMessage()));
+      throw (FileNotFoundException)
+          new FileNotFoundException(platformToInternal(e.getMessage())).initCause(e);
     }
     return connection;
   }
@@ -112,7 +113,13 @@ public final class HttpUtils {
       throw new IOException("Remote redirect missing Location.");
     }
     // The JDK decodes response headers as ISO-8859-1, which results in an internal string.
-    URI result = mergeUrls(URI.create(internalToUnicode(newLocation)), toUri(connection));
+    URI location;
+    try {
+      location = parseUri(newLocation);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(e.getMessage(), e);
+    }
+    URI result = mergeUrls(location, toUri(connection));
     if (!isHttp(result)) {
       throw new IOException("Bad Location: " + newLocation);
     }
@@ -166,7 +173,8 @@ public final class HttpUtils {
     try {
       result = new URI(protocol, userInfo, host, port, path, query, fragment);
     } catch (URISyntaxException e) {
-      throw new IOException("Could not merge " + preferred + " into " + original, e);
+      throw new IOException(
+          "Could not merge " + unicodeToInternal(preferred.toString()) + " into " + original, e);
     }
     return result;
   }

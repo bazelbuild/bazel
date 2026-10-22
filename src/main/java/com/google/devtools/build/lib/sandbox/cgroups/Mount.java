@@ -52,7 +52,7 @@ public record Mount(Path path, String type, ImmutableList<String> opts) {
           Pattern.DOTALL);
 
   /** Matches the octal escape sequences used for special characters in {@code /proc/mounts}. */
-  private static final Pattern OCTAL_ESCAPE_PATTERN = Pattern.compile("\\\\([0-7]{3})");
+  private static final Pattern OCTAL_ESCAPE_PATTERN = Pattern.compile("\\\\([0-3][0-7]{2})");
 
   public boolean isV2() {
     return type().equals("cgroup2");

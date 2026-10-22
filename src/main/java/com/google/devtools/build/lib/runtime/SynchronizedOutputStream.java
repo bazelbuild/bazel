@@ -78,8 +78,11 @@ public class SynchronizedOutputStream extends OutputStream {
   /**
    * Read the contents of the stream and simultaneously clear them. Also, reset the amount of memory
    * retained to a constant amount.
+   *
+   * <p>Unless {@code isFinal} is true, an incomplete UTF-8 sequence at the end of the contents is
+   * held back until the next call.
    */
-  public synchronized Iterable<String> readAndReset() {
+  public synchronized Iterable<String> readAndReset(boolean isFinal) {
     var bytes = buf;
     var length = (int) count;
     if (incompleteSuffix.length > 0) {
@@ -88,7 +91,7 @@ public class SynchronizedOutputStream extends OutputStream {
       System.arraycopy(buf, 0, bytes, incompleteSuffix.length, length);
       length = bytes.length;
     }
-    var completeLength = lengthWithoutIncompleteUtf8Suffix(bytes, length);
+    var completeLength = isFinal ? length : lengthWithoutIncompleteUtf8Suffix(bytes, length);
     String content = new String(bytes, 0, completeLength, UTF_8);
     incompleteSuffix = Arrays.copyOfRange(bytes, completeLength, length);
     buf = new byte[64];
@@ -100,10 +103,11 @@ public class SynchronizedOutputStream extends OutputStream {
     // A UTF-8 sequence is at most four bytes long.
     for (var i = length - 1; i >= Math.max(0, length - 3); i--) {
       var b = bytes[i] & 0xFF;
-      if (b < 0x80) {
+      if (b < 0x80 || b == 0xC0 || b == 0xC1 || b > 0xF4) {
+        // Not part of a valid multi-byte sequence.
         return length;
       }
-      if (b >= 0xC0) {
+      if (b >= 0xC2) {
         var sequenceLength = b >= 0xF0 ? 4 : b >= 0xE0 ? 3 : 2;
         return length - i < sequenceLength ? i : length;
       }
