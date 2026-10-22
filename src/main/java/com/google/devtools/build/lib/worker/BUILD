@@ -243,6 +243,7 @@ java_library(
     deps = [
         ":worker",
         ":worker_key",
+        ":worker_process_status",
         "//third_party/java/guava:collect",
     ],
 )
