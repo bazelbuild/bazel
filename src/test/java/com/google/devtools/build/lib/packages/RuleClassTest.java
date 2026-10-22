@@ -1271,6 +1271,41 @@ public final class RuleClassTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testTwoOutputsAreOrdered() throws Exception {
+    RuleClass ruleClassC =
+        newRuleClass(
+            "ruleC",
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.fromTemplates("implicit-%{name}"),
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("outs", OUTPUT_LIST).build());
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("outs", ImmutableList.of("explicit"));
+    attributeValues.put("name", "myrule");
+
+    Rule rule = createRule(ruleClassC, "myrule", attributeValues);
+
+    assertThat(Lists.transform(rule.getOutputFiles(), OutputFile::getName))
+        .containsExactly("implicit-myrule", "explicit")
+        .inOrder();
+    assertThat(Lists.transform(rule.getImplicitOutputFiles(), OutputFile::getName))
+        .containsExactly("implicit-myrule");
+    assertThat(rule.getExplicitOutputFileMap().keySet()).containsExactly("outs");
+    assertThat(Lists.transform(rule.getExplicitOutputFileMap().get("outs"), OutputFile::getName))
+        .containsExactly("explicit");
+  }
+
+  @Test
   public void testSubstitutePlaceholderIntoTemplate() throws Exception {
     RuleClass ruleClass =
         newRuleClass(
