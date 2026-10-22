@@ -31,7 +31,7 @@ import java.util.stream.Stream;
  * unix domain socket in a directory that only the current user can access.
  *
  * <p>This is the only class that knows how Bazel and the backend find each other. The backend is
- * told the location of its socket on its command line and has to create it once it accepts
+ * told the path of its socket on its command line and has to create it once it accepts
  * connections.
  *
  * <p>TODO: Windows isn't supported yet. Neither the unix domain sockets of the Netty transport nor

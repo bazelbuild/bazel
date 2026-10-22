@@ -120,7 +120,7 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
      * is uploaded under.
      *
      * <p>This is for protocols in which the bytes streamed for a digest are a reference to the
-     * blob (for example a file location) rather than the blob itself. Such blobs are never
+     * blob (for example a file URI) rather than the blob itself. Such blobs are never
      * compressed.
      */
     default OptionalLong streamedSize() {

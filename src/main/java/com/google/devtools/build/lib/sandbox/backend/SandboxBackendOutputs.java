@@ -55,14 +55,14 @@ import javax.annotation.Nullable;
  * <p>Nothing is written to the exec root before {@link #commit}: all outputs are first assembled
  * below a private directory, so that an action whose output is not needed in the end, for example
  * the loser of a dynamic execution race, doesn't leave anything behind. The contents of an output
- * file are read with {@code ByteStream.Read}, and the backend usually answers with the location of
- * a staged copy instead of the contents, see {@link LocationBlobs}. Such a location is linked, or
+ * file are read with {@code ByteStream.Read}, and the backend usually answers with the file URI of
+ * a staged copy instead of the contents, see {@link FileUriBlobs}. Such a file URI is linked, or
  * if that's not possible copied, but never moved, since several outputs with the same digest share
- * one location.
+ * one file.
  */
 final class SandboxBackendOutputs {
-  // A location is a path, which is short.
-  private static final long MAX_LOCATION_SIZE = 64 * 1024;
+  // A file URI is a path, which is short.
+  private static final long MAX_FILE_URI_SIZE = 64 * 1024;
 
   private final SandboxBackendSession session;
   private final DigestUtil digestUtil;
@@ -311,23 +311,23 @@ final class SandboxBackendOutputs {
       throws IOException {
     long size = received.getFileSize();
     if (startsWithFileScheme(received)) {
-      // This is the same decision as LocationBlobs#isLocation, without reading large files.
+      // This is the same decision as FileUriBlobs#isFileUri, without reading large files.
       boolean isBlob = size == digest.getSizeBytes() && hasDigest(received, digest);
       if (!isBlob) {
-        if (size > MAX_LOCATION_SIZE) {
+        if (size > MAX_FILE_URI_SIZE) {
           throw new IOException(
               String.format(
                   "sandbox backend returned %d bytes that don't match %s/%d",
                   size, digest.getHash(), digest.getSizeBytes()));
         }
-        String location;
+        String stagedPath;
         try {
-          location = LocationBlobs.decode(ByteString.copyFrom(FileSystemUtils.readContent(received)));
+          stagedPath = FileUriBlobs.decode(ByteString.copyFrom(FileSystemUtils.readContent(received)));
         } catch (IllegalArgumentException e) {
           throw new IOException(
-              "sandbox backend returned an invalid location: " + e.getMessage(), e);
+              "sandbox backend returned an invalid file URI: " + e.getMessage(), e);
         }
-        link(received.getFileSystem().getPath(location), assembled, executable);
+        link(received.getFileSystem().getPath(stagedPath), assembled, executable);
         received.delete();
         return;
       }
@@ -354,20 +354,20 @@ final class SandboxBackendOutputs {
     return digestUtil.compute(path, path.stat()).getHash().equals(digest.getHash());
   }
 
-  /** Makes {@code assembled} a file with the contents of {@code location} without moving it. */
-  private static void link(Path location, Path assembled, boolean executable) throws IOException {
-    FileStatus status = location.stat();
-    boolean locationExecutable = (status.getPermissions() & 0100) != 0;
+  /** Makes {@code assembled} a file with the contents of {@code staged} without moving it. */
+  private static void link(Path staged, Path assembled, boolean executable) throws IOException {
+    FileStatus status = staged.stat();
+    boolean stagedExecutable = (status.getPermissions() & 0100) != 0;
     // Changing the permissions of a hard link changes those of all names of the file.
-    if (locationExecutable == executable) {
+    if (stagedExecutable == executable) {
       try {
-        location.createHardLink(assembled);
+        staged.createHardLink(assembled);
         return;
       } catch (IOException e) {
         // Possibly across file systems.
       }
     }
-    FileSystemUtils.copyFile(location, assembled);
+    FileSystemUtils.copyFile(staged, assembled);
     assembled.setExecutable(executable);
   }
 

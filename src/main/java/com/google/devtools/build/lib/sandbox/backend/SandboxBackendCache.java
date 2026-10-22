@@ -31,7 +31,7 @@ import java.util.OptionalLong;
  * The uploader of the inputs of an action to a sandbox backend.
  *
  * <p>Everything but the contents of input files is uploaded as is. For an input file, only its
- * location is uploaded, see {@link LocationBlobs}, so that the backend can bind the digest to the
+ * path is uploaded, see {@link FileUriBlobs}, so that the backend can bind the digest to the
  * file without Bazel reading it.
  */
 final class SandboxBackendCache extends RemoteExecutionCache {
@@ -56,27 +56,27 @@ final class SandboxBackendCache extends RemoteExecutionCache {
       PathFragment execPath,
       boolean force) {
     // All inputs have been prefetched, so the path is a path on the host file system.
-    return client.uploadBlob(context, digest, new LocationBlob(path), force);
+    return client.uploadBlob(context, digest, new FileUriBlob(path), force);
   }
 
-  private record LocationBlob(Path path) implements Blob {
+  private record FileUriBlob(Path path) implements Blob {
     @Override
     public InputStream get() {
-      return location().newInput();
+      return fileUri().newInput();
     }
 
     @Override
     public String description() {
-      return "location of file " + path;
+      return "file URI of " + path;
     }
 
     @Override
     public OptionalLong streamedSize() {
-      return OptionalLong.of(location().size());
+      return OptionalLong.of(fileUri().size());
     }
 
-    private ByteString location() {
-      return LocationBlobs.encode(path.getPathString());
+    private ByteString fileUri() {
+      return FileUriBlobs.encode(path.getPathString());
     }
   }
 }

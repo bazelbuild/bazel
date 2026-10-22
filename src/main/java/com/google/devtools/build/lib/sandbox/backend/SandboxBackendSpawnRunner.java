@@ -68,8 +68,8 @@ import javax.annotation.Nullable;
  * Runs spawns in a sandbox backend.
  *
  * <p>The backend always executes the action. Its inputs are made known to the backend by uploading
- * the Merkle tree of the input root, in which files are only referred to by location, see {@link
- * LocationBlobs}, and its outputs are brought back by {@link SandboxBackendOutputs}.
+ * the Merkle tree of the input root, in which files are only referred to by file URI, see {@link
+ * FileUriBlobs}, and its outputs are brought back by {@link SandboxBackendOutputs}.
  */
 public final class SandboxBackendSpawnRunner implements SpawnRunner {
   // The number of times a spawn is run again after the backend reported that it doesn't hold all

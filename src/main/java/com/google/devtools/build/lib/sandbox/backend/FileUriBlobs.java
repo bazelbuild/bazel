@@ -21,26 +21,26 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
- * The convention by which a sandbox backend exchanges file locations instead of file contents.
+ * The convention by which a sandbox backend exchanges file URIs instead of file contents.
  *
  * <p>Bazel never copies input files to the backend. Instead, the bytes it streams to {@code
  * ByteStream.Write} for the digest of an input file are the absolute, percent-encoded {@code
- * file:///} URI of the file, and the backend binds the digest to that location. In the other
+ * file:///} URI of the file, and the backend binds the digest to that file. In the other
  * direction, the bytes the backend streams to {@code ByteStream.Read} for an output file may be the
  * URI of a staged copy of the file.
  *
  * <p>Since the digest that names the blob still describes the file contents, a receiver tells a
- * location apart from a real blob as follows: the data is a location if and only if it starts with
+ * file URI apart from a real blob as follows: the data is a file URI if and only if it starts with
  * {@code file://} and is not the blob described by the digest, i.e., its length is not the digest's
  * size or its hash is not the digest's hash.
  */
-public final class LocationBlobs {
+public final class FileUriBlobs {
   private static final ByteString SCHEME = ByteString.copyFromUtf8("file://");
 
-  private LocationBlobs() {}
+  private FileUriBlobs() {}
 
   /**
-   * Encodes the absolute path {@code path} as a location.
+   * Encodes the absolute path {@code path} as a file URI.
    *
    * <p>The path is a Bazel internal string, i.e., every character stands for one byte of the path
    * as seen by the operating system.
@@ -66,10 +66,10 @@ public final class LocationBlobs {
   }
 
   /**
-   * Returns whether {@code data}, as exchanged for {@code digest}, is a location rather than the
+   * Returns whether {@code data}, as exchanged for {@code digest}, is a file URI rather than the
    * blob described by {@code digest}.
    */
-  public static boolean isLocation(ByteString data, Digest digest, DigestUtil digestUtil) {
+  public static boolean isFileUri(ByteString data, Digest digest, DigestUtil digestUtil) {
     if (!data.startsWith(SCHEME)) {
       return false;
     }
@@ -78,9 +78,9 @@ public final class LocationBlobs {
   }
 
   /**
-   * Returns the path a location refers to, as a Bazel internal string.
+   * Returns the path a file URI refers to, as a Bazel internal string.
    *
-   * @throws IllegalArgumentException if {@code data} is not a well-formed location
+   * @throws IllegalArgumentException if {@code data} is not a well-formed file URI
    */
   public static String decode(ByteString data) {
     if (!data.startsWith(SCHEME)) {
