@@ -166,18 +166,30 @@ public final class MerkleTreeComputer {
       Executors.newThreadPerTaskExecutor(
           Thread.ofVirtual().name("merkle-tree-upload-", 0).factory());
 
-  // Keyed on FileArtifactValue-like object describing the contents of the subtree. Since weak keys
-  // imply identity comparison, the key type can't be just FileArtifactValue as not every aggregate
-  // input has a FileArtifactValue that is retained alongside its contents.
-  private static final Cache<Object, MerkleTree.RootOnly> persistentToolSubTreeCache =
-      Caffeine.newBuilder().weakKeys().build();
-  private static final Cache<Object, MerkleTree.RootOnly> persistentNonToolSubTreeCache =
-      Caffeine.newBuilder().weakKeys().build();
+  /**
+   * The inter-build caches of subtrees, which record which subtrees have been uploaded.
+   *
+   * <p>Keyed on FileArtifactValue-like object describing the contents of the subtree. Since weak
+   * keys imply identity comparison, the key type can't be just FileArtifactValue as not every
+   * aggregate input has a FileArtifactValue that is retained alongside its contents.
+   */
+  private static final class SubTreeCaches {
+    final Cache<Object, MerkleTree.RootOnly> tool = Caffeine.newBuilder().weakKeys().build();
+    final Cache<Object, MerkleTree.RootOnly> nonTool = Caffeine.newBuilder().weakKeys().build();
 
-  // @GuardedBy("MerkleTreeComputer.class") for writes, reads use double-checked locking.
-  @Nullable private static volatile Scrubber lastScrubber;
+    // @GuardedBy("this") for writes, reads use double-checked locking.
+    @Nullable volatile Scrubber lastScrubber;
+  }
+
+  // Used by all computers that don't specify an upload scope, which share a single remote cache.
+  private static final SubTreeCaches defaultSubTreeCaches = new SubTreeCaches();
+
+  // Caches for computers with an upload scope. They are kept alive as long as the scope is.
+  private static final Cache<Object, SubTreeCaches> scopedSubTreeCaches =
+      Caffeine.newBuilder().weakKeys().build();
 
   private final DigestUtil digestUtil;
+  private final SubTreeCaches subTreeCaches;
   @Nullable private final MerkleTreeUploader merkleTreeUploader;
   private final String buildRequestId;
   private final String commandId;
@@ -194,7 +206,29 @@ public final class MerkleTreeComputer {
       String buildRequestId,
       String commandId,
       String workspaceName) {
+    this(digestUtil, remoteExecutionCache, buildRequestId, commandId, workspaceName, null);
+  }
+
+  /**
+   * @param uploadScope identifies the destination that {@code remoteExecutionCache} uploads to, or
+   *     null for the default one that is shared by remote caching and execution. Whether a subtree
+   *     has been uploaded is tracked across builds and per scope, so that independent destinations,
+   *     such as a local executor and a remote cache, don't mistake each other's uploads for their
+   *     own. The state is discarded once the scope object is garbage collected, so a scope should
+   *     live exactly as long as the destination's content does.
+   */
+  public MerkleTreeComputer(
+      DigestUtil digestUtil,
+      @Nullable MerkleTreeUploader remoteExecutionCache,
+      String buildRequestId,
+      String commandId,
+      String workspaceName,
+      @Nullable Object uploadScope) {
     this.digestUtil = digestUtil;
+    this.subTreeCaches =
+        uploadScope == null
+            ? defaultSubTreeCaches
+            : scopedSubTreeCaches.get(uploadScope, k -> new SubTreeCaches());
     this.merkleTreeUploader = remoteExecutionCache;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
@@ -329,12 +363,12 @@ public final class MerkleTreeComputer {
       throws IOException, InterruptedException, LostInputsExecException {
     // The scrubber is a per-invocation setting and invocations do not overlap, so it can be tracked
     // in a static variable.
-    if (!Objects.equals(scrubber, lastScrubber)) {
-      synchronized (MerkleTreeComputer.class) {
-        if (!Objects.equals(scrubber, lastScrubber)) {
-          persistentToolSubTreeCache.invalidateAll();
-          persistentNonToolSubTreeCache.invalidateAll();
-          lastScrubber = scrubber;
+    if (!Objects.equals(scrubber, subTreeCaches.lastScrubber)) {
+      synchronized (subTreeCaches) {
+        if (!Objects.equals(scrubber, subTreeCaches.lastScrubber)) {
+          subTreeCaches.tool.invalidateAll();
+          subTreeCaches.nonTool.invalidateAll();
+          subTreeCaches.lastScrubber = scrubber;
         }
       }
     }
@@ -1003,7 +1037,7 @@ public final class MerkleTreeComputer {
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
       BlobPolicy blobPolicy) {
-    var persistentCache = isTool ? persistentToolSubTreeCache : persistentNonToolSubTreeCache;
+    var persistentCache = isTool ? subTreeCaches.tool : subTreeCaches.nonTool;
     if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
       persistentCache.invalidate(cacheKey);
     } else {
