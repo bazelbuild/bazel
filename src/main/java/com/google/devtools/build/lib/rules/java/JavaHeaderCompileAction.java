@@ -28,9 +28,13 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -51,10 +55,13 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
+import com.google.devtools.build.lib.server.FailureDetails.JavaCompile.Code;
 import com.google.devtools.build.lib.util.OnDemandString;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -121,12 +128,46 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     if (!inMemoryJdeps) {
       return result;
     }
-    Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
     return mergeMaps(
         result,
         ImmutableMap.of(
-            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-            outputDepsProto.getExecPathString()));
+            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS, getSpawnOutputDepsProtoPath()));
+  }
+
+  @Override
+  protected ImmutableList<PathFragment> getAdditionalPathOutputsToDelete() {
+    var spawnOutputDepsProto = getSpawnOutputDepsProto();
+    return spawnOutputDepsProto == Iterables.get(getOutputs(), 1)
+        ? ImmutableList.of()
+        : ImmutableList.of(spawnOutputDepsProto.getExecPath());
+  }
+
+  private String getSpawnOutputDepsProtoPath() {
+    Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
+    String outputPath = outputDepsProto.getExecPathString();
+    // Use the same execution info as the builder, which excludes the owner's exec properties, so
+    // that the spawn output matches the --output_deps path on the command line. If exec properties
+    // disable path mapping at execution time, the spawn output is copied to the action output.
+    return PathMappers.getEffectiveOutputPathsMode(
+                getOutputPathsMode(), getMnemonic(), sortedExecutionInfo)
+            == OutputPathsMode.OFF
+        ? outputPath
+        : outputPath + ".unstripped";
+  }
+
+  /** Constructs the spawn-only input on demand, without retaining it on the action. */
+  private ActionInput getSpawnOutputDepsProto() {
+    Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
+    String outputPath = getSpawnOutputDepsProtoPath();
+    return outputDepsProto.getExecPathString().equals(outputPath)
+        ? outputDepsProto
+        : ActionInputHelper.fromPath(PathFragment.create(outputPath));
+  }
+
+  @Override
+  protected Collection<? extends ActionInput> getSpawnOutputs() {
+    return JavaCompileAction.getSpawnOutputs(
+        getOutputs(), Iterables.get(getOutputs(), 1), getSpawnOutputDepsProto());
   }
 
   @Override
@@ -136,15 +177,18 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
   @Override
   protected void afterExecute(
-      ActionExecutionContext context, List<SpawnResult> spawnResults, PathMapper pathMapper) {
+      ActionExecutionContext context, List<SpawnResult> spawnResults, PathMapper pathMapper)
+      throws ExecException {
     // The first entry represents the successful execution, see SpawnStrategy#exec
     SpawnResult spawnResult = spawnResults.get(0);
     Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
+    ActionInput spawnOutputDepsProto = getSpawnOutputDepsProto();
     try {
       Deps.Dependencies fullOutputDeps =
           JavaCompileAction.createFullOutputDeps(
               spawnResult,
               outputDepsProto,
+              spawnOutputDepsProto,
               getInputs(),
               getAdditionalArtifactsForPathMapping(),
               context,
@@ -154,17 +198,15 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         javaContext.insertDependencies(outputDepsProto, fullOutputDeps);
       }
     } catch (IOException e) {
-      // Left empty. If we cannot read the .jdeps file now, we will read it later or throw an
-      // appropriate error then.
+      if (spawnOutputDepsProto == outputDepsProto) {
+        // The spawn already produced the action output, so dependencies can be read later.
+        return;
+      }
+      throw new EnvironmentalExecException(
+          e,
+          JavaCompileAction.createFailureDetail(
+              ".jdeps read IOException", Code.JDEPS_READ_IO_EXCEPTION));
     }
-  }
-
-  @Override
-  public boolean mayModifySpawnOutputsAfterExecution() {
-    // Causes of spawn output modification after execution:
-    // - In-place rewriting of .jdeps files with --experimental_output_paths=strip.
-    // TODO: Use separate files as action and spawn output to avoid in-place modification.
-    return true;
   }
 
   public static Builder newBuilder(RuleContext ruleContext) {
@@ -507,7 +549,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               .addExecPath("--gensrc_output", gensrcOutputJar)
               .addExecPath("--resource_output", resourceOutputJar)
               .addExecPath("--output_manifest_proto", manifestOutput)
-              .addExecPath("--output_deps", outputDepsProto)
               .addExecPaths("--bootclasspath", bootclasspathEntries)
               .addExecPaths("--sources", sourceFiles)
               .addExecPaths("--source_jars", sourceJars)
@@ -553,6 +594,24 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       if (cpuReservation > 1) {
         executionInfo.put("cpu:" + cpuReservation, "");
       }
+      String mnemonic =
+          useDirectClasspath
+              ? DIRECT_CLASSPATH_MNEMONIC
+              : JavaCompileAction.CompilationType.TURBINE.mnemonic;
+      ImmutableMap<String, String> effectiveExecutionInfo =
+          ruleContext
+              .getConfiguration()
+              .modifiedExecutionInfo(executionInfo.buildKeepingLast(), mnemonic);
+      commandLine.addFormattedExecPath(
+          "--output_deps",
+          PathMappers.getEffectiveOutputPathsMode(
+                      PathMappers.getOutputPathsMode(ruleContext.getConfiguration()),
+                      mnemonic,
+                      effectiveExecutionInfo)
+                  == OutputPathsMode.OFF
+              ? "%s"
+              : "%s.unstripped",
+          outputDepsProto);
 
       ActionOwner actionOwner =
           ruleContext.useAutoExecGroups()
@@ -596,17 +655,14 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                     .addCommandLine(commandLine.build(), PARAM_FILE_INFO)
                     .build(),
                 /* env= */ actionEnvironment,
-                /* executionInfo= */ ruleContext
-                    .getConfiguration()
-                    .modifiedExecutionInfo(
-                        executionInfo.buildKeepingLast(), DIRECT_CLASSPATH_MNEMONIC),
+                /* executionInfo= */ effectiveExecutionInfo,
                 /* progressMessage= */ progressMessage,
                 /* mnemonic= */ DIRECT_CLASSPATH_MNEMONIC,
                 /* outputPathsMode= */ PathMappers.getOutputPathsMode(
                     ruleContext.getConfiguration()),
                 // If classPathMode == BAZEL, also make sure to inject the dependencies to be
                 // available to downstream actions. Else just do enough work to locally create the
-                // full .jdeps from the .stripped .jdeps produced on the executor.
+                // full .jdeps from the .jdeps.unstripped produced on the executor.
                 /* insertDependencies= */ classpathMode == JavaClasspathMode.BAZEL
                     || classpathMode == JavaClasspathMode.BAZEL_NO_FALLBACK,
                 javaConfiguration.inmemoryJdepsFiles(),
