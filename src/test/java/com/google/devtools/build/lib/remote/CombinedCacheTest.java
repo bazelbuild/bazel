@@ -888,6 +888,16 @@ public class CombinedCacheTest {
     Digest barDigest = digestUtil.computeAsUtf8("bar");
     Digest quxDigest = digestUtil.computeAsUtf8("qux");
 
+    CountDownLatch sharedUploadSubscribed = new CountDownLatch(2);
+    doAnswer(
+            invocation -> {
+              Object upload = invocation.callRealMethod();
+              sharedUploadSubscribed.countDown();
+              return upload;
+            })
+        .when(cacheProtocol)
+        .uploadBlob(any(), eq(barDigest), (Blob) any(), eq(false));
+
     SortedMap<PathFragment, Path> input1 = new TreeMap<>();
     input1.put(PathFragment.create("foo"), foo);
     input1.put(PathFragment.create("bar"), bar);
@@ -933,6 +943,11 @@ public class CombinedCacheTest {
     uploadCalls.await();
     assertThat(uploadFutures).hasSize(5);
     assertThat(cacheProtocol.getInProgressUploads()).hasSize(5);
+
+    // Starting every distinct upload does not mean both consumers have subscribed to bar.
+    assertThat(sharedUploadSubscribed.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
+    assertThat(cacheProtocol.getUploadSubscriberCount(barDigest)).isEqualTo(2);
 
     thread1.interrupt();
     ensureInterrupted.await();
