@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
-import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -104,13 +102,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
-    wait(
-        actionInputFetcher.prefetchFilesInterruptibly(
-            action,
-            ImmutableList.of(a),
-            (ActionInput unused) -> null,
-            Priority.MEDIUM,
-            Reason.INPUTS));
+    wait(prefetchInputs(actionInputFetcher, ImmutableList.of(a), (ActionInput unused) -> null));
 
     // assert
     Path p = execRoot.getRelative(a.getExecPath());
@@ -138,12 +130,10 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
 
     // act
     wait(
-        actionInputFetcher.prefetchFilesInterruptibly(
-            action,
+        prefetchInputs(
+            actionInputFetcher,
             ImmutableList.of(VirtualActionInput.EMPTY_MARKER),
-            (ActionInput unused) -> null,
-            Priority.MEDIUM,
-            Reason.INPUTS));
+            (ActionInput unused) -> null));
 
     // assert that nothing happened
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
@@ -159,14 +149,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     var error =
         assertThrows(
             BulkTransferException.class,
-            () ->
-                wait(
-                    prefetcher.prefetchFilesInterruptibly(
-                        action,
-                        ImmutableList.of(a),
-                        metadata::get,
-                        Priority.MEDIUM,
-                        Reason.INPUTS)));
+            () -> wait(prefetchInputs(prefetcher, ImmutableList.of(a), metadata::get)));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
@@ -236,9 +219,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             ActionOutputDirectoryHelper.createForTesting(),
             OutputPermissions.READONLY);
 
-    wait(
-        actionInputFetcher.prefetchFilesInterruptibly(
-            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    wait(prefetchInputs(actionInputFetcher, metadata.keySet(), metadata::get));
     assertThat(FileSystemUtils.readContent(a.getPath(), StandardCharsets.UTF_8))
         .isEqualTo("hello world");
 
@@ -246,9 +227,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     a.getPath().delete();
     actionInputFetcher.handleRewoundActionOutputs(ImmutableList.of(a));
 
-    wait(
-        actionInputFetcher.prefetchFilesInterruptibly(
-            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    wait(prefetchInputs(actionInputFetcher, metadata.keySet(), metadata::get));
     assertThat(FileSystemUtils.readContent(a.getPath(), StandardCharsets.UTF_8))
         .isEqualTo("hello world");
   }
@@ -273,9 +252,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             ActionOutputDirectoryHelper.createForTesting(),
             OutputPermissions.READONLY);
 
-    wait(
-        actionInputFetcher.prefetchFilesInterruptibly(
-            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    wait(prefetchInputs(actionInputFetcher, metadata.keySet(), metadata::get));
 
     assertThat(FileSystemUtils.readContent(a.getPath(), StandardCharsets.UTF_8))
         .isEqualTo("hello world");

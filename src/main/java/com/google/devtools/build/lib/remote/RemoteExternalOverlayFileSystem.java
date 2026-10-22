@@ -444,6 +444,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
                 /* action= */ null,
                 Iterables.transform(paths, ActionInputHelper::fromPath),
                 actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
+                /* treeMetadataSupplier= */ tree -> null,
                 ActionInputPrefetcher.Priority.CRITICAL,
                 ActionInputPrefetcher.Reason.INPUTS));
   }

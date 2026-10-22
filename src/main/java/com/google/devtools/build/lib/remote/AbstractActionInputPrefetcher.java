@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -64,13 +65,17 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -111,8 +116,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * OutputMetadataStore} and ask for the metadata of either an input or an output artifact.
    */
   @VisibleForTesting
-  public interface MetadataSupplier {
-    FileArtifactValue getMetadata(ActionInput actionInput) throws IOException, InterruptedException;
+  public interface MetadataSupplier<I extends ActionInput, V> {
+    @Nullable
+    V getMetadata(I actionInput) throws IOException, InterruptedException;
   }
 
   /**
@@ -366,7 +372,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Priority priority,
       Reason reason) {
     return prefetchFilesInterruptibly(
-        action, expandedInputs.get(), metadataProvider::getInputMetadata, priority, reason);
+        action,
+        expandedInputs.get(),
+        metadataProvider::getInputMetadata,
+        metadataProvider::getTreeMetadata,
+        priority,
+        reason);
   }
 
   /**
@@ -386,7 +397,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   public ListenableFuture<Void> prefetchFilesInterruptibly(
       @Nullable ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
-      MetadataSupplier metadataSupplier,
+      MetadataSupplier<ActionInput, FileArtifactValue> metadataSupplier,
+      MetadataSupplier<SpecialArtifact, TreeArtifactValue> treeMetadataSupplier,
       Priority priority,
       Reason reason) {
     List<ActionInput> files = new ArrayList<>();
@@ -414,13 +426,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // call to prefetchFiles for the same child may await the same download, but must still
     // participate in permission restoration before returning.
     SetMultimap<Path, Path> directoriesByTreeRoot = HashMultimap.create();
+    var directoryLinks = new TreeDirectoryLinks(treeMetadataSupplier);
 
     // Using plain futures to avoid RxJava overheads.
     List<ListenableFuture<Void>> transfers = new ArrayList<>(files.size());
     try (var s = Profiler.instance().profile("compose prefetches")) {
       for (var file : files) {
         transfers.add(
-            prefetchFile(action, directoriesByTreeRoot, metadataSupplier, file, priority, reason));
+            prefetchFile(
+                action,
+                directoriesByTreeRoot,
+                directoryLinks,
+                metadataSupplier,
+                file,
+                priority,
+                reason));
       }
     }
 
@@ -456,7 +476,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private ListenableFuture<Void> prefetchFile(
       @Nullable ActionExecutionMetadata action,
       SetMultimap<Path, Path> directoriesByTreeRoot,
-      MetadataSupplier metadataSupplier,
+      TreeDirectoryLinks directoryLinks,
+      MetadataSupplier<ActionInput, FileArtifactValue> metadataSupplier,
       ActionInput input,
       Priority priority,
       Reason reason) {
@@ -499,12 +520,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         return immediateVoidFuture();
       }
 
-      var symlinks = getSymlinks(input, inputPath, metadata, metadataSupplier);
+      boolean canDownload = canDownloadFile(inputPath, metadata);
+      var symlinks =
+          getSymlinks(
+              input, inputPath, metadata, metadataSupplier, canDownload ? directoryLinks : null);
       // On Windows, the type of symlink depends on the target file and the target may have to
       // exist, so we plant symlinks in reverse order and only after any download has completed.
       var plantSymlinks = concat(Lists.transform(symlinks.reverse(), this::plantSymlink));
 
-      if (!canDownloadFile(inputPath, metadata)) {
+      if (!canDownload) {
         // If the artifact is a declared ("unresolved") symlink, it can't be "downloaded", but the
         // symlink logic above creates it.
         return toListenableFuture(plantSymlinks);
@@ -548,7 +572,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * FileArtifactValue#getResolvedPath()} field in their metadata.
    */
   @Nullable
-  private Path maybeGetTreeRoot(ActionInput input, MetadataSupplier metadataSupplier)
+  private Path maybeGetTreeRoot(
+      ActionInput input, MetadataSupplier<ActionInput, FileArtifactValue> metadataSupplier)
       throws IOException, InterruptedException {
     if (!(input instanceof TreeFileArtifact treeFile)) {
       return null;
@@ -587,22 +612,33 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       ActionInput input,
       Path inputPath,
       FileArtifactValue metadata,
-      MetadataSupplier metadataSupplier)
+      MetadataSupplier<ActionInput, FileArtifactValue> metadataSupplier,
+      @Nullable TreeDirectoryLinks directoryLinks)
       throws IOException, InterruptedException {
     if (input instanceof TreeFileArtifact treeFile) {
       SpecialArtifact treeArtifact = treeFile.getParent();
       FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
-      if (treeMetadata == null) {
-        // There are two cases where tree metadata is legitimately not available:
-        // (1) If the file is the output of an action expanded from an action template. In this
-        //     case, the symlink optimization is intentionally not supported.
-        // (2) If the file is part of an input fileset. In this case, a symlink has already been
-        //     created, but we're currently unable to prefetch the file(s) it points to.
-        // TODO: b/401575099 - Treating fileset more like runfiles could make the tree metadata
-        //  available for case (2).
-        return ImmutableList.of();
+      // Action template expansion outputs and filesets may have no metadata for the root.
+      var rootLinks =
+          treeMetadata == null
+              ? ImmutableList.<Symlink>of()
+              : getSymlinks(
+                  treeArtifact, treeArtifact.getPath(), treeMetadata, metadataSupplier, null);
+      if (directoryLinks == null) {
+        return rootLinks;
       }
-      return getSymlinks(treeArtifact, treeArtifact.getPath(), treeMetadata, metadataSupplier);
+      Path root = treeArtifact.getPath();
+      for (Symlink link : rootLinks) {
+        root = link.resolveOne(root);
+      }
+      Path treeRoot = root;
+      return ImmutableList.<Symlink>builder()
+          .addAll(rootLinks)
+          .addAll(
+              resolveSymlinkChain(
+                  treeRoot.getRelative(treeFile.getParentRelativePath()),
+                  path -> directoryLinks.firstOnPath(treeArtifact, treeRoot, path)))
+          .build();
     }
     if ((metadata.isRemote() || metadata.getType() == FileStateType.SYMLINK)
         && !inputPath.startsWith(execRoot)) {
@@ -611,26 +647,161 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       // symlinks created by the repo rule, which has to be reproduced verbatim on disk. This
       // includes symlinks at the directories above it, as these would otherwise be created as
       // regular directories and thus no longer match the contents of the repo.
-      var symlinkChain = ImmutableList.<Symlink>builder();
-      Path currentPath = inputPath;
-      Path symlinkPath;
-      var maxAttempt = 32;
-      while ((symlinkPath = getFirstSymlinkOnPath(currentPath)) != null) {
-        if (maxAttempt-- == 0) {
-          throw new FileSymlinkLoopException(
-              inputPath.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
-        }
-        var symlink = new Symlink(symlinkPath, symlinkPath.readSymbolicLink());
-        symlinkChain.add(symlink);
-        currentPath = symlink.resolveOne(currentPath);
-      }
-      return symlinkChain.build();
+      return resolveSymlinkChain(
+          inputPath,
+          path -> {
+            Path link = getFirstSymlinkOnPath(path);
+            return link == null ? null : new Symlink(link, link.readSymbolicLink());
+          });
     }
     PathFragment resolvedPath = metadata.getResolvedPath();
     if (resolvedPath == null || resolvedPath.equals(inputPath.asFragment())) {
       return ImmutableList.of();
     }
     return ImmutableList.of(new Symlink(inputPath, resolvedPath));
+  }
+
+  /** Directory symlinks in a tree artifact are expanded into their children in its metadata. */
+  private static final class TreeDirectoryLinks {
+    private final MetadataSupplier<SpecialArtifact, TreeArtifactValue> metadata;
+    private final Map<SpecialArtifact, Map<Path, DirectoryLink>> byTree = new HashMap<>();
+
+    TreeDirectoryLinks(MetadataSupplier<SpecialArtifact, TreeArtifactValue> metadata) {
+      this.metadata = metadata;
+    }
+
+    @Nullable
+    Symlink firstOnPath(SpecialArtifact tree, Path root, Path path)
+        throws IOException, InterruptedException {
+      var decisions = byTree.computeIfAbsent(tree, unused -> new HashMap<>());
+      PathFragment parent = path.relativeTo(root).getParentDirectory();
+      if (parent == null) {
+        return null;
+      }
+      Path directory = root;
+      for (String segment : parent.segments()) {
+        directory = directory.getChild(segment);
+        DirectoryLink decision = decisions.get(directory);
+        if (decision == null) {
+          decision = inspect(tree, root, directory);
+          decisions.put(directory, decision);
+        }
+        if (decision.failure() != null) {
+          throw decision.failure();
+        }
+        if (!decision.walkChildren()) {
+          return decision.link();
+        }
+      }
+      return null;
+    }
+
+    private DirectoryLink inspect(SpecialArtifact tree, Path root, Path directory)
+        throws IOException, InterruptedException {
+      var stat = directory.statIfFound(Symlinks.NOFOLLOW);
+      if (stat == null) {
+        return DirectoryLink.STOP;
+      }
+      if (!stat.isSymbolicLink()) {
+        return DirectoryLink.DIRECTORY;
+      }
+      var value = metadata.getMetadata(tree);
+      if (value == null) {
+        return DirectoryLink.failure(
+            "Cannot verify directory symlink " + directory + " without tree metadata");
+      }
+      var target = directory.readSymbolicLink();
+      Path resolved = directory.getParentDirectory().getRelative(target);
+      PathFragment ancestor = directory.relativeTo(root);
+      if (!target.isAbsolute()
+          && resolved.startsWith(root)
+          && !resolved.equals(root)
+          && !directory.equals(resolved)
+          && sameRecordedFiles(value, ancestor, resolved.relativeTo(root))) {
+        return new DirectoryLink(new Symlink(directory, target), false, null);
+      }
+      // A mismatched directory can be replaced only if its recorded children can be fetched again.
+      for (var child : childrenBelow(value, ancestor)) {
+        if (!child.getValue().isRemote() && !child.getValue().isInline()) {
+          return DirectoryLink.failure(
+              "Cannot replace directory symlink "
+                  + directory
+                  + ": local output "
+                  + child.getKey().getExecPathString()
+                  + " would be lost");
+        }
+      }
+      return DirectoryLink.STOP;
+    }
+  }
+
+  private record DirectoryLink(
+      @Nullable Symlink link, boolean walkChildren, @Nullable IOException failure) {
+    static final DirectoryLink DIRECTORY = new DirectoryLink(null, true, null);
+    static final DirectoryLink STOP = new DirectoryLink(null, false, null);
+
+    static DirectoryLink failure(String message) {
+      return new DirectoryLink(null, false, new IOException(message));
+    }
+  }
+
+  private static Iterable<Map.Entry<TreeFileArtifact, FileArtifactValue>> childrenBelow(
+      TreeArtifactValue tree, PathFragment prefix) {
+    var children = tree.getChildValues().entrySet().asList();
+    var paths =
+        Lists.transform(children, child -> child.getKey().getParentRelativePath().getPathString());
+    // No file path ends in '/'. Its insertion point skips siblings such as "dir-other".
+    int first = ~Collections.binarySearch(paths, prefix.getPathString() + "/");
+    return () ->
+        children.subList(first, children.size()).stream()
+            .takeWhile(child -> child.getKey().getParentRelativePath().startsWith(prefix))
+            .iterator();
+  }
+
+  private static boolean sameRecordedFiles(
+      TreeArtifactValue tree, PathFragment from, PathFragment to) {
+    var left = childrenBelow(tree, from).iterator();
+    var right = childrenBelow(tree, to).iterator();
+    if (!left.hasNext()) {
+      return false;
+    }
+    while (left.hasNext() && right.hasNext()) {
+      var a = left.next();
+      var b = right.next();
+      if (!a.getKey()
+              .getParentRelativePath()
+              .relativeTo(from)
+              .equals(b.getKey().getParentRelativePath().relativeTo(to))
+          || a.getValue().getType() != FileStateType.REGULAR_FILE
+          || a.getValue().getDigest() == null
+          || b.getValue().getDigest() == null
+          || a.getValue().couldBeModifiedSince(b.getValue())) {
+        return false;
+      }
+    }
+    return !left.hasNext() && !right.hasNext();
+  }
+
+  private interface SymlinkLookup {
+    @Nullable
+    Symlink firstOnPath(Path path) throws IOException, InterruptedException;
+  }
+
+  private static ImmutableList<Symlink> resolveSymlinkChain(Path inputPath, SymlinkLookup lookup)
+      throws IOException, InterruptedException {
+    var links = ImmutableList.<Symlink>builder();
+    Path path = inputPath;
+    Symlink link;
+    int remaining = 32;
+    while ((link = lookup.firstOnPath(path)) != null) {
+      if (remaining-- == 0) {
+        throw new FileSymlinkLoopException(
+            inputPath.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
+      }
+      links.add(link);
+      path = link.resolveOne(path);
+    }
+    return links.build();
   }
 
   /**
@@ -891,15 +1062,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         linkPath,
         Completable.defer(
             () -> {
-              if (!symlink.linkPath().asFragment().startsWith(execRoot.asFragment())) {
-                // If the symlink is a source file in an external repo, its parent directory may not
-                // exist yet.
-                checkNotNull(linkPath.getParentDirectory()).createDirectoryAndParents();
+              var status = linkPath.statIfFound(Symlinks.NOFOLLOW);
+              if (status != null && !status.isSymbolicLink()) {
+                // Tree artifact roots may already have been created as directories.
+                linkPath.delete();
               }
-              // Delete the link path if it already exists. This is the case for tree artifacts,
-              // whose root directory is created before the action runs.
-              linkPath.delete();
-              linkPath.createSymbolicLink(symlink.targetPath());
+              FileSystemUtils.ensureSymbolicLink(linkPath, symlink.targetPath());
               return Completable.complete();
             }),
         forceRefetch(linkPath));
@@ -986,6 +1154,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 action,
                 outputsToDownload,
                 output -> outputMetadataStore.getOutputMetadata((Artifact) output),
+                outputMetadataStore::getTreeArtifactValue,
                 Priority.HIGH,
                 Reason.OUTPUTS));
       } catch (BulkTransferException e) {
