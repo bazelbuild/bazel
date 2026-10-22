@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -28,7 +29,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,6 +41,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link SymlinkedSandboxedSpawn}. */
 @RunWith(JUnit4.class)
 public class SymlinkedSandboxedSpawnTest {
+  private final ManualClock clock = new ManualClock();
   private Path workspaceDir;
   private Path sandboxDir;
   private Path execRoot;
@@ -44,7 +49,7 @@ public class SymlinkedSandboxedSpawnTest {
 
   @Before
   public final void setupTestDirs() throws IOException {
-    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    FileSystem fileSystem = new InMemoryFileSystem(clock, DigestHashFunction.SHA256);
     Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
     testRoot.createDirectoryAndParents();
 
@@ -89,6 +94,70 @@ public class SymlinkedSandboxedSpawnTest {
     assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt);
     assertThat(execRoot.getRelative("very").isDirectory()).isTrue();
     assertThat(execRoot.getRelative("wow/writable").isDirectory()).isTrue();
+  }
+
+  @Test
+  public void createFileSystem_restoresInputsModifiedBeforeStashing() throws Exception {
+    Path workDir = execRoot.getRelative("ws");
+    Path source = workspaceDir.getRelative("input.txt");
+    FileSystemUtils.writeContentAsLatin1(source, "original");
+    Map<PathFragment, Path> files = new HashMap<>();
+    files.put(PathFragment.create("pkg/input.txt"), source);
+    files.put(PathFragment.create("pkg/empty"), null);
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--experimental_inmemory_sandbox_stashes")
+            .getOptions();
+    SandboxStash.initialize(
+        "ws", sandboxDir.getParentDirectory(), options, new SynchronousTreeDeleter());
+    try {
+      SymlinkedSandboxedSpawn spawn =
+          new SymlinkedSandboxedSpawn(
+              sandboxDir,
+              workDir,
+              ImmutableList.of("/bin/true"),
+              ImmutableMap.of(),
+              new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of()),
+              SandboxOutputs.getEmptyInstance(),
+              ImmutableSet.of(),
+              new SynchronousTreeDeleter(),
+              /* sandboxDebugPath= */ null,
+              /* statisticsPath= */ null,
+              /* interactiveDebugArguments= */ null,
+              "SomeMnemonic",
+              /* targetLabel= */ null);
+      spawn.createFileSystem();
+      // The filesystem uses a deterministic clock; replace the wall-clock setup timestamp too.
+      SandboxStash.setLastModified(sandboxDir, clock.advanceMillis(1000));
+      clock.advanceMillis(1);
+      Path link = workDir.getRelative("pkg/input.txt");
+      link.delete();
+      link.createSymbolicLink(PathFragment.create("/other/input.txt"));
+      FileSystemUtils.appendIsoLatin1(workDir.getRelative("pkg/empty"), "modified");
+      Path unexpected = workDir.getRelative("pkg/unexpected");
+      FileSystemUtils.createEmptyFile(unexpected);
+
+      spawn.delete();
+      assertThat(sandboxDir.exists()).isFalse();
+      assertThat(SandboxStash.getInstanceForTesting().getReadyStashesForTesting().get("SomeMnemonic"))
+          .hasSize(1);
+      spawn.createFileSystem();
+
+      assertThat(link.readSymbolicLink()).isEqualTo(source.asFragment());
+      assertThat(workDir.getRelative("pkg/empty").isFile(Symlinks.NOFOLLOW)).isTrue();
+      assertThat(workDir.getRelative("pkg/empty").getFileSize()).isEqualTo(0);
+      assertThat(unexpected.exists()).isFalse();
+      assertThat(SandboxStash.getInstanceForTesting().getReadyStashesForTesting().get("SomeMnemonic"))
+          .isEmpty();
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxDir.getParentDirectory(),
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
   }
 
   @Test
